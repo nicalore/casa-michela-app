@@ -7,7 +7,8 @@ app = FastAPI(
     version="0.1.0"
 )
 
-origins = settings.cors_origins.split(",")
+origins = settings.cors_origins
+allow_origins=settings.cors_origins_list
 
 app.add_middleware(
     CORSMiddleware,
