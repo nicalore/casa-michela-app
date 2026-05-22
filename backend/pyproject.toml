@@ -1,0 +1,12 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.1",
+    "psycopg[binary]>=3.3.4",
+    "pydantic-settings>=2.14.1",
+    "uvicorn>=0.47.0",
+]
