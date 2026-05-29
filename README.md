@@ -62,10 +62,9 @@ The application is designed with a modular structure, including:
 
 Current activities include:
 
-* Requirements analysis
-* System design
-* Architecture definition
-* Stakeholder coordination
+* Database creation
+* Authentication module
+* Users management for Administrators
 
 ## ROADMAP
 
