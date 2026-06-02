@@ -1,23 +1,28 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
-    Enum as SqlEnum,
     ForeignKey,
     String,
     func,
 )
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.constraints import no_surrounding_whitespace_constraints
+
+if TYPE_CHECKING:
+    from app.models.person import Person
 
 
-class AccountStatusEnum(str, Enum):
+class AccountStatusEnum(StrEnum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
 
@@ -37,6 +42,34 @@ class Account(Base):
             OR locked_until >= last_failed_login_attempt
             """,
             name="locked_until_after_failed_attempt",
+        ),
+        CheckConstraint(
+            """
+            last_login IS NULL
+            OR last_login >= created_at
+            """,
+            name="last_login_after_creation",
+        ),
+        CheckConstraint(
+            "length(trim(username)) > 0",
+            name="username_not_blank",
+        ),
+        CheckConstraint(
+        """
+        last_login IS NOT NULL
+        OR password_reset_required = TRUE
+        """,
+        name="first_login_requires_password_reset",
+        ),
+        CheckConstraint(
+            "length(trim(password_hash)) > 0",
+            name="password_hash_not_blank",
+        ),
+
+        *no_surrounding_whitespace_constraints(
+            "tax_code",
+            "username",
+            "password_hash",
         ),
     )
 
@@ -64,7 +97,7 @@ class Account(Base):
     )
 
     password_hash: Mapped[str] = mapped_column(
-        String(255),
+        String(512),
         nullable=False,
     )
 
@@ -109,7 +142,7 @@ class Account(Base):
         nullable=False,
     )
 
-    person: Mapped["Person"] = relationship(
+    person: Mapped[Person] = relationship(
         back_populates="account",
         uselist=False,
     )

@@ -1,24 +1,36 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
-    Enum as SqlEnum,
     ForeignKey,
     Integer,
     UniqueConstraint,
+    event,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Enum as SqlEnum,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+)
 
 from app.db.base import Base
 
+if TYPE_CHECKING:
+    from app.models.member import Member
 
-class MembershipRevocationEnum(str, Enum):
+
+class MembershipRevocationEnum(StrEnum):
     NO = "NO"
     EXPULSION = "EXPULSION"
     RESIGNATION = "RESIGNATION"
@@ -31,17 +43,14 @@ class Membership(Base):
         UniqueConstraint(
             "member_tax_code",
             "year",
-        ),
-        CheckConstraint(
-            "id > 0",
-            name="positive_id",
+            name="uq_membership_member_year",
         ),
         CheckConstraint(
             "year >= 1900",
             name="membership_year_min",
         ),
         CheckConstraint(
-            "start_date > DATE '1900-01-01'",
+            "start_date >= DATE '1900-01-01'",
             name="membership_start_date_min",
         ),
         CheckConstraint(
@@ -108,7 +117,7 @@ class Membership(Base):
         nullable=False,
     )
 
-    member: Mapped["Member"] = relationship(
+    member: Mapped[Member] = relationship(
         back_populates="memberships",
     )
 
@@ -124,3 +133,21 @@ class Membership(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+@event.listens_for(Session, "before_flush")
+def _validate_memberships(
+    session: Session,
+    _flush_context: object,
+    _instances: object,
+) -> None:
+    current_year = date.today().year
+
+    for obj in session.new.union(session.dirty):
+        if not isinstance(obj, Membership):
+            continue
+
+        if obj.year > current_year:
+            raise ValueError(
+                "Membership year cannot be in the future"
+            )
