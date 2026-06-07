@@ -21,6 +21,22 @@ class Settings(BaseSettings):
     postgres_user: str | None = None
     postgres_password: str | None = None
 
+    jwt_access_secret: str = "CHANGE_ME_ACCESS"
+
+    jwt_refresh_secret: str = "CHANGE_ME_REFRESH"
+
+    jwt_algorithm: str = "HS256"
+
+    access_token_expire_minutes: int = 15
+
+    refresh_token_expire_days: int = 30
+
+    max_failed_login_attempts: int = 5
+
+    failed_login_reset_minutes: int = 30
+
+    account_lock_minutes: int = 20
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [
@@ -30,7 +46,9 @@ class Settings(BaseSettings):
 
     def sqlalchemy_database_url(self, drivername: str) -> str:
         if self.database_url:
-            return make_url(self.database_url).set(drivername=drivername).render_as_string(
+            return make_url(self.database_url).set(
+                drivername=drivername
+            ).render_as_string(
                 hide_password=False
             )
 
@@ -45,6 +63,7 @@ class Settings(BaseSettings):
             )
             if getattr(self, name) is None
         ]
+
         if missing:
             raise ValueError(
                 "Missing database configuration: "
@@ -58,15 +77,21 @@ class Settings(BaseSettings):
             host=self.postgres_host,
             port=self.postgres_port,
             database=self.postgres_db,
-        ).render_as_string(hide_password=False)
+        ).render_as_string(
+            hide_password=False
+        )
 
     @property
     def async_database_url(self) -> str:
-        return self.sqlalchemy_database_url("postgresql+asyncpg")
+        return self.sqlalchemy_database_url(
+            "postgresql+asyncpg"
+        )
 
     @property
     def sync_database_url(self) -> str:
-        return self.sqlalchemy_database_url("postgresql+psycopg")
+        return self.sqlalchemy_database_url(
+            "postgresql+psycopg"
+        )
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",

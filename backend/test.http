@@ -1,0 +1,14 @@
+### Health Check
+GET http://localhost:8000/health
+
+### Root
+GET http://localhost:8000/
+
+### Login Example
+POST http://localhost:8000/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "password"
+}

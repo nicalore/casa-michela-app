@@ -20,7 +20,7 @@ from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.person import Person
-
+    from app.models.refresh_token import RefreshToken
 
 class AccountStatusEnum(StrEnum):
     ACTIVE = "ACTIVE"
@@ -145,4 +145,9 @@ class Account(Base):
     person: Mapped[Person] = relationship(
         back_populates="account",
         uselist=False,
+    )
+
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+    back_populates="account",
+    cascade="all, delete-orphan",
     )

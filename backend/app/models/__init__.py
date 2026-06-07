@@ -7,6 +7,7 @@ from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import Person
 from app.models.psychologist import Psychologist
+from app.models.refresh_token import RefreshToken
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.staff import Staff
@@ -44,4 +45,5 @@ __all__ = [
     "TeachingOfferingSubject",
     "TeachingOfferingYear",
     "CoursePartecipant",
+    "RefreshToken"
 ]
