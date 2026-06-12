@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_dimensions.dart';
 import '../../shared/widgets/app_page_container.dart';
-import 'widgets/dashboard_layout.dart';
+import 'widgets/login_layout.dart';
 
-class DashboardPage extends StatelessWidget
+class LoginPage extends StatelessWidget
 {
-  const DashboardPage({super.key});
+  const LoginPage({super.key});
 
   @override
   Widget build(BuildContext context)
   {
-    //BuildPageContent
     return Scaffold(
       body: AppPageContainer(
-        minWidth: AppDimensions.minDashboardWidth,
-        minHeight: AppDimensions.minDashboardHeight,
+        minWidth: 1440,
+        minHeight: 990,
         builder: (context, width, height)
         {
-          return DashboardLayout(
+          return LoginLayout(
             width: width,
             height: height,
           );
