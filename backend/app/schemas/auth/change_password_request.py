@@ -9,3 +9,4 @@ class ChangePasswordRequest(
     new_password: str
 
     refresh_token: str
+    

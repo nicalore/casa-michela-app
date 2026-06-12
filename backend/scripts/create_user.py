@@ -14,7 +14,7 @@ from app.models.administrator import (
     Administrator,
     AdministratorRoleEnum,
 )
-from app.models.course_partecipant import CoursePartecipant
+from app.models.course_participant import Courseparticipant
 from app.models.member import Member
 from app.models.membership import (
     Membership,
@@ -49,9 +49,7 @@ def ask(prompt: str) -> str:
 
 def ask_bool(prompt: str) -> bool:
     while True:
-        value = input(
-            f"{prompt} [y/n]: "
-        ).strip().lower()
+        value = input(f"{prompt} [y/n]: ").strip().lower()
 
         if value in {"y", "yes"}:
             return True
@@ -76,16 +74,12 @@ Ruoli disponibili:
 """
     )
 
-    raw = ask(
-        "Inserisci i numeri separati da virgola"
-    )
+    raw = ask("Inserisci i numeri separati da virgola")
 
     selected = set()
 
     for token in raw.split(","):
-        selected.add(
-            Role(int(token.strip()))
-        )
+        selected.add(Role(int(token.strip())))
 
     return selected
 
@@ -96,54 +90,32 @@ async def main() -> None:
     # DATI ANAGRAFICI
     # ==========================
 
-    tax_code = ask(
-        "Codice fiscale"
-    ).upper()
+    tax_code = ask("Codice fiscale").upper()
 
     first_name = ask("Nome")
     last_name = ask("Cognome")
 
-    gender = GenderEnum(
-        ask("Sesso (M/F)").upper()
-    )
+    gender = GenderEnum(ask("Sesso (M/F)").upper())
 
-    birth_date = date.fromisoformat(
-        ask(
-            "Data nascita (YYYY-MM-DD)"
-        )
-    )
+    birth_date = date.fromisoformat(ask("Data nascita (YYYY-MM-DD)"))
 
-    birth_city = ask(
-        "Comune nascita"
-    )
+    birth_city = ask("Comune nascita")
 
-    birth_province = ask(
-        "Provincia nascita (XX)"
-    ).upper()
+    birth_province = ask("Provincia nascita (XX)").upper()
 
     email = ask("Email")
 
     phone = ask("Telefono")
 
-    residence_type = ask(
-        "Tipo residenza"
-    )
+    residence_type = ask("Tipo residenza")
 
-    residence_address = ask(
-        "Via/Piazza"
-    )
+    residence_address = ask("Via/Piazza")
 
-    residence_street_number = ask(
-        "Numero civico"
-    )
+    residence_street_number = ask("Numero civico")
 
-    residence_city = ask(
-        "Comune residenza"
-    )
+    residence_city = ask("Comune residenza")
 
-    residence_province = ask(
-        "Provincia residenza (XX)"
-    ).upper()
+    residence_province = ask("Provincia residenza (XX)").upper()
 
     postal_code = ask("CAP")
 
@@ -176,143 +148,88 @@ async def main() -> None:
     student_early_exit = False
 
     if Role.STUDENT in roles:
-        student_early_exit = ask_bool(
-            "Uscita autonoma autorizzata"
-        )
+        student_early_exit = ask_bool("Uscita autonoma autorizzata")
 
     course_type = None
     medical_certificate_expiration = None
 
     if Role.COURSE_PARTICIPANT in roles:
-        course_type = ask(
-            "Tipo corso"
-        )
+        course_type = ask("Tipo corso")
 
-        medical_certificate_expiration = (
-            date.fromisoformat(
-                ask(
-                    "Scadenza certificato medico (YYYY-MM-DD)"
-                )
-            )
+        medical_certificate_expiration = date.fromisoformat(
+            ask("Scadenza certificato medico (YYYY-MM-DD)")
         )
 
     collaboration_type = None
     iban = None
 
     if needs_staff:
-
-        collaboration_type = (
-            CollaborationTypeEnum(
-                ask(
-                    "Tipo collaborazione "
-                    "(VOLUNTEER/PAID/PCTO)"
-                ).upper()
-            )
+        collaboration_type = CollaborationTypeEnum(
+            ask("Tipo collaborazione (VOLUNTEER/PAID/PCTO)").upper()
         )
 
-        if (
-            collaboration_type
-            == CollaborationTypeEnum.PAID
-        ):
+        if collaboration_type == CollaborationTypeEnum.PAID:
             iban = ask("IBAN").upper()
 
     school_education = None
     university_education = None
 
     if Role.TEACHER in roles:
+        school_education = ask("Titolo scuola superiore")
 
-        school_education = ask(
-            "Titolo scuola superiore"
-        )
-
-        university_education = ask(
-            "Titolo universitario"
-        )
+        university_education = ask("Titolo universitario")
 
     admin_role = None
     other_role = None
 
     if Role.ADMINISTRATOR in roles:
-
-        admin_role = (
-            AdministratorRoleEnum(
-                ask(
-                    "Ruolo "
-                    "(PRESIDENT/"
-                    "VICE_PRESIDENT/"
-                    "TREASURER/"
-                    "OTHER)"
-                ).upper()
-            )
+        admin_role = AdministratorRoleEnum(
+            ask("Ruolo (PRESIDENT/VICE_PRESIDENT/TREASURER/OTHER)").upper()
         )
 
-        if (
-            admin_role
-            == AdministratorRoleEnum.OTHER
-        ):
-            other_role = ask(
-                "Descrizione ruolo"
-            )
+        if admin_role == AdministratorRoleEnum.OTHER:
+            other_role = ask("Descrizione ruolo")
 
     # ==========================
     # ACCOUNT
     # ==========================
 
-    create_account = ask_bool(
-        "Creare account"
-    )
+    create_account = ask_bool("Creare account")
 
     username = None
     password_hash = None
 
     if create_account:
-
         username = ask("Username")
 
-        password = getpass(
-            "Password temporanea: "
-        )
+        password = getpass("Password temporanea: ")
 
-        confirm = getpass(
-            "Conferma password: "
-        )
+        confirm = getpass("Conferma password: ")
 
         if password != confirm:
-            raise ValueError(
-                "Le password non coincidono"
-            )
+            raise ValueError("Le password non coincidono")
 
-        password_hash = hash_password(
-            password
-        )
+        password_hash = hash_password(password)
 
     # ==========================
     # RIEPILOGO
     # ==========================
 
     print("\n====================")
-    print(
-        f"{first_name} {last_name}"
-    )
+    print(f"{first_name} {last_name}")
     print(tax_code)
 
     print("\nRuoli:")
 
     for role in roles:
-        print(
-            f" - {role.name}"
-        )
+        print(f" - {role.name}")
 
     if create_account:
-        print(
-            f"\nAccount: {username}"
-        )
+        print(f"\nAccount: {username}")
 
     print("====================\n")
 
-    if not ask_bool(
-        "Confermare creazione"
-    ):
+    if not ask_bool("Confermare creazione"):
         print("Operazione annullata.")
         return
 
@@ -321,19 +238,12 @@ async def main() -> None:
     # ==========================
 
     async with AsyncSessionLocal() as session:
-
         existing = await session.scalar(
-            select(Person).where(
-                Person.tax_code
-                == tax_code
-            )
+            select(Person).where(Person.tax_code == tax_code)
         )
 
         if existing:
-            raise ValueError(
-                "Esiste già una persona "
-                "con questo codice fiscale"
-            )
+            raise ValueError("Esiste già una persona con questo codice fiscale")
 
         person = Person(
             tax_code=tax_code,
@@ -356,19 +266,10 @@ async def main() -> None:
         session.add(person)
 
         if Role.PARENT in roles:
-            session.add(
-                Parent(
-                    tax_code=tax_code
-                )
-            )
+            session.add(Parent(tax_code=tax_code))
 
         if needs_membership:
-
-            session.add(
-                Member(
-                    tax_code=tax_code
-                )
-            )
+            session.add(Member(tax_code=tax_code))
 
             today = date.today()
 
@@ -397,7 +298,7 @@ async def main() -> None:
 
         if Role.COURSE_PARTICIPANT in roles:
             session.add(
-                CoursePartecipant(
+                Courseparticipant(
                     tax_code=tax_code,
                     course_type=course_type,
                     medical_certificate_expiration=medical_certificate_expiration,
@@ -423,11 +324,7 @@ async def main() -> None:
             )
 
         if Role.PSYCHOLOGIST in roles:
-            session.add(
-                Psychologist(
-                    tax_code=tax_code
-                )
-            )
+            session.add(Psychologist(tax_code=tax_code))
 
         if Role.ADMINISTRATOR in roles:
             session.add(
@@ -452,9 +349,7 @@ async def main() -> None:
 
         await session.commit()
 
-        print(
-            "\nPersona creata correttamente."
-        )
+        print("\nPersona creata correttamente.")
 
 
 if __name__ == "__main__":

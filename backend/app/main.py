@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
 from app.core.config import settings
@@ -7,6 +8,14 @@ from app.core.config import settings
 app = FastAPI(
     title="Casa Michela API",
     version="0.1.0",
+)
+
+app.mount(
+    "/uploads",
+    StaticFiles(
+        directory="uploads",
+    ),
+    name="uploads",
 )
 
 app.add_middleware(

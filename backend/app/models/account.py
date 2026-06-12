@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from app.models.person import Person
     from app.models.refresh_token import RefreshToken
 
+
 class AccountStatusEnum(StrEnum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
@@ -55,21 +56,35 @@ class Account(Base):
             name="username_not_blank",
         ),
         CheckConstraint(
-        """
-        last_login IS NOT NULL
-        OR password_reset_required = TRUE
-        """,
-        name="first_login_requires_password_reset",
+            """
+            last_login IS NOT NULL
+            OR password_reset_required = TRUE
+            """,
+            name="first_login_requires_password_reset",
         ),
         CheckConstraint(
             "length(trim(password_hash)) > 0",
             name="password_hash_not_blank",
         ),
-
+        CheckConstraint(
+            """
+            profile_image_url IS NULL
+            OR length(trim(profile_image_url)) > 0
+            """,
+            name="profile_image_url_not_blank",
+        ),
+        CheckConstraint(
+            """
+            profile_image_url IS NULL
+            OR profile_image_url ~ '^https?://'
+            """,
+            name="profile_image_url_format",
+        ),
         *no_surrounding_whitespace_constraints(
             "tax_code",
             "username",
             "password_hash",
+            "profile_image_url",
         ),
     )
 
@@ -99,6 +114,11 @@ class Account(Base):
     password_hash: Mapped[str] = mapped_column(
         String(512),
         nullable=False,
+    )
+
+    profile_image_url: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
     )
 
     failed_login_attempts: Mapped[int] = mapped_column(
@@ -148,6 +168,6 @@ class Account(Base):
     )
 
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
-    back_populates="account",
-    cascade="all, delete-orphan",
+        back_populates="account",
+        cascade="all, delete-orphan",
     )

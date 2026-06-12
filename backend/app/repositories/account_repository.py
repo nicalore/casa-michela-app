@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.account import Account
 
@@ -16,7 +17,11 @@ class AccountRepository:
         username: str,
     ) -> Account | None:
         return await self.session.scalar(
-            select(Account).where(
+            select(Account)
+            .options(
+                selectinload(Account.person),
+            )
+            .where(
                 Account.username == username
             )
         )
@@ -26,7 +31,11 @@ class AccountRepository:
         tax_code: str,
     ) -> Account | None:
         return await self.session.scalar(
-            select(Account).where(
+            select(Account)
+            .options(
+                selectinload(Account.person),
+            )
+            .where(
                 Account.tax_code == tax_code
             )
         )

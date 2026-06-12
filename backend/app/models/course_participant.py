@@ -22,8 +22,8 @@ if TYPE_CHECKING:
     from app.models.member import Member
 
 
-class CoursePartecipant(Base):
-    __tablename__ = "course_partecipants"
+class Courseparticipant(Base):
+    __tablename__ = "course_participants"
 
     __table_args__ = (
         CheckConstraint(
@@ -58,6 +58,6 @@ class CoursePartecipant(Base):
     )
 
     member: Mapped[Member] = relationship(
-        back_populates="course_partecipant_profile",
+        back_populates="course_participant_profile",
         uselist=False,
     )

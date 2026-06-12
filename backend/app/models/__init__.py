@@ -1,6 +1,6 @@
 from app.models.account import Account
 from app.models.administrator import Administrator
-from app.models.course_partecipant import CoursePartecipant
+from app.models.course_participant import Courseparticipant
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.parent import Parent
@@ -44,6 +44,6 @@ __all__ = [
     "TeachingOffering",
     "TeachingOfferingSubject",
     "TeachingOfferingYear",
-    "CoursePartecipant",
-    "RefreshToken"
+    "Courseparticipant",
+    "RefreshToken",
 ]

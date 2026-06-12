@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from fastapi import (
     APIRouter,
+    File,
     HTTPException,
+    UploadFile,
     status,
 )
 
@@ -13,6 +17,9 @@ from app.core.password_policy import (
 )
 from app.repositories.account_repository import (
     AccountRepository,
+)
+from app.repositories.identity_repository import (
+    IdentityRepository,
 )
 from app.repositories.refresh_token_repository import (
     RefreshTokenRepository,
@@ -38,6 +45,9 @@ from app.services.auth_service import (
     AuthenticationError,
     AuthService,
     InvalidRefreshTokenError,
+)
+from app.services.role_service import (
+    RoleService,
 )
 
 router = APIRouter(
@@ -104,7 +114,8 @@ async def login(
                 f"until {err.locked_until}"
             ),
         ) from None
-    
+
+
 @router.post(
     "/refresh",
     response_model=LoginResponse,
@@ -146,9 +157,10 @@ async def refresh(
             detail="Invalid refresh token",
         ) from None
 
+
 @router.post(
-"/logout",
-status_code=status.HTTP_204_NO_CONTENT,
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def logout(
     request: LogoutRequest,
@@ -177,25 +189,145 @@ async def logout(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         ) from None
-    
+
+
 @router.get("/me")
 async def me(
     current_account: CurrentAccount,
+    db: DbSession,
 ):
-    return {
-        "tax_code": (
+    identity_repository = (
+        IdentityRepository(db)
+    )
+
+    account = (
+        await identity_repository
+        .get_account_identity(
             current_account.tax_code
-        ),
-        "username": (
-            current_account.username
-        ),
-        "status": (
-            current_account.status
-        ),
-        "password_reset_required": (
-            current_account.password_reset_required
-        ),
+        )
+    )
+
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found",
+        )
+
+    person = account.person
+
+    roles = (
+        RoleService.get_available_roles(
+            person
+        )
+    )
+
+    active_role = (
+        "ADMIN"
+        if "ADMIN" in roles
+        else (
+            roles[0]
+            if roles
+            else None
+        )
+    )
+
+    return {
+    "tax_code": account.tax_code,
+    "username": account.username,
+
+    "first_name": person.first_name,
+    "last_name": person.last_name,
+
+    "full_name": (
+        f"{person.first_name} "
+        f"{person.last_name}"
+    ),
+
+    "profile_image_url": account.profile_image_url,
+
+    "available_roles": roles,
+    "active_role": active_role,
+
+    "status": account.status,
+
+    "password_reset_required": (
+        account.password_reset_required
+    ),
+}
+
+@router.post(
+    "/profile-image",
+)
+async def upload_profile_image(
+    current_account: CurrentAccount,
+    db: DbSession,
+    file: UploadFile = File(...),
+):
+    allowed_types = {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
     }
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Only JPEG, PNG and WEBP "
+                "images are allowed"
+            ),
+        )
+
+    if file.filename is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing filename",
+        )
+
+    uploads_dir = Path(
+        "uploads/profile-images"
+    )
+
+    uploads_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    extension = (
+        Path(file.filename)
+        .suffix
+        .lower()
+    )
+
+    filename = (
+        f"{current_account.tax_code}"
+        f"{extension}"
+    )
+
+    destination = (
+        uploads_dir / filename
+    )
+
+    content = await file.read()
+
+    with open(
+        destination,
+        "wb",
+    ) as output:
+        output.write(content)
+    profile_image_url = (
+        f"/uploads/profile-images/{filename}"
+    )
+
+    current_account.profile_image_url = (
+        profile_image_url
+    )
+
+    await db.commit()
+    return {
+        "profile_image_url":
+            profile_image_url
+    }  
 
 @router.post(
     "/change-password",
