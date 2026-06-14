@@ -18,8 +18,8 @@ from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.staff import Staff
-    from app.models.teacher_offering import TeacherOffering
     from app.models.teacher_subject import TeacherSubject
+    from app.models.teaching_competence import TeachingCompetence
 
 
 class Teacher(Base):
@@ -74,7 +74,7 @@ class Teacher(Base):
         cascade="all, delete-orphan",
     )
 
-    teacher_offerings: Mapped[list[TeacherOffering]] = relationship(
+    teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
         back_populates="teacher",
         cascade="all, delete-orphan",
     )

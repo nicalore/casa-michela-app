@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from app.models.school import School
     from app.models.school_enrollment import SchoolEnrollment
     from app.models.study_program import StudyProgram
-    from app.models.teacher_offering import TeacherOffering
+    from app.models.teaching_competence import TeachingCompetence
     from app.models.teaching_offering_subject import TeachingOfferingSubject
     from app.models.teaching_offering_year import TeachingOfferingYear
 
@@ -78,7 +78,7 @@ class TeachingOffering(Base):
         nullable=False,
     )
 
-    teacher_offerings: Mapped[list[TeacherOffering]] = relationship(
+    teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
         back_populates="teaching_offering",
         cascade="all, delete-orphan",
     )

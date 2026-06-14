@@ -15,8 +15,8 @@ from app.models.student import Student
 from app.models.study_program import StudyProgram
 from app.models.subject import Subject
 from app.models.teacher import Teacher
-from app.models.teacher_offering import TeacherOffering
 from app.models.teacher_subject import TeacherSubject
+from app.models.teaching_competence import TeachingCompetence
 from app.models.teaching_offering import TeachingOffering
 from app.models.teaching_offering_subject import (
     TeachingOfferingSubject,
@@ -39,8 +39,8 @@ __all__ = [
     "StudyProgram",
     "Subject",
     "Teacher",
-    "TeacherOffering",
     "TeacherSubject",
+    "TeachingCompetence",
     "TeachingOffering",
     "TeachingOfferingSubject",
     "TeachingOfferingYear",
