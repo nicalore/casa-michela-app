@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api import schools, study_programs, subjects, teaching_offerings
 from app.api.auth import router as auth_router
 from app.core.config import settings
 
@@ -27,7 +28,10 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-
+app.include_router(subjects.router)
+app.include_router(schools.router)
+app.include_router(study_programs.router)
+app.include_router(teaching_offerings.router)
 
 @app.get("/health")
 def health_check():

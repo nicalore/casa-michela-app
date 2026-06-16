@@ -127,6 +127,7 @@ def _validate_teaching_offering_years(
             elif isinstance(obj, TeachingOffering):
                 affected_offerings.add(obj)
 
+    # PRIMO CICLO: Analisi delle istanze in memoria
     for offering in affected_offerings:
         if offering in session.deleted:
             continue
@@ -156,6 +157,7 @@ def _validate_teaching_offering_years(
                 "for the selected education level"
             )
 
+    # SECONDO CICLO: Analisi dei record via ID
     with session.no_autoflush:
         for offering_id in affected_offering_ids:
             offering = session.get(
@@ -163,7 +165,8 @@ def _validate_teaching_offering_years(
                 offering_id,
             )
 
-            if offering is None:
+            # --- FIX CRITICO: Ignora se l'offerta non esiste più o è in via di eliminazione ---
+            if offering is None or offering in session.deleted:
                 continue
 
             years = set(
