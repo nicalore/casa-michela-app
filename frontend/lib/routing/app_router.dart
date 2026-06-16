@@ -82,7 +82,7 @@ CustomTransitionPage _buildLogoTransitionPage({
                           sigmaY: blurIntensity > 0.1 ? blurIntensity : 0.1,
                         ),
                         child: Container(
-                          color: Colors.white.withOpacity(backgroundOpacity),
+                          color: Colors.white.withValues(alpha: backgroundOpacity),
                         ),
                       ),
                       Opacity(

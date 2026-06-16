@@ -54,7 +54,7 @@ class DashboardPlaceholderCard extends StatelessWidget
           //WIPLabel
           Center(
             child: Text(
-              'Work in progress...',
+              'In arrivo...',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 30,
                 fontWeight: FontWeight.w400,

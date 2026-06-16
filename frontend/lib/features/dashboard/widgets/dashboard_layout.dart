@@ -265,7 +265,10 @@ class _DashboardLayoutState extends State<DashboardLayout>
                 title: 'Associazione',
                 subtitle: 'Configura regole e parametri',
                 imageAsset: 'assets/images/house_watermark_white.png',
-                onTap: () {},
+                onTap: ()
+                {
+                  context.go('/association');
+                },
               ),
             ),
             Positioned(
