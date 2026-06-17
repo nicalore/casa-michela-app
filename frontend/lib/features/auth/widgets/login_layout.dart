@@ -306,9 +306,9 @@ class _LoginLayoutState extends State<LoginLayout>
                                     height: 1.5,
                                   ),
                                   children: [
-                                    TextSpan(text: 'Accedendo, accetti i '),
+                                    TextSpan(text: 'Accedendo, accetti le '),
                                     TextSpan(
-                                      text: 'Termini di Servizio',
+                                      text: 'Condizioni d\'Uso',
                                       style: TextStyle(
                                         color: Color(0xFF003C82),
                                         fontWeight: FontWeight.w600,

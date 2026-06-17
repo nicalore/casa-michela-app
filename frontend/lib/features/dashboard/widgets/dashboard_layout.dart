@@ -336,7 +336,6 @@ class _DashboardLayoutState extends State<DashboardLayout>
                           {
                             debugPrint('Ruolo selezionato: $role');
                           },
-                          onSettings: _toggleMenu,
                           onLogout: _logout,
                         ),
                       )

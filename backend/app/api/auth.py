@@ -232,28 +232,34 @@ async def me(
     )
 
     return {
-    "tax_code": account.tax_code,
-    "username": account.username,
+        "tax_code": account.tax_code,
+        "username": account.username,
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "full_name": (
+            f"{person.first_name} "
+            f"{person.last_name}"
+        ),
+        "profile_image_url": account.profile_image_url,
+        "available_roles": roles,
+        "active_role": active_role,
+        "status": account.status,
+        "password_reset_required": (
+            account.password_reset_required
+        ),
+        "gender": person.gender.value if person.gender else None,
+        "email": person.email,
+        "phone_number": person.phone,
+        "birth_date": person.birth_date.isoformat() if person.birth_date else None,
+        "birth_city": person.birth_city,
+        "birth_province": person.birth_province,
+        "address": f"{person.residence_type} {person.residence_address}".strip() if person.residence_type and person.residence_address else None,
+        "address_number": person.residence_street_number,
+        "city": person.residence_city,
+        "province": person.residence_province,
+        "zip_code": person.postal_code,
+    }
 
-    "first_name": person.first_name,
-    "last_name": person.last_name,
-
-    "full_name": (
-        f"{person.first_name} "
-        f"{person.last_name}"
-    ),
-
-    "profile_image_url": account.profile_image_url,
-
-    "available_roles": roles,
-    "active_role": active_role,
-
-    "status": account.status,
-
-    "password_reset_required": (
-        account.password_reset_required
-    ),
-}
 
 @router.post(
     "/profile-image",
@@ -315,6 +321,7 @@ async def upload_profile_image(
         "wb",
     ) as output:
         output.write(content)
+        
     profile_image_url = (
         f"/uploads/profile-images/{filename}"
     )
@@ -328,6 +335,7 @@ async def upload_profile_image(
         "profile_image_url":
             profile_image_url
     }  
+
 
 @router.post(
     "/change-password",

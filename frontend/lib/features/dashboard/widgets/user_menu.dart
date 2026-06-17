@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 const double _leadingSpace = 14;
@@ -8,7 +9,6 @@ class UserMenu extends StatefulWidget
   final String activeRole;
   final List<String> availableRoles;
   final ValueChanged<String> onRoleSelected;
-  final VoidCallback onSettings;
   final VoidCallback onLogout;
 
   const UserMenu({
@@ -16,7 +16,6 @@ class UserMenu extends StatefulWidget
     required this.activeRole,
     required this.availableRoles,
     required this.onRoleSelected,
-    required this.onSettings,
     required this.onLogout,
   });
 
@@ -49,7 +48,6 @@ class _UserMenuState extends State<UserMenu>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            //RoleSelectionSection
             _RoleSection(
               activeRole: widget.activeRole,
               availableRoles: widget.availableRoles,
@@ -66,18 +64,16 @@ class _UserMenuState extends State<UserMenu>
               },
               onRoleSelected: widget.onRoleSelected,
             ),
-            
             const Divider(height: 1),
-            
-            //SettingsAction
             _MenuButton(
               icon: Icons.settings_outlined,
               text: 'Impostazioni',
               color: const Color(0xFF003C82),
-              onTap: widget.onSettings,
+              onTap: ()
+              {
+                context.go('/settings');
+              },
             ),
-            
-            //LogoutAction
             _MenuButton(
               icon: Icons.logout_rounded,
               text: 'Logout',
@@ -160,8 +156,6 @@ class _RoleSection extends StatelessWidget
             ),
           ),
         ),
-        
-        //ExpandableRoleList
         AnimatedSize(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,

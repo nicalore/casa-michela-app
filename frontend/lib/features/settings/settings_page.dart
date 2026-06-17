@@ -3,110 +3,30 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
-import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_custom_tab_bar.dart';
+import '../../shared/widgets/app_page_container.dart';
 
-import 'tabs/schools_tab.dart';
-import 'tabs/study_programs_tab.dart';
-import 'tabs/subjects_tab.dart';
-import 'tabs/teaching_offerings_tab.dart';
+import 'tabs/account_tab.dart';
+import 'tabs/info_tab.dart';
+import 'tabs/profile_tab.dart';
 
-class AssociationPage extends StatefulWidget
+class SettingsPage extends StatefulWidget
 {
-  const AssociationPage({super.key});
+  const SettingsPage({super.key});
 
   @override
-  State<AssociationPage> createState() => _AssociationPageState();
+  State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _AssociationPageState extends State<AssociationPage>
+class _SettingsPageState extends State<SettingsPage>
 {
-  int _mainSelectedTab = 0;
-  int _didatticaSelectedTab = 0;
+  int _selectedTab = 0;
 
-  final List<String> _mainTabs = [
-    'Percorsi di studio',
-    'Didattica',
+  final List<String> _tabs = [
+    'Profilo',
+    'Account',
+    'Informazioni',
   ];
-
-  final List<String> _didatticaTabs = [
-    'Materie',
-    'Scuole',
-    'Indirizzi di studio',
-  ];
-
-  //Builds the pill-shaped sub-navigation for Didattica without Material ripple
-  Widget _buildSubNavigation()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
-      child: Row(
-        children: List.generate(_didatticaTabs.length, (index)
-        {
-          final isSelected = _didatticaSelectedTab == index;
-          
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: ()
-                {
-                  setState(()
-                  {
-                    _didatticaSelectedTab = index;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF64748B),
-                    ),
-                    child: Text(_didatticaTabs[index]),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  //Renders the selected tab content dynamically without forcing Expansion
-  Widget _buildTabContent()
-  {
-    if (_mainSelectedTab == 0)
-    {
-      return const TeachingOfferingsTab();
-    }
-    
-    switch (_didatticaSelectedTab)
-    {
-      case 0:
-        return const SubjectsTab();
-      case 1:
-        return const SchoolsTab();
-      case 2:
-        return const StudyProgramsTab();
-      default:
-        return const SizedBox();
-    }
-  }
 
   @override
   Widget build(BuildContext context)
@@ -242,7 +162,7 @@ class _AssociationPageState extends State<AssociationPage>
                               ),
                               child: Center(
                                 child: Text(
-                                  'Associazione',
+                                  'Impostazioni',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 30,
                                     fontWeight: FontWeight.w500,
@@ -255,27 +175,29 @@ class _AssociationPageState extends State<AssociationPage>
                         ),
                         const SizedBox(height: 16),
                         AppCustomTabBar(
-                          tabs: _mainTabs,
-                          selectedIndex: _mainSelectedTab,
+                          tabs: _tabs,
+                          selectedIndex: _selectedTab,
                           onTabSelected: (index)
                           {
                             setState(()
                             {
-                              _mainSelectedTab = index;
+                              _selectedTab = index;
                             });
                           },
                           maxWidth: viewportWidth - 80,
                         ),
-                        //Smooth expansion of the sub-menu via AnimatedSize
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCirc,
-                          alignment: Alignment.topCenter,
-                          child: _mainSelectedTab == 1 
-                            ? _buildSubNavigation() 
-                            : const SizedBox(height: 24, width: double.infinity),
+                        const SizedBox(height: 24),
+                        
+                        ////IndexedStack keeps all tabs rendered in the tree,
+                        ////preventing state loss and re-fetching on tab switch
+                        IndexedStack(
+                          index: _selectedTab,
+                          children: const [
+                            ProfileTab(),
+                            AccountTab(),
+                            InfoTab(),
+                          ],
                         ),
-                        _buildTabContent(),
                       ],
                     ),
                   ),

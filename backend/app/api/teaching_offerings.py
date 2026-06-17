@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_db
 from app.models.school import School
-from app.models.school_enrollment import SchoolEnrollment  # <-- Importante per il check
+from app.models.school_enrollment import SchoolEnrollment
 from app.models.study_program import StudyProgram
 from app.models.subject import Subject
 from app.models.teaching_offering import EducationLevelEnum, TeachingOffering

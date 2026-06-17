@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'live_clock.dart';
 
-class DashboardHeader extends StatelessWidget
+class DashboardHeader extends StatefulWidget
 {
   final bool isMenuOpen;
   final VoidCallback onProfileTap;
@@ -20,12 +20,48 @@ class DashboardHeader extends StatelessWidget
   });
 
   @override
+  State<DashboardHeader> createState() => _DashboardHeaderState();
+}
+
+class _DashboardHeaderState extends State<DashboardHeader>
+{
+  late final String _sessionCacheBuster;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    //Generates a unique timestamp only once when the dashboard is loaded
+    _sessionCacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+  }
+
+  String? get _absoluteImageUrl
+  {
+    if (widget.profileImageUrl == null || widget.profileImageUrl!.isEmpty)
+    {
+      return null;
+    }
+    
+    String url = widget.profileImageUrl!;
+    
+    //Add backend base URL to relative paths
+    if (!url.startsWith('http://') && !url.startsWith('https://'))
+    {
+      url = 'http://localhost:8000$url';
+    }
+    
+    //Append the cache buster to force NetworkImage to fetch the fresh file
+    return '$url?v=$_sessionCacheBuster';
+  }
+
+  @override
   Widget build(BuildContext context)
   {
     final viewportWidth = MediaQuery.of(context).size.width;
 
     //Hide clock below 1024px
     final bool showClock = viewportWidth > 1024;
+    final String? finalImageUrl = _absoluteImageUrl;
 
     return Positioned(
       left: 40,
@@ -75,13 +111,13 @@ class DashboardHeader extends StatelessWidget
                         cursor: SystemMouseCursors.click,
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: onProfileTap,
+                          onTap: widget.onProfileTap,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Flexible(
                                 child: Text(
-                                  fullName,
+                                  widget.fullName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
@@ -94,7 +130,7 @@ class DashboardHeader extends StatelessWidget
                               ),
                               const SizedBox(width: 6),
                               AnimatedRotation(
-                                turns: isMenuOpen ? 0.5 : 0,
+                                turns: widget.isMenuOpen ? 0.5 : 0,
                                 duration: const Duration(milliseconds: 200),
                                 curve: Curves.easeInOut,
                                 child: const Icon(
@@ -123,11 +159,12 @@ class DashboardHeader extends StatelessWidget
                         ),
                       ),
                       child: CircleAvatar(
+                        key: ValueKey(finalImageUrl),
                         backgroundColor: Colors.transparent,
-                        backgroundImage: profileImageUrl != null
-                            ? NetworkImage(profileImageUrl!)
+                        backgroundImage: finalImageUrl != null
+                            ? NetworkImage(finalImageUrl)
                             : null,
-                        child: profileImageUrl == null
+                        child: finalImageUrl == null
                             ? const Icon(
                                 Icons.person,
                                 color: Color(0xFF003C82),

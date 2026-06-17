@@ -1,6 +1,5 @@
 class RoleLabelMapper
 {
-  //MapRoleToLabel
   static String toLabel(String role)
   {
     switch (role)
