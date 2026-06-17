@@ -50,7 +50,7 @@ class InfoTab extends StatelessWidget
               
               //FooterSection
               Text(
-                '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
+                '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   color: const Color(0xFF6B7280),

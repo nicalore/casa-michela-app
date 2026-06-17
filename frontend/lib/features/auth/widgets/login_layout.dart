@@ -1,9 +1,12 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/shared_components.dart';
 import 'login_button.dart';
 import 'login_text_field.dart';
 
@@ -31,7 +34,7 @@ class _LoginLayoutState extends State<LoginLayout>
   @override
   void dispose()
   {
-    //Release resources
+    //ReleaseResources
     _usernameController.dispose();
     _passwordController.dispose();
     
@@ -56,7 +59,7 @@ class _LoginLayoutState extends State<LoginLayout>
 
     try
     {
-      //Perform login API call
+      //PerformLoginApiCall
       final result = await _apiService.login(
         username: username,
         password: password,
@@ -106,6 +109,37 @@ class _LoginLayoutState extends State<LoginLayout>
         isError: true,
       );
     }
+  }
+
+  void _showForgotPasswordDialog(BuildContext context)
+  {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'ForgotPassword',
+      barrierColor: Colors.black.withValues(alpha: .15),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child)
+      {
+        final blurValue = animation.value * 8.0;
+        
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
+          child: FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutBack,
+                reverseCurve: Curves.easeIn,
+              ),
+              child: const _ForgotPasswordDialogContent(),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -265,10 +299,7 @@ class _LoginLayoutState extends State<LoginLayout>
                                       const SizedBox(height: 20),
                                       _AnimatedTextLink(
                                         text: 'Password dimenticata?',
-                                        onTap: ()
-                                        {
-                                          //TODO: Navigazione verso recupero password
-                                        },
+                                        onTap: () => _showForgotPasswordDialog(context),
                                       ),
                                     ] 
                                     else ...[
@@ -277,10 +308,7 @@ class _LoginLayoutState extends State<LoginLayout>
                                         children: [
                                           _AnimatedTextLink(
                                             text: 'Password dimenticata?',
-                                            onTap: ()
-                                            {
-                                              //TODO: Navigazione verso recupero password
-                                            },
+                                            onTap: () => _showForgotPasswordDialog(context),
                                           ),
                                           LoginButton(onPressed: _login),
                                         ],
@@ -333,7 +361,7 @@ class _LoginLayoutState extends State<LoginLayout>
 
                             //Footer
                             Text(
-                              '© $currentYear Nicolò Calore\nATTENZIONE: applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
+                              '© $currentYear Nicolò Calore\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontFamily: 'Plus Jakarta Sans',
@@ -482,6 +510,219 @@ class _AnimatedTextLinkState extends State<_AnimatedTextLink>
               decoration: BoxDecoration(
                 color: const Color(0xFF002244),
                 borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ForgotPasswordDialogContent extends StatefulWidget
+{
+  const _ForgotPasswordDialogContent();
+
+  @override
+  State<_ForgotPasswordDialogContent> createState() => _ForgotPasswordDialogContentState();
+}
+
+class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogContent>
+{
+  final TextEditingController _emailController = TextEditingController();
+  final ApiService _apiService = ApiService();
+  bool _isSending = false;
+
+  @override
+  void dispose()
+  {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSend() async
+  {
+    final email = _emailController.text.trim();
+
+    //BasicEmailValidation
+    if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email))
+    {
+      CustomSnackBar.show(
+        context: context,
+        message: 'Inserisci un indirizzo email valido',
+        isError: true,
+      );
+      
+      return;
+    }
+
+    setState(()
+    {
+      _isSending = true;
+    });
+
+    try
+    {
+      await _apiService.requestPasswordReset(email: email);
+
+      if (mounted)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: 'Email di recupero inviata con successo',
+          isError: false,
+        );
+        Navigator.of(context).pop();
+      }
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: 'Errore durante l\'invio dell\'email. Riprova più tardi.',
+          isError: true,
+        );
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(()
+        {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        width: 500,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              offset: Offset(0, 8),
+              blurRadius: 24,
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Recupero Password',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF003C82),
+                    ),
+                  ),
+                  StaticHoverIconButton(
+                    icon: Icons.close,
+                    color: const Color(0xFF003C82),
+                    hoverColor: const Color(0xFFE3F2FD),
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            
+            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+            
+            Padding(
+              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Inserisci l\'indirizzo email associato al tuo account. Ti invieremo un link per impostare una nuova password.\n' 
+                    'Se non ricordi l\'indirizzo email o il nome utente associato al tuo account, contatta l\'Associazione.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      color: const Color(0xFF6B7280),
+                      height: 1.5,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Indirizzo email',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFF003C82),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Es. mario.rossi@email.com',
+                      hintStyle: GoogleFonts.plusJakartaSans(
+                        fontSize: 18,
+                        color: const Color(0xFFB3B3B3),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AnimatedActionButton(
+                      text: _isSending ? 'INVIO IN CORSO...' : 'INVIA LINK',
+                      icon: Icons.send_rounded,
+                      baseColor: const Color(0xFF003C82),
+                      hoverColor: const Color(0xFF004D99),
+                      onPressed: _isSending ? () {} : _handleSend,
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 16),
+                  
+                  Expanded(
+                    child: AnimatedActionButton(
+                      text: 'ANNULLA',
+                      icon: Icons.cancel_outlined,
+                      baseColor: const Color(0xFFE53935),
+                      hoverColor: const Color(0xFFEF5350),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

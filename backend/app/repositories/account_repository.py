@@ -3,47 +3,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.account import Account
+from app.models.person import Person
 
 
 class AccountRepository:
-    def __init__(
-        self,
-        session: AsyncSession,
-    ) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get_by_username(
-        self,
-        username: str,
-    ) -> Account | None:
+    async def get_by_username(self, username: str) -> Account | None:
         return await self.session.scalar(
             select(Account)
-            .options(
-                selectinload(Account.person),
-            )
-            .where(
-                Account.username == username
-            )
+            .options(selectinload(Account.person))
+            .where(Account.username == username)
         )
 
-    async def get_by_tax_code(
-        self,
-        tax_code: str,
-    ) -> Account | None:
+    async def get_by_tax_code(self, tax_code: str) -> Account | None:
         return await self.session.scalar(
             select(Account)
-            .options(
-                selectinload(Account.person),
-            )
-            .where(
-                Account.tax_code == tax_code
-            )
+            .options(selectinload(Account.person))
+            .where(Account.tax_code == tax_code)
         )
 
-    async def save(
-        self,
-        account: Account,
-    ) -> None:
+    async def get_by_email(self, email: str) -> Account | None:
+        #JoinWithPersonToFilterByEmail
+        return await self.session.scalar(
+            select(Account)
+            .join(Account.person)
+            .options(selectinload(Account.person))
+            .where(Person.email == email)
+        )
+
+    async def save(self, account: Account) -> None:
         self.session.add(account)
         await self.session.flush()
 

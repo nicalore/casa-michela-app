@@ -21,6 +21,7 @@ class ApiService
   }
 
   late final Dio _dio;
+  late final Dio _tokenDio; // Istanza dedicata per il refresh del token
 
   static String? _accessToken;
   static String? _refreshToken;
@@ -32,20 +33,20 @@ class ApiService
 
   ApiService._internal()
   {
-    //InitializeDio
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: 'http://localhost:8000',
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-      ),
+    final options = BaseOptions(
+      baseUrl: 'http://localhost:8000',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     );
+
+    // Inizializziamo entrambe le istanze
+    _dio = Dio(options);
+    _tokenDio = Dio(options); // _tokenDio non avrà alcun interceptor!
 
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler)
         {
-          //RequestInterceptor
           if (_accessToken != null)
           {
             options.headers['Authorization'] = 'Bearer $_accessToken';
@@ -55,16 +56,15 @@ class ApiService
         },
         onError: (error, handler) async
         {
-          //ErrorInterceptor
           final statusCode = error.response?.statusCode;
-          final path = error.requestOptions.path;
-          final isRefreshRequest = path == '/auth/refresh';
 
-          if (statusCode != 401 || isRefreshRequest || _refreshToken == null)
+          // Se non è 401 o non abbiamo un refresh token, passiamo l'errore avanti
+          if (statusCode != 401 || _refreshToken == null)
           {
             return handler.next(error);
           }
 
+          // Evitiamo chiamate multiple di refresh in parallelo
           if (_isRefreshing)
           {
             return handler.next(error);
@@ -74,20 +74,37 @@ class ApiService
 
           try
           {
-            //TokenRefreshLogic
-            await refreshSession();
+            // Usiamo _tokenDio per evitare deadlock negli interceptor
+            final refreshResponse = await _tokenDio.post(
+              '/auth/refresh',
+              data: {
+                'refresh_token': _refreshToken,
+              },
+            );
 
+            final loginResponse = LoginResponse.fromJson(refreshResponse.data);
+
+            _accessToken = loginResponse.accessToken;
+            _refreshToken = loginResponse.refreshToken;
+
+            await SessionService.saveTokens(
+              accessToken: loginResponse.accessToken,
+              refreshToken: loginResponse.refreshToken,
+            );
+
+            // Riprova la richiesta fallita con il nuovo token
             final requestOptions = error.requestOptions;
-            
             requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
 
-            final response = await _dio.fetch(requestOptions);
-
-            return handler.resolve(response);
+            final retryResponse = await _dio.fetch(requestOptions);
+            
+            return handler.resolve(retryResponse);
           }
           catch (_)
           {
-            await logout();
+            // Se il refresh fallisce (es. refresh token scaduto/invalido), disconnettiamo l'utente
+            await _clearSession();
+            authState.value = AuthState.unauthenticated;
             
             return handler.next(error);
           }
@@ -103,6 +120,45 @@ class ApiService
   bool get isAuthenticated
   {
     return _accessToken != null && _refreshToken != null;
+  }
+
+  Future<void> _clearSession() async
+  {
+    _accessToken = null;
+    _refreshToken = null;
+    forcePasswordChangeCompleted = false;
+    await SessionService.clear();
+  }
+
+  Future<bool> restoreSession() async
+  {
+    _accessToken = await SessionService.getAccessToken();
+    _refreshToken = await SessionService.getRefreshToken();
+
+    if (_accessToken == null || _refreshToken == null)
+    {
+      authState.value = AuthState.unauthenticated;
+      return false;
+    }
+
+    try
+    {
+      // Questo invocherà la /auth/me. 
+      // Se il token è scaduto, scatterà l'interceptor, che lo rinnoverà e riproverà la me() da solo.
+      await me();
+      
+      authState.value = AuthState.authenticated;
+      
+      return true;
+    }
+    catch (_)
+    {
+      // Se arriviamo qui, significa che sia la chiamata me() sia il tentativo di refresh sono falliti.
+      await _clearSession();
+      authState.value = AuthState.unauthenticated;
+      
+      return false;
+    }
   }
 
   Future<LoginResponse> login({
@@ -139,7 +195,7 @@ class ApiService
     {
       if (_refreshToken != null)
       {
-        await _dio.post(
+        await _tokenDio.post(
           '/auth/logout',
           data: {
             'refresh_token': _refreshToken,
@@ -149,17 +205,11 @@ class ApiService
     }
     catch (_)
     {
-      //IgnoredError
+      // Ignora errori di rete durante il logout
     }
 
-    _accessToken = null;
-    _refreshToken = null;
-
-    forcePasswordChangeCompleted = false;
-
+    await _clearSession();
     authState.value = AuthState.unauthenticated;
-
-    await SessionService.clear();
   }
 
   Future<void> changePassword({
@@ -187,9 +237,54 @@ class ApiService
     }
   }
 
+  Future<void> requestPasswordReset({
+    required String email,
+  }) async
+  {
+    try
+    {
+      await _dio.post(
+        '/auth/request-password-reset',
+        data: {
+          'email': email,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la richiesta di recupero password',
+      );
+    }
+  }
+  
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async
+  {
+    try
+    {
+      await _dio.post(
+        '/auth/reset-password',
+        data: {
+          'token': token,
+          'new_password': newPassword,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password.',
+      );
+    }
+  }
+
   Future<List<SubjectItem>> getSubjects() async
   {
     final response = await _dio.get('/subjects/');
+    
     return (response.data as List).map((e) => SubjectItem(
       discipline: e['discipline'],
       areas: List<String>.from(e['areas']),
@@ -202,12 +297,17 @@ class ApiService
     {
       await _dio.post(
         '/subjects/',
-        data: {'discipline': discipline, 'areas': areas},
+        data: {
+          'discipline': discipline,
+          'areas': areas,
+        },
       );
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la creazione.',
+      );
     }
   }
 
@@ -217,12 +317,17 @@ class ApiService
     {
       await _dio.put(
         '/subjects/$oldDiscipline',
-        data: {'discipline': newDiscipline, 'areas': areas},
+        data: {
+          'discipline': newDiscipline,
+          'areas': areas,
+        },
       );
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la modifica.',
+      );
     }
   }
 
@@ -234,7 +339,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
+      );
     }
   }
 
@@ -255,91 +362,25 @@ class ApiService
 
     try
     {
-      final response = await _dio.post('/auth/profile-image', data: formData);
+      final response = await _dio.post(
+        '/auth/profile-image',
+        data: formData,
+      );
+      
       return response.data['profile_image_url'];
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'upload dell\'immagine');
-    }
-  }
-
-  Future<void> refreshSession() async
-  {
-    if (_refreshToken == null)
-    {
-      throw Exception('Refresh token mancante');
-    }
-
-    debugPrint('REFRESH TOKEN REQUEST');
-
-    final response = await _dio.post(
-      '/auth/refresh',
-      data: {
-        'refresh_token': _refreshToken,
-      },
-    );
-
-    final loginResponse = LoginResponse.fromJson(response.data);
-
-    _accessToken = loginResponse.accessToken;
-    _refreshToken = loginResponse.refreshToken;
-
-    await SessionService.saveTokens(
-      accessToken: loginResponse.accessToken,
-      refreshToken: loginResponse.refreshToken,
-    );
-
-    debugPrint('REFRESH SUCCESS');
-  }
-
-  Future<bool> restoreSession() async
-  {
-    //RestoreSessionLogic
-    _accessToken = await SessionService.getAccessToken();
-    _refreshToken = await SessionService.getRefreshToken();
-
-    if (_accessToken == null || _refreshToken == null)
-    {
-      authState.value = AuthState.unauthenticated;
-      
-      return false;
-    }
-
-    try
-    {
-      await me();
-
-      authState.value = AuthState.authenticated;
-
-      return true;
-    }
-    on DioException
-    {
-      try
-      {
-        await refreshSession();
-
-        await me();
-
-        authState.value = AuthState.authenticated;
-
-        return true;
-      }
-      catch (_)
-      {
-        await logout();
-
-        authState.value = AuthState.unauthenticated;
-
-        return false;
-      }
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'upload dell\'immagine',
+      );
     }
   }
 
   Future<List<SchoolItem>> getSchools() async
   {
     final response = await _dio.get('/schools/');
+    
     return (response.data as List).map((e) => SchoolItem(
       mechanographicCode: e['mechanographic_code'],
       name: e['name'],
@@ -358,13 +399,17 @@ class ApiService
   {
     try
     {
-      final response = await _dio.post('/schools/', data: {
-        'mechanographic_code': code,
-        'name': name,
-        'city': city,
-        'province': province,
-        'is_private': isPrivate,
-      });
+      final response = await _dio.post(
+        '/schools/',
+        data: {
+          'mechanographic_code': code,
+          'name': name,
+          'city': city,
+          'province': province,
+          'is_private': isPrivate,
+        },
+      );
+      
       return SchoolItem(
         mechanographicCode: response.data['mechanographic_code'],
         name: response.data['name'],
@@ -374,7 +419,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la creazione.',
+      );
     }
   }
 
@@ -389,13 +436,17 @@ class ApiService
   {
     try
     {
-      final response = await _dio.put('/schools/$oldCode', data: {
-        'mechanographic_code': newCode,
-        'name': name,
-        'city': city,
-        'province': province,
-        'is_private': isPrivate,
-      });
+      final response = await _dio.put(
+        '/schools/$oldCode',
+        data: {
+          'mechanographic_code': newCode,
+          'name': name,
+          'city': city,
+          'province': province,
+          'is_private': isPrivate,
+        },
+      );
+      
       return SchoolItem(
         mechanographicCode: response.data['mechanographic_code'],
         name: response.data['name'],
@@ -405,7 +456,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la modifica.',
+      );
     }
   }
 
@@ -417,13 +470,16 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola.',
+      );
     }
   }
 
   Future<List<StudyProgramItem>> getStudyPrograms() async
   {
     final response = await _dio.get('/study-programs/');
+    
     return (response.data as List).map((e) => StudyProgramItem(
       id: e['id'],
       name: e['name'],
@@ -438,10 +494,14 @@ class ApiService
   {
     try
     {
-      final response = await _dio.post('/study-programs/', data: {
-        'name': name,
-        'description': description,
-      });
+      final response = await _dio.post(
+        '/study-programs/',
+        data: {
+          'name': name,
+          'description': description,
+        },
+      );
+      
       return StudyProgramItem(
         id: response.data['id'],
         name: response.data['name'],
@@ -450,7 +510,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la creazione.',
+      );
     }
   }
 
@@ -462,10 +524,14 @@ class ApiService
   {
     try
     {
-      final response = await _dio.put('/study-programs/$id', data: {
-        'name': name,
-        'description': description,
-      });
+      final response = await _dio.put(
+        '/study-programs/$id',
+        data: {
+          'name': name,
+          'description': description,
+        },
+      );
+      
       return StudyProgramItem(
         id: response.data['id'],
         name: response.data['name'],
@@ -474,7 +540,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la modifica.',
+      );
     }
   }
 
@@ -486,23 +554,37 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
+      );
     }
   }
 
   Future<OfferingOptions> getOfferingOptions() async
   {
     final response = await _dio.get('/teaching-offerings/options');
+    
     return OfferingOptions(
-      schools: (response.data['schools'] as List).map((e) => SchoolOption(mechanographicCode: e['mechanographic_code'], name: e['name'])).toList(),
-      studyPrograms: (response.data['study_programs'] as List).map((e) => StudyProgramOption(id: e['id'], name: e['name'])).toList(),
-      subjects: (response.data['subjects'] as List).map((e) => SubjectOption(id: e['id'], discipline: e['discipline'], specialization: e['specialization'])).toList(),
+      schools: (response.data['schools'] as List).map((e) => SchoolOption(
+        mechanographicCode: e['mechanographic_code'],
+        name: e['name'],
+      )).toList(),
+      studyPrograms: (response.data['study_programs'] as List).map((e) => StudyProgramOption(
+        id: e['id'],
+        name: e['name'],
+      )).toList(),
+      subjects: (response.data['subjects'] as List).map((e) => SubjectOption(
+        id: e['id'],
+        discipline: e['discipline'],
+        specialization: e['specialization'],
+      )).toList(),
     );
   }
 
   Future<List<TeachingOfferingItem>> getTeachingOfferings() async
   {
     final response = await _dio.get('/teaching-offerings/');
+    
     return (response.data as List).map((e) => TeachingOfferingItem(
       id: e['id'],
       schoolCode: e['school_mechanographic_code'],
@@ -512,7 +594,11 @@ class ApiService
       level: e['level'],
       years: List<int>.from(e['years']),
       subjectIds: List<int>.from(e['subject_ids']),
-      subjects: (e['subjects'] as List).map((s) => SubjectOption(id: s['id'], discipline: s['discipline'], specialization: s['specialization'])).toList(),
+      subjects: (e['subjects'] as List).map((s) => SubjectOption(
+        id: s['id'],
+        discipline: s['discipline'],
+        specialization: s['specialization'],
+      )).toList(),
     )).toList();
   }
 
@@ -526,20 +612,38 @@ class ApiService
   {
     try
     {
-      final response = await _dio.post('/teaching-offerings/', data: {
-        'school_mechanographic_code': schoolCode,
-        'study_program_id': studyProgramId,
-        'level': level,
-        'years': years,
-        'subject_ids': subjectIds,
-      });
+      final response = await _dio.post(
+        '/teaching-offerings/',
+        data: {
+          'school_mechanographic_code': schoolCode,
+          'study_program_id': studyProgramId,
+          'level': level,
+          'years': years,
+          'subject_ids': subjectIds,
+        },
+      );
+      
       return TeachingOfferingItem(
-        id: response.data['id'], schoolCode: response.data['school_mechanographic_code'], schoolName: response.data['school_name'], studyProgramId: response.data['study_program_id'], studyProgramName: response.data['study_program_name'], level: response.data['level'], years: List<int>.from(response.data['years']), subjectIds: List<int>.from(response.data['subject_ids']), subjects: (response.data['subjects'] as List).map((s) => SubjectOption(id: s['id'], discipline: s['discipline'], specialization: s['specialization'])).toList(),
+        id: response.data['id'],
+        schoolCode: response.data['school_mechanographic_code'],
+        schoolName: response.data['school_name'],
+        studyProgramId: response.data['study_program_id'],
+        studyProgramName: response.data['study_program_name'],
+        level: response.data['level'],
+        years: List<int>.from(response.data['years']),
+        subjectIds: List<int>.from(response.data['subject_ids']),
+        subjects: (response.data['subjects'] as List).map((s) => SubjectOption(
+          id: s['id'],
+          discipline: s['discipline'],
+          specialization: s['specialization'],
+        )).toList(),
       );
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la creazione.',
+      );
     }
   }
 
@@ -551,7 +655,9 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
+      );
     }
   }
   
@@ -566,13 +672,17 @@ class ApiService
   {
     try
     {
-      final response = await _dio.put('/teaching-offerings/$id', data: {
-        'school_mechanographic_code': schoolCode,
-        'study_program_id': studyProgramId,
-        'level': level,
-        'years': years,
-        'subject_ids': subjectIds,
-      });
+      final response = await _dio.put(
+        '/teaching-offerings/$id',
+        data: {
+          'school_mechanographic_code': schoolCode,
+          'study_program_id': studyProgramId,
+          'level': level,
+          'years': years,
+          'subject_ids': subjectIds,
+        },
+      );
+      
       return TeachingOfferingItem(
         id: response.data['id'],
         schoolCode: response.data['school_mechanographic_code'],
@@ -582,12 +692,18 @@ class ApiService
         level: response.data['level'],
         years: List<int>.from(response.data['years']),
         subjectIds: List<int>.from(response.data['subject_ids']),
-        subjects: (response.data['subjects'] as List).map((s) => SubjectOption(id: s['id'], discipline: s['discipline'], specialization: s['specialization'])).toList(),
+        subjects: (response.data['subjects'] as List).map((s) => SubjectOption(
+          id: s['id'],
+          discipline: s['discipline'],
+          specialization: s['specialization'],
+        )).toList(),
       );
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante la modifica.',
+      );
     }
   }
 }

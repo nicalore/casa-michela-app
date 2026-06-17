@@ -3,39 +3,33 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
-
 class Settings(BaseSettings):
     app_name: str = "Casa Michela API"
-
     environment: str = "development"
-
     debug: bool = False
-
     cors_origins: str = "http://localhost:3000"
 
+    #DatabaseConfig
     database_url: str | None = None
-
     postgres_host: str | None = None
     postgres_port: int | None = None
     postgres_db: str | None = None
     postgres_user: str | None = None
     postgres_password: str | None = None
 
+    #AuthConfig
     jwt_access_secret: str = "CHANGE_ME_ACCESS"
-
     jwt_refresh_secret: str = "CHANGE_ME_REFRESH"
-
     jwt_algorithm: str = "HS256"
-
     access_token_expire_minutes: int = 1
-
     refresh_token_expire_days: int = 30
-
     max_failed_login_attempts: int = 5
-
     failed_login_reset_minutes: int = 30
-
     account_lock_minutes: int = 20
+
+    #EmailRecoveryConfig
+    resend_api_key: str | None = None
+    frontend_url: str = "http://localhost:3000"
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -97,6 +91,5 @@ class Settings(BaseSettings):
         env_file=Path(__file__).resolve().parents[2] / ".env",
         extra="ignore",
     )
-
 
 settings = Settings()
