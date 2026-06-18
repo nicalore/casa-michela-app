@@ -12,9 +12,9 @@ from sqlalchemy.orm import (
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.subject import Subject
+    from app.models.association_subject import AssociationSubject
+    from app.models.study_program import StudyProgram
     from app.models.teacher import Teacher
-    from app.models.teaching_offering import TeachingOffering
 
 
 class TeachingCompetence(Base):
@@ -28,17 +28,17 @@ class TeachingCompetence(Base):
         primary_key=True,
     )
 
-    subject_id: Mapped[int] = mapped_column(
+    association_subject_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "subjects.id",
+            "association_subjects.id",
             ondelete="CASCADE",
         ),
         primary_key=True,
     )
 
-    teaching_offering_id: Mapped[int] = mapped_column(
+    study_program_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "teaching_offerings.id",
+            "study_programs.id",
             ondelete="CASCADE",
         ),
         primary_key=True,
@@ -48,10 +48,10 @@ class TeachingCompetence(Base):
         back_populates="teaching_competences",
     )
 
-    subject: Mapped[Subject] = relationship(
+    association_subject: Mapped[AssociationSubject] = relationship(
         back_populates="teaching_competences",
     )
 
-    teaching_offering: Mapped[TeachingOffering] = relationship(
+    study_program: Mapped[StudyProgram] = relationship(
         back_populates="teaching_competences",
     )

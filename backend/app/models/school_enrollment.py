@@ -20,7 +20,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.student import Student
-    from app.models.teaching_offering import TeachingOffering
+    from app.models.study_program import StudyProgram
 
 
 class SchoolEnrollment(Base):
@@ -66,9 +66,9 @@ class SchoolEnrollment(Base):
         index=True,
     )
 
-    teaching_offering_id: Mapped[int] = mapped_column(
+    study_program_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "teaching_offerings.id",
+            "study_programs.id",
             ondelete="RESTRICT",
         ),
         nullable=False,
@@ -79,7 +79,7 @@ class SchoolEnrollment(Base):
         back_populates="school_enrollments",
     )
 
-    teaching_offering: Mapped[TeachingOffering] = relationship(
+    study_program: Mapped[StudyProgram] = relationship(
         back_populates="school_enrollments",
     )
 
@@ -90,30 +90,25 @@ def _validate_school_enrollments(
     _flush_context: object,
     _instances: object,
 ) -> None:
-    from app.models.teaching_offering import TeachingOffering
+    from app.models.study_program import StudyProgram
 
     for obj in session.new.union(session.dirty):
         if not isinstance(obj, SchoolEnrollment):
             continue
 
-        offering = obj.teaching_offering
+        program = obj.study_program
 
-        if offering is None:
-            offering = session.get(
-                TeachingOffering,
-                obj.teaching_offering_id,
+        if program is None:
+            program = session.get(
+                StudyProgram,
+                obj.study_program_id,
             )
 
-        if offering is None:
+        if program is None:
             continue
 
-        valid_years = {
-            offering_year.year
-            for offering_year in offering.years
-        }
-
-        if obj.grade not in valid_years:
+        if not (program.min_year <= obj.grade <= program.max_year):
             raise ValueError(
                 "School enrollment grade is not compatible "
-                "with the selected teaching offering"
+                "with the selected study program"
             )

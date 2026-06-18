@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -7,6 +8,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+)
+from sqlalchemy import (
+    Enum as SqlEnum,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -18,7 +22,16 @@ from app.db.base import Base
 from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
-    from app.models.teaching_offering import TeachingOffering
+    from app.models.school_enrollment import SchoolEnrollment
+    from app.models.school_study_program import SchoolStudyProgram
+    from app.models.study_program_subject import StudyProgramSubject
+    from app.models.teaching_competence import TeachingCompetence
+
+
+class EducationLevelEnum(StrEnum):
+    PRIMARY_SCHOOL = "PRIMARY_SCHOOL"
+    MIDDLE_SCHOOL = "MIDDLE_SCHOOL"
+    HIGH_SCHOOL = "HIGH_SCHOOL"
 
 
 class StudyProgram(Base):
@@ -26,8 +39,13 @@ class StudyProgram(Base):
 
     __table_args__ = (
         UniqueConstraint(
+            "level",
             "name",
-            name="uq_study_program_name",
+            name="uq_level_program_name",
+        ),
+        CheckConstraint(
+            "id > 0",
+            name="positive_study_program_id",
         ),
         CheckConstraint(
             "length(trim(name)) > 0",
@@ -40,6 +58,22 @@ class StudyProgram(Base):
             """,
             name="study_program_description_not_blank",
         ),
+        CheckConstraint(
+            "min_year >= 1",
+            name="study_program_min_year_valid",
+        ),
+        CheckConstraint(
+            "min_year <= max_year",
+            name="study_program_years_range_valid",
+        ),
+        CheckConstraint(
+            """
+            (level = 'PRIMARY_SCHOOL' AND max_year <= 5) OR
+            (level = 'MIDDLE_SCHOOL' AND max_year <= 3) OR
+            (level = 'HIGH_SCHOOL' AND max_year <= 5)
+            """,
+            name="study_program_level_max_year_match",
+        ),
         *no_surrounding_whitespace_constraints(
             "name",
             "description",
@@ -49,6 +83,14 @@ class StudyProgram(Base):
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
+    )
+
+    level: Mapped[EducationLevelEnum] = mapped_column(
+        SqlEnum(
+            EducationLevelEnum,
+            name="education_level_enum",
+        ),
+        nullable=False,
     )
 
     name: Mapped[str] = mapped_column(
@@ -61,6 +103,31 @@ class StudyProgram(Base):
         nullable=True,
     )
 
-    teaching_offerings: Mapped[list[TeachingOffering]] = relationship(
+    min_year: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    max_year: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    school_study_programs: Mapped[list[SchoolStudyProgram]] = relationship(
         back_populates="study_program",
+        cascade="all, delete-orphan",
+    )
+
+    school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
+        back_populates="study_program",
+    )
+
+    study_program_subjects: Mapped[list[StudyProgramSubject]] = relationship(
+        back_populates="study_program",
+        cascade="all, delete-orphan",
+    )
+
+    teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
+        back_populates="study_program",
+        cascade="all, delete-orphan",
     )

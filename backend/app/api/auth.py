@@ -156,7 +156,7 @@ async def me(current_account: CurrentAccount, db: DbSession):
 async def upload_profile_image(
     current_account: CurrentAccount,
     db: DbSession,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
 ):
     allowed_types = {"image/jpeg", "image/png", "image/webp"}
 

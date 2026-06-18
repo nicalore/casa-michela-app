@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from app.models.member import Member
 
 
-class Courseparticipant(Base):
+class CourseParticipant(Base):
     __tablename__ = "course_participants"
 
     __table_args__ = (

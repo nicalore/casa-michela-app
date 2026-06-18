@@ -9,7 +9,7 @@ from app.api.dependencies import get_db
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.study_program import StudyProgram
-from app.models.subject import Subject
+from backend.app.models.association_subject import Subject
 from app.models.teaching_offering import EducationLevelEnum, TeachingOffering
 from app.models.teaching_offering_subject import TeachingOfferingSubject
 from app.models.teaching_offering_year import TeachingOfferingYear

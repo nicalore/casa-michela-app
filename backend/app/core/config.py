@@ -3,6 +3,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
+
 class Settings(BaseSettings):
     app_name: str = "Casa Michela API"
     environment: str = "development"

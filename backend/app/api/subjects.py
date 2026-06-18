@@ -1,11 +1,11 @@
 from typing import Annotated
 
+from backend.app.models.association_subject import Subject
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db
-from app.models.subject import Subject
 from app.models.teacher_subject import TeacherSubject
 from app.models.teaching_offering_subject import TeachingOfferingSubject
 from app.schemas.subject import SubjectCreate, SubjectGrouped, SubjectUpdate
