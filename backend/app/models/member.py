@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.course_participant import Courseparticipant
+    from app.models.course_participant import CourseParticipant
     from app.models.membership import Membership
     from app.models.person import Person
     from app.models.staff import Staff
@@ -51,7 +51,7 @@ class Member(Base):
         uselist=False,
     )
 
-    course_participant_profile: Mapped[Courseparticipant | None] = relationship(
+    course_participant_profile: Mapped[CourseParticipant | None] = relationship(
         back_populates="member",
         uselist=False,
     )

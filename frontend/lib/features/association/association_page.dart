@@ -8,10 +8,10 @@ import '../../shared/widgets/app_custom_tab_bar.dart';
 
 import 'tabs/schools_tab.dart';
 import 'tabs/study_programs_tab.dart';
-import 'tabs/subjects_tab.dart';
-import 'tabs/teaching_offerings_tab.dart';
+import 'tabs/association_subjects_tab.dart';
+import 'tabs/ministry_subjects_tab.dart';
 
-class AssociationPage extends StatefulWidget
+class AssociationPage extends StatefulWidget 
 {
   const AssociationPage({super.key});
 
@@ -19,40 +19,36 @@ class AssociationPage extends StatefulWidget
   State<AssociationPage> createState() => _AssociationPageState();
 }
 
-class _AssociationPageState extends State<AssociationPage>
+class _AssociationPageState extends State<AssociationPage> 
 {
   int _mainSelectedTab = 0;
   int _didatticaSelectedTab = 0;
 
-  final List<String> _mainTabs = [
-    'Percorsi di studio',
-    'Didattica',
-  ];
+  final List<String> _mainTabs = ['Scuole', 'Didattica'];
 
   final List<String> _didatticaTabs = [
-    'Materie',
-    'Scuole',
-    'Indirizzi di studio',
+    'Discipline interne',
+    'Materie ministeriali',
+    'Percorsi di studio',
   ];
 
-  //Builds the pill-shaped sub-navigation for Didattica without Material ripple
-  Widget _buildSubNavigation()
+  Widget _buildSubNavigation() 
   {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
       child: Row(
-        children: List.generate(_didatticaTabs.length, (index)
+        children: List.generate(_didatticaTabs.length, (index) 
         {
           final isSelected = _didatticaSelectedTab == index;
-          
+
           return Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: ()
+                onTap: () 
                 {
-                  setState(()
+                  setState(() 
                   {
                     _didatticaSelectedTab = index;
                   });
@@ -60,11 +56,16 @@ class _AssociationPageState extends State<AssociationPage>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? const Color(0xFF003C82) : Colors.white,
                     border: Border.all(
-                      color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
+                      color: isSelected
+                          ? const Color(0xFF003C82)
+                          : const Color(0xFFE2E8F0),
                     ),
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -73,8 +74,12 @@ class _AssociationPageState extends State<AssociationPage>
                     curve: Curves.easeInOut,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF64748B),
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF64748B),
                     ),
                     child: Text(_didatticaTabs[index]),
                   ),
@@ -87,20 +92,19 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  //Renders the selected tab content dynamically without forcing Expansion
-  Widget _buildTabContent()
+  Widget _buildTabContent() 
   {
-    if (_mainSelectedTab == 0)
+    if (_mainSelectedTab == 0) 
     {
-      return const TeachingOfferingsTab();
+      return const SchoolsTab();
     }
-    
-    switch (_didatticaSelectedTab)
+
+    switch (_didatticaSelectedTab) 
     {
       case 0:
-        return const SubjectsTab();
+        return const AssociationSubjectsTab();
       case 1:
-        return const SchoolsTab();
+        return const MinistrySubjectsTab();
       case 2:
         return const StudyProgramsTab();
       default:
@@ -109,13 +113,13 @@ class _AssociationPageState extends State<AssociationPage>
   }
 
   @override
-  Widget build(BuildContext context)
+  Widget build(BuildContext context) 
   {
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
-        builder: (context, width, height)
+        builder: (context, width, height) 
         {
           final viewportWidth = MediaQuery.of(context).size.width;
 
@@ -198,8 +202,10 @@ class _AssociationPageState extends State<AssociationPage>
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(40),
                                 splashFactory: NoSplash.splashFactory,
-                                overlayColor: WidgetStateProperty.all(Colors.transparent),
-                                onTap: ()
+                                overlayColor: WidgetStateProperty.all(
+                                  Colors.transparent,
+                                ),
+                                onTap: () 
                                 {
                                   context.go('/dashboard');
                                 },
@@ -208,7 +214,9 @@ class _AssociationPageState extends State<AssociationPage>
                                   height: 54,
                                   decoration: const BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.all(Radius.circular(40)),
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(40),
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: Color(0x0A000000),
@@ -228,10 +236,14 @@ class _AssociationPageState extends State<AssociationPage>
                             const SizedBox(width: 12),
                             Container(
                               height: 54,
-                              padding: const EdgeInsets.symmetric(horizontal: 28),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                              ),
                               decoration: const BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.all(Radius.circular(40)),
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(40),
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Color(0x0A000000),
@@ -257,24 +269,27 @@ class _AssociationPageState extends State<AssociationPage>
                         AppCustomTabBar(
                           tabs: _mainTabs,
                           selectedIndex: _mainSelectedTab,
-                          onTabSelected: (index)
+                          onTabSelected: (index) 
                           {
-                            setState(()
+                            setState(() 
                             {
                               _mainSelectedTab = index;
                             });
                           },
                           maxWidth: viewportWidth - 80,
                         ),
-                        //Smooth expansion of the sub-menu via AnimatedSize
                         AnimatedSize(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeOutCirc,
                           alignment: Alignment.topCenter,
-                          child: _mainSelectedTab == 1 
-                            ? _buildSubNavigation() 
-                            : const SizedBox(height: 24, width: double.infinity),
+                          child: _mainSelectedTab == 1
+                              ? _buildSubNavigation()
+                              : const SizedBox(
+                                  height: 24,
+                                  width: double.infinity,
+                                ),
                         ),
+                        // RIMOSSO IL WIDGET "Expanded" CHE CAUSAVA IL RENDERFLEX ERROR
                         _buildTabContent(),
                       ],
                     ),

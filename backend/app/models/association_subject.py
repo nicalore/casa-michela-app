@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -20,6 +25,12 @@ from app.models.constraints import no_surrounding_whitespace_constraints
 if TYPE_CHECKING:
     from app.models.ministry_association_subject import MinistryAssociationSubject
     from app.models.teaching_competence import TeachingCompetence
+
+
+class SubjectAreaEnum(StrEnum):
+    HUMANITIES = "HUMANITIES"
+    LINGUISTICS = "LINGUISTICS"
+    SCIENCES = "SCIENCES"
 
 
 class AssociationSubject(Base):
@@ -61,9 +72,23 @@ class AssociationSubject(Base):
         nullable=False,
     )
 
+    area: Mapped[SubjectAreaEnum] = mapped_column(
+        SqlEnum(
+            SubjectAreaEnum,
+            name="subject_area_enum",
+        ),
+        nullable=False,
+    )
+
     description: Mapped[str | None] = mapped_column(
         String(1000),
         nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
 
     ministry_association_subjects: Mapped[list[MinistryAssociationSubject]] = relationship(

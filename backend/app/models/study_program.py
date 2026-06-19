@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy import (
     Enum as SqlEnum,
@@ -22,6 +25,7 @@ from app.db.base import Base
 from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
+    from app.models.school import School
     from app.models.school_enrollment import SchoolEnrollment
     from app.models.school_study_program import SchoolStudyProgram
     from app.models.study_program_subject import StudyProgramSubject
@@ -113,6 +117,13 @@ class StudyProgram(Base):
         nullable=False,
     )
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    # Relazione verso la tabella ponte
     school_study_programs: Mapped[list[SchoolStudyProgram]] = relationship(
         back_populates="study_program",
         cascade="all, delete-orphan",
@@ -130,4 +141,17 @@ class StudyProgram(Base):
     teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
         back_populates="study_program",
         cascade="all, delete-orphan",
+    )
+
+    ministry_subjects = relationship(
+        "MinistrySubject",
+        secondary="study_program_subjects",
+        backref="study_programs"
+    )
+
+    # Relazione viewonly verso le scuole
+    schools: Mapped[list[School]] = relationship(
+        "School",
+        secondary="school_study_programs", # NOME CORRETTO DELLA TABELLA PONTE
+        viewonly=True
     )

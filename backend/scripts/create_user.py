@@ -14,7 +14,7 @@ from app.models.administrator import (
     Administrator,
     AdministratorRoleEnum,
 )
-from app.models.course_participant import Courseparticipant
+from app.models.course_participant import CourseParticipant
 from app.models.member import Member
 from app.models.membership import (
     Membership,
@@ -298,7 +298,7 @@ async def main() -> None:
 
         if Role.COURSE_PARTICIPANT in roles:
             session.add(
-                Courseparticipant(
+                CourseParticipant(
                     tax_code=tax_code,
                     course_type=course_type,
                     medical_certificate_expiration=medical_certificate_expiration,

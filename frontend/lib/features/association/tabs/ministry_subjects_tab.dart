@@ -2,68 +2,65 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/school_item.dart';
-import '../models/study_program_item.dart';
 import '../models/ministry_subject_item.dart';
-import '../widgets/school_card.dart';
+import '../models/association_subject_item.dart';
+import '../widgets/ministry_subject_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/shared_components.dart';
 
-class SchoolsTab extends StatefulWidget 
+class MinistrySubjectsTab extends StatefulWidget
 {
-  const SchoolsTab({super.key});
+  const MinistrySubjectsTab({super.key});
 
   @override
-  State<SchoolsTab> createState() => _SchoolsTabState();
+  State<MinistrySubjectsTab> createState() => _MinistrySubjectsTabState();
 }
 
-class _SchoolsTabState extends State<SchoolsTab> 
+class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
 {
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
   String _sortBy = 'date_desc';
-  
-  bool _newSchoolHover = false;
+  String? _filterArea;
+
+  bool _newSubjectHover = false;
   bool _isLoading = true;
 
-  List<SchoolItem> _schools = [];
-  List<StudyProgramItem> _availableStudyPrograms = [];
-  List<MinistrySubjectItem> _availableMinistrySubjects = [];
+  List<MinistrySubjectItem> _ministrySubjects = [];
+  List<AssociationSubjectItem> _availableAssociationSubjects = [];
 
   @override
-  void initState() 
+  void initState()
   {
     super.initState();
     _loadData();
   }
 
-  Future<void> _loadData() async 
+  Future<void> _loadData() async
   {
-    try 
+    try
     {
       final results = await Future.wait([
-        _apiService.getSchools(),
-        _apiService.getStudyPrograms(),
         _apiService.getMinistrySubjects(),
+        _apiService.getAssociationSubjects(),
       ]);
 
-      if (mounted) 
+      if (mounted)
       {
-        setState(() 
+        setState(()
         {
-          _schools = results[0] as List<SchoolItem>;
-          _availableStudyPrograms = results[1] as List<StudyProgramItem>;
-          _availableMinistrySubjects = results[2] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[0] as List<MinistrySubjectItem>;
+          _availableAssociationSubjects = results[1] as List<AssociationSubjectItem>;
           _isLoading = false;
         });
       }
-    } 
-    catch (e) 
+    }
+    catch (e)
     {
-      if (mounted) 
+      if (mounted)
       {
         setState(() => _isLoading = false);
         CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
@@ -71,18 +68,17 @@ class _SchoolsTabState extends State<SchoolsTab>
     }
   }
 
-  List<SchoolItem> get _filteredSchools 
+  List<MinistrySubjectItem> get _filteredSubjects
   {
-    var result = _schools.where((school) 
+    var result = _ministrySubjects.where((subject)
     {
       final query = _searchText.toLowerCase();
-      return school.name.toLowerCase().contains(query) ||
-          school.mechanographicCode.toLowerCase().contains(query) ||
-          school.city.toLowerCase().contains(query) ||
-          school.province.toLowerCase().contains(query);
+      final matchesSearch = subject.name.toLowerCase().contains(query);
+      final matchesArea = _filterArea == null || subject.area == _filterArea;
+      return matchesSearch && matchesArea;
     }).toList();
 
-    result.sort((a, b) 
+    result.sort((a, b)
     {
       if (_sortBy == 'name_asc') return a.name.compareTo(b.name);
       if (_sortBy == 'name_desc') return b.name.compareTo(a.name);
@@ -94,60 +90,60 @@ class _SchoolsTabState extends State<SchoolsTab>
     return result;
   }
 
-  Future<bool> _executeCreate(bool isPrivate, String code, String name, String city, String prov, List<int> programIds, Function(String) onError) async 
+  Future<bool> _executeCreate(String name, String level, String area, String description, List<int> associationIds, Function(String) onError) async
   {
-    try 
+    try
     {
-      final createdSchool = await _apiService.createSchool(isPrivate: isPrivate, code: code, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() { _schools.add(createdSchool); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola creata con successo!', isError: false);
+      final created = await _apiService.createMinistrySubject(name: name, level: level, area: area, description: description, associationSubjectIds: associationIds);
+      setState(() { _ministrySubjects.add(created); });
+      if (mounted) CustomSnackBar.show(context: context, message: 'Materia creata con successo!', isError: false);
       return true;
-    } 
-    catch (e) 
+    }
+    catch (e)
     {
       onError(e.toString().replaceAll('Exception: ', ''));
       return false;
     }
   }
 
-  Future<bool> _executeEdit(String oldCode, bool isPrivate, String newCode, String name, String city, String prov, List<int> programIds, Function(String) onError) async 
+  Future<bool> _executeEdit(int id, String name, String level, String area, String description, List<int> associationIds, Function(String) onError) async
   {
-    try 
+    try
     {
-      final updatedSchool = await _apiService.updateSchool(oldCode: oldCode, isPrivate: isPrivate, newCode: newCode, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() 
+      final updated = await _apiService.updateMinistrySubject(id: id, name: name, level: level, area: area, description: description, associationSubjectIds: associationIds);
+      setState(()
       {
-        final index = _schools.indexWhere((s) => s.mechanographicCode == oldCode);
-        if (index != -1) _schools[index] = updatedSchool;
+        final index = _ministrySubjects.indexWhere((s) => s.id == id);
+        if (index != -1) _ministrySubjects[index] = updated;
       });
       return true;
-    } 
-    catch (e) 
+    }
+    catch (e)
     {
       onError(e.toString().replaceAll('Exception: ', ''));
       return false;
     }
   }
 
-  void _executeDelete(SchoolItem item) async 
+  void _executeDelete(MinistrySubjectItem item) async
   {
-    try 
+    try
     {
-      await _apiService.deleteSchool(item.mechanographicCode);
-      setState(() { _schools.removeWhere((s) => s.mechanographicCode == item.mechanographicCode); });
-    } 
-    catch (e) 
+      await _apiService.deleteMinistrySubject(item.id);
+      setState(() { _ministrySubjects.removeWhere((s) => s.id == item.id); });
+    }
+    catch (e)
     {
       if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
     }
   }
 
-  void _showWizard({SchoolItem? school, VoidCallback? onCancelEdit}) 
+  void _showWizard({MinistrySubjectItem? subject, VoidCallback? onCancelEdit})
   {
     showGeneralDialog(
-      context: context, barrierDismissible: true, barrierLabel: 'SchoolWizard', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
+      context: context, barrierDismissible: true, barrierLabel: 'MinistrySubjectWizard', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
       pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) 
+      transitionBuilder: (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
         return BackdropFilter(
@@ -156,14 +152,14 @@ class _SchoolsTabState extends State<SchoolsTab>
             opacity: animation,
             child: ScaleTransition(
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _SchoolWizardDialog(
-                existingSchool: school,
-                availableStudyPrograms: _availableStudyPrograms,
+              child: _MinistrySubjectWizardDialog(
+                existingSubject: subject,
+                availableAssociationSubjects: _availableAssociationSubjects,
                 onCancelEdit: onCancelEdit,
-                onSave: (isPrivate, code, name, city, prov, programIds, onError) async 
+                onSave: (name, level, area, description, associationIds, onError) async
                 {
-                  if (school == null) return await _executeCreate(isPrivate, code, name, city, prov, programIds, onError);
-                  else return await _executeEdit(school.mechanographicCode, isPrivate, code, name, city, prov, programIds, onError);
+                  if (subject == null) return await _executeCreate(name, level, area, description, associationIds, onError);
+                  else return await _executeEdit(subject.id, name, level, area, description, associationIds, onError);
                 },
               ),
             ),
@@ -174,42 +170,45 @@ class _SchoolsTabState extends State<SchoolsTab>
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca scuola...')),
+            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca materia ministeriale...')),
             const SizedBox(width: 24),
             MouseRegion(
-              cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _newSchoolHover = true), onExit: (_) => setState(() => _newSchoolHover = false),
+              cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _newSubjectHover = true), onExit: (_) => setState(() => _newSubjectHover = false),
               child: GestureDetector(
                 onTap: () => _showWizard(),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180), curve: Curves.easeOut, height: 50, padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), border: Border.all(color: _newSchoolHover ? const Color(0xFF003C82) : Colors.transparent, width: 2), boxShadow: const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)]),
-                  child: Center(child: Text('Nuova scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), border: Border.all(color: _newSubjectHover ? const Color(0xFF003C82) : Colors.transparent, width: 2), boxShadow: const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)]),
+                  child: Center(child: Text('Nuova materia', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 32),
-        _CustomFilterMenu<String>(
-          hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {},
-          options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')], 
+        Wrap(
+          spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Tutte le aree', icon: Icons.category_outlined, value: _filterArea, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterArea = val), onClear: () => setState(() => _filterArea = null), options: [_FilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), _FilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), _FilterOption(value: 'SCIENCES', label: 'Area Scientifica')]),
+          ],
         ),
         const SizedBox(height: 16),
-        Text(_filteredSchools.length == 1 ? '1 scuola trovata' : '${_filteredSchools.length} scuole trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+        Text(_filteredSubjects.length == 1 ? '1 materia trovata' : '${_filteredSubjects.length} materie trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
         const SizedBox(height: 16),
         if (_isLoading) const Padding(padding: EdgeInsets.only(top: 60), child: Center(child: CircularProgressIndicator(color: Color(0xFF003C82))))
         else Center(
           child: Wrap(
             alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-            children: _filteredSchools.map((school) {
-              return SchoolCard(school: school, availableStudyPrograms: _availableStudyPrograms, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => _executeDelete(school));
+            children: _filteredSubjects.map((subject) {
+              return MinistrySubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => _executeDelete(subject));
             }).toList(),
           ),
         ),
@@ -218,59 +217,55 @@ class _SchoolsTabState extends State<SchoolsTab>
   }
 }
 
-class _SchoolWizardDialog extends StatefulWidget 
+class _MinistrySubjectWizardDialog extends StatefulWidget
 {
-  final SchoolItem? existingSchool;
-  final List<StudyProgramItem> availableStudyPrograms;
+  final MinistrySubjectItem? existingSubject;
+  final List<AssociationSubjectItem> availableAssociationSubjects;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(bool isPrivate, String code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
-  
-  const _SchoolWizardDialog({
-    this.existingSchool, required this.availableStudyPrograms, this.onCancelEdit, required this.onSave,
+  final Future<bool> Function(String name, String level, String area, String description, List<int> associationIds, Function(String) onError) onSave;
+
+  const _MinistrySubjectWizardDialog({
+    this.existingSubject, required this.availableAssociationSubjects, this.onCancelEdit, required this.onSave
   });
 
   @override
-  State<_SchoolWizardDialog> createState() => _SchoolWizardDialogState();
+  State<_MinistrySubjectWizardDialog> createState() => _MinistrySubjectWizardDialogState();
 }
 
-class _SchoolWizardDialogState extends State<_SchoolWizardDialog> 
+class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDialog>
 {
   int _currentStep = 0;
   final PageController _pageController = PageController();
   bool _isSaving = false;
 
-  bool _isPrivate = false;
-  final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _cityController = TextEditingController();
-  final TextEditingController _provController = TextEditingController();
-  final TextEditingController _programSearchCtrl = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+  final TextEditingController _disciplineSearchCtrl = TextEditingController();
 
-  List<int> _selectedPrograms = [];
+  String? _selectedLevel;
+  String? _selectedArea;
+  List<int> _selectedAssociations = [];
 
   @override
-  void initState() 
+  void initState()
   {
     super.initState();
-    if (widget.existingSchool != null)
+    if (widget.existingSubject != null)
     {
-      _isPrivate = widget.existingSchool!.mechanographicCode.startsWith('PRIV-');
-      if (!_isPrivate) _codeController.text = widget.existingSchool!.mechanographicCode;
-      _nameController.text = widget.existingSchool!.name;
-      _cityController.text = widget.existingSchool!.city;
-      _provController.text = widget.existingSchool!.province;
-      _selectedPrograms = widget.existingSchool!.studyPrograms.map((p) => p.id).toList();
+      _nameController.text = widget.existingSubject!.name;
+      _descController.text = widget.existingSubject!.description ?? '';
+      _selectedLevel = widget.existingSubject!.level;
+      _selectedArea = widget.existingSubject!.area;
+      _selectedAssociations = widget.existingSubject!.associationSubjects.map((a) => a.id).toList();
     }
   }
 
   @override
-  void dispose() 
+  void dispose()
   {
-    _codeController.dispose();
     _nameController.dispose();
-    _cityController.dispose();
-    _provController.dispose();
-    _programSearchCtrl.dispose();
+    _descController.dispose();
+    _disciplineSearchCtrl.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -278,15 +273,30 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   void _resetForm()
   {
     setState(() {
-      _isPrivate = false;
-      _codeController.clear();
       _nameController.clear();
-      _cityController.clear();
-      _provController.clear();
-      _programSearchCtrl.clear();
-      _selectedPrograms.clear();
+      _descController.clear();
+      _disciplineSearchCtrl.clear();
+      _selectedLevel = null;
+      _selectedArea = null;
+      _selectedAssociations.clear();
       _currentStep = 0;
       _pageController.jumpToPage(0);
+    });
+  }
+
+  void _onAreaChanged(String area, bool isSelected)
+  {
+    setState(()
+    {
+      if (isSelected)
+      {
+        if (_selectedArea != area) _selectedAssociations.clear();
+        _selectedArea = area;
+      }
+      else
+      {
+        _selectedArea = null;
+      }
     });
   }
 
@@ -294,60 +304,49 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   {
     if (_currentStep == 0)
     {
-      final code = _codeController.text.trim().toUpperCase();
-      final name = _nameController.text.trim();
-      final city = _cityController.text.trim();
-      final prov = _provController.text.trim().toUpperCase();
-
-      if (name.isEmpty || city.isEmpty) { CustomSnackBar.show(context: context, message: 'Compila tutti i campi richiesti.', isError: true); return; }
-      if (prov.length != 2) { CustomSnackBar.show(context: context, message: 'La provincia deve essere esattamente di 2 lettere.', isError: true); return; }
-      if (!_isPrivate) 
-      { 
-        if (code.isEmpty) { CustomSnackBar.show(context: context, message: 'Inserisci il codice meccanografico.', isError: true); return; }
-        if (code.length != 10) { CustomSnackBar.show(context: context, message: 'Il codice meccanografico deve essere di 10 caratteri.', isError: true); return; }
-        if (!code.startsWith(prov)) { CustomSnackBar.show(context: context, message: 'Le prime due lettere del codice devono corrispondere alla provincia ($prov).', isError: true); return; }
-      }
+      if (_nameController.text.trim().isEmpty) { CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true); return; }
+      if (_selectedLevel == null) { CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true); return; }
+      if (_selectedArea == null) { CustomSnackBar.show(context: context, message: 'Seleziona un\'area di appartenenza.', isError: true); return; }
       setState(() => _currentStep++);
       _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
     else
     {
-      if (_selectedPrograms.isEmpty) { CustomSnackBar.show(context: context, message: 'Associa almeno un percorso di studio alla scuola.', isError: true); return; }
+      if (_selectedAssociations.isEmpty) { CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina interna associata.', isError: true); return; }
 
       setState(() => _isSaving = true);
-      final code = _isPrivate ? "" : _codeController.text.trim().toUpperCase();
       
-      bool success = await widget.onSave(_isPrivate, code, _nameController.text.trim(), _cityController.text.trim(), _provController.text.trim().toUpperCase(), _selectedPrograms, (errorMsg) {
+      bool success = await widget.onSave(_nameController.text.trim(), _selectedLevel!, _selectedArea!, _descController.text.trim(), _selectedAssociations, (errorMsg) {
         if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true);
       });
 
       if (mounted) setState(() => _isSaving = false);
       if (success) {
-        if (widget.existingSchool != null) Navigator.of(context).pop();
+        if (widget.existingSubject != null) Navigator.of(context).pop();
         else _resetForm();
       }
     }
   }
 
-  void _prevStep() 
+  void _prevStep()
   {
-    if (_currentStep > 0) 
+    if (_currentStep > 0)
     {
       setState(() => _currentStep--);
       _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
 
-  Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 4, top: 16), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 14)));
+  Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 12, top: 20), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 16)));
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
-    bool isEditing = widget.existingSchool != null;
+    bool isEditing = widget.existingSubject != null;
     return Dialog(
       backgroundColor: Colors.transparent, elevation: 0,
       child: Container(
-        width: 600, height: 550,
+        width: 650, height: 600,
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
         child: Column(
           children: [
@@ -356,8 +355,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(isEditing ? 'Modifica Scuola (${_currentStep + 1}/2)' : 'Nuova Scuola (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-                  StaticHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
+                  Text(isEditing ? 'Modifica Materia (${_currentStep + 1}/2)' : 'Creazione Materia (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  FadeHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
                 ],
               ),
             ),
@@ -371,7 +370,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                   else 
                     Expanded(child: AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); })),
                   const SizedBox(width: 16),
-                  Expanded(child: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'), icon: _currentStep == 1 ? (isEditing ? Icons.save_outlined : Icons.check_circle_outline) : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep)),
+                  Expanded(child: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA MATERIA') : 'AVANTI'), icon: _currentStep == 1 ? (isEditing ? Icons.save_outlined : Icons.check_circle_outline) : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep)),
                 ],
               ),
             ),
@@ -381,7 +380,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     );
   }
 
-  Widget _buildStep1() 
+  Widget _buildStep1()
   {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -389,45 +388,48 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            _buildFieldLabel('Nome materia ministeriale'),
+            TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Tecnologie Informatiche', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            _buildFieldLabel('Livello scolastico'),
+            Wrap(
+              spacing: 12, runSpacing: 12,
               children: [
-                Switch(value: _isPrivate, activeColor: const Color(0xFF003C82), splashRadius: 0.0, hoverColor: Colors.transparent, focusColor: Colors.transparent, onChanged: (v) => setState(() { _isPrivate = v; if (v) _codeController.clear(); })),
-                const SizedBox(width: 8),
-                Text('Scuola Privata (Codice automatico)', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+                CustomChip(label: 'Scuola Primaria', isSelected: _selectedLevel == 'PRIMARY_SCHOOL', onSelected: (v) => setState(() => _selectedLevel = v ? 'PRIMARY_SCHOOL' : null)),
+                CustomChip(label: 'Secondaria di I Grado', isSelected: _selectedLevel == 'MIDDLE_SCHOOL', onSelected: (v) => setState(() => _selectedLevel = v ? 'MIDDLE_SCHOOL' : null)),
+                CustomChip(label: 'Secondaria di II Grado', isSelected: _selectedLevel == 'HIGH_SCHOOL', onSelected: (v) => setState(() => _selectedLevel = v ? 'HIGH_SCHOOL' : null)),
               ],
             ),
-            const SizedBox(height: 12),
-            _buildFieldLabel('Codice Meccanografico'),
-            TextField(controller: _codeController, enabled: !_isPrivate, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: _isPrivate ? const Color(0xFF8A8A8A) : Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: _isPrivate ? 'Non richiesto' : 'Es. VIPC010004', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
-            _buildFieldLabel('Nome'),
-            TextField(controller: _nameController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Statale F. Corradini', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
-            Row(
+            _buildFieldLabel('Area di appartenenza'),
+            Wrap(
+              spacing: 12, runSpacing: 12,
               children: [
-                Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Città'), TextField(controller: _cityController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Thiene', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
-                const SizedBox(width: 16),
-                Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Provincia'), TextField(controller: _provController, textCapitalization: TextCapitalization.characters, maxLength: 2, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(counterText: "", hintText: 'Es. VI', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
+                CustomChip(label: 'Area Umanistica', isSelected: _selectedArea == 'HUMANITIES', onSelected: (v) => _onAreaChanged('HUMANITIES', v)),
+                CustomChip(label: 'Area Linguistica', isSelected: _selectedArea == 'LINGUISTICS', onSelected: (v) => _onAreaChanged('LINGUISTICS', v)),
+                CustomChip(label: 'Area Scientifica', isSelected: _selectedArea == 'SCIENCES', onSelected: (v) => _onAreaChanged('SCIENCES', v)),
               ],
             ),
+            _buildFieldLabel('Descrizione (Opzionale)'),
+            TextField(controller: _descController, textCapitalization: TextCapitalization.sentences, maxLines: 4, minLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black), decoration: InputDecoration(hintText: 'Aggiungi una descrizione...', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5)))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStep2() 
+  Widget _buildStep2()
   {
-    final query = _programSearchCtrl.text.toLowerCase();
-    final filteredPrograms = widget.availableStudyPrograms.where((p) => p.name.toLowerCase().contains(query)).toList();
+    final query = _disciplineSearchCtrl.text.toLowerCase();
+    final filteredAssoc = widget.availableAssociationSubjects.where((a) => a.area == _selectedArea && a.name.toLowerCase().contains(query)).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Seleziona i Percorsi di Studio attivi in questa scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
+          Text('Seleziona le Discipline Interne associate', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
-          AnimatedSearchBar(controller: _programSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca percorso di studio...'),
+          AnimatedSearchBar(controller: _disciplineSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca disciplina interna...'),
           const SizedBox(height: 16),
-          Expanded(child: SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredPrograms.map((p) => CustomChip(label: p.name, isSelected: _selectedPrograms.contains(p.id), onSelected: (v) => setState(() { if (v) { _selectedPrograms.add(p.id); } else { _selectedPrograms.remove(p.id); } }))).toList()))),
+          Expanded(child: filteredAssoc.isEmpty ? Center(child: Text('Nessuna disciplina trovata per l\'area.', style: GoogleFonts.plusJakartaSans(fontSize: 15, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))) : SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredAssoc.map((a) => CustomChip(label: a.name, isSelected: _selectedAssociations.contains(a.id), onSelected: (v) => setState(() { if (v) { _selectedAssociations.add(a.id); } else { _selectedAssociations.remove(a.id); } }))).toList()))),
         ],
       ),
     );

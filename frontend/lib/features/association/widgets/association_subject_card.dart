@@ -2,41 +2,38 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/study_program_item.dart';
-import '../models/ministry_subject_item.dart';
+import '../models/association_subject_item.dart';
 import '../../../shared/widgets/shared_components.dart';
 
-class StudyProgramCard extends StatefulWidget
+class AssociationSubjectCard extends StatefulWidget
 {
-  final StudyProgramItem program;
-  final List<MinistrySubjectItem> availableMinistrySubjects;
+  final AssociationSubjectItem subject;
   final void Function(VoidCallback onCancel) onEditRequested;
   final VoidCallback onDelete;
 
-  const StudyProgramCard({
+  const AssociationSubjectCard({
     super.key,
-    required this.program,
-    required this.availableMinistrySubjects,
+    required this.subject,
     required this.onEditRequested,
     required this.onDelete,
   });
 
   @override
-  State<StudyProgramCard> createState() => _StudyProgramCardState();
+  State<AssociationSubjectCard> createState() => _AssociationSubjectCardState();
 }
 
-class _StudyProgramCardState extends State<StudyProgramCard>
+class _AssociationSubjectCardState extends State<AssociationSubjectCard>
 {
   bool _isHovering = false;
 
-  String _translateLevel(String level)
+  String _translateArea(String area)
   {
-    switch (level)
+    switch (area)
     {
-      case 'PRIMARY_SCHOOL': return 'Scuola Primaria';
-      case 'MIDDLE_SCHOOL': return 'Scuola Secondaria di I Grado';
-      case 'HIGH_SCHOOL': return 'Scuola Secondaria di II Grado';
-      default: return level;
+      case 'HUMANITIES': return 'Area Umanistica';
+      case 'LINGUISTICS': return 'Area Linguistica';
+      case 'SCIENCES': return 'Area Scientifica';
+      default: return area;
     }
   }
 
@@ -45,7 +42,7 @@ class _StudyProgramCardState extends State<StudyProgramCard>
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'StudyProgramDetails',
+      barrierLabel: 'AssociationSubjectDetails',
       barrierColor: Colors.black.withValues(alpha: .15),
       transitionDuration: const Duration(milliseconds: 240),
       pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
@@ -58,10 +55,9 @@ class _StudyProgramCardState extends State<StudyProgramCard>
             opacity: animation,
             child: ScaleTransition(
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _StudyProgramDetailsDialogContent(
-                program: widget.program,
-                availableMinistrySubjects: widget.availableMinistrySubjects,
-                levelItalian: _translateLevel(widget.program.level),
+              child: _AssociationSubjectDetailsDialogContent(
+                subject: widget.subject,
+                areaItalian: _translateArea(widget.subject.area),
                 onEditRequested: ()
                 {
                   Navigator.of(context).pop();
@@ -103,13 +99,14 @@ class _StudyProgramCardState extends State<StudyProgramCard>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _AutoResizeText(
-                text: widget.program.name, maxFontSize: 22, minFontSize: 16, maxLines: 2,
+                text: widget.subject.name, maxFontSize: 22, minFontSize: 16, maxLines: 2,
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.1),
               ),
-              if (widget.program.description.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(widget.program.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A))),
-              ],
+              const SizedBox(height: 6),
+              Text(
+                _translateArea(widget.subject.area), maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
+              ),
             ],
           ),
         ),
@@ -118,16 +115,15 @@ class _StudyProgramCardState extends State<StudyProgramCard>
   }
 }
 
-class _StudyProgramDetailsDialogContent extends StatelessWidget
+class _AssociationSubjectDetailsDialogContent extends StatelessWidget
 {
-  final StudyProgramItem program;
-  final List<MinistrySubjectItem> availableMinistrySubjects;
-  final String levelItalian;
+  final AssociationSubjectItem subject;
+  final String areaItalian;
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
-  const _StudyProgramDetailsDialogContent({
-    required this.program, required this.availableMinistrySubjects, required this.levelItalian, required this.onEditRequested, required this.onDelete,
+  const _AssociationSubjectDetailsDialogContent({
+    required this.subject, required this.areaItalian, required this.onEditRequested, required this.onDelete,
   });
 
   void _showDeleteConfirmation(BuildContext context)
@@ -139,7 +135,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
         return AlertDialog(
           backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text('Conferma Eliminazione', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-          content: Text('Sei sicuro di voler eliminare il percorso "${program.name}"?', style: GoogleFonts.plusJakartaSans(fontSize: 16)),
+          content: Text('Sei sicuro di voler eliminare la disciplina "${subject.name}"?', style: GoogleFonts.plusJakartaSans(fontSize: 16)),
           actions: [
             TextButton(
               style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
@@ -162,10 +158,11 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool hasDescription = subject.description != null && subject.description!.isNotEmpty;
     return Dialog(
       backgroundColor: Colors.transparent, elevation: 0,
       child: Container(
-        width: 650, constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        width: 600, constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
         child: Column(
           mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -175,7 +172,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Dettagli Percorso', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Dettagli Disciplina Interna', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                   StaticHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () => Navigator.of(context).pop()),
                 ],
               ),
@@ -187,39 +184,12 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFieldLabel('Nome Percorso'),
-                    Text(program.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-                    Row(
-                      children: [
-                        Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Livello'), Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87))])),
-                        Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anni di corso'), Text('${program.minYear} - ${program.maxYear}', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87))])),
-                      ],
-                    ),
+                    _buildFieldLabel('Nome Disciplina'),
+                    Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
+                    _buildFieldLabel('Area di appartenenza'),
+                    Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
                     _buildFieldLabel('Descrizione'),
-                    Text(program.description.isEmpty ? 'Nessuna descrizione fornita.' : program.description, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: program.description.isEmpty ? const Color(0xFFB3B3B3) : Colors.black87, fontStyle: program.description.isEmpty ? FontStyle.italic : FontStyle.normal)),
-                    const SizedBox(height: 16),
-                    _buildFieldLabel('Materie ministeriali incluse'),
-                    if (program.ministrySubjects.isEmpty) Text('Nessuna materia associata.', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))
-                    else Wrap(
-                      spacing: 12, runSpacing: 12,
-                      children: program.ministrySubjects.map((subj)
-                      {
-                        final fullSubject = availableMinistrySubjects.firstWhere((s) => s.id == subj.id, orElse: () => MinistrySubjectItem(id: subj.id, name: subj.name, level: '', area: '', description: '', createdAt: DateTime.now(), associationSubjects: const []));
-                        return Tooltip(
-                          constraints: const BoxConstraints(maxWidth: 400),
-                          richMessage: TextSpan(
-                            children: [
-                              TextSpan(text: 'Discipline interne:\n', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700, height: 1.5)),
-                              if (fullSubject.associationSubjects.isEmpty) TextSpan(text: 'Nessuna disciplina associata', style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.white60, fontStyle: FontStyle.italic, height: 1.4))
-                              else WidgetSpan(child: Padding(padding: const EdgeInsets.only(top: 4), child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: List.generate(fullSubject.associationSubjects.length * 2 - 1, (index) { if (index.isOdd) return Text('•', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF64748B))); return Text(fullSubject.associationSubjects[index ~/ 2].name, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500)); })))),
-                            ],
-                          ),
-                          decoration: BoxDecoration(color: const Color(0xFF1E293B).withValues(alpha: .98), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF334155), width: 1.5), boxShadow: const [BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16)]),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14), waitDuration: const Duration(milliseconds: 200),
-                          child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E5EC))), child: Text(subj.name, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87))),
-                        );
-                      }).toList(),
-                    ),
+                    Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),
                   ],
                 ),
               ),
@@ -263,7 +233,7 @@ class _AutoResizeText extends StatelessWidget
         {
           textPainter.text = TextSpan(text: text, style: style.copyWith(fontSize: currentFontSize));
           textPainter.layout(maxWidth: constraints.maxWidth);
-          if (!textPainter.didExceedMaxLines) break; 
+          if (!textPainter.didExceedMaxLines) break;
           currentFontSize -= 1;
         }
         return Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style.copyWith(fontSize: currentFontSize));

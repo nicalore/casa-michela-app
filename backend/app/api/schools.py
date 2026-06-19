@@ -3,34 +3,31 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_db
 from app.models.school import School
-from app.models.teaching_offering import TeachingOffering
+from app.models.school_study_program import SchoolStudyProgram
 from app.schemas.school import SchoolCreate, SchoolResponse, SchoolUpdate
 
 router = APIRouter(prefix="/schools", tags=["schools"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
-async def _check_associations(code: str, db: AsyncSession):
-    stmt = select(TeachingOffering).where(TeachingOffering.school.has(mechanographic_code=code))
-    res = await db.execute(stmt)
-    if res.scalars().first():
-        raise HTTPException(status_code=400, detail="Operazione vietata: la scuola è presente in una o più offerte didattiche.")
-
 @router.get("/", response_model=list[SchoolResponse])
 async def get_schools(db: DbSession):
-    result = await db.execute(select(School))
-    return result.scalars().all()
+    stmt = select(School).options(
+        selectinload(School.study_programs)
+    ).order_by(School.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().unique().all()
 
 @router.post("/", response_model=SchoolResponse)
 async def create_school(payload: SchoolCreate, db: DbSession):
     if payload.is_private:
-        # Genera codice univoco: es. PRIV-4F8A2B
         code = f"PRIV-{uuid.uuid4().hex[:6].upper()}"
-        # Assicura unicità assoluta
         while (await db.execute(select(School).where(School.mechanographic_code == code))).scalars().first():
             code = f"PRIV-{uuid.uuid4().hex[:6].upper()}"
     else:
@@ -50,16 +47,31 @@ async def create_school(payload: SchoolCreate, db: DbSession):
         city=payload.city,
         province=payload.province
     )
+    
+    if hasattr(payload, 'study_program_ids') and payload.study_program_ids:
+        new_school.school_study_programs = [
+            SchoolStudyProgram(study_program_id=pid) for pid in payload.study_program_ids
+        ]
+
     db.add(new_school)
     await db.commit()
-    return new_school
+    
+    stmt = select(School).options(
+        selectinload(School.study_programs)
+    ).where(School.mechanographic_code == code)
+    return (await db.execute(stmt)).scalars().first()
 
 @router.put("/{old_code}", response_model=SchoolResponse)
 async def update_school(old_code: str, payload: SchoolUpdate, db: DbSession):
-    await _check_associations(old_code, db)
+    stmt = select(School).options(
+        selectinload(School.school_study_programs)
+    ).where(School.mechanographic_code == old_code)
+    
+    school = (await db.execute(stmt)).scalars().first()
+    if not school:
+        raise HTTPException(status_code=404, detail="Scuola non trovata.")
 
     if payload.is_private:
-        # Se era già privata, mantieni il codice vecchio per non romperlo. Altrimenti generane uno nuovo.
         code = old_code if old_code.startswith("PRIV-") else f"PRIV-{uuid.uuid4().hex[:6].upper()}"
     else:
         code = payload.mechanographic_code.upper().strip()
@@ -73,25 +85,39 @@ async def update_school(old_code: str, payload: SchoolUpdate, db: DbSession):
         if conflict:
             raise HTTPException(status_code=400, detail=f'Esiste già una scuola con codice "{code}".')
 
-    school = (await db.execute(select(School).where(School.mechanographic_code == old_code))).scalars().first()
-    if not school:
-        raise HTTPException(status_code=404, detail="Scuola non trovata.")
-
     school.mechanographic_code = code
     school.name = payload.name
     school.city = payload.city
     school.province = payload.province
 
-    await db.commit()
-    return school
+    school.school_study_programs.clear()
+    if hasattr(payload, 'study_program_ids') and payload.study_program_ids:
+        school.school_study_programs.extend([
+            SchoolStudyProgram(study_program_id=pid) for pid in payload.study_program_ids
+        ])
 
+    try:
+        await db.commit()
+        stmt_refresh = select(School).options(
+            selectinload(School.study_programs)
+        ).where(School.mechanographic_code == code)
+        return (await db.execute(stmt_refresh)).scalars().first()
+
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Errore di integrità durante l'aggiornamento.") from e
+    
 @router.delete("/{code}")
 async def delete_school(code: str, db: DbSession):
-    await _check_associations(code, db)
     school = (await db.execute(select(School).where(School.mechanographic_code == code))).scalars().first()
     if not school:
         raise HTTPException(status_code=404, detail="Scuola non trovata.")
         
-    await db.delete(school)
-    await db.commit()
+    try:
+        await db.delete(school)
+        await db.commit()
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Impossibile eliminare la scuola perché collegata ad altri dati protetti.") from e
+    
     return {"detail": "Scuola eliminata"}

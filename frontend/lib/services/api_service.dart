@@ -3,25 +3,25 @@ import 'package:flutter/foundation.dart';
 
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
-import '../features/association/models/subject_item.dart';
+import '../features/association/models/association_subject_item.dart';
 import '../features/association/models/school_item.dart';
 import '../features/association/models/study_program_item.dart';
-import '../features/association/models/teaching_offering_item.dart';
+import '../features/association/models/ministry_subject_item.dart';
 
 import 'auth_state.dart';
 import 'session_service.dart';
 
-class ApiService
+class ApiService 
 {
   static final ApiService _instance = ApiService._internal();
 
-  factory ApiService()
+  factory ApiService() 
   {
     return _instance;
   }
 
   late final Dio _dio;
-  late final Dio _tokenDio; // Istanza dedicata per il refresh del token
+  late final Dio _tokenDio;
 
   static String? _accessToken;
   static String? _refreshToken;
@@ -31,7 +31,7 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
-  ApiService._internal()
+  ApiService._internal() 
   {
     final options = BaseOptions(
       baseUrl: 'http://localhost:8000',
@@ -39,47 +39,40 @@ class ApiService
       receiveTimeout: const Duration(seconds: 10),
     );
 
-    // Inizializziamo entrambe le istanze
     _dio = Dio(options);
-    _tokenDio = Dio(options); // _tokenDio non avrà alcun interceptor!
+    _tokenDio = Dio(options);
 
     _dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler)
+        onRequest: (options, handler) 
         {
-          if (_accessToken != null)
+          if (_accessToken != null) 
           {
             options.headers['Authorization'] = 'Bearer $_accessToken';
           }
-
           return handler.next(options);
         },
-        onError: (error, handler) async
+        onError: (error, handler) async 
         {
           final statusCode = error.response?.statusCode;
 
-          // Se non è 401 o non abbiamo un refresh token, passiamo l'errore avanti
-          if (statusCode != 401 || _refreshToken == null)
+          if (statusCode != 401 || _refreshToken == null) 
           {
             return handler.next(error);
           }
 
-          // Evitiamo chiamate multiple di refresh in parallelo
-          if (_isRefreshing)
+          if (_isRefreshing) 
           {
             return handler.next(error);
           }
 
           _isRefreshing = true;
 
-          try
+          try 
           {
-            // Usiamo _tokenDio per evitare deadlock negli interceptor
             final refreshResponse = await _tokenDio.post(
               '/auth/refresh',
-              data: {
-                'refresh_token': _refreshToken,
-              },
+              data: {'refresh_token': _refreshToken},
             );
 
             final loginResponse = LoginResponse.fromJson(refreshResponse.data);
@@ -92,23 +85,19 @@ class ApiService
               refreshToken: loginResponse.refreshToken,
             );
 
-            // Riprova la richiesta fallita con il nuovo token
             final requestOptions = error.requestOptions;
             requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
 
             final retryResponse = await _dio.fetch(requestOptions);
-            
             return handler.resolve(retryResponse);
-          }
-          catch (_)
+          } 
+          catch (_) 
           {
-            // Se il refresh fallisce (es. refresh token scaduto/invalido), disconnettiamo l'utente
             await _clearSession();
             authState.value = AuthState.unauthenticated;
-            
             return handler.next(error);
-          }
-          finally
+          } 
+          finally 
           {
             _isRefreshing = false;
           }
@@ -117,12 +106,12 @@ class ApiService
     );
   }
 
-  bool get isAuthenticated
+  bool get isAuthenticated 
   {
     return _accessToken != null && _refreshToken != null;
   }
 
-  Future<void> _clearSession() async
+  Future<void> _clearSession() async 
   {
     _accessToken = null;
     _refreshToken = null;
@@ -130,33 +119,27 @@ class ApiService
     await SessionService.clear();
   }
 
-  Future<bool> restoreSession() async
+  Future<bool> restoreSession() async 
   {
     _accessToken = await SessionService.getAccessToken();
     _refreshToken = await SessionService.getRefreshToken();
 
-    if (_accessToken == null || _refreshToken == null)
+    if (_accessToken == null || _refreshToken == null) 
     {
       authState.value = AuthState.unauthenticated;
       return false;
     }
 
-    try
+    try 
     {
-      // Questo invocherà la /auth/me. 
-      // Se il token è scaduto, scatterà l'interceptor, che lo rinnoverà e riproverà la me() da solo.
       await me();
-      
       authState.value = AuthState.authenticated;
-      
       return true;
-    }
-    catch (_)
+    } 
+    catch (_) 
     {
-      // Se arriviamo qui, significa che sia la chiamata me() sia il tentativo di refresh sono falliti.
       await _clearSession();
       authState.value = AuthState.unauthenticated;
-      
       return false;
     }
   }
@@ -164,14 +147,11 @@ class ApiService
   Future<LoginResponse> login({
     required String username,
     required String password,
-  }) async
+  }) async 
   {
     final response = await _dio.post(
       '/auth/login',
-      data: {
-        'username': username,
-        'password': password,
-      },
+      data: {'username': username, 'password': password},
     );
 
     final loginResponse = LoginResponse.fromJson(response.data);
@@ -185,28 +165,22 @@ class ApiService
     );
 
     authState.value = AuthState.authenticated;
-
     return loginResponse;
   }
 
-  Future<void> logout() async
+  Future<void> logout() async 
   {
-    try
+    try 
     {
-      if (_refreshToken != null)
+      if (_refreshToken != null) 
       {
         await _tokenDio.post(
           '/auth/logout',
-          data: {
-            'refresh_token': _refreshToken,
-          },
+          data: {'refresh_token': _refreshToken},
         );
       }
-    }
-    catch (_)
-    {
-      // Ignora errori di rete durante il logout
-    }
+    } 
+    catch (_) {}
 
     await _clearSession();
     authState.value = AuthState.unauthenticated;
@@ -216,9 +190,9 @@ class ApiService
     required String currentPassword,
     required String newPassword,
     required String refreshToken,
-  }) async
+  }) async 
   {
-    try
+    try 
     {
       await _dio.post(
         '/auth/change-password',
@@ -228,8 +202,8 @@ class ApiService
           'refresh_token': refreshToken,
         },
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante il cambio password',
@@ -237,43 +211,33 @@ class ApiService
     }
   }
 
-  Future<void> requestPasswordReset({
-    required String email,
-  }) async
+  Future<void> requestPasswordReset({required String email}) async 
   {
-    try
+    try 
     {
-      await _dio.post(
-        '/auth/request-password-reset',
-        data: {
-          'email': email,
-        },
-      );
-    }
-    on DioException catch (e)
+      await _dio.post('/auth/request-password-reset', data: {'email': email});
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la richiesta di recupero password',
       );
     }
   }
-  
+
   Future<void> confirmPasswordReset({
     required String token,
     required String newPassword,
-  }) async
+  }) async 
   {
-    try
+    try 
     {
       await _dio.post(
         '/auth/reset-password',
-        data: {
-          'token': token,
-          'new_password': newPassword,
-        },
+        data: {'token': token, 'new_password': newPassword},
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password.',
@@ -281,29 +245,31 @@ class ApiService
     }
   }
 
-  Future<List<SubjectItem>> getSubjects() async
+  Future<List<AssociationSubjectItem>> getAssociationSubjects() async 
   {
-    final response = await _dio.get('/subjects/');
-    
-    return (response.data as List).map((e) => SubjectItem(
-      discipline: e['discipline'],
-      areas: List<String>.from(e['areas']),
-    )).toList();
+    final response = await _dio.get('/association-subjects/');
+
+    return (response.data as List)
+        .map((e) => AssociationSubjectItem.fromJson(e))
+        .toList();
   }
 
-  Future<void> createSubject(String discipline, List<String> areas) async
+  Future<AssociationSubjectItem> createAssociationSubject(
+    String name,
+    String area,
+    String description,
+  ) async 
   {
-    try
+    try 
     {
-      await _dio.post(
-        '/subjects/',
-        data: {
-          'discipline': discipline,
-          'areas': areas,
-        },
+      final response = await _dio.post(
+        '/association-subjects/',
+        data: {'name': name, 'area': area, 'description': description},
       );
-    }
-    on DioException catch (e)
+
+      return AssociationSubjectItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la creazione.',
@@ -311,19 +277,23 @@ class ApiService
     }
   }
 
-  Future<void> updateSubject(String oldDiscipline, String newDiscipline, List<String> areas) async
+  Future<AssociationSubjectItem> updateAssociationSubject(
+    int id,
+    String name,
+    String area,
+    String description,
+  ) async 
   {
-    try
+    try 
     {
-      await _dio.put(
-        '/subjects/$oldDiscipline',
-        data: {
-          'discipline': newDiscipline,
-          'areas': areas,
-        },
+      final response = await _dio.put(
+        '/association-subjects/$id',
+        data: {'name': name, 'area': area, 'description': description},
       );
-    }
-    on DioException catch (e)
+
+      return AssociationSubjectItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la modifica.',
@@ -331,13 +301,13 @@ class ApiService
     }
   }
 
-  Future<void> deleteSubject(String discipline) async
+  Future<void> deleteAssociationSubject(int id) async 
   {
-    try
+    try 
     {
-      await _dio.delete('/subjects/$discipline');
-    }
-    on DioException catch (e)
+      await _dio.delete('/association-subjects/$id');
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
@@ -345,31 +315,24 @@ class ApiService
     }
   }
 
-  Future<MeResponse> me() async
+  Future<MeResponse> me() async 
   {
     final response = await _dio.get('/auth/me');
-
-    return MeResponse.fromJson(
-      Map<String, dynamic>.from(response.data),
-    );
+    return MeResponse.fromJson(Map<String, dynamic>.from(response.data));
   }
 
-  Future<String> uploadProfileImage(List<int> bytes, String fileName) async
+  Future<String> uploadProfileImage(List<int> bytes, String fileName) async 
   {
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: fileName),
     });
 
-    try
+    try 
     {
-      final response = await _dio.post(
-        '/auth/profile-image',
-        data: formData,
-      );
-      
+      final response = await _dio.post('/auth/profile-image', data: formData);
       return response.data['profile_image_url'];
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante l\'upload dell\'immagine',
@@ -377,98 +340,142 @@ class ApiService
     }
   }
 
-  Future<List<SchoolItem>> getSchools() async
+  Future<List<SchoolItem>> getSchools() async 
   {
     final response = await _dio.get('/schools/');
-    
-    return (response.data as List).map((e) => SchoolItem(
-      mechanographicCode: e['mechanographic_code'],
-      name: e['name'],
-      city: e['city'],
-      province: e['province'],
-    )).toList();
+
+    return (response.data as List)
+        .map(
+          (e) => SchoolItem(
+            mechanographicCode: e['mechanographic_code'],
+            name: e['name'],
+            city: e['city'],
+            province: e['province'],
+            createdAt: DateTime.parse(e['created_at']),
+            studyPrograms: e['study_programs'] != null
+                ? (e['study_programs'] as List)
+                      .map(
+                        (p) => SchoolStudyProgramOption(
+                          id: p['id'],
+                          name: p['name'],
+                          level: p['level'] ?? '',
+                        ),
+                      )
+                      .toList()
+                : [],
+          ),
+        )
+        .toList();
   }
 
   Future<SchoolItem> createSchool({
+    required bool isPrivate,
     required String code,
     required String name,
     required String city,
     required String province,
-    required bool isPrivate,
-  }) async
+    required List<int> studyProgramIds,
+  }) async 
   {
-    try
+    try 
     {
       final response = await _dio.post(
         '/schools/',
         data: {
+          'is_private': isPrivate,
           'mechanographic_code': code,
           'name': name,
           'city': city,
           'province': province,
-          'is_private': isPrivate,
+          'study_program_ids': studyProgramIds,
         },
       );
-      
+
       return SchoolItem(
         mechanographicCode: response.data['mechanographic_code'],
         name: response.data['name'],
         city: response.data['city'],
         province: response.data['province'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        studyPrograms: response.data['study_programs'] != null
+            ? (response.data['study_programs'] as List)
+                  .map(
+                    (p) => SchoolStudyProgramOption(
+                      id: p['id'],
+                      name: p['name'],
+                      level: p['level'] ?? '',
+                    ),
+                  )
+                  .toList()
+            : [],
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
-        e.response?.data['detail'] ?? 'Errore durante la creazione.',
+        e.response?.data['detail'] ?? 'Errore durante la creazione della scuola.',
       );
     }
   }
 
   Future<SchoolItem> updateSchool({
     required String oldCode,
+    required bool isPrivate,
     required String newCode,
     required String name,
     required String city,
     required String province,
-    required bool isPrivate,
-  }) async
+    required List<int> studyProgramIds,
+  }) async 
   {
-    try
+    try 
     {
       final response = await _dio.put(
         '/schools/$oldCode',
         data: {
+          'is_private': isPrivate,
           'mechanographic_code': newCode,
           'name': name,
           'city': city,
           'province': province,
-          'is_private': isPrivate,
+          'study_program_ids': studyProgramIds,
         },
       );
-      
+
       return SchoolItem(
         mechanographicCode: response.data['mechanographic_code'],
         name: response.data['name'],
         city: response.data['city'],
         province: response.data['province'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        studyPrograms: response.data['study_programs'] != null
+            ? (response.data['study_programs'] as List)
+                  .map(
+                    (p) => SchoolStudyProgramOption(
+                      id: p['id'],
+                      name: p['name'],
+                      level: p['level'] ?? '',
+                    ),
+                  )
+                  .toList()
+            : [],
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
-        e.response?.data['detail'] ?? 'Errore durante la modifica.',
+        e.response?.data['detail'] ?? 'Errore durante la modifica della scuola.',
       );
     }
   }
 
-  Future<void> deleteSchool(String code) async
+  Future<void> deleteSchool(String code) async 
   {
-    try
+    try 
     {
       await _dio.delete('/schools/$code');
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola.',
@@ -484,12 +491,29 @@ class ApiService
       id: e['id'],
       name: e['name'],
       description: e['description'] ?? '',
+      level: e['level'],
+      minYear: e['min_year'],
+      maxYear: e['max_year'],
+      createdAt: DateTime.parse(e['created_at']),
+      ministrySubjects: e['ministry_subjects'] != null 
+          ? (e['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
+              id: m['id'],
+              name: m['name'],
+              associationSubjects: m['association_subjects'] != null 
+                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(id: a['id'], name: a['name'])).toList()
+                  : []
+            )).toList()
+          : [],
     )).toList();
   }
 
   Future<StudyProgramItem> createStudyProgram({
     required String name,
     required String description,
+    required String level,
+    required int minYear,
+    required int maxYear,
+    required List<int> ministrySubjectIds,
   }) async
   {
     try
@@ -499,6 +523,10 @@ class ApiService
         data: {
           'name': name,
           'description': description,
+          'level': level,
+          'min_year': minYear,
+          'max_year': maxYear,
+          'ministry_subject_ids': ministrySubjectIds,
         },
       );
       
@@ -506,6 +534,19 @@ class ApiService
         id: response.data['id'],
         name: response.data['name'],
         description: response.data['description'] ?? '',
+        level: response.data['level'],
+        minYear: response.data['min_year'],
+        maxYear: response.data['max_year'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        ministrySubjects: response.data['ministry_subjects'] != null 
+          ? (response.data['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
+              id: m['id'],
+              name: m['name'],
+              associationSubjects: m['association_subjects'] != null 
+                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(id: a['id'], name: a['name'])).toList()
+                  : []
+            )).toList()
+          : [],
       );
     }
     on DioException catch (e)
@@ -520,6 +561,10 @@ class ApiService
     required int id,
     required String name,
     required String description,
+    required String level,
+    required int minYear,
+    required int maxYear,
+    required List<int> ministrySubjectIds,
   }) async
   {
     try
@@ -529,6 +574,10 @@ class ApiService
         data: {
           'name': name,
           'description': description,
+          'level': level,
+          'min_year': minYear,
+          'max_year': maxYear,
+          'ministry_subject_ids': ministrySubjectIds,
         },
       );
       
@@ -536,6 +585,19 @@ class ApiService
         id: response.data['id'],
         name: response.data['name'],
         description: response.data['description'] ?? '',
+        level: response.data['level'],
+        minYear: response.data['min_year'],
+        maxYear: response.data['max_year'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        ministrySubjects: response.data['ministry_subjects'] != null 
+          ? (response.data['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
+              id: m['id'],
+              name: m['name'],
+              associationSubjects: m['association_subjects'] != null 
+                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(id: a['id'], name: a['name'])).toList()
+                  : []
+            )).toList()
+          : [],
       );
     }
     on DioException catch (e)
@@ -560,86 +622,73 @@ class ApiService
     }
   }
 
-  Future<OfferingOptions> getOfferingOptions() async
+  Future<List<MinistrySubjectItem>> getMinistrySubjects() async 
   {
-    final response = await _dio.get('/teaching-offerings/options');
-    
-    return OfferingOptions(
-      schools: (response.data['schools'] as List).map((e) => SchoolOption(
-        mechanographicCode: e['mechanographic_code'],
-        name: e['name'],
-      )).toList(),
-      studyPrograms: (response.data['study_programs'] as List).map((e) => StudyProgramOption(
-        id: e['id'],
-        name: e['name'],
-      )).toList(),
-      subjects: (response.data['subjects'] as List).map((e) => SubjectOption(
-        id: e['id'],
-        discipline: e['discipline'],
-        specialization: e['specialization'],
-      )).toList(),
-    );
+    final response = await _dio.get('/ministry-subjects/');
+
+    return (response.data as List)
+        .map(
+          (e) => MinistrySubjectItem(
+            id: e['id'],
+            name: e['name'],
+            level: e['level'],
+            area: e['area'],
+            description: e['description'],
+            createdAt: DateTime.parse(e['created_at']),
+            associationSubjects: e['association_subjects'] != null
+                ? (e['association_subjects'] as List)
+                      .map(
+                        (a) => AssociationSubjectOption(
+                          id: a['id'],
+                          name: a['name'],
+                        ),
+                      )
+                      .toList()
+                : [],
+          ),
+        )
+        .toList();
   }
 
-  Future<List<TeachingOfferingItem>> getTeachingOfferings() async
-  {
-    final response = await _dio.get('/teaching-offerings/');
-    
-    return (response.data as List).map((e) => TeachingOfferingItem(
-      id: e['id'],
-      schoolCode: e['school_mechanographic_code'],
-      schoolName: e['school_name'],
-      studyProgramId: e['study_program_id'],
-      studyProgramName: e['study_program_name'],
-      level: e['level'],
-      years: List<int>.from(e['years']),
-      subjectIds: List<int>.from(e['subject_ids']),
-      subjects: (e['subjects'] as List).map((s) => SubjectOption(
-        id: s['id'],
-        discipline: s['discipline'],
-        specialization: s['specialization'],
-      )).toList(),
-    )).toList();
-  }
-
-  Future<TeachingOfferingItem> createTeachingOffering({
-    required String schoolCode,
-    required int studyProgramId,
+  Future<MinistrySubjectItem> createMinistrySubject({
+    required String name,
     required String level,
-    required List<int> years,
-    required List<int> subjectIds,
-  }) async
+    required String area,
+    required String description,
+    required List<int> associationSubjectIds,
+  }) async 
   {
-    try
+    try 
     {
       final response = await _dio.post(
-        '/teaching-offerings/',
+        '/ministry-subjects/',
         data: {
-          'school_mechanographic_code': schoolCode,
-          'study_program_id': studyProgramId,
+          'name': name,
           'level': level,
-          'years': years,
-          'subject_ids': subjectIds,
+          'area': area,
+          'description': description,
+          'association_subject_ids': associationSubjectIds,
         },
       );
-      
-      return TeachingOfferingItem(
+
+      return MinistrySubjectItem(
         id: response.data['id'],
-        schoolCode: response.data['school_mechanographic_code'],
-        schoolName: response.data['school_name'],
-        studyProgramId: response.data['study_program_id'],
-        studyProgramName: response.data['study_program_name'],
+        name: response.data['name'],
         level: response.data['level'],
-        years: List<int>.from(response.data['years']),
-        subjectIds: List<int>.from(response.data['subject_ids']),
-        subjects: (response.data['subjects'] as List).map((s) => SubjectOption(
-          id: s['id'],
-          discipline: s['discipline'],
-          specialization: s['specialization'],
-        )).toList(),
+        area: response.data['area'],
+        description: response.data['description'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        associationSubjects: response.data['association_subjects'] != null
+            ? (response.data['association_subjects'] as List)
+                  .map(
+                    (a) =>
+                        AssociationSubjectOption(id: a['id'], name: a['name']),
+                  )
+                  .toList()
+            : [],
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la creazione.',
@@ -647,62 +696,63 @@ class ApiService
     }
   }
 
-  Future<void> deleteTeachingOffering(int id) async
-  {
-    try
-    {
-      await _dio.delete('/teaching-offerings/$id');
-    }
-    on DioException catch (e)
-    {
-      throw Exception(
-        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
-      );
-    }
-  }
-  
-  Future<TeachingOfferingItem> updateTeachingOffering({
+  Future<MinistrySubjectItem> updateMinistrySubject({
     required int id,
-    required String schoolCode,
-    required int studyProgramId,
+    required String name,
     required String level,
-    required List<int> years,
-    required List<int> subjectIds,
-  }) async
+    required String area,
+    required String description,
+    required List<int> associationSubjectIds,
+  }) async 
   {
-    try
+    try 
     {
       final response = await _dio.put(
-        '/teaching-offerings/$id',
+        '/ministry-subjects/$id',
         data: {
-          'school_mechanographic_code': schoolCode,
-          'study_program_id': studyProgramId,
+          'name': name,
           'level': level,
-          'years': years,
-          'subject_ids': subjectIds,
+          'area': area,
+          'description': description,
+          'association_subject_ids': associationSubjectIds,
         },
       );
-      
-      return TeachingOfferingItem(
+
+      return MinistrySubjectItem(
         id: response.data['id'],
-        schoolCode: response.data['school_mechanographic_code'],
-        schoolName: response.data['school_name'],
-        studyProgramId: response.data['study_program_id'],
-        studyProgramName: response.data['study_program_name'],
+        name: response.data['name'],
         level: response.data['level'],
-        years: List<int>.from(response.data['years']),
-        subjectIds: List<int>.from(response.data['subject_ids']),
-        subjects: (response.data['subjects'] as List).map((s) => SubjectOption(
-          id: s['id'],
-          discipline: s['discipline'],
-          specialization: s['specialization'],
-        )).toList(),
+        area: response.data['area'],
+        description: response.data['description'],
+        createdAt: DateTime.parse(response.data['created_at']),
+        associationSubjects: response.data['association_subjects'] != null
+            ? (response.data['association_subjects'] as List)
+                  .map(
+                    (a) =>
+                        AssociationSubjectOption(id: a['id'], name: a['name']),
+                  )
+                  .toList()
+            : [],
       );
-    }
-    on DioException catch (e)
+    } 
+    on DioException catch (e) 
     {
       throw Exception(
         e.response?.data['detail'] ?? 'Errore durante la modifica.',
+      );
+    }
+  }
+
+  Future<void> deleteMinistrySubject(int id) async 
+  {
+    try 
+    {
+      await _dio.delete('/ministry-subjects/$id');
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(
+        e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.',
       );
     }
   }

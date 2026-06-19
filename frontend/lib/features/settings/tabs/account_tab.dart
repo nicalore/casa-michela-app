@@ -200,7 +200,7 @@ class _AccountTabState extends State<AccountTab>
                     SizedBox(
                       width: 140,
                       child: Text(
-                        'Username',
+                        'Nome utente',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
