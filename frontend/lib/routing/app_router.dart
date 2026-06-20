@@ -12,6 +12,7 @@ import '../features/settings/settings_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../shared/widgets/casa_michela_loader.dart';
+import '../features/people/people_page.dart';
 
 final apiService = ApiService();
 
@@ -95,37 +96,32 @@ CustomTransitionPage _buildLogoTransitionPage({
 }
 
 final appRouter = GoRouter(
-  initialLocation: '/dashboard', // Modificato per non puntare più alla '/' inesistente
+  initialLocation: '/dashboard',
   refreshListenable: apiService.authState,
   redirect: (context, state)
   {
     final authState = apiService.authState.value;
     final path = state.uri.path;
 
-    // Rotte pubbliche accessibili a chiunque
+    //Rotte pubbliche accessibili a chiunque
     final isPublicRoute = path == '/login' || path == '/reset-password';
 
     if (authState == AuthState.unauthenticated)
     {
-      // L'utente non è loggato: se prova ad accedere a rotte pubbliche lo lasciamo fare
       if (isPublicRoute)
       {
         return null;
       }
       
-      // Altrimenti lo rimandiamo al login
       return '/login';
     }
 
     if (authState == AuthState.authenticated)
     {
-      // L'utente è loggato: gli impediamo di vedere login e reset password
       if (isPublicRoute || path == '/')
       {
         return '/dashboard';
       }
-      
-      // Altrimenti può navigare liberamente
       return null;
     }
 
@@ -196,7 +192,6 @@ final appRouter = GoRouter(
       path: '/reset-password',
       pageBuilder: (context, state)
       {
-        // Ora questo token arriverà sempre intatto!
         final token = state.uri.queryParameters['token'];
 
         if (token == null || token.isEmpty)
@@ -212,6 +207,13 @@ final appRouter = GoRouter(
           child: ResetPasswordPage(token: token),
         );
       },
+    ),
+    GoRoute(
+      path: '/people',
+      pageBuilder: (context, state) => _buildLogoTransitionPage(
+        key: state.pageKey,
+        child: const PeoplePage(),
+      ),
     ),
   ],
 );

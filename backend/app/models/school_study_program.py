@@ -18,6 +18,7 @@ from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.school import School
+    from app.models.school_enrollment import SchoolEnrollment
     from app.models.study_program import StudyProgram
 
 
@@ -40,7 +41,7 @@ class SchoolStudyProgram(Base):
     )
 
     school_mechanographic_code: Mapped[str] = mapped_column(
-        String(255),
+        String(20), 
         ForeignKey(
             "schools.mechanographic_code",
             ondelete="CASCADE",
@@ -54,4 +55,9 @@ class SchoolStudyProgram(Base):
 
     school: Mapped[School] = relationship(
         back_populates="school_study_programs",
+    )
+
+    school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
+        back_populates="school_study_program",
+        cascade="all, delete-orphan",
     )

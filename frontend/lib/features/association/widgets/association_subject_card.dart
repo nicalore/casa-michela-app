@@ -186,7 +186,7 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
                   children: [
                     _buildFieldLabel('Nome Disciplina'),
                     Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-                    _buildFieldLabel('Area di appartenenza'),
+                    _buildFieldLabel('Area'),
                     Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
                     _buildFieldLabel('Descrizione'),
                     Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),

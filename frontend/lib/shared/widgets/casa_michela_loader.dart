@@ -11,7 +11,7 @@ class CasaMichelaLoader extends StatelessWidget
   Widget build(BuildContext context)
   {
     final screenWidth = MediaQuery.of(context).size.width;
-    final double logoSize    = screenWidth > 500 ? 400.0 : screenWidth * 0.8;
+    final double logoSize = screenWidth > 500 ? 400.0 : screenWidth * 0.8;
 
     Widget loaderContent = Center(
       child: SizedBox(

@@ -399,7 +399,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                 CustomChip(label: 'Secondaria di II Grado', isSelected: _selectedLevel == 'HIGH_SCHOOL', onSelected: (v) => setState(() => _selectedLevel = v ? 'HIGH_SCHOOL' : null)),
               ],
             ),
-            _buildFieldLabel('Area di appartenenza'),
+            _buildFieldLabel('Area'),
             Wrap(
               spacing: 12, runSpacing: 12,
               children: [

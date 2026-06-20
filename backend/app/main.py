@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import (
     association_subjects,
     ministry_subjects,
+    people,
     schools,
     study_programs,
 )
@@ -37,6 +38,7 @@ app.include_router(association_subjects.router)
 app.include_router(schools.router)
 app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
+app.include_router(people.router, prefix="/people", tags=["people"])
 
 @app.get("/health")
 def health_check():

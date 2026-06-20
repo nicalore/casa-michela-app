@@ -235,7 +235,10 @@ class _DashboardLayoutState extends State<DashboardLayout>
                 title: 'Persone',
                 subtitle: 'Gestisci membri e profili',
                 icon: Icons.groups_outlined,
-                onTap: () {},
+                onTap: ()
+                {
+                  context.go('/people');
+                },
               ),
             ),
             Positioned(

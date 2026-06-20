@@ -26,7 +26,6 @@ from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.school import School
-    from app.models.school_enrollment import SchoolEnrollment
     from app.models.school_study_program import SchoolStudyProgram
     from app.models.study_program_subject import StudyProgramSubject
     from app.models.teaching_competence import TeachingCompetence
@@ -129,10 +128,6 @@ class StudyProgram(Base):
         cascade="all, delete-orphan",
     )
 
-    school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
-        back_populates="study_program",
-    )
-
     study_program_subjects: Mapped[list[StudyProgramSubject]] = relationship(
         back_populates="study_program",
         cascade="all, delete-orphan",
@@ -152,6 +147,6 @@ class StudyProgram(Base):
     # Relazione viewonly verso le scuole
     schools: Mapped[list[School]] = relationship(
         "School",
-        secondary="school_study_programs", # NOME CORRETTO DELLA TABELLA PONTE
+        secondary="school_study_programs",
         viewonly=True
     )

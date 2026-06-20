@@ -293,7 +293,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
                       _buildFieldLabel('Nome'),
                       TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Storia dell\'Arte', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
                       const SizedBox(height: 16),
-                      _buildFieldLabel('Area di appartenenza'),
+                      _buildFieldLabel('Area'),
                       Wrap(
                         spacing: 12, runSpacing: 12,
                         children: [

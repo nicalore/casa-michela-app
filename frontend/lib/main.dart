@@ -6,14 +6,9 @@ import 'services/api_service.dart';
 
 void main() async 
 {
-  // Obbligatorio per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Rimuove il '#' dagli URL
   usePathUrlStrategy();
-
-  // Ripristina la sessione PRIMA di avviare l'interfaccia grafica.
-  // Durante questa frazione di secondo, il web mostrerà il loader nativo di index.html
   await ApiService().restoreSession();
 
   runApp(const CasaMichelaApp());

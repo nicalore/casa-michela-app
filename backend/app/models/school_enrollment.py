@@ -5,7 +5,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
+    String,
     UniqueConstraint,
     event,
 )
@@ -19,8 +21,8 @@ from sqlalchemy.orm import (
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.school_study_program import SchoolStudyProgram
     from app.models.student import Student
-    from app.models.study_program import StudyProgram
 
 
 class SchoolEnrollment(Base):
@@ -39,6 +41,12 @@ class SchoolEnrollment(Base):
         CheckConstraint(
             "grade > 0",
             name="positive_grade",
+        ),
+        # Chiave esterna composita verso la tabella ponte
+        ForeignKeyConstraint(
+            ["study_program_id", "school_mechanographic_code"],
+            ["school_study_programs.study_program_id", "school_study_programs.school_mechanographic_code"],
+            ondelete="RESTRICT",
         ),
     )
 
@@ -67,19 +75,20 @@ class SchoolEnrollment(Base):
     )
 
     study_program_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "study_programs.id",
-            ondelete="RESTRICT",
-        ),
+        Integer,
         nullable=False,
-        index=True,
+    )
+
+    school_mechanographic_code: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
     )
 
     student: Mapped[Student] = relationship(
         back_populates="school_enrollments",
     )
 
-    study_program: Mapped[StudyProgram] = relationship(
+    school_study_program: Mapped[SchoolStudyProgram] = relationship(
         back_populates="school_enrollments",
     )
 
@@ -90,22 +99,24 @@ def _validate_school_enrollments(
     _flush_context: object,
     _instances: object,
 ) -> None:
-    from app.models.study_program import StudyProgram
+    from app.models.school_study_program import SchoolStudyProgram
 
     for obj in session.new.union(session.dirty):
         if not isinstance(obj, SchoolEnrollment):
             continue
 
-        program = obj.study_program
+        ssp = obj.school_study_program
 
-        if program is None:
-            program = session.get(
-                StudyProgram,
-                obj.study_program_id,
+        if ssp is None:
+            ssp = session.get(
+                SchoolStudyProgram,
+                (obj.study_program_id, obj.school_mechanographic_code),
             )
 
-        if program is None:
+        if ssp is None or ssp.study_program is None:
             continue
+
+        program = ssp.study_program
 
         if not (program.min_year <= obj.grade <= program.max_year):
             raise ValueError(

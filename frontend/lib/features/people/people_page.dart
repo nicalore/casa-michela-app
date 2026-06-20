@@ -6,110 +6,36 @@ import '../../core/constants/app_dimensions.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_custom_tab_bar.dart';
 
-import 'tabs/schools_tab.dart';
-import 'tabs/study_programs_tab.dart';
-import 'tabs/association_subjects_tab.dart';
-import 'tabs/ministry_subjects_tab.dart';
+import 'tabs/people_search_tab.dart';
+import 'tabs/people_statistics_tab.dart';
 
-class AssociationPage extends StatefulWidget 
+class PeoplePage extends StatefulWidget 
 {
-  const AssociationPage({super.key});
+  const PeoplePage({super.key});
 
   @override
-  State<AssociationPage> createState() => _AssociationPageState();
+  State<PeoplePage> createState() => _PeoplePageState();
 }
 
-class _AssociationPageState extends State<AssociationPage> 
+class _PeoplePageState extends State<PeoplePage> 
 {
   int _mainSelectedTab = 0;
-  int _didatticaSelectedTab = 0;
 
-  final List<String> _mainTabs = ['Scuole', 'Didattica'];
-
-  final List<String> _didatticaTabs = [
-    'Discipline interne',
-    'Materie ministeriali',
-    'Percorsi di studio',
-  ];
-
-  Widget _buildSubNavigation() 
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
-      child: Row(
-        children: List.generate(_didatticaTabs.length, (index) 
-        {
-          final isSelected = _didatticaSelectedTab == index;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () 
-                {
-                  setState(() 
-                  {
-                    _didatticaSelectedTab = index;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF003C82)
-                          : const Color(0xFFE2E8F0),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF64748B),
-                    ),
-                    child: Text(_didatticaTabs[index]),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
+  final List<String> _mainTabs = ['Ricerca', 'Statistiche'];
 
   Widget _buildTabContent() 
   {
     if (_mainSelectedTab == 0) 
     {
-      return const SchoolsTab();
+      return const PeopleSearchTab();
     }
 
-    switch (_didatticaSelectedTab) 
+    if (_mainSelectedTab == 1) 
     {
-      case 0:
-        return const AssociationSubjectsTab();
-      case 1:
-        return const MinistrySubjectsTab();
-      case 2:
-        return const StudyProgramsTab();
-      default:
-        return const SizedBox();
+      return const PeopleStatisticsTab();
     }
+
+    return const SizedBox();
   }
 
   @override
@@ -125,6 +51,7 @@ class _AssociationPageState extends State<AssociationPage>
 
           return Container(
             width: width,
+            height: height,
             color: const Color(0xFFF4F7F9),
             child: Stack(
               children: [
@@ -254,7 +181,7 @@ class _AssociationPageState extends State<AssociationPage>
                               ),
                               child: Center(
                                 child: Text(
-                                  'Associazione',
+                                  'Persone',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 30,
                                     fontWeight: FontWeight.w500,
@@ -278,18 +205,10 @@ class _AssociationPageState extends State<AssociationPage>
                           },
                           maxWidth: viewportWidth - 80,
                         ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCirc,
-                          alignment: Alignment.topCenter,
-                          child: _mainSelectedTab == 1
-                              ? _buildSubNavigation()
-                              : const SizedBox(
-                                  height: 24,
-                                  width: double.infinity,
-                                ),
+                        const SizedBox(height: 24),
+                        Expanded(
+                          child: _buildTabContent(),
                         ),
-                        _buildTabContent(),
                       ],
                     ),
                   ),
