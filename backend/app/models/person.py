@@ -147,6 +147,20 @@ class Person(Base):
             "length(trim(residence_city)) > 0",
             name="residence_city_not_blank",
         ),
+        CheckConstraint(
+            """
+            profile_image_url IS NULL
+            OR length(trim(profile_image_url)) > 0
+            """,
+            name="profile_image_url_not_blank",
+        ),
+        CheckConstraint(
+            """
+            profile_image_url IS NULL
+            OR profile_image_url ~ '^https?://'
+            """,
+            name="profile_image_url_format",
+        ),
         *no_surrounding_whitespace_constraints(
             "tax_code",
             "first_name",
@@ -161,6 +175,7 @@ class Person(Base):
             "residence_city",
             "residence_province",
             "postal_code",
+            "profile_image_url",
         ),
     )
 
@@ -241,6 +256,11 @@ class Person(Base):
     postal_code: Mapped[str] = mapped_column(
         String(5),
         nullable=False,
+    )
+
+    profile_image_url: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

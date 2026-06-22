@@ -133,7 +133,7 @@ async def me(current_account: CurrentAccount, db: DbSession):
         "first_name": person.first_name,
         "last_name": person.last_name,
         "full_name": f"{person.first_name} {person.last_name}",
-        "profile_image_url": account.profile_image_url,
+        "profile_image_url": account.person.profile_image_url if account.person else None,
         "available_roles": roles,
         "active_role": active_role,
         "status": account.status,
@@ -185,7 +185,7 @@ async def upload_profile_image(
         output.write(content)
         
     profile_image_url = f"/uploads/profile-images/{filename}"
-    current_account.profile_image_url = profile_image_url
+    current_account.person.profile_image_url = profile_image_url
 
     await db.commit()
     return {"profile_image_url": profile_image_url}  

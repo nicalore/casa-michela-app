@@ -54,7 +54,7 @@ class PersonItem
       lastName:                  json['last_name'] ?? '',
       roles:                     (json['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       createdAt:                 DateTime.parse(json['created_at']),
-      profileImageUrl:           json['profile_image_url'],
+      profileImageUrl:           json['profile_image_url'], 
       city:                      json['city'],
       birthDate:                 json['birth_date'] != null ? DateTime.parse(json['birth_date']) : null,
       childrenCount:             json['children_count'],

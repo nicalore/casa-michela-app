@@ -122,7 +122,6 @@ class StudyProgram(Base):
         nullable=False,
     )
 
-    # Relazione verso la tabella ponte
     school_study_programs: Mapped[list[SchoolStudyProgram]] = relationship(
         back_populates="study_program",
         cascade="all, delete-orphan",
@@ -144,7 +143,6 @@ class StudyProgram(Base):
         backref="study_programs"
     )
 
-    # Relazione viewonly verso le scuole
     schools: Mapped[list[School]] = relationship(
         "School",
         secondary="school_study_programs",

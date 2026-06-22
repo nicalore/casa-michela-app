@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -38,6 +39,16 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   final TextEditingController _courseTypeController   = TextEditingController();
   final ScrollController      _scrollController       = ScrollController();
 
+  final List<String> _availableRoles = [
+    'Amministratore',
+    'Docente',
+    'Psicologo',
+    'Genitore',
+    'Solo associato',
+    'Studente',
+    'Corsista',
+  ];
+
   @override
   void initState() 
   {
@@ -61,39 +72,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     _courseTypeController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  List<String> get _currentAvailableRoles 
-  {
-    final cat = _currentState.selectedCategory;
-    if (cat == 'Staff') return ['Amministratore', 'Docente', 'Psicologo'];
-    if (cat == 'Associati non staff') return ['Asociato', 'Studente', 'Corsista'];
-    if (cat == 'Tutti gli associati') return ['Amministratore', 'Docente', 'Psicologo', 'Associato', 'Studente', 'Corsista'];
-    
-    return ['Amministratore', 'Docente', 'Psicologo', 'Genitore', 'Associato', 'Studente', 'Corsista'];
-  }
-
-  void _onCategoryChanged(String? newCategory) 
-  {
-    setState(() 
-    {
-      if (newCategory == null) 
-      {
-        _currentState = _currentState.copyWith(clearCategory: true);
-      } 
-      else 
-      {
-        _currentState = _currentState.copyWith(selectedCategory: newCategory);
-      }
-
-      final validRoles   = _currentAvailableRoles;
-      final updatedRoles = _currentState.selectedRoles.where((r) => validRoles.contains(r)).toList();
-      
-      _currentState = _currentState.copyWith(
-        selectedRoles: updatedRoles, 
-        clearRoles:    updatedRoles.isEmpty,
-      );
-    });
   }
 
   void _toggleRole(String role, bool isSelected) 
@@ -251,7 +229,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     final roles = _currentState.selectedRoles;
     
     final bool showParentFilters    = roles.contains('Genitore');
-    final bool showAssociateFilters = roles.isEmpty || roles.any((r) => r != 'Genitore');
+    // Mostra filtri associato solo se c'è almeno un ruolo selezionato e se c'è un ruolo diverso da Genitore
+    final bool showAssociateFilters = roles.isNotEmpty && roles.any((r) => r != 'Genitore');
     final bool showStudentFilters   = roles.contains('Studente');
     final bool showStaffFilters     = roles.any((r) => ['Amministratore', 'Docente', 'Psicologo'].contains(r));
     final bool showTeacherFilters   = roles.contains('Docente');
@@ -318,24 +297,11 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildFieldLabel('Categoria Ruolo'),
-                        _DialogDropdownMenu<String?>(
-                          hint:    'Qualsiasi',
-                          value:   _currentState.selectedCategory,
-                          options: [
-                            _DropdownOption(value: null, label: 'Qualsiasi'),
-                            _DropdownOption(value: 'Tutti gli associati', label: 'Tutti gli associati'),
-                            _DropdownOption(value: 'Associati non staff', label: 'Associati non staff'),
-                            _DropdownOption(value: 'Staff', label: 'Staff'),
-                          ],
-                          onChanged: _onCategoryChanged,
-                        ),
-
-                        _buildFieldLabel('Ruoli specifici'),
+                        _buildFieldLabel('Ruoli'),
                         Wrap(
                           spacing:    10,
                           runSpacing: 10,
-                          children: _currentAvailableRoles.map((role) 
+                          children: _availableRoles.map((role) 
                           {
                             return CustomChip(
                               label:      role,

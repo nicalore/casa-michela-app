@@ -255,7 +255,7 @@ class _HoverableProgramChipState extends State<_HoverableProgramChip>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(color: _isHovering ? const Color(0xFFE2E8F0) : const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E5EC))),
-          child: Text(widget.name, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+          child: Text(widget.name, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
         ),
       ),
     );

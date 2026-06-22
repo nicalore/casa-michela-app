@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/utils/role_label_mapper.dart';
 import '../models/person_item.dart';
 
 class PersonCard extends StatefulWidget 
@@ -30,35 +31,58 @@ class _PersonCardState extends State<PersonCard>
       child: Text(
         initials,
         style: GoogleFonts.plusJakartaSans(
-          fontSize:   22,
+          fontSize:   26,
           fontWeight: FontWeight.w700,
           color:      const Color(0xFF64748B),
         ),
       ),
     );
 
+    String? imageUrl = widget.person.profileImageUrl?.trim();
+    
+    //Add backend base URL for relative paths
+    if (imageUrl != null && imageUrl.startsWith('/')) 
+    {
+      const String backendBaseUrl = 'http://127.0.0.1:8000'; 
+      imageUrl = '$backendBaseUrl$imageUrl';
+    }
+
+    final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
+
     return Container(
-      width:  68,
-      height: 68,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE2E8F0),
-        shape: BoxShape.circle,
+      width:  80,
+      height: 80,
+      decoration: BoxDecoration(
+        color:  const Color(0xFFE2E8F0),
+        shape:  BoxShape.circle,
+        border: Border.all(
+          color: const Color(0xFF003C82),
+          width: 2.5,
+        ),
       ),
-      clipBehavior: Clip.hardEdge,
-      child: widget.person.profileImageUrl != null
-          ? Image.network(
-              widget.person.profileImageUrl!,
-              fit: BoxFit.cover,
-              // Se il caricamento fallisce (CORS, 404, connessione persa) mostra le iniziali
-              errorBuilder: (context, error, stackTrace) => fallbackWidget,
-            )
-          : fallbackWidget,
+      //Clip content exactly inside the border bounds
+      child: ClipOval(
+        child: hasImage
+            ? Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) 
+                {
+                  //Log failure and return fallback UI
+                  debugPrint('Errore caricamento immagine per ${widget.person.firstName}: $error');
+                  return fallbackWidget;
+                },
+              )
+            : fallbackWidget,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) 
   {
+    final processedRoles = RoleLabelMapper.processRoles(widget.person.roles);
+
     return MouseRegion(
       cursor:  SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
@@ -66,11 +90,11 @@ class _PersonCardState extends State<PersonCard>
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration:   const Duration(milliseconds: 180),
-          curve:      Curves.easeOut,
-          width:      380,
+          duration:    const Duration(milliseconds: 180),
+          curve:       Curves.easeOut,
+          width:       380,
           constraints: const BoxConstraints(minHeight: 140),
-          padding:    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding:     const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           decoration: BoxDecoration(
             color:        Colors.white,
             borderRadius: BorderRadius.circular(30),
@@ -89,13 +113,11 @@ class _PersonCardState extends State<PersonCard>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Avatar gestito dal metodo helper
               _buildAvatar(),
               const SizedBox(width: 16),
-              // Dettagli
               Expanded(
                 child: Column(
-                  mainAxisSize:      MainAxisSize.min,
+                  mainAxisSize:       MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -103,7 +125,7 @@ class _PersonCardState extends State<PersonCard>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize:   18,
+                        fontSize:   20,
                         fontWeight: FontWeight.w700,
                         color:      const Color(0xFF003C82),
                         height:     1.1,
@@ -113,7 +135,7 @@ class _PersonCardState extends State<PersonCard>
                     Wrap(
                       spacing:    6,
                       runSpacing: 6,
-                      children: widget.person.roles.map((role) 
+                      children: processedRoles.map((role) 
                       {
                         return Container(
                           padding: const EdgeInsets.symmetric(

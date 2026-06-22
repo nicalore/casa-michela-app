@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -39,6 +41,9 @@ app.include_router(schools.router)
 app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
 app.include_router(people.router, prefix="/people", tags=["people"])
+
+os.makedirs("uploads/profile-images", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/health")
 def health_check():

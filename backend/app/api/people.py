@@ -1,9 +1,7 @@
 from datetime import date, datetime
-from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from ..models.member import Member
@@ -13,8 +11,10 @@ from ..models.school_enrollment import SchoolEnrollment
 from ..models.school_study_program import SchoolStudyProgram
 from ..models.staff import Staff
 from ..models.student import Student
+from ..models.teacher import Teacher
+from ..models.teaching_competence import TeachingCompetence
 from ..schemas.person import PersonResponse
-from .dependencies import get_db
+from .dependencies import DbSession
 
 router = APIRouter()
 
@@ -45,12 +45,11 @@ def _roman_numeral(num: int) -> str:
     return roman_map.get(num, str(num))
 
 @router.get("/", response_model=list[PersonResponse])
-async def get_people(db: Annotated[AsyncSession, Depends(get_db)]):
+async def get_people(db: DbSession):
     """
     Recupera l'elenco di tutte le persone, i loro ruoli e i metadati per i filtri.
     """
     
-    # Costruiamo la query asincrona
     stmt = (
         select(Person)
         .options(
@@ -71,15 +70,17 @@ async def get_people(db: Annotated[AsyncSession, Depends(get_db)]):
                 .joinedload(SchoolEnrollment.school_study_program)
                 .joinedload(SchoolStudyProgram.study_program),
             
-            # Caricamento per lo staff
+            # Caricamento per lo staff e le competenze dei docenti
             joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.administrator_profile),
-            joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.teacher_profile),
+            joinedload(Person.member_profile)
+                .joinedload(Member.staff_profile)
+                .joinedload(Staff.teacher_profile)
+                .joinedload(Teacher.teaching_competences)
+                .joinedload(TeachingCompetence.association_subject),
             joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.psychologist_profile),
         )
     )
     
-    # Eseguiamo la query in modo asincrono. 
-    # unique() è obbligatorio quando si usano i joinedload sulle collection
     result = await db.execute(stmt)
     people = result.unique().scalars().all()
     
@@ -99,6 +100,8 @@ async def get_people(db: Annotated[AsyncSession, Depends(get_db)]):
         school_class = None
         study_program = None
         early_exit = None
+        
+        taught_subjects_list = []
         
         if p.parent_profile is not None:
             roles.append('Genitore')
@@ -145,12 +148,20 @@ async def get_people(db: Annotated[AsyncSession, Depends(get_db)]):
                 
                 if staff.administrator_profile is not None:
                     roles.append('Amministratore')
+                    
                 if staff.teacher_profile is not None:
                     roles.append('Docente')
+                    # Estrazione univoca delle materie insegnate
+                    subjects_set = set()
+                    for comp in staff.teacher_profile.teaching_competences:
+                        if comp.association_subject:
+                            subjects_set.add(comp.association_subject.name)
+                    taught_subjects_list = sorted(list(subjects_set))
+                    
                 if staff.psychologist_profile is not None:
                     roles.append('Psicologo')
 
-        profile_img = p.account.profile_image_url if p.account else None
+        profile_img = p.profile_image_url
         children_count = len(p.parent_profile.children_relationships) if p.parent_profile else None
         
         person_response = PersonResponse(
@@ -176,8 +187,7 @@ async def get_people(db: Annotated[AsyncSession, Depends(get_db)]):
             study_program=study_program,
             early_exit=early_exit,
             
-            # Filtri Docenti (Da completare appena fornisci i modelli Teacher/Competenze)
-            taught_subjects=[]
+            taught_subjects=taught_subjects_list
         )
         results.append(person_response)
         

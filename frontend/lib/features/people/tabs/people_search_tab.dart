@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import 'package:go_router/go_router.dart';
 import '../../../services/api_service.dart';
 import '../models/person_item.dart';
 import '../models/people_filter_state.dart';
@@ -32,7 +33,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
 
   List<PersonItem> _people = [];
 
-  // Dizionari dinamici per i filtri di autocompletamento
   List<String> _availableCities         = [];
   List<String> _availableSchools        = [];
   List<String> _availableStudyPrograms  = [];
@@ -64,7 +64,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
         {
           _people = data;
           
-          // Popolamento dinamico delle tendine estraendo valori univoci non nulli
           _availableCities = _people.map((p) => p.city).where((c) => c != null && c.isNotEmpty).cast<String>().toSet().toList();
           _availableSchools = _people.map((p) => p.schoolName).where((s) => s != null && s.isNotEmpty).cast<String>().toSet().toList();
           _availableStudyPrograms = _people.map((p) => p.studyProgram).where((s) => s != null && s.isNotEmpty).cast<String>().toSet().toList();
@@ -106,7 +105,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
         if (!hasAtLeastOneRole) return false;
       }
 
-      // Logica filtri generali
       if (_filterState.city != null && _filterState.city!.isNotEmpty) 
       {
         if (person.city?.toLowerCase() != _filterState.city!.toLowerCase()) return false;
@@ -124,7 +122,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
         }
       }
 
-      // Logica filtri specifici
       if (_filterState.childrenCount != null) 
       {
         if (person.childrenCount == null) return false;
@@ -203,7 +200,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
       return true;
     }).toList();
 
-    // Ordinamento
     result.sort((a, b) 
     {
       if (_sortBy == 'name_asc') return a.firstName.compareTo(b.firstName);
@@ -258,7 +254,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
 
   void _showWizard() 
   {
-    //TODO: Wizard nuova persona
+    context.go('/people/new');
   }
 
   @override
@@ -284,7 +280,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
               onEnter: (_) => setState(() => _newHover = true),
               onExit:  (_) => setState(() => _newHover = false),
               child: GestureDetector(
-                onTap: () => _showWizard(),
+                onTap: _showWizard,
                 child: AnimatedContainer(
                   duration:   const Duration(milliseconds: 180),
                   curve:      Curves.easeOut,
@@ -326,6 +322,24 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
           runSpacing:            16, 
           crossAxisAlignment:    WrapCrossAlignment.center,
           children: [
+            _CustomFilterMenu<String>(
+              hint:          'Ordina per', 
+              icon:          Icons.sort_rounded, 
+              value:         _sortBy, 
+              menuWidth:     200, 
+              showClearIcon: false, 
+              onChanged:     (val) => setState(() => _sortBy = val), 
+              onClear:       () {}, 
+              options: [
+                _FilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
+                _FilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
+                _FilterOption(value: 'date_desc', label: 'Più recente'), 
+                _FilterOption(value: 'date_asc', label: 'Meno recente'),
+              ],
+            ),
+            
             MouseRegion(
               cursor:  SystemMouseCursors.click,
               onEnter: (_) => setState(() => _filtersHover = true),
@@ -402,24 +416,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
                 ),
               ),
             ),
-
-            _CustomFilterMenu<String>(
-              hint:          'Ordina per', 
-              icon:          Icons.sort_rounded, 
-              value:         _sortBy, 
-              menuWidth:     200, 
-              showClearIcon: false, 
-              onChanged:     (val) => setState(() => _sortBy = val), 
-              onClear:       () {}, 
-              options: [
-                _FilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
-                _FilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
-                _FilterOption(value: 'date_desc', label: 'Più recente'), 
-                _FilterOption(value: 'date_asc', label: 'Meno recente'),
-              ],
-            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -465,10 +461,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
   }
 }
 
-// ---------------------------------------------------------
-// COMPONENTI LOCALI PER ORDINAMENTO E RICERCA
-// ---------------------------------------------------------
-
 class _FilterOption<T> 
 {
   final T      value;
@@ -479,14 +471,14 @@ class _FilterOption<T>
 
 class _CustomFilterMenu<T> extends StatefulWidget 
 {
-  final String                hint;
-  final IconData              icon;
-  final T?                    value;
+  final String                 hint;
+  final IconData               icon;
+  final T?                     value;
   final List<_FilterOption<T>> options;
-  final ValueChanged<T>       onChanged;
-  final VoidCallback          onClear;
-  final double                menuWidth;
-  final bool                  showClearIcon;
+  final ValueChanged<T>        onChanged;
+  final VoidCallback           onClear;
+  final double                 menuWidth;
+  final bool                   showClearIcon;
 
   const _CustomFilterMenu({
     required this.hint,
@@ -647,10 +639,10 @@ class _CustomFilterMenuState<T> extends State<_CustomFilterMenu<T>>
 
 class _FilterOverlayContent<T> extends StatefulWidget 
 {
-  final T?                    currentValue;
+  final T?                     currentValue;
   final List<_FilterOption<T>> options;
-  final ValueChanged<T>       onSelected;
-  final double                menuWidth;
+  final ValueChanged<T>        onSelected;
+  final double                 menuWidth;
 
   const _FilterOverlayContent({
     super.key,

@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../shared/widgets/casa_michela_loader.dart';
 import '../features/people/people_page.dart';
+import '../features/people/person_wizard_page.dart';
 
 final apiService = ApiService();
 
@@ -103,7 +104,6 @@ final appRouter = GoRouter(
     final authState = apiService.authState.value;
     final path = state.uri.path;
 
-    //Rotte pubbliche accessibili a chiunque
     final isPublicRoute = path == '/login' || path == '/reset-password';
 
     if (authState == AuthState.unauthenticated)
@@ -131,28 +131,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/login',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key: state.pageKey,
+        key:   state.pageKey,
         child: const LoginPage(),
       ),
     ),
     GoRoute(
       path: '/dashboard',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key: state.pageKey,
+        key:   state.pageKey,
         child: const DashboardPage(),
       ),
     ),
     GoRoute(
       path: '/association',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key: state.pageKey,
+        key:   state.pageKey,
         child: const AssociationPage(),
       ),
     ),
     GoRoute(
       path: '/settings',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key: state.pageKey,
+        key:   state.pageKey,
         child: const SettingsPage(),
       ),
     ),
@@ -174,7 +174,7 @@ final appRouter = GoRouter(
         if (data == null)
         {
           return _buildLogoTransitionPage(
-            key: state.pageKey,
+            key:   state.pageKey,
             child: const LoginPage(),
           );
         }
@@ -182,7 +182,7 @@ final appRouter = GoRouter(
         return _buildLogoTransitionPage(
           key: state.pageKey,
           child: ForcePasswordChangePage(
-            refreshToken: data['refreshToken'] as String,
+            refreshToken:    data['refreshToken'] as String,
             currentPassword: data['currentPassword'] as String,
           ),
         );
@@ -197,13 +197,13 @@ final appRouter = GoRouter(
         if (token == null || token.isEmpty)
         {
           return _buildLogoTransitionPage(
-            key: state.pageKey,
+            key:   state.pageKey,
             child: const LoginPage(),
           );
         }
 
         return _buildLogoTransitionPage(
-          key: state.pageKey,
+          key:   state.pageKey,
           child: ResetPasswordPage(token: token),
         );
       },
@@ -211,8 +211,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/people',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key: state.pageKey,
+        key:   state.pageKey,
         child: const PeoplePage(),
+      ),
+    ),
+    GoRoute(
+      path: '/people/new',
+      pageBuilder: (context, state) => _buildLogoTransitionPage(
+        key:   state.pageKey,
+        child: const PersonWizardPage(),
       ),
     ),
   ],
