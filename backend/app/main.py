@@ -40,7 +40,7 @@ app.include_router(association_subjects.router)
 app.include_router(schools.router)
 app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
-app.include_router(people.router, prefix="/people", tags=["people"])
+app.include_router(people.router)
 
 os.makedirs("uploads/profile-images", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

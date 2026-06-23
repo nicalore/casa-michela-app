@@ -4,6 +4,28 @@ import 'package:google_fonts/google_fonts.dart';
 
 const double _leadingSpace = 14;
 
+//Returns the specific icon based on the user's role
+IconData _getRoleIcon(String role)
+{
+  switch (role.toUpperCase())
+  {
+    case 'DOCENTE':
+      return Icons.school_outlined;
+    case 'STUDENTE':
+      return Icons.menu_book_outlined;
+    case 'AMMINISTRATORE':
+      return Icons.computer_outlined;
+    case 'PSICOLOGO':
+      return Icons.psychology_outlined;
+    case 'CORSISTA':
+      return Icons.self_improvement_rounded;
+    case 'GENITORE':
+      return Icons.family_restroom_outlined;
+    default:
+      return Icons.badge_outlined;
+  }
+}
+
 class UserMenu extends StatefulWidget
 {
   final String activeRole;
@@ -122,12 +144,12 @@ class _RoleSection extends StatelessWidget
             child: Row(
               children: [
                 const SizedBox(width: _leadingSpace),
-                const SizedBox(
+                SizedBox(
                   width: 18,
                   child: Icon(
-                    Icons.badge_outlined,
+                    _getRoleIcon(activeRole),
                     size: 18,
-                    color: Color(0xFF003C82),
+                    color: const Color(0xFF003C82),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -178,12 +200,12 @@ class _RoleSection extends StatelessWidget
                             child: Row(
                               children: [
                                 const SizedBox(width: _leadingSpace),
-                                const SizedBox(
+                                SizedBox(
                                   width: 18,
                                   child: Icon(
-                                    Icons.swap_horiz_rounded,
+                                    _getRoleIcon(role),
                                     size: 18,
-                                    color: Color(0xFF003C82),
+                                    color: const Color(0xFF003C82),
                                   ),
                                 ),
                                 const SizedBox(width: 10),

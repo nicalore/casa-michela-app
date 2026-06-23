@@ -449,7 +449,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
                   {
                     return PersonCard(
                       person: person,
-                      onTap:  () {},
+                      onTap:  () 
+                      {
+                        context.go('/people/${person.fiscalCode}');
+                      },
                     );
                   }).toList(),
                 ),

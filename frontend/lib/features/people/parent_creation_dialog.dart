@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/snackbar.dart';
+import '../../../services/api_service.dart';
 import './models/person_item.dart';
 import 'person_wizard_components.dart';
 
@@ -21,6 +22,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
   int                 _currentFormCardIndex = 0; 
   Map<String, String> _formErrors           = {};
   Uint8List?          _fotoProfilo;
+  bool                _isSubmitting         = false;
 
   final TextEditingController _nomeCtrl           = TextEditingController();
   final TextEditingController _cognomeCtrl        = TextEditingController();
@@ -76,6 +78,14 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     {
       return false;
     }
+  }
+
+  String? _toIsoDate(String? itaDate) 
+  {
+    if (itaDate == null || itaDate.isEmpty) return null;
+    final parts = itaDate.split('/');
+    if (parts.length != 3) return null;
+    return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
   bool _validateDatiGenerali()
@@ -231,18 +241,75 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     return isValid;
   }
 
-  void _submitForm()
+  Future<void> _submitForm() async 
   {
-    final newParent = PersonItem(
-      fiscalCode: _cfCtrl.text.toUpperCase(),
-      firstName:  _nomeCtrl.text,
-      lastName:   _cognomeCtrl.text,
-      roles:      ['Genitore'],
-      createdAt:  DateTime.now(),
-      city:       _cittaResidenzaCtrl.text,
-      birthDate:  DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text),
-    );
-    Navigator.of(context).pop(newParent);
+    setState(() => _isSubmitting = true);
+    
+    try 
+    {
+      final payload = {
+        "general_data": {
+          "first_name": _nomeCtrl.text.trim(),
+          "last_name": _cognomeCtrl.text.trim(),
+          "tax_code": _cfCtrl.text.trim().toUpperCase(),
+          "gender": _sesso,
+          "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
+          "birth_city": _cittaNascitaCtrl.text.trim(),
+          "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
+          "residence_type": _tipoViaCtrl.text.trim(),
+          "residence_address": _indirizzoNomeCtrl.text.trim(),
+          "residence_street_number": _civicoCtrl.text.trim(),
+          "residence_city": _cittaResidenzaCtrl.text.trim(),
+          "residence_province": _provResidenzaCtrl.text.trim().toUpperCase(),
+          "postal_code": _capCtrl.text.trim(),
+          "email": _emailCtrl.text.trim(),
+          "phone": _telefonoCtrl.text.replaceAll(' ', ''),
+        },
+        "roles": ["GENITORE", "ASSOCIATO"],
+        "relationships": {
+          "minors_tax_codes": [], 
+          "parents_tax_codes": [], 
+        }
+      };
+
+      await ApiService().createPersonFromWizard(
+        payload, 
+        imageBytes: _fotoProfilo,
+      );
+
+      final newParent = PersonItem(
+        fiscalCode: _cfCtrl.text.trim().toUpperCase(),
+        firstName: _nomeCtrl.text.trim(),
+        lastName: _cognomeCtrl.text.trim(),
+        roles: ['Genitore', 'Associato'],
+        createdAt: DateTime.now(),
+        city: _cittaResidenzaCtrl.text.trim(),
+        birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
+      );
+
+      if (mounted) 
+      {
+        Navigator.of(context).pop(newParent);
+      }
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
+        CustomSnackBar.show(
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
+      }
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   Widget _buildFormCardIdentita() 
@@ -632,11 +699,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                         SizedBox(
                           width: 200,
                           child: WizardAnimatedActionButton(
-                            text:       'CREA GENITORE', 
+                            text:       _isSubmitting ? 'SALVATAGGIO...' : 'CREA GENITORE', 
                             icon:       Icons.check_circle_outline, 
                             baseColor:  const Color(0xFF003C82), 
                             hoverColor: const Color(0xFF004D99), 
-                            onPressed:  ()
+                            onPressed:  _isSubmitting ? () {} : ()
                             {
                               if (_validateDatiGenerali())
                               {

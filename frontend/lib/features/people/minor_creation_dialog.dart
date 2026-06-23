@@ -1,10 +1,12 @@
-import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/snackbar.dart';
+import '../../../services/api_service.dart';
+
 import '../association/models/association_subject_item.dart';
 import '../association/models/study_program_item.dart';
 import '../association/models/school_item.dart';
@@ -30,8 +32,8 @@ class MinorCreationDialog extends StatefulWidget {
 
 class _MinorCreationDialogState extends State<MinorCreationDialog> {
   int  _currentStep     = 0;
-  int  _involvementType = -1;
   bool _movingForward   = true;
+  bool _isSubmitting    = false;
 
   final Set<String> _selectedRoles = {};
   
@@ -156,6 +158,13 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     }
   }
 
+  String? _toIsoDate(String? itaDate) {
+    if (itaDate == null || itaDate.isEmpty) return null;
+    final parts = itaDate.split('/');
+    if (parts.length != 3) return null;
+    return '${parts[2]}-${parts[1]}-${parts[0]}';
+  }
+
   bool _validateDatiGenerali() {
     setState(() {
       _formErrors.clear();
@@ -265,7 +274,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     });
 
     if (!isValid) {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati in rosso.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti.', isError: true);
     }
 
     return isValid;
@@ -349,75 +358,155 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     });
 
     if (!isValid) {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici. Correggi i campi evidenziati in rosso.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici.', isError: true);
     }
 
     return isValid;
   }
 
-  void _submitForm() {
-    final newMinor = PersonItem(
-      fiscalCode: _cfCtrl.text.toUpperCase(),
-      firstName: _nomeCtrl.text,
-      lastName: _cognomeCtrl.text,
-      roles: _selectedRoles.toList()..add('ASSOCIATO'),
-      createdAt: DateTime.now(),
-      city: _cittaResidenzaCtrl.text,
-      birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text),
-    );
-    Navigator.of(context).pop(newMinor);
+  Future<void> _submitForm() async {
+    setState(() => _isSubmitting = true);
+
+    try {
+      Map<String, dynamic>? enrollmentData = {
+        "first_enrollment_year": int.parse(_annoPrimaIscrizioneCtrl.text.trim()),
+        "enrollment_date": _toIsoDate(_dataIscrizioneCtrl.text.trim()),
+      };
+
+      Map<String, dynamic>? staffData;
+      Map<String, dynamic>? teacherData;
+      Map<String, dynamic>? courseParticipantData;
+      Map<String, dynamic>? studentData;
+
+      if (_selectedRoles.contains('DOCENTE')) {
+        String collType = 'VOLUNTEER';
+        if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
+        if (_tipoCollaborazione == 'FSC') collType = 'PCTO';
+
+        staffData = {
+          "collaboration_type": collType,
+          "iban": _ibanCtrl.text.isNotEmpty ? _ibanCtrl.text.trim().toUpperCase() : null,
+        };
+
+        teacherData = {
+          "school_education": _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
+          "university_education": _studiUniversitariCtrl.text.isNotEmpty ? _studiUniversitariCtrl.text.trim() : null,
+          "competences": _subjectToggles.entries
+              .where((e) => e.value)
+              .map((e) => {
+                    "subject_id": e.key,
+                    "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
+                  })
+              .toList(),
+        };
+      }
+
+      if (_selectedRoles.contains('CORSISTA')) {
+        courseParticipantData = {
+          "medical_certificate_expiration": _toIsoDate(_scadenzaCertificatoCtrl.text.trim()),
+          "course_type": _tipoCorsoCtrl.text.trim(),
+        };
+      }
+
+      if (_selectedRoles.contains('STUDENTE')) {
+        studentData = {
+          "authorized_early_exit": _uscitaAnticipata == 'Sì',
+          "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
+          "study_program_id": _percorsoStudenteSelezionato?.id,
+          "school_class": _classeFrequentata,
+        };
+      }
+
+      final payload = {
+        "general_data": {
+          "first_name": _nomeCtrl.text.trim(),
+          "last_name": _cognomeCtrl.text.trim(),
+          "tax_code": _cfCtrl.text.trim().toUpperCase(),
+          "gender": _sesso,
+          "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
+          "birth_city": _cittaNascitaCtrl.text.trim(),
+          "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
+          "residence_type": _tipoViaCtrl.text.trim(),
+          "residence_address": _indirizzoNomeCtrl.text.trim(),
+          "residence_street_number": _civicoCtrl.text.trim(),
+          "residence_city": _cittaResidenzaCtrl.text.trim(),
+          "residence_province": _provResidenzaCtrl.text.trim().toUpperCase(),
+          "postal_code": _capCtrl.text.trim(),
+          "email": _emailCtrl.text.trim(),
+          "phone": _telefonoCtrl.text.replaceAll(' ', ''),
+        },
+        "roles": _selectedRoles.toList()..add('ASSOCIATO'),
+        "enrollment_data": enrollmentData,
+        "staff_data": staffData,
+        "teacher_data": teacherData,
+        "course_participant_data": courseParticipantData,
+        "student_data": studentData,
+        "relationships": {
+          "minors_tax_codes": [], 
+          "parents_tax_codes": [], 
+        }
+      };
+
+      await ApiService().createPersonFromWizard(
+        payload, 
+        imageBytes: _fotoProfilo,
+      );
+
+      final newMinor = PersonItem(
+        fiscalCode: _cfCtrl.text.trim().toUpperCase(),
+        firstName: _nomeCtrl.text.trim(),
+        lastName: _cognomeCtrl.text.trim(),
+        roles: _selectedRoles.toList().map((r) => r.substring(0,1).toUpperCase() + r.substring(1).toLowerCase()).toList()..add('Associato'),
+        createdAt: DateTime.now(),
+        city: _cittaResidenzaCtrl.text.trim(),
+        birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(newMinor);
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   void _onNext() {
     if (_currentStep == 0) {
-      if (_involvementType == -1) {
-        CustomSnackBar.show(context: context, message: 'Seleziona una categoria per continuare.', isError: true);
+      if (_selectedRoles.isEmpty) {
+        CustomSnackBar.show(context: context, message: 'Seleziona almeno un ruolo per procedere.', isError: true);
         return;
       }
-      if (_involvementType == 1) {
-        _selectedRoles.clear();
-        _selectedRoles.add('ASSOCIATO');
-        setState(() { _movingForward = true; _currentStep = 2; });
-      } else {
-        _selectedRoles.remove('ASSOCIATO');
-        setState(() { _movingForward = true; _currentStep = 1; });
-      }
+      setState(() { _movingForward = true; _currentStep = 1; });
       return;
     }
 
     if (_currentStep == 1) {
-      final activeRoles = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
-      if (activeRoles.isEmpty) {
-        CustomSnackBar.show(context: context, message: 'Seleziona almeno un ruolo per procedere.', isError: true);
-        return;
-      }
-      _selectedRoles.add('ASSOCIATO');
-      setState(() { _movingForward = true; _currentStep = 2; });
+      if (!_validateDatiGenerali()) return;
+      setState(() { _movingForward = true; _currentStep = 2; _currentStep2CardIndex = 0; });
       return;
     }
 
     if (_currentStep == 2) {
-      if (!_validateDatiGenerali()) return;
-      final activeRoles = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
-      if (activeRoles.isEmpty) { 
-        _submitForm();
+      if (!_validateDatiSpecifici()) return;
+      if (_selectedRoles.contains('DOCENTE')) {
+        setState(() { _movingForward = true; _currentStep = 3; });
       } else {
-        setState(() { _movingForward = true; _currentStep = 3; _currentStep2CardIndex = 0; });
+        _submitForm();
       }
       return;
     }
 
     if (_currentStep == 3) {
-      if (!_validateDatiSpecifici()) return;
-      if (_selectedRoles.contains('DOCENTE')) {
-        setState(() { _movingForward = true; _currentStep = 4; });
-      } else {
-        _submitForm();
-      }
-      return;
-    }
-
-    if (_currentStep == 4) {
       bool hasAtLeastOneSubject = _subjectToggles.values.any((isSelected) => isSelected == true);
       if (!hasAtLeastOneSubject) {
         CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina insegnata.', isError: true);
@@ -430,24 +519,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
 
   void _onBack() {
     setState(() => _movingForward = false);
-    if (_currentStep == 4) {
-      setState(() => _currentStep = 3);
-    } else if (_currentStep == 3) {
-      setState(() => _currentStep = 2);
-    } else if (_currentStep == 2) {
-      if (_involvementType == 1) {
-        setState(() => _currentStep = 0);
-      } else {
-        setState(() => _currentStep = 1);
-      }
-    } else if (_currentStep == 1) {
-      setState(() => _currentStep = 0);
-    }
+    if (_currentStep == 3) setState(() => _currentStep = 2);
+    else if (_currentStep == 2) setState(() => _currentStep = 1);
+    else if (_currentStep == 1) setState(() => _currentStep = 0);
   }
 
-  Widget _buildStep0Type() {
+  Widget _buildStep0Roles() {
     return SizedBox(
-      key: const ValueKey('step0_type_m'),
+      key: const ValueKey('step0_m'),
       width: double.infinity,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -457,66 +536,24 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
             child: Column(
               children: [
                 Text(
-                  'Coinvolgimento del Minore',
+                  'Ruoli del Minore',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF003C82),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Definisci la macro-categoria a cui appartiene il minore.',
+                  'Quali ruoli ricopre il minore all\'interno dell\'Associazione?',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  WizardSelectionCard(
-                    isCompact: true,
-                    title: 'Coinvolto Attivamente', 
-                    subtitle: 'Partecipa attivamente ai corsi, ai servizi o come tutor.', 
-                    icon: Icons.workspaces_outline, 
-                    isSelected: _involvementType == 0, 
-                    onTap: () => setState(() => _involvementType = 0),
-                  ),
-                  const SizedBox(height: 24),
-                  WizardSelectionCard(
-                    isCompact: true,
-                    title: 'Solo Tesserato', 
-                    subtitle: 'Ha la tessera associativa ma non partecipa ai servizi.', 
-                    icon: Icons.card_membership_rounded, 
-                    isSelected: _involvementType == 1, 
-                    onTap: () => setState(() => _involvementType = 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep1Roles() {
-    return SizedBox(
-      key: const ValueKey('step1_m'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text('Ruoli del Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-                const SizedBox(height: 8),
-                Text('Quali ruoli ricopre il minore all\'interno dell\'Associazione?', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
               ],
             ),
           ),
@@ -531,8 +568,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 20),
                     child: WizardSelectionCard(
-                      isCompact: true,
-                      title: role['label'], subtitle: role['desc'], icon: role['icon'], isSelected: isSelected, isHorizontal: true,
+                      title: role['label'], 
+                      subtitle: role['desc'], 
+                      icon: role['icon'], 
+                      isSelected: isSelected, 
+                      isHorizontal: true,
                       onTap: () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
                     ),
                   );
@@ -545,43 +585,117 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     );
   }
 
-  List<Widget> get _activeStep3Cards {
+  List<Widget> get _activeStep2Cards {
     final List<Widget> cards = [];
     cards.add(WizardFormSectionCard(
-      isCompact: true, title: 'Iscrizione', leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
+      title: 'Iscrizione',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: [
-        WizardFormInputRow(label: 'Anno prima iscr.', inputWidget: WizardAnimatedTextField(controller: _annoPrimaIscrizioneCtrl, hint: 'Es. 2026', keyboardType: TextInputType.number, errorText: _formErrors['annoPrimaIscrizione'], onChanged: (_) => setState(() => _formErrors.remove('annoPrimaIscrizione')))),
+        WizardFormInputRow(
+          label: 'Anno prima iscr.',
+          inputWidget: WizardAnimatedTextField(
+            controller: _annoPrimaIscrizioneCtrl, 
+            hint: 'Es. 2026', 
+            keyboardType: TextInputType.number,
+            errorText: _formErrors['annoPrimaIscrizione'],
+            onChanged: (_) => setState(() => _formErrors.remove('annoPrimaIscrizione')),
+          ),
+        ),
         const SizedBox(height: 16),
-        WizardFormInputRow(label: 'Data iscrizione', inputWidget: WizardAnimatedTextField(controller: _dataIscrizioneCtrl, hint: 'gg/mm/aaaa', keyboardType: TextInputType.number, inputFormatters: [WizardDateInputFormatter()], errorText: _formErrors['dataIscrizione'], onChanged: (_) => setState(() => _formErrors.remove('dataIscrizione')))),
+        WizardFormInputRow(
+          label: 'Data iscrizione',
+          inputWidget: WizardAnimatedTextField(
+            controller: _dataIscrizioneCtrl, 
+            hint: 'gg/mm/aaaa', 
+            keyboardType: TextInputType.number,
+            inputFormatters: [WizardDateInputFormatter()],
+            errorText: _formErrors['dataIscrizione'],
+            onChanged: (_) => setState(() => _formErrors.remove('dataIscrizione')),
+          ),
+        ),
       ]
     ));
 
     if (_selectedRoles.contains('DOCENTE')) {
       cards.add(WizardFormSectionCard(
-        isCompact: true, title: 'Dati Collaborazione', leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
+        title: 'Dati Collaborazione',
+        leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
         children: [
-          WizardFormInputRow(label: 'IBAN', inputWidget: WizardAnimatedTextField(controller: _ibanCtrl, hint: 'Es. IT00A...', errorText: _formErrors['iban'], onChanged: (_) => setState(() => _formErrors.remove('iban')))),
+          WizardFormInputRow(
+            label: 'IBAN',
+            inputWidget: WizardAnimatedTextField(
+              controller: _ibanCtrl, 
+              hint: 'Es. IT00A...', 
+              errorText: _formErrors['iban'],
+              onChanged: (_) => setState(() => _formErrors.remove('iban')),
+            ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Collaborazione', inputWidget: WizardAnimatedOverlayDropdown(value: _tipoCollaborazione, items: const ['Volontario', 'Retribuito', 'FSC'], hint: 'Seleziona', errorText: _formErrors['tipoCollaborazione'], onChanged: (val) => setState(() { _tipoCollaborazione = val; _formErrors.remove('tipoCollaborazione'); }))),
+          WizardFormInputRow(
+            label: 'Collaborazione',
+            inputWidget: WizardAnimatedOverlayDropdown(
+              value: _tipoCollaborazione,
+              items: const ['Volontario', 'Retribuito', 'FSC'],
+              hint: 'Seleziona',
+              errorText: _formErrors['tipoCollaborazione'],
+              onChanged: (val) => setState(() { _tipoCollaborazione = val; _formErrors.remove('tipoCollaborazione'); }),
+            ),
+          ),
         ]
       ));
       cards.add(WizardFormSectionCard(
-        isCompact: true, title: 'Studi Docente', leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
+        title: 'Studi Docente',
+        leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
         children: [
-          WizardFormInputRow(label: 'Studi scolastici', inputWidget: WizardAnimatedTextField(controller: _studiScolasticiCtrl, hint: 'Es. Liceo', errorText: _formErrors['studiScolastici'], onChanged: (_) => setState(() => _formErrors.remove('studiScolastici')))),
+          WizardFormInputRow(
+            label: 'Studi scolastici',
+            inputWidget: WizardAnimatedTextField(
+              controller: _studiScolasticiCtrl, 
+              hint: 'Es. Liceo', 
+              errorText: _formErrors['studiScolastici'],
+              onChanged: (_) => setState(() => _formErrors.remove('studiScolastici')),
+            ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Studi universitari', inputWidget: WizardAnimatedTextField(controller: _studiUniversitariCtrl, hint: 'Es. Laurea', errorText: _formErrors['studiUniversitari'], onChanged: (_) => setState(() => _formErrors.remove('studiUniversitari')))),
+          WizardFormInputRow(
+            label: 'Studi universitari',
+            inputWidget: WizardAnimatedTextField(
+              controller: _studiUniversitariCtrl, 
+              hint: 'Es. Laurea', 
+              errorText: _formErrors['studiUniversitari'],
+              onChanged: (_) => setState(() => _formErrors.remove('studiUniversitari')),
+            ),
+          ),
         ]
       ));
     }
 
     if (_selectedRoles.contains('CORSISTA')) {
       cards.add(WizardFormSectionCard(
-        isCompact: true, title: 'Dettagli Corsista', leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
+        title: 'Dettagli Corsista',
+        leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
         children: [
-          WizardFormInputRow(label: 'Scadenza cert.', inputWidget: WizardAnimatedTextField(controller: _scadenzaCertificatoCtrl, hint: 'gg/mm/aaaa', keyboardType: TextInputType.number, inputFormatters: [WizardDateInputFormatter()], errorText: _formErrors['scadenzaCertificato'], onChanged: (_) => setState(() => _formErrors.remove('scadenzaCertificato')))),
+          WizardFormInputRow(
+            label: 'Scadenza cert.',
+            inputWidget: WizardAnimatedTextField(
+              controller: _scadenzaCertificatoCtrl, 
+              hint: 'gg/mm/aaaa', 
+              keyboardType: TextInputType.number,
+              inputFormatters: [WizardDateInputFormatter()],
+              errorText: _formErrors['scadenzaCertificato'],
+              onChanged: (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
+            ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Tipo corso', inputWidget: WizardAnimatedTextField(controller: _tipoCorsoCtrl, hint: 'Es. Pilates', errorText: _formErrors['tipoCorso'], onChanged: (_) => setState(() => _formErrors.remove('tipoCorso')))),
+          WizardFormInputRow(
+            label: 'Tipo corso',
+            inputWidget: WizardAnimatedTextField(
+              controller: _tipoCorsoCtrl, 
+              hint: 'Es. Pilates', 
+              errorText: _formErrors['tipoCorso'],
+              onChanged: (_) => setState(() => _formErrors.remove('tipoCorso')),
+            ),
+          ),
         ]
       ));
     }
@@ -595,7 +709,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
         try {
           dynamic progs;
           try { progs = (_scuolaSelezionata as dynamic).studyPrograms; } catch (_) {}
-          if (progs == null) try { progs = (_scuolaSelezionata as dynamic).study_programs; } catch (_) {}
+          if (progs == null) {
+            try { progs = (_scuolaSelezionata as dynamic).study_programs; } catch (_) {}
+          }
           if (progs != null && progs is Iterable) {
             for (var p in progs) {
               String? pName = (p is Map) ? p['name'] as String? : (p as dynamic).name as String?;
@@ -623,15 +739,72 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       }
 
       cards.add(WizardFormSectionCard(
-        isCompact: true, title: 'Dettagli Studente', leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
+        title: 'Dettagli Studente',
+        leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
         children: [
-          WizardFormInputRow(label: 'Uscita anticipata', inputWidget: WizardAnimatedOverlayDropdown(value: _uscitaAnticipata, items: const ['Sì', 'No'], hint: 'Seleziona', errorText: _formErrors['uscitaAnticipata'], onChanged: (val) => setState(() { _uscitaAnticipata = val; _formErrors.remove('uscitaAnticipata'); }))),
+          WizardFormInputRow(
+            label: 'Uscita anticipata',
+            inputWidget: WizardAnimatedOverlayDropdown(
+              value: _uscitaAnticipata,
+              items: const ['Sì', 'No'],
+              hint: 'Seleziona',
+              errorText: _formErrors['uscitaAnticipata'],
+              onChanged: (val) => setState(() { _uscitaAnticipata = val; _formErrors.remove('uscitaAnticipata'); }),
+            ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Scuola', inputWidget: WizardAnimatedOverlayDropdown(value: _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null, items: schoolNames, hint: 'Seleziona scuola', errorText: _formErrors['scuolaSelezionata'], onChanged: (val) { setState(() { _scuolaSelezionata = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val); _percorsoStudenteSelezionato = null; _classeFrequentata = null; _formErrors.remove('scuolaSelezionata'); }); })),
+          WizardFormInputRow(
+            label: 'Scuola',
+            inputWidget: WizardAnimatedOverlayDropdown(
+              value: _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null,
+              items: schoolNames,
+              hint: 'Seleziona scuola',
+              errorText: _formErrors['scuolaSelezionata'],
+              onChanged: (val) {
+                setState(() {
+                  _scuolaSelezionata = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+                  _percorsoStudenteSelezionato = null;
+                  _classeFrequentata = null;
+                  _formErrors.remove('scuolaSelezionata');
+                });
+              },
+            ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Percorso', inputWidget: _scuolaSelezionata == null ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima la scuola') : programNames.isEmpty ? const WizardDisabledDropdownPlaceholder(hint: 'Nessun percorso offerto') : WizardAnimatedOverlayDropdown(value: _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null, items: programNames, hint: 'Seleziona percorso', errorText: _formErrors['percorsoStudente'], onChanged: (val) { setState(() { try { _percorsoStudenteSelezionato = widget.allPrograms.firstWhere((p) => (p as dynamic).name == val); } catch (_) { _percorsoStudenteSelezionato = null; } _classeFrequentata = null; _formErrors.remove('percorsoStudente'); }); })),
+          WizardFormInputRow(
+            label: 'Percorso',
+            inputWidget: _scuolaSelezionata == null 
+                ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima la scuola')
+                : programNames.isEmpty
+                    ? const WizardDisabledDropdownPlaceholder(hint: 'Nessun percorso offerto')
+                    : WizardAnimatedOverlayDropdown(
+                        value: _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null,
+                        items: programNames,
+                        hint: 'Seleziona percorso',
+                        errorText: _formErrors['percorsoStudente'],
+                        onChanged: (val) {
+                          setState(() {
+                            try { _percorsoStudenteSelezionato = widget.allPrograms.firstWhere((p) => (p as dynamic).name == val); } 
+                            catch (_) { _percorsoStudenteSelezionato = null; }
+                            _classeFrequentata = null; 
+                            _formErrors.remove('percorsoStudente');
+                          });
+                        },
+                      ),
+          ),
           const SizedBox(height: 16),
-          WizardFormInputRow(label: 'Classe a.s. $_currentSchoolYear', inputWidget: _percorsoStudenteSelezionato == null ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima il percorso') : WizardAnimatedOverlayDropdown(value: _classeFrequentata, items: gradeOptions, hint: 'Seleziona classe', errorText: _formErrors['classeFrequentata'], onChanged: (val) => setState(() { _classeFrequentata = val; _formErrors.remove('classeFrequentata'); }))),
+          WizardFormInputRow(
+            label: 'Classe a.s. $_currentSchoolYear',
+            inputWidget: _percorsoStudenteSelezionato == null 
+                ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima il percorso')
+                : WizardAnimatedOverlayDropdown(
+                    value: _classeFrequentata,
+                    items: gradeOptions,
+                    hint: 'Seleziona classe',
+                    errorText: _formErrors['classeFrequentata'],
+                    onChanged: (val) => setState(() { _classeFrequentata = val; _formErrors.remove('classeFrequentata'); }),
+                  ),
+          ),
         ]
       ));
     }
@@ -639,68 +812,148 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
   }
 
   Widget _buildStepWidget(int step) {
-    if (step == 0) return _buildStep0Type();
-    if (step == 1) return _buildStep1Roles();
+    if (step == 0) return _buildStep0Roles();
     
-    if (step == 2) {
+    if (step == 1) {
       Widget currentCard = const SizedBox.shrink();
       switch (_currentFormCardIndex) {
         case 0:
           currentCard = WizardFormSectionCard(
-            isCompact: true, title: 'Identità', leadingIcon: const WizardStaticAvatar(icon: Icons.badge_outlined),
+            title: 'Identità',
+            leadingIcon: const WizardStaticAvatar(icon: Icons.badge_outlined),
             children: [
-              WizardFormInputRow(label: 'Foto profilo', inputWidget: WizardProfilePhotoUploader(imageBytes: _fotoProfilo, onImagePicked: (bytes) => setState(() => _fotoProfilo = bytes))),
+              WizardFormInputRow(
+                label: 'Foto profilo',
+                inputWidget: WizardProfilePhotoUploader(
+                  imageBytes: _fotoProfilo,
+                  onImagePicked: (bytes) => setState(() => _fotoProfilo = bytes),
+                ),
+              ),
               const SizedBox(height: 24),
-              WizardFormInputRow(label: 'Nome', inputWidget: WizardAnimatedTextField(controller: _nomeCtrl, hint: 'Es. Mario', errorText: _formErrors['nome'], onChanged: (_) => setState(() => _formErrors.remove('nome')))),
+              WizardFormInputRow(
+                label: 'Nome',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _nomeCtrl, hint: 'Es. Mario', errorText: _formErrors['nome'], onChanged: (_) => setState(() => _formErrors.remove('nome')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Cognome', inputWidget: WizardAnimatedTextField(controller: _cognomeCtrl, hint: 'Es. Rossi', errorText: _formErrors['cognome'], onChanged: (_) => setState(() => _formErrors.remove('cognome')))),
+              WizardFormInputRow(
+                label: 'Cognome',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _cognomeCtrl, hint: 'Es. Rossi', errorText: _formErrors['cognome'], onChanged: (_) => setState(() => _formErrors.remove('cognome')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Sesso', inputWidget: WizardAnimatedOverlayDropdown(value: _sesso, items: const ['M', 'F'], hint: 'Seleziona', errorText: _formErrors['sesso'], onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }))),
+              WizardFormInputRow(
+                label: 'Sesso',
+                inputWidget: WizardAnimatedOverlayDropdown(
+                  value: _sesso, items: const ['M', 'F'], hint: 'Seleziona', errorText: _formErrors['sesso'], onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Codice fiscale', inputWidget: WizardAnimatedTextField(controller: _cfCtrl, hint: 'Es. RSSMRA80A01H501Z', errorText: _formErrors['cf'], onChanged: (_) => setState(() => _formErrors.remove('cf')))),
+              WizardFormInputRow(
+                label: 'Codice fiscale',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _cfCtrl, hint: 'Es. RSSMRA80A01H501Z', errorText: _formErrors['cf'], onChanged: (_) => setState(() => _formErrors.remove('cf')),
+                ),
+              ),
             ],
           );
           break;
         case 1:
           currentCard = WizardFormSectionCard(
-            isCompact: true, title: 'Dati anagrafici', leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
+            title: 'Dati anagrafici',
+            leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
             children: [
-              WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', keyboardType: TextInputType.number, inputFormatters: [WizardDateInputFormatter()], errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
+              WizardFormInputRow(
+                label: 'Data di nascita',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', keyboardType: TextInputType.number, inputFormatters: [WizardDateInputFormatter()], errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Città di nascita', inputWidget: WizardAnimatedTextField(controller: _cittaNascitaCtrl, hint: 'Es. Roma', errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')))),
+              WizardFormInputRow(
+                label: 'Città di nascita',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _cittaNascitaCtrl, hint: 'Es. Roma', errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Prov. di nascita', inputWidget: WizardAnimatedTextField(controller: _provNascitaCtrl, hint: 'Es. RM', errorText: _formErrors['provNascita'], onChanged: (_) => setState(() => _formErrors.remove('provNascita')))),
+              WizardFormInputRow(
+                label: 'Prov. di nascita',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _provNascitaCtrl, hint: 'Es. RM', errorText: _formErrors['provNascita'], onChanged: (_) => setState(() => _formErrors.remove('provNascita')),
+                ),
+              ),
             ],
           );
           break;
         case 2:
           currentCard = WizardFormSectionCard(
-            isCompact: true, title: 'Residenza', leadingIcon: const WizardStaticAvatar(icon: Icons.home_rounded),
+            title: 'Residenza',
+            leadingIcon: const WizardStaticAvatar(icon: Icons.home_rounded),
             children: [
-              WizardFormInputRow(label: 'Indirizzo', inputWidget: Row(children: [ Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Es. Via', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))), const SizedBox(width: 8), Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome (es. Garibaldi)', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))), const SizedBox(width: 8), Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))) ])),
+              WizardFormInputRow(
+                label: 'Indirizzo',
+                inputWidget: Row(
+                  children: [
+                    Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Es. Via', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome (es. Garibaldi)', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
+                    const SizedBox(width: 8),
+                    Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Città', inputWidget: WizardAnimatedTextField(controller: _cittaResidenzaCtrl, hint: 'Es. Milano', errorText: _formErrors['cittaResidenza'], onChanged: (_) => setState(() => _formErrors.remove('cittaResidenza')))),
+              WizardFormInputRow(
+                label: 'Città',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _cittaResidenzaCtrl, hint: 'Es. Milano', errorText: _formErrors['cittaResidenza'], onChanged: (_) => setState(() => _formErrors.remove('cittaResidenza')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Provincia', inputWidget: WizardAnimatedTextField(controller: _provResidenzaCtrl, hint: 'Es. MI', errorText: _formErrors['provResidenza'], onChanged: (_) => setState(() => _formErrors.remove('provResidenza')))),
+              WizardFormInputRow(
+                label: 'Provincia',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _provResidenzaCtrl, hint: 'Es. MI', errorText: _formErrors['provResidenza'], onChanged: (_) => setState(() => _formErrors.remove('provResidenza')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'CAP', inputWidget: WizardAnimatedTextField(controller: _capCtrl, hint: 'Es. 20100', keyboardType: TextInputType.number, errorText: _formErrors['cap'], onChanged: (_) => setState(() => _formErrors.remove('cap')))),
+              WizardFormInputRow(
+                label: 'CAP',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _capCtrl, hint: 'Es. 20100', keyboardType: TextInputType.number, errorText: _formErrors['cap'], onChanged: (_) => setState(() => _formErrors.remove('cap')),
+                ),
+              ),
             ],
           );
           break;
         case 3:
           currentCard = WizardFormSectionCard(
-            isCompact: true, title: 'Contatti', leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
+            title: 'Contatti',
+            leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
             children: [
-              WizardFormInputRow(label: 'Email', inputWidget: WizardAnimatedTextField(controller: _emailCtrl, hint: 'Es. mario.rossi@email.com', keyboardType: TextInputType.emailAddress, errorText: _formErrors['email'], onChanged: (_) => setState(() => _formErrors.remove('email')))),
+              WizardFormInputRow(
+                label: 'Email',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _emailCtrl, hint: 'Es. mario.rossi@email.com', keyboardType: TextInputType.emailAddress, errorText: _formErrors['email'], onChanged: (_) => setState(() => _formErrors.remove('email')),
+                ),
+              ),
               const SizedBox(height: 16),
-              WizardFormInputRow(label: 'Telefono', inputWidget: WizardAnimatedTextField(controller: _telefonoCtrl, hint: 'Es. 333 1234567', keyboardType: TextInputType.phone, errorText: _formErrors['telefono'], onChanged: (_) => setState(() => _formErrors.remove('telefono')))),
+              WizardFormInputRow(
+                label: 'Telefono',
+                inputWidget: WizardAnimatedTextField(
+                  controller: _telefonoCtrl, hint: 'Es. 333 1234567', keyboardType: TextInputType.phone, errorText: _formErrors['telefono'], onChanged: (_) => setState(() => _formErrors.remove('telefono')),
+                ),
+              ),
             ],
           );
           break;
       }
 
       return SizedBox(
-        key: const ValueKey('step2_m'),
+        key: const ValueKey('step1_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -742,10 +995,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       );
     }
 
-    if (step == 3) {
-      final cards = _activeStep3Cards;
+    if (step == 2) {
+      final cards = _activeStep2Cards;
       return SizedBox(
-        key: const ValueKey('step3_m'),
+        key: const ValueKey('step2_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -787,7 +1040,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       );
     }
 
-    if (step == 4) {
+    if (step == 3) {
       List<AssociationSubjectItem> validSubjects = widget.allSubjects.where((subject) {
         List<StudyProgramItem> programs = [];
         for (final prog in widget.allPrograms) {
@@ -825,7 +1078,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       });
 
       return SizedBox(
-        key: const ValueKey('step4_m'),
+        key: const ValueKey('step3_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -932,11 +1185,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
   @override
   Widget build(BuildContext context) {
     bool isLastStep;
-    if (_currentStep == 4) {
+    if (_currentStep == 3) {
       isLastStep = true;
-    } else if (_currentStep == 3 && !_selectedRoles.contains('DOCENTE')) {
+    } else if (_currentStep == 2 && !_selectedRoles.contains('DOCENTE')) {
       isLastStep = true;
-    } else if (_currentStep == 2 && _activeStep3Cards.isEmpty && !_selectedRoles.contains('DOCENTE')) {
+    } else if (_currentStep == 1 && _activeStep2Cards.isEmpty && !_selectedRoles.contains('DOCENTE')) {
       isLastStep = true;
     } else {
       isLastStep = false;
@@ -1013,7 +1266,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                         switchOutCurve: Curves.easeInCubic,
                         layoutBuilder: (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
                         transitionBuilder: (child, animation) {
-                          final isEntering = (child.key as ValueKey<String>).value == 'step${_currentStep}_m' || (child.key as ValueKey<String>).value == 'step${_currentStep}_type_m';
+                          final isEntering = (child.key as ValueKey<String>).value == 'step${_currentStep}_m';
                           Offset beginOffset = _movingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
                           return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
                         },
@@ -1039,7 +1292,13 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                         const SizedBox(width: 24),
                         SizedBox(
                           width: 200,
-                          child: WizardAnimatedActionButton(text: isLastStep ? 'CREA' : 'AVANTI', icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _onNext),
+                          child: WizardAnimatedActionButton(
+                            text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI'), 
+                            icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
+                            baseColor:  const Color(0xFF003C82), 
+                            hoverColor: const Color(0xFF004D99), 
+                            onPressed:  _isSubmitting ? () {} : _onNext,
+                          ),
                         ),
                       ],
                     ),

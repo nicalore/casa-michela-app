@@ -50,3 +50,6 @@ build/
 dist/
 
 node_modules/
+
+backend/uploads/profile-images/*
+!backend/uploads/profile-images/.gitkeep

@@ -8,24 +8,25 @@ import '../features/auth/force_password_change_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/reset_password_page.dart';
 import '../features/dashboard/dashboard_page.dart';
+import '../features/people/people_page.dart';
+import '../features/people/person_detail_page.dart';
+import '../features/people/person_wizard_page.dart';
 import '../features/settings/settings_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../shared/widgets/casa_michela_loader.dart';
-import '../features/people/people_page.dart';
-import '../features/people/person_wizard_page.dart';
 
 final apiService = ApiService();
 
 CustomTransitionPage _buildLogoTransitionPage({
   required LocalKey key,
-  required Widget child,
+  required Widget   child,
 })
 {
   return CustomTransitionPage(
-    key: key,
-    child: child,
-    opaque: false,
+    key:                key,
+    child:              child,
+    opaque:             false,
     transitionDuration: const Duration(milliseconds: 1200),
     transitionsBuilder: (context, animation, secondaryAnimation, child)
     {
@@ -33,7 +34,7 @@ CustomTransitionPage _buildLogoTransitionPage({
         TweenSequenceItem(
           tween: Tween(
             begin: 0.0,
-            end: 1.0,
+            end:   1.0,
           ).chain(CurveTween(curve: Curves.easeOut)),
           weight: 35,
         ),
@@ -41,7 +42,7 @@ CustomTransitionPage _buildLogoTransitionPage({
         TweenSequenceItem(
           tween: Tween(
             begin: 1.0,
-            end: 0.0,
+            end:   0.0,
           ).chain(CurveTween(curve: Curves.easeIn)),
           weight: 35,
         ),
@@ -55,16 +56,18 @@ CustomTransitionPage _buildLogoTransitionPage({
 
       return AnimatedBuilder(
         animation: overlayAnimation,
-        builder: (context, _)
+        builder:   (context, _)
         {
-          final double blurIntensity = overlayAnimation.value * 20.0;
+          final double blurIntensity     = overlayAnimation.value * 20.0;
           final double backgroundOpacity = overlayAnimation.value * 0.65;
 
           return Stack(
             fit: StackFit.expand,
             children: [
-              FadeTransition(opacity: pageOpacity, child: child),
-              
+              FadeTransition(
+                opacity: pageOpacity,
+                child:   child,
+              ),
               if (overlayAnimation.value > 0)
                 IgnorePointer(
                   child: Stack(
@@ -83,7 +86,7 @@ CustomTransitionPage _buildLogoTransitionPage({
                       ),
                       Opacity(
                         opacity: overlayAnimation.value,
-                        child: const CasaMichelaLoader(isOverlay: false),
+                        child:   const CasaMichelaLoader(isOverlay: false),
                       ),
                     ],
                   ),
@@ -97,12 +100,12 @@ CustomTransitionPage _buildLogoTransitionPage({
 }
 
 final appRouter = GoRouter(
-  initialLocation: '/dashboard',
+  initialLocation:   '/dashboard',
   refreshListenable: apiService.authState,
-  redirect: (context, state)
+  redirect:          (context, state)
   {
     final authState = apiService.authState.value;
-    final path = state.uri.path;
+    final path      = state.uri.path;
 
     final isPublicRoute = path == '/login' || path == '/reset-password';
 
@@ -180,7 +183,7 @@ final appRouter = GoRouter(
         }
 
         return _buildLogoTransitionPage(
-          key: state.pageKey,
+          key:   state.pageKey,
           child: ForcePasswordChangePage(
             refreshToken:    data['refreshToken'] as String,
             currentPassword: data['currentPassword'] as String,
@@ -221,6 +224,18 @@ final appRouter = GoRouter(
         key:   state.pageKey,
         child: const PersonWizardPage(),
       ),
+    ),
+    GoRoute(
+      path: '/people/:fiscalCode',
+      pageBuilder: (context, state)
+      {
+        final fiscalCode = state.pathParameters['fiscalCode']!;
+        
+        return _buildLogoTransitionPage(
+          key:   state.pageKey,
+          child: PersonDetailPage(fiscalCode: fiscalCode),
+        );
+      },
     ),
   ],
 );

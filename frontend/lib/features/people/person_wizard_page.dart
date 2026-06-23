@@ -697,10 +697,153 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     return isValid;
   }
 
-  void _submitForm()
+  bool _isSubmitting = false;
+  
+  String? _toIsoDate(String? itaDate) {
+    if (itaDate == null || itaDate.isEmpty) return null;
+    final parts = itaDate.split('/');
+    if (parts.length != 3) return null;
+    return '${parts[2]}-${parts[1]}-${parts[0]}';
+  }
+
+  Future<void> _submitForm() async 
   {
-    CustomSnackBar.show(context: context, message: 'Persona creata con successo!', isError: false);
-    context.go('/people');
+    setState(() => _isSubmitting = true);
+
+    try 
+    {
+      final bool isOnlyGenitore = _selectedRoles.length == 1 && _selectedRoles.contains('GENITORE');
+
+      Map<String, dynamic>? enrollmentData;
+      if (!isOnlyGenitore) {
+        enrollmentData = {
+          "first_enrollment_year": int.parse(_annoPrimaIscrizioneCtrl.text.trim()),
+          "enrollment_date": _toIsoDate(_dataIscrizioneCtrl.text.trim()),
+        };
+      }
+
+      Map<String, dynamic>? staffData;
+      Map<String, dynamic>? adminData;
+      Map<String, dynamic>? teacherData;
+      Map<String, dynamic>? courseParticipantData;
+      Map<String, dynamic>? studentData;
+
+      // -- Mappatura Dati Staff --
+      final isStaff = _selectedRoles.contains('AMMINISTRATORE') || 
+                      _selectedRoles.contains('DOCENTE') || 
+                      _selectedRoles.contains('PSICOLOGO');
+                      
+      if (isStaff) {
+        String collType = 'VOLUNTEER';
+        if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
+        if (_tipoCollaborazione == 'FSC') collType = 'PCTO';
+
+        staffData = {
+          "collaboration_type": collType,
+          "iban": _ibanCtrl.text.isNotEmpty ? _ibanCtrl.text.trim().toUpperCase() : null,
+        };
+      }
+
+      // -- Mappatura Dati Amministratore --
+      if (_selectedRoles.contains('AMMINISTRATORE')) {
+        String adminRole = 'OTHER';
+        if (_ruoloAmministratore == 'Presidente') adminRole = 'PRESIDENT';
+        if (_ruoloAmministratore == 'Vicepresidente') adminRole = 'VICE_PRESIDENT';
+        if (_ruoloAmministratore == 'Tesoriere') adminRole = 'TREASURER';
+
+        adminData = {
+          "role": adminRole,
+          "other_role": adminRole == 'OTHER' ? _altroRuoloAmministratoreCtrl.text.trim() : null,
+        };
+      }
+
+      // -- Mappatura Dati Docente --
+      if (_selectedRoles.contains('DOCENTE')) {
+        teacherData = {
+          "school_education": _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
+          "university_education": _studiUniversitariCtrl.text.isNotEmpty ? _studiUniversitariCtrl.text.trim() : null,
+          "competences": _subjectToggles.entries
+              .where((e) => e.value) // Prende solo le materie attive
+              .map((e) => {
+                    "subject_id": e.key,
+                    "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
+                  })
+              .toList(),
+        };
+      }
+
+      // -- Mappatura Dati Corsista --
+      if (_selectedRoles.contains('CORSISTA')) {
+        courseParticipantData = {
+          "medical_certificate_expiration": _toIsoDate(_scadenzaCertificatoCtrl.text.trim()),
+          "course_type": _tipoCorsoCtrl.text.trim(),
+        };
+      }
+
+      // -- Mappatura Dati Studente --
+      if (_selectedRoles.contains('STUDENTE')) {
+        studentData = {
+          "authorized_early_exit": _uscitaAnticipata == 'Sì',
+          "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
+          "study_program_id": _percorsoStudenteSelezionato?.id,
+          "school_class": _classeFrequentata,
+        };
+      }
+
+      // -- Payload Principale --
+      final payload = {
+        "general_data": {
+          "first_name": _nomeCtrl.text.trim(),
+          "last_name": _cognomeCtrl.text.trim(),
+          "tax_code": _cfCtrl.text.trim().toUpperCase(),
+          "gender": _sesso,
+          "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
+          "birth_city": _cittaNascitaCtrl.text.trim(),
+          "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
+          "residence_type": _tipoViaCtrl.text.trim(),
+          "residence_address": _indirizzoNomeCtrl.text.trim(),
+          "residence_street_number": _civicoCtrl.text.trim(),
+          "residence_city": _cittaResidenzaCtrl.text.trim(),
+          "residence_province": _provResidenzaCtrl.text.trim().toUpperCase(),
+          "postal_code": _capCtrl.text.trim(),
+          "email": _emailCtrl.text.trim(),
+          "phone": _telefonoCtrl.text.replaceAll(' ', ''),
+        },
+        "roles": _selectedRoles.toList(),
+        "enrollment_data": enrollmentData,
+        "staff_data": staffData,
+        "admin_data": adminData,
+        "teacher_data": teacherData,
+        "course_participant_data": courseParticipantData,
+        "student_data": studentData,
+        "relationships": {
+          "minors_tax_codes": _selectedMinors.toList(),
+          "parents_tax_codes": _selectedParents.toList(),
+        }
+      };
+
+      await ApiService().createPersonFromWizard(
+        payload, 
+        imageBytes: _fotoProfilo,
+      );
+
+      if (mounted) {
+        CustomSnackBar.show(context: context, message: 'Persona creata con successo!', isError: false);
+        context.go('/people');
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   Future<void> _createNewMinor() async
@@ -1395,29 +1538,31 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 32),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment:  MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  WizardSelectionCard(
-                    title:      'Coinvolto Attivamente', 
-                    subtitle:   'Partecipa attivamente ai corsi, ai servizi, o ricopre ruoli organizzativi, operativi e amministrativi.', 
-                    icon:       Icons.workspaces_outline, 
-                    isSelected: _involvementType == 0, 
-                    onTap:      () => setState(() => _involvementType = 0),
-                  ),
-                  const SizedBox(height: 24),
-                  WizardSelectionCard(
-                    title:      'Solo Socio Sostenitore', 
-                    subtitle:   'Paga regolarmente la quota associativa per sostenere la realtà, senza ricoprire ruoli e senza usufruire di servizi.', 
-                    icon:       Icons.card_membership_rounded, 
-                    isSelected: _involvementType == 1, 
-                    onTap:      () => setState(() => _involvementType = 1),
-                  ),
-                ],
+            child: Center(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing:    32,
+                  runSpacing: 32,
+                  alignment:  WrapAlignment.center,
+                  children: [
+                    WizardSelectionCard(
+                      title:      'Coinvolto Attivamente', 
+                      subtitle:   'Partecipa attivamente ai corsi, ai servizi, o ricopre ruoli organizzativi, operativi e amministrativi.', 
+                      icon:       Icons.workspaces_outline, 
+                      isSelected: _involvementType == 0, 
+                      onTap:      () => setState(() => _involvementType = 0),
+                    ),
+                    WizardSelectionCard(
+                      title:      'Solo Socio Sostenitore', 
+                      subtitle:   'Paga regolarmente la quota associativa per sostenere la realtà, senza ricoprire ruoli e senza usufruire di servizi.', 
+                      icon:       Icons.card_membership_rounded, 
+                      isSelected: _involvementType == 1, 
+                      onTap:      () => setState(() => _involvementType = 1),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1460,28 +1605,33 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 32),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment:  MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: _availableRoles.map((role) 
-                {
-                  final isSelected = _selectedRoles.contains(role['id']);
-                  
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: WizardSelectionCard(
-                      title:        role['label'], 
-                      subtitle:     role['desc'], 
-                      icon:         role['icon'], 
-                      isSelected:   isSelected, 
-                      isHorizontal: true,
-                      onTap:        () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
-                    ),
-                  );
-                }).toList(),
+            child: Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1150), // Limita la larghezza forzando l'a capo in una griglia 3x2
+                  child: Wrap(
+                    spacing:    24,
+                    runSpacing: 24,
+                    alignment:  WrapAlignment.center,
+                    children: _availableRoles.map((role) 
+                    {
+                      final isSelected = _selectedRoles.contains(role['id']);
+                      
+                      return SizedBox(
+                        width: 350, // Card notevolmente più grandi
+                        child: WizardSelectionCard(
+                          title:      role['label'], 
+                          subtitle:   role['desc'], 
+                          icon:       role['icon'], 
+                          isSelected: isSelected, 
+                          onTap:      () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
           ),
@@ -2658,15 +2808,15 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             ),
           const SizedBox(width: 24),
           SizedBox(
-            width: 240, 
-            child: WizardAnimatedActionButton(
-              text:       isLastStep ? 'CREA PERSONA' : 'AVANTI', 
-              icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-              baseColor:  const Color(0xFF003C82), 
-              hoverColor: const Color(0xFF004D99), 
-              onPressed:  _onNext,
+              width: 240, 
+              child: WizardAnimatedActionButton(
+                text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA PERSONA' : 'AVANTI'), 
+                icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
+                baseColor:  const Color(0xFF003C82), 
+                hoverColor: const Color(0xFF004D99), 
+                onPressed:  _isSubmitting ? () {} : _onNext,
+              ),
             ),
-          ),
         ],
       ),
     );
