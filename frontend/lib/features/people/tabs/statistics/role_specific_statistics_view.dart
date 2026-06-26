@@ -93,6 +93,15 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     return List.generate(currentYear - 2022 + 1, (index) => currentYear - index).map((y) => _FilterMenuOption(value: y, label: y.toString())).toList();
   }
 
+  List<_FilterMenuOption<int>> _getCollabMonthOptions() 
+  {
+    if (_selectedCollabYear == 2022) 
+    {
+      return [_FilterMenuOption(value: 11, label: 'Nov'), _FilterMenuOption(value: 12, label: 'Dic')];
+    }
+    return List.generate(12, (index) => _FilterMenuOption(value: index + 1, label: _months[index]));
+  }
+
   List<MemberTrendItem> _padTrendData(List<MemberTrendItem> rawData, String resolution, int startYear, int endYear) 
   {
     final List<MemberTrendItem> padded = [];
@@ -236,15 +245,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   List<_FilterMenuOption<String>> _getRetentionTypeOptions() 
   {
     return [_FilterMenuOption(value: 'year', label: 'Annuale'), _FilterMenuOption(value: 'month', label: 'Mensile')];
-  }
-
-  List<_FilterMenuOption<int>> _getCollabMonthOptions() 
-  {
-    if (_selectedCollabYear == 2022) 
-    {
-      return [_FilterMenuOption(value: 11, label: 'Nov'), _FilterMenuOption(value: 12, label: 'Dic')];
-    }
-    return List.generate(12, (index) => _FilterMenuOption(value: index + 1, label: _months[index]));
   }
 
   Widget _buildStatBlock(String label, int value, bool isDelta, {double? percentage}) 
@@ -746,8 +746,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                                 Expanded(
                                   child: Text(
                                     _collabRetentionType == 'year' 
-                                      ? (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto all\'anno precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto all\'anno precedente.') 
-                                      : (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto al mese precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto al mese precedente.'), 
+                                      ? (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.') 
+                                      : (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.'), 
                                     style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF64748B), height: 1.5)
                                   )
                                 ),
@@ -906,10 +906,10 @@ class _LineChartWidgetState extends State<_LineChartWidget>
                           [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
-                              decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
+                              decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
                               child: Text('${_cachedMembersValue ?? 0}', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))
                             ),
-                            CustomPaint(size: const Size(10, 5), painter: _TriangleArrowPainter(color: const Color(0xFF003C82))),
+                            CustomPaint(size: const Size(10, 5), painter: _TriangleArrowPainter(color: const Color(0xFF1E293B))),
                           ],
                         ),
                       ),
@@ -1028,10 +1028,10 @@ class _BarChartWidgetState extends State<_BarChartWidget>
                                     [
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
-                                        decoration: BoxDecoration(color: const Color(0xFF0284C7), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
+                                        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
                                         child: Text('${_cachedLabelName ?? ""}: ${_cachedCountValue ?? 0} (${((_cachedCountValue ?? 0) / totalCount * 100).toStringAsFixed(1)}%)', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))
                                       ),
-                                      CustomPaint(size: const Size(10, 5), painter: _TriangleArrowPainter(color: const Color(0xFF0284C7))),
+                                      CustomPaint(size: const Size(10, 5), painter: _TriangleArrowPainter(color: const Color(0xFF1E293B))),
                                     ],
                                   ),
                                 ),

@@ -259,7 +259,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: 
             [
-              Text('Fidelizzazione Generale (Annuale)', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
+              Text('Fidelizzazione Generale', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))),
               _StatFilterMenu<int>(
                 hint: 'Anno', value: _selectedRetentionYear, options: _getYearOptions(),
                 onChanged: (v) { setState(() => _selectedRetentionYear = v); _loadData(); },
@@ -273,7 +273,14 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
               [
                 Text('${_retentionData!.retentionRatePercentage.toStringAsFixed(1)}%', style: GoogleFonts.plusJakartaSans(fontSize: 54, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                 const SizedBox(width: 16),
-                Expanded(child: Text('${_retentionData!.retainedMembers} iscritti mantenuti su ${_retentionData!.previousYearMembers} dell\'anno precedente.', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF64748B), height: 1.5))),
+                Expanded(
+                  child: Text(
+                    _retentionData!.retainedMembers == 1 
+                      ? '1 iscritto mantenuto su ${_retentionData!.previousYearMembers} dell\'anno precedente.'
+                      : '${_retentionData!.retainedMembers} iscritti mantenuti su ${_retentionData!.previousYearMembers} dell\'anno precedente.', 
+                    style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF64748B), height: 1.5)
+                  )
+                ),
               ],
             ),
         ],
@@ -352,8 +359,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
                 Expanded(
                   child: Text(
                     _collabRetentionType == 'year'
-                        ? '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.'
-                        : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.',
+                        ? (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.')
+                        : (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.'),
                     style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF64748B), height: 1.5),
                   ),
                 ),
@@ -589,7 +596,7 @@ class _LineChartWidgetState extends State<_LineChartWidget>
                           [
                             Container(
                               padding:    const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
-                              decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
+                              decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(8), boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 3), blurRadius: 6)]), 
                               child:      Text('${_cachedMembersValue ?? 0}', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700))
                             ),
                             CustomPaint(size: const Size(10, 5), painter: _TriangleArrowPainter()),
@@ -612,7 +619,7 @@ class _TriangleArrowPainter extends CustomPainter
   @override
   void paint(Canvas canvas, Size size) 
   {
-    canvas.drawPath(Path()..moveTo(0, 0)..lineTo(size.width, 0)..lineTo(size.width / 2, size.height)..close(), Paint()..color = const Color(0xFF003C82)..style = PaintingStyle.fill);
+    canvas.drawPath(Path()..moveTo(0, 0)..lineTo(size.width, 0)..lineTo(size.width / 2, size.height)..close(), Paint()..color = const Color(0xFF1E293B)..style = PaintingStyle.fill);
   }
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
@@ -748,7 +755,7 @@ class _StatFilterMenuState<T> extends State<_StatFilterMenu<T>>
           Positioned(
             top:  offset.dy + size.height + 8, 
             left: offset.dx, 
-            child: _StatFilterOverlayContent<T>( // O _OverlayContent in role_specific_statistics_view
+            child: _StatFilterOverlayContent<T>(
               key:          _menuKey, 
               currentValue: widget.value, 
               options:      widget.options, 
