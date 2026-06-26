@@ -14,7 +14,8 @@ import './models/person_item.dart';
 
 import 'person_wizard_components.dart';
 
-class MinorCreationDialog extends StatefulWidget {
+class MinorCreationDialog extends StatefulWidget 
+{
   final List<SchoolItem>             allSchools;
   final List<StudyProgramItem>       allPrograms;
   final List<AssociationSubjectItem> allSubjects;
@@ -30,31 +31,34 @@ class MinorCreationDialog extends StatefulWidget {
   State<MinorCreationDialog> createState() => _MinorCreationDialogState();
 }
 
-class _MinorCreationDialogState extends State<MinorCreationDialog> {
-  int  _currentStep     = 0;
-  bool _movingForward   = true;
-  bool _isSubmitting    = false;
+class _MinorCreationDialogState extends State<MinorCreationDialog> 
+{
+  int  _currentStep        = 0;
+  bool _movingForward      = true;
+  bool _card1MovingForward = true;
+  bool _card2MovingForward = true;
+  bool _isSubmitting       = false;
 
   final Set<String> _selectedRoles = {};
   
   final List<Map<String, dynamic>> _availableRoles = [
     {
+      'id':    'DOCENTE', 
+      'label': 'Docente', 
+      'desc':  'Svolge attività di supporto didattico e ripetizioni.', 
+      'icon':  Icons.school_outlined
+    },
+    {
       'id':    'STUDENTE', 
-      'label': 'Frequenta i corsi', 
-      'desc':  'Allievo beneficiario dei servizi dell\'associazione.', 
+      'label': 'Studente', 
+      'desc':  'Riceve supporto didattico e ripetizioni.', 
       'icon':  Icons.menu_book_outlined
     },
     {
       'id':    'CORSISTA', 
-      'label': 'Corsi serali / brevi', 
-      'desc':  'Partecipante ad attività extra (es. Yoga, Pilates).', 
+      'label': 'Corsista', 
+      'desc':  'Partecipa ai corsi organizzati dall\'Associazione, come yoga o pilates.', 
       'icon':  Icons.self_improvement_rounded
-    },
-    {
-      'id':    'DOCENTE', 
-      'label': 'Insegna / Tutoraggio', 
-      'desc':  'Fornisce supporto didattico attivo e ripetizioni.', 
-      'icon':  Icons.school_outlined
     },
   ];
 
@@ -79,8 +83,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
   final TextEditingController _telefonoCtrl       = TextEditingController();
 
   int _currentStep2CardIndex = 0;
-  final TextEditingController _annoPrimaIscrizioneCtrl = TextEditingController();
-  final TextEditingController _dataIscrizioneCtrl      = TextEditingController();
+  
+  final List<_EnrollmentRowData> _enrollmentRows = [];
+
   final TextEditingController _scadenzaCertificatoCtrl = TextEditingController();
   final TextEditingController _tipoCorsoCtrl           = TextEditingController();
   final TextEditingController _ibanCtrl                = TextEditingController();
@@ -101,15 +106,19 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
   final Map<int, Set<int>>    _selectedProgramsForSubject = {};
 
   @override
-  void initState() {
+  void initState() 
+  {
     super.initState();
     final now = DateTime.now();
-    _annoPrimaIscrizioneCtrl.text = now.year.toString();
-    _dataIscrizioneCtrl.text      = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    _enrollmentRows.add(_EnrollmentRowData(
+      yearCtrl: TextEditingController(text: now.year.toString()),
+      dateCtrl: TextEditingController(text: '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}'),
+    ));
   }
 
   @override
-  void dispose() {
+  void dispose() 
+  {
     _nomeCtrl.dispose();
     _cognomeCtrl.dispose();
     _cfCtrl.dispose();
@@ -124,28 +133,37 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     _capCtrl.dispose();
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
-    _annoPrimaIscrizioneCtrl.dispose();
-    _dataIscrizioneCtrl.dispose();
     _scadenzaCertificatoCtrl.dispose();
     _tipoCorsoCtrl.dispose();
     _ibanCtrl.dispose();
     _studiScolasticiCtrl.dispose();
     _studiUniversitariCtrl.dispose();
     _searchSubjectsCtrl.dispose();
+    for (final row in _enrollmentRows) 
+    {
+      row.yearCtrl.dispose();
+      row.dateCtrl.dispose();
+    }
     super.dispose();
   }
 
-  String get _currentSchoolYear {
+  String get _currentSchoolYear 
+  {
     final now = DateTime.now();
-    if (now.month < 9) {
+    if (now.month < 9) 
+    {
       return '${now.year - 1}/${now.year}';
-    } else {
+    } 
+    else 
+    {
       return '${now.year}/${now.year + 1}';
     }
   }
 
-  bool _isValidDate(String dateStr) {
-    try {
+  bool _isValidDate(String dateStr) 
+  {
+    try 
+    {
       final parts = dateStr.split('/');
       if (parts.length != 3) return false;
       final day   = int.parse(parts[0]);
@@ -153,20 +171,97 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       final year  = int.parse(parts[2]);
       final date  = DateTime(year, month, day);
       return date.year == year && date.month == month && date.day == day;
-    } catch (_) {
+    } 
+    catch (_) 
+    {
       return false;
     }
   }
 
-  String? _toIsoDate(String? itaDate) {
+  bool _isValidDayMonthYear(String dm, String yearStr) 
+  {
+    try 
+    {
+      final parts = dm.split('/');
+      if (parts.length != 2) return false;
+      
+      final day   = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year  = int.parse(yearStr);
+      final date  = DateTime(year, month, day);
+      
+      return date.year == year && date.month == month && date.day == day;
+    } 
+    catch (_)
+    {
+      return false;
+    }
+  }
+
+  String? _toIsoDate(String? itaDate) 
+  {
     if (itaDate == null || itaDate.isEmpty) return null;
     final parts = itaDate.split('/');
     if (parts.length != 3) return null;
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
-  bool _validateDatiGenerali() {
-    setState(() {
+  bool _isCodiceFiscaleValid(String cf) 
+  {
+    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
+    const oddValues = {
+      '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
+      'A': 1, 'B': 0, 'C': 5, 'D': 7, 'E': 9, 'F': 13, 'G': 15, 'H': 17, 'I': 19, 'J': 21,
+      'K': 2, 'L': 4, 'M': 18, 'N': 20, 'O': 11, 'P': 3, 'Q': 6, 'R': 8, 'S': 12, 'T': 14,
+      'U': 16, 'V': 10, 'W': 22, 'X': 25, 'Y': 24, 'Z': 23
+    };
+    const evenValues = {
+      '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+      'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, 'I': 8, 'J': 9,
+      'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19,
+      'U': 20, 'V': 21, 'W': 22, 'X': 23, 'Y': 24, 'Z': 25
+    };
+    int sum = 0;
+    for (int i = 0; i < 15; i++) 
+    {
+      final char = cf[i];
+      if ((i + 1) % 2 != 0) 
+      {
+        sum += oddValues[char]!;
+      } 
+      else 
+      {
+        sum += evenValues[char]!;
+      }
+    }
+    final checkDigit = String.fromCharCode((sum % 26) + 65);
+    return cf[15] == checkDigit;
+  }
+
+  bool _doesCfMatchData(String cf, String dateStr, String gender) 
+  {
+    if (cf.length != 16) return false;
+    final parts = dateStr.split('/');
+    if (parts.length != 3) return false;
+    
+    final year = parts[2].substring(2, 4);
+    if (cf.substring(6, 8) != year) return false;
+    
+    const monthCodes = {'01': 'A', '02': 'B', '03': 'C', '04': 'D', '05': 'E', '06': 'H', '07': 'L', '08': 'M', '09': 'P', '10': 'R', '11': 'S', '12': 'T'};
+    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
+    
+    int day = int.parse(parts[0]);
+    if (gender == 'F') day += 40;
+    final dayStr = day.toString().padLeft(2, '0');
+    if (cf.substring(9, 11) != dayStr) return false;
+    
+    return true;
+  }
+
+  bool _validateDatiGenerali() 
+  {
+    setState(() 
+    {
       _formErrors.clear();
       _nomeCtrl.text           = _nomeCtrl.text.trim();
       _cognomeCtrl.text        = _cognomeCtrl.text.trim();
@@ -188,10 +283,12 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     int?                firstInvalidCard;
     Map<String, String> newErrors        = {};
 
-    void addError(String field, String message, int cardIndex) {
+    void addError(String field, String message, int cardIndex) 
+    {
       newErrors[field] = message;
       isValid          = false;
-      if (firstInvalidCard == null || cardIndex < firstInvalidCard!) {
+      if (firstInvalidCard == null || cardIndex < firstInvalidCard!) 
+      {
         firstInvalidCard = cardIndex;
       }
     }
@@ -199,31 +296,53 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     if (_nomeCtrl.text.isEmpty) addError('nome', 'Campo obbligatorio', 0);
     if (_cognomeCtrl.text.isEmpty) addError('cognome', 'Campo obbligatorio', 0);
     if (_sesso == null) addError('sesso', 'Campo obbligatorio', 0);
-    if (_cfCtrl.text.isEmpty) {
+    
+    if (_cfCtrl.text.isEmpty) 
+    {
       addError('cf', 'Campo obbligatorio', 0);
-    } else if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(_cfCtrl.text)) {
+    } 
+    else if (!_isCodiceFiscaleValid(_cfCtrl.text)) 
+    {
       addError('cf', 'Codice fiscale non valido', 0);
+    } 
+    else if (_sesso != null && _dataNascitaCtrl.text.isNotEmpty && _isValidDate(_dataNascitaCtrl.text)) 
+    {
+      if (!_doesCfMatchData(_cfCtrl.text, _dataNascitaCtrl.text, _sesso!)) 
+      {
+        addError('cf', 'Il codice fiscale non corrisponde ai dati', 0);
+      }
     }
 
-    if (_dataNascitaCtrl.text.isEmpty) {
+    if (_dataNascitaCtrl.text.isEmpty) 
+    {
       addError('dataNascita', 'Campo obbligatorio', 1);
-    } else {
-      if (!_isValidDate(_dataNascitaCtrl.text)) {
+    } 
+    else 
+    {
+      if (!_isValidDate(_dataNascitaCtrl.text)) 
+      {
         addError('dataNascita', 'Formato data non valido', 1);
-      } else {
+      } 
+      else 
+      {
         final parts   = _dataNascitaCtrl.text.split('/');
         final date    = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
         final now     = DateTime.now();
         final minDate = DateTime(1900, 1, 1);
         
-        if (date.isBefore(minDate) || date.isAfter(now)) {
+        if (date.isBefore(minDate) || date.isAfter(now)) 
+        {
           addError('dataNascita', 'Data di nascita non consentita', 1);
-        } else {
+        } 
+        else 
+        {
           int age = now.year - date.year;
-          if (now.month < date.month || (now.month == date.month && now.day < date.day)) {
+          if (now.month < date.month || (now.month == date.month && now.day < date.day)) 
+          {
             age--;
           }
-          if (age >= 18) {
+          if (age >= 18) 
+          {
             addError('dataNascita', 'Il minore deve avere meno di 18 anni', 1);
           }
         }
@@ -231,9 +350,12 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     }
     
     if (_cittaNascitaCtrl.text.isEmpty) addError('cittaNascita', 'Campo obbligatorio', 1);
-    if (_provNascitaCtrl.text.isEmpty) {
+    if (_provNascitaCtrl.text.isEmpty) 
+    {
       addError('provNascita', 'Campo obbligatorio', 1);
-    } else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provNascitaCtrl.text)) {
+    } 
+    else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provNascitaCtrl.text)) 
+    {
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
 
@@ -242,47 +364,62 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     if (_civicoCtrl.text.isEmpty) addError('civico', 'Campo obbligatorio', 2);
     if (_cittaResidenzaCtrl.text.isEmpty) addError('cittaResidenza', 'Campo obbligatorio', 2);
     
-    if (_provResidenzaCtrl.text.isEmpty) {
+    if (_provResidenzaCtrl.text.isEmpty) 
+    {
       addError('provResidenza', 'Campo obbligatorio', 2);
-    } else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provResidenzaCtrl.text)) {
+    } 
+    else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provResidenzaCtrl.text)) 
+    {
       addError('provResidenza', 'Inserire 2 lettere (es. VI)', 2);
     }
     
-    if (_capCtrl.text.isEmpty) {
+    if (_capCtrl.text.isEmpty) 
+    {
       addError('cap', 'Campo obbligatorio', 2);
-    } else if (!RegExp(r'^\d{5}$').hasMatch(_capCtrl.text)) {
+    } 
+    else if (!RegExp(r'^\d{5}$').hasMatch(_capCtrl.text)) 
+    {
       addError('cap', 'Deve contenere 5 numeri', 2);
     }
 
-    if (_emailCtrl.text.isEmpty) {
+    if (_emailCtrl.text.isEmpty) 
+    {
       addError('email', 'Campo obbligatorio', 3);
-    } else if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(_emailCtrl.text)) {
+    } 
+    else if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(_emailCtrl.text)) 
+    {
       addError('email', 'Formato indirizzo email non valido', 3);
     }
 
-    if (_telefonoCtrl.text.isEmpty) {
+    if (_telefonoCtrl.text.isEmpty) 
+    {
       addError('telefono', 'Campo obbligatorio', 3);
-    } else if (!RegExp(r'^\d+$').hasMatch(_telefonoCtrl.text)) {
+    } 
+    else if (!RegExp(r'^\d+$').hasMatch(_telefonoCtrl.text)) 
+    {
       addError('telefono', 'Ammessi esclusivamente numeri', 3);
     }
 
-    setState(() {
+    setState(() 
+    {
       _formErrors = newErrors;
-      if (!isValid && firstInvalidCard != null) {
+      if (!isValid && firstInvalidCard != null) 
+      {
+        _card1MovingForward   = firstInvalidCard! >= _currentFormCardIndex;
         _currentFormCardIndex = firstInvalidCard!;
       }
     });
 
-    if (!isValid) {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti.', isError: true);
+    if (!isValid) 
+    {
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati', isError: true);
     }
 
     return isValid;
   }
 
-  bool _validateDatiSpecifici() {
-    _annoPrimaIscrizioneCtrl.text = _annoPrimaIscrizioneCtrl.text.trim();
-    _dataIscrizioneCtrl.text      = _dataIscrizioneCtrl.text.trim();
+  bool _validateDatiSpecifici() 
+  {
     _scadenzaCertificatoCtrl.text = _scadenzaCertificatoCtrl.text.trim();
     _tipoCorsoCtrl.text           = _tipoCorsoCtrl.text.trim();
     _ibanCtrl.text                = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
@@ -293,10 +430,12 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     int?                firstInvalidCard;
     Map<String, String> newErrors        = {};
 
-    void addError(String field, String message, int targetCardLogicIndex) {
+    void addError(String field, String message, int targetCardLogicIndex) 
+    {
       newErrors[field] = message;
       isValid          = false;
-      if (firstInvalidCard == null || targetCardLogicIndex < firstInvalidCard!) {
+      if (firstInvalidCard == null || targetCardLogicIndex < firstInvalidCard!) 
+      {
         firstInvalidCard = targetCardLogicIndex;
       }
     }
@@ -307,42 +446,84 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
 
     int currentMappedIndex = 0;
 
-    if (_annoPrimaIscrizioneCtrl.text.isEmpty) {
-      addError('annoPrimaIscrizione', 'Campo obbligatorio', currentMappedIndex);
-    } else if (!RegExp(r'^\d{4}$').hasMatch(_annoPrimaIscrizioneCtrl.text)) {
-      addError('annoPrimaIscrizione', 'Formato anno non valido', currentMappedIndex);
+    if (_enrollmentRows.isEmpty) 
+    {
+      addError('enrollmentGeneral', 'Aggiungi almeno un\'iscrizione', currentMappedIndex);
     }
-    if (_dataIscrizioneCtrl.text.isEmpty) {
-      addError('dataIscrizione', 'Campo obbligatorio', currentMappedIndex);
-    } else if (!_isValidDate(_dataIscrizioneCtrl.text)) {
-      addError('dataIscrizione', 'Formato data non valido', currentMappedIndex);
+    for (int i = 0; i < _enrollmentRows.length; i++) 
+    {
+      final row = _enrollmentRows[i];
+      bool yearValid = false;
+      
+      if (row.yearCtrl.text.trim().isEmpty) 
+      {
+        addError('enrollmentYear_$i', 'Campo obbligatorio', currentMappedIndex);
+      } 
+      else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) 
+      {
+        addError('enrollmentYear_$i', 'Anno non valido', currentMappedIndex);
+      }
+      else
+      {
+        int parsedYear = int.parse(row.yearCtrl.text.trim());
+        if (parsedYear > DateTime.now().year)
+        {
+          addError('enrollmentYear_$i', 'Anno non futuro', currentMappedIndex);
+        }
+        else
+        {
+          yearValid = true;
+        }
+      }
+      
+      if (row.dateCtrl.text.trim().isEmpty) 
+      {
+        addError('enrollmentDate_$i', 'Campo obbligatorio', currentMappedIndex);
+      } 
+      else if (yearValid && !_isValidDayMonthYear(row.dateCtrl.text.trim(), row.yearCtrl.text.trim())) 
+      {
+        addError('enrollmentDate_$i', 'Data non valida', currentMappedIndex);
+      }
+      else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim()))
+      {
+        addError('enrollmentDate_$i', 'Formato gg/mm', currentMappedIndex);
+      }
     }
     currentMappedIndex++;
 
-    if (isStaff) {
-      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text)) {
+    if (isStaff) 
+    {
+      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text)) 
+      {
         addError('iban', 'Formato IBAN italiano non valido', currentMappedIndex);
       }
-      if (_tipoCollaborazione == null) {
+      if (_tipoCollaborazione == null) 
+      {
         addError('tipoCollaborazione', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
       currentMappedIndex++; 
     }
 
-    if (isCorsista) {
-      if (_scadenzaCertificatoCtrl.text.isEmpty) {
+    if (isCorsista) 
+    {
+      if (_scadenzaCertificatoCtrl.text.isEmpty) 
+      {
         addError('scadenzaCertificato', 'Campo obbligatorio', currentMappedIndex);
-      } else if (!_isValidDate(_scadenzaCertificatoCtrl.text)) {
+      } 
+      else if (!_isValidDate(_scadenzaCertificatoCtrl.text)) 
+      {
         addError('scadenzaCertificato', 'Formato data non valido', currentMappedIndex);
       }
-      if (_tipoCorsoCtrl.text.isEmpty) {
+      if (_tipoCorsoCtrl.text.isEmpty) 
+      {
         addError('tipoCorso', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
     
-    if (isStudente) {
+    if (isStudente) 
+    {
       if (_uscitaAnticipata == null) addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
       if (_scuolaSelezionata == null) addError('scuolaSelezionata', 'Campo obbligatorio', currentMappedIndex);
       if (_percorsoStudenteSelezionato == null) addError('percorsoStudente', 'Campo obbligatorio', currentMappedIndex);
@@ -350,27 +531,47 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       currentMappedIndex++;
     }
 
-    setState(() {
+    setState(() 
+    {
       _formErrors = newErrors;
-      if (!isValid && firstInvalidCard != null) {
+      if (!isValid && firstInvalidCard != null) 
+      {
+        _card2MovingForward    = firstInvalidCard! >= _currentStep2CardIndex;
         _currentStep2CardIndex = firstInvalidCard!;
       }
     });
 
-    if (!isValid) {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici.', isError: true);
+    if (!isValid) 
+    {
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati', isError: true);
     }
 
     return isValid;
   }
 
-  Future<void> _submitForm() async {
+  Future<void> _submitForm() async 
+  {
     setState(() => _isSubmitting = true);
 
-    try {
-      Map<String, dynamic>? enrollmentData = {
-        "first_enrollment_year": int.parse(_annoPrimaIscrizioneCtrl.text.trim()),
-        "enrollment_date": _toIsoDate(_dataIscrizioneCtrl.text.trim()),
+    try 
+    {
+      List<Map<String, dynamic>> membershipsData = [];
+      for (final row in _enrollmentRows) 
+      {
+        final parts   = row.dateCtrl.text.trim().split('/');
+        final isoDate = '${row.yearCtrl.text.trim()}-${parts[1]}-${parts[0]}';
+        
+        membershipsData.add({
+          "year":                int.parse(row.yearCtrl.text.trim()),
+          "start_date":          isoDate,
+          "end_date":            "${row.yearCtrl.text.trim()}-12-31",
+          "renewal_period_days": 30,
+          "revocation":          "NO"
+        });
+      }
+
+      Map<String, dynamic>? memberData = {
+        "memberships": membershipsData
       };
 
       Map<String, dynamic>? staffData;
@@ -378,7 +579,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       Map<String, dynamic>? courseParticipantData;
       Map<String, dynamic>? studentData;
 
-      if (_selectedRoles.contains('DOCENTE')) {
+      if (_selectedRoles.contains('DOCENTE')) 
+      {
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
         if (_tipoCollaborazione == 'FSC') collType = 'PCTO';
@@ -401,14 +603,16 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
         };
       }
 
-      if (_selectedRoles.contains('CORSISTA')) {
+      if (_selectedRoles.contains('CORSISTA')) 
+      {
         courseParticipantData = {
           "medical_certificate_expiration": _toIsoDate(_scadenzaCertificatoCtrl.text.trim()),
           "course_type": _tipoCorsoCtrl.text.trim(),
         };
       }
 
-      if (_selectedRoles.contains('STUDENTE')) {
+      if (_selectedRoles.contains('STUDENTE')) 
+      {
         studentData = {
           "authorized_early_exit": _uscitaAnticipata == 'Sì',
           "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
@@ -436,7 +640,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           "phone": _telefonoCtrl.text.replaceAll(' ', ''),
         },
         "roles": _selectedRoles.toList()..add('ASSOCIATO'),
-        "enrollment_data": enrollmentData,
+        "member_data":             memberData,
         "staff_data": staffData,
         "teacher_data": teacherData,
         "course_participant_data": courseParticipantData,
@@ -454,61 +658,92 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
 
       final newMinor = PersonItem(
         fiscalCode: _cfCtrl.text.trim().toUpperCase(),
-        firstName: _nomeCtrl.text.trim(),
-        lastName: _cognomeCtrl.text.trim(),
-        roles: _selectedRoles.toList().map((r) => r.substring(0,1).toUpperCase() + r.substring(1).toLowerCase()).toList()..add('Associato'),
-        createdAt: DateTime.now(),
-        city: _cittaResidenzaCtrl.text.trim(),
-        birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
+        firstName:  _nomeCtrl.text.trim(),
+        lastName:   _cognomeCtrl.text.trim(),
+        roles:      _selectedRoles.toList().map((r) => r.substring(0, 1).toUpperCase() + r.substring(1).toLowerCase()).toList()..add('Associato'),
+        createdAt:  DateTime.now(),
+        city:       _cittaResidenzaCtrl.text.trim(),
+        birthDate:  DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
       );
 
-      if (mounted) {
+      if (mounted) 
+      {
         Navigator.of(context).pop(newMinor);
       }
-    } catch (e) {
-      if (mounted) {
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
         CustomSnackBar.show(
           context: context, 
           message: e.toString().replaceAll('Exception: ', ''), 
           isError: true,
         );
       }
-    } finally {
-      if (mounted) {
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
         setState(() => _isSubmitting = false);
       }
     }
   }
 
-  void _onNext() {
-    if (_currentStep == 0) {
-      if (_selectedRoles.isEmpty) {
+  void _onNext() 
+  {
+    if (_currentStep == 0) 
+    {
+      if (_selectedRoles.isEmpty) 
+      {
         CustomSnackBar.show(context: context, message: 'Seleziona almeno un ruolo per procedere.', isError: true);
         return;
       }
-      setState(() { _movingForward = true; _currentStep = 1; });
+      setState(() 
+      { 
+        _movingForward = true; 
+        _currentStep   = 1; 
+      });
       return;
     }
 
-    if (_currentStep == 1) {
+    if (_currentStep == 1) 
+    {
       if (!_validateDatiGenerali()) return;
-      setState(() { _movingForward = true; _currentStep = 2; _currentStep2CardIndex = 0; });
+      setState(() 
+      { 
+        _movingForward         = true; 
+        _currentStep           = 2; 
+        _currentStep2CardIndex = 0; 
+        _card2MovingForward    = true; 
+      });
       return;
     }
 
-    if (_currentStep == 2) {
+    if (_currentStep == 2) 
+    {
       if (!_validateDatiSpecifici()) return;
-      if (_selectedRoles.contains('DOCENTE')) {
-        setState(() { _movingForward = true; _currentStep = 3; });
-      } else {
+      if (_selectedRoles.contains('DOCENTE')) 
+      {
+        setState(() 
+        { 
+          _movingForward = true; 
+          _currentStep   = 3; 
+        });
+      } 
+      else 
+      {
         _submitForm();
       }
       return;
     }
 
-    if (_currentStep == 3) {
+    if (_currentStep == 3) 
+    {
       bool hasAtLeastOneSubject = _subjectToggles.values.any((isSelected) => isSelected == true);
-      if (!hasAtLeastOneSubject) {
+      if (!hasAtLeastOneSubject) 
+      {
         CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina insegnata.', isError: true);
         return;
       }
@@ -517,16 +752,18 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     }
   }
 
-  void _onBack() {
+  void _onBack() 
+  {
     setState(() => _movingForward = false);
     if (_currentStep == 3) setState(() => _currentStep = 2);
     else if (_currentStep == 2) setState(() => _currentStep = 1);
     else if (_currentStep == 1) setState(() => _currentStep = 0);
   }
 
-  Widget _buildStep0Roles() {
+  Widget _buildStep0Roles() 
+  {
     return SizedBox(
-      key: const ValueKey('step0_m'),
+      key:   const ValueKey('step0_m'),
       width: double.infinity,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -536,47 +773,53 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
             child: Column(
               children: [
                 Text(
-                  'Ruoli del Minore',
+                  'Quali ruoli ricopre il minore all\'interno dell\'Associazione',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
+                    fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF003C82),
+                    color:      const Color(0xFF003C82),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Quali ruoli ricopre il minore all\'interno dell\'Associazione?',
+                  'Puoi selezionare più di un\'opzione',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
+                    fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
+                    color:      const Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 32),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: _availableRoles.map((role) {
-                  final isSelected = _selectedRoles.contains(role['id']);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: WizardSelectionCard(
-                      title: role['label'], 
-                      subtitle: role['desc'], 
-                      icon: role['icon'], 
-                      isSelected: isSelected, 
-                      isHorizontal: true,
-                      onTap: () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
-                    ),
-                  );
-                }).toList(),
+            child: Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1150),
+                  child: Wrap(
+                    spacing:    24,
+                    runSpacing: 24,
+                    alignment:  WrapAlignment.center,
+                    children: _availableRoles.map((role) 
+                    {
+                      final isSelected = _selectedRoles.contains(role['id']);
+                      return SizedBox(
+                        width: 350,
+                        child: WizardSelectionCard(
+                          title:      role['label'], 
+                          subtitle:   role['desc'], 
+                          icon:       role['icon'], 
+                          isSelected: isSelected, 
+                          onTap:      () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
           ),
@@ -585,186 +828,318 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     );
   }
 
-  List<Widget> get _activeStep2Cards {
+  List<Widget> get _activeStep2Cards 
+  {
     final List<Widget> cards = [];
+    
     cards.add(WizardFormSectionCard(
-      title: 'Iscrizione',
+      title:       'Iscrizioni',
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: [
-        WizardFormInputRow(
-          label: 'Anno prima iscr.',
-          inputWidget: WizardAnimatedTextField(
-            controller: _annoPrimaIscrizioneCtrl, 
-            hint: 'Es. 2026', 
-            keyboardType: TextInputType.number,
-            errorText: _formErrors['annoPrimaIscrizione'],
-            onChanged: (_) => setState(() => _formErrors.remove('annoPrimaIscrizione')),
+        ...List.generate(_enrollmentRows.length, (index) 
+        {
+          final row = _enrollmentRows[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex:  2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index == 0) ...[
+                        Text(
+                          'Anno',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField(
+                        controller:   row.yearCtrl, 
+                        hint:         'Es. 2024', 
+                        keyboardType: TextInputType.number,
+                        errorText:    _formErrors['enrollmentYear_$index'],
+                        onChanged:    (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex:  3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index == 0) ...[
+                        Text(
+                          'Data inizio',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField(
+                        controller:      row.dateCtrl, 
+                        hint:            'gg/mm', 
+                        keyboardType:    TextInputType.number,
+                        inputFormatters: [WizardDayMonthInputFormatter()],
+                        errorText:       _formErrors['enrollmentDate_$index'],
+                        onChanged:       (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 8),
+                    child: IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: Color(0xFFE53935)),
+                      onPressed: () 
+                      {
+                        setState(() 
+                        {
+                          _enrollmentRows[index].yearCtrl.dispose();
+                          _enrollmentRows[index].dateCtrl.dispose();
+                          _enrollmentRows.removeAt(index);
+                          _formErrors.remove('enrollmentYear_$index');
+                          _formErrors.remove('enrollmentDate_$index');
+                        });
+                      },
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48), 
+              ],
+            ),
+          );
+        }),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () 
+            {
+              int lastYear = DateTime.now().year;
+              if (_enrollmentRows.isNotEmpty) 
+              {
+                lastYear = int.tryParse(_enrollmentRows.last.yearCtrl.text) ?? lastYear;
+              }
+              setState(() 
+              {
+                _enrollmentRows.add(_EnrollmentRowData(
+                  yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
+                  dateCtrl: TextEditingController(),
+                ));
+              });
+            },
+            icon:  const Icon(Icons.add_rounded, size: 20),
+            label: Text(
+              'AGGIUNGI ISCRIZIONE',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF003C82),
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label: 'Data iscrizione',
-          inputWidget: WizardAnimatedTextField(
-            controller: _dataIscrizioneCtrl, 
-            hint: 'gg/mm/aaaa', 
-            keyboardType: TextInputType.number,
-            inputFormatters: [WizardDateInputFormatter()],
-            errorText: _formErrors['dataIscrizione'],
-            onChanged: (_) => setState(() => _formErrors.remove('dataIscrizione')),
-          ),
-        ),
-      ]
+      ],
     ));
 
-    if (_selectedRoles.contains('DOCENTE')) {
+    if (_selectedRoles.contains('DOCENTE')) 
+    {
       cards.add(WizardFormSectionCard(
-        title: 'Dati Collaborazione',
+        title:       'Dati Collaborazione',
         leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
         children: [
           WizardFormInputRow(
-            label: 'IBAN',
+            label:       'IBAN',
             inputWidget: WizardAnimatedTextField(
               controller: _ibanCtrl, 
-              hint: 'Es. IT00A...', 
-              errorText: _formErrors['iban'],
-              onChanged: (_) => setState(() => _formErrors.remove('iban')),
+              hint:       'Es. IT00A...', 
+              errorText:  _formErrors['iban'],
+              onChanged:  (_) => setState(() => _formErrors.remove('iban')),
             ),
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Collaborazione',
+            label:       'Collaborazione',
             inputWidget: WizardAnimatedOverlayDropdown(
-              value: _tipoCollaborazione,
-              items: const ['Volontario', 'Retribuito', 'FSC'],
-              hint: 'Seleziona',
+              value:     _tipoCollaborazione,
+              items:     const ['Volontario', 'Retribuito', 'FSC'],
+              hint:      'Seleziona',
               errorText: _formErrors['tipoCollaborazione'],
-              onChanged: (val) => setState(() { _tipoCollaborazione = val; _formErrors.remove('tipoCollaborazione'); }),
+              onChanged: (val) => setState(() 
+              { 
+                _tipoCollaborazione = val; 
+                _formErrors.remove('tipoCollaborazione'); 
+              }),
             ),
           ),
         ]
       ));
       cards.add(WizardFormSectionCard(
-        title: 'Studi Docente',
+        title:       'Studi Docente',
         leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
         children: [
           WizardFormInputRow(
-            label: 'Studi scolastici',
+            label:       'Studi scolastici',
             inputWidget: WizardAnimatedTextField(
               controller: _studiScolasticiCtrl, 
-              hint: 'Es. Liceo', 
-              errorText: _formErrors['studiScolastici'],
-              onChanged: (_) => setState(() => _formErrors.remove('studiScolastici')),
+              hint:       'Es. Liceo', 
+              errorText:  _formErrors['studiScolastici'],
+              onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
             ),
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Studi universitari',
+            label:       'Studi universitari',
             inputWidget: WizardAnimatedTextField(
               controller: _studiUniversitariCtrl, 
-              hint: 'Es. Laurea', 
-              errorText: _formErrors['studiUniversitari'],
-              onChanged: (_) => setState(() => _formErrors.remove('studiUniversitari')),
+              hint:       'Es. Laurea', 
+              errorText:  _formErrors['studiUniversitari'],
+              onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
             ),
           ),
         ]
       ));
     }
 
-    if (_selectedRoles.contains('CORSISTA')) {
+    if (_selectedRoles.contains('CORSISTA')) 
+    {
       cards.add(WizardFormSectionCard(
-        title: 'Dettagli Corsista',
+        title:       'Dettagli Corsista',
         leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
         children: [
           WizardFormInputRow(
-            label: 'Scadenza cert.',
+            label:       'Scadenza cert.',
             inputWidget: WizardAnimatedTextField(
-              controller: _scadenzaCertificatoCtrl, 
-              hint: 'gg/mm/aaaa', 
-              keyboardType: TextInputType.number,
+              controller:      _scadenzaCertificatoCtrl, 
+              hint:            'gg/mm/aaaa', 
+              keyboardType:    TextInputType.number,
               inputFormatters: [WizardDateInputFormatter()],
-              errorText: _formErrors['scadenzaCertificato'],
-              onChanged: (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
+              errorText:       _formErrors['scadenzaCertificato'],
+              onChanged:       (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
             ),
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Tipo corso',
+            label:       'Tipo corso',
             inputWidget: WizardAnimatedTextField(
               controller: _tipoCorsoCtrl, 
-              hint: 'Es. Pilates', 
-              errorText: _formErrors['tipoCorso'],
-              onChanged: (_) => setState(() => _formErrors.remove('tipoCorso')),
+              hint:       'Es. Pilates', 
+              errorText:  _formErrors['tipoCorso'],
+              onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
             ),
           ),
         ]
       ));
     }
 
-    if (_selectedRoles.contains('STUDENTE')) {
+    if (_selectedRoles.contains('STUDENTE')) 
+    {
       final List<String> schoolNames  = widget.allSchools.map((s) => '${s.name} (${s.city})').toList();
-      List<String> programNames = [];
-      List<String> gradeOptions = [];
+      List<String>       programNames = [];
+      List<String>       gradeOptions = [];
 
-      if (_scuolaSelezionata != null) {
-        try {
+      if (_scuolaSelezionata != null) 
+      {
+        try 
+        {
           dynamic progs;
-          try { progs = (_scuolaSelezionata as dynamic).studyPrograms; } catch (_) {}
-          if (progs == null) {
-            try { progs = (_scuolaSelezionata as dynamic).study_programs; } catch (_) {}
+          try 
+          { 
+            progs = (_scuolaSelezionata as dynamic).studyPrograms; 
+          } 
+          catch (_) {}
+          
+          if (progs == null) 
+          {
+            try 
+            { 
+              progs = (_scuolaSelezionata as dynamic).study_programs; 
+            } 
+            catch (_) {}
           }
-          if (progs != null && progs is Iterable) {
-            for (var p in progs) {
+          
+          if (progs != null && progs is Iterable) 
+          {
+            for (var p in progs) 
+            {
               String? pName = (p is Map) ? p['name'] as String? : (p as dynamic).name as String?;
-              if (pName != null && pName.isNotEmpty) {
-                if (widget.allPrograms.any((allP) => (allP as dynamic).name == pName) && !programNames.contains(pName)) {
+              if (pName != null && pName.isNotEmpty) 
+              {
+                if (widget.allPrograms.any((allP) => (allP as dynamic).name == pName) && !programNames.contains(pName)) 
+                {
                   programNames.add(pName);
                 }
               }
             }
           }
-        } catch (_) {}
+        } 
+        catch (_) {}
       }
 
-      if (_percorsoStudenteSelezionato != null) {
-        try {
+      if (_percorsoStudenteSelezionato != null) 
+      {
+        try 
+        {
           final level = (_percorsoStudenteSelezionato as dynamic).level as String?;
-          if (level == 'MIDDLE_SCHOOL' || level == 'MEDIE' || level == 'Medie') {
+          if (level == 'MIDDLE_SCHOOL' || level == 'MEDIE' || level == 'Medie') 
+          {
             gradeOptions = ['I', 'II', 'III'];
-          } else {
+          } 
+          else 
+          {
             gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
           }
-        } catch (_) {
+        } 
+        catch (_) 
+        {
           gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
         }
       }
 
       cards.add(WizardFormSectionCard(
-        title: 'Dettagli Studente',
+        title:       'Dettagli Studente',
         leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
         children: [
           WizardFormInputRow(
-            label: 'Uscita anticipata',
+            label:       'Uscita anticipata',
             inputWidget: WizardAnimatedOverlayDropdown(
-              value: _uscitaAnticipata,
-              items: const ['Sì', 'No'],
-              hint: 'Seleziona',
+              value:     _uscitaAnticipata,
+              items:     const ['Sì', 'No'],
+              hint:      'Seleziona',
               errorText: _formErrors['uscitaAnticipata'],
-              onChanged: (val) => setState(() { _uscitaAnticipata = val; _formErrors.remove('uscitaAnticipata'); }),
+              onChanged: (val) => setState(() 
+              { 
+                _uscitaAnticipata = val; 
+                _formErrors.remove('uscitaAnticipata'); 
+              }),
             ),
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Scuola',
+            label:       'Scuola',
             inputWidget: WizardAnimatedOverlayDropdown(
-              value: _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null,
-              items: schoolNames,
-              hint: 'Seleziona scuola',
+              value:     _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null,
+              items:     schoolNames,
+              hint:      'Seleziona scuola',
               errorText: _formErrors['scuolaSelezionata'],
-              onChanged: (val) {
-                setState(() {
-                  _scuolaSelezionata = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+              onChanged: (val) 
+              {
+                setState(() 
+                {
+                  _scuolaSelezionata           = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
                   _percorsoStudenteSelezionato = null;
-                  _classeFrequentata = null;
+                  _classeFrequentata           = null;
                   _formErrors.remove('scuolaSelezionata');
                 });
               },
@@ -772,20 +1147,28 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Percorso',
+            label:       'Percorso',
             inputWidget: _scuolaSelezionata == null 
                 ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima la scuola')
                 : programNames.isEmpty
                     ? const WizardDisabledDropdownPlaceholder(hint: 'Nessun percorso offerto')
                     : WizardAnimatedOverlayDropdown(
-                        value: _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null,
-                        items: programNames,
-                        hint: 'Seleziona percorso',
+                        value:     _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null,
+                        items:     programNames,
+                        hint:      'Seleziona percorso',
                         errorText: _formErrors['percorsoStudente'],
-                        onChanged: (val) {
-                          setState(() {
-                            try { _percorsoStudenteSelezionato = widget.allPrograms.firstWhere((p) => (p as dynamic).name == val); } 
-                            catch (_) { _percorsoStudenteSelezionato = null; }
+                        onChanged: (val) 
+                        {
+                          setState(() 
+                          {
+                            try 
+                            { 
+                              _percorsoStudenteSelezionato = widget.allPrograms.firstWhere((p) => (p as dynamic).name == val); 
+                            } 
+                            catch (_) 
+                            { 
+                              _percorsoStudenteSelezionato = null; 
+                            }
                             _classeFrequentata = null; 
                             _formErrors.remove('percorsoStudente');
                           });
@@ -794,15 +1177,19 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           ),
           const SizedBox(height: 16),
           WizardFormInputRow(
-            label: 'Classe a.s. $_currentSchoolYear',
+            label:       'Classe a.s. $_currentSchoolYear',
             inputWidget: _percorsoStudenteSelezionato == null 
                 ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima il percorso')
                 : WizardAnimatedOverlayDropdown(
-                    value: _classeFrequentata,
-                    items: gradeOptions,
-                    hint: 'Seleziona classe',
+                    value:     _classeFrequentata,
+                    items:     gradeOptions,
+                    hint:      'Seleziona classe',
                     errorText: _formErrors['classeFrequentata'],
-                    onChanged: (val) => setState(() { _classeFrequentata = val; _formErrors.remove('classeFrequentata'); }),
+                    onChanged: (val) => setState(() 
+                    { 
+                      _classeFrequentata = val; 
+                      _formErrors.remove('classeFrequentata'); 
+                    }),
                   ),
           ),
         ]
@@ -811,50 +1198,70 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
     return cards;
   }
 
-  Widget _buildStepWidget(int step) {
+  Widget _buildStepWidget(int step) 
+  {
     if (step == 0) return _buildStep0Roles();
     
-    if (step == 1) {
+    if (step == 1) 
+    {
       Widget currentCard = const SizedBox.shrink();
-      switch (_currentFormCardIndex) {
+      switch (_currentFormCardIndex) 
+      {
         case 0:
           currentCard = WizardFormSectionCard(
-            title: 'Identità',
+            title:       'Identità',
             leadingIcon: const WizardStaticAvatar(icon: Icons.badge_outlined),
             children: [
               WizardFormInputRow(
-                label: 'Foto profilo',
+                label:       'Foto profilo',
                 inputWidget: WizardProfilePhotoUploader(
-                  imageBytes: _fotoProfilo,
+                  imageBytes:    _fotoProfilo,
                   onImagePicked: (bytes) => setState(() => _fotoProfilo = bytes),
                 ),
               ),
               const SizedBox(height: 24),
               WizardFormInputRow(
-                label: 'Nome',
+                label:       'Nome',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _nomeCtrl, hint: 'Es. Mario', errorText: _formErrors['nome'], onChanged: (_) => setState(() => _formErrors.remove('nome')),
+                  controller: _nomeCtrl, 
+                  hint:       'Es. Mario', 
+                  errorText:  _formErrors['nome'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('nome')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Cognome',
+                label:       'Cognome',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _cognomeCtrl, hint: 'Es. Rossi', errorText: _formErrors['cognome'], onChanged: (_) => setState(() => _formErrors.remove('cognome')),
+                  controller: _cognomeCtrl, 
+                  hint:       'Es. Rossi', 
+                  errorText:  _formErrors['cognome'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('cognome')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Sesso',
+                label:       'Sesso',
                 inputWidget: WizardAnimatedOverlayDropdown(
-                  value: _sesso, items: const ['M', 'F'], hint: 'Seleziona', errorText: _formErrors['sesso'], onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }),
+                  value:     _sesso, 
+                  items:     const ['M', 'F'], 
+                  hint:      'Seleziona', 
+                  errorText: _formErrors['sesso'], 
+                  onChanged: (val) => setState(() 
+                  { 
+                    _sesso = val; 
+                    _formErrors.remove('sesso'); 
+                  }),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Codice fiscale',
+                label:       'Codice fiscale',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _cfCtrl, hint: 'Es. RSSMRA80A01H501Z', errorText: _formErrors['cf'], onChanged: (_) => setState(() => _formErrors.remove('cf')),
+                  controller: _cfCtrl, 
+                  hint:       'Es. RSSMRA80A01L157H', 
+                  errorText:  _formErrors['cf'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('cf')),
                 ),
               ),
             ],
@@ -862,27 +1269,38 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           break;
         case 1:
           currentCard = WizardFormSectionCard(
-            title: 'Dati anagrafici',
+            title:       'Dati anagrafici',
             leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
             children: [
               WizardFormInputRow(
-                label: 'Data di nascita',
+                label:       'Data di nascita',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', keyboardType: TextInputType.number, inputFormatters: [WizardDateInputFormatter()], errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')),
+                  controller:      _dataNascitaCtrl, 
+                  hint:            'gg/mm/aaaa', 
+                  keyboardType:    TextInputType.number, 
+                  inputFormatters: [WizardDateInputFormatter()], 
+                  errorText:       _formErrors['dataNascita'], 
+                  onChanged:       (_) => setState(() => _formErrors.remove('dataNascita')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Città di nascita',
+                label:       'Città di nascita',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _cittaNascitaCtrl, hint: 'Es. Roma', errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')),
+                  controller: _cittaNascitaCtrl, 
+                  hint:       'Es. Thiene', 
+                  errorText:  _formErrors['cittaNascita'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('cittaNascita')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Prov. di nascita',
+                label:       'Prov. di nascita',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _provNascitaCtrl, hint: 'Es. RM', errorText: _formErrors['provNascita'], onChanged: (_) => setState(() => _formErrors.remove('provNascita')),
+                  controller: _provNascitaCtrl, 
+                  hint:       'Es. VI', 
+                  errorText:  _formErrors['provNascita'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
                 ),
               ),
             ],
@@ -890,16 +1308,16 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           break;
         case 2:
           currentCard = WizardFormSectionCard(
-            title: 'Residenza',
+            title:       'Residenza',
             leadingIcon: const WizardStaticAvatar(icon: Icons.home_rounded),
             children: [
               WizardFormInputRow(
-                label: 'Indirizzo',
+                label:       'Indirizzo',
                 inputWidget: Row(
                   children: [
-                    Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Es. Via', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
+                    Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Via/Strada/...', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
                     const SizedBox(width: 8),
-                    Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome (es. Garibaldi)', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
+                    Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
                     const SizedBox(width: 8),
                     Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))),
                   ],
@@ -907,23 +1325,33 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Città',
+                label:       'Città',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _cittaResidenzaCtrl, hint: 'Es. Milano', errorText: _formErrors['cittaResidenza'], onChanged: (_) => setState(() => _formErrors.remove('cittaResidenza')),
+                  controller: _cittaResidenzaCtrl, 
+                  hint:       'Es. Thiene', 
+                  errorText:  _formErrors['cittaResidenza'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('cittaResidenza')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Provincia',
+                label:       'Provincia',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _provResidenzaCtrl, hint: 'Es. MI', errorText: _formErrors['provResidenza'], onChanged: (_) => setState(() => _formErrors.remove('provResidenza')),
+                  controller: _provResidenzaCtrl, 
+                  hint:       'Es. VI', 
+                  errorText:  _formErrors['provResidenza'], 
+                  onChanged:  (_) => setState(() => _formErrors.remove('provResidenza')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'CAP',
+                label:       'CAP',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _capCtrl, hint: 'Es. 20100', keyboardType: TextInputType.number, errorText: _formErrors['cap'], onChanged: (_) => setState(() => _formErrors.remove('cap')),
+                  controller:   _capCtrl, 
+                  hint:         'Es. 36016', 
+                  keyboardType: TextInputType.number, 
+                  errorText:    _formErrors['cap'], 
+                  onChanged:    (_) => setState(() => _formErrors.remove('cap')),
                 ),
               ),
             ],
@@ -931,20 +1359,28 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           break;
         case 3:
           currentCard = WizardFormSectionCard(
-            title: 'Contatti',
+            title:       'Contatti',
             leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
             children: [
               WizardFormInputRow(
-                label: 'Email',
+                label:       'Email',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _emailCtrl, hint: 'Es. mario.rossi@email.com', keyboardType: TextInputType.emailAddress, errorText: _formErrors['email'], onChanged: (_) => setState(() => _formErrors.remove('email')),
+                  controller:   _emailCtrl, 
+                  hint:         'Es. mario.rossi@email.com', 
+                  keyboardType: TextInputType.emailAddress, 
+                  errorText:    _formErrors['email'], 
+                  onChanged:    (_) => setState(() => _formErrors.remove('email')),
                 ),
               ),
               const SizedBox(height: 16),
               WizardFormInputRow(
-                label: 'Telefono',
+                label:       'Telefono',
                 inputWidget: WizardAnimatedTextField(
-                  controller: _telefonoCtrl, hint: 'Es. 333 1234567', keyboardType: TextInputType.phone, errorText: _formErrors['telefono'], onChanged: (_) => setState(() => _formErrors.remove('telefono')),
+                  controller:   _telefonoCtrl, 
+                  hint:         'Es. 3331234567', 
+                  keyboardType: TextInputType.phone, 
+                  errorText:    _formErrors['telefono'], 
+                  onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
                 ),
               ),
             ],
@@ -953,7 +1389,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       }
 
       return SizedBox(
-        key: const ValueKey('step1_m'),
+        key:   const ValueKey('step1_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -962,31 +1398,56 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: [
-                  Text('Dati Generali Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Informazioni Personali Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                   const SizedBox(height: 8),
-                  Text('Compila i dati anagrafici e di contatto del minore.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                  Text('Compila i dati del minore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             Expanded(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:  MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() => _currentFormCardIndex--)),
+                  WizardCarouselArrowButton(
+                    icon:       Icons.chevron_left_rounded, 
+                    isDisabled: _currentFormCardIndex == 0, 
+                    onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
+                  ),
                   const SizedBox(width: 32),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeOutCubic,
+                      duration:       const Duration(milliseconds: 300),
+                      switchInCurve:  Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
-                      child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder: (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                        Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                        
+                        return FadeTransition(
+                          opacity: animation, 
+                          child:   SlideTransition(
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                            child:    child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key:   ValueKey(_currentFormCardIndex), 
+                        child: currentCard,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 32),
-                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() => _currentFormCardIndex++)),
+                  WizardCarouselArrowButton(
+                    icon:       Icons.chevron_right_rounded, 
+                    isDisabled: _currentFormCardIndex == 3, 
+                    onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
+                  ),
                 ],
               ),
             ),
@@ -995,10 +1456,12 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       );
     }
 
-    if (step == 2) {
+    if (step == 2) 
+    {
       final cards = _activeStep2Cards;
+      
       return SizedBox(
-        key: const ValueKey('step2_m'),
+        key:   const ValueKey('step2_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1007,7 +1470,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Column(
                 children: [
-                  Text('Dati Specifici Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Informazioni Associative Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                   const SizedBox(height: 8),
                   Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
                 ],
@@ -1016,22 +1479,47 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
             const SizedBox(height: 16),
             Expanded(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:  MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep2CardIndex == 0, onTap: () => setState(() => _currentStep2CardIndex--)),
+                  WizardCarouselArrowButton(
+                    icon:       Icons.chevron_left_rounded, 
+                    isDisabled: _currentStep2CardIndex == 0, 
+                    onTap:      () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; }),
+                  ),
                   const SizedBox(width: 32),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 800),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeOutCubic,
+                      duration:       const Duration(milliseconds: 300),
+                      switchInCurve:  Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
-                      child: KeyedSubtree(key: ValueKey(_currentStep2CardIndex), child: cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink()),
+                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder: (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
+                        Offset beginOffset = _card2MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                        
+                        return FadeTransition(
+                          opacity: animation, 
+                          child:   SlideTransition(
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                            child:    child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key:   ValueKey(_currentStep2CardIndex), 
+                        child: cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 32),
-                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep2CardIndex >= cards.length - 1, onTap: () => setState(() => _currentStep2CardIndex++)),
+                  WizardCarouselArrowButton(
+                    icon:       Icons.chevron_right_rounded, 
+                    isDisabled: _currentStep2CardIndex >= cards.length - 1, 
+                    onTap:      () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; }),
+                  ),
                 ],
               ),
             ),
@@ -1040,36 +1528,54 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       );
     }
 
-    if (step == 3) {
-      List<AssociationSubjectItem> validSubjects = widget.allSubjects.where((subject) {
+    if (step == 3) 
+    {
+      List<AssociationSubjectItem> validSubjects = widget.allSubjects.where((subject) 
+      {
         List<StudyProgramItem> programs = [];
-        for (final prog in widget.allPrograms) {
+        
+        for (final prog in widget.allPrograms) 
+        {
           bool hasMatch = false;
-          try {
+          try 
+          {
             final dynamic minSubjects = (prog as dynamic).ministrySubjects;
-            if (minSubjects != null && minSubjects is Iterable) {
-              for (var m in minSubjects) {
+            if (minSubjects != null && minSubjects is Iterable) 
+            {
+              for (var m in minSubjects) 
+              {
                 final dynamic assocSubjects = (m as dynamic).associationSubjects;
-                if (assocSubjects != null && assocSubjects is Iterable) {
-                  for (var assoc in assocSubjects) {
+                if (assocSubjects != null && assocSubjects is Iterable) 
+                {
+                  for (var assoc in assocSubjects) 
+                  {
                     final int? assocId = (assoc is Map) ? assoc['id'] as int? : (assoc as dynamic).id as int?;
-                    if (assocId == subject.id) { hasMatch = true; break; }
+                    if (assocId == subject.id) 
+                    { 
+                      hasMatch = true; 
+                      break; 
+                    }
                   }
                 }
                 if (hasMatch) break; 
               }
             }
-          } catch (_) {}
+          } 
+          catch (_) {}
+          
           if (hasMatch) programs.add(prog);
         }
         if (programs.isEmpty) return false;
-        final query = _searchSubjectsText.toLowerCase();
+        
+        final query         = _searchSubjectsText.toLowerCase();
         final matchesSearch = subject.name.toLowerCase().contains(query);
-        final matchesArea = _filterSubjectsArea == null || subject.area == _filterSubjectsArea;
+        final matchesArea   = _filterSubjectsArea == null || subject.area == _filterSubjectsArea;
+        
         return matchesSearch && matchesArea;
       }).toList();
 
-      validSubjects.sort((a, b) {
+      validSubjects.sort((a, b) 
+      {
         if (_sortSubjectsBy == 'name_asc') return a.name.compareTo(b.name);
         if (_sortSubjectsBy == 'name_desc') return b.name.compareTo(a.name);
         if (_sortSubjectsBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
@@ -1078,7 +1584,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       });
 
       return SizedBox(
-        key: const ValueKey('step3_m'),
+        key:   const ValueKey('step3_m'),
         width: double.infinity,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -1099,12 +1605,21 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
               children: [
                 SizedBox(
                   width: 300,
-                  child: WizardAnimatedSearchBar(controller: _searchSubjectsCtrl, onChanged: (value) => setState(() => _searchSubjectsText = value), hintText: 'Cerca disciplina...'),
+                  child: WizardAnimatedSearchBar(
+                    controller: _searchSubjectsCtrl, 
+                    onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                    hintText:   'Cerca disciplina...',
+                  ),
                 ),
                 const SizedBox(width: 16),
                 WizardFilterMenu<String>(
-                  hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortSubjectsBy, menuWidth: 180, showClearIcon: false, 
-                  onChanged: (val) => setState(() => _sortSubjectsBy = val), onClear: () {}, 
+                  hint:          'Ordina per', 
+                  icon:          Icons.sort_rounded, 
+                  value:         _sortSubjectsBy, 
+                  menuWidth:     180, 
+                  showClearIcon: false, 
+                  onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                  onClear:       () {}, 
                   options: [
                     WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
                     WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
@@ -1117,37 +1632,63 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 40),
                 child: Wrap(
-                  spacing: 16, runSpacing: 16, alignment: WrapAlignment.center,
-                  children: validSubjects.map((subject) {
-                    final isSelected = _subjectToggles[subject.id] ?? false;
+                  spacing:    16, 
+                  runSpacing: 16, 
+                  alignment:  WrapAlignment.center,
+                  children: validSubjects.map((subject) 
+                  {
+                    final isSelected    = _subjectToggles[subject.id] ?? false;
                     final selectedCount = (_selectedProgramsForSubject[subject.id] ?? {}).length;
+                    
                     return WizardSubjectGridCard(
-                      subject: subject, isSelected: isSelected, selectedCount: selectedCount,
-                      onTap: () {
+                      subject:       subject, 
+                      isSelected:    isSelected, 
+                      selectedCount: selectedCount,
+                      onTap: () 
+                      {
                         List<StudyProgramItem> programs = [];
-                        for (final prog in widget.allPrograms) {
+                        
+                        for (final prog in widget.allPrograms) 
+                        {
                           bool hasMatch = false;
-                          try {
+                          try 
+                          {
                             final dynamic minSubjects = (prog as dynamic).ministrySubjects;
-                            if (minSubjects != null && minSubjects is Iterable) {
-                              for (var m in minSubjects) {
+                            if (minSubjects != null && minSubjects is Iterable) 
+                            {
+                              for (var m in minSubjects) 
+                              {
                                 final dynamic assocSubjects = (m as dynamic).associationSubjects;
-                                if (assocSubjects != null && assocSubjects is Iterable) {
-                                  for (var assoc in assocSubjects) {
+                                if (assocSubjects != null && assocSubjects is Iterable) 
+                                {
+                                  for (var assoc in assocSubjects) 
+                                  {
                                     final int? assocId = (assoc is Map) ? assoc['id'] as int? : (assoc as dynamic).id as int?;
-                                    if (assocId == subject.id) { hasMatch = true; break; }
+                                    if (assocId == subject.id) 
+                                    { 
+                                      hasMatch = true; 
+                                      break; 
+                                    }
                                   }
                                 }
                                 if (hasMatch) break; 
                               }
                             }
-                          } catch (_) {}
+                          } 
+                          catch (_) {}
+                          
                           if (hasMatch) programs.add(prog);
                         }
+                        
                         showGeneralDialog(
-                          context: context, barrierDismissible: true, barrierLabel: 'Programs', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
-                          pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-                          transitionBuilder: (context, animation, secondaryAnimation, child) {
+                          context:            context, 
+                          barrierDismissible: true, 
+                          barrierLabel:       'Programs', 
+                          barrierColor:       Colors.black.withValues(alpha: .15), 
+                          transitionDuration: const Duration(milliseconds: 240),
+                          pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
+                          transitionBuilder:  (context, animation, secondaryAnimation, child) 
+                          {
                             return BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: animation.value * 8.0, sigmaY: animation.value * 8.0),
                               child: FadeTransition(
@@ -1155,14 +1696,36 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                                 child: ScaleTransition(
                                   scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
                                   child: WizardProgramsSelectionDialog(
-                                    subject: subject, programs: programs, initialSelected: _selectedProgramsForSubject[subject.id] ?? {},
-                                    onSave: (selected) {
-                                      setState(() {
-                                        if (selected.isEmpty) { _subjectToggles[subject.id] = false; _selectedProgramsForSubject.remove(subject.id); } 
-                                        else { _subjectToggles[subject.id] = true; _selectedProgramsForSubject[subject.id] = selected; }
+                                    subject:         subject, 
+                                    programs:        programs, 
+                                    initialSelected: _selectedProgramsForSubject[subject.id] ?? {},
+                                    onSave: (selected) 
+                                    {
+                                      setState(() 
+                                      {
+                                        if (selected.isEmpty) 
+                                        { 
+                                          _subjectToggles[subject.id] = false; 
+                                          _selectedProgramsForSubject.remove(subject.id); 
+                                        } 
+                                        else 
+                                        { 
+                                          _subjectToggles[subject.id] = true; 
+                                          _selectedProgramsForSubject[subject.id] = selected; 
+                                        }
                                       });
                                     },
-                                    onCancel: () { setState(() { _subjectToggles[subject.id] = false; _selectedProgramsForSubject.remove(subject.id); }); }
+                                    onCancel: () 
+                                    { 
+                                      setState(() 
+                                      { 
+                                        if (!(_subjectToggles[subject.id] ?? false))
+                                        {
+                                          _subjectToggles[subject.id] = false; 
+                                          _selectedProgramsForSubject.remove(subject.id); 
+                                        }
+                                      }); 
+                                    }
                                   ),
                                 ),
                               ),
@@ -1183,32 +1746,41 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) 
+  {
     bool isLastStep;
-    if (_currentStep == 3) {
+    
+    if (_currentStep == 3) 
+    {
       isLastStep = true;
-    } else if (_currentStep == 2 && !_selectedRoles.contains('DOCENTE')) {
+    } 
+    else if (_currentStep == 2 && !_selectedRoles.contains('DOCENTE')) 
+    {
       isLastStep = true;
-    } else if (_currentStep == 1 && _activeStep2Cards.isEmpty && !_selectedRoles.contains('DOCENTE')) {
+    } 
+    else if (_currentStep == 1 && _activeStep2Cards.isEmpty && !_selectedRoles.contains('DOCENTE')) 
+    {
       isLastStep = true;
-    } else {
+    } 
+    else 
+    {
       isLastStep = false;
     }
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      elevation: 0,
+      elevation:       0,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.85,
-        height: MediaQuery.of(context).size.height * 0.85,
+        width:       MediaQuery.of(context).size.width * 0.85,
+        height:      MediaQuery.of(context).size.height * 0.85,
         constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7F9),
+          color:        const Color(0xFFF4F7F9),
           borderRadius: BorderRadius.circular(40),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x26000000),
-              offset: Offset(0, 12),
+              color:      Color(0x26000000),
+              offset:     Offset(0, 12),
               blurRadius: 36,
             )
           ],
@@ -1218,25 +1790,35 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
           child: Stack(
             children: [
               Positioned(
-                right: -400, top: -400,
+                right: -400, 
+                top:   -400,
                 child: IgnorePointer(
                   child: Container(
-                    width: 800, height: 800,
+                    width:  800, 
+                    height: 800,
                     decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [Color(0x22003C82), Color(0x00003C82)], stops: [0.0, 1.0]),
+                      shape:    BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Color(0x22003C82), Color(0x00003C82)], 
+                        stops:  [0.0, 1.0]
+                      ),
                     ),
                   ),
                 ),
               ),
               Positioned(
-                left: -400, bottom: -400,
+                left:   -400, 
+                bottom: -400,
                 child: IgnorePointer(
                   child: Container(
-                    width: 800, height: 800,
+                    width:  800, 
+                    height: 800,
                     decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [Color(0x22003C82), Color(0x00003C82)], stops: [0.0, 1.0]),
+                      shape:    BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Color(0x22003C82), Color(0x00003C82)], 
+                        stops:  [0.0, 1.0]
+                      ),
                     ),
                   ),
                 ),
@@ -1250,7 +1832,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                       children: [
                         Text(
                           'Nuovo Minore',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   26, 
+                            fontWeight: FontWeight.w700, 
+                            color:      const Color(0xFF003C82),
+                          ),
                         ),
                         WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
@@ -1261,14 +1847,22 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        switchInCurve: Curves.easeOutCubic,
+                        duration:       const Duration(milliseconds: 300),
+                        switchInCurve:  Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
-                        layoutBuilder: (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                        transitionBuilder: (child, animation) {
-                          final isEntering = (child.key as ValueKey<String>).value == 'step${_currentStep}_m';
+                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                        transitionBuilder: (child, animation) 
+                        {
+                          final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_m';
                           Offset beginOffset = _movingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                          return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                          
+                          return FadeTransition(
+                            opacity: animation, 
+                            child:   SlideTransition(
+                              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                              child:    child,
+                            ),
+                          );
                         },
                         child: _buildStepWidget(_currentStep),
                       ),
@@ -1282,12 +1876,22 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
                         if (_currentStep == 0)
                           SizedBox(
                             width: 200,
-                            child: WizardAnimatedActionButton(text: 'ANNULLA', icon: Icons.close_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () => Navigator.of(context).pop()),
+                            child: WizardAnimatedActionButton(
+                              text:       'ANNULLA', 
+                              icon:       Icons.close_rounded, 
+                              baseColor:  const Color(0xFFE53935), 
+                              hoverColor: const Color(0xFFEF5350), 
+                              onPressed:  () => Navigator.of(context).pop(),
+                            ),
                           )
                         else
                           SizedBox(
                             width: 200,
-                            child: WizardOutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _onBack),
+                            child: WizardOutlinedActionButton(
+                              text:      'INDIETRO', 
+                              icon:      Icons.arrow_back_rounded, 
+                              onPressed: _onBack,
+                            ),
                           ),
                         const SizedBox(width: 24),
                         SizedBox(
@@ -1311,4 +1915,15 @@ class _MinorCreationDialogState extends State<MinorCreationDialog> {
       ),
     );
   }
+}
+
+class _EnrollmentRowData 
+{
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+
+  _EnrollmentRowData({
+    required this.yearCtrl,
+    required this.dateCtrl,
+  });
 }

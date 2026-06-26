@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+
 class WizardGeneralData(BaseModel):
     first_name:              str  = Field(..., min_length=1)
     last_name:               str  = Field(..., min_length=1)
@@ -20,30 +21,44 @@ class WizardGeneralData(BaseModel):
     email:                   str  
     phone:                   str
 
-class WizardEnrollmentData(BaseModel):
-    first_enrollment_year: int
-    enrollment_date:       date
+
+class WizardMembershipData(BaseModel):
+    year:                int
+    start_date:          date
+    end_date:            date
+    renewal_period_days: int
+    revocation:          str
+
+
+class WizardMemberData(BaseModel):
+    memberships: List[WizardMembershipData] = Field(default_factory=list)
+
 
 class WizardStaffData(BaseModel):
     collaboration_type: str
     iban:               Optional[str] = None
 
+
 class WizardAdminData(BaseModel):
     role:       str
     other_role: Optional[str] = None
 
+
 class WizardTeachingCompetence(BaseModel):
     subject_id:        int
     study_program_ids: List[int]
+
 
 class WizardTeacherData(BaseModel):
     school_education:     Optional[str] = None
     university_education: Optional[str] = None
     competences:          List[WizardTeachingCompetence] = Field(default_factory=list)
 
+
 class WizardCourseParticipantData(BaseModel):
     medical_certificate_expiration: date
     course_type:                    str
+
 
 class WizardStudentData(BaseModel):
     authorized_early_exit:      bool
@@ -51,14 +66,16 @@ class WizardStudentData(BaseModel):
     study_program_id:           int
     school_class:               str
 
+
 class WizardRelationships(BaseModel):
     minors_tax_codes:  List[str] = Field(default_factory=list)
     parents_tax_codes: List[str] = Field(default_factory=list)
 
+
 class PersonWizardPayload(BaseModel):
     general_data:            WizardGeneralData
     roles:                   List[str]
-    enrollment_data:         Optional[WizardEnrollmentData]        = None
+    member_data:             Optional[WizardMemberData]            = None
     staff_data:              Optional[WizardStaffData]             = None
     admin_data:              Optional[WizardAdminData]             = None
     teacher_data:            Optional[WizardTeacherData]           = None

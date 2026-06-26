@@ -23,6 +23,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
   Map<String, String> _formErrors           = {};
   Uint8List?          _fotoProfilo;
   bool                _isSubmitting         = false;
+  bool                _cardMovingForward    = true;
 
   final TextEditingController _nomeCtrl           = TextEditingController();
   final TextEditingController _cognomeCtrl        = TextEditingController();
@@ -88,6 +89,60 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
+  //Comment Validates Italian Codice Fiscale format and check digit
+  bool _isCodiceFiscaleValid(String cf) 
+  {
+    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
+    const oddValues = {
+      '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
+      'A': 1, 'B': 0, 'C': 5, 'D': 7, 'E': 9, 'F': 13, 'G': 15, 'H': 17, 'I': 19, 'J': 21,
+      'K': 2, 'L': 4, 'M': 18, 'N': 20, 'O': 11, 'P': 3, 'Q': 6, 'R': 8, 'S': 12, 'T': 14,
+      'U': 16, 'V': 10, 'W': 22, 'X': 25, 'Y': 24, 'Z': 23
+    };
+    const evenValues = {
+      '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+      'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, 'I': 8, 'J': 9,
+      'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19,
+      'U': 20, 'V': 21, 'W': 22, 'X': 23, 'Y': 24, 'Z': 25
+    };
+    int sum = 0;
+    for (int i = 0; i < 15; i++) 
+    {
+      final char = cf[i];
+      if ((i + 1) % 2 != 0) 
+      {
+        sum += oddValues[char]!;
+      } 
+      else 
+      {
+        sum += evenValues[char]!;
+      }
+    }
+    final checkDigit = String.fromCharCode((sum % 26) + 65);
+    return cf[15] == checkDigit;
+  }
+
+  //Comment Matches CF with Date of Birth and Gender
+  bool _doesCfMatchData(String cf, String dateStr, String gender) 
+  {
+    if (cf.length != 16) return false;
+    final parts = dateStr.split('/');
+    if (parts.length != 3) return false;
+    
+    final year = parts[2].substring(2, 4);
+    if (cf.substring(6, 8) != year) return false;
+    
+    const monthCodes = {'01': 'A', '02': 'B', '03': 'C', '04': 'D', '05': 'E', '06': 'H', '07': 'L', '08': 'M', '09': 'P', '10': 'R', '11': 'S', '12': 'T'};
+    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
+    
+    int day = int.parse(parts[0]);
+    if (gender == 'F') day += 40;
+    final dayStr = day.toString().padLeft(2, '0');
+    if (cf.substring(9, 11) != dayStr) return false;
+    
+    return true;
+  }
+
   bool _validateDatiGenerali()
   {
     setState(()
@@ -131,9 +186,16 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     {
       addError('cf', 'Campo obbligatorio', 0);
     }
-    else if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(_cfCtrl.text))
+    else if (!_isCodiceFiscaleValid(_cfCtrl.text))
     {
       addError('cf', 'Codice fiscale non valido', 0);
+    }
+    else if (_sesso != null && _dataNascitaCtrl.text.isNotEmpty && _isValidDate(_dataNascitaCtrl.text))
+    {
+      if (!_doesCfMatchData(_cfCtrl.text, _dataNascitaCtrl.text, _sesso!)) 
+      {
+        addError('cf', 'Il codice fiscale non corrisponde ai dati', 0);
+      }
     }
 
     if (_dataNascitaCtrl.text.isEmpty)
@@ -229,6 +291,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
       _formErrors = newErrors;
       if (!isValid && firstInvalidCard != null)
       {
+        _cardMovingForward    = firstInvalidCard! >= _currentFormCardIndex;
         _currentFormCardIndex = firstInvalidCard!;
       }
     });
@@ -249,25 +312,25 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     {
       final payload = {
         "general_data": {
-          "first_name": _nomeCtrl.text.trim(),
-          "last_name": _cognomeCtrl.text.trim(),
-          "tax_code": _cfCtrl.text.trim().toUpperCase(),
-          "gender": _sesso,
-          "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
-          "birth_city": _cittaNascitaCtrl.text.trim(),
-          "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
-          "residence_type": _tipoViaCtrl.text.trim(),
-          "residence_address": _indirizzoNomeCtrl.text.trim(),
+          "first_name":              _nomeCtrl.text.trim(),
+          "last_name":               _cognomeCtrl.text.trim(),
+          "tax_code":                _cfCtrl.text.trim().toUpperCase(),
+          "gender":                  _sesso,
+          "birth_date":              _toIsoDate(_dataNascitaCtrl.text.trim()),
+          "birth_city":              _cittaNascitaCtrl.text.trim(),
+          "birth_province":          _provNascitaCtrl.text.trim().toUpperCase(),
+          "residence_type":          _tipoViaCtrl.text.trim(),
+          "residence_address":       _indirizzoNomeCtrl.text.trim(),
           "residence_street_number": _civicoCtrl.text.trim(),
-          "residence_city": _cittaResidenzaCtrl.text.trim(),
-          "residence_province": _provResidenzaCtrl.text.trim().toUpperCase(),
-          "postal_code": _capCtrl.text.trim(),
-          "email": _emailCtrl.text.trim(),
-          "phone": _telefonoCtrl.text.replaceAll(' ', ''),
+          "residence_city":          _cittaResidenzaCtrl.text.trim(),
+          "residence_province":      _provResidenzaCtrl.text.trim().toUpperCase(),
+          "postal_code":             _capCtrl.text.trim(),
+          "email":                   _emailCtrl.text.trim(),
+          "phone":                   _telefonoCtrl.text.replaceAll(' ', ''),
         },
-        "roles": ["GENITORE", "ASSOCIATO"],
+        "roles": ["GENITORE"],
         "relationships": {
-          "minors_tax_codes": [], 
+          "minors_tax_codes":  [], 
           "parents_tax_codes": [], 
         }
       };
@@ -279,12 +342,12 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
 
       final newParent = PersonItem(
         fiscalCode: _cfCtrl.text.trim().toUpperCase(),
-        firstName: _nomeCtrl.text.trim(),
-        lastName: _cognomeCtrl.text.trim(),
-        roles: ['Genitore', 'Associato'],
-        createdAt: DateTime.now(),
-        city: _cittaResidenzaCtrl.text.trim(),
-        birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
+        firstName:  _nomeCtrl.text.trim(),
+        lastName:   _cognomeCtrl.text.trim(),
+        roles:      ['Genitore'],
+        createdAt:  DateTime.now(),
+        city:       _cittaResidenzaCtrl.text.trim(),
+        birthDate:  DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
       );
 
       if (mounted) 
@@ -366,7 +429,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Codice fiscale',
           inputWidget: WizardAnimatedTextField(
             controller: _cfCtrl, 
-            hint:       'Es. RSSMRA80A01H501Z',
+            hint:       'Es. RSSMRA80A01L157H',
             errorText:  _formErrors['cf'],
             onChanged:  (_) => setState(() => _formErrors.remove('cf')),
           ),
@@ -398,7 +461,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Città di nascita',
           inputWidget: WizardAnimatedTextField(
             controller: _cittaNascitaCtrl, 
-            hint:       'Es. Roma',
+            hint:       'Es. Thiene',
             errorText:  _formErrors['cittaNascita'],
             onChanged:  (_) => setState(() => _formErrors.remove('cittaNascita')),
           ),
@@ -408,7 +471,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Prov. di nascita',
           inputWidget: WizardAnimatedTextField(
             controller: _provNascitaCtrl, 
-            hint:       'Es. RM',
+            hint:       'Es. VI',
             errorText:  _formErrors['provNascita'],
             onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
           ),
@@ -433,7 +496,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                 flex:  3,
                 child: WizardAnimatedTextField(
                   controller: _tipoViaCtrl, 
-                  hint:       'Es. Via',
+                  hint:       'Via/Strada/...',
                   errorText:  _formErrors['tipoVia'],
                   onChanged:  (_) => setState(() => _formErrors.remove('tipoVia')),
                 ),
@@ -466,7 +529,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Città',
           inputWidget: WizardAnimatedTextField(
             controller: _cittaResidenzaCtrl, 
-            hint:       'Es. Milano',
+            hint:       'Es. Thiene',
             errorText:  _formErrors['cittaResidenza'],
             onChanged:  (_) => setState(() => _formErrors.remove('cittaResidenza')),
           ),
@@ -476,7 +539,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Provincia',
           inputWidget: WizardAnimatedTextField(
             controller: _provResidenzaCtrl, 
-            hint:       'Es. MI',
+            hint:       'Es. VI',
             errorText:  _formErrors['provResidenza'],
             onChanged:  (_) => setState(() => _formErrors.remove('provResidenza')),
           ),
@@ -486,7 +549,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'CAP',
           inputWidget: WizardAnimatedTextField(
             controller:   _capCtrl, 
-            hint:         'Es. 20100', 
+            hint:         'Es. 36016', 
             keyboardType: TextInputType.number,
             errorText:    _formErrors['cap'],
             onChanged:    (_) => setState(() => _formErrors.remove('cap')),
@@ -518,7 +581,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           label:       'Telefono',
           inputWidget: WizardAnimatedTextField(
             controller:   _telefonoCtrl, 
-            hint:         'Es. 333 1234567', 
+            hint:         'Es. 3331234567', 
             keyboardType: TextInputType.phone,
             errorText:    _formErrors['telefono'],
             onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
@@ -633,13 +696,13 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                             child: Column(
                               children: [
                                 Text(
-                                  'Dati Generali Genitore', 
+                                  'Informazioni Personali Genitore', 
                                   textAlign: TextAlign.center, 
                                   style:     GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Compila i dati anagrafici e di contatto del genitore.', 
+                                  'Compila i dati del genitore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', 
                                   textAlign: TextAlign.center, 
                                   style:     GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))
                                 ),
@@ -655,7 +718,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                                 WizardCarouselArrowButton(
                                   icon:       Icons.chevron_left_rounded, 
                                   isDisabled: _currentFormCardIndex == 0, 
-                                  onTap:      () => setState(() => _currentFormCardIndex--)
+                                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
                                 ),
                                 const SizedBox(width: 32),
                                 ConstrainedBox(
@@ -664,6 +727,20 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                                     duration:       const Duration(milliseconds: 300),
                                     switchInCurve:  Curves.easeOutCubic,
                                     switchOutCurve: Curves.easeInCubic,
+                                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                                    transitionBuilder: (child, animation) 
+                                    {
+                                      final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                                      Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                                      
+                                      return FadeTransition(
+                                        opacity: animation, 
+                                        child:   SlideTransition(
+                                          position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                                          child:    child
+                                        ),
+                                      );
+                                    },
                                     child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
                                   ),
                                 ),
@@ -671,7 +748,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                                 WizardCarouselArrowButton(
                                   icon:       Icons.chevron_right_rounded, 
                                   isDisabled: _currentFormCardIndex == 3, 
-                                  onTap:      () => setState(() => _currentFormCardIndex++)
+                                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
                                 ),
                               ],
                             ),

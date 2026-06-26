@@ -1,9 +1,6 @@
-class RoleLabelMapper
-{
-  static String toLabel(String role)
-  {
-    switch (role)
-    {
+class RoleLabelMapper {
+  static String toLabel(String role) {
+    switch (role) {
       case 'ADMIN':
       case 'Amministratore':
         return 'Amministratore';
@@ -30,25 +27,30 @@ class RoleLabelMapper
 
       case 'MEMBER':
       case 'Associato':
-      case 'Solo associato':
-        return 'Solo associato';
+      case 'Associato':
+        return 'Associato';
 
       default:
         return role;
     }
   }
 
-  static List<String> processRoles(List<String> rawRoles)
-  {
+  static List<String> processRoles(List<String> rawRoles) {
     List<String> roles = rawRoles.map((r) => toLabel(r)).toList();
-    
-    final subclasses = ['Amministratore', 'Docente', 'Psicologo', 'Studente', 'Corsista'];
-    
-    if (roles.contains('Solo associato') && roles.any((r) => subclasses.contains(r)))
-    {
-      roles.remove('Solo associato');
+
+    final subclasses = [
+      'Amministratore',
+      'Docente',
+      'Psicologo',
+      'Studente',
+      'Corsista',
+    ];
+
+    if (roles.contains('Associato') &&
+        roles.any((r) => subclasses.contains(r))) {
+      roles.remove('Associato');
     }
-    
+
     return roles;
   }
 }

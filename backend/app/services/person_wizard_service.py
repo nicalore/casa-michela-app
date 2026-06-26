@@ -3,15 +3,16 @@ from datetime import date
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.administrator import Administrator
+from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course_participant import CourseParticipant
 from app.models.member import Member
+from app.models.membership import Membership
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import Person
 from app.models.psychologist import Psychologist
 from app.models.school_enrollment import SchoolEnrollment
-from app.models.staff import Staff
+from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
@@ -19,12 +20,13 @@ from app.schemas.person_wizard import PersonWizardPayload
 
 
 async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPayload) -> Person:
+    #Comment Verifica esistenza
     existing_person = await db.get(Person, payload.general_data.tax_code)
     
     if existing_person:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Una persona con questo codice fiscale è già presente a sistema."
+            detail="Una persona con questo codice fiscale è già presente nel sistema."
         )
 
     person = Person(
@@ -44,6 +46,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
         email=payload.general_data.email,
         phone=payload.general_data.phone,
     )
+    
     db.add(person)
 
     roles = payload.roles
@@ -57,6 +60,18 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
     if needs_member:
         member = Member(tax_code=person.tax_code)
         db.add(member)
+
+        if payload.member_data and payload.member_data.memberships:
+            for membership_data in payload.member_data.memberships:
+                membership = Membership(
+                    member_tax_code=person.tax_code,
+                    year=membership_data.year,
+                    start_date=membership_data.start_date,
+                    end_date=membership_data.end_date,
+                    renewal_period_days=membership_data.renewal_period_days,
+                    revocation=membership_data.revocation,
+                )
+                db.add(membership)
 
         if "STUDENTE" in roles and payload.student_data:
             student = Student(
@@ -91,18 +106,21 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
         needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
         
         if needs_staff and payload.staff_data:
+            #Comment Conversione esplicita per staff
             staff = Staff(
                 tax_code=person.tax_code,
-                collaboration_type=payload.staff_data.collaboration_type,
+                collaboration_type=CollaborationTypeEnum(payload.staff_data.collaboration_type),
                 iban=payload.staff_data.iban if payload.staff_data.iban else None
             )
             db.add(staff)
 
             if "AMMINISTRATORE" in roles and payload.admin_data:
+                #Comment Conversione esplicita per ruolo admin
+                role_val = AdministratorRoleEnum(payload.admin_data.role)
                 admin = Administrator(
                     tax_code=person.tax_code,
-                    role=payload.admin_data.role,
-                    other_role=payload.admin_data.other_role if payload.admin_data.role == "OTHER" else None
+                    role=role_val,
+                    other_role=payload.admin_data.other_role if role_val == AdministratorRoleEnum.OTHER else None
                 )
                 db.add(admin)
             

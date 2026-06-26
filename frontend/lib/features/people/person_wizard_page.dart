@@ -28,47 +28,50 @@ class PersonWizardPage extends StatefulWidget
 
 class _PersonWizardPageState extends State<PersonWizardPage> 
 {
-  int  _currentStep     = 0;
-  int  _involvementType = -1;
-  bool _movingForward   = true;
+  int  _currentStep         = 0;
+  int  _involvementType     = -1;
+  bool _movingForward       = true;
+  bool _card1MovingForward  = true;
+  bool _card4MovingForward  = true;
+  bool _genitoreIsAssociato = false;
   
   final Set<String> _selectedRoles = {};
 
   final List<Map<String, dynamic>> _availableRoles = [
     {
       'id':    'DOCENTE', 
-      'label': 'Insegna / Tutoraggio', 
-      'desc':  'Fornisce supporto didattico attivo e ripetizioni.', 
+      'label': 'Docente', 
+      'desc':  'Svolge attività di supporto didattico e ripetizioni.', 
       'icon':  Icons.school_outlined
     },
     {
       'id':    'STUDENTE', 
-      'label': 'Frequenta i corsi', 
-      'desc':  'Allievo beneficiario dei servizi dell\'associazione.', 
+      'label': 'Studente', 
+      'desc':  'Riceve supporto didattico e ripetizioni.', 
       'icon':  Icons.menu_book_outlined
     },
     {
       'id':    'AMMINISTRATORE', 
-      'label': 'Amministrazione', 
-      'desc':  'Gestione operativa, contabile e pianificazione.', 
+      'label': 'Amministratore', 
+      'desc':  'Gestisce le attività amministrative, organizzative e operative dell\'Associazione.', 
       'icon':  Icons.computer_outlined
     },
     {
       'id':    'PSICOLOGO', 
-      'label': 'Supporto psicologico', 
-      'desc':  'Colloqui e stesura di osservazioni metodologiche.', 
+      'label': 'Psicologo', 
+      'desc':  'Svolge colloqui psicologici e supporta gli studenti.', 
       'icon':  Icons.psychology_outlined
     },
     {
       'id':    'CORSISTA', 
-      'label': 'Corsi serali / brevi', 
-      'desc':  'Partecipante ad attività extra (es. Yoga, Pilates).', 
+      'label': 'Corsista', 
+      'desc':  'Partecipa ai corsi organizzati dall\'Associazione, come yoga o pilates.', 
       'icon':  Icons.self_improvement_rounded
     },
     {
       'id':    'GENITORE', 
       'label': 'Genitore / Tutore', 
-      'desc':  'Responsabile legale con profilo attivo a sistema.', 
+      'desc':  'È il responsabile legale di uno o più iscritti all\'Associazione.', 
       'icon':  Icons.family_restroom_outlined
     },
   ];
@@ -93,9 +96,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final TextEditingController _emailCtrl          = TextEditingController();
   final TextEditingController _telefonoCtrl       = TextEditingController();
 
-  int _currentStep3CardIndex = 0;
-  final TextEditingController _annoPrimaIscrizioneCtrl      = TextEditingController();
-  final TextEditingController _dataIscrizioneCtrl           = TextEditingController();
+  int _currentStep4CardIndex = 0;
+  
+  final List<_EnrollmentRowData> _enrollmentRows = [];
+
   final TextEditingController _scadenzaCertificatoCtrl      = TextEditingController();
   final TextEditingController _tipoCorsoCtrl                = TextEditingController();
   final TextEditingController _ibanCtrl                     = TextEditingController();
@@ -134,14 +138,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   String?                     _filterSubjectsArea;
   final Map<int, bool>        _subjectToggles             = {};
   final Map<int, Set<int>>    _selectedProgramsForSubject = {};
+  bool                        _isSubmitting               = false;
 
   @override
   void initState() 
   {
     super.initState();
-    final now                     = DateTime.now();
-    _annoPrimaIscrizioneCtrl.text = now.year.toString();
-    _dataIscrizioneCtrl.text      = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final now = DateTime.now();
+    _enrollmentRows.add(_EnrollmentRowData(
+      yearCtrl: TextEditingController(text: now.year.toString()),
+      dateCtrl: TextEditingController(text: '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}'),
+    ));
     
     _loadAllData();
   }
@@ -168,11 +175,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           final allPeople = results[3] as List<PersonItem>;
           
           _allMinors = allPeople.where((p) => p.age != null && p.age! < 18).toList();
-          
-          //Fill _allAdults exclusively with existing parents (for Step 4 Minor -> Parent Association)
           _allAdults = allPeople.where((p) => (p.age == null || p.age! >= 18) && p.roles.any((r) => r.toUpperCase() == 'GENITORE')).toList();
           
-          _isLoadingData  = false;
+          _isLoadingData = false;
         });
       }
     } 
@@ -234,6 +239,85 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       return false;
     }
+  }
+
+  bool _isValidDayMonthYear(String dm, String yearStr) 
+  {
+    try 
+    {
+      final parts = dm.split('/');
+      if (parts.length != 2) return false;
+      
+      final day   = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year  = int.parse(yearStr);
+      final date  = DateTime(year, month, day);
+      
+      return date.year == year && date.month == month && date.day == day;
+    } 
+    catch (_)
+    {
+      return false;
+    }
+  }
+
+  bool _isCodiceFiscaleValid(String cf) 
+  {
+    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
+    
+    const oddValues = {
+      '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
+      'A': 1, 'B': 0, 'C': 5, 'D': 7, 'E': 9, 'F': 13, 'G': 15, 'H': 17, 'I': 19, 'J': 21,
+      'K': 2, 'L': 4, 'M': 18, 'N': 20, 'O': 11, 'P': 3, 'Q': 6, 'R': 8, 'S': 12, 'T': 14,
+      'U': 16, 'V': 10, 'W': 22, 'X': 25, 'Y': 24, 'Z': 23
+    };
+    
+    const evenValues = {
+      '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+      'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'F': 5, 'G': 6, 'H': 7, 'I': 8, 'J': 9,
+      'K': 10, 'L': 11, 'M': 12, 'N': 13, 'O': 14, 'P': 15, 'Q': 16, 'R': 17, 'S': 18, 'T': 19,
+      'U': 20, 'V': 21, 'W': 22, 'X': 23, 'Y': 24, 'Z': 25
+    };
+    
+    int sum = 0;
+    
+    for (int i = 0; i < 15; i++) 
+    {
+      final char = cf[i];
+      if ((i + 1) % 2 != 0) 
+      {
+        sum += oddValues[char]!;
+      } 
+      else 
+      {
+        sum += evenValues[char]!;
+      }
+    }
+    
+    final checkDigit = String.fromCharCode((sum % 26) + 65);
+    return cf[15] == checkDigit;
+  }
+
+  bool _doesCfMatchData(String cf, String dateStr, String gender) 
+  {
+    if (cf.length != 16) return false;
+    
+    final parts = dateStr.split('/');
+    if (parts.length != 3) return false;
+    
+    final year = parts[2].substring(2, 4);
+    if (cf.substring(6, 8) != year) return false;
+    
+    const monthCodes = {'01': 'A', '02': 'B', '03': 'C', '04': 'D', '05': 'E', '06': 'H', '07': 'L', '08': 'M', '09': 'P', '10': 'R', '11': 'S', '12': 'T'};
+    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
+    
+    int day = int.parse(parts[0]);
+    if (gender == 'F') day += 40;
+    
+    final dayStr = day.toString().padLeft(2, '0');
+    if (cf.substring(9, 11) != dayStr) return false;
+    
+    return true;
   }
 
   List<StudyProgramItem> _getProgramsForSubject(AssociationSubjectItem subject) 
@@ -366,8 +450,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _capCtrl.dispose();
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
-    _annoPrimaIscrizioneCtrl.dispose();
-    _dataIscrizioneCtrl.dispose();
     _scadenzaCertificatoCtrl.dispose();
     _tipoCorsoCtrl.dispose();
     _ibanCtrl.dispose();
@@ -377,19 +459,21 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _searchSubjectsCtrl.dispose();
     _searchMinorsCtrl.dispose();
     _searchParentsCtrl.dispose();
+    for (final row in _enrollmentRows) 
+    {
+      row.yearCtrl.dispose();
+      row.dateCtrl.dispose();
+    }
     super.dispose();
   }
 
   bool _validateRoles() 
   {
-    final activeRoles = _selectedRoles.where((role) => role != 'ASSOCIATO').toList();
-    
-    if (activeRoles.isEmpty)
+    if (_selectedRoles.isEmpty)
     {
       CustomSnackBar.show(context: context, message: 'Seleziona almeno un ruolo per procedere.', isError: true);
       return false;
     }
-    
     return true;
   }
 
@@ -436,9 +520,16 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       addError('cf', 'Campo obbligatorio', 0);
     }
-    else if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(_cfCtrl.text))
+    else if (!_isCodiceFiscaleValid(_cfCtrl.text))
     {
       addError('cf', 'Formato codice fiscale non valido', 0);
+    }
+    else if (_sesso != null && _dataNascitaCtrl.text.isNotEmpty && _isValidDate(_dataNascitaCtrl.text))
+    {
+      if (!_doesCfMatchData(_cfCtrl.text, _dataNascitaCtrl.text, _sesso!))
+      {
+        addError('cf', 'Il codice fiscale non corrisponde ai dati', 0);
+      }
     }
 
     if (_dataNascitaCtrl.text.isEmpty)
@@ -542,6 +633,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       _formErrors = newErrors;
       if (!isValid && firstInvalidCard != null)
       {
+        _card1MovingForward   = firstInvalidCard! >= _currentFormCardIndex;
         _currentFormCardIndex = firstInvalidCard!;
       }
     });
@@ -556,8 +648,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool _validateDatiSpecifici()
   {
-    _annoPrimaIscrizioneCtrl.text      = _annoPrimaIscrizioneCtrl.text.trim();
-    _dataIscrizioneCtrl.text           = _dataIscrizioneCtrl.text.trim();
     _scadenzaCertificatoCtrl.text      = _scadenzaCertificatoCtrl.text.trim();
     _tipoCorsoCtrl.text                = _tipoCorsoCtrl.text.trim();
     _ibanCtrl.text                     = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
@@ -579,33 +669,59 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       }
     }
 
-    final activeRoles           = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
-    final bool isOnlyGenitore   = activeRoles.length == 1 && activeRoles.contains('GENITORE');
-    final bool isStaff          = activeRoles.contains('AMMINISTRATORE') || activeRoles.contains('DOCENTE') || activeRoles.contains('PSICOLOGO');
-    final bool isAmministratore = activeRoles.contains('AMMINISTRATORE');
-    final bool isCorsista       = activeRoles.contains('CORSISTA');
-    final bool isStudente       = activeRoles.contains('STUDENTE');
+    final activeRoles                = _selectedRoles.toList();
+    final bool isOnlyGenitoreNotAssociato = activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_genitoreIsAssociato;
+    final bool isStaff               = activeRoles.contains('AMMINISTRATORE') || activeRoles.contains('DOCENTE') || activeRoles.contains('PSICOLOGO');
+    final bool isAmministratore      = activeRoles.contains('AMMINISTRATORE');
+    final bool isCorsista            = activeRoles.contains('CORSISTA');
+    final bool isStudente            = activeRoles.contains('STUDENTE');
 
     int currentMappedIndex = 0;
 
-    if (!isOnlyGenitore)
+    if (!isOnlyGenitoreNotAssociato)
     {
-      if (_annoPrimaIscrizioneCtrl.text.isEmpty)
+      if (_enrollmentRows.isEmpty)
       {
-        addError('annoPrimaIscrizione', 'Campo obbligatorio', currentMappedIndex);
+        addError('enrollmentGeneral', 'Aggiungi almeno un\'iscrizione', currentMappedIndex);
       }
-      else if (!RegExp(r'^\d{4}$').hasMatch(_annoPrimaIscrizioneCtrl.text))
+      for (int i = 0; i < _enrollmentRows.length; i++) 
       {
-        addError('annoPrimaIscrizione', 'Formato anno non valido', currentMappedIndex);
-      }
-      
-      if (_dataIscrizioneCtrl.text.isEmpty)
-      {
-        addError('dataIscrizione', 'Campo obbligatorio', currentMappedIndex);
-      }
-      else if (!_isValidDate(_dataIscrizioneCtrl.text))
-      {
-        addError('dataIscrizione', 'Formato data non valido', currentMappedIndex);
+        final row = _enrollmentRows[i];
+        bool yearValid = false;
+        
+        if (row.yearCtrl.text.trim().isEmpty) 
+        {
+          addError('enrollmentYear_$i', 'Campo obbligatorio', currentMappedIndex);
+        } 
+        else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) 
+        {
+          addError('enrollmentYear_$i', 'Anno non valido', currentMappedIndex);
+        }
+        else
+        {
+          int parsedYear = int.parse(row.yearCtrl.text.trim());
+          if (parsedYear > DateTime.now().year)
+          {
+            addError('enrollmentYear_$i', 'Anno non futuro', currentMappedIndex);
+          }
+          else
+          {
+            yearValid = true;
+          }
+        }
+        
+        if (row.dateCtrl.text.trim().isEmpty) 
+        {
+          addError('enrollmentDate_$i', 'Campo obbligatorio', currentMappedIndex);
+        } 
+        else if (yearValid && !_isValidDayMonthYear(row.dateCtrl.text.trim(), row.yearCtrl.text.trim())) 
+        {
+          addError('enrollmentDate_$i', 'Data non valida', currentMappedIndex);
+        }
+        else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim()))
+        {
+          addError('enrollmentDate_$i', 'Formato gg/mm', currentMappedIndex);
+        }
       }
       currentMappedIndex++;
     }
@@ -685,7 +801,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       _formErrors = newErrors;
       if (!isValid && firstInvalidCard != null)
       {
-        _currentStep3CardIndex = firstInvalidCard!;
+        _card4MovingForward    = firstInvalidCard! >= _currentStep4CardIndex;
+        _currentStep4CardIndex = firstInvalidCard!;
       }
     });
 
@@ -697,28 +814,55 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     return isValid;
   }
 
-  bool _isSubmitting = false;
-  
-  String? _toIsoDate(String? itaDate) {
-    if (itaDate == null || itaDate.isEmpty) return null;
-    final parts = itaDate.split('/');
-    if (parts.length != 3) return null;
-    return '${parts[2]}-${parts[1]}-${parts[0]}';
-  }
-
   Future<void> _submitForm() async 
   {
     setState(() => _isSubmitting = true);
 
     try 
     {
-      final bool isOnlyGenitore = _selectedRoles.length == 1 && _selectedRoles.contains('GENITORE');
+      final List<String> finalRoles = _selectedRoles.toList();
+      
+      if (_involvementType == 1) 
+      {
+        finalRoles.add('ASSOCIATO');
+      } 
+      else 
+      {
+        if (finalRoles.any((r) => r != 'GENITORE')) 
+        {
+          finalRoles.add('ASSOCIATO');
+        } 
+        else if (_genitoreIsAssociato) 
+        {
+          finalRoles.add('ASSOCIATO');
+        }
+      }
 
-      Map<String, dynamic>? enrollmentData;
-      if (!isOnlyGenitore) {
-        enrollmentData = {
-          "first_enrollment_year": int.parse(_annoPrimaIscrizioneCtrl.text.trim()),
-          "enrollment_date": _toIsoDate(_dataIscrizioneCtrl.text.trim()),
+      final bool isOnlyGenitoreNotAssociato = finalRoles.length == 1 && finalRoles.contains('GENITORE');
+
+      List<Map<String, dynamic>> membershipsData = [];
+      if (!isOnlyGenitoreNotAssociato) 
+      {
+        for (final row in _enrollmentRows) 
+        {
+          final parts   = row.dateCtrl.text.trim().split('/');
+          final isoDate = '${row.yearCtrl.text.trim()}-${parts[1]}-${parts[0]}';
+          
+          membershipsData.add({
+            "year":                int.parse(row.yearCtrl.text.trim()),
+            "start_date":          isoDate,
+            "end_date":            "${row.yearCtrl.text.trim()}-12-31",
+            "renewal_period_days": 30,
+            "revocation":          "NO"
+          });
+        }
+      }
+
+      Map<String, dynamic>? memberData;
+      if (!isOnlyGenitoreNotAssociato && membershipsData.isNotEmpty) 
+      {
+        memberData = {
+          "memberships": membershipsData
         };
       }
 
@@ -728,96 +872,95 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       Map<String, dynamic>? courseParticipantData;
       Map<String, dynamic>? studentData;
 
-      // -- Mappatura Dati Staff --
-      final isStaff = _selectedRoles.contains('AMMINISTRATORE') || 
-                      _selectedRoles.contains('DOCENTE') || 
-                      _selectedRoles.contains('PSICOLOGO');
+      final isStaff = finalRoles.contains('AMMINISTRATORE') || 
+                      finalRoles.contains('DOCENTE') || 
+                      finalRoles.contains('PSICOLOGO');
                       
-      if (isStaff) {
+      if (isStaff) 
+      {
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
         if (_tipoCollaborazione == 'FSC') collType = 'PCTO';
 
         staffData = {
           "collaboration_type": collType,
-          "iban": _ibanCtrl.text.isNotEmpty ? _ibanCtrl.text.trim().toUpperCase() : null,
+          "iban":               _ibanCtrl.text.isNotEmpty ? _ibanCtrl.text.trim().toUpperCase() : null,
         };
       }
 
-      // -- Mappatura Dati Amministratore --
-      if (_selectedRoles.contains('AMMINISTRATORE')) {
+      if (finalRoles.contains('AMMINISTRATORE')) 
+      {
         String adminRole = 'OTHER';
         if (_ruoloAmministratore == 'Presidente') adminRole = 'PRESIDENT';
         if (_ruoloAmministratore == 'Vicepresidente') adminRole = 'VICE_PRESIDENT';
         if (_ruoloAmministratore == 'Tesoriere') adminRole = 'TREASURER';
 
         adminData = {
-          "role": adminRole,
+          "role":       adminRole,
           "other_role": adminRole == 'OTHER' ? _altroRuoloAmministratoreCtrl.text.trim() : null,
         };
       }
 
-      // -- Mappatura Dati Docente --
-      if (_selectedRoles.contains('DOCENTE')) {
+      if (finalRoles.contains('DOCENTE')) 
+      {
         teacherData = {
-          "school_education": _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
+          "school_education":     _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
           "university_education": _studiUniversitariCtrl.text.isNotEmpty ? _studiUniversitariCtrl.text.trim() : null,
-          "competences": _subjectToggles.entries
-              .where((e) => e.value) // Prende solo le materie attive
+          "competences":          _subjectToggles.entries
+              .where((e) => e.value) 
               .map((e) => {
-                    "subject_id": e.key,
+                    "subject_id":        e.key,
                     "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
                   })
               .toList(),
         };
       }
 
-      // -- Mappatura Dati Corsista --
-      if (_selectedRoles.contains('CORSISTA')) {
+      if (finalRoles.contains('CORSISTA')) 
+      {
         courseParticipantData = {
-          "medical_certificate_expiration": _toIsoDate(_scadenzaCertificatoCtrl.text.trim()),
-          "course_type": _tipoCorsoCtrl.text.trim(),
+          "medical_certificate_expiration": _scadenzaCertificatoCtrl.text.isNotEmpty ? _scadenzaCertificatoCtrl.text.trim().split('/').reversed.join('-') : null,
+          "course_type":                    _tipoCorsoCtrl.text.trim(),
         };
       }
 
-      // -- Mappatura Dati Studente --
-      if (_selectedRoles.contains('STUDENTE')) {
+      if (finalRoles.contains('STUDENTE')) 
+      {
         studentData = {
-          "authorized_early_exit": _uscitaAnticipata == 'Sì',
+          "authorized_early_exit":      _uscitaAnticipata == 'Sì',
           "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
-          "study_program_id": _percorsoStudenteSelezionato?.id,
-          "school_class": _classeFrequentata,
+          "study_program_id":           _percorsoStudenteSelezionato?.id,
+          "school_class":               _classeFrequentata,
         };
       }
 
-      // -- Payload Principale --
       final payload = {
         "general_data": {
-          "first_name": _nomeCtrl.text.trim(),
-          "last_name": _cognomeCtrl.text.trim(),
-          "tax_code": _cfCtrl.text.trim().toUpperCase(),
-          "gender": _sesso,
-          "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
-          "birth_city": _cittaNascitaCtrl.text.trim(),
-          "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
-          "residence_type": _tipoViaCtrl.text.trim(),
-          "residence_address": _indirizzoNomeCtrl.text.trim(),
+          "first_name":              _nomeCtrl.text.trim(),
+          "last_name":               _cognomeCtrl.text.trim(),
+          "tax_code":                _cfCtrl.text.trim().toUpperCase(),
+          "gender":                  _sesso,
+          "birth_date":              _dataNascitaCtrl.text.isNotEmpty ? _dataNascitaCtrl.text.trim().split('/').reversed.join('-') : null,
+          "birth_city":              _cittaNascitaCtrl.text.trim(),
+          "birth_province":          _provNascitaCtrl.text.trim().toUpperCase(),
+          "residence_type":          _tipoViaCtrl.text.trim(),
+          "residence_address":       _indirizzoNomeCtrl.text.trim(),
           "residence_street_number": _civicoCtrl.text.trim(),
-          "residence_city": _cittaResidenzaCtrl.text.trim(),
-          "residence_province": _provResidenzaCtrl.text.trim().toUpperCase(),
-          "postal_code": _capCtrl.text.trim(),
-          "email": _emailCtrl.text.trim(),
-          "phone": _telefonoCtrl.text.replaceAll(' ', ''),
+          "residence_city":          _cittaResidenzaCtrl.text.trim(),
+          "residence_province":      _provResidenzaCtrl.text.trim().toUpperCase(),
+          "postal_code":             _capCtrl.text.trim(),
+          "email":                   _emailCtrl.text.trim(),
+          "phone":                   _telefonoCtrl.text.replaceAll(' ', ''),
         },
-        "roles": _selectedRoles.toList(),
-        "enrollment_data": enrollmentData,
-        "staff_data": staffData,
-        "admin_data": adminData,
-        "teacher_data": teacherData,
+        "roles":                   finalRoles,
+        "member_data":             memberData,
+        "staff_data":              staffData,
+        "admin_data":              adminData,
+        "teacher_data":            teacherData,
         "course_participant_data": courseParticipantData,
-        "student_data": studentData,
+        "student_data":            studentData,
         "relationships": {
-          "minors_tax_codes": _selectedMinors.toList(),
+          "minors_tax_codes":  _selectedMinors.toList(),
           "parents_tax_codes": _selectedParents.toList(),
         }
       };
@@ -827,20 +970,27 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         imageBytes: _fotoProfilo,
       );
 
-      if (mounted) {
+      if (mounted) 
+      {
         CustomSnackBar.show(context: context, message: 'Persona creata con successo!', isError: false);
         context.go('/people');
       }
-    } catch (e) {
-      if (mounted) {
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
         CustomSnackBar.show(
           context: context, 
           message: e.toString().replaceAll('Exception: ', ''), 
           isError: true,
         );
       }
-    } finally {
-      if (mounted) {
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
         setState(() => _isSubmitting = false);
       }
     }
@@ -931,6 +1081,49 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     }
   }
 
+  List<Widget> get _activeStep4Cards 
+  {
+    final List<Widget> cards                      = [];
+    final List<String> activeRoles                = _selectedRoles.toList();
+    final bool         isOnlyGenitoreNotAssociato = activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_genitoreIsAssociato;
+    
+    if (!isOnlyGenitoreNotAssociato)
+    {
+      cards.add(_buildFormCardIscrizione());
+    }
+    
+    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
+                         activeRoles.contains('DOCENTE') || 
+                         activeRoles.contains('PSICOLOGO');
+                         
+    if (isStaff)
+    {
+      cards.add(_buildFormCardStaff());
+    }
+    
+    if (activeRoles.contains('AMMINISTRATORE'))
+    {
+      cards.add(_buildFormCardAmministratore());
+    }
+    
+    if (activeRoles.contains('DOCENTE'))
+    {
+      cards.add(_buildFormCardDocente());
+    }
+    
+    if (activeRoles.contains('CORSISTA'))
+    {
+      cards.add(_buildFormCardCorsista());
+    }
+    
+    if (activeRoles.contains('STUDENTE'))
+    {
+      cards.add(_buildFormCardStudente());
+    }
+    
+    return cards;
+  }
+
   void _onNext() 
   {
     if (_currentStep == 0) 
@@ -943,19 +1136,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       
       if (_involvementType == 1) 
       {
-        _selectedRoles.clear();
-        _selectedRoles.add('ASSOCIATO');
-        
+        _selectedRoles.clear(); 
         setState(() 
         {
-          _movingForward = true;
-          _currentStep   = 2;
+          _movingForward        = true;
+          _currentStep          = 3;
+          _card1MovingForward   = true;
+          _currentFormCardIndex = 0;
         });
       } 
       else 
       {
-        _selectedRoles.remove('ASSOCIATO');
-        
         setState(() 
         {
           _movingForward = true;
@@ -969,33 +1160,48 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       if (!_validateRoles()) return;
       
-      _selectedRoles.add('ASSOCIATO');
-      
-      setState(() 
+      if (_selectedRoles.length == 1 && _selectedRoles.contains('GENITORE'))
       {
-        _movingForward = true;
-        _currentStep   = 2;
-      });
+        setState(() 
+        {
+          _movingForward = true;
+          _currentStep   = 2;
+        });
+      }
+      else
+      {
+        setState(() 
+        {
+          _movingForward        = true;
+          _currentStep          = 3;
+          _card1MovingForward   = true;
+          _currentFormCardIndex = 0;
+        });
+      }
       return;
     }
 
     if (_currentStep == 2)
     {
+      setState(() 
+      {
+        _movingForward        = true;
+        _currentStep          = 3;
+        _card1MovingForward   = true;
+        _currentFormCardIndex = 0;
+      });
+      return;
+    }
+
+    if (_currentStep == 3)
+    {
       final bool isSkip = _nomeCtrl.text.trim().toLowerCase() == 'skip';
       
       if (!isSkip && !_validateDatiGenerali()) return;
 
-      if (_activeStep3Cards.isEmpty)
+      if (_activeStep4Cards.isEmpty)
       {
         if (_isMinor)
-        {
-          setState(() 
-          {
-            _movingForward = true;
-            _currentStep   = 4;
-          });
-        }
-        else if (_selectedRoles.contains('GENITORE'))
         {
           setState(() 
           {
@@ -1003,12 +1209,20 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             _currentStep   = 5;
           });
         }
-        else if (_selectedRoles.contains('DOCENTE'))
+        else if (_selectedRoles.contains('GENITORE'))
         {
           setState(() 
           {
             _movingForward = true;
             _currentStep   = 6;
+          });
+        }
+        else if (_selectedRoles.contains('DOCENTE'))
+        {
+          setState(() 
+          {
+            _movingForward = true;
+            _currentStep   = 7;
           });
         }
         else
@@ -1021,14 +1235,15 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         setState(() 
         {
           _movingForward         = true;
-          _currentStep           = 3;
-          _currentStep3CardIndex = 0;
+          _currentStep           = 4;
+          _card4MovingForward    = true;
+          _currentStep4CardIndex = 0;
         });
       }
       return;
     }
 
-    if (_currentStep == 3)
+    if (_currentStep == 4)
     {
       final bool isSkip = _nomeCtrl.text.trim().toLowerCase() == 'skip';
       
@@ -1039,7 +1254,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         setState(() 
         {
           _movingForward = true;
-          _currentStep   = 4;
+          _currentStep   = 5;
         });
       }
       else if (_selectedRoles.contains('GENITORE'))
@@ -1047,7 +1262,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         setState(() 
         {
           _movingForward = true;
-          _currentStep   = 5;
+          _currentStep   = 6;
         });
       }
       else if (_selectedRoles.contains('DOCENTE'))
@@ -1055,7 +1270,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         setState(() 
         {
           _movingForward = true;
-          _currentStep   = 6;
+          _currentStep   = 7;
         });
       }
       else
@@ -1065,7 +1280,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       return;
     }
 
-    if (_currentStep == 4)
+    if (_currentStep == 5)
     {
       if (_selectedParents.isEmpty || _selectedParents.length > 2)
       {
@@ -1078,24 +1293,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         setState(() 
         {
           _movingForward = true;
-          _currentStep   = 6;
-        });
-      }
-      else
-      {
-        _submitForm();
-      }
-      return;
-    }
-
-    if (_currentStep == 5)
-    {
-      if (_selectedRoles.contains('DOCENTE'))
-      {
-        setState(() 
-        {
-          _movingForward = true;
-          _currentStep   = 6;
+          _currentStep   = 7;
         });
       }
       else
@@ -1106,6 +1304,23 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     }
 
     if (_currentStep == 6)
+    {
+      if (_selectedRoles.contains('DOCENTE'))
+      {
+        setState(() 
+        {
+          _movingForward = true;
+          _currentStep   = 7;
+        });
+      }
+      else
+      {
+        _submitForm();
+      }
+      return;
+    }
+
+    if (_currentStep == 7)
     {
       bool hasAtLeastOneSubject = _subjectToggles.values.any((isSelected) => isSelected == true);
       
@@ -1124,44 +1339,59 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   {
     setState(() => _movingForward = false);
 
-    if (_currentStep == 6)
+    if (_currentStep == 7)
     {
       if (_selectedRoles.contains('GENITORE'))
       {
-        setState(() => _currentStep = 5);
+        setState(() => _currentStep = 6);
       }
       else if (_isMinor)
       {
-        setState(() => _currentStep = 4);
+        setState(() => _currentStep = 5);
       }
       else
       {
-        setState(() => _currentStep = _activeStep3Cards.isEmpty ? 2 : 3);
+        setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
+      }
+    }
+    else if (_currentStep == 6)
+    {
+      if (_isMinor) 
+      {
+        setState(() => _currentStep = 5);
+      } 
+      else 
+      {
+        setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
       }
     }
     else if (_currentStep == 5)
     {
-      setState(() => _currentStep = _activeStep3Cards.isEmpty ? 2 : 3);
+      setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
     }
     else if (_currentStep == 4)
     {
-      setState(() => _currentStep = _activeStep3Cards.isEmpty ? 2 : 3);
+      setState(() => _currentStep = 3);
     }
-    else if (_currentStep == 3)
-    {
-      setState(() => _currentStep = 2);
-    }
-    else if (_currentStep == 2) 
+    else if (_currentStep == 3) 
     {
       if (_involvementType == 1) 
       {
         setState(() => _currentStep = 0);
       } 
+      else if (_selectedRoles.length == 1 && _selectedRoles.contains('GENITORE'))
+      {
+        setState(() => _currentStep = 2);
+      }
       else 
       {
         setState(() => _currentStep = 1);
       }
     } 
+    else if (_currentStep == 2)
+    {
+      setState(() => _currentStep = 1);
+    }
     else if (_currentStep == 1) 
     {
       setState(() => _currentStep = 0);
@@ -1179,7 +1409,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Annulla Inserimento', 
-            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: const Color(0xFF003C82)),
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700, 
+              color:      const Color(0xFF003C82),
+            ),
           ),
           content: Text(
             'Sei sicuro di voler annullare la procedura? Tutti i dati inseriti fino ad ora andranno persi.', 
@@ -1262,8 +1495,11 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 {
                   setState(() 
                   {
-                    _subjectToggles[subject.id] = false;
-                    _selectedProgramsForSubject.remove(subject.id);
+                    if (!(_subjectToggles[subject.id] ?? false))
+                    {
+                      _subjectToggles[subject.id] = false;
+                      _selectedProgramsForSubject.remove(subject.id);
+                    }
                   });
                 }
               ),
@@ -1274,60 +1510,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  List<Widget> get _activeStep3Cards 
-  {
-    final List<Widget> cards          = [];
-    final              activeRoles    = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
-    final bool         isOnlyGenitore = activeRoles.length == 1 && activeRoles.contains('GENITORE');
-    
-    if (!isOnlyGenitore)
-    {
-      cards.add(_buildFormCardIscrizione());
-    }
-    
-    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
-                         activeRoles.contains('DOCENTE') || 
-                         activeRoles.contains('PSICOLOGO');
-                         
-    if (isStaff)
-    {
-      cards.add(_buildFormCardStaff());
-    }
-    
-    if (activeRoles.contains('AMMINISTRATORE'))
-    {
-      cards.add(_buildFormCardAmministratore());
-    }
-    
-    if (activeRoles.contains('DOCENTE'))
-    {
-      cards.add(_buildFormCardDocente());
-    }
-    
-    if (activeRoles.contains('CORSISTA'))
-    {
-      cards.add(_buildFormCardCorsista());
-    }
-    
-    if (activeRoles.contains('STUDENTE'))
-    {
-      cards.add(_buildFormCardStudente());
-    }
-    
-    return cards;
-  }
-
   Widget _getStepWidget(int step) 
   {
     switch (step) 
     {
       case 0:  return _buildStep0Type();
       case 1:  return _buildStep1Roles();
-      case 2:  return _buildStep2DatiGenerali();
-      case 3:  return _buildStep3DatiSpecifici();
-      case 4:  return _buildStep4Parents();
-      case 5:  return _buildStep5Minors();
-      case 6:  return _buildStep6Discipline();
+      case 2:  return _buildStep2Association();
+      case 3:  return _buildStep3DatiGenerali();
+      case 4:  return _buildStep4DatiSpecifici();
+      case 5:  return _buildStep5Parents();
+      case 6:  return _buildStep6Minors();
+      case 7:  return _buildStep7Discipline();
       default: return const SizedBox.shrink();
     }
   }
@@ -1610,7 +1804,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             child: Center(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1150), // Limita la larghezza forzando l'a capo in una griglia 3x2
+                  constraints: const BoxConstraints(maxWidth: 1150),
                   child: Wrap(
                     spacing:    24,
                     runSpacing: 24,
@@ -1620,7 +1814,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                       final isSelected = _selectedRoles.contains(role['id']);
                       
                       return SizedBox(
-                        width: 350, // Card notevolmente più grandi
+                        width: 350,
                         child: WizardSelectionCard(
                           title:      role['label'], 
                           subtitle:   role['desc'], 
@@ -1640,7 +1834,74 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  Widget _buildStep2DatiGenerali()
+  Widget _buildStep2Association() 
+  {
+    return SizedBox(
+      key:   const ValueKey('step2'),
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Text(
+                  'Iscrizione all\'Associazione',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Il genitore non è obbligato a tesserarsi per iscrivere i figli.\nScegli "Sì" solo se paga la quota associativa per sé stesso.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing:    32,
+                  runSpacing: 32,
+                  alignment:  WrapAlignment.center,
+                  children: [
+                    WizardSelectionCard(
+                      title:      'Sì, è tesserato', 
+                      subtitle:   'Il genitore paga la quota associativa ed è ufficialmente un socio.', 
+                      icon:       Icons.card_membership_rounded, 
+                      isSelected: _genitoreIsAssociato == true, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = true),
+                    ),
+                    WizardSelectionCard(
+                      title:      'No, non è tesserato', 
+                      subtitle:   'Il genitore funge solo da responsabile legale per il minore.', 
+                      icon:       Icons.person_off_outlined, 
+                      isSelected: _genitoreIsAssociato == false, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep3DatiGenerali()
   {
     Widget currentCard;
     
@@ -1663,7 +1924,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     }
 
     return Column(
-      key: const ValueKey('step2'),
+      key: const ValueKey('step3'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Padding(
@@ -1701,7 +1962,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               WizardCarouselArrowButton(
                 icon:       Icons.chevron_left_rounded,
                 isDisabled: _currentFormCardIndex == 0,
-                onTap:      () => setState(() => _currentFormCardIndex--),
+                onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
               ),
               const SizedBox(width: 32),
               ConstrainedBox(
@@ -1722,10 +1983,13 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   },
                   transitionBuilder:  (Widget child, Animation<double> animation) 
                   {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                    Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
                     return FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0.02, 0.0), end: Offset.zero).animate(animation),
+                        position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
                         child:    child,
                       ),
                     );
@@ -1740,7 +2004,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               WizardCarouselArrowButton(
                 icon:       Icons.chevron_right_rounded,
                 isDisabled: _currentFormCardIndex == 3,
-                onTap:      () => setState(() => _currentFormCardIndex++),
+                onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
               ),
             ],
           ),
@@ -1749,12 +2013,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  Widget _buildStep3DatiSpecifici()
+  Widget _buildStep4DatiSpecifici()
   {
-    final cards = _activeStep3Cards;
+    final cards = _activeStep4Cards;
     
     return Column(
-      key: const ValueKey('step3'),
+      key: const ValueKey('step4'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Padding(
@@ -1791,8 +2055,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             children: [
               WizardCarouselArrowButton(
                 icon:       Icons.chevron_left_rounded,
-                isDisabled: _currentStep3CardIndex == 0,
-                onTap:      () => setState(() => _currentStep3CardIndex--),
+                isDisabled: _currentStep4CardIndex == 0,
+                onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
               ),
               const SizedBox(width: 32),
               ConstrainedBox(
@@ -1813,25 +2077,28 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   },
                   transitionBuilder:  (Widget child, Animation<double> animation) 
                   {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+                    Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
                     return FadeTransition(
                       opacity: animation,
                       child: SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0.02, 0.0), end: Offset.zero).animate(animation),
+                        position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
                         child:    child,
                       ),
                     );
                   },
                   child: KeyedSubtree(
-                    key:   ValueKey(_currentStep3CardIndex),
-                    child: cards.isNotEmpty ? cards[_currentStep3CardIndex] : const SizedBox.shrink(),
+                    key:   ValueKey(_currentStep4CardIndex),
+                    child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
                   ),
                 ),
               ),
               const SizedBox(width: 32),
               WizardCarouselArrowButton(
                 icon:       Icons.chevron_right_rounded,
-                isDisabled: _currentStep3CardIndex >= cards.length - 1,
-                onTap:      () => setState(() => _currentStep3CardIndex++),
+                isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
               ),
             ],
           ),
@@ -1840,12 +2107,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  Widget _buildStep4Parents()
+  Widget _buildStep5Parents()
   {
     final validAdults = _filteredAdults;
 
     return SizedBox(
-      key:   const ValueKey('step4_parents'),
+      key:   const ValueKey('step5'),
       width: double.infinity,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -1909,7 +2176,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ),
               const SizedBox(width: 12),
               WizardMiniActionPillButton(
-                text:  'nuovo genitore', 
+                text:  'nuovo Genitore', 
                 icon:  Icons.person_add_alt_1_rounded, 
                 onTap: _createNewParent,
               ),
@@ -1962,12 +2229,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  Widget _buildStep5Minors()
+  Widget _buildStep6Minors()
   {
     final validMinors = _filteredMinors;
 
     return SizedBox(
-      key:   const ValueKey('step5_minors'),
+      key:   const ValueKey('step6'),
       width: double.infinity,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -2047,7 +2314,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ),
               const SizedBox(width: 12),
               WizardMiniActionPillButton(
-                text:  'nuovo minore', 
+                text:  'nuovo Minore', 
                 icon:  Icons.person_add_alt_1_rounded, 
                 onTap: _createNewMinor,
               ),
@@ -2095,12 +2362,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
-  Widget _buildStep6Discipline() 
+  Widget _buildStep7Discipline() 
   {
     final validSubjects = _filteredFilteredSubjects;
 
     return SizedBox(
-      key:   const ValueKey('step6'),
+      key:   const ValueKey('step7'),
       width: double.infinity,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -2199,6 +2466,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                           isSelected:    isSelected,
                           selectedCount: selectedCount,
                           onTap:         () => _openProgramsDialog(subject),
+                          onRemove:      () 
+                          {
+                            setState(() 
+                            {
+                              _subjectToggles[subject.id] = false;
+                              _selectedProgramsForSubject.remove(subject.id);
+                            });
+                          },
                         );
                       }).toList(),
                     ),
@@ -2263,7 +2538,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           label:       'Codice fiscale',
           inputWidget: WizardAnimatedTextField(
             controller: _cfCtrl, 
-            hint:       'Es. RSSMRA80A01H501Z',
+            hint:       'Es. RSSMRA80A01H501Z', 
             errorText:  _formErrors['cf'],
             onChanged:  (_) => setState(() => _formErrors.remove('cf')),
           ),
@@ -2425,29 +2700,114 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   Widget _buildFormCardIscrizione()
   {
     return WizardFormSectionCard(
-      title:       'Iscrizione',
+      title:       'Iscrizioni',
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: [
-        WizardFormInputRow(
-          label:       'Anno prima iscr.',
-          inputWidget: WizardAnimatedTextField(
-            controller:   _annoPrimaIscrizioneCtrl, 
-            hint:         'Es. 2026', 
-            keyboardType: TextInputType.number,
-            errorText:    _formErrors['annoPrimaIscrizione'],
-            onChanged:    (_) => setState(() => _formErrors.remove('annoPrimaIscrizione')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Data iscrizione',
-          inputWidget: WizardAnimatedTextField(
-            controller:      _dataIscrizioneCtrl, 
-            hint:            'gg/mm/aaaa', 
-            keyboardType:    TextInputType.number,
-            inputFormatters: [WizardDateInputFormatter()],
-            errorText:       _formErrors['dataIscrizione'],
-            onChanged:       (_) => setState(() => _formErrors.remove('dataIscrizione')),
+        ...List.generate(_enrollmentRows.length, (index) 
+        {
+          final row = _enrollmentRows[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex:  2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index == 0) ...[
+                        Text(
+                          'Anno',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField(
+                        controller:   row.yearCtrl, 
+                        hint:         'Es. 2024', 
+                        keyboardType: TextInputType.number,
+                        errorText:    _formErrors['enrollmentYear_$index'],
+                        onChanged:    (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex:  3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index == 0) ...[
+                        Text(
+                          'Data inizio',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField(
+                        controller:      row.dateCtrl, 
+                        hint:            'gg/mm', 
+                        keyboardType:    TextInputType.number,
+                        inputFormatters: [WizardDayMonthInputFormatter()],
+                        errorText:       _formErrors['enrollmentDate_$index'],
+                        onChanged:       (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 8),
+                    child: WizardRemoveRowButton(
+                      onTap: () 
+                      {
+                        setState(() 
+                        {
+                          _enrollmentRows[index].yearCtrl.dispose();
+                          _enrollmentRows[index].dateCtrl.dispose();
+                          _enrollmentRows.removeAt(index);
+                          _formErrors.remove('enrollmentYear_$index');
+                          _formErrors.remove('enrollmentDate_$index');
+                        });
+                      },
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48), 
+              ],
+            ),
+          );
+        }),
+        Align(
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton(
+            text:  'AGGIUNGI ISCRIZIONE',
+            icon:  Icons.add_rounded,
+            onTap: () 
+            {
+              int lastYear = DateTime.now().year;
+              if (_enrollmentRows.isNotEmpty) 
+              {
+                lastYear = int.tryParse(_enrollmentRows.last.yearCtrl.text) ?? lastYear;
+              }
+              setState(() 
+              {
+                _enrollmentRows.add(_EnrollmentRowData(
+                  yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
+                  dateCtrl: TextEditingController(),
+                ));
+              });
+            },
           ),
         ),
       ],
@@ -2595,18 +2955,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       try 
       {
         dynamic progs;
-        try
+        try 
         {
           progs = (_scuolaSelezionata as dynamic).studyPrograms;
-        }
+        } 
         catch (_) {}
         
         if (progs == null) 
         {
-          try
+          try 
           {
             progs = (_scuolaSelezionata as dynamic).study_programs;
-          }
+          } 
           catch (_) {}
         }
         
@@ -2618,20 +2978,20 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             if (p is Map) 
             {
               pName = p['name'] as String?;
-            }
+            } 
             else 
             {
               try 
               {
                 pName = (p as dynamic).name as String?;
-              }
+              } 
               catch (_) {}
             }
             
             if (pName != null && pName.isNotEmpty) 
             {
               final existsInAll = _allPrograms.any((allP) => (allP as dynamic).name == pName);
-              if (existsInAll && !programNames.contains(pName))
+              if (existsInAll && !programNames.contains(pName)) 
               {
                 programNames.add(pName);
               }
@@ -2655,7 +3015,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         {
           gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
         }
-      }
+      } 
       catch (_) 
       {
         gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
@@ -2756,23 +3116,23 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   {
     bool isLastStep;
     
-    if (_currentStep == 6) 
+    if (_currentStep == 7) 
     {
       isLastStep = true;
     }
-    else if (_currentStep == 5 && !_selectedRoles.contains('DOCENTE'))
+    else if (_currentStep == 6 && !_selectedRoles.contains('DOCENTE'))
     {
       isLastStep = true;
     }
-    else if (_currentStep == 4 && !_selectedRoles.contains('DOCENTE'))
+    else if (_currentStep == 5 && !_selectedRoles.contains('DOCENTE') && !_selectedRoles.contains('GENITORE'))
     {
       isLastStep = true;
     }
-    else if (_currentStep == 3 && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
+    else if (_currentStep == 4 && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
     {
       isLastStep = true;
     }
-    else if (_currentStep == 2 && _activeStep3Cards.isEmpty && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
+    else if (_currentStep == 3 && _activeStep4Cards.isEmpty && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
     {
       isLastStep = true;
     }
@@ -2808,17 +3168,28 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             ),
           const SizedBox(width: 24),
           SizedBox(
-              width: 240, 
-              child: WizardAnimatedActionButton(
-                text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA PERSONA' : 'AVANTI'), 
-                icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-                baseColor:  const Color(0xFF003C82), 
-                hoverColor: const Color(0xFF004D99), 
-                onPressed:  _isSubmitting ? () {} : _onNext,
-              ),
+            width: 240, 
+            child: WizardAnimatedActionButton(
+              text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA PERSONA' : 'AVANTI'), 
+              icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
+              baseColor:  const Color(0xFF003C82), 
+              hoverColor: const Color(0xFF004D99), 
+              onPressed:  _isSubmitting ? () {} : _onNext,
             ),
+          ),
         ],
       ),
     );
   }
+}
+
+class _EnrollmentRowData 
+{
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+
+  _EnrollmentRowData({
+    required this.yearCtrl,
+    required this.dateCtrl,
+  });
 }
