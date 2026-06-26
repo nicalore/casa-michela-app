@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,6 +8,14 @@ import '../features/association/models/school_item.dart';
 import '../features/association/models/study_program_item.dart';
 import '../features/association/models/ministry_subject_item.dart';
 import '../features/people/models/person_item.dart';
+import '../features/people/models/member_trend_item.dart';
+import '../features/people/models/retention_rate_item.dart';
+import '../features/people/models/current_totals_item.dart';
+import '../features/people/models/city_distribution_item.dart';
+import '../features/people/models/age_distribution_item.dart';
+import '../features/people/models/education_distribution_item.dart';
+import '../features/people/models/teacher_subjects_statistics_item.dart';
+import '../features/people/models/course_distribution_item.dart';
 
 import 'auth_state.dart';
 import 'session_service.dart';
@@ -642,6 +648,35 @@ class ApiService
     return (response.data as List).map((json) => PersonItem.fromJson(json)).toList();
   }
 
+  Future<PersonItem> getPerson(String fiscalCode) async 
+  {
+    final response = await _dio.get('/people/$fiscalCode');
+    return PersonItem.fromJson(response.data);
+  }
+
+  Future<String> updatePerson(String fiscalCode, Map<String, dynamic> payload, {Uint8List? imageBytes}) async 
+  {
+    try 
+    {
+      final response   = await _dio.put('/people/$fiscalCode', data: payload);
+      final newTaxCode = response.data['new_tax_code'] ?? fiscalCode;
+      
+      if (imageBytes != null) 
+      {
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(imageBytes, filename: '${newTaxCode}_profile.jpg'),
+        });
+        await _dio.post('/people/$newTaxCode/image', data: formData);
+      }
+      
+      return newTaxCode;
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento.');
+    }
+  }
+
   Future<void> createPersonFromWizard(Map<String, dynamic> payload, {Uint8List? imageBytes}) async
   {
     try
@@ -664,6 +699,349 @@ class ApiService
     on DioException catch (e)
     {
       throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la creazione della persona.');
+    }
+  }
+
+  Future<void> sendAnagraphicErrorReport(String fiscalCode, Map<String, String> corrections) async 
+  {
+    try 
+    {
+      await _dio.post(
+        '/people/$fiscalCode/report-error',
+        data: corrections,
+      );
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile inviare la segnalazione errore al server.');
+    }
+  }
+
+  Future<void> updatePersonMemberships(String fiscalCode, bool collaboratingActive, List<Map<String, dynamic>> memberships) async 
+  {
+    try 
+    {
+      await _dio.put(
+        '/people/$fiscalCode/memberships',
+        data: {
+          'collaborating_active': collaboratingActive,
+          'memberships': memberships,
+        },
+      );
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni.');
+    }
+  }
+
+  Future<void> revokePersonMembership(String fiscalCode, String revocationType) async 
+  {
+    try 
+    {
+      await _dio.put(
+        '/people/$fiscalCode/revoke-membership',
+        data: {
+          'revocation_type': revocationType,
+        },
+      );
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la revoca dell\'iscrizione.');
+    }
+  }
+
+  Future<void> updatePersonSchoolEnrollments(String fiscalCode, List<Map<String, dynamic>> enrollments) async 
+  {
+    try 
+    {
+      await _dio.put(
+        '/people/$fiscalCode/school-enrollments',
+        data: {
+          'enrollments': enrollments,
+        },
+      );
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni scolastiche.');
+    }
+  }
+
+  Future<void> addParent(String childTaxCode, String parentTaxCode) async 
+  {
+    try 
+    {
+      await _dio.post('/people/$childTaxCode/parents', data: {'parent_tax_code': parentTaxCode});
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+    }
+  }
+
+  Future<void> updateParent(String childTaxCode, String oldParentTaxCode, String newParentTaxCode) async 
+  {
+    try 
+    {
+      await _dio.put('/people/$childTaxCode/parents/$oldParentTaxCode', data: {'parent_tax_code': newParentTaxCode});
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+    }
+  }
+
+  Future<void> removeParent(String childTaxCode, String parentTaxCode) async 
+  {
+    try 
+    {
+      await _dio.delete('/people/$childTaxCode/parents/$parentTaxCode');
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+    }
+  }
+
+  Future<CurrentTotalsItem> getCurrentTotals() async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/general/current-totals');
+      return CurrentTotalsItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali attuali.');
+    }
+  }
+
+  Future<List<MemberTrendItem>> getMembersTrend({required String resolution, int? startYear, int? endYear}) async
+  {
+    try 
+    {
+      final response = await _dio.get(
+        '/statistics/general/members-trend',
+        queryParameters: {
+          'resolution': resolution,
+          if (startYear != null) 'start_year': startYear,
+          if (endYear != null) 'end_year': endYear,
+        },
+      );
+      return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend degli iscritti.');
+    }
+  }
+
+  Future<List<MemberTrendItem>> getCollaboratingTrend({required String resolution, int? startYear, int? endYear}) async
+  {
+    try 
+    {
+      final response = await _dio.get(
+        '/statistics/general/collaborating-trend',
+        queryParameters: {
+          'resolution': resolution,
+          if (startYear != null) 'start_year': startYear,
+          if (endYear != null) 'end_year': endYear,
+        },
+      );
+      return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend dei collaboratori.');
+    }
+  }
+
+  Future<RetentionRateItem> getRetentionRate(int year) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/general/retention-rate', queryParameters: {'year': year});
+      return RetentionRateItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di retention.');
+    }
+  }
+
+  Future<RetentionRateItem> getCollaboratingRetentionRate(int year, int month) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/general/collaborating-retention', queryParameters: {'year': year, 'month': month});
+      return RetentionRateItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di retention collaboratori.');
+    }
+  }
+
+  Future<CurrentTotalsItem> getRoleCurrentTotals(String role) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/role/current-totals', queryParameters: {'role': role});
+      return CurrentTotalsItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali del ruolo.');
+    }
+  }
+
+  Future<List<MemberTrendItem>> getRoleMembersTrend({required String role, required String resolution, int? startYear, int? endYear}) async
+  {
+    try 
+    {
+      final response = await _dio.get(
+        '/statistics/role/members-trend',
+        queryParameters: {
+          'role': role,
+          'resolution': resolution,
+          if (startYear != null) 'start_year': startYear,
+          if (endYear != null) 'end_year': endYear,
+        },
+      );
+      return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend del ruolo.');
+    }
+  }
+
+  Future<List<MemberTrendItem>> getRoleCollaboratingTrend({required String role, required String resolution, int? startYear, int? endYear}) async
+  {
+    try 
+    {
+      final response = await _dio.get(
+        '/statistics/role/collaborating-trend',
+        queryParameters: {
+          'role': role,
+          'resolution': resolution,
+          if (startYear != null) 'start_year': startYear,
+          if (endYear != null) 'end_year': endYear,
+        },
+      );
+      return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend collaboratori del ruolo.');
+    }
+  }
+
+  Future<RetentionRateItem> getRoleRetentionRate(String role, int year) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/role/retention-rate', queryParameters: {'role': role, 'year': year});
+      return RetentionRateItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la retention del ruolo.');
+    }
+  }
+
+  Future<RetentionRateItem> getRoleCollaboratingRetentionRate(String role, int year, int month) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/role/collaborating-retention', queryParameters: {'role': role, 'year': year, 'month': month});
+      return RetentionRateItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la retention collaboratori del ruolo.');
+    }
+  }
+
+  Future<List<CityDistributionItem>> getRoleCityDistribution(String role) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/role/city-distribution', queryParameters: {'role': role});
+      return (response.data as List<dynamic>).map((e) => CityDistributionItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per città.');
+    }
+  }
+
+  Future<List<AgeDistributionItem>> getRoleAgeDistribution(String role) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/role/age-distribution', queryParameters: {'role': role});
+      return (response.data as List<dynamic>).map((e) => AgeDistributionItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per età.');
+    }
+  }
+
+  Future<void> updateTeacherCompetences(String taxCode, List<Map<String, dynamic>> competences) async 
+  {
+    try 
+    {
+      await _dio.put(
+        '/people/$taxCode/teacher-competences', 
+        data: {'competences': competences},
+      );
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+    }
+  }
+
+  Future<List<EducationDistributionItem>> getStudentEducationDistribution(String type) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/students/education-distribution', queryParameters: {'distribution_type': type});
+      return (response.data as List<dynamic>).map((e) => EducationDistributionItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione scolastica.');
+    }
+  }
+
+  Future<TeacherSubjectsStatisticsItem> getTeacherSubjectsStatistics(String rankingMode) async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/teachers/subjects-statistics', queryParameters: {'ranking_mode': rankingMode});
+      return TeacherSubjectsStatisticsItem.fromJson(response.data);
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare le statistiche materie docenti.');
+    }
+  }
+
+  Future<List<CourseDistributionItem>> getCourseParticipantDistribution() async
+  {
+    try 
+    {
+      final response = await _dio.get('/statistics/course-participants/course-distribution');
+      return (response.data as List<dynamic>).map((e) => CourseDistributionItem.fromJson(e)).toList();
+    } 
+    on DioException catch (e) 
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione corsi.');
     }
   }
 }
