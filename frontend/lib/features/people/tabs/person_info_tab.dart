@@ -19,16 +19,41 @@ class PersonInfoTab extends StatelessWidget
   String _getAdminRoleText(PersonItem person) 
   {
     final role = person.adminRole;
-    if (role == null) return '-';
+    if (role == null) 
+    {
+      return '-';
+    }
     
-    if (role == 'OTHER' || role.toUpperCase() == 'ALTRO') {
+    if (role == 'OTHER' || role.toUpperCase() == 'ALTRO') 
+    {
       return person.adminOtherRole ?? '-';
     }
-    if (role == 'PRESIDENT' || role == 'Presidente') return 'Presidente';
-    if (role == 'VICE_PRESIDENT' || role == 'Vicepresidente') return 'Vicepresidente';
-    if (role == 'TREASURER' || role == 'Tesoriere') return 'Tesoriere';
+    if (role == 'PRESIDENT' || role == 'Presidente') 
+    {
+      return 'Presidente';
+    }
+    if (role == 'VICE_PRESIDENT' || role == 'Vicepresidente') 
+    {
+      return 'Vicepresidente';
+    }
+    if (role == 'TREASURER' || role == 'Tesoriere') 
+    {
+      return 'Tesoriere';
+    }
     
     return role;
+  }
+
+  bool _isAdult(DateTime? birthDate)
+  {
+    if (birthDate == null) return false;
+    final now = DateTime.now();
+    int age = now.year - birthDate.year;
+    if (now.month < birthDate.month || (now.month == birthDate.month && now.day < birthDate.day)) 
+    {
+      age--;
+    }
+    return age >= 18;
   }
 
   @override
@@ -51,8 +76,9 @@ class PersonInfoTab extends StatelessWidget
     final String provResidenza  = person.province ?? '-';
     final String cap            = person.zipCode ?? '-';
 
-    final Set<String> roles   = person.roles.map((r) => r.toUpperCase()).toSet();
-    final bool        isStaff = roles.contains('AMMINISTRATORE') || roles.contains('DOCENTE') || roles.contains('PSICOLOGO');
+    final Set<String> roles       = person.roles.map((r) => r.toUpperCase()).toSet();
+    final bool        isStaff     = roles.contains('AMMINISTRATORE') || roles.contains('DOCENTE') || roles.contains('PSICOLOGO');
+    final bool        maggiorenne = _isAdult(person.birthDate);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(
@@ -185,7 +211,12 @@ class PersonInfoTab extends StatelessWidget
                     title:       'Dettagli studente',
                     leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
                     rows: [
-                      _InfoRowData('Uscita anticipata', person.earlyExit == null ? '-' : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata')),
+                      _InfoRowData(
+                        'Uscita anticipata', 
+                        maggiorenne 
+                            ? 'Autorizzata' 
+                            : (person.earlyExit == null ? '-' : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata')),
+                      ),
                     ],
                   ),
                 ),
@@ -290,60 +321,62 @@ class _InfoSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return Container(
-      padding:    const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color:        Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        boxShadow:    const [
-          BoxShadow(
-            color:      Color(0x0A000000),
-            offset:     Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize:       MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 90,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                leadingIcon,
-                const SizedBox(width: 24),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize:   26,
-                      fontWeight: FontWeight.w700,
-                      color:      const Color(0xFF003C82),
-                      height:     1.1,
+    return SelectionArea(
+      child: Container(
+        padding:    const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          boxShadow:    const [
+            BoxShadow(
+              color:      Color(0x0A000000),
+              offset:     Offset(0, 4),
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize:       MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 90,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  leadingIcon,
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   26,
+                        fontWeight: FontWeight.w700,
+                        color:      const Color(0xFF003C82),
+                        height:     1.1,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.0),
-            child:   Divider(
-              height:    1,
-              thickness: 1,
-              color:     Color(0xFFF1F5F9),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
+              child:   Divider(
+                height:    1,
+                thickness: 1,
+                color:     Color(0xFFF1F5F9),
+              ),
             ),
-          ),
-          Flexible(
-            child: Column(
-              mainAxisSize:       MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children:           _buildRows(),
+            Flexible(
+              child: Column(
+                mainAxisSize:       MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:           _buildRows(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

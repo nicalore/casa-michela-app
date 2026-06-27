@@ -23,47 +23,32 @@ class _PeoplePageState extends State<PeoplePage>
 
   final List<String> _mainTabs = ['Ricerca', 'Statistiche'];
 
-  Widget _buildTabContent() 
-  {
-    if (_mainSelectedTab == 0) 
-    {
-      return const PeopleSearchTab();
-    }
-
-    if (_mainSelectedTab == 1) 
-    {
-      return const PeopleStatisticsTab();
-    }
-
-    return const SizedBox();
-  }
-
   @override
   Widget build(BuildContext context) 
   {
     return Scaffold(
       body: AppPageContainer(
-        minWidth: AppDimensions.minDashboardWidth,
+        minWidth:  AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
-        builder: (context, width, height) 
+        builder:   (context, width, height) 
         {
           final viewportWidth = MediaQuery.of(context).size.width;
 
           return Container(
-            width: width,
+            width:  width,
             height: height,
-            color: const Color(0xFFF4F7F9),
+            color:  const Color(0xFFF4F7F9),
             child: Stack(
               children: [
                 Positioned(
                   right: -800,
-                  top: -800,
+                  top:   -800,
                   child: IgnorePointer(
                     child: Container(
-                      width: 1600,
-                      height: 1600,
+                      width:      1600,
+                      height:     1600,
                       decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
+                        shape:    BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
                             Color(0x4D003C82),
@@ -77,14 +62,14 @@ class _PeoplePageState extends State<PeoplePage>
                   ),
                 ),
                 Positioned(
-                  left: -800,
+                  left:   -800,
                   bottom: -800,
                   child: IgnorePointer(
                     child: Container(
-                      width: 1600,
-                      height: 1600,
+                      width:      1600,
+                      height:     1600,
                       decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
+                        shape:    BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
                             Color(0x4D003C82),
@@ -106,7 +91,7 @@ class _PeoplePageState extends State<PeoplePage>
                           child: Image.asset(
                             'assets/images/house_watermark.png',
                             width: 800,
-                            fit: BoxFit.contain,
+                            fit:   BoxFit.contain,
                           ),
                         ),
                       ),
@@ -116,7 +101,7 @@ class _PeoplePageState extends State<PeoplePage>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 40,
-                      vertical: 24,
+                      vertical:   24,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,30 +109,27 @@ class _PeoplePageState extends State<PeoplePage>
                         Row(
                           children: [
                             Material(
-                              color: Colors.white,
+                              color:        Colors.white,
                               borderRadius: BorderRadius.circular(40),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(40),
+                                borderRadius:  BorderRadius.circular(40),
                                 splashFactory: NoSplash.splashFactory,
-                                overlayColor: WidgetStateProperty.all(
-                                  Colors.transparent,
-                                ),
-                                onTap: () 
+                                overlayColor:  WidgetStateProperty.all(Colors.transparent),
+                                onTap:         () 
                                 {
+                                  PeopleSearchTab.clearSavedState();
                                   context.go('/dashboard');
                                 },
                                 child: Container(
-                                  width: 88,
-                                  height: 54,
+                                  width:      88,
+                                  height:     54,
                                   decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(40),
-                                    ),
-                                    boxShadow: [
+                                    color:        Colors.white,
+                                    borderRadius: BorderRadius.all(Radius.circular(40)),
+                                    boxShadow:    [
                                       BoxShadow(
-                                        color: Color(0x0A000000),
-                                        offset: Offset(0, 4),
+                                        color:      Color(0x0A000000),
+                                        offset:     Offset(0, 4),
                                         blurRadius: 16,
                                       ),
                                     ],
@@ -155,26 +137,22 @@ class _PeoplePageState extends State<PeoplePage>
                                   child: const Icon(
                                     Icons.arrow_back_ios_new_rounded,
                                     color: Color(0xFF003C82),
-                                    size: 26,
+                                    size:  26,
                                   ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Container(
-                              height: 54,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                              ),
+                              height:  54,
+                              padding: const EdgeInsets.symmetric(horizontal: 28),
                               decoration: const BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(40),
-                                ),
-                                boxShadow: [
+                                color:        Colors.white,
+                                borderRadius: BorderRadius.all(Radius.circular(40)),
+                                boxShadow:    [
                                   BoxShadow(
-                                    color: Color(0x0A000000),
-                                    offset: Offset(0, 4),
+                                    color:      Color(0x0A000000),
+                                    offset:     Offset(0, 4),
                                     blurRadius: 16,
                                   ),
                                 ],
@@ -183,9 +161,9 @@ class _PeoplePageState extends State<PeoplePage>
                                 child: Text(
                                   'Persone',
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 30,
+                                    fontSize:   30,
                                     fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF003C82),
+                                    color:      const Color(0xFF003C82),
                                   ),
                                 ),
                               ),
@@ -194,8 +172,9 @@ class _PeoplePageState extends State<PeoplePage>
                         ),
                         const SizedBox(height: 16),
                         AppCustomTabBar(
-                          tabs: _mainTabs,
+                          tabs:          _mainTabs,
                           selectedIndex: _mainSelectedTab,
+                          maxWidth:      viewportWidth - 80,
                           onTabSelected: (index) 
                           {
                             setState(() 
@@ -203,11 +182,16 @@ class _PeoplePageState extends State<PeoplePage>
                               _mainSelectedTab = index;
                             });
                           },
-                          maxWidth: viewportWidth - 80,
                         ),
                         const SizedBox(height: 24),
                         Expanded(
-                          child: _buildTabContent(),
+                          child: IndexedStack(
+                            index:    _mainSelectedTab,
+                            children: const [
+                              PeopleSearchTab(),
+                              PeopleStatisticsTab(),
+                            ],
+                          ),
                         ),
                       ],
                     ),

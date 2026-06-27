@@ -11,6 +11,7 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../services/api_service.dart';
 
 import 'models/person_item.dart';
+import 'models/membership_item.dart';
 import 'person_edit_dialog.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
@@ -23,7 +24,8 @@ class PersonDetailPage extends StatefulWidget
 {
   final String fiscalCode;
 
-  const PersonDetailPage({
+  const PersonDetailPage
+  ({
     super.key,
     required this.fiscalCode,
   });
@@ -86,20 +88,34 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
+  bool get _isRevoked 
+  {
+    if (_person == null || _person!.memberships == null || _person!.memberships!.isEmpty)
+    {
+      return false;
+    }
+    
+    final memberships = _person!.memberships!.toList();
+    memberships.sort((a, b) => b.year.compareTo(a.year));
+    
+    return memberships.first.revocation != 'NO';
+  }
+
   List<String> get _currentTabs 
   {
     final List<String> tabs = ['Informazioni personali'];
     
     if (_person != null)
     {
-      final roles = _person!.roles.map((r) => r.toUpperCase()).toSet();
+      final roles     = _person!.roles.map((r) => r.toUpperCase()).toSet();
+      final isRevoked = _isRevoked;
       
       if (roles.contains('ASSOCIATO'))
       {
         tabs.add('Iscrizioni');
       }
       
-      if (roles.contains('STUDENTE'))
+      if (roles.contains('STUDENTE') && !isRevoked)
       {
         tabs.add('Scuola');
       }
@@ -117,7 +133,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         tabs.add('Figli');
       }
 
-      if (roles.contains('DOCENTE'))
+      if (roles.contains('DOCENTE') && !isRevoked)
       {
         tabs.add('Discipline');
       }
@@ -133,26 +149,31 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       return [const SizedBox.shrink()];
     }
 
-    final List<Widget> views = [
-      PersonInfoTab(
+    final List<Widget> views = 
+    [
+      PersonInfoTab
+      (
         person: _person!,
         onEdit: _openEditDialog,
       ),
     ];
 
-    final roles = _person!.roles.map((r) => r.toUpperCase()).toSet();
+    final roles     = _person!.roles.map((r) => r.toUpperCase()).toSet();
+    final isRevoked = _isRevoked;
     
     if (roles.contains('ASSOCIATO'))
     {
-      views.add(PersonMembershipsTab(
+      views.add(PersonMembershipsTab
+      (
         person:   _person!,
         onUpdate: _fetchPersonData,
       ));
     }
 
-    if (roles.contains('STUDENTE'))
+    if (roles.contains('STUDENTE') && !isRevoked)
     {
-      views.add(PersonSchoolsTab(
+      views.add(PersonSchoolsTab
+      (
         person:   _person!,
         onUpdate: _fetchPersonData,
       ));
@@ -163,7 +184,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     if (isMinor || hasParents)
     {
-      views.add(PersonParentsTab(
+      views.add(PersonParentsTab
+      (
         person:   _person!,
         onUpdate: _fetchPersonData,
       ));
@@ -171,14 +193,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     if (roles.contains('GENITORE'))
     {
-      views.add(PersonChildrenTab(
+      views.add(PersonChildrenTab
+      (
         person: _person!,
       ));
     }
 
-    if (roles.contains('DOCENTE'))
+    if (roles.contains('DOCENTE') && !isRevoked)
     {
-      views.add(PersonSubjectsTab(
+      views.add(PersonSubjectsTab
+      (
         person:   _person!,
         onUpdate: _fetchPersonData,
       ));
@@ -194,7 +218,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       return;
     }
 
-    final String? newFiscalCode = await showGeneralDialog<String>(
+    final String? newFiscalCode = await showGeneralDialog<String>
+    (
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'PersonEdit', 
@@ -204,12 +229,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       transitionBuilder:  (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child:  FadeTransition(
+          child:  FadeTransition
+          (
             opacity: animation,
-            child:   ScaleTransition(
-              scale: CurvedAnimation(
+            child:   ScaleTransition
+            (
+              scale: CurvedAnimation
+              (
                 parent:       animation, 
                 curve:        Curves.easeOutBack, 
                 reverseCurve: Curves.easeIn
@@ -243,10 +272,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     final String initials = '${_person!.firstName[0]}${_person!.lastName[0]}'.toUpperCase();
     
-    final Widget fallbackWidget = Center(
-      child: Text(
+    final Widget fallbackWidget = Center
+    (
+      child: Text
+      (
         initials,
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.plusJakartaSans
+        (
           fontSize:   30,
           fontWeight: FontWeight.w700,
           color:      const Color(0xFF64748B),
@@ -269,38 +301,49 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final bool         hasImage       = imageUrl != null && imageUrl.isNotEmpty;
     final List<String> processedRoles = RoleLabelMapper.processRoles(_person!.roles);
 
-    return Container(
+    return Container
+    (
       width:   800,
       height:  160,
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      decoration: BoxDecoration(
+      decoration: BoxDecoration
+      (
         color:        Colors.white,
         borderRadius: BorderRadius.circular(40),
-        boxShadow:    const [
-          BoxShadow(
+        boxShadow:    const 
+        [
+          BoxShadow
+          (
             color:      Color(0x0A000000),
             offset:     Offset(0, 4),
             blurRadius: 16,
           ),
         ],
       ),
-      child: Row(
+      child: Row
+      (
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
+        children: 
+        [
+          Container
+          (
             width:  100,
             height: 100,
-            decoration: BoxDecoration(
+            decoration: BoxDecoration
+            (
               color:  const Color(0xFFE2E8F0),
               shape:  BoxShape.circle,
-              border: Border.all(
+              border: Border.all
+              (
                 color: const Color(0xFF003C82),
                 width: 3.0,
               ),
             ),
-            child: ClipOval(
+            child: ClipOval
+            (
               child: hasImage
-                  ? Image.network(
+                  ? Image.network
+                    (
                       imageUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) 
@@ -312,16 +355,21 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             ),
           ),
           const SizedBox(width: 32),
-          Expanded(
-            child: Column(
+          Expanded
+          (
+            child: Column
+            (
               mainAxisAlignment:  MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+              children: 
+              [
+                Text
+                (
                   '${_person!.firstName} ${_person!.lastName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.plusJakartaSans
+                  (
                     fontSize:   32,
                     fontWeight: FontWeight.w700,
                     color:      const Color(0xFF003C82),
@@ -329,24 +377,30 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   ),
                 ),
                 const SizedBox(height: 12),
-                Wrap(
+                Wrap
+                (
                   spacing:    8,
                   runSpacing: 8,
                   children: processedRoles.map((role) 
                   {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
+                    return Container
+                    (
+                      padding: const EdgeInsets.symmetric
+                      (
                         horizontal: 14,
                         vertical:   6,
                       ),
-                      decoration: BoxDecoration(
+                      decoration: BoxDecoration
+                      (
                         color:        const Color(0xFFF5F7FA),
                         borderRadius: BorderRadius.circular(12),
                         border:       Border.all(color: const Color(0xFFE0E5EC)),
                       ),
-                      child: Text(
+                      child: Text
+                      (
                         role,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.plusJakartaSans
+                        (
                           fontSize:   14,
                           fontWeight: FontWeight.w600,
                           color:      const Color(0xFF64748B),
@@ -367,9 +421,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   {
     if (_isLoading)
     {
-      return const Expanded(
-        child: Center(
-          child: CircularProgressIndicator(
+      return const Expanded
+      (
+        child: Center
+        (
+          child: CircularProgressIndicator
+          (
             color: Color(0xFF003C82),
           ),
         ),
@@ -378,11 +435,15 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     if (_errorMessage != null || _person == null)
     {
-      return Expanded(
-        child: Center(
-          child: Text(
+      return Expanded
+      (
+        child: Center
+        (
+          child: Text
+          (
             'Errore nel caricamento: ${_errorMessage ?? "Dati non disponibili"}',
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.plusJakartaSans
+            (
               fontSize:   18,
               fontWeight: FontWeight.w600,
               color:      const Color(0xFFC62828),
@@ -392,43 +453,57 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       );
     }
 
-    return Expanded(
-      child: Column(
+    return Expanded
+    (
+      child: Column
+      (
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        children: 
+        [
+          Row
+          (
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Material(
+            children: 
+            [
+              Material
+              (
                 color:        Colors.white,
                 borderRadius: BorderRadius.circular(40),
-                child: InkWell(
+                child: InkWell
+                (
                   borderRadius:  BorderRadius.circular(40),
                   splashFactory: NoSplash.splashFactory,
-                  overlayColor:  WidgetStateProperty.all(
+                  overlayColor:  WidgetStateProperty.all
+                  (
                     Colors.transparent,
                   ),
                   onTap: () 
                   {
                     context.go('/people');
                   },
-                  child: Container(
+                  child: Container
+                  (
                     width:  88,
                     height: 54,
-                    decoration: const BoxDecoration(
+                    decoration: const BoxDecoration
+                    (
                       color:        Colors.white,
-                      borderRadius: BorderRadius.all(
+                      borderRadius: BorderRadius.all
+                      (
                         Radius.circular(40),
                       ),
-                      boxShadow: [
-                        BoxShadow(
+                      boxShadow: 
+                      [
+                        BoxShadow
+                        (
                           color:      Color(0x0A000000),
                           offset:     Offset(0, 4),
                           blurRadius: 16,
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: const Icon
+                    (
                       Icons.arrow_back_ios_new_rounded,
                       color: Color(0xFF003C82),
                       size:  26,
@@ -436,8 +511,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   ),
                 ),
               ),
-              Expanded(
-                child: Center(
+              Expanded
+              (
+                child: Center
+                (
                   child: _buildHeaderCard(),
                 ),
               ),
@@ -445,7 +522,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             ],
           ),
           const SizedBox(height: 32),
-          AppCustomTabBar(
+          AppCustomTabBar
+          (
             tabs:          _currentTabs,
             selectedIndex: _selectedTab,
             onTabSelected: (index) 
@@ -458,8 +536,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             maxWidth: viewportWidth - 80,
           ),
           const SizedBox(height: 24),
-          Expanded(
-            child: IndexedStack(
+          Expanded
+          (
+            child: IndexedStack
+            (
               index:    _selectedTab,
               children: _currentTabViews,
             ),
@@ -472,31 +552,42 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   @override
   Widget build(BuildContext context) 
   {
-    return Scaffold(
-      body: AppPageContainer(
+    return Scaffold
+    (
+      body: AppPageContainer
+      (
         minWidth:  AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height) 
         {
           final viewportWidth = MediaQuery.of(context).size.width;
 
-          return Container(
+          return Container
+          (
             width:  width,
             height: height,
             color:  const Color(0xFFF4F7F9),
-            child: Stack(
-              children: [
-                Positioned(
+            child: Stack
+            (
+              children: 
+              [
+                Positioned
+                (
                   right: -800,
                   top:   -800,
-                  child: IgnorePointer(
-                    child: Container(
+                  child: IgnorePointer
+                  (
+                    child: Container
+                    (
                       width:  1600,
                       height: 1600,
-                      decoration: const BoxDecoration(
+                      decoration: const BoxDecoration
+                      (
                         shape:    BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
+                        gradient: RadialGradient
+                        (
+                          colors: 
+                          [
                             Color(0x4D003C82),
                             Color(0x22003C82),
                             Color(0x00003C82),
@@ -507,17 +598,23 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     ),
                   ),
                 ),
-                Positioned(
+                Positioned
+                (
                   left:   -800,
                   bottom: -800,
-                  child: IgnorePointer(
-                    child: Container(
+                  child: IgnorePointer
+                  (
+                    child: Container
+                    (
                       width:  1600,
                       height: 1600,
-                      decoration: const BoxDecoration(
+                      decoration: const BoxDecoration
+                      (
                         shape:    BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
+                        gradient: RadialGradient
+                        (
+                          colors: 
+                          [
                             Color(0x4D003C82),
                             Color(0x22003C82),
                             Color(0x00003C82),
@@ -529,12 +626,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   ),
                 ),
                 if (viewportWidth > 1024)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Center(
-                        child: Opacity(
+                  Positioned.fill
+                  (
+                    child: IgnorePointer
+                    (
+                      child: Center
+                      (
+                        child: Opacity
+                        (
                           opacity: 0.04,
-                          child: Image.asset(
+                          child: Image.asset
+                          (
                             'assets/images/house_watermark.png',
                             width: 800,
                             fit:   BoxFit.contain,
@@ -543,15 +645,20 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       ),
                     ),
                   ),
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
+                SafeArea
+                (
+                  child: Padding
+                  (
+                    padding: const EdgeInsets.symmetric
+                    (
                       horizontal: 40,
                       vertical:   24,
                     ),
-                    child: Column(
+                    child: Column
+                    (
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                      children: 
+                      [
                         _buildBodyContent(viewportWidth),
                       ],
                     ),

@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AppPageContainer extends StatefulWidget
 {
-  final Widget Function(
+  final Widget Function
+  (
     BuildContext context,
     double width,
     double height,
@@ -11,7 +13,8 @@ class AppPageContainer extends StatefulWidget
   final double minWidth;
   final double minHeight;
 
-  const AppPageContainer({
+  const AppPageContainer
+  ({
     super.key,
     required this.builder,
     required this.minWidth,
@@ -29,7 +32,7 @@ class _AppPageContainerState extends State<AppPageContainer>
   @override
   void dispose()
   {
-    //Release resources
+    //ReleaseResources
     _verticalController.dispose();
     
     super.dispose();
@@ -38,30 +41,53 @@ class _AppPageContainerState extends State<AppPageContainer>
   @override
   Widget build(BuildContext context)
   {
-    return LayoutBuilder(
-      builder: (context, constraints)
+    if (!kIsWeb)
+    {
+      //NativeMobileLayout
+      return LayoutBuilder
+      (
+        builder: (BuildContext context, BoxConstraints constraints)
+        {
+          return widget.builder
+          (
+            context,
+            constraints.maxWidth,
+            constraints.maxHeight,
+          );
+        },
+      );
+    }
+
+    //WebBrowserLayout
+    return LayoutBuilder
+    (
+      builder: (BuildContext context, BoxConstraints constraints)
       {
-        //Calculate dimensions
-        final width = constraints.maxWidth < widget.minWidth
+        final double width = constraints.maxWidth < widget.minWidth
             ? widget.minWidth
             : constraints.maxWidth;
 
-        final height = constraints.maxHeight < widget.minHeight
+        final double height = constraints.maxHeight < widget.minHeight
             ? widget.minHeight
             : constraints.maxHeight;
 
-        return Scrollbar(
+        return Scrollbar
+        (
           controller: _verticalController,
           thumbVisibility: true,
           trackVisibility: true,
-          child: SingleChildScrollView(
+          child: SingleChildScrollView
+          (
             controller: _verticalController,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
+            child: ConstrainedBox
+            (
+              constraints: BoxConstraints
+              (
                 minWidth: width,
                 minHeight: height,
               ),
-              child: widget.builder(
+              child: widget.builder
+              (
                 context,
                 width,
                 height,

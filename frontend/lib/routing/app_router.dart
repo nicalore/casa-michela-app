@@ -20,13 +20,13 @@ final apiService = ApiService();
 
 CustomTransitionPage _buildLogoTransitionPage({
   required LocalKey key,
-  required Widget   child,
+  required Widget child,
 })
 {
   return CustomTransitionPage(
-    key:                key,
-    child:              child,
-    opaque:             false,
+    key: key,
+    child: child,
+    opaque: false,
     transitionDuration: const Duration(milliseconds: 1200),
     transitionsBuilder: (context, animation, secondaryAnimation, child)
     {
@@ -34,7 +34,7 @@ CustomTransitionPage _buildLogoTransitionPage({
         TweenSequenceItem(
           tween: Tween(
             begin: 0.0,
-            end:   1.0,
+            end: 1.0,
           ).chain(CurveTween(curve: Curves.easeOut)),
           weight: 35,
         ),
@@ -42,7 +42,7 @@ CustomTransitionPage _buildLogoTransitionPage({
         TweenSequenceItem(
           tween: Tween(
             begin: 1.0,
-            end:   0.0,
+            end: 0.0,
           ).chain(CurveTween(curve: Curves.easeIn)),
           weight: 35,
         ),
@@ -56,9 +56,9 @@ CustomTransitionPage _buildLogoTransitionPage({
 
       return AnimatedBuilder(
         animation: overlayAnimation,
-        builder:   (context, _)
+        builder: (context, _)
         {
-          final double blurIntensity     = overlayAnimation.value * 20.0;
+          final double blurIntensity = overlayAnimation.value * 20.0;
           final double backgroundOpacity = overlayAnimation.value * 0.65;
 
           return Stack(
@@ -66,7 +66,7 @@ CustomTransitionPage _buildLogoTransitionPage({
             children: [
               FadeTransition(
                 opacity: pageOpacity,
-                child:   child,
+                child: child,
               ),
               if (overlayAnimation.value > 0)
                 IgnorePointer(
@@ -86,7 +86,7 @@ CustomTransitionPage _buildLogoTransitionPage({
                       ),
                       Opacity(
                         opacity: overlayAnimation.value,
-                        child:   const CasaMichelaLoader(isOverlay: false),
+                        child: const CasaMichelaLoader(isOverlay: false),
                       ),
                     ],
                   ),
@@ -100,12 +100,12 @@ CustomTransitionPage _buildLogoTransitionPage({
 }
 
 final appRouter = GoRouter(
-  initialLocation:   '/dashboard',
+  initialLocation: '/dashboard',
   refreshListenable: apiService.authState,
-  redirect:          (context, state)
+  redirect: (context, state)
   {
     final authState = apiService.authState.value;
-    final path      = state.uri.path;
+    final path = state.uri.path;
 
     final isPublicRoute = path == '/login' || path == '/reset-password';
 
@@ -134,28 +134,28 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/login',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const LoginPage(),
       ),
     ),
     GoRoute(
       path: '/dashboard',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const DashboardPage(),
       ),
     ),
     GoRoute(
       path: '/association',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const AssociationPage(),
       ),
     ),
     GoRoute(
       path: '/settings',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const SettingsPage(),
       ),
     ),
@@ -174,19 +174,26 @@ final appRouter = GoRouter(
       {
         final data = state.extra as Map<String, dynamic>?;
 
-        if (data == null)
+        // Estrazione sicura dei dati
+        final username = data?['username'] as String?;
+        final refreshToken = data?['refreshToken'] as String?;
+        final currentPassword = data?['currentPassword'] as String?;
+
+        // Se manca anche un solo dato, si torna al login senza crash
+        if (username == null || refreshToken == null || currentPassword == null)
         {
           return _buildLogoTransitionPage(
-            key:   state.pageKey,
+            key: state.pageKey,
             child: const LoginPage(),
           );
         }
 
         return _buildLogoTransitionPage(
-          key:   state.pageKey,
+          key: state.pageKey,
           child: ForcePasswordChangePage(
-            refreshToken:    data['refreshToken'] as String,
-            currentPassword: data['currentPassword'] as String,
+            username: username,
+            refreshToken: refreshToken,
+            currentPassword: currentPassword,
           ),
         );
       },
@@ -200,13 +207,13 @@ final appRouter = GoRouter(
         if (token == null || token.isEmpty)
         {
           return _buildLogoTransitionPage(
-            key:   state.pageKey,
+            key: state.pageKey,
             child: const LoginPage(),
           );
         }
 
         return _buildLogoTransitionPage(
-          key:   state.pageKey,
+          key: state.pageKey,
           child: ResetPasswordPage(token: token),
         );
       },
@@ -214,14 +221,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/people',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const PeoplePage(),
       ),
     ),
     GoRoute(
       path: '/people/new',
       pageBuilder: (context, state) => _buildLogoTransitionPage(
-        key:   state.pageKey,
+        key: state.pageKey,
         child: const PersonWizardPage(),
       ),
     ),
@@ -232,7 +239,7 @@ final appRouter = GoRouter(
         final fiscalCode = state.pathParameters['fiscalCode']!;
         
         return _buildLogoTransitionPage(
-          key:   state.pageKey,
+          key: state.pageKey,
           child: PersonDetailPage(fiscalCode: fiscalCode),
         );
       },

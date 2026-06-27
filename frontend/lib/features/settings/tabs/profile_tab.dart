@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
-import '../../auth/models/me_response.dart';
 import '../../../shared/widgets/casa_michela_loader.dart';
+import '../../auth/models/me_response.dart';
+import '../../people/models/person_item.dart';
 
 class ProfileTab extends StatefulWidget
 {
@@ -20,12 +22,14 @@ class _ProfileTabState extends State<ProfileTab>
   final ApiService _apiService = ApiService();
   
   MeResponse? _me;
-  bool _isLoading = true;
-  String? _errorMessage;
+  PersonItem? _person;
+  bool        _isLoading = true;
+  String?     _errorMessage;
 
   int _selectedSubTab = 0;
   
-  final List<String> _subTabs = [
+  final List<String> _subTabs = 
+  [
     'Informazioni personali',
     'Informazioni associative',
   ];
@@ -43,20 +47,22 @@ class _ProfileTabState extends State<ProfileTab>
     {
       setState(()
       {
-        _isLoading = true;
+        _isLoading    = true;
         _errorMessage = null;
       });
     }
 
     try
     {
-      final meResponse = await _apiService.me();
+      final meResponse     = await _apiService.me();
+      final personResponse = await _apiService.getPerson(meResponse.taxCode);
       
       if (mounted)
       {
         setState(()
         {
-          _me = meResponse;
+          _me        = meResponse;
+          _person    = personResponse;
           _isLoading = false;
         });
       }
@@ -67,11 +73,43 @@ class _ProfileTabState extends State<ProfileTab>
       {
         setState(()
         {
-          _isLoading = false;
+          _isLoading    = false;
           _errorMessage = e.toString();
         });
       }
     }
+  }
+
+  String _getAdminRoleText(PersonItem person) 
+  {
+    final role = person.adminRole;
+    
+    if (role == null) 
+    {
+      return '-';
+    }
+    
+    if (role == 'OTHER' || role.toUpperCase() == 'ALTRO') 
+    {
+      return person.adminOtherRole ?? '-';
+    }
+    
+    if (role == 'PRESIDENT' || role == 'Presidente') 
+    {
+      return 'Presidente';
+    }
+    
+    if (role == 'VICE_PRESIDENT' || role == 'Vicepresidente') 
+    {
+      return 'Vicepresidente';
+    }
+    
+    if (role == 'TREASURER' || role == 'Tesoriere') 
+    {
+      return 'Tesoriere';
+    }
+    
+    return role;
   }
 
   Widget _buildSubNavigation()
@@ -96,11 +134,11 @@ class _ProfileTabState extends State<ProfileTab>
                   });
                 },
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  duration:   const Duration(milliseconds: 250),
+                  curve:      Curves.easeInOut,
+                  padding:    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF003C82) : Colors.white,
+                    color:  isSelected ? const Color(0xFF003C82) : Colors.white,
                     border: Border.all(
                       color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
                     ),
@@ -108,11 +146,11 @@ class _ProfileTabState extends State<ProfileTab>
                   ),
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
+                    curve:    Curves.easeInOut,
+                    style:    GoogleFonts.plusJakartaSans(
+                      fontSize:   14,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF64748B),
+                      color:      isSelected ? Colors.white : const Color(0xFF64748B),
                     ),
                     child: Text(_subTabs[index]),
                   ),
@@ -133,12 +171,12 @@ class _ProfileTabState extends State<ProfileTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child: CasaMichelaLoader(),
+          child:   CasaMichelaLoader(),
         ),
       );
     }
 
-    if (_errorMessage != null || _me == null)
+    if (_errorMessage != null || _me == null || _person == null)
     {
       return Center(
         child: Padding(
@@ -146,42 +184,48 @@ class _ProfileTabState extends State<ProfileTab>
           child: Text(
             'Errore nel caricamento del profilo',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
+              fontSize:   18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFFC62828),
+              color:      const Color(0xFFC62828),
             ),
           ),
         ),
       );
     }
 
-    final me = _me!;
+    final me     = _me!;
+    final person = _person!;
     
-    final String nome = me.firstName;
-    final String cognome = me.lastName;
-    final String sesso = me.gender ?? '-';
-    final String cf = me.taxCode;
+    final String nome           = me.firstName;
+    final String cognome        = me.lastName;
+    final String sesso          = me.gender ?? '-';
+    final String cf             = me.taxCode;
     
-    final String email = me.email ?? '-';
-    final String telefono = me.phoneNumber ?? '-';
+    final String email          = me.email ?? '-';
+    final String telefono       = me.phoneNumber ?? '-';
 
-    final String dataNascita = me.birthDate != null
-        ? DateFormat('dd/MM/yyyy').format(me.birthDate!)
-        : '-';
-    final String cittaNascita = me.birthCity ?? '-';
-    final String provNascita = me.birthProvince ?? '-';
+    final String dataNascita    = me.birthDate != null ? DateFormat('dd/MM/yyyy').format(me.birthDate!) : '-';
+    final String cittaNascita   = me.birthCity ?? '-';
+    final String provNascita    = me.birthProvince ?? '-';
 
-    final String indirizzo = me.address ?? '-';
-    final String civico = me.addressNumber ?? '-';
+    final String indirizzo      = me.address ?? '-';
+    final String civico         = me.addressNumber ?? '-';
     final String cittaResidenza = me.city ?? '-';
-    final String provResidenza = me.province ?? '-';
-    final String cap = me.zipCode ?? '-';
+    final String provResidenza  = me.province ?? '-';
+    final String cap            = me.zipCode ?? '-';
+
+    final rawRoles        = person.roles.map((r) => r.toUpperCase()).toSet();
+    final translatedRoles = RoleLabelMapper.processRoles(person.roles);
+    
+    final bool isStaff = rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN') || 
+                         rawRoles.contains('DOCENTE')        || rawRoles.contains('TEACHER') || 
+                         rawRoles.contains('PSICOLOGO')      || rawRoles.contains('PSYCHOLOGIST');
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(
-        top: 16,
-        left: 32,
-        right: 32,
+        top:    16,
+        left:   32,
+        right:  32,
         bottom: 32,
       ),
       child: Center(
@@ -199,15 +243,15 @@ class _ProfileTabState extends State<ProfileTab>
                     children: [
                       Expanded(
                         child: _ProfileSectionCard(
-                          title: 'Identità',
+                          title:       'Identità',
                           leadingIcon: _ProfileAvatar(
                             profileImageUrl: me.profileImageUrl,
-                            onImageUpdated: () => _fetchProfile(isInitialLoad: false),
+                            onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
                           ),
                           rows: [
-                            _InfoRowData('Nome', nome),
-                            _InfoRowData('Cognome', cognome),
-                            _InfoRowData('Sesso', sesso),
+                            _InfoRowData('Nome',           nome),
+                            _InfoRowData('Cognome',        cognome),
+                            _InfoRowData('Sesso',          sesso),
                             _InfoRowData('Codice fiscale', cf),
                             null,
                           ],
@@ -218,16 +262,16 @@ class _ProfileTabState extends State<ProfileTab>
                       
                       Expanded(
                         child: _ProfileSectionCard(
-                          title: 'Residenza',
+                          title:       'Residenza',
                           leadingIcon: const _StaticAvatar(
                             icon: Icons.home_rounded,
                           ),
                           rows: [
                             _InfoRowData('Indirizzo', indirizzo),
-                            _InfoRowData('N°', civico),
-                            _InfoRowData('Città', cittaResidenza),
+                            _InfoRowData('N°',        civico),
+                            _InfoRowData('Città',     cittaResidenza),
                             _InfoRowData('Provincia', provResidenza),
-                            _InfoRowData('CAP', cap),
+                            _InfoRowData('CAP',       cap),
                           ],
                         ),
                       ),
@@ -243,14 +287,14 @@ class _ProfileTabState extends State<ProfileTab>
                     children: [
                       Expanded(
                         child: _ProfileSectionCard(
-                          title: 'Dati anagrafici',
+                          title:       'Dati anagrafici',
                           leadingIcon: const _StaticAvatar(
                             icon: Icons.cake_rounded,
                           ),
                           rows: [
-                            _InfoRowData('Data di nascita', dataNascita),
+                            _InfoRowData('Data di nascita',  dataNascita),
                             _InfoRowData('Città di nascita', cittaNascita),
-                            _InfoRowData('Provincia', provNascita),
+                            _InfoRowData('Provincia',        provNascita),
                           ],
                         ),
                       ),
@@ -259,12 +303,12 @@ class _ProfileTabState extends State<ProfileTab>
                       
                       Expanded(
                         child: _ProfileSectionCard(
-                          title: 'Contatti',
+                          title:       'Contatti',
                           leadingIcon: const _StaticAvatar(
                             icon: Icons.alternate_email_rounded,
                           ),
                           rows: [
-                            _InfoRowData('Email', email),
+                            _InfoRowData('Email',    email),
                             _InfoRowData('Telefono', telefono),
                             null,
                           ],
@@ -275,59 +319,116 @@ class _ProfileTabState extends State<ProfileTab>
                 ),
               ]
               else ...[
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title: 'Ruoli e permessi',
-                          leadingIcon: const _StaticAvatar(
-                            icon: Icons.admin_panel_settings_rounded,
-                          ),
-                          customContent: Align(
-                            alignment: Alignment.topLeft,
-                            child: me.availableRoles.isNotEmpty
-                                ? Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: me.availableRoles
-                                        .map((role) => _RoleChip(label: role))
-                                        .toList(),
-                                  )
-                                : Text(
-                                    'Nessun ruolo assegnato',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 16,
-                                      color: const Color(0xFF7A7A7A),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 24),
-                      
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title: 'Dettagli associazione',
-                          leadingIcon: const _StaticAvatar(
-                            icon: Icons.info_outline_rounded,
-                          ),
-                          customContent: Center(
-                            child: Text(
-                              'Altre informazioni in arrivo...',
+                SizedBox(
+                  width: double.infinity,
+                  child: _ProfileSectionCard(
+                    title:       'Ruoli',
+                    leadingIcon: const _StaticAvatar(
+                      icon: Icons.admin_panel_settings_rounded,
+                    ),
+                    customContent: Align(
+                      alignment: Alignment.topLeft,
+                      child: translatedRoles.isNotEmpty
+                          ? Wrap(
+                              spacing:    8,
+                              runSpacing: 8,
+                              children: translatedRoles
+                                  .map((role) => _RoleChip(label: role))
+                                  .toList(),
+                            )
+                          : Text(
+                              'Nessun ruolo assegnato',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
-                                color: const Color(0xFF7A7A7A),
+                                color:    const Color(0xFF7A7A7A),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
+                
+                if (isStaff) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Dettagli collaborazione',
+                      leadingIcon: const _StaticAvatar(
+                        icon: Icons.account_balance_outlined,
+                      ),
+                      rows: [
+                        _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
+                        _InfoRowData('IBAN',                person.iban?.isNotEmpty == true ? person.iban! : '-'),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN')) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Dettagli amministratore',
+                      leadingIcon: const _StaticAvatar(
+                        icon: Icons.computer_outlined,
+                      ),
+                      rows: [
+                        _InfoRowData('Ruolo', _getAdminRoleText(person)),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (rawRoles.contains('DOCENTE') || rawRoles.contains('TEACHER')) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Dettagli docente',
+                      leadingIcon: const _StaticAvatar(
+                        icon: Icons.school_outlined,
+                      ),
+                      rows: [
+                        _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
+                        _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (rawRoles.contains('STUDENTE') || rawRoles.contains('STUDENT')) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Dettagli studente',
+                      leadingIcon: const _StaticAvatar(
+                        icon: Icons.menu_book_outlined,
+                      ),
+                      rows: [
+                        _InfoRowData('Uscita anticipata', person.earlyExit == null ? '-' : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata')),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (rawRoles.contains('CORSISTA') || rawRoles.contains('COURSE_PARTICIPANT')) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Dettagli corsista',
+                      leadingIcon: const _StaticAvatar(
+                        icon: Icons.self_improvement_rounded,
+                      ),
+                      rows: [
+                        _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
+                        _InfoRowData('Scadenza cert. medico', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
@@ -339,10 +440,10 @@ class _ProfileTabState extends State<ProfileTab>
 
 class _ProfileSectionCard extends StatelessWidget
 {
-  final String title;
-  final Widget leadingIcon;
+  final String               title;
+  final Widget               leadingIcon;
   final List<_InfoRowData?>? rows;
-  final Widget? customContent;
+  final Widget?              customContent;
 
   const _ProfileSectionCard({
     required this.title,
@@ -354,63 +455,65 @@ class _ProfileSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            offset: Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 90,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                leadingIcon,
-                
-                const SizedBox(width: 24),
-                
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF003C82),
-                      height: 1.1,
+    //MakeCardSelectable
+    return SelectionArea(
+      child: Container(
+        padding:    const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          boxShadow:    const [
+            BoxShadow(
+              color:      Color(0x0A000000),
+              offset:     Offset(0, 4),
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize:       MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 90,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  leadingIcon,
+                  
+                  const SizedBox(width: 24),
+                  
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   26,
+                        fontWeight: FontWeight.w700,
+                        color:      const Color(0xFF003C82),
+                        height:     1.1,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.0),
-            child: Divider(
-              height: 1,
-              thickness: 1,
-              color: Color(0xFFF1F5F9),
+            
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
+              child: Divider(
+                height:    1,
+                thickness: 1,
+                color:     Color(0xFFF1F5F9),
+              ),
             ),
-          ),
-          
-          Expanded(
-            child: customContent ?? Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            
+            customContent ?? Column(
+              mainAxisSize:       MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: _buildRows(),
+              children:           _buildRows(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -426,17 +529,16 @@ class _ProfileSectionCard extends StatelessWidget
     
     for (int i = 0; i < rows!.length; i++)
     {
-      final bool isLast = i == rows!.length - 1;
-      final rowData = rows![i];
+      final bool isLast  = i == rows!.length - 1;
+      final      rowData = rows![i];
       
       Widget rowWidget;
       
       if (rowData == null)
       {
-        //InvisibleSpacerRow
         rowWidget = const Opacity(
           opacity: 0.0,
-          child: _ProfileInfoRow(
+          child:   _ProfileInfoRow(
             label: '-',
             value: '-',
           ),
@@ -454,7 +556,7 @@ class _ProfileSectionCard extends StatelessWidget
       {
         rowWidget = Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
-          child: rowWidget,
+          child:   rowWidget,
         );
       }
       
@@ -477,7 +579,7 @@ class _StaticAvatar extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Container(
-      width: 90,
+      width:  90,
       height: 90,
       decoration: const BoxDecoration(
         color: Color(0xFFE8EEF7),
@@ -485,7 +587,7 @@ class _StaticAvatar extends StatelessWidget
       ),
       child: Icon(
         icon,
-        size: 44,
+        size:  44,
         color: const Color(0xFF003C82),
       ),
     );
@@ -494,7 +596,7 @@ class _StaticAvatar extends StatelessWidget
 
 class _ProfileAvatar extends StatefulWidget
 {
-  final String? profileImageUrl;
+  final String?      profileImageUrl;
   final VoidCallback onImageUpdated;
 
   const _ProfileAvatar({
@@ -508,7 +610,7 @@ class _ProfileAvatar extends StatefulWidget
 
 class _ProfileAvatarState extends State<_ProfileAvatar>
 {
-  bool _isHovering = false;
+  bool _isHovering  = false;
   bool _isUploading = false;
   
   final ImagePicker _picker = ImagePicker();
@@ -560,7 +662,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Errore durante il caricamento: $e'),
+            content:         Text('Errore durante il caricamento: $e'),
             backgroundColor: const Color(0xFFC62828),
           ),
         );
@@ -573,7 +675,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
         setState(()
         {
           _isUploading = false;
-          _isHovering = false;
+          _isHovering  = false;
         });
       }
     }
@@ -585,19 +687,19 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     final imageUrl = _absoluteImageUrl;
 
     return MouseRegion(
-      cursor: _isUploading ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      cursor:  _isUploading ? SystemMouseCursors.basic : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      onExit:  (_) => setState(() => _isHovering = false),
       child: GestureDetector(
         onTap: _isUploading ? null : _pickAndUploadImage,
         child: SizedBox(
-          width: 90,
+          width:  90,
           height: 90,
           child: Stack(
             fit: StackFit.expand,
             children: [
               CircleAvatar(
-                key: ValueKey(imageUrl),
+                key:             ValueKey(imageUrl),
                 backgroundColor: const Color(0xFFE8EEF7),
                 backgroundImage: imageUrl != null
                     ? NetworkImage(imageUrl)
@@ -605,7 +707,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
                 child: imageUrl == null
                     ? const Icon(
                         Icons.person,
-                        size: 48,
+                        size:  48,
                         color: Color(0xFF003C82),
                       )
                     : null,
@@ -613,17 +715,17 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
               
               if (_isUploading)
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
+                  duration:   const Duration(milliseconds: 300),
                   decoration: const BoxDecoration(
                     color: Colors.black45,
                     shape: BoxShape.circle,
                   ),
                   child: const Center(
                     child: SizedBox(
-                      width: 24,
+                      width:  24,
                       height: 24,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color:       Colors.white,
                         strokeWidth: 3,
                       ),
                     ),
@@ -631,24 +733,24 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
                 )
               else
                 AnimatedContainer(
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOut,
+                  duration:   const Duration(milliseconds: 350),
+                  curve:      Curves.easeOut,
                   decoration: BoxDecoration(
                     color: _isHovering ? Colors.black54 : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: AnimatedScale(
-                      scale: _isHovering ? 1.0 : 0.4,
+                      scale:    _isHovering ? 1.0 : 0.4,
                       duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeOutBack,
+                      curve:    Curves.easeOutBack,
                       child: AnimatedOpacity(
-                        opacity: _isHovering ? 1.0 : 0.0,
+                        opacity:  _isHovering ? 1.0 : 0.0,
                         duration: const Duration(milliseconds: 250),
                         child: const Icon(
                           Icons.edit_rounded,
                           color: Colors.white,
-                          size: 28,
+                          size:  28,
                         ),
                       ),
                     ),
@@ -679,13 +781,13 @@ class _ProfileInfoRow extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 140,
+          width: 220,
           child: Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
+              fontSize:   18,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF7A7A7A),
+              color:      const Color(0xFF7A7A7A),
             ),
           ),
         ),
@@ -694,9 +796,9 @@ class _ProfileInfoRow extends StatelessWidget
           child: Text(
             value,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
+              fontSize:   18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF2A2A2A),
+              color:      const Color(0xFF2A2A2A),
             ),
           ),
         ),
@@ -718,19 +820,20 @@ class _RoleChip extends StatelessWidget
   {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 6,
+        horizontal: 14,
+        vertical:   6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8EEF7),
-        borderRadius: BorderRadius.circular(20),
+        color:        const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: const Color(0xFFE0E5EC)),
       ),
       child: Text(
         label,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
+          fontSize:   14,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF003C82),
+          color:      const Color(0xFF64748B),
         ),
       ),
     );

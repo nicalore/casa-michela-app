@@ -98,7 +98,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   int _currentStep4CardIndex = 0;
   
-  final List<_EnrollmentRowData> _enrollmentRows = [];
+  final List<WizardEnrollmentRowData> _enrollmentRows = [];
+  final List<WizardSchoolRowData>     _schoolRows     = [];
 
   final TextEditingController _scadenzaCertificatoCtrl      = TextEditingController();
   final TextEditingController _tipoCorsoCtrl                = TextEditingController();
@@ -109,11 +110,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  String?           _uscitaAnticipata;
-  List<SchoolItem>  _allSchools = [];
-  SchoolItem?       _scuolaSelezionata;
-  StudyProgramItem? _percorsoStudenteSelezionato;
-  String?           _classeFrequentata;
+  String?          _uscitaAnticipata;
+  List<SchoolItem> _allSchools = [];
 
   final TextEditingController _searchParentsCtrl = TextEditingController();
   String                      _searchParentsText = '';
@@ -140,14 +138,19 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final Map<int, Set<int>>    _selectedProgramsForSubject = {};
   bool                        _isSubmitting               = false;
 
+  final List<Map<String, dynamic>> _pendingPersonsToCreate = [];
+
   @override
   void initState() 
   {
     super.initState();
     final now = DateTime.now();
-    _enrollmentRows.add(_EnrollmentRowData(
+    _enrollmentRows.add(WizardEnrollmentRowData(
       yearCtrl: TextEditingController(text: now.year.toString()),
       dateCtrl: TextEditingController(text: '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}'),
+    ));
+    _schoolRows.add(WizardSchoolRowData(
+      yearCtrl: TextEditingController(text: _getCurrentSchoolYearStart().toString()),
     ));
     
     _loadAllData();
@@ -192,7 +195,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool get _isMinor
   {
-    if (_dataNascitaCtrl.text.isEmpty) return false;
+    //Comment Se vuoto o non valido assume default false per routing corretto a 'Minori' in caso di Genitore
+    if (_dataNascitaCtrl.text.isEmpty) return false; 
     if (!_isValidDate(_dataNascitaCtrl.text)) return false;
     
     final parts = _dataNascitaCtrl.text.split('/');
@@ -208,17 +212,22 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     return age < 18;
   }
 
-  String get _currentSchoolYear 
+  int _getCurrentSchoolYearStart() 
   {
     final now = DateTime.now();
-    if (now.month < 9)
-    {
-      return '${now.year - 1}/${now.year}';
-    } 
-    else
-    {
-      return '${now.year}/${now.year + 1}';
-    }
+    return now.month < 9 ? now.year - 1 : now.year;
+  }
+
+  int _romanToNumeric(String roman) 
+  {
+    const map = {
+      'I':   1, 
+      'II':  2, 
+      'III': 3, 
+      'IV':  4, 
+      'V':   5,
+    };
+    return map[roman] ?? 1;
   }
 
   bool _isValidDate(String dateStr)
@@ -464,6 +473,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       row.yearCtrl.dispose();
       row.dateCtrl.dispose();
     }
+    for (final row in _schoolRows)
+    {
+      row.yearCtrl.dispose();
+    }
     super.dispose();
   }
 
@@ -655,9 +668,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _studiScolasticiCtrl.text          = _studiScolasticiCtrl.text.trim();
     _studiUniversitariCtrl.text        = _studiUniversitariCtrl.text.trim();
 
-    bool                isValid          = true;
+    bool                isValid             = true;
+    bool                showFutureYearError = false;
     int?                firstInvalidCard;
-    Map<String, String> newErrors        = {};
+    Map<String, String> newErrors           = {};
 
     void addError(String field, String message, int targetCardLogicIndex)
     {
@@ -777,21 +791,49 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     
     if (isStudente)
     {
-      if (_uscitaAnticipata == null)
+      if (_isMinor && _uscitaAnticipata == null)
       {
         addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
       }
-      if (_scuolaSelezionata == null)
+      if (_schoolRows.isEmpty)
       {
-        addError('scuolaSelezionata', 'Campo obbligatorio', currentMappedIndex);
+        addError('schoolGeneral', 'Aggiungi almeno un\'iscrizione scolastica', currentMappedIndex);
       }
-      if (_percorsoStudenteSelezionato == null)
+      
+      final Set<int> distinctYears = {};
+      for (int i = 0; i < _schoolRows.length; i++) 
       {
-        addError('percorsoStudente', 'Campo obbligatorio', currentMappedIndex);
-      }
-      if (_classeFrequentata == null)
-      {
-        addError('classeFrequentata', 'Campo obbligatorio', currentMappedIndex);
+        final r = _schoolRows[i];
+        
+        if (r.yearCtrl.text.trim().isEmpty) 
+        {
+          addError('schoolYear_$i', 'Obbligatorio', currentMappedIndex);
+        }
+        else if (!RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text.trim())) 
+        {
+          addError('schoolYear_$i', 'Anno non valido', currentMappedIndex);
+        }
+        else
+        {
+          int parsedYear = int.parse(r.yearCtrl.text.trim());
+          if (parsedYear > _getCurrentSchoolYearStart())
+          {
+            addError('schoolYear_$i', 'Anno futuro non permesso', currentMappedIndex);
+            showFutureYearError = true;
+          }
+          else if (distinctYears.contains(parsedYear))
+          {
+            addError('schoolYear_$i', 'Duplicato', currentMappedIndex);
+          }
+          else
+          {
+            distinctYears.add(parsedYear);
+          }
+        }
+        
+        if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -808,7 +850,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     if (!isValid)
     {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici. Correggi i campi evidenziati.', isError: true);
+      if (showFutureYearError)
+      {
+        CustomSnackBar.show(context: context, message: 'Non è possibile inserire iscrizioni per anni scolastici futuri.', isError: true);
+      }
+      else
+      {
+        CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici. Correggi i campi evidenziati.', isError: true);
+      }
     }
 
     return isValid;
@@ -838,7 +887,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         }
       }
 
-      final bool isOnlyGenitoreNotAssociato = finalRoles.length == 1 && finalRoles.contains('GENITORE');
+      final bool isOnlyGenitoreNotAssociato = finalRoles.length == 1 && finalRoles.contains('GENITORE') && !_genitoreIsAssociato;
 
       List<Map<String, dynamic>> membershipsData = [];
       if (!isOnlyGenitoreNotAssociato) 
@@ -927,10 +976,13 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       if (finalRoles.contains('STUDENTE')) 
       {
         studentData = {
-          "authorized_early_exit":      _uscitaAnticipata == 'Sì',
-          "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
-          "study_program_id":           _percorsoStudenteSelezionato?.id,
-          "school_class":               _classeFrequentata,
+          "authorized_early_exit": _isMinor ? (_uscitaAnticipata == 'Sì') : true,
+          "school_enrollments":    _schoolRows.map((r) => {
+             "start_year":                 int.parse(r.yearCtrl.text.trim()),
+             "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+             "study_program_id":           r.selectedProgram!.id,
+             "grade":                      _romanToNumeric(r.selectedGrade!)
+          }).toList(),
         };
       }
 
@@ -965,6 +1017,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         }
       };
 
+      for (final pending in _pendingPersonsToCreate)
+      {
+        await ApiService().createPersonFromWizard(
+          pending['payload'], 
+          imageBytes: pending['imageBytes'],
+        );
+      }
+
       await ApiService().createPersonFromWizard(
         payload, 
         imageBytes: _fotoProfilo,
@@ -998,7 +1058,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   Future<void> _createNewMinor() async
   {
-    final newMinor = await showGeneralDialog<PersonItem>(
+    final newMinorData = await showGeneralDialog<Map<String, dynamic>>(
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'MinorCreation', 
@@ -1025,8 +1085,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       },
     );
 
-    if (newMinor != null)
+    if (newMinorData != null)
     {
+      final newMinor = newMinorData['person'] as PersonItem;
+      _pendingPersonsToCreate.add(newMinorData);
       setState(() 
       {
         _allMinors.add(newMinor);
@@ -1041,7 +1103,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   Future<void> _createNewParent() async
   {
-    final newParent = await showGeneralDialog<PersonItem>(
+    final newParentData = await showGeneralDialog<Map<String, dynamic>>(
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'ParentCreation', 
@@ -1064,8 +1126,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       },
     );
 
-    if (newParent != null)
+    if (newParentData != null)
     {
+      final newParent = newParentData['person'] as PersonItem;
+      _pendingPersonsToCreate.add(newParentData);
       setState(() 
       {
         _allAdults.add(newParent);
@@ -1966,7 +2030,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ),
               const SizedBox(width: 32),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
+                constraints: const BoxConstraints(maxWidth: 1000),
                 child: AnimatedSwitcher(
                   duration:           const Duration(milliseconds: 300),
                   switchInCurve:      Curves.easeOutCubic,
@@ -2060,7 +2124,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               ),
               const SizedBox(width: 32),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
+                constraints: const BoxConstraints(maxWidth: 1100),
                 child: AnimatedSwitcher(
                   duration:           const Duration(milliseconds: 300),
                   switchInCurve:      Curves.easeOutCubic,
@@ -2700,7 +2764,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   Widget _buildFormCardIscrizione()
   {
     return WizardFormSectionCard(
-      title:       'Iscrizioni',
+      title:       'Iscrizioni Associative',
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: [
         ...List.generate(_enrollmentRows.length, (index) 
@@ -2802,7 +2866,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               }
               setState(() 
               {
-                _enrollmentRows.add(_EnrollmentRowData(
+                _enrollmentRows.add(WizardEnrollmentRowData(
                   yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
                   dateCtrl: TextEditingController(),
                 ));
@@ -2887,7 +2951,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   Widget _buildFormCardDocente()
   {
     return WizardFormSectionCard(
-      title:       'Studi Docente',
+      title:       'Dettagli Docente',
       leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
       children: [
         WizardFormInputRow(
@@ -2946,167 +3010,250 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   Widget _buildFormCardStudente()
   {
-    final List<String> schoolNames  = _allSchools.map((s) => '${s.name} (${s.city})').toList();
-    List<String>       programNames = [];
-    List<String>       gradeOptions = [];
-
-    if (_scuolaSelezionata != null) 
-    {
-      try 
-      {
-        dynamic progs;
-        try 
-        {
-          progs = (_scuolaSelezionata as dynamic).studyPrograms;
-        } 
-        catch (_) {}
-        
-        if (progs == null) 
-        {
-          try 
-          {
-            progs = (_scuolaSelezionata as dynamic).study_programs;
-          } 
-          catch (_) {}
-        }
-        
-        if (progs != null && progs is Iterable) 
-        {
-          for (var p in progs) 
-          {
-            String? pName;
-            if (p is Map) 
-            {
-              pName = p['name'] as String?;
-            } 
-            else 
-            {
-              try 
-              {
-                pName = (p as dynamic).name as String?;
-              } 
-              catch (_) {}
-            }
-            
-            if (pName != null && pName.isNotEmpty) 
-            {
-              final existsInAll = _allPrograms.any((allP) => (allP as dynamic).name == pName);
-              if (existsInAll && !programNames.contains(pName)) 
-              {
-                programNames.add(pName);
-              }
-            }
-          }
-        }
-      } 
-      catch (_) {}
-    }
-
-    if (_percorsoStudenteSelezionato != null) 
-    {
-      try 
-      {
-        final level = (_percorsoStudenteSelezionato as dynamic).level as String?;
-        if (level == 'MIDDLE_SCHOOL' || level == 'MEDIE' || level == 'Medie') 
-        {
-          gradeOptions = ['I', 'II', 'III'];
-        } 
-        else 
-        {
-          gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
-        }
-      } 
-      catch (_) 
-      {
-        gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
-      }
-    }
-
     return WizardFormSectionCard(
       title:       'Dettagli Studente',
       leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
       children: [
-        WizardFormInputRow(
-          label:       'Uscita anticipata',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _uscitaAnticipata,
-            items:     const ['Sì', 'No'],
-            hint:      'Seleziona',
-            errorText: _formErrors['uscitaAnticipata'],
-            onChanged: (val) => setState(() 
-            {
-              _uscitaAnticipata = val;
-              _formErrors.remove('uscitaAnticipata');
-            }),
+        if (_isMinor) ...[
+          WizardFormInputRow(
+            label:       'Uscita anticipata',
+            inputWidget: WizardAnimatedOverlayDropdown(
+              value:     _uscitaAnticipata,
+              items:     const ['Sì', 'No'],
+              hint:      'Seleziona',
+              errorText: _formErrors['uscitaAnticipata'],
+              onChanged: (val) => setState(() 
+              {
+                _uscitaAnticipata = val;
+                _formErrors.remove('uscitaAnticipata');
+              }),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Scuola',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null,
-            items:     schoolNames,
-            hint:      'Seleziona scuola',
-            errorText: _formErrors['scuolaSelezionata'],
-            onChanged: (val) 
+          const SizedBox(height: 16),
+        ],
+        ...List.generate(_schoolRows.length, (index)
+        {
+          final r = _schoolRows[index];
+          final List<String> schoolNames = _allSchools.map((s) => '${s.name} (${s.city})').toList();
+          
+          List<String> programNames = [];
+          if (r.selectedSchool != null)
+          {
+            try 
             {
+              dynamic progs;
+              try { progs = (r.selectedSchool as dynamic).studyPrograms; } catch (_) {}
+              if (progs == null) { try { progs = (r.selectedSchool as dynamic).study_programs; } catch (_) {} }
+              
+              if (progs != null && progs is Iterable) 
+              {
+                for (var p in progs) 
+                {
+                  String? pName = (p is Map) ? p['name'] as String? : (p as dynamic).name as String?;
+                  if (pName != null && pName.isNotEmpty) 
+                  {
+                    if (_allPrograms.any((allP) => allP.name == pName) && !programNames.contains(pName)) 
+                    {
+                      programNames.add(pName);
+                    }
+                  }
+                }
+              }
+            } 
+            catch (_) {}
+          }
+
+          List<String> gradeOptions = [];
+          if (r.selectedProgram != null)
+          {
+            try 
+            {
+              final level = r.selectedProgram!.level;
+              if (level == 'MIDDLE_SCHOOL' || level == 'MEDIE' || level == 'Medie' || level == 'Scuola secondaria di primo grado') 
+              {
+                gradeOptions = ['I', 'II', 'III'];
+              } 
+              else 
+              {
+                gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
+              }
+            } 
+            catch (_) 
+            {
+              gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
+            }
+          }
+
+          return Container(
+            margin:     const EdgeInsets.only(bottom: 16),
+            padding:    const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border:       Border.all(color: const Color(0xFFE2E8F0)),
+              color:        const Color(0xFFF8FAFC),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Anno inizio',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedTextField(
+                        controller:   r.yearCtrl,
+                        hint:         'Es. 2024',
+                        errorText:    _formErrors['schoolYear_$index'],
+                        keyboardType: TextInputType.number,
+                        onChanged:    (_) => setState(() => _formErrors.remove('schoolYear_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Scuola',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown(
+                        value:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
+                        items:      schoolNames,
+                        hint:       'Scuola',
+                        errorText:  _formErrors['schoolName_$index'],
+                        onChanged:  (val) 
+                        {
+                          setState(() 
+                          {
+                            r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+                            r.selectedProgram = null;
+                            r.selectedGrade   = null;
+                            _formErrors.remove('schoolName_$index');
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Percorso',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown(
+                        value:      r.selectedProgram?.name,
+                        items:      programNames,
+                        hint:       'Percorso',
+                        enabled:    r.selectedSchool != null && programNames.isNotEmpty,
+                        errorText:  _formErrors['schoolProgram_$index'],
+                        onChanged:  (val) 
+                        {
+                          setState(() 
+                          {
+                            r.selectedProgram = _allPrograms.firstWhere((p) => p.name == val);
+                            r.selectedGrade   = null;
+                            _formErrors.remove('schoolProgram_$index');
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          'Classe',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown(
+                        value:      r.selectedGrade,
+                        items:      gradeOptions,
+                        hint:       'Classe',
+                        enabled:    r.selectedProgram != null && gradeOptions.isNotEmpty,
+                        errorText:  _formErrors['schoolGrade_$index'],
+                        onChanged:  (val) => setState(() 
+                        {
+                          r.selectedGrade = val;
+                          _formErrors.remove('schoolGrade_$index');
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 28, left: 16),
+                    child: WizardRemoveRowButton(
+                      onTap: () => setState(() 
+                      {
+                        r.yearCtrl.dispose();
+                        _schoolRows.removeAt(index);
+                        _formErrors.remove('schoolYear_$index');
+                        _formErrors.remove('schoolName_$index');
+                        _formErrors.remove('schoolProgram_$index');
+                        _formErrors.remove('schoolGrade_$index');
+                      }),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48),
+              ],
+            ),
+          );
+        }),
+        Align(
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton(
+            text:  'AGGIUNGI ISCRIZIONE SCOLASTICA',
+            icon:  Icons.add_rounded,
+            onTap: () 
+            {
+              int lastYear = DateTime.now().year;
+              if (_schoolRows.isNotEmpty) 
+              {
+                int maxYear = 0;
+                for (var r in _schoolRows)
+                {
+                  int y = int.tryParse(r.yearCtrl.text) ?? 0;
+                  if (y > maxYear) maxYear = y;
+                }
+                lastYear = maxYear > 0 ? maxYear : lastYear;
+              }
               setState(() 
               {
-                _scuolaSelezionata           = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
-                _percorsoStudenteSelezionato = null;
-                _classeFrequentata           = null;
-                _formErrors.remove('scuolaSelezionata');
+                _schoolRows.add(WizardSchoolRowData(yearCtrl: TextEditingController(text: (lastYear - 1).toString())));
               });
             },
           ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Percorso',
-          inputWidget: _scuolaSelezionata == null 
-              ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima la scuola')
-              : programNames.isEmpty
-                  ? const WizardDisabledDropdownPlaceholder(hint: 'Nessun percorso offerto')
-                  : WizardAnimatedOverlayDropdown(
-                      value:     _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null,
-                      items:     programNames,
-                      hint:      'Seleziona percorso',
-                      errorText: _formErrors['percorsoStudente'],
-                      onChanged: (val) 
-                      {
-                        setState(() 
-                        {
-                          try 
-                          {
-                            _percorsoStudenteSelezionato = _allPrograms.firstWhere((p) => (p as dynamic).name == val);
-                          } 
-                          catch (_) 
-                          {
-                            _percorsoStudenteSelezionato = null;
-                          }
-                          
-                          _classeFrequentata = null; 
-                          _formErrors.remove('percorsoStudente');
-                        });
-                      },
-                    ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Classe a.s. $_currentSchoolYear',
-          inputWidget: _percorsoStudenteSelezionato == null 
-              ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima il percorso')
-              : WizardAnimatedOverlayDropdown(
-                  value:     _classeFrequentata,
-                  items:     gradeOptions,
-                  hint:      'Seleziona classe',
-                  errorText: _formErrors['classeFrequentata'],
-                  onChanged: (val) => setState(() 
-                  {
-                    _classeFrequentata = val;
-                    _formErrors.remove('classeFrequentata');
-                  }),
-                ),
         ),
       ],
     );
@@ -3181,15 +3328,4 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       ),
     );
   }
-}
-
-class _EnrollmentRowData 
-{
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-
-  _EnrollmentRowData({
-    required this.yearCtrl,
-    required this.dateCtrl,
-  });
 }

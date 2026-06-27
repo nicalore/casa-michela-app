@@ -40,7 +40,14 @@ class PersonSchoolsTab extends StatelessWidget
 
   String _getRomanGrade(int grade) 
   {
-    const map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V'};
+    const map = 
+    {
+      1: 'I', 
+      2: 'II', 
+      3: 'III', 
+      4: 'IV', 
+      5: 'V',
+    };
     return map[grade] ?? grade.toString();
   }
 
@@ -61,8 +68,15 @@ class PersonSchoolsTab extends StatelessWidget
           child: FadeTransition(
             opacity: animation,
             child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _EditSchoolsDialog(person: person, onUpdate: onUpdate),
+              scale: CurvedAnimation(
+                parent:       animation, 
+                curve:        Curves.easeOutBack, 
+                reverseCurve: Curves.easeIn,
+              ),
+              child: _EditSchoolsDialog(
+                person:   person, 
+                onUpdate: onUpdate,
+              ),
             ),
           ),
         );
@@ -76,8 +90,8 @@ class PersonSchoolsTab extends StatelessWidget
     final List<SchoolEnrollmentItem> enrollments = List<SchoolEnrollmentItem>.from(person.schoolEnrollments ?? []);
     enrollments.sort((a, b) => b.startYear.compareTo(a.startYear));
 
-    final currentYear                   = _getCurrentSchoolYearStart();
-    final SchoolEnrollmentItem? current = enrollments.where((e) => e.startYear == currentYear).firstOrNull;
+    final currentYear                     = _getCurrentSchoolYearStart();
+    final SchoolEnrollmentItem? current   = enrollments.where((e) => e.startYear == currentYear).firstOrNull;
     final List<SchoolEnrollmentItem> past = enrollments.where((e) => e.startYear < currentYear).toList();
 
     return SingleChildScrollView(
@@ -109,9 +123,9 @@ class PersonSchoolsTab extends StatelessWidget
             ),
             const SizedBox(height: 16),
             ...past.map((m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child:   _buildEnrollmentCard(m, enrollments, isCurrent: false),
-                )),
+              padding: const EdgeInsets.only(bottom: 16),
+              child:   _buildEnrollmentCard(m, enrollments, isCurrent: false),
+            )),
           ],
           if (current == null && past.isEmpty) ...[
             const SizedBox(height: 32),
@@ -148,57 +162,61 @@ class PersonSchoolsTab extends StatelessWidget
   {
     final bool isRipetente = _isRipetente(item, all);
 
-    return Container(
-      width:      double.infinity,
-      padding:    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
-        color:        Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border:       Border.all(
-          color: const Color(0xFF003C82).withValues(alpha: 0.3),
-          width: 2.0,
-        ),
-        boxShadow: isCurrent ? const [
-          BoxShadow(
-            color:      Color(0x0A000000),
-            offset:     Offset(0, 4),
-            blurRadius: 16,
+    return SelectionArea(
+      child: Container(
+        width:      double.infinity,
+        padding:    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration(
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border:       Border.all(
+            color: const Color(0xFF003C82).withValues(alpha: 0.3),
+            width: 2.0,
           ),
-        ] : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isCurrent) ...[
-                const SizedBox(width: 12),
-              ],
-              Text(
-                'Anno scolastico ${item.startYear}/${item.startYear + 1}',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize:   24,
-                  fontWeight: FontWeight.w800,
-                  color:      const Color(0xFF334155),
+          boxShadow: isCurrent 
+            ? const [
+                BoxShadow(
+                  color:      Color(0x0A000000),
+                  offset:     Offset(0, 4),
+                  blurRadius: 16,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildInfoItem('Scuola',   item.schoolName)),
-              Expanded(child: _buildInfoItem('Livello',  item.educationLevel)),
-              Expanded(child: _buildInfoItem('Percorso', item.studyProgramName)),
-              Expanded(child: _buildInfoItem('Classe',   _getRomanGrade(item.grade))),
-              Expanded(child: _buildInfoItem('Ripetente', isRipetente ? 'Sì' : 'No', highlight: isRipetente)),
-            ],
-          ),
-        ],
+              ] 
+            : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isCurrent) ...[
+                  const SizedBox(width: 12),
+                ],
+                Text(
+                  'Anno scolastico ${item.startYear}/${item.startYear + 1}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   24,
+                    fontWeight: FontWeight.w800,
+                    color:      const Color(0xFF334155),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildInfoItem('Scuola',   item.schoolName)),
+                Expanded(child: _buildInfoItem('Livello',  item.educationLevel)),
+                Expanded(child: _buildInfoItem('Percorso', item.studyProgramName)),
+                Expanded(child: _buildInfoItem('Classe',   _getRomanGrade(item.grade))),
+                Expanded(child: _buildInfoItem('Ripetente', isRipetente ? 'Sì' : 'No', highlight: isRipetente)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -237,7 +255,10 @@ class _EditSchoolsDialog extends StatefulWidget
   final PersonItem   person;
   final VoidCallback onUpdate;
 
-  const _EditSchoolsDialog({required this.person, required this.onUpdate});
+  const _EditSchoolsDialog({
+    required this.person, 
+    required this.onUpdate,
+  });
 
   @override
   State<_EditSchoolsDialog> createState() => _EditSchoolsDialogState();
@@ -253,7 +274,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
   List<SchoolItem>       _allSchools  = [];
   List<StudyProgramItem> _allPrograms = [];
   
-  final List<_SchoolRowData> _rows = [];
+  final List<_SchoolRowData> _rows   = [];
   final Map<String, String>  _errors = {};
 
   @override
@@ -285,7 +306,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
         String? gradeString;
         if (program != null)
         {
-          const map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V'};
+          const map = 
+          {
+            1: 'I', 
+            2: 'II', 
+            3: 'III', 
+            4: 'IV', 
+            5: 'V',
+          };
           gradeString = map[e.grade];
         }
 
@@ -321,6 +349,12 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     super.dispose();
   }
 
+  int _getCurrentSchoolYearStart() 
+  {
+    final now = DateTime.now();
+    return now.month < 9 ? now.year - 1 : now.year;
+  }
+
   void _addEmptyRow() 
   {
     int lastYear = DateTime.now().year;
@@ -330,7 +364,10 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       for (var r in _rows)
       {
         int y = int.tryParse(r.yearCtrl.text) ?? 0;
-        if (y > maxYear) maxYear = y;
+        if (y > maxYear) 
+        {
+          maxYear = y;
+        }
       }
       lastYear = maxYear > 0 ? maxYear : lastYear;
     }
@@ -345,7 +382,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
   int _romanToNumeric(String roman) 
   {
-    const map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5};
+    const map = 
+    {
+      'I':   1, 
+      'II':  2, 
+      'III': 3, 
+      'IV':  4, 
+      'V':   5,
+    };
     return map[roman] ?? 1;
   }
 
@@ -362,7 +406,8 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     }
 
     setState(() => _errors.clear());
-    bool hasErrors = false;
+    bool hasErrors           = false;
+    bool showFutureYearError = false;
     
     List<Map<String, dynamic>> payloadEnrollments = [];
     final Set<int>             distinctYears      = {};
@@ -374,12 +419,18 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       if (r.yearCtrl.text.isEmpty || !RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text)) 
       {
         _errors['year_$i'] = 'Errore';
-        hasErrors = true;
+        hasErrors          = true;
       }
       else
       {
         int parsedYear = int.parse(r.yearCtrl.text);
-        if (distinctYears.contains(parsedYear))
+        if (parsedYear > _getCurrentSchoolYearStart())
+        {
+           _errors['year_$i']  = 'Anno futuro';
+           hasErrors           = true;
+           showFutureYearError = true;
+        }
+        else if (distinctYears.contains(parsedYear))
         {
           _errors['year_$i'] = 'Duplicato';
           hasErrors          = true;
@@ -393,19 +444,19 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       if (r.selectedSchool == null)
       {
         _errors['school_$i'] = 'Obbligatorio';
-        hasErrors = true;
+        hasErrors            = true;
       }
       
       if (r.selectedProgram == null)
       {
         _errors['program_$i'] = 'Obbligatorio';
-        hasErrors = true;
+        hasErrors             = true;
       }
       
       if (r.selectedGrade == null)
       {
         _errors['grade_$i'] = 'Obbligatorio';
-        hasErrors = true;
+        hasErrors           = true;
       }
 
       if (!hasErrors) 
@@ -422,7 +473,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     if (hasErrors) 
     {
       setState(() {});
-      CustomSnackBar.show(context: context, message: 'Correggi gli errori prima di salvare.', isError: true);
+      if (showFutureYearError)
+      {
+        CustomSnackBar.show(context: context, message: 'Non è possibile inserire iscrizioni per anni scolastici futuri.', isError: true);
+      }
+      else
+      {
+        CustomSnackBar.show(context: context, message: 'Correggi gli errori prima di salvare.', isError: true);
+      }
       return;
     }
 
@@ -437,7 +495,11 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: 'Iscrizioni scolastiche aggiornate!', isError: false);
+        CustomSnackBar.show(
+          context: context, 
+          message: 'Iscrizioni scolastiche aggiornate!', 
+          isError: false,
+        );
         Navigator.of(context).pop();
         widget.onUpdate();
       }
@@ -446,12 +508,19 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     {
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+        CustomSnackBar.show(
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
       }
     } 
     finally 
     {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) 
+      {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -508,12 +577,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                             color:      const Color(0xFF003C82),
                           ),
                         ),
-                        FadeHoverIconButton(
-                          icon:       Icons.close, 
-                          color:      const Color(0xFF003C82), 
-                          hoverColor: const Color(0xFFE3F2FD), 
-                          onTap:      () => Navigator.of(context).pop(),
-                        ),
+                        WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
                     ),
                   ),
@@ -546,13 +610,21 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                                     for (var p in progs) 
                                     {
                                       String? pName;
-                                      if (p is Map) pName = p['name'] as String?;
-                                      else { try { pName = (p as dynamic).name as String?; } catch (_) {} }
+                                      if (p is Map) 
+                                      {
+                                        pName = p['name'] as String?;
+                                      }
+                                      else 
+                                      { 
+                                        try { pName = (p as dynamic).name as String?; } catch (_) {} 
+                                      }
                                       
                                       if (pName != null && pName.isNotEmpty) 
                                       {
-                                        final existsInAll = _allPrograms.any((allP) => allP.name == pName);
-                                        if (existsInAll && !programNames.contains(pName)) programNames.add(pName);
+                                        if (_allPrograms.any((allP) => allP.name == pName) && !programNames.contains(pName)) 
+                                        {
+                                          programNames.add(pName);
+                                        }
                                       }
                                     }
                                   }
@@ -564,8 +636,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                               if (r.selectedProgram != null)
                               {
                                 final level = r.selectedProgram!.level;
-                                if (level == 'MIDDLE_SCHOOL' || level == 'Scuola secondaria di primo grado') gradeOptions = ['I', 'II', 'III'];
-                                else gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
+                                if (level == 'MIDDLE_SCHOOL' || level == 'Scuola secondaria di primo grado' || level == 'Medie' || level == 'MEDIE') 
+                                {
+                                  gradeOptions = ['I', 'II', 'III'];
+                                }
+                                else 
+                                {
+                                  gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
+                                }
                               }
                               
                               return Container(
@@ -696,7 +774,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                     child: Row(
                       children: [
                         Expanded(
-                          child: AnimatedActionButton(
+                          child: WizardAnimatedActionButton(
                             text:       'ANNULLA', 
                             icon:       Icons.cancel_outlined, 
                             baseColor:  const Color(0xFFE53935), 
@@ -706,7 +784,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: AnimatedActionButton(
+                          child: WizardAnimatedActionButton(
                             text:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
                             icon:       Icons.save_outlined, 
                             baseColor:  const Color(0xFF003C82), 
@@ -761,10 +839,10 @@ class _FormOverlayDropdown extends StatefulWidget
 
 class _FormOverlayDropdownState extends State<_FormOverlayDropdown> 
 {
-  final GlobalKey _buttonKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
-  final GlobalKey<_FormOverlayContentState> _menuKey = GlobalKey();
-  bool _isHovered = false;
+  final GlobalKey                           _buttonKey = GlobalKey();
+  OverlayEntry?                             _overlayEntry;
+  final GlobalKey<_FormOverlayContentState> _menuKey   = GlobalKey();
+  bool                                      _isHovered = false;
 
   void _toggleMenu() 
   {
@@ -774,22 +852,32 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
       return; 
     }
     final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final size      = renderBox.size;
+    final offset    = renderBox.localToGlobal(Offset.zero);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _closeMenu, child: Container())),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque, 
+              onTap:    _closeMenu, 
+              child:    Container(),
+            ),
+          ),
           Positioned(
-            top: offset.dy + size.height + 4,
+            top:  offset.dy + size.height + 4,
             left: offset.dx,
             child: _FormOverlayContent(
               key:          _menuKey,
               currentValue: widget.value,
               options:      widget.options,
               width:        size.width,
-              onSelected:   (val) { widget.onSelected(val); _closeMenu(); },
+              onSelected:   (val) 
+              { 
+                widget.onSelected(val); 
+                _closeMenu(); 
+              },
             ),
           )
         ],
@@ -815,9 +903,9 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
     final bool disabled = widget.options.isEmpty;
 
     return MouseRegion(
-      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      cursor:  disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onExit:  (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: disabled ? null : _toggleMenu,
         child: AnimatedContainer(
@@ -828,7 +916,10 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
           decoration: BoxDecoration(
             color:        disabled ? const Color(0xFFF8FAFC) : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border:       Border.all(color: hasError ? const Color(0xFFE53935) : (_isHovered ? const Color(0xFF003C82) : const Color(0xFFE2E8F0)), width: 1.5),
+            border:       Border.all(
+              color: hasError ? const Color(0xFFE53935) : (_isHovered ? const Color(0xFF003C82) : const Color(0xFFE2E8F0)), 
+              width: 1.5,
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -849,12 +940,26 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
                   padding: const EdgeInsets.only(right: 8),
                   child: Tooltip(
                     message:   widget.errorText!,
-                    textStyle: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                    decoration: BoxDecoration(color: const Color(0xFFE53935), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.error_outline_rounded, color: Color(0xFFE53935), size: 22),
+                    textStyle: GoogleFonts.plusJakartaSans(
+                      color:      Colors.white, 
+                      fontSize:   13, 
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: BoxDecoration(
+                      color:        const Color(0xFFE53935), 
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.error_outline_rounded, 
+                      color: Color(0xFFE53935), 
+                      size:  22,
+                    ),
                   ),
                 ),
-              Icon(Icons.keyboard_arrow_down_rounded, color: disabled ? const Color(0xFFCBD5E1) : (_isHovered ? const Color(0xFF003C82) : const Color(0xFF8A8A8A))),
+              Icon(
+                Icons.keyboard_arrow_down_rounded, 
+                color: disabled ? const Color(0xFFCBD5E1) : (_isHovered ? const Color(0xFF003C82) : const Color(0xFF8A8A8A)),
+              ),
             ],
           ),
         ),
@@ -890,12 +995,21 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
   void initState() 
   {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _expanded = true); });
+    WidgetsBinding.instance.addPostFrameCallback((_) 
+    { 
+      if (mounted) 
+      {
+        setState(() => _expanded = true); 
+      }
+    });
   }
 
   Future<void> hide() async 
   {
-    if (mounted) setState(() => _expanded = false);
+    if (mounted) 
+    {
+      setState(() => _expanded = false);
+    }
     await Future.delayed(const Duration(milliseconds: 180));
   }
 
@@ -910,7 +1024,13 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
         decoration:  BoxDecoration(
           color:        Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow:    const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)],
+          boxShadow:    const [
+            BoxShadow(
+              color:        Color(0x14000000), 
+              blurRadius:   20, 
+              spreadRadius: 2,
+            ),
+          ],
         ),
         child: AnimatedSize(
           duration:  const Duration(milliseconds: 180),
@@ -923,7 +1043,8 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
                   child: Column(
                     mainAxisSize:       MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.options.map((option) {
+                    children: widget.options.map((option) 
+                    {
                       return _FormOverlayMenuItem(
                         text:       option,
                         isSelected: widget.currentValue == option,
@@ -933,7 +1054,10 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
                   ),
                 ),
               ) 
-            : SizedBox(width: widget.width, height: 0),
+            : SizedBox(
+                width:  widget.width, 
+                height: 0,
+              ),
         ),
       ),
     );
@@ -946,7 +1070,11 @@ class _FormOverlayMenuItem extends StatefulWidget
   final bool         isSelected;
   final VoidCallback onTap;
 
-  const _FormOverlayMenuItem({required this.text, required this.isSelected, required this.onTap});
+  const _FormOverlayMenuItem({
+    required this.text, 
+    required this.isSelected, 
+    required this.onTap,
+  });
 
   @override
   State<_FormOverlayMenuItem> createState() => _FormOverlayMenuItemState();
@@ -975,7 +1103,10 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
                 duration:   const Duration(milliseconds: 150),
                 width:      2,
                 height:     (_hover || widget.isSelected) ? 16 : 0,
-                decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color:        const Color(0xFF003C82), 
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(

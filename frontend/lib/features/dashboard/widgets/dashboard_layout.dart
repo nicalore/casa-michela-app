@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,7 +18,8 @@ class DashboardLayout extends StatefulWidget
   final double width;
   final double height;
 
-  const DashboardLayout({
+  const DashboardLayout
+  ({
     super.key,
     required this.width,
     required this.height,
@@ -29,10 +31,9 @@ class DashboardLayout extends StatefulWidget
 
 class _DashboardLayoutState extends State<DashboardLayout>
 {
-  bool _isMenuOpen = false;
-
+  bool        _isMenuOpen  = false;
   MeResponse? _currentUser;
-  bool _loadingUser = true;
+  bool        _loadingUser = true;
 
   @override
   void initState()
@@ -79,32 +80,170 @@ class _DashboardLayoutState extends State<DashboardLayout>
     }
   }
 
+  //LogoutUser
+  Future<void> _logout() async
+  {
+    final apiService = ApiService();
+
+    await apiService.logout();
+
+    if (!mounted) return;
+
+    context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context)
   {
     if (_loadingUser)
     {
-      return const Center(
+      return const Center
+      (
         child: CircularProgressIndicator(),
       );
     }
 
-    //LayoutDimensions
-    final canvasWidth = widget.width;
-    final viewportHeight = widget.height;
-    final viewportWidth = MediaQuery.of(context).size.width;
+    if (kIsWeb)
+    {
+      return _buildWebLayout(context);
+    }
+    else
+    {
+      return _buildMobileLayout(context);
+    }
+  }
 
-    const double cardWidth = 287;
+  //BuildMobileLayout
+  Widget _buildMobileLayout(BuildContext context)
+  {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool   isTablet    = screenWidth > 600.0;
+    final int    crossAxis   = isTablet ? 2 : 1;
+
+    return Scaffold
+    (
+      backgroundColor: const Color(0xFFF4F7F9),
+      appBar: AppBar
+      (
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text
+        (
+          'Ciao, ${_currentUser?.firstName ?? ''}',
+          style: const TextStyle
+          (
+            color: Color(0xFF003C82),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: 
+        [
+          IconButton
+          (
+            icon: const Icon(Icons.logout),
+            color: const Color(0xFF003C82),
+            onPressed: _logout,
+          ),
+        ],
+      ),
+      body: SafeArea
+      (
+        child: Padding
+        (
+          padding: const EdgeInsets.all(16.0),
+          child: GridView.count
+          (
+            crossAxisCount: crossAxis,
+            crossAxisSpacing: 16.0,
+            mainAxisSpacing: 16.0,
+            childAspectRatio: isTablet ? 1.4 : 1.2,
+            children: 
+            [
+              DashboardModuleCard
+              (
+                title: 'Persone',
+                subtitle: 'Gestisci membri e profili',
+                icon: Icons.groups_outlined,
+                onTap: ()
+                {
+                  context.go('/people');
+                },
+              ),
+              DashboardModuleCard
+              (
+                title: 'Calendario',
+                subtitle: 'Organizza prenotazioni e lezioni',
+                icon: Icons.calendar_month_rounded,
+                onTap: () {},
+              ),
+              DashboardModuleCard
+              (
+                title: 'Contabilità',
+                subtitle: 'Monitora pagamenti e ore lavorate',
+                icon: Icons.account_balance_wallet_outlined,
+                onTap: () {},
+              ),
+              DashboardModuleCard
+              (
+                title: 'Associazione',
+                subtitle: 'Configura regole e parametri',
+                imageAsset: 'assets/images/house_watermark_white.png',
+                onTap: ()
+                {
+                  context.go('/association');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: isTablet ? null : BottomNavigationBar
+      (
+        selectedItemColor: const Color(0xFF003C82),
+        unselectedItemColor: Colors.grey,
+        items: const 
+        [
+          BottomNavigationBarItem
+          (
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem
+          (
+            icon: Icon(Icons.groups),
+            label: 'Persone',
+          ),
+        ],
+        onTap: (int index)
+        {
+          if (index == 1)
+          {
+            context.go('/people');
+          }
+        },
+      ),
+    );
+  }
+
+  //BuildWebLayout
+  Widget _buildWebLayout(BuildContext context)
+  {
+    //CalculateLayoutDimensions
+    final double canvasWidth    = widget.width;
+    final double viewportHeight = widget.height;
+    final double viewportWidth  = MediaQuery.of(context).size.width;
+
+    const double cardWidth  = 287;
     const double cardHeight = 200;
-    const double cardGap = 40;
+    const double cardGap    = 40;
 
     final int cardsPerRow = ((viewportWidth - 80 + cardGap) ~/ (cardWidth + cardGap)).clamp(1, 4);
-    final int upperRows = (4 / cardsPerRow).ceil();
+    final int upperRows   = (4 / cardsPerRow).ceil();
 
     //CalculateHorizontalPosition
     double cardLeft(int index)
     {
-      final row = index ~/ cardsPerRow;
+      final row        = index ~/ cardsPerRow;
       final indexInRow = index % cardsPerRow;
 
       final cardsInThisRow = row == upperRows - 1
@@ -112,7 +251,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
           : cardsPerRow;
 
       final rowWidth = cardsInThisRow * cardWidth + (cardsInThisRow - 1) * cardGap;
-      final startX = (viewportWidth - rowWidth) / 2;
+      final startX   = (viewportWidth - rowWidth) / 2;
 
       return startX + indexInRow * (cardWidth + cardGap);
     }
@@ -127,15 +266,15 @@ class _DashboardLayoutState extends State<DashboardLayout>
       return 264 + dashboardTopPadding + row * (cardHeight + cardGap);
     }
 
-    const double bottomCardsGap = 70;
-    const double bottomMargin = 0;
+    const double bottomCardsGap        = 70;
+    const double bottomMargin          = 0;
     const double bottomCardAspectRatio = 645.0 / 450.0;
 
     final double actualBottomCardWidth = math.min(645.0, viewportWidth - 40);
-    final double bottomCardHeight = actualBottomCardWidth / bottomCardAspectRatio;
+    final double bottomCardHeight      = actualBottomCardWidth / bottomCardAspectRatio;
 
     final double upperSectionBottom = cardTop(3) + cardHeight;
-    final bool stackBottomCards = viewportWidth < 1420;
+    final bool   stackBottomCards   = viewportWidth < 1420;
 
     final double bottomCardsTop = upperSectionBottom + 30;
 
@@ -150,7 +289,8 @@ class _DashboardLayoutState extends State<DashboardLayout>
     final double dashboardHeight = math.max(viewportHeight, contentHeight);
 
     //RenderDashboardUI
-    return GestureDetector(
+    return GestureDetector
+    (
       behavior: HitTestBehavior.translucent,
       onTap: ()
       {
@@ -162,23 +302,32 @@ class _DashboardLayoutState extends State<DashboardLayout>
           });
         }
       },
-      child: Container(
+      child: Container
+      (
         width: canvasWidth,
         height: dashboardHeight,
         color: const Color(0xFFF4F7F9),
-        child: Stack(
-          children: [
-            Positioned(
+        child: Stack
+        (
+          children: 
+          [
+            Positioned
+            (
               right: -800,
               top: -800,
-              child: IgnorePointer(
-                child: Container(
+              child: IgnorePointer
+              (
+                child: Container
+                (
                   width: 1600,
                   height: 1600,
-                  decoration: const BoxDecoration(
+                  decoration: const BoxDecoration
+                  (
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
+                    gradient: RadialGradient
+                    (
+                      colors: 
+                      [
                         Color(0x4D003C82),
                         Color(0x22003C82),
                         Color(0x00003C82),
@@ -189,17 +338,23 @@ class _DashboardLayoutState extends State<DashboardLayout>
                 ),
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: -800,
               bottom: -800,
-              child: IgnorePointer(
-                child: Container(
+              child: IgnorePointer
+              (
+                child: Container
+                (
                   width: 1600,
                   height: 1600,
-                  decoration: const BoxDecoration(
+                  decoration: const BoxDecoration
+                  (
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
+                    gradient: RadialGradient
+                    (
+                      colors: 
+                      [
                         Color(0x4D003C82),
                         Color(0x22003C82),
                         Color(0x00003C82),
@@ -211,12 +366,17 @@ class _DashboardLayoutState extends State<DashboardLayout>
               ),
             ),
             if (viewportWidth > 1024)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Center(
-                    child: Opacity(
+              Positioned.fill
+              (
+                child: IgnorePointer
+                (
+                  child: Center
+                (
+                    child: Opacity
+                    (
                       opacity: 0.04,
-                      child: Image.asset(
+                      child: Image.asset
+                      (
                         'assets/images/house_watermark.png',
                         width: 800,
                         fit: BoxFit.contain,
@@ -225,13 +385,16 @@ class _DashboardLayoutState extends State<DashboardLayout>
                   ),
                 ),
               ),
-            DashboardGreeting(
+            DashboardGreeting
+            (
               firstName: _currentUser?.firstName ?? '',
             ),
-            Positioned(
+            Positioned
+            (
               left: cardLeft(0),
               top: cardTop(0),
-              child: DashboardModuleCard(
+              child: DashboardModuleCard
+              (
                 title: 'Persone',
                 subtitle: 'Gestisci membri e profili',
                 icon: Icons.groups_outlined,
@@ -241,30 +404,36 @@ class _DashboardLayoutState extends State<DashboardLayout>
                 },
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: cardLeft(1),
               top: cardTop(1),
-              child: DashboardModuleCard(
+              child: DashboardModuleCard
+              (
                 title: 'Calendario',
                 subtitle: 'Organizza prenotazioni e lezioni',
                 icon: Icons.calendar_month_rounded,
                 onTap: () {},
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: cardLeft(2),
               top: cardTop(2),
-              child: DashboardModuleCard(
+              child: DashboardModuleCard
+              (
                 title: 'Contabilità',
                 subtitle: 'Monitora pagamenti e ore lavorate',
                 icon: Icons.account_balance_wallet_outlined,
                 onTap: () {},
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: cardLeft(3),
               top: cardTop(3),
-              child: DashboardModuleCard(
+              child: DashboardModuleCard
+              (
                 title: 'Associazione',
                 subtitle: 'Configura regole e parametri',
                 imageAsset: 'assets/images/house_watermark_white.png',
@@ -274,29 +443,34 @@ class _DashboardLayoutState extends State<DashboardLayout>
                 },
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: bottomCardsStartX,
               top: bottomCardsTop,
-              child: DashboardPlaceholderCard(
+              child: DashboardPlaceholderCard
+              (
                 title: 'Attività',
                 width: actualBottomCardWidth,
                 height: bottomCardHeight,
               ),
             ),
-            Positioned(
+            Positioned
+            (
               left: stackBottomCards
                   ? bottomCardsStartX
                   : bottomCardsStartX + actualBottomCardWidth + bottomCardsGap,
               top: stackBottomCards
                   ? bottomCardsTop + bottomCardHeight + bottomCardsGap
                   : bottomCardsTop,
-              child: DashboardPlaceholderCard(
+              child: DashboardPlaceholderCard
+              (
                 title: 'Statistiche',
                 width: actualBottomCardWidth,
                 height: bottomCardHeight,
               ),
             ),
-            DashboardHeader(
+            DashboardHeader
+            (
               isMenuOpen: _isMenuOpen,
               onProfileTap: _toggleMenu,
               fullName: _currentUser?.fullName ?? '',
@@ -304,19 +478,24 @@ class _DashboardLayoutState extends State<DashboardLayout>
                   ? null
                   : 'http://localhost:8000${_currentUser!.profileImageUrl}',
             ),
-            Positioned(
+            Positioned
+            (
               top: 115,
               right: 60,
-              child: AnimatedSwitcher(
+              child: AnimatedSwitcher
+              (
                 duration: const Duration(milliseconds: 180),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: (child, animation)
                 {
-                  return FadeTransition(
+                  return FadeTransition
+                  (
                     opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
+                    child: SlideTransition
+                    (
+                      position: Tween<Offset>
+                      (
                         begin: const Offset(0, -0.08),
                         end: Offset.zero,
                       ).animate(animation),
@@ -325,11 +504,14 @@ class _DashboardLayoutState extends State<DashboardLayout>
                   );
                 },
                 child: _isMenuOpen
-                    ? GestureDetector(
+                    ? GestureDetector
+                    (
                         onTap: () {},
-                        child: UserMenu(
+                        child: UserMenu
+                        (
                           key: const ValueKey('menu'),
-                          activeRole: RoleLabelMapper.toLabel(
+                          activeRole: RoleLabelMapper.toLabel
+                          (
                             _currentUser?.activeRole ?? 'ADMIN',
                           ),
                           availableRoles: (_currentUser?.availableRoles ?? const [])
@@ -342,7 +524,8 @@ class _DashboardLayoutState extends State<DashboardLayout>
                           onLogout: _logout,
                         ),
                       )
-                    : const SizedBox(
+                    : const SizedBox
+                    (
                         key: ValueKey('empty'),
                       ),
               ),
@@ -351,17 +534,5 @@ class _DashboardLayoutState extends State<DashboardLayout>
         ),
       ),
     );
-  }
-
-  //LogoutUser
-  Future<void> _logout() async
-  {
-    final apiService = ApiService();
-
-    await apiService.logout();
-
-    if (!mounted) return;
-
-    context.go('/login');
   }
 }

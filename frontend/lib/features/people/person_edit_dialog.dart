@@ -1,4 +1,3 @@
-// frontend/lib/features/people/person_edit_dialog.dart
 import 'dart:ui';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -32,10 +31,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   int  _involvementType       = -1;
   bool _genitoreIsAssociato   = false;
   int  _currentFormCardIndex  = 0;
-  int  _currentStep2CardIndex = 0;
+  int  _currentStep4CardIndex = 0;
   bool _movingForward         = true;
   bool _cardMovingForward     = true;
-  bool _card2MovingForward    = true;
+  bool _card4MovingForward    = true;
   bool _isSubmitting          = false;
   bool _isLoadingData         = true;
 
@@ -101,6 +100,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _telefonoCtrl       = TextEditingController();
 
   // Dati Specifici
+  final List<WizardEnrollmentRowData> _enrollmentRows = [];
+  final List<WizardSchoolRowData>     _schoolRows     = [];
+
   final TextEditingController _scadenzaCertificatoCtrl      = TextEditingController();
   final TextEditingController _tipoCorsoCtrl                = TextEditingController();
   final TextEditingController _ibanCtrl                     = TextEditingController();
@@ -110,11 +112,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  String?           _uscitaAnticipata;
-  List<SchoolItem>  _allSchools = [];
-  SchoolItem?       _scuolaSelezionata;
+  String?          _uscitaAnticipata;
+  List<SchoolItem> _allSchools = [];
+  SchoolItem?      _scuolaSelezionata;
   StudyProgramItem? _percorsoStudenteSelezionato;
-  String?           _classeFrequentata;
+  String?          _classeFrequentata;
   List<StudyProgramItem> _allPrograms = [];
 
   // Parents
@@ -175,6 +177,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     _searchSubjectsCtrl.dispose();
     _searchMinorsCtrl.dispose();
     _searchParentsCtrl.dispose();
+    for (final row in _enrollmentRows) 
+    {
+      row.yearCtrl.dispose();
+      row.dateCtrl.dispose();
+    }
+    for (final row in _schoolRows)
+    {
+      row.yearCtrl.dispose();
+    }
     super.dispose();
   }
 
@@ -200,19 +211,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           final allPeople = results[3] as List<PersonItem>;
           _allMinors = allPeople.where((p) => p.age != null && p.age! < 18 && p.fiscalCode != widget.person.fiscalCode).toList();
           _allAdults = allPeople.where((p) => (p.age == null || p.age! >= 18) && p.roles.any((r) => r.toUpperCase() == 'GENITORE') && p.fiscalCode != widget.person.fiscalCode).toList();
-          
-          if (widget.person.schoolName != null && widget.person.schoolName!.isNotEmpty) 
-          {
-            try { _scuolaSelezionata = _allSchools.firstWhere((s) => s.name == widget.person.schoolName); } catch (_) {}
-          }
-          if (widget.person.studyProgram != null && widget.person.studyProgram!.isNotEmpty) 
-          {
-            try { _percorsoStudenteSelezionato = _allPrograms.firstWhere((p) => p.name == widget.person.studyProgram); } catch (_) {}
-          }
-          if (widget.person.schoolClass != null && widget.person.schoolClass!.isNotEmpty) 
-          {
-            _classeFrequentata = widget.person.schoolClass;
-          }
           
           _isLoadingData = false;
         });
@@ -327,15 +325,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   String? _toIsoDate(String? itaDate) 
   {
-    if (itaDate == null || itaDate.isEmpty) 
-    {
-      return null;
-    }
+    if (itaDate == null || itaDate.isEmpty) return null;
     final parts = itaDate.split('/');
-    if (parts.length != 3) 
-    {
-      return null;
-    }
+    if (parts.length != 3) return null;
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
@@ -356,19 +348,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     catch (_)
     {
       return false;
-    }
-  }
-
-  String get _currentSchoolYear 
-  {
-    final now = DateTime.now();
-    if (now.month < 9)
-    {
-      return '${now.year - 1}/${now.year}';
-    } 
-    else
-    {
-      return '${now.year}/${now.year + 1}';
     }
   }
 
@@ -516,7 +495,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (activeRoles.contains('AMMINISTRATORE')) cards.add(_buildFormCardAmministratore());
     if (activeRoles.contains('DOCENTE')) cards.add(_buildFormCardDocente());
     if (activeRoles.contains('CORSISTA')) cards.add(_buildFormCardCorsista());
-    if (activeRoles.contains('STUDENTE')) cards.add(_buildFormCardStudente());
+    
+    if (activeRoles.contains('STUDENTE') && _isMinor) cards.add(_buildFormCardStudente());
     
     return cards;
   }
@@ -703,23 +683,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++;
     }
     
-    if (activeRoles.contains('STUDENTE'))
+    if (activeRoles.contains('STUDENTE') && _isMinor)
     {
       if (_uscitaAnticipata == null) 
       {
         addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
-      }
-      if (_scuolaSelezionata == null)
-      {
-        addError('scuolaSelezionata', 'Campo obbligatorio', currentMappedIndex);
-      }
-      if (_percorsoStudenteSelezionato == null)
-      {
-        addError('percorsoStudente', 'Campo obbligatorio', currentMappedIndex);
-      }
-      if (_classeFrequentata == null)
-      {
-        addError('classeFrequentata', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -729,14 +697,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       _formErrors = newErrors;
       if (!isValid && firstInvalidCard != null)
       {
-        _card2MovingForward    = firstInvalidCard! >= _currentStep2CardIndex;
-        _currentStep2CardIndex = firstInvalidCard!;
+        _card4MovingForward    = firstInvalidCard! >= _currentStep4CardIndex;
+        _currentStep4CardIndex = firstInvalidCard!;
       }
     });
 
     if (!isValid)
     {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici. Correggi i campi evidenziati.', isError: true);
     }
 
     return isValid;
@@ -822,10 +790,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       if (finalRoles.contains('STUDENTE')) 
       {
         studentData = {
-          "authorized_early_exit":      _uscitaAnticipata == 'Sì',
-          "school_mechanographic_code": _scuolaSelezionata?.mechanographicCode,
-          "study_program_id":           _percorsoStudenteSelezionato?.id,
-          "school_class":               _classeFrequentata,
+          "authorized_early_exit": _isMinor ? (_uscitaAnticipata == 'Sì') : true,
         };
       }
 
@@ -954,6 +919,59 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     );
   }
 
+  void _showCancelConfirmation() 
+  {
+    showDialog(
+      context: context,
+      builder: (BuildContext confirmContext) 
+      {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Annulla Modifiche', 
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700, 
+              color:      const Color(0xFF003C82),
+            ),
+          ),
+          content: Text(
+            'Sei sicuro di voler uscire? Le modifiche non salvate andranno perse.', 
+            style: GoogleFonts.plusJakartaSans(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              style: ButtonStyle(
+                overlayColor:    WidgetStateProperty.all(Colors.transparent),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFF8A8A8A)),
+              ),
+              onPressed: () => Navigator.pop(confirmContext), 
+              child: Text(
+                'RIPRENDI', 
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              style: ButtonStyle(
+                overlayColor:    WidgetStateProperty.all(Colors.transparent),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFFE53935)),
+              ),
+              onPressed: () 
+              {
+                Navigator.pop(confirmContext);
+                Navigator.of(context).pop();
+              }, 
+              child: Text(
+                'ESCI SENZA SALVARE', 
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _onNext() 
   {
       if (_currentStep == 0) {
@@ -1033,8 +1051,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               setState(() {
                   _movingForward         = true;
                   _currentStep           = 4;
-                  _card2MovingForward    = true;
-                  _currentStep2CardIndex = 0;
+                  _card4MovingForward    = true;
+                  _currentStep4CardIndex = 0;
               });
           }
           return;
@@ -1613,27 +1631,29 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
                 ),
                 const SizedBox(width: 32),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: AnimatedSwitcher(
-                    duration:       const Duration(milliseconds: 300),
-                    switchInCurve:  Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                    transitionBuilder: (child, animation) 
-                    {
-                      final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                      Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                      
-                      return FadeTransition(
-                        opacity: animation, 
-                        child:   SlideTransition(
-                          position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-                          child:    child
-                        ),
-                      );
-                    },
-                    child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: AnimatedSwitcher(
+                      duration:       const Duration(milliseconds: 300),
+                      switchInCurve:  Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder: (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                        
+                        return FadeTransition(
+                          opacity: animation, 
+                          child:   SlideTransition(
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                            child:    child
+                          ),
+                        );
+                      },
+                      child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 32),
@@ -1647,304 +1667,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFormCardStaff()
-  {
-    return WizardFormSectionCard(
-      title:       'Dati Amministrativi',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'IBAN',
-          inputWidget: WizardAnimatedTextField(
-            controller: _ibanCtrl, 
-            hint:       'Es. IT00A...', 
-            errorText:  _formErrors['iban'],
-            onChanged:  (_) => setState(() => _formErrors.remove('iban')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Collaborazione',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _tipoCollaborazione,
-            items:     const ['Volontario', 'Retribuito', 'FSC'],
-            hint:      'Seleziona',
-            errorText: _formErrors['tipoCollaborazione'],
-            onChanged: (val) => setState(() 
-            {
-              _tipoCollaborazione = val;
-              _formErrors.remove('tipoCollaborazione');
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardAmministratore()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Amministratore',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.computer_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Ruolo',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _ruoloAmministratore,
-            items:     const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Altro'],
-            hint:      'Seleziona',
-            errorText: _formErrors['ruoloAmministratore'],
-            onChanged: (val) => setState(() 
-            {
-              _ruoloAmministratore = val;
-              _formErrors.remove('ruoloAmministratore');
-            }),
-          ),
-        ),
-        if (_ruoloAmministratore == 'Altro') ...[
-          const SizedBox(height: 16),
-          WizardFormInputRow(
-            label:       'Specifica ruolo',
-            inputWidget: WizardAnimatedTextField(
-              controller: _altroRuoloAmministratoreCtrl, 
-              hint:       'Inserisci il ruolo', 
-              errorText:  _formErrors['altroRuoloAmministratore'],
-              onChanged:  (_) => setState(() => _formErrors.remove('altroRuoloAmministratore')),
-            ),
-          ),
-        ]
-      ],
-    );
-  }
-
-  Widget _buildFormCardDocente()
-  {
-    return WizardFormSectionCard(
-      title:       'Studi Docente',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Studi scolastici',
-          inputWidget: WizardAnimatedTextField(
-            controller: _studiScolasticiCtrl, 
-            hint:       'Es. Liceo', 
-            errorText:  _formErrors['studiScolastici'],
-            onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Studi universitari',
-          inputWidget: WizardAnimatedTextField(
-            controller: _studiUniversitariCtrl, 
-            hint:       'Es. Laurea', 
-            errorText:  _formErrors['studiUniversitari'],
-            onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardCorsista()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Corsista',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
-      children: [
-        WizardFormInputRow(
-          label:       'Scadenza cert.',
-          inputWidget: WizardAnimatedTextField(
-            controller:      _scadenzaCertificatoCtrl, 
-            hint:            'gg/mm/aaaa', 
-            keyboardType:    TextInputType.number,
-            inputFormatters: [WizardDateInputFormatter()],
-            errorText:       _formErrors['scadenzaCertificato'],
-            onChanged:       (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Tipo corso',
-          inputWidget: WizardAnimatedTextField(
-            controller: _tipoCorsoCtrl, 
-            hint:       'Es. Pilates', 
-            errorText:  _formErrors['tipoCorso'],
-            onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardStudente()
-  {
-    final List<String> schoolNames  = _allSchools.map((s) => '${s.name} (${s.city})').toList();
-    List<String>       programNames = [];
-    List<String>       gradeOptions = [];
-
-    if (_scuolaSelezionata != null) 
-    {
-      try 
-      {
-        dynamic progs;
-        try 
-        {
-          progs = (_scuolaSelezionata as dynamic).studyPrograms;
-        } 
-        catch (_) {}
-        
-        if (progs == null) 
-        {
-          try 
-          {
-            progs = (_scuolaSelezionata as dynamic).study_programs;
-          } 
-          catch (_) {}
-        }
-        
-        if (progs != null && progs is Iterable) 
-        {
-          for (var p in progs) 
-          {
-            String? pName;
-            if (p is Map) 
-            {
-              pName = p['name'] as String?;
-            } 
-            else 
-            {
-              try 
-              {
-                pName = (p as dynamic).name as String?;
-              } 
-              catch (_) {}
-            }
-            
-            if (pName != null && pName.isNotEmpty) 
-            {
-              final existsInAll = _allPrograms.any((allP) => (allP as dynamic).name == pName);
-              if (existsInAll && !programNames.contains(pName)) 
-              {
-                programNames.add(pName);
-              }
-            }
-          }
-        }
-      } 
-      catch (_) {}
-    }
-
-    if (_percorsoStudenteSelezionato != null) 
-    {
-      try 
-      {
-        final level = (_percorsoStudenteSelezionato as dynamic).level as String?;
-        if (level == 'MIDDLE_SCHOOL' || level == 'MEDIE' || level == 'Medie') 
-        {
-          gradeOptions = ['I', 'II', 'III'];
-        } 
-        else 
-        {
-          gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
-        }
-      } 
-      catch (_) 
-      {
-        gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
-      }
-    }
-
-    return WizardFormSectionCard(
-      title:       'Dettagli Studente',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Uscita anticipata',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _uscitaAnticipata,
-            items:     const ['Sì', 'No'],
-            hint:      'Seleziona',
-            errorText: _formErrors['uscitaAnticipata'],
-            onChanged: (val) => setState(() 
-            {
-              _uscitaAnticipata = val;
-              _formErrors.remove('uscitaAnticipata');
-            }),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Scuola',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _scuolaSelezionata != null ? '${_scuolaSelezionata!.name} (${_scuolaSelezionata!.city})' : null,
-            items:     schoolNames,
-            hint:      'Seleziona scuola',
-            errorText: _formErrors['scuolaSelezionata'],
-            onChanged: (val) 
-            {
-              setState(() 
-              {
-                _scuolaSelezionata           = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
-                _percorsoStudenteSelezionato = null;
-                _classeFrequentata           = null;
-                _formErrors.remove('scuolaSelezionata');
-              });
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Percorso',
-          inputWidget: _scuolaSelezionata == null 
-              ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima la scuola')
-              : programNames.isEmpty
-                  ? const WizardDisabledDropdownPlaceholder(hint: 'Nessun percorso offerto')
-                  : WizardAnimatedOverlayDropdown(
-                      value:     _percorsoStudenteSelezionato != null ? (_percorsoStudenteSelezionato as dynamic).name as String? : null,
-                      items:     programNames,
-                      hint:      'Seleziona percorso',
-                      errorText: _formErrors['percorsoStudente'],
-                      onChanged: (val) 
-                      {
-                        setState(() 
-                        {
-                          try 
-                          {
-                            _percorsoStudenteSelezionato = _allPrograms.firstWhere((p) => (p as dynamic).name == val);
-                          } 
-                          catch (_) 
-                          {
-                            _percorsoStudenteSelezionato = null;
-                          }
-                          
-                          _classeFrequentata = null; 
-                          _formErrors.remove('percorsoStudente');
-                        });
-                      },
-                    ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Classe a.s. $_currentSchoolYear',
-          inputWidget: _percorsoStudenteSelezionato == null 
-              ? const WizardDisabledDropdownPlaceholder(hint: 'Seleziona prima il percorso')
-              : WizardAnimatedOverlayDropdown(
-                  value:     _classeFrequentata,
-                  items:     gradeOptions,
-                  hint:      'Seleziona classe',
-                  errorText: _formErrors['classeFrequentata'],
-                  onChanged: (val) => setState(() 
-                  {
-                    _classeFrequentata = val;
-                    _formErrors.remove('classeFrequentata');
-                  }),
-                ),
-        ),
-      ],
     );
   }
 
@@ -1997,41 +1719,43 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               children: [
                 WizardCarouselArrowButton(
                   icon:       Icons.chevron_left_rounded,
-                  isDisabled: _currentStep2CardIndex == 0,
-                  onTap:      () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; }),
+                  isDisabled: _currentStep4CardIndex == 0,
+                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
                 ),
                 const SizedBox(width: 32),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: AnimatedSwitcher(
-                    duration:           const Duration(milliseconds: 300),
-                    switchInCurve:      Curves.easeOutCubic,
-                    switchOutCurve:     Curves.easeInCubic,
-                    layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                    transitionBuilder:  (child, animation) 
-                    {
-                      final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
-                      Offset beginOffset = _card2MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: AnimatedSwitcher(
+                      duration:           const Duration(milliseconds: 300),
+                      switchInCurve:      Curves.easeOutCubic,
+                      switchOutCurve:     Curves.easeInCubic,
+                      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder:  (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+                        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
 
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-                          child:    child,
-                        ),
-                      );
-                    },
-                    child: KeyedSubtree(
-                      key:   ValueKey(_currentStep2CardIndex),
-                      child: cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink(),
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+                            child:    child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key:   ValueKey(_currentStep4CardIndex),
+                        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 32),
                 WizardCarouselArrowButton(
                   icon:       Icons.chevron_right_rounded,
-                  isDisabled: _currentStep2CardIndex >= cards.length - 1,
-                  onTap:      () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; }),
+                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
                 ),
               ],
             ),
@@ -2407,6 +2131,160 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     );
   }
 
+  Widget _buildFormCardStaff()
+  {
+    return WizardFormSectionCard(
+      title:       'Dati Amministrativi',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
+      children: [
+        WizardFormInputRow(
+          label:       'IBAN',
+          inputWidget: WizardAnimatedTextField(
+            controller: _ibanCtrl, 
+            hint:       'Es. IT00A...', 
+            errorText:  _formErrors['iban'],
+            onChanged:  (_) => setState(() => _formErrors.remove('iban')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label:       'Collaborazione',
+          inputWidget: WizardAnimatedOverlayDropdown(
+            value:     _tipoCollaborazione,
+            items:     const ['Volontario', 'Retribuito', 'FSC'],
+            hint:      'Seleziona',
+            errorText: _formErrors['tipoCollaborazione'],
+            onChanged: (val) => setState(() 
+            {
+              _tipoCollaborazione = val;
+              _formErrors.remove('tipoCollaborazione');
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardAmministratore()
+  {
+    return WizardFormSectionCard(
+      title:       'Dettagli Amministratore',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.computer_outlined),
+      children: [
+        WizardFormInputRow(
+          label:       'Ruolo',
+          inputWidget: WizardAnimatedOverlayDropdown(
+            value:     _ruoloAmministratore,
+            items:     const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['ruoloAmministratore'],
+            onChanged: (val) => setState(() 
+            {
+              _ruoloAmministratore = val;
+              _formErrors.remove('ruoloAmministratore');
+            }),
+          ),
+        ),
+        if (_ruoloAmministratore == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow(
+            label:       'Specifica ruolo',
+            inputWidget: WizardAnimatedTextField(
+              controller: _altroRuoloAmministratoreCtrl, 
+              hint:       'Inserisci il ruolo', 
+              errorText:  _formErrors['altroRuoloAmministratore'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altroRuoloAmministratore')),
+            ),
+          ),
+        ]
+      ],
+    );
+  }
+
+  Widget _buildFormCardDocente()
+  {
+    return WizardFormSectionCard(
+      title:       'Dettagli Docente',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
+      children: [
+        WizardFormInputRow(
+          label:       'Studi scolastici',
+          inputWidget: WizardAnimatedTextField(
+            controller: _studiScolasticiCtrl, 
+            hint:       'Es. Liceo', 
+            errorText:  _formErrors['studiScolastici'],
+            onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label:       'Studi universitari',
+          inputWidget: WizardAnimatedTextField(
+            controller: _studiUniversitariCtrl, 
+            hint:       'Es. Laurea', 
+            errorText:  _formErrors['studiUniversitari'],
+            onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardCorsista()
+  {
+    return WizardFormSectionCard(
+      title:       'Dettagli Corsista',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
+      children: [
+        WizardFormInputRow(
+          label:       'Scadenza cert.',
+          inputWidget: WizardAnimatedTextField(
+            controller:      _scadenzaCertificatoCtrl, 
+            hint:            'gg/mm/aaaa', 
+            keyboardType:    TextInputType.number,
+            inputFormatters: [WizardDateInputFormatter()],
+            errorText:       _formErrors['scadenzaCertificato'],
+            onChanged:       (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label:       'Tipo corso',
+          inputWidget: WizardAnimatedTextField(
+            controller: _tipoCorsoCtrl, 
+            hint:       'Es. Pilates', 
+            errorText:  _formErrors['tipoCorso'],
+            onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardStudente()
+  {
+    return WizardFormSectionCard(
+      title:       'Dettagli Studente',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
+      children: [
+        WizardFormInputRow(
+          label:       'Uscita anticipata',
+          inputWidget: WizardAnimatedOverlayDropdown(
+            value:     _uscitaAnticipata,
+            items:     const ['Sì', 'No'],
+            hint:      'Seleziona',
+            errorText: _formErrors['uscitaAnticipata'],
+            onChanged: (val) => setState(() 
+            {
+              _uscitaAnticipata = val;
+              _formErrors.remove('uscitaAnticipata');
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStepWidget(int step) 
   {
     if (step == 0) return _buildStep0Type();
@@ -2428,24 +2306,24 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (_currentStep == 7) 
     {
       isLastStep = true;
-    }
-    else if (_currentStep == 6 && !_selectedRoles.contains('DOCENTE'))
+    } 
+    else if (_currentStep == 6 && !_selectedRoles.contains('DOCENTE')) 
     {
       isLastStep = true;
-    }
-    else if (_currentStep == 5 && !_selectedRoles.contains('DOCENTE') && !_selectedRoles.contains('GENITORE'))
+    } 
+    else if (_currentStep == 5 && !_selectedRoles.contains('DOCENTE') && !_selectedRoles.contains('GENITORE')) 
     {
       isLastStep = true;
-    }
-    else if (_currentStep == 4 && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
+    } 
+    else if (_currentStep == 4 && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE')) 
     {
       isLastStep = true;
-    }
-    else if (_currentStep == 3 && _activeStep4Cards.isEmpty && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE'))
+    } 
+    else if (_currentStep == 3 && _activeStep4Cards.isEmpty && !_isMinor && !_selectedRoles.contains('GENITORE') && !_selectedRoles.contains('DOCENTE')) 
     {
       isLastStep = true;
-    }
-    else
+    } 
+    else 
     {
       isLastStep = false;
     }
@@ -2564,7 +2442,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                               icon:       Icons.close_rounded, 
                               baseColor:  const Color(0xFFE53935), 
                               hoverColor: const Color(0xFFEF5350), 
-                              onPressed:  () => Navigator.of(context).pop()
+                              onPressed:  _showCancelConfirmation,
                             ),
                           )
                         else
@@ -2767,7 +2645,7 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                           'Codice fiscale', 
                           'Data di nascita', 
                           'Città di nascita', 
-                          'Prov. di nascita'
+                          'Provincia di nascita'
                         ].map((field) {
                           return _ErrorFieldChip(
                             label:      field, 

@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +17,8 @@ class LoginLayout extends StatefulWidget
   final double width;
   final double height;
 
-  const LoginLayout({
+  const LoginLayout
+  ({
     super.key,
     required this.width,
     required this.height,
@@ -29,7 +32,7 @@ class _LoginLayoutState extends State<LoginLayout>
 {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _apiService = ApiService();
+  final _apiService         = ApiService();
 
   @override
   void dispose()
@@ -48,7 +51,8 @@ class _LoginLayoutState extends State<LoginLayout>
 
     if (username.isEmpty || password.isEmpty)
     {
-      CustomSnackBar.show(
+      CustomSnackBar.show
+      (
         context: context,
         message: 'Inserisci nome utente e password per accedere.',
         isError: true,
@@ -60,7 +64,8 @@ class _LoginLayoutState extends State<LoginLayout>
     try
     {
       //PerformLoginApiCall
-      final result = await _apiService.login(
+      final result = await _apiService.login
+      (
         username: username,
         password: password,
       );
@@ -69,9 +74,12 @@ class _LoginLayoutState extends State<LoginLayout>
 
       if (result.passwordResetRequired)
       {
-        context.replace(
+        context.replace
+        (
           '/force-password-change',
-          extra: {
+          extra: 
+          {
+            'username': _usernameController.text,
             'currentPassword': _passwordController.text,
             'refreshToken': result.refreshToken,
           },
@@ -103,7 +111,8 @@ class _LoginLayoutState extends State<LoginLayout>
           break;
       }
 
-      CustomSnackBar.show(
+      CustomSnackBar.show
+      (
         context: context,
         message: message,
         isError: true,
@@ -113,7 +122,8 @@ class _LoginLayoutState extends State<LoginLayout>
 
   void _showForgotPasswordDialog(BuildContext context)
   {
-    showGeneralDialog(
+    showGeneralDialog
+    (
       context: context,
       barrierDismissible: true,
       barrierLabel: 'ForgotPassword',
@@ -124,12 +134,16 @@ class _LoginLayoutState extends State<LoginLayout>
       {
         final blurValue = animation.value * 8.0;
         
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
+          child: FadeTransition
+          (
             opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(
+            child: ScaleTransition
+            (
+              scale: CurvedAnimation
+              (
                 parent: animation,
                 curve: Curves.easeOutBack,
                 reverseCurve: Curves.easeIn,
@@ -145,30 +159,128 @@ class _LoginLayoutState extends State<LoginLayout>
   @override
   Widget build(BuildContext context)
   {
+    if (kIsWeb)
+    {
+      return _buildWebLayout(context);
+    }
+    else
+    {
+      return _buildMobileLayout(context);
+    }
+  }
+
+  //BuildMobileLayout
+  Widget _buildMobileLayout(BuildContext context)
+  {
+    final double width    = MediaQuery.of(context).size.width;
+    final bool   isTablet = width > 600.0;
+
+    return Scaffold
+    (
+      backgroundColor: const Color(0xFFF4F7F9),
+      body: Center
+      (
+        child: SingleChildScrollView
+        (
+          child: Container
+          (
+            width: isTablet ? 500.0 : double.infinity,
+            padding: const EdgeInsets.all(24.0),
+            child: Column
+            (
+              mainAxisSize: MainAxisSize.min,
+              children: 
+              [
+                Image.asset
+                (
+                  'assets/images/logo.png',
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 16),
+                const Text
+                (
+                  'Casa Michela',
+                  textAlign: TextAlign.center,
+                  style: TextStyle
+                  (
+                    fontFamily: 'Plus Jakarta Sans',
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                _LoginRow
+                (
+                  label: 'Nome utente',
+                  controller: _usernameController,
+                  isNarrow: true,
+                ),
+                const SizedBox(height: 16),
+                _LoginRow
+                (
+                  label: 'Password',
+                  obscure: true,
+                  controller: _passwordController,
+                  isNarrow: true,
+                ),
+                const SizedBox(height: 24),
+                SizedBox
+                (
+                  width: double.infinity,
+                  child: LoginButton(onPressed: _login),
+                ),
+                const SizedBox(height: 16),
+                _AnimatedTextLink
+                (
+                  text: 'Password dimenticata?',
+                  onTap: () => _showForgotPasswordDialog(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  //BuildWebLayout
+  Widget _buildWebLayout(BuildContext context)
+  {
     final viewportWidth = MediaQuery.of(context).size.width;
-    final currentYear = DateTime.now().year;
+    final currentYear   = DateTime.now().year;
 
-    final isNarrow = viewportWidth < 600;
-    
-    final cardWidth = viewportWidth > 1300 ? 1160.0 : viewportWidth - 80;
+    final isNarrow  = viewportWidth < 600;
+    final cardWidth = math.max(0.0, viewportWidth > 1300 ? 1160.0 : viewportWidth - 80);
 
-    return Container(
+    return Container
+    (
       width: widget.width,
       height: widget.height,
       color: const Color(0xFFF4F7F9),
-      child: Stack(
-        children: [
-          Positioned(
+      child: Stack
+      (
+        children: 
+        [
+          Positioned
+          (
             right: -800,
             top: -800,
-            child: IgnorePointer(
-              child: Container(
+            child: IgnorePointer
+            (
+              child: Container
+              (
                 width: 1600,
                 height: 1600,
-                decoration: const BoxDecoration(
+                decoration: const BoxDecoration
+                (
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
+                  gradient: RadialGradient
+                  (
+                    colors: 
+                    [
                       Color(0x4D003C82),
                       Color(0x22003C82),
                       Color(0x00003C82),
@@ -179,17 +291,23 @@ class _LoginLayoutState extends State<LoginLayout>
               ),
             ),
           ),
-          Positioned(
+          Positioned
+          (
             left: -800,
             bottom: -800,
-            child: IgnorePointer(
-              child: Container(
+            child: IgnorePointer
+            (
+              child: Container
+              (
                 width: 1600,
                 height: 1600,
-                decoration: const BoxDecoration(
+                decoration: const BoxDecoration
+                (
                   shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
+                  gradient: RadialGradient
+                  (
+                    colors: 
+                    [
                       Color(0x4D003C82),
                       Color(0x22003C82),
                       Color(0x00003C82),
@@ -200,46 +318,59 @@ class _LoginLayoutState extends State<LoginLayout>
               ),
             ),
           ),
-
-          //MainContent
-          Positioned.fill(
-            child: LayoutBuilder(
+          Positioned.fill
+          (
+            child: LayoutBuilder
+            (
               builder: (context, constraints)
               {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
+                return SingleChildScrollView
+                (
+                  child: ConstrainedBox
+                  (
+                    constraints: BoxConstraints
+                    (
                       minHeight: constraints.maxHeight,
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
+                    child: Padding
+                    (
+                      padding: EdgeInsets.symmetric
+                      (
                         horizontal: isNarrow ? 20 : 40,
                         vertical: 40,
                       ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          children: [
+                      child: IntrinsicHeight
+                      (
+                        child: Column
+                        (
+                          children: 
+                          [
                             const SizedBox(height: 20),
-                            
-                            //HeaderLogo
-                            ConstrainedBox(
+                            ConstrainedBox
+                            (
                               constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: FittedBox(
+                              child: FittedBox
+                              (
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
-                                child: Row(
+                                child: Row
+                                (
                                   mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Image.asset(
+                                  children: 
+                                  [
+                                    Image.asset
+                                    (
                                       'assets/images/logo.png',
                                       width: 185,
                                       height: 185,
                                       fit: BoxFit.contain,
                                     ),
                                     const SizedBox(width: 40),
-                                    const Text(
+                                    const Text
+                                    (
                                       'Associazione Casa Michela',
-                                      style: TextStyle(
+                                      style: TextStyle
+                                      (
                                         fontFamily: 'Plus Jakarta Sans',
                                         fontSize: 76,
                                         fontWeight: FontWeight.w700,
@@ -250,18 +381,20 @@ class _LoginLayoutState extends State<LoginLayout>
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 50),
-
-                            //LoginCard
-                            ConstrainedBox(
+                            ConstrainedBox
+                            (
                               constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: Container(
-                                decoration: BoxDecoration(
+                              child: Container
+                              (
+                                decoration: BoxDecoration
+                                (
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(40),
-                                  boxShadow: [
-                                    BoxShadow(
+                                  boxShadow: 
+                                  [
+                                    BoxShadow
+                                    (
                                       color: const Color(0xFF000000).withValues(alpha: 0.04),
                                       offset: const Offset(0, 4),
                                       blurRadius: 16,
@@ -269,44 +402,54 @@ class _LoginLayoutState extends State<LoginLayout>
                                     ),
                                   ],
                                 ),
-                                padding: EdgeInsets.symmetric(
+                                padding: EdgeInsets.symmetric
+                                (
                                   horizontal: isNarrow ? 25 : 50,
                                   vertical: 40,
                                 ),
-                                child: Column(
+                                child: Column
+                                (
                                   mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _LoginRow(
+                                  children: 
+                                  [
+                                    _LoginRow
+                                    (
                                       label: 'Nome utente',
                                       controller: _usernameController,
                                       isNarrow: isNarrow,
                                     ),
                                     SizedBox(height: isNarrow ? 20 : 32),
-                                    _LoginRow(
+                                    _LoginRow
+                                    (
                                       label: 'Password',
                                       obscure: true,
                                       controller: _passwordController,
                                       isNarrow: isNarrow,
                                     ),
                                     physicsSpacer(isNarrow ? 32 : 40),
-                                    
-                                    //ActionSection
-                                    if (isNarrow) ...[
-                                      SizedBox(
+                                    if (isNarrow) ...
+                                    [
+                                      SizedBox
+                                      (
                                         width: double.infinity,
                                         child: LoginButton(onPressed: _login),
                                       ),
                                       const SizedBox(height: 20),
-                                      _AnimatedTextLink(
+                                      _AnimatedTextLink
+                                      (
                                         text: 'Password dimenticata?',
                                         onTap: () => _showForgotPasswordDialog(context),
                                       ),
                                     ] 
-                                    else ...[
-                                      Row(
+                                    else ...
+                                    [
+                                      Row
+                                      (
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          _AnimatedTextLink(
+                                        children: 
+                                        [
+                                          _AnimatedTextLink
+                                          (
                                             text: 'Password dimenticata?',
                                             onTap: () => _showForgotPasswordDialog(context),
                                           ),
@@ -318,34 +461,40 @@ class _LoginLayoutState extends State<LoginLayout>
                                 ),
                               ),
                             ),
-
                             const SizedBox(height: 40),
-
-                            //DisclaimerSection
-                            ConstrainedBox(
+                            ConstrainedBox
+                            (
                               constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: RichText(
+                              child: RichText
+                              (
                                 textAlign: TextAlign.center,
-                                text: const TextSpan(
-                                  style: TextStyle(
+                                text: const TextSpan
+                                (
+                                  style: TextStyle
+                                  (
                                     fontFamily: 'Plus Jakarta Sans',
                                     fontSize: 14,
                                     color: Color(0xFF6B7280),
                                     height: 1.5,
                                   ),
-                                  children: [
+                                  children: 
+                                  [
                                     TextSpan(text: 'Accedendo, accetti le '),
-                                    TextSpan(
+                                    TextSpan
+                                    (
                                       text: 'Condizioni d\'Uso',
-                                      style: TextStyle(
+                                      style: TextStyle
+                                      (
                                         color: Color(0xFF003C82),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     TextSpan(text: ' e l\''),
-                                    TextSpan(
+                                    TextSpan
+                                    (
                                       text: 'Informativa sulla Privacy',
-                                      style: TextStyle(
+                                      style: TextStyle
+                                      (
                                         color: Color(0xFF003C82),
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -355,15 +504,14 @@ class _LoginLayoutState extends State<LoginLayout>
                                 ),
                               ),
                             ),
-
                             const Spacer(),
                             const SizedBox(height: 40),
-
-                            //Footer
-                            Text(
+                            Text
+                            (
                               '© $currentYear Nicolò Calore\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: const TextStyle
+                              (
                                 fontFamily: 'Plus Jakarta Sans',
                                 color: Color(0xFF6B7280),
                                 fontSize: 13,
@@ -386,8 +534,6 @@ class _LoginLayoutState extends State<LoginLayout>
   Widget physicsSpacer(double height) => SizedBox(height: height);
 }
 
-//InternalWidgets
-
 class _LoginRow extends StatelessWidget
 {
   final String label;
@@ -395,7 +541,8 @@ class _LoginRow extends StatelessWidget
   final TextEditingController controller;
   final bool isNarrow;
 
-  const _LoginRow({
+  const _LoginRow
+  ({
     required this.label,
     required this.controller,
     required this.isNarrow,
@@ -407,12 +554,16 @@ class _LoginRow extends StatelessWidget
   {
     if (isNarrow)
     {
-      return Column(
+      return Column
+      (
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+        children: 
+        [
+          Text
+          (
             label,
-            style: const TextStyle(
+            style: const TextStyle
+            (
               fontFamily: 'Plus Jakarta Sans',
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -420,9 +571,11 @@ class _LoginRow extends StatelessWidget
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
+          SizedBox
+          (
             height: 56,
-            child: LoginTextField(
+            child: LoginTextField
+            (
               controller: controller,
               obscureText: obscure,
             ),
@@ -431,13 +584,18 @@ class _LoginRow extends StatelessWidget
       );
     }
 
-    return Row(
-      children: [
-        SizedBox(
+    return Row
+    (
+      children: 
+      [
+        SizedBox
+        (
           width: 260,
-          child: Text(
+          child: Text
+          (
             label,
-            style: const TextStyle(
+            style: const TextStyle
+            (
               fontFamily: 'Plus Jakarta Sans',
               fontSize: 22,
               fontWeight: FontWeight.w600,
@@ -446,10 +604,13 @@ class _LoginRow extends StatelessWidget
           ),
         ),
         const SizedBox(width: 20),
-        Expanded(
-          child: SizedBox(
+        Expanded
+        (
+          child: SizedBox
+          (
             height: 56,
-            child: LoginTextField(
+            child: LoginTextField
+            (
               controller: controller,
               obscureText: obscure,
             ),
@@ -465,7 +626,8 @@ class _AnimatedTextLink extends StatefulWidget
   final String text;
   final VoidCallback onTap;
 
-  const _AnimatedTextLink({
+  const _AnimatedTextLink
+  ({
     required this.text,
     required this.onTap,
   });
@@ -481,19 +643,25 @@ class _AnimatedTextLinkState extends State<_AnimatedTextLink>
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
+    return MouseRegion
+    (
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+      child: GestureDetector
+      (
         onTap: widget.onTap,
-        child: Column(
+        child: Column
+        (
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AnimatedDefaultTextStyle(
+          children: 
+          [
+            AnimatedDefaultTextStyle
+            (
               duration: const Duration(milliseconds: 200),
-              style: TextStyle(
+              style: TextStyle
+              (
                 fontFamily: 'Plus Jakarta Sans',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -502,12 +670,14 @@ class _AnimatedTextLinkState extends State<_AnimatedTextLink>
               child: Text(widget.text),
             ),
             const SizedBox(height: 2),
-            AnimatedContainer(
+            AnimatedContainer
+            (
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutQuint,
               height: 2,
               width: _isHovered ? 175 : 0, 
-              decoration: BoxDecoration(
+              decoration: BoxDecoration
+              (
                 color: const Color(0xFF002244),
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -530,8 +700,8 @@ class _ForgotPasswordDialogContent extends StatefulWidget
 class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogContent>
 {
   final TextEditingController _emailController = TextEditingController();
-  final ApiService _apiService = ApiService();
-  bool _isSending = false;
+  final ApiService            _apiService      = ApiService();
+  bool                        _isSending       = false;
 
   @override
   void dispose()
@@ -544,10 +714,10 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
   {
     final email = _emailController.text.trim();
 
-    //BasicEmailValidation
     if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email))
     {
-      CustomSnackBar.show(
+      CustomSnackBar.show
+      (
         context: context,
         message: 'Inserisci un indirizzo email valido',
         isError: true,
@@ -567,7 +737,8 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
 
       if (mounted)
       {
-        CustomSnackBar.show(
+        CustomSnackBar.show
+        (
           context: context,
           message: 'Email di recupero inviata con successo',
           isError: false,
@@ -579,7 +750,8 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
     {
       if (mounted)
       {
-        CustomSnackBar.show(
+        CustomSnackBar.show
+        (
           context: context,
           message: 'Errore durante l\'invio dell\'email. Riprova più tardi.',
           isError: true,
@@ -601,39 +773,52 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
   @override
   Widget build(BuildContext context)
   {
-    return Dialog(
+    return Dialog
+    (
       backgroundColor: Colors.transparent,
       elevation: 0,
-      child: Container(
+      child: Container
+      (
         width: 500,
-        decoration: BoxDecoration(
+        decoration: BoxDecoration
+        (
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
+          boxShadow: const 
+          [
+            BoxShadow
+            (
               color: Color(0x1A000000),
               offset: Offset(0, 8),
               blurRadius: 24,
             )
           ],
         ),
-        child: Column(
+        child: Column
+        (
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
+          children: 
+          [
+            Padding
+            (
               padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
+              child: Row
+              (
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
+                children: 
+                [
+                  Text
+                  (
                     'Recupero Password',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.plusJakartaSans
+                    (
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF003C82),
                     ),
                   ),
-                  StaticHoverIconButton(
+                  StaticHoverIconButton
+                  (
                     icon: Icons.close,
                     color: const Color(0xFF003C82),
                     hoverColor: const Color(0xFFE3F2FD),
@@ -642,53 +827,62 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                 ],
               ),
             ),
-            
             const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            
-            Padding(
+            Padding
+            (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-              child: Column(
+              child: Column
+              (
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+                children: 
+                [
+                  Text
+                  (
                     'Inserisci l\'indirizzo email associato al tuo account. Ti invieremo un link per impostare una nuova password.\n' 
                     'Se non ricordi l\'indirizzo email o il nome utente associato al tuo account, contatta l\'Associazione.',
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.plusJakartaSans
+                    (
                       fontSize: 14,
                       color: const Color(0xFF6B7280),
                       height: 1.5,
                     ),
                   ),
-                  
                   const SizedBox(height: 24),
-                  
-                  Padding(
+                  Padding
+                  (
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
+                    child: Text
+                    (
                       'Indirizzo email',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.plusJakartaSans
+                      (
                         color: const Color(0xFF003C82),
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                     ),
                   ),
-                  TextField(
+                  TextField
+                  (
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.plusJakartaSans
+                    (
                       fontSize: 18,
                       color: Colors.black,
                       fontWeight: FontWeight.w600,
                     ),
-                    decoration: InputDecoration(
+                    decoration: InputDecoration
+                    (
                       hintText: 'Es. mario.rossi@email.com',
-                      hintStyle: GoogleFonts.plusJakartaSans(
+                      hintStyle: GoogleFonts.plusJakartaSans
+                      (
                         fontSize: 18,
                         color: const Color(0xFFB3B3B3),
                         fontWeight: FontWeight.w500,
                       ),
-                      focusedBorder: const UnderlineInputBorder(
+                      focusedBorder: const UnderlineInputBorder
+                      (
                         borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
                       ),
                     ),
@@ -696,13 +890,17 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                 ],
               ),
             ),
-            
-            Padding(
+            Padding
+            (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AnimatedActionButton(
+              child: Row
+              (
+                children: 
+                [
+                  Expanded
+                  (
+                    child: AnimatedActionButton
+                    (
                       text: _isSending ? 'INVIO IN CORSO...' : 'INVIA LINK',
                       icon: Icons.send_rounded,
                       baseColor: const Color(0xFF003C82),
@@ -710,11 +908,11 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                       onPressed: _isSending ? () {} : _handleSend,
                     ),
                   ),
-                  
                   const SizedBox(width: 16),
-                  
-                  Expanded(
-                    child: AnimatedActionButton(
+                  Expanded
+                  (
+                    child: AnimatedActionButton
+                    (
                       text: 'ANNULLA',
                       icon: Icons.cancel_outlined,
                       baseColor: const Color(0xFFE53935),

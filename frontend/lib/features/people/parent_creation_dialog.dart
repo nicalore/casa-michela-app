@@ -19,6 +19,9 @@ class ParentCreationDialog extends StatefulWidget
 
 class _ParentCreationDialogState extends State<ParentCreationDialog>
 {
+  int                 _currentStep          = 0;
+  bool                _movingForward        = true;
+  bool                _genitoreIsAssociato  = false;
   int                 _currentFormCardIndex = 0; 
   Map<String, String> _formErrors           = {};
   Uint8List?          _fotoProfilo;
@@ -41,6 +44,19 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
   final TextEditingController _emailCtrl          = TextEditingController();
   final TextEditingController _telefonoCtrl       = TextEditingController();
 
+  final List<WizardEnrollmentRowData> _enrollmentRows = [];
+
+  @override
+  void initState() 
+  {
+    super.initState();
+    final now = DateTime.now();
+    _enrollmentRows.add(WizardEnrollmentRowData(
+      yearCtrl: TextEditingController(text: now.year.toString()),
+      dateCtrl: TextEditingController(text: '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}'),
+    ));
+  }
+
   @override
   void dispose()
   {
@@ -58,6 +74,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     _capCtrl.dispose();
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
+    for (final row in _enrollmentRows) 
+    {
+      row.yearCtrl.dispose();
+      row.dateCtrl.dispose();
+    }
     super.dispose();
   }
 
@@ -81,6 +102,26 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     }
   }
 
+  bool _isValidDayMonthYear(String dm, String yearStr) 
+  {
+    try 
+    {
+      final parts = dm.split('/');
+      if (parts.length != 2) return false;
+      
+      final day   = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year  = int.parse(yearStr);
+      final date  = DateTime(year, month, day);
+      
+      return date.year == year && date.month == month && date.day == day;
+    } 
+    catch (_)
+    {
+      return false;
+    }
+  }
+
   String? _toIsoDate(String? itaDate) 
   {
     if (itaDate == null || itaDate.isEmpty) return null;
@@ -89,7 +130,6 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
-  //Comment Validates Italian Codice Fiscale format and check digit
   bool _isCodiceFiscaleValid(String cf) 
   {
     if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
@@ -122,7 +162,6 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     return cf[15] == checkDigit;
   }
 
-  //Comment Matches CF with Date of Birth and Gender
   bool _doesCfMatchData(String cf, String dateStr, String gender) 
   {
     if (cf.length != 16) return false;
@@ -304,12 +343,112 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     return isValid;
   }
 
+  bool _validateIscrizioni() 
+  {
+    bool                isValid   = true;
+    Map<String, String> newErrors = Map.from(_formErrors);
+    
+    if (_enrollmentRows.isEmpty)
+    {
+      newErrors['enrollmentGeneral'] = 'Aggiungi almeno un\'iscrizione';
+      isValid = false;
+    }
+
+    for (int i = 0; i < _enrollmentRows.length; i++) 
+    {
+      final row = _enrollmentRows[i];
+      bool yearValid = false;
+      
+      if (row.yearCtrl.text.trim().isEmpty) 
+      {
+        newErrors['enrollmentYear_$i'] = 'Campo obbligatorio';
+        isValid = false;
+      } 
+      else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) 
+      {
+        newErrors['enrollmentYear_$i'] = 'Anno non valido';
+        isValid = false;
+      }
+      else
+      {
+        int parsedYear = int.parse(row.yearCtrl.text.trim());
+        if (parsedYear > DateTime.now().year)
+        {
+          newErrors['enrollmentYear_$i'] = 'Anno non futuro';
+          isValid = false;
+        }
+        else
+        {
+          yearValid = true;
+        }
+      }
+      
+      if (row.dateCtrl.text.trim().isEmpty) 
+      {
+        newErrors['enrollmentDate_$i'] = 'Campo obbligatorio';
+        isValid = false;
+      } 
+      else if (yearValid && !_isValidDayMonthYear(row.dateCtrl.text.trim(), row.yearCtrl.text.trim())) 
+      {
+        newErrors['enrollmentDate_$i'] = 'Data non valida';
+        isValid = false;
+      }
+      else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim()))
+      {
+        newErrors['enrollmentDate_$i'] = 'Formato gg/mm';
+        isValid = false;
+      }
+    }
+    
+    setState(() 
+    {
+      _formErrors = newErrors;
+    });
+    
+    if (!isValid) 
+    {
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nelle iscrizioni inserite.', isError: true);
+    }
+    
+    return isValid;
+  }
+
   Future<void> _submitForm() async 
   {
     setState(() => _isSubmitting = true);
     
     try 
     {
+      final List<String> finalRoles = ['GENITORE'];
+      Map<String, dynamic>? memberData;
+
+      if (_genitoreIsAssociato) 
+      {
+        finalRoles.add('ASSOCIATO');
+        
+        List<Map<String, dynamic>> membershipsData = [];
+        for (final row in _enrollmentRows) 
+        {
+          final parts   = row.dateCtrl.text.trim().split('/');
+          final isoDate = '${row.yearCtrl.text.trim()}-${parts[1]}-${parts[0]}';
+          
+          membershipsData.add({
+            "year":                int.parse(row.yearCtrl.text.trim()),
+            "start_date":          isoDate,
+            "end_date":            "${row.yearCtrl.text.trim()}-12-31",
+            "renewal_period_days": 30,
+            "revocation":          "NO"
+          });
+        }
+        
+        if (membershipsData.isNotEmpty) 
+        {
+          memberData = {
+            "memberships": membershipsData
+          };
+        }
+      }
+
       final payload = {
         "general_data": {
           "first_name":              _nomeCtrl.text.trim(),
@@ -328,23 +467,19 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
           "email":                   _emailCtrl.text.trim(),
           "phone":                   _telefonoCtrl.text.replaceAll(' ', ''),
         },
-        "roles": ["GENITORE"],
+        "roles":       finalRoles,
+        "member_data": memberData,
         "relationships": {
           "minors_tax_codes":  [], 
           "parents_tax_codes": [], 
         }
       };
 
-      await ApiService().createPersonFromWizard(
-        payload, 
-        imageBytes: _fotoProfilo,
-      );
-
       final newParent = PersonItem(
         fiscalCode: _cfCtrl.text.trim().toUpperCase(),
         firstName:  _nomeCtrl.text.trim(),
         lastName:   _cognomeCtrl.text.trim(),
-        roles:      ['Genitore'],
+        roles:      finalRoles.map((r) => r.substring(0, 1).toUpperCase() + r.substring(1).toLowerCase()).toList(),
         createdAt:  DateTime.now(),
         city:       _cittaResidenzaCtrl.text.trim(),
         birthDate:  DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
@@ -352,7 +487,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
 
       if (mounted) 
       {
-        Navigator.of(context).pop(newParent);
+        Navigator.of(context).pop({'person': newParent, 'payload': payload, 'imageBytes': _fotoProfilo});
       }
     } 
     catch (e) 
@@ -373,6 +508,119 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  void _onNext() 
+  {
+    if (_currentStep == 0) 
+    {
+      setState(() 
+      { 
+        _movingForward = true; 
+        _currentStep   = 1; 
+      });
+      return;
+    }
+
+    if (_currentStep == 1) 
+    {
+      if (!_validateDatiGenerali()) return;
+      
+      if (_genitoreIsAssociato) 
+      {
+        setState(() 
+        { 
+          _movingForward = true; 
+          _currentStep   = 2; 
+        });
+      } 
+      else 
+      {
+        _submitForm();
+      }
+      return;
+    }
+
+    if (_currentStep == 2) 
+    {
+      if (!_validateIscrizioni()) return;
+      _submitForm();
+      return;
+    }
+  }
+
+  void _onBack() 
+  {
+    setState(() => _movingForward = false);
+    if (_currentStep == 2) setState(() => _currentStep = 1);
+    else if (_currentStep == 1) setState(() => _currentStep = 0);
+  }
+
+  Widget _buildStep0Association() 
+  {
+    return SizedBox(
+      key:   const ValueKey('step0_p'),
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Text(
+                  'Iscrizione all\'Associazione',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Il genitore non è obbligato a tesserarsi per iscrivere i figli.\nScegli "Sì" solo se paga la quota associativa per sé stesso.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing:    32,
+                  runSpacing: 32,
+                  alignment:  WrapAlignment.center,
+                  children: [
+                    WizardSelectionCard(
+                      title:      'Sì, è tesserato', 
+                      subtitle:   'Il genitore paga la quota associativa ed è ufficialmente un socio.', 
+                      icon:       Icons.card_membership_rounded, 
+                      isSelected: _genitoreIsAssociato == true, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = true),
+                    ),
+                    WizardSelectionCard(
+                      title:      'No, non è tesserato', 
+                      subtitle:   'Il genitore funge solo da responsabile legale per il minore.', 
+                      icon:       Icons.person_off_outlined, 
+                      isSelected: _genitoreIsAssociato == false, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildFormCardIdentita() 
@@ -591,27 +839,184 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
     );
   }
 
+  Widget _buildStep2Iscrizioni()
+  {
+    return SizedBox(
+      key:   const ValueKey('step2_p'),
+      width: double.infinity,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Text(
+                  'Iscrizioni Associative', 
+                  textAlign: TextAlign.center, 
+                  style:     GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Inserisci le iscrizioni all\'Associazione per il genitore.', 
+                  textAlign: TextAlign.center, 
+                  style:     GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: WizardFormSectionCard(
+                    title:       'Iscrizioni',
+                    leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
+                    children: [
+                      ...List.generate(_enrollmentRows.length, (index) 
+                      {
+                        final row = _enrollmentRows[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex:  2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0) ...[
+                                      Text(
+                                        'Anno',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize:   14, 
+                                          fontWeight: FontWeight.w600, 
+                                          color:      const Color(0xFF7A7A7A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    WizardAnimatedTextField(
+                                      controller:   row.yearCtrl, 
+                                      hint:         'Es. 2024', 
+                                      keyboardType: TextInputType.number,
+                                      errorText:    _formErrors['enrollmentYear_$index'],
+                                      onChanged:    (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex:  3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index == 0) ...[
+                                      Text(
+                                        'Data inizio',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize:   14, 
+                                          fontWeight: FontWeight.w600, 
+                                          color:      const Color(0xFF7A7A7A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                    WizardAnimatedTextField(
+                                      controller:      row.dateCtrl, 
+                                      hint:            'gg/mm', 
+                                      keyboardType:    TextInputType.number,
+                                      inputFormatters: [WizardDayMonthInputFormatter()],
+                                      errorText:       _formErrors['enrollmentDate_$index'],
+                                      onChanged:       (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (index > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6, left: 8),
+                                  child: WizardRemoveRowButton(
+                                    onTap: () 
+                                    {
+                                      setState(() 
+                                      {
+                                        _enrollmentRows[index].yearCtrl.dispose();
+                                        _enrollmentRows[index].dateCtrl.dispose();
+                                        _enrollmentRows.removeAt(index);
+                                        _formErrors.remove('enrollmentYear_$index');
+                                        _formErrors.remove('enrollmentDate_$index');
+                                      });
+                                    },
+                                  ),
+                                )
+                              else
+                                const SizedBox(width: 48), 
+                            ],
+                          ),
+                        );
+                      }),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: WizardTextLinkButton(
+                          text:  'AGGIUNGI ISCRIZIONE',
+                          icon:  Icons.add_rounded,
+                          onTap: () 
+                          {
+                            int lastYear = DateTime.now().year;
+                            if (_enrollmentRows.isNotEmpty) 
+                            {
+                              lastYear = int.tryParse(_enrollmentRows.last.yearCtrl.text) ?? lastYear;
+                            }
+                            setState(() 
+                            {
+                              _enrollmentRows.add(WizardEnrollmentRowData(
+                                yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
+                                dateCtrl: TextEditingController(),
+                              ));
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    Widget currentCard;
-    switch (_currentFormCardIndex)
+    Widget currentCard = const SizedBox.shrink();
+    if (_currentStep == 1) 
     {
-      case 0:
-        currentCard = _buildFormCardIdentita();
-        break;
-      case 1:
-        currentCard = _buildFormCardAnagrafica();
-        break;
-      case 2:
-        currentCard = _buildFormCardResidenza();
-        break;
-      case 3:
-        currentCard = _buildFormCardContatti();
-        break;
-      default:
-        currentCard = const SizedBox.shrink();
+      switch (_currentFormCardIndex)
+      {
+        case 0:
+          currentCard = _buildFormCardIdentita();
+          break;
+        case 1:
+          currentCard = _buildFormCardAnagrafica();
+          break;
+        case 2:
+          currentCard = _buildFormCardResidenza();
+          break;
+        case 3:
+          currentCard = _buildFormCardContatti();
+          break;
+      }
     }
+
+    final bool isLastStep = _currentStep == 2 || (_currentStep == 1 && !_genitoreIsAssociato);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -688,72 +1093,95 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Informazioni Personali Genitore', 
-                                  textAlign: TextAlign.center, 
-                                  style:     GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Compila i dati del genitore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', 
-                                  textAlign: TextAlign.center, 
-                                  style:     GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))
-                                ),
-                              ],
+                      child: AnimatedSwitcher(
+                        duration:       const Duration(milliseconds: 300),
+                        switchInCurve:  Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                        transitionBuilder: (child, animation) 
+                        {
+                          final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_p';
+                          Offset beginOffset = _movingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                          
+                          return FadeTransition(
+                            opacity: animation, 
+                            child:   SlideTransition(
+                              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                              child:    child
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment:  MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                WizardCarouselArrowButton(
-                                  icon:       Icons.chevron_left_rounded, 
-                                  isDisabled: _currentFormCardIndex == 0, 
-                                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
-                                ),
-                                const SizedBox(width: 32),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 800),
-                                  child: AnimatedSwitcher(
-                                    duration:       const Duration(milliseconds: 300),
-                                    switchInCurve:  Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
-                                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                                    transitionBuilder: (child, animation) 
-                                    {
-                                      final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                                      Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                                      
-                                      return FadeTransition(
-                                        opacity: animation, 
-                                        child:   SlideTransition(
-                                          position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-                                          child:    child
-                                        ),
-                                      );
-                                    },
-                                    child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
-                                  ),
-                                ),
-                                const SizedBox(width: 32),
-                                WizardCarouselArrowButton(
-                                  icon:       Icons.chevron_right_rounded, 
-                                  isDisabled: _currentFormCardIndex == 3, 
-                                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                          );
+                        },
+                        child: _currentStep == 0 ? _buildStep0Association() :
+                               _currentStep == 1 ? SizedBox(
+                                 key: const ValueKey('step1_p'),
+                                 child: Column(
+                                   mainAxisAlignment: MainAxisAlignment.center,
+                                   children: [
+                                     Padding(
+                                       padding: const EdgeInsets.symmetric(vertical: 16),
+                                       child: Column(
+                                         children: [
+                                           Text(
+                                             'Informazioni Personali Genitore', 
+                                             textAlign: TextAlign.center, 
+                                             style:     GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))
+                                           ),
+                                           const SizedBox(height: 8),
+                                           Text(
+                                             'Compila i dati del genitore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', 
+                                             textAlign: TextAlign.center, 
+                                             style:     GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))
+                                           ),
+                                         ],
+                                       ),
+                                     ),
+                                     const SizedBox(height: 16),
+                                     Expanded(
+                                       child: Row(
+                                         mainAxisAlignment:  MainAxisAlignment.center,
+                                         crossAxisAlignment: CrossAxisAlignment.center,
+                                         children: [
+                                           WizardCarouselArrowButton(
+                                             icon:       Icons.chevron_left_rounded, 
+                                             isDisabled: _currentFormCardIndex == 0, 
+                                             onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
+                                           ),
+                                           const SizedBox(width: 32),
+                                           ConstrainedBox(
+                                             constraints: const BoxConstraints(maxWidth: 800),
+                                             child: AnimatedSwitcher(
+                                               duration:       const Duration(milliseconds: 300),
+                                               switchInCurve:  Curves.easeOutCubic,
+                                               switchOutCurve: Curves.easeInCubic,
+                                               layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                                               transitionBuilder: (child, animation) 
+                                               {
+                                                 final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                                                 Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                                                 
+                                                 return FadeTransition(
+                                                   opacity: animation, 
+                                                   child:   SlideTransition(
+                                                     position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                                                     child:    child
+                                                   ),
+                                                 );
+                                               },
+                                               child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                                             ),
+                                           ),
+                                           const SizedBox(width: 32),
+                                           WizardCarouselArrowButton(
+                                             icon:       Icons.chevron_right_rounded, 
+                                             isDisabled: _currentFormCardIndex == 3, 
+                                             onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
+                                           ),
+                                         ],
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                               ) : _buildStep2Iscrizioni(),
                       ),
                     ),
                   ),
@@ -762,31 +1190,35 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        SizedBox(
-                          width: 200,
-                          child: WizardAnimatedActionButton(
-                            text:       'ANNULLA', 
-                            icon:       Icons.close_rounded, 
-                            baseColor:  const Color(0xFFE53935), 
-                            hoverColor: const Color(0xFFEF5350), 
-                            onPressed:  () => Navigator.of(context).pop()
+                        if (_currentStep == 0)
+                          SizedBox(
+                            width: 200,
+                            child: WizardAnimatedActionButton(
+                              text:       'ANNULLA', 
+                              icon:       Icons.close_rounded, 
+                              baseColor:  const Color(0xFFE53935), 
+                              hoverColor: const Color(0xFFEF5350), 
+                              onPressed:  () => Navigator.of(context).pop()
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            width: 200,
+                            child: WizardOutlinedActionButton(
+                              text:      'INDIETRO', 
+                              icon:      Icons.arrow_back_rounded, 
+                              onPressed: _onBack,
+                            ),
                           ),
-                        ),
                         const SizedBox(width: 24),
                         SizedBox(
                           width: 200,
                           child: WizardAnimatedActionButton(
-                            text:       _isSubmitting ? 'SALVATAGGIO...' : 'CREA GENITORE', 
-                            icon:       Icons.check_circle_outline, 
+                            text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA GENITORE' : 'AVANTI'), 
+                            icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
                             baseColor:  const Color(0xFF003C82), 
                             hoverColor: const Color(0xFF004D99), 
-                            onPressed:  _isSubmitting ? () {} : ()
-                            {
-                              if (_validateDatiGenerali())
-                              {
-                                _submitForm();
-                              }
-                            }
+                            onPressed:  _isSubmitting ? () {} : _onNext,
                           ),
                         ),
                       ],

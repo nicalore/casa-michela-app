@@ -15,7 +15,8 @@ class PersonMembershipsTab extends StatelessWidget
   final PersonItem   person;
   final VoidCallback onUpdate;
 
-  const PersonMembershipsTab({
+  const PersonMembershipsTab
+  ({
     super.key,
     required this.person,
     required this.onUpdate,
@@ -23,7 +24,8 @@ class PersonMembershipsTab extends StatelessWidget
 
   void _showEditDialog(BuildContext context) 
   {
-    showGeneralDialog(
+    showGeneralDialog
+    (
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'EditMemberships', 
@@ -33,13 +35,25 @@ class PersonMembershipsTab extends StatelessWidget
       transitionBuilder:  (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
+          child: FadeTransition
+          (
             opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _EditMembershipsDialog(person: person, onUpdate: onUpdate),
+            child: ScaleTransition
+            (
+              scale: CurvedAnimation
+              (
+                parent:       animation, 
+                curve:        Curves.easeOutBack, 
+                reverseCurve: Curves.easeIn,
+              ),
+              child: _EditMembershipsDialog
+              (
+                person:   person, 
+                onUpdate: onUpdate,
+              ),
             ),
           ),
         );
@@ -49,7 +63,8 @@ class PersonMembershipsTab extends StatelessWidget
 
   void _showRevokeDialog(BuildContext context) 
   {
-    showGeneralDialog(
+    showGeneralDialog
+    (
       context:            context,
       barrierDismissible: true,
       barrierLabel:       'RevokeMembership',
@@ -59,13 +74,25 @@ class PersonMembershipsTab extends StatelessWidget
       transitionBuilder:  (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
+          child: FadeTransition
+          (
             opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _RevokeMembershipDialog(person: person, onUpdate: onUpdate),
+            child: ScaleTransition
+            (
+              scale: CurvedAnimation
+              (
+                parent:       animation, 
+                curve:        Curves.easeOutBack, 
+                reverseCurve: Curves.easeIn,
+              ),
+              child: _RevokeMembershipDialog
+              (
+                person:   person, 
+                onUpdate: onUpdate,
+              ),
             ),
           ),
         );
@@ -103,17 +130,24 @@ class PersonMembershipsTab extends StatelessWidget
     final bool isFemale = person.gender == 'F';
     final bool isActive = isEnrolled ? (person.isActiveCollaborator ?? false) : false;
 
-    return SingleChildScrollView(
+    return SingleChildScrollView
+    (
       padding: const EdgeInsets.only(bottom: 40),
-      child: Column(
+      child: Column
+      (
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: 
+        [
           _buildStatusCard(isEnrolled, isFemale, isActive),
           const SizedBox(height: 48),
-          if (currentMembership != null) ...[
-            Text(
+          
+          if (currentMembership != null) ...
+          [
+            Text
+            (
               'Iscrizione attuale',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.plusJakartaSans
+              (
                 fontSize:   24,
                 fontWeight: FontWeight.w700,
                 color:      const Color(0xFF003C82),
@@ -123,26 +157,36 @@ class PersonMembershipsTab extends StatelessWidget
             _buildMembershipCard(currentMembership, isCurrent: true),
             const SizedBox(height: 32),
           ],
-          if (pastMemberships.isNotEmpty) ...[
-            Text(
+          
+          if (pastMemberships.isNotEmpty) ...
+          [
+            Text
+            (
               'Iscrizioni passate',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.plusJakartaSans
+              (
                 fontSize:   24,
                 fontWeight: FontWeight.w700,
                 color:      const Color(0xFF003C82),
               ),
             ),
             const SizedBox(height: 16),
-            ...pastMemberships.map((m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child:   _buildMembershipCard(m, isCurrent: false),
-                )),
+            ...pastMemberships.map((m) => Padding
+            (
+              padding: const EdgeInsets.only(bottom: 16),
+              child:   _buildMembershipCard(m, isCurrent: false),
+            )),
           ],
-          if (currentMembership == null && pastMemberships.isEmpty) ...[
-            Center(
-              child: Text(
+          
+          if (currentMembership == null && pastMemberships.isEmpty) ...
+          [
+            Center
+            (
+              child: Text
+              (
                 'Nessuna iscrizione registrata.',
-                style: GoogleFonts.plusJakartaSans(
+                style: GoogleFonts.plusJakartaSans
+                (
                   fontSize:   16,
                   fontWeight: FontWeight.w500,
                   color:      const Color(0xFF64748B),
@@ -150,15 +194,22 @@ class PersonMembershipsTab extends StatelessWidget
               ),
             ),
           ],
-          if (!isRevoked && latest != null) ...[
+          
+          if (!isRevoked && latest != null) ...
+          [
             const SizedBox(height: 40),
-            Center(
-              child: Row(
+            Center
+            (
+              child: Row
+              (
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
+                children: 
+                [
+                  SizedBox
+                  (
                     width: 240,
-                    child: AnimatedActionButton(
+                    child: AnimatedActionButton
+                    (
                       text:       'MODIFICA ISCRIZIONI',
                       icon:       Icons.edit_rounded,
                       baseColor:  const Color(0xFF003C82),
@@ -167,9 +218,11 @@ class PersonMembershipsTab extends StatelessWidget
                     ),
                   ),
                   const SizedBox(width: 24),
-                  SizedBox(
+                  SizedBox
+                  (
                     width: 240,
-                    child: AnimatedActionButton(
+                    child: AnimatedActionButton
+                    (
                       text:       'REVOCA ISCRIZIONE',
                       icon:       Icons.gavel_rounded,
                       baseColor:  const Color(0xFFE53935),
@@ -198,75 +251,98 @@ class PersonMembershipsTab extends StatelessWidget
 
     final Color iconColor = isEnrolled ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
 
-    return Center(
-      child: Container(
-        width:       double.infinity,
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding:     const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        decoration:  BoxDecoration(
-          color:        Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border:       Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow:    const [
-            BoxShadow(
-              color:      Color(0x0A000000),
-              offset:     Offset(0, 4),
-              blurRadius: 16,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize:       MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                  color: iconColor,
-                  size:  32,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  statusText,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   24,
-                    fontWeight: FontWeight.w800,
-                    color:      const Color(0xFF2A2A2A),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color:        const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(100),
-                border:       Border.all(color: const Color(0xFFE2E8F0)),
+    //IsolateSelectionToCardBody
+    return Center
+    (
+      child: SelectionArea
+      (
+        child: Container
+        (
+          width:       double.infinity,
+          constraints: const BoxConstraints(maxWidth: 500),
+          padding:     const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          decoration:  BoxDecoration
+          (
+            color:        Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border:       Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow:    const 
+            [
+              BoxShadow
+              (
+                color:      Color(0x0A000000),
+                offset:     Offset(0, 4),
+                blurRadius: 16,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isActiveCollaborator ? Icons.handshake_outlined : Icons.work_off_rounded,
-                    color: isActiveCollaborator ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
-                    size:  18,
+            ],
+          ),
+          child: Column
+          (
+            mainAxisSize:       MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: 
+            [
+              Row
+              (
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: 
+                [
+                  Icon
+                  (
+                    isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                    color: iconColor,
+                    size:  32,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    collabText,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize:   14,
-                      fontWeight: FontWeight.w700,
-                      color:      isActiveCollaborator ? const Color(0xFF003C82) : const Color(0xFF64748B),
+                  const SizedBox(width: 12),
+                  Text
+                  (
+                    statusText,
+                    style: GoogleFonts.plusJakartaSans
+                    (
+                      fontSize:   24,
+                      fontWeight: FontWeight.w800,
+                      color:      const Color(0xFF2A2A2A),
                     ),
                   ),
                 ],
               ),
-            )
-          ],
+              const SizedBox(height: 16),
+              Container
+              (
+                padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration
+                (
+                  color:        const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(100),
+                  border:       Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row
+                (
+                  mainAxisSize: MainAxisSize.min,
+                  children: 
+                  [
+                    Icon
+                    (
+                      isActiveCollaborator ? Icons.handshake_outlined : Icons.work_off_rounded,
+                      color: isActiveCollaborator ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
+                      size:  18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text
+                    (
+                      collabText,
+                      style: GoogleFonts.plusJakartaSans
+                      (
+                        fontSize:   14,
+                        fontWeight: FontWeight.w700,
+                        color:      isActiveCollaborator ? const Color(0xFF003C82) : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -277,68 +353,89 @@ class PersonMembershipsTab extends StatelessWidget
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
     final DateTime   deadline   = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
     
-    return Container(
-      width:      double.infinity,
-      padding:    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
-        color:        Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border:       Border.all(
-          color: const Color(0xFF003C82).withValues(alpha: 0.3),
-          width: 2.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            'Anno ${membership.year}',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   24,
-              fontWeight: FontWeight.w800,
-              color:      const Color(0xFF334155),
-            ),
-            textAlign: TextAlign.center,
+    //IsolateSelectionToCardBody
+    return SelectionArea
+    (
+      child: Container
+      (
+        width:      double.infinity,
+        padding:    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration
+        (
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border:       Border.all
+          (
+            color: const Color(0xFF003C82).withValues(alpha: 0.3),
+            width: 2.0,
           ),
-          if (membership.revocation != 'NO') ...[
-            const SizedBox(height: 8),
-            Text(
-              membership.revocation == 'EXPULSION' ? 'Iscrizione revocata (Espulsione)' : 'Iscrizione revocata (Dimissioni)',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize:   15,
-                fontWeight: FontWeight.w600,
-                color:      const Color(0xFFE53935),
+        ),
+        child: Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: 
+          [
+            Text
+            (
+              'Anno ${membership.year}',
+              style: GoogleFonts.plusJakartaSans
+              (
+                fontSize:   24,
+                fontWeight: FontWeight.w800,
+                color:      const Color(0xFF334155),
               ),
               textAlign: TextAlign.center,
             ),
-          ],
-          const SizedBox(height: 32),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildDateItem('Data inizio', dateFormat.format(membership.startDate)),
-              _buildDateItem('Data fine', dateFormat.format(membership.endDate)),
-              if (isCurrent)
-                _buildDateItem(
-                  'Rinnovo entro', 
-                  membership.revocation == 'NO' ? dateFormat.format(deadline) : '-', 
-                  highlight: false,
+            if (membership.revocation != 'NO') ...
+            [
+              const SizedBox(height: 8),
+              Text
+              (
+                membership.revocation == 'EXPULSION' ? 'Iscrizione revocata (Espulsione)' : 'Iscrizione revocata (Dimissioni)',
+                style: GoogleFonts.plusJakartaSans
+                (
+                  fontSize:   15,
+                  fontWeight: FontWeight.w600,
+                  color:      const Color(0xFFE53935),
                 ),
+                textAlign: TextAlign.center,
+              ),
             ],
-          ),
-        ],
+            const SizedBox(height: 32),
+            Row
+            (
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: 
+              [
+                _buildDateItem('Data inizio', dateFormat.format(membership.startDate)),
+                _buildDateItem('Data fine', dateFormat.format(membership.endDate)),
+                if (isCurrent)
+                  _buildDateItem
+                  (
+                    'Rinnovo entro', 
+                    membership.revocation == 'NO' ? dateFormat.format(deadline) : '-', 
+                    highlight: false,
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildDateItem(String label, String value, {bool highlight = false})
   {
-    return Column(
+    return Column
+    (
       mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
+      children: 
+      [
+        Text
+        (
           label,
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.plusJakartaSans
+          (
             fontSize:   14,
             fontWeight: FontWeight.w600,
             color:      const Color(0xFF94A3B8),
@@ -346,9 +443,11 @@ class PersonMembershipsTab extends StatelessWidget
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        Text(
+        Text
+        (
           value,
-          style: GoogleFonts.plusJakartaSans(
+          style: GoogleFonts.plusJakartaSans
+          (
             fontSize:   18,
             fontWeight: FontWeight.w700,
             color:      highlight ? const Color(0xFF003C82) : const Color(0xFF334155),
@@ -365,7 +464,11 @@ class _RevokeMembershipDialog extends StatefulWidget
   final PersonItem   person;
   final VoidCallback onUpdate;
 
-  const _RevokeMembershipDialog({required this.person, required this.onUpdate});
+  const _RevokeMembershipDialog
+  ({
+    required this.person, 
+    required this.onUpdate,
+  });
 
   @override
   State<_RevokeMembershipDialog> createState() => _RevokeMembershipDialogState();
@@ -389,7 +492,12 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
       
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: 'Iscrizione revocata con successo.', isError: false);
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: 'Iscrizione revocata con successo.', 
+          isError: false,
+        );
         Navigator.of(context).pop();
         widget.onUpdate();
       }
@@ -398,51 +506,71 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
     {
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
       }
     } 
     finally 
     {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) 
+      {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) 
   {
-    return Dialog(
+    return Dialog
+    (
       backgroundColor: Colors.transparent,
       elevation:       0,
-      child: Container(
+      child: Container
+      (
         width:       540,
         padding:     const EdgeInsets.all(32),
-        decoration:  BoxDecoration(
+        decoration:  BoxDecoration
+        (
           color:        Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow:    const [
-            BoxShadow(
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
               color:      Color(0x1A000000),
               offset:     Offset(0, 8),
               blurRadius: 24,
             ),
           ],
         ),
-        child: Column(
+        child: Column
+        (
           mainAxisSize:       MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          children: 
+          [
+            Row
+            (
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
+              children: 
+              [
+                Text
+                (
                   'Revoca Iscrizione',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: GoogleFonts.plusJakartaSans
+                  (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
                     color:      const Color(0xFFE53935),
                   ),
                 ),
-                FadeHoverIconButton(
+                FadeHoverIconButton
+                (
                   icon:       Icons.close,
                   color:      const Color(0xFF003C82),
                   hoverColor: const Color(0xFFE3F2FD),
@@ -451,21 +579,28 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               ],
             ),
             const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            Container(
+            Container
+            (
               padding:    const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: BoxDecoration
+              (
                 color:        const Color(0xFFE53935).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border:       Border.all(color: const Color(0xFFE53935).withValues(alpha: 0.3)),
               ),
-              child: Row(
-                children: [
+              child: Row
+              (
+                children: 
+                [
                   const Icon(Icons.warning_rounded, color: Color(0xFFE53935), size: 28),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
+                  Expanded
+                  (
+                    child: Text
+                    (
                       'ATTENZIONE: Questa operazione è totalmente irreversibile. L\'iscrizione terminerà in data odierna e lo stato di collaborazione verrà disattivato.',
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.plusJakartaSans
+                      (
                         fontSize:   14,
                         fontWeight: FontWeight.w600,
                         color:      const Color(0xFFE53935),
@@ -477,25 +612,32 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               ),
             ),
             const SizedBox(height: 24),
-            Text(
+            Text
+            (
               'Seleziona la motivazione della revoca:',
-              style: GoogleFonts.plusJakartaSans(
+              style: GoogleFonts.plusJakartaSans
+              (
                 fontSize:   14,
                 fontWeight: FontWeight.w700,
                 color:      const Color(0xFF003C82),
               ),
             ),
             const SizedBox(height: 12),
-            _FormOverlayDropdown(
+            _FormOverlayDropdown
+            (
               value:      _selectedType,
               options:    const ['Dimissioni', 'Espulsione'],
               onSelected: (val) => setState(() => _selectedType = val),
             ),
             const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: AnimatedActionButton(
+            Row
+            (
+              children: 
+              [
+                Expanded
+                (
+                  child: AnimatedActionButton
+                  (
                     text:       'ANNULLA',
                     icon:       Icons.cancel_outlined,
                     baseColor:  const Color(0xFF64748B),
@@ -504,8 +646,10 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: AnimatedActionButton(
+                Expanded
+                (
+                  child: AnimatedActionButton
+                  (
                     text:       _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
                     icon:       Icons.gavel_rounded,
                     baseColor:  const Color(0xFFE53935),
@@ -527,7 +671,11 @@ class _EditMembershipsDialog extends StatefulWidget
   final PersonItem   person;
   final VoidCallback onUpdate;
 
-  const _EditMembershipsDialog({required this.person, required this.onUpdate});
+  const _EditMembershipsDialog
+  ({
+    required this.person, 
+    required this.onUpdate,
+  });
 
   @override
   State<_EditMembershipsDialog> createState() => _EditMembershipsDialogState();
@@ -536,11 +684,11 @@ class _EditMembershipsDialog extends StatefulWidget
 class _EditMembershipsDialogState extends State<_EditMembershipsDialog> 
 {
   final ApiService _apiService = ApiService();
-  bool _isSaving = false;
+  bool             _isSaving   = false;
   
-  late bool _isActiveCollaborator;
+  late bool           _isActiveCollaborator;
   final List<_MembershipRowData> _rows = [];
-  final Map<String, String> _errors = {};
+  final Map<String, String>      _errors = {};
 
   @override
   void initState() 
@@ -553,7 +701,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     
     for (var m in members) 
     {
-      _rows.add(_MembershipRowData(
+      _rows.add(_MembershipRowData
+      (
         yearCtrl:   TextEditingController(text: m.year.toString()),
         dateCtrl:   TextEditingController(text: dateFormat.format(m.startDate)),
         revocation: m.revocation,
@@ -591,14 +740,18 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       for (var r in _rows)
       {
         int y = int.tryParse(r.yearCtrl.text) ?? 0;
-        if (y > maxYear) maxYear = y;
+        if (y > maxYear) 
+        {
+          maxYear = y;
+        }
       }
       lastYear = maxYear > 0 ? maxYear : lastYear;
     }
     
     setState(() 
     {
-      _rows.add(_MembershipRowData(
+      _rows.add(_MembershipRowData
+      (
         yearCtrl:   TextEditingController(text: (lastYear - 1).toString()),
         dateCtrl:   TextEditingController(),
         revocation: 'NO',
@@ -611,7 +764,10 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     try 
     {
       final parts = dm.split('/');
-      if (parts.length != 2) return false;
+      if (parts.length != 2) 
+      {
+        return false;
+      }
       
       final day   = int.parse(parts[0]);
       final month = int.parse(parts[1]);
@@ -632,17 +788,17 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     bool hasErrors = false;
     
     List<Map<String, dynamic>> payloadMemberships = [];
-    final Set<int> distinctYears = {};
+    final Set<int>             distinctYears      = {};
 
     for (int i = 0; i < _rows.length; i++) 
     {
-      final r = _rows[i];
-      bool yearValid = false;
+      final r         = _rows[i];
+      bool  yearValid = false;
 
       if (r.yearCtrl.text.isEmpty || !RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text)) 
       {
         _errors['year_$i'] = 'Anno non valido';
-        hasErrors = true;
+        hasErrors          = true;
       }
       else
       {
@@ -662,17 +818,17 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       if (r.dateCtrl.text.isEmpty)
       {
         _errors['start_$i'] = 'Campo obbligatorio';
-        hasErrors = true;
+        hasErrors           = true;
       }
       else if (yearValid && !_isValidDayMonthYear(r.dateCtrl.text.trim(), r.yearCtrl.text.trim())) 
       {
         _errors['start_$i'] = 'Data non valida';
-        hasErrors = true;
+        hasErrors           = true;
       }
       else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(r.dateCtrl.text.trim()))
       {
         _errors['start_$i'] = 'Formato gg/mm';
-        hasErrors = true;
+        hasErrors           = true;
       }
 
       if (!hasErrors) 
@@ -681,7 +837,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
         final isoStart   = '${r.yearCtrl.text}-${partsStart[1]}-${partsStart[0]}';
         final isoEnd     = '${r.yearCtrl.text}-12-31';
 
-        payloadMemberships.add({
+        payloadMemberships.add
+        ({
           "year":                int.parse(r.yearCtrl.text),
           "start_date":          isoStart,
           "end_date":            isoEnd,
@@ -693,7 +850,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
     if (_rows.isEmpty) 
     {
-      CustomSnackBar.show(
+      CustomSnackBar.show
+      (
         context: context, 
         message: 'Deve esserci almeno un\'iscrizione.', 
         isError: true,
@@ -704,7 +862,12 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     if (hasErrors) 
     {
       setState(() {});
-      CustomSnackBar.show(context: context, message: 'Correggi gli errori prima di salvare.', isError: true);
+      CustomSnackBar.show
+      (
+        context: context, 
+        message: 'Correggi gli errori prima di salvare.', 
+        isError: true,
+      );
       return;
     }
 
@@ -731,7 +894,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
     if (_isActiveCollaborator && !isEnrolled) 
     {
-      CustomSnackBar.show(
+      CustomSnackBar.show
+      (
         context: context, 
         message: 'Impossibile impostare "Collaboratore attivo" senza un\'iscrizione in corso.', 
         isError: true,
@@ -742,7 +906,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     setState(() => _isSaving = true);
     try 
     {
-      await _apiService.updatePersonMemberships(
+      await _apiService.updatePersonMemberships
+      (
         widget.person.fiscalCode,
         _isActiveCollaborator,
         payloadMemberships,
@@ -750,7 +915,12 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: 'Iscrizioni aggiornate con successo!', isError: false);
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: 'Iscrizioni aggiornate con successo!', 
+          isError: false,
+        );
         Navigator.of(context).pop();
         widget.onUpdate();
       }
@@ -759,22 +929,33 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     {
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
       }
     } 
     finally 
     {
-      if (mounted) setState(() => _isSaving = false);
+      if (mounted) 
+      {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   Widget _buildFieldLabel(String text) 
   {
-    return Padding(
+    return Padding
+    (
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
+      child: Text
+      (
         text,
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.plusJakartaSans
+        (
           fontSize:   14,
           fontWeight: FontWeight.w700,
           color:      const Color(0xFF003C82),
@@ -786,40 +967,53 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
   @override
   Widget build(BuildContext context) 
   {
-    return Dialog(
+    return Dialog
+    (
       backgroundColor: Colors.transparent, 
       elevation:       0,
-      child: Container(
+      child: Container
+      (
         width:       680, 
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration:  BoxDecoration(
+        decoration:  BoxDecoration
+        (
           color:        Colors.white, 
           borderRadius: BorderRadius.circular(30), 
-          boxShadow:    const [
-            BoxShadow(
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
               color:      Color(0x1A000000), 
               offset:     Offset(0, 8), 
               blurRadius: 24,
             ),
           ],
         ),
-        child: Column(
+        child: Column
+        (
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
+          children: 
+          [
+            Padding
+            (
               padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
+              child: Row
+              (
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
+                children: 
+                [
+                  Text
+                  (
                     'Modifica Iscrizioni', 
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.plusJakartaSans
+                    (
                       fontSize:   22, 
                       fontWeight: FontWeight.w700, 
                       color:      const Color(0xFF003C82),
                     ),
                   ),
-                  FadeHoverIconButton(
+                  FadeHoverIconButton
+                  (
                     icon:       Icons.close, 
                     color:      const Color(0xFF003C82), 
                     hoverColor: const Color(0xFFE3F2FD), 
@@ -829,16 +1023,22 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
               ),
             ),
             const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            Flexible(
-              child: SingleChildScrollView(
+            Flexible
+            (
+              child: SingleChildScrollView
+              (
                 padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                child: SizedBox(
+                child: SizedBox
+                (
                   width: double.infinity,
-                  child: Column(
+                  child: Column
+                  (
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children: 
+                    [
                       _buildFieldLabel('Collaboratore attivo'),
-                      _FormOverlayDropdown(
+                      _FormOverlayDropdown
+                      (
                         value:      _isActiveCollaborator ? 'Sì' : 'No',
                         options:    const ['Sì', 'No'],
                         onSelected: (val) => setState(() => _isActiveCollaborator = (val == 'Sì')),
@@ -848,25 +1048,42 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                       ...List.generate(_rows.length, (i) 
                       {
                         final r = _rows[i];
-                        return Container(
+                        return Container
+                        (
                           margin:     const EdgeInsets.only(bottom: 16),
                           padding:    const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
+                          decoration: BoxDecoration
+                          (
                             borderRadius: BorderRadius.circular(16),
                             border:       Border.all(color: const Color(0xFFE2E8F0)),
                             color:        const Color(0xFFF8FAFC),
                           ),
-                          child: Row(
+                          child: Row
+                          (
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
+                            children: 
+                            [
+                              Expanded
+                              (
                                 flex: 2,
-                                child: Column(
+                                child: Column
+                                (
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Anno', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                  children: 
+                                  [
+                                    Text
+                                    (
+                                      'Anno', 
+                                      style: GoogleFonts.plusJakartaSans
+                                      (
+                                        fontSize:   12, 
+                                        fontWeight: FontWeight.w600, 
+                                        color:      const Color(0xFF64748B),
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
-                                    WizardAnimatedTextField(
+                                    WizardAnimatedTextField
+                                    (
                                       controller:   r.yearCtrl,
                                       hint:         'Es. 2024',
                                       errorText:    _errors['year_$i'],
@@ -877,14 +1094,27 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              Expanded(
+                              Expanded
+                              (
                                 flex: 3,
-                                child: Column(
+                                child: Column
+                                (
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Data inizio', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                                  children: 
+                                  [
+                                    Text
+                                    (
+                                      'Data inizio', 
+                                      style: GoogleFonts.plusJakartaSans
+                                      (
+                                        fontSize:   12, 
+                                        fontWeight: FontWeight.w600, 
+                                        color:      const Color(0xFF64748B),
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
-                                    WizardAnimatedTextField(
+                                    WizardAnimatedTextField
+                                    (
                                       controller:      r.dateCtrl,
                                       hint:            'gg/mm',
                                       errorText:       _errors['start_$i'],
@@ -895,9 +1125,11 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                                   ],
                                 ),
                               ),
-                              Padding(
+                              Padding
+                              (
                                 padding: const EdgeInsets.only(top: 22, left: 8),
-                                child: WizardRemoveRowButton(
+                                child: WizardRemoveRowButton
+                                (
                                   onTap: () => setState(() => _rows.removeAt(i)),
                                 ),
                               ),
@@ -906,9 +1138,11 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                         );
                       }),
                       const SizedBox(height: 8),
-                      Align(
+                      Align
+                      (
                         alignment: Alignment.centerRight,
-                        child: WizardTextLinkButton(
+                        child: WizardTextLinkButton
+                        (
                           text:  'AGGIUNGI ISCRIZIONE',
                           icon:  Icons.add_rounded,
                           onTap: _addEmptyRow,
@@ -919,12 +1153,17 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                 ),
               ),
             ),
-            Padding(
+            Padding
+            (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AnimatedActionButton(
+              child: Row
+              (
+                children: 
+                [
+                  Expanded
+                  (
+                    child: AnimatedActionButton
+                    (
                       text:       'ANNULLA', 
                       icon:       Icons.cancel_outlined, 
                       baseColor:  const Color(0xFFE53935), 
@@ -933,8 +1172,10 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: AnimatedActionButton(
+                  Expanded
+                  (
+                    child: AnimatedActionButton
+                    (
                       text:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
                       icon:       Icons.save_outlined, 
                       baseColor:  const Color(0xFF003C82), 
@@ -956,9 +1197,10 @@ class _MembershipRowData
 {
   final TextEditingController yearCtrl;
   final TextEditingController dateCtrl;
-  String revocation;
+  String                      revocation;
 
-  _MembershipRowData({
+  _MembershipRowData
+  ({
     required this.yearCtrl,
     required this.dateCtrl,
     required this.revocation,
@@ -967,11 +1209,16 @@ class _MembershipRowData
 
 class _FormOverlayDropdown extends StatefulWidget 
 {
-  final String value;
-  final List<String> options;
+  final String               value;
+  final List<String>         options;
   final ValueChanged<String> onSelected;
 
-  const _FormOverlayDropdown({required this.value, required this.options, required this.onSelected});
+  const _FormOverlayDropdown
+  ({
+    required this.value, 
+    required this.options, 
+    required this.onSelected,
+  });
 
   @override
   State<_FormOverlayDropdown> createState() => _FormOverlayDropdownState();
@@ -979,31 +1226,52 @@ class _FormOverlayDropdown extends StatefulWidget
 
 class _FormOverlayDropdownState extends State<_FormOverlayDropdown> 
 {
-  final GlobalKey _buttonKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
+  final GlobalKey                         _buttonKey = GlobalKey();
+  OverlayEntry?                           _overlayEntry;
   final GlobalKey<_FormOverlayContentState> _menuKey = GlobalKey();
-  bool _isHovered = false;
+  bool                                    _isHovered = false;
 
   void _toggleMenu() 
   {
-    if (_overlayEntry != null) { _closeMenu(); return; }
+    if (_overlayEntry != null) 
+    {
+      _closeMenu(); 
+      return; 
+    }
     final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
+    final size      = renderBox.size;
+    final offset    = renderBox.localToGlobal(Offset.zero);
 
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _closeMenu, child: Container())),
-          Positioned(
-            top: offset.dy + size.height + 4,
+    _overlayEntry = OverlayEntry
+    (
+      builder: (context) => Stack
+      (
+        children: 
+        [
+          Positioned.fill
+          (
+            child: GestureDetector
+            (
+              behavior: HitTestBehavior.opaque, 
+              onTap:    _closeMenu, 
+              child:    Container(),
+            ),
+          ),
+          Positioned
+          (
+            top:  offset.dy + size.height + 4,
             left: offset.dx,
-            child: _FormOverlayContent(
-              key: _menuKey,
+            child: _FormOverlayContent
+            (
+              key:          _menuKey,
               currentValue: widget.value,
-              options: widget.options,
-              width: size.width,
-              onSelected: (val) { widget.onSelected(val); _closeMenu(); },
+              options:      widget.options,
+              width:        size.width,
+              onSelected:   (val) 
+              {
+                widget.onSelected(val); 
+                _closeMenu(); 
+              },
             ),
           )
         ],
@@ -1025,30 +1293,50 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
   @override
   Widget build(BuildContext context) 
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
+    return MouseRegion
+    (
+      cursor:  SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
+      onExit:  (_) => setState(() => _isHovered = false),
+      child: GestureDetector
+      (
         onTap: _toggleMenu,
-        child: AnimatedContainer(
-          key: _buttonKey,
-          duration: const Duration(milliseconds: 200),
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
+        child: AnimatedContainer
+        (
+          key:        _buttonKey,
+          duration:   const Duration(milliseconds: 200),
+          height:     50,
+          padding:    const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration
+          (
+            color:        Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _isHovered ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), width: 1.5),
+            border:       Border.all
+            (
+              color: _isHovered ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), 
+              width: 1.5,
+            ),
           ),
-          child: Row(
+          child: Row
+          (
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
+            children: 
+            [
+              Text
+              (
                 widget.value,
-                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF2A2A2A)),
+                style: GoogleFonts.plusJakartaSans
+                (
+                  fontSize:   16, 
+                  fontWeight: FontWeight.w600, 
+                  color:      const Color(0xFF2A2A2A),
+                ),
               ),
-              Icon(Icons.keyboard_arrow_down_rounded, color: _isHovered ? const Color(0xFF003C82) : const Color(0xFF8A8A8A)),
+              Icon
+              (
+                Icons.keyboard_arrow_down_rounded, 
+                color: _isHovered ? const Color(0xFF003C82) : const Color(0xFF8A8A8A),
+              ),
             ],
           ),
         ),
@@ -1059,12 +1347,19 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
 
 class _FormOverlayContent extends StatefulWidget 
 {
-  final String currentValue;
-  final List<String> options;
+  final String               currentValue;
+  final List<String>         options;
   final ValueChanged<String> onSelected;
-  final double width;
+  final double               width;
 
-  const _FormOverlayContent({super.key, required this.currentValue, required this.options, required this.onSelected, required this.width});
+  const _FormOverlayContent
+  ({
+    super.key, 
+    required this.currentValue, 
+    required this.options, 
+    required this.onSelected, 
+    required this.width,
+  });
 
   @override
   State<_FormOverlayContent> createState() => _FormOverlayContentState();
@@ -1078,47 +1373,76 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
   void initState() 
   {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _expanded = true); });
+    WidgetsBinding.instance.addPostFrameCallback((_) 
+    {
+      if (mounted) 
+      {
+        setState(() => _expanded = true); 
+      }
+    });
   }
 
   Future<void> hide() async 
   {
-    if (mounted) setState(() => _expanded = false);
+    if (mounted) 
+    {
+      setState(() => _expanded = false);
+    }
     await Future.delayed(const Duration(milliseconds: 180));
   }
 
   @override
   Widget build(BuildContext context) 
   {
-    return Material(
+    return Material
+    (
       color: Colors.transparent,
-      child: Container(
-        width: widget.width,
-        decoration: BoxDecoration(
-          color: Colors.white,
+      child: Container
+      (
+        width:      widget.width,
+        decoration: BoxDecoration
+        (
+          color:        Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)],
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
+              color:        Color(0x14000000), 
+              blurRadius:   20, 
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
+        child: AnimatedSize
+        (
+          duration:  const Duration(milliseconds: 180),
+          curve:     Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _expanded 
-            ? Padding(
+            ? Padding
+              (
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
+                child: Column
+                (
                   mainAxisSize:       MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: widget.options.map((option) {
-                    return _FormOverlayMenuItem(
-                      text: option,
+                  children:           widget.options.map((option) 
+                  {
+                    return _FormOverlayMenuItem
+                    (
+                      text:       option,
                       isSelected: widget.currentValue == option,
-                      onTap: () => widget.onSelected(option),
+                      onTap:      () => widget.onSelected(option),
                     );
                   }).toList(),
                 ),
               ) 
-            : SizedBox(width: widget.width, height: 0),
+            : SizedBox
+              (
+                width:  widget.width, 
+                height: 0,
+              ),
         ),
       ),
     );
@@ -1127,11 +1451,16 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
 
 class _FormOverlayMenuItem extends StatefulWidget 
 {
-  final String text;
-  final bool isSelected;
+  final String       text;
+  final bool         isSelected;
   final VoidCallback onTap;
 
-  const _FormOverlayMenuItem({required this.text, required this.isSelected, required this.onTap});
+  const _FormOverlayMenuItem
+  ({
+    required this.text, 
+    required this.isSelected, 
+    required this.onTap,
+  });
 
   @override
   State<_FormOverlayMenuItem> createState() => _FormOverlayMenuItemState();
@@ -1144,31 +1473,44 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
   @override
   Widget build(BuildContext context) 
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
+    return MouseRegion
+    (
+      cursor:  SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
+      onExit:  (_) => setState(() => _hover = false),
+      child: GestureDetector
+      (
         onTap: widget.onTap,
-        child: Container(
-          width: double.infinity,
+        child: Container
+        (
+          width:   double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: Colors.transparent,
-          child: Row(
-            children: [
-              AnimatedContainer(
+          color:   Colors.transparent,
+          child: Row
+          (
+            children: 
+            [
+              AnimatedContainer
+              (
                 duration:   const Duration(milliseconds: 150),
                 width:      2,
                 height:     (_hover || widget.isSelected) ? 16 : 0,
-                decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration
+                (
+                  color:        const Color(0xFF003C82), 
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: Text(
+              Expanded
+              (
+                child: Text
+                (
                   widget.text,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   14,
                     fontWeight: (widget.isSelected || _hover) ? FontWeight.w700 : FontWeight.w500,
                     color:      const Color(0xFF003C82),
                   ),
@@ -1178,6 +1520,6 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
           ),
         ),
       ),
-    );
+    ); 
   }
 }

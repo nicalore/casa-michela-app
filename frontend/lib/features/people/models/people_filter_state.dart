@@ -109,7 +109,7 @@ class PeopleFilterState
 
     if (selectedCategory != null) count++;
     if (selectedRoles.isNotEmpty) count += selectedRoles.length;
-    if (ageRange != null) count++;
+    if (ageRange != null && (ageRange!.start != 5 || ageRange!.end != 99)) count++;
     if (city != null && city!.trim().isNotEmpty) count++;
     if (childrenCount != null) count++;
     if (isActiveCollaborator != null) count++;
@@ -121,7 +121,7 @@ class PeopleFilterState
     if (earlyExit != null) count++;
     if (collaborationType != null) count++;
     if (taughtSubjects.isNotEmpty) count += taughtSubjects.length;
-    if (taughtSubjectsCount != null) count++;
+    if (taughtSubjectsCount != null && (taughtSubjectsCount!.start != 1 || taughtSubjectsCount!.end != 15)) count++;
     if (courseType != null && courseType!.trim().isNotEmpty) count++;
     if (isMedicalCertificateValid != null) count++;
 
