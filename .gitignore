@@ -1,5 +1,13 @@
+# ============================================================
+# Operating system
+# ============================================================
+
 .DS_Store
 Thumbs.db
+
+# ============================================================
+# Secrets
+# ============================================================
 
 .env
 .env.*
@@ -7,49 +15,129 @@ Thumbs.db
 *.key
 *.crt
 
+# ============================================================
+# Python
+# ============================================================
+
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-
 .python-version
 
 .venv/
 venv/
 
-uv-cache/
-
 .pytest_cache/
 .coverage
 htmlcov/
 
-frontend/.dart_tool/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
-frontend/.packages
-frontend/.pub-cache/
-frontend/.pub/
-frontend/build/
+.mypy_cache/
+.ruff_cache/
 
+# UV
+uv-cache/
+
+# ============================================================
+# Flutter / Dart
+# ============================================================
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+
+build/
+coverage/
+
+**/ios/Flutter/.last_build_id
 frontend/ios/Flutter/Flutter.framework
 frontend/ios/Flutter/Flutter.podspec
 
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# ============================================================
+# Java / Kotlin
+# ============================================================
+
+*.class
+
+# ============================================================
+# Node.js
+# ============================================================
+
+node_modules/
+
+# ============================================================
+# Database
+# ============================================================
+
+*.sqlite3
+
+# PostgreSQL locale
 infrastructure/local/postgres/
+
+# ============================================================
+# Logs
+# ============================================================
+
+*.log
+backend/logs/
+
+# ============================================================
+# IDE
+# ============================================================
 
 .idea/
 .vscode/
+.vscode-test/
+
+*.iml
+*.ipr
+*.iws
+.atom/
+
+# ============================================================
+# Build artifacts
+# ============================================================
+
+dist/
+.build/
+.buildlog/
+
+# ============================================================
+# Version control / generated files
+# ============================================================
+
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Generated documentation
+**/doc/api/
+
+# Flutter symbols
+app.*.symbols
+app.*.map.json
+
+# ============================================================
+# Editors
+# ============================================================
 
 *.swp
 *.swo
 
-*.log
-
-*.sqlite3
-
-build/
-dist/
-
-node_modules/
+# ============================================================
+# Runtime data
+# ============================================================
 
 backend/uploads/profile-images/*
 !backend/uploads/profile-images/.gitkeep
