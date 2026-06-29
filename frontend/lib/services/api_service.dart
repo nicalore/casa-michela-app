@@ -17,6 +17,7 @@ import '../features/people/models/education_distribution_item.dart';
 import '../features/people/models/teacher_subjects_statistics_item.dart';
 import '../features/people/models/course_distribution_item.dart';
 
+import '../core/config/api_config.dart';
 import 'auth_state.dart';
 import 'session_service.dart';
 
@@ -43,7 +44,7 @@ class ApiService
   ApiService._internal()
   {
     final options = BaseOptions(
-      baseUrl:        'http://localhost:8000',
+      baseUrl:        ApiConfig.baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     );

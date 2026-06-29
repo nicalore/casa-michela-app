@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../core/config/api_config.dart';
 import '../association/models/association_subject_item.dart';
 import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
@@ -994,7 +995,7 @@ class _WizardProfilePhotoUploaderState
       String url = widget.initialImageUrl!;
 
       if (url.startsWith('/')) {
-        url = 'http://127.0.0.1:8000$url?v=$_cacheBustTimestamp';
+        url = url = '${ApiConfig.buildUrl(url)}?v=$_cacheBustTimestamp';
       }
 
       imageProvider = NetworkImage(url);
@@ -2570,8 +2571,7 @@ class _WizardSelectablePersonCardState
 
     String? imageUrl = widget.person.profileImageUrl?.trim();
     if (imageUrl != null && imageUrl.startsWith('/')) {
-      const String backendBaseUrl = 'http://127.0.0.1:8000';
-      imageUrl = '$backendBaseUrl$imageUrl';
+      imageUrl = ApiConfig.buildUrl(imageUrl);
     }
 
     final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'live_clock.dart';
 
+import '../../../core/config/api_config.dart';
+
 class DashboardHeader extends StatefulWidget
 {
   final bool isMenuOpen;
@@ -47,7 +49,7 @@ class _DashboardHeaderState extends State<DashboardHeader>
     //Add backend base URL to relative paths
     if (!url.startsWith('http://') && !url.startsWith('https://'))
     {
-      url = 'http://localhost:8000$url';
+      url = '${ApiConfig.baseUrl}$url';
     }
     
     //Append the cache buster to force NetworkImage to fetch the fresh file
