@@ -36,6 +36,7 @@ class SchoolStudyProgram(Base):
         ForeignKey(
             "study_programs.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -45,6 +46,7 @@ class SchoolStudyProgram(Base):
         ForeignKey(
             "schools.mechanographic_code",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -59,5 +61,4 @@ class SchoolStudyProgram(Base):
 
     school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
         back_populates="school_study_program",
-        cascade="all, delete-orphan",
     )

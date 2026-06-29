@@ -1,5 +1,3 @@
-from datetime import date
-
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +18,7 @@ from app.schemas.person_wizard import PersonWizardPayload
 
 
 async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPayload) -> Person:
-    #Comment Verifica esistenza
+    # Verifica esistenza
     existing_person = await db.get(Person, payload.general_data.tax_code)
     
     if existing_person:
@@ -80,20 +78,19 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
             )
             db.add(student)
 
-            today      = date.today()
-            start_year = today.year - 1 if today.month < 9 else today.year
-            grade_map  = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
-            
-            numeric_grade = grade_map.get(payload.student_data.school_class, 1)
+            grade_map = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
 
-            school_enrollment = SchoolEnrollment(
-                start_year=start_year,
-                grade=numeric_grade,
-                student_tax_code=person.tax_code,
-                study_program_id=payload.student_data.study_program_id,
-                school_mechanographic_code=payload.student_data.school_mechanographic_code
-            )
-            db.add(school_enrollment)
+            for enrollment_data in payload.student_data.school_enrollments:
+                numeric_grade = grade_map.get(enrollment_data.school_class, 1)
+
+                school_enrollment = SchoolEnrollment(
+                    start_year=enrollment_data.start_year,
+                    grade=numeric_grade,
+                    student_tax_code=person.tax_code,
+                    study_program_id=enrollment_data.study_program_id,
+                    school_mechanographic_code=enrollment_data.school_mechanographic_code
+                )
+                db.add(school_enrollment)
 
         if "CORSISTA" in roles and payload.course_participant_data:
             corsista = CourseParticipant(
@@ -106,7 +103,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
         needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
         
         if needs_staff and payload.staff_data:
-            #Comment Conversione esplicita per staff
+            # Conversione esplicita per staff
             staff = Staff(
                 tax_code=person.tax_code,
                 collaboration_type=CollaborationTypeEnum(payload.staff_data.collaboration_type),
@@ -115,7 +112,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
             db.add(staff)
 
             if "AMMINISTRATORE" in roles and payload.admin_data:
-                #Comment Conversione esplicita per ruolo admin
+                # Conversione esplicita per ruolo admin
                 role_val = AdministratorRoleEnum(payload.admin_data.role)
                 admin = Administrator(
                     tax_code=person.tax_code,

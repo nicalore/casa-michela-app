@@ -24,6 +24,7 @@ class TeachingCompetence(Base):
         ForeignKey(
             "teachers.tax_code",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -32,6 +33,7 @@ class TeachingCompetence(Base):
         ForeignKey(
             "association_subjects.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -40,6 +42,7 @@ class TeachingCompetence(Base):
         ForeignKey(
             "study_programs.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )

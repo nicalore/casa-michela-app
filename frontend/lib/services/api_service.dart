@@ -673,7 +673,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento: ');
     }
   }
 
@@ -765,7 +765,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni scolastiche.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici.');
     }
   }
 

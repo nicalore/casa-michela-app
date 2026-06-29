@@ -9,7 +9,8 @@ class PersonCard extends StatefulWidget
   final PersonItem   person;
   final VoidCallback onTap;
 
-  const PersonCard({
+  const PersonCard(
+  {
     super.key,
     required this.person,
     required this.onTap,
@@ -25,12 +26,15 @@ class _PersonCardState extends State<PersonCard>
 
   Widget _buildAvatar() 
   {
-    final String initials = '${widget.person.firstName[0]}${widget.person.lastName[0]}'.toUpperCase();
+    final String initials       = '${widget.person.firstName[0]}${widget.person.lastName[0]}'.toUpperCase();
     
-    final Widget fallbackWidget = Center(
-      child: Text(
+    final Widget fallbackWidget = Center
+    (
+      child: Text
+      (
         initials,
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.plusJakartaSans
+        (
           fontSize:   26,
           fontWeight: FontWeight.w700,
           color:      const Color(0xFF64748B),
@@ -44,26 +48,31 @@ class _PersonCardState extends State<PersonCard>
     if (imageUrl != null && imageUrl.startsWith('/')) 
     {
       const String backendBaseUrl = 'http://127.0.0.1:8000'; 
-      imageUrl = '$backendBaseUrl$imageUrl';
+      imageUrl                    = '$backendBaseUrl$imageUrl';
     }
 
     final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
 
-    return Container(
+    return Container
+    (
       width:  80,
       height: 80,
-      decoration: BoxDecoration(
+      decoration: BoxDecoration
+      (
         color:  const Color(0xFFE2E8F0),
         shape:  BoxShape.circle,
-        border: Border.all(
+        border: Border.all
+        (
           color: const Color(0xFF003C82),
           width: 2.5,
         ),
       ),
       //Clip content exactly inside the border bounds
-      child: ClipOval(
+      child: ClipOval
+      (
         child: hasImage
-            ? Image.network(
+            ? Image.network
+              (
                 imageUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) 
@@ -81,50 +90,126 @@ class _PersonCardState extends State<PersonCard>
   @override
   Widget build(BuildContext context) 
   {
-    final processedRoles = RoleLabelMapper.processRoles(widget.person.roles);
+    final List<String> processedRoles  = RoleLabelMapper.processRoles(widget.person.roles);
+    final List<String> displayRoles    = processedRoles.take(3).toList();
+    final int          extraRolesCount = processedRoles.length - 3;
 
-    return MouseRegion(
+    final List<Widget> roleChips = displayRoles.map((role) 
+    {
+      return Container
+      (
+        padding: const EdgeInsets.symmetric
+        (
+          horizontal: 10,
+          vertical:   4,
+        ),
+        decoration: BoxDecoration
+        (
+          color:        const Color(0xFFF5F7FA),
+          borderRadius: BorderRadius.circular(12),
+          border:       Border.all(color: const Color(0xFFE0E5EC)),
+        ),
+        child: Text
+        (
+          role,
+          style: GoogleFonts.plusJakartaSans
+          (
+            fontSize:   12,
+            fontWeight: FontWeight.w600,
+            color:      const Color(0xFF64748B),
+          ),
+        ),
+      );
+    }).toList();
+
+    //Add extra roles indicator chip
+    if (extraRolesCount > 0) 
+    {
+      roleChips.add
+      (
+        Container
+        (
+          padding: const EdgeInsets.symmetric
+          (
+            horizontal: 10,
+            vertical:   4,
+          ),
+          decoration: BoxDecoration
+          (
+            color:        const Color(0xFFF5F7FA),
+            borderRadius: BorderRadius.circular(12),
+            border:       Border.all(color: const Color(0xFFE0E5EC)),
+          ),
+          child: Text
+          (
+            '+$extraRolesCount',
+            style: GoogleFonts.plusJakartaSans
+            (
+              fontSize:   12,
+              fontWeight: FontWeight.w700,
+              color:      const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return MouseRegion
+    (
       cursor:  SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
       onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
+      child: GestureDetector
+      (
         onTap: widget.onTap,
-        child: AnimatedContainer(
+        child: AnimatedContainer
+        (
           duration:    const Duration(milliseconds: 180),
           curve:       Curves.easeOut,
           width:       380,
           constraints: const BoxConstraints(minHeight: 140),
           padding:     const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
+          decoration: BoxDecoration
+          (
             color:        Colors.white,
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(
+            border: Border.all
+            (
               color: _isHovering ? const Color(0xFF003C82) : Colors.transparent,
               width: 2,
             ),
-            boxShadow: const [
-              BoxShadow(
+            boxShadow: const 
+            [
+              BoxShadow
+              (
                 color:      Color(0x0A000000),
                 offset:     Offset(0, 4),
                 blurRadius: 16,
               ),
             ],
           ),
-          child: Row(
+          child: Row
+          (
             crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+            children: 
+            [
               _buildAvatar(),
               const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+              Expanded
+              (
+                child: Column
+                (
                   mainAxisSize:       MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+                  children: 
+                  [
+                    Text
+                    (
                       '${widget.person.firstName} ${widget.person.lastName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
+                      style: GoogleFonts.plusJakartaSans
+                      (
                         fontSize:   20,
                         fontWeight: FontWeight.w700,
                         color:      const Color(0xFF003C82),
@@ -132,31 +217,11 @@ class _PersonCardState extends State<PersonCard>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
+                    Wrap
+                    (
                       spacing:    6,
                       runSpacing: 6,
-                      children: processedRoles.map((role) 
-                      {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical:   4,
-                          ),
-                          decoration: BoxDecoration(
-                            color:        const Color(0xFFF5F7FA),
-                            borderRadius: BorderRadius.circular(12),
-                            border:       Border.all(color: const Color(0xFFE0E5EC)),
-                          ),
-                          child: Text(
-                            role,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize:   12,
-                              fontWeight: FontWeight.w600,
-                              color:      const Color(0xFF64748B),
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                      children:   roleChips,
                     ),
                   ],
                 ),

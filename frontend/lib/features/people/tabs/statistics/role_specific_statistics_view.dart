@@ -583,7 +583,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           [
             Text
             (
-              'Distribuzione per Città', 
+              'Distribuzione per città', 
               style: GoogleFonts.plusJakartaSans
               (
                 fontSize:   18, 
@@ -648,7 +648,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           [
             Text
             (
-              'Fasce d\'età', 
+              'Fasce di età', 
               style: GoogleFonts.plusJakartaSans
               (
                 fontSize:   18, 
@@ -718,7 +718,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
               [
                 Text
                 (
-                  'Distribuzione Scolastica', 
+                  'Distribuzione scolastica', 
                   style: GoogleFonts.plusJakartaSans
                   (
                     fontSize:   18, 
@@ -801,7 +801,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           [
             Text
             (
-              'Distribuzione per Corso', 
+              'Distribuzione per corso', 
               style: GoogleFonts.plusJakartaSans
               (
                 fontSize:   18, 
@@ -926,7 +926,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
               [
                 Text
                 (
-                  'Analisi Competenze e Insegnamenti', 
+                  'Analisi Competenze', 
                   style: GoogleFonts.plusJakartaSans
                   (
                     fontSize:   18, 
@@ -1047,7 +1047,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                       [
                         Text
                         (
-                          'Top 10 - Più insegnate', 
+                          '10 discipline più coperte', 
                           style: GoogleFonts.plusJakartaSans
                           (
                             fontSize:   16, 
@@ -1086,7 +1086,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                       [
                         Text
                         (
-                          'Bottom 10 - Meno insegnate', 
+                          '10 discipline meno coperte', 
                           style: GoogleFonts.plusJakartaSans
                           (
                             fontSize:   16, 
@@ -1126,7 +1126,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                       [
                         Text
                         (
-                          'Distribuzione per Area', 
+                          'Distribuzione per area', 
                           style: GoogleFonts.plusJakartaSans
                           (
                             fontSize:   16, 
@@ -1196,7 +1196,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                   (
                     child: _buildSummaryCard
                     (
-                      title:      'Iscritti Ruolo Attuali', 
+                      title:      'Iscritti', 
                       count:      _currentTotals?.currentTotalMembers ?? 0, 
                       deltaMonth: _currentTotals?.membersDeltaMonth ?? 0, 
                       deltaYear:  _currentTotals?.membersDeltaYear ?? 0, 
@@ -1209,7 +1209,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                   (
                     child: _buildSummaryCard
                     (
-                      title:      'Collaboratori Attivi Ruolo', 
+                      title:      'Collaboratori Attivi', 
                       count:      _currentTotals?.currentActiveCollaborators ?? 0, 
                       deltaMonth: _currentTotals?.collabDeltaMonth ?? 0, 
                       deltaYear:  _currentTotals?.collabDeltaYear ?? 0, 
@@ -1258,7 +1258,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                               [
                                 Text
                                 (
-                                  'Fidelizzazione Ruolo (Annuale)', 
+                                  'Fidelizzazione Iscritti', 
                                   style: GoogleFonts.plusJakartaSans
                                   (
                                     fontSize:   18, 
@@ -1353,7 +1353,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                               [
                                 Text
                                 (
-                                  'Fidelizzazione Collaboratori Ruolo', 
+                                  'Fidelizzazione Collaboratori Attivi', 
                                   style: GoogleFonts.plusJakartaSans
                                   (
                                     fontSize:   18, 
@@ -1502,7 +1502,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                 ),
               _buildTrendChartCard
               (
-                title:               'Trend Iscritti Ruolo', 
+                title:               'Trend Iscritti', 
                 data:                _trendData, 
                 isMonthly:           _trendResolution == 'month', 
                 showFilters:         true,
@@ -1542,7 +1542,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
               const SizedBox(height: 24),
               _buildTrendChartCard
               (
-                title:               'Trend Collaboratori Ruolo', 
+                title:               'Trend Collaboratori Attivi', 
                 data:                _collabTrendData, 
                 isMonthly:           _collabTrendResolution == 'month', 
                 showFilters:         true,
@@ -2519,10 +2519,10 @@ class _FilterMenuOption<T>
 
 class _FilterMenuWidget<T> extends StatefulWidget 
 { 
-  final String                   hint; 
-  final T                        value; 
+  final String                     hint; 
+  final T                          value; 
   final List<_FilterMenuOption<T>> options; 
-  final ValueChanged<T>          onChanged; 
+  final ValueChanged<T>            onChanged; 
   
   const _FilterMenuWidget
   ({
@@ -2743,52 +2743,54 @@ class _OverlayContentState<T> extends State<_OverlayContent<T>>
     return Material
     (
       color: Colors.transparent, 
-      child: Container
+      child: IntrinsicWidth
       (
-        width:       240, 
-        constraints: const BoxConstraints(maxHeight: 300), 
-        decoration:  BoxDecoration
+        child: Container
         (
-          color:        Colors.white, 
-          borderRadius: BorderRadius.circular(16), 
-          boxShadow:    const 
-          [
-            BoxShadow
-            (
-              color:        Color(0x14000000), 
-              blurRadius:   20, 
-              spreadRadius: 2,
-            ),
-          ],
-        ), 
-        child: AnimatedSize
-        (
-          duration:  const Duration(milliseconds: 180), 
-          curve:     Curves.easeOut, 
-          alignment: Alignment.topCenter, 
-          child: _expanded 
-            ? Padding
+          constraints: const BoxConstraints(maxHeight: 300, minWidth: 130), 
+          decoration:  BoxDecoration
+          (
+            color:        Colors.white, 
+            borderRadius: BorderRadius.circular(16), 
+            boxShadow:    const 
+            [
+              BoxShadow
               (
-                padding: const EdgeInsets.symmetric(vertical: 8), 
-                child: SingleChildScrollView
+                color:        Color(0x14000000), 
+                blurRadius:   20, 
+                spreadRadius: 2,
+              ),
+            ],
+          ), 
+          child: AnimatedSize
+          (
+            duration:  const Duration(milliseconds: 180), 
+            curve:     Curves.easeOut, 
+            alignment: Alignment.topCenter, 
+            child: _expanded 
+              ? Padding
                 (
-                  child: Column
+                  padding: const EdgeInsets.symmetric(vertical: 8), 
+                  child: SingleChildScrollView
                   (
-                    mainAxisSize:       MainAxisSize.min, 
-                    crossAxisAlignment: CrossAxisAlignment.start, 
-                    children: widget.options.map((option) 
-                    { 
-                      return _ItemWidget
-                      (
-                        text:       option.label, 
-                        isSelected: widget.currentValue == option.value, 
-                        onTap:      () => widget.onSelected(option.value),
-                      ); 
-                    }).toList(),
+                    child: Column
+                    (
+                      mainAxisSize:       MainAxisSize.min, 
+                      crossAxisAlignment: CrossAxisAlignment.stretch, 
+                      children: widget.options.map((option) 
+                      { 
+                        return _ItemWidget
+                        (
+                          text:       option.label, 
+                          isSelected: widget.currentValue == option.value, 
+                          onTap:      () => widget.onSelected(option.value),
+                        ); 
+                      }).toList(),
+                    ),
                   ),
-                ),
-              ) 
-            : const SizedBox(width: 240, height: 0),
+                ) 
+              : const SizedBox.shrink(),
+          ),
         ),
       ),
     ); 
@@ -2829,7 +2831,6 @@ class _ItemWidgetState extends State<_ItemWidget>
         onTap: widget.onTap, 
         child: Container
         (
-          width:   double.infinity, 
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
           color:   Colors.transparent, 
           child: Row

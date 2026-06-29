@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.dependencies import get_db
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.study_program_subject import StudyProgramSubject
 from app.schemas.ministry_subject import (
     MinistrySubjectCreate,
     MinistrySubjectResponse,
@@ -119,6 +120,19 @@ async def delete_ministry_subject(subject_id: int, db: DbSession):
     subject = (await db.execute(select(MinistrySubject).where(MinistrySubject.id == subject_id))).scalars().first()
     if not subject:
         raise HTTPException(status_code=404, detail="Materia non trovata.")
+
+    # Controllo percorsi di studi rimasti senza materie ministeriali
+    subq_prog = select(StudyProgramSubject.study_program_id).where(
+        StudyProgramSubject.ministry_subject_id == subject_id
+    )
+    stmt_prog = select(StudyProgramSubject.study_program_id).where(
+        StudyProgramSubject.study_program_id.in_(subq_prog)
+    ).group_by(StudyProgramSubject.study_program_id).having(
+        func.count(StudyProgramSubject.ministry_subject_id) == 1
+    )
+    
+    if (await db.execute(stmt_prog)).scalars().first():
+        raise HTTPException(status_code=400, detail="Impossibile eliminare: un percorso di studi rimarrebbe senza materie ministeriali associate.")
         
     try:
         await db.delete(subject)

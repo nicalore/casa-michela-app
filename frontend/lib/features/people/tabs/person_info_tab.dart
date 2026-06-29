@@ -137,9 +137,9 @@ class PersonInfoTab extends StatelessWidget
                         title:       'Dati anagrafici',
                         leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
                         rows: [
-                          _InfoRowData('Data di nascita',  dataNascita),
-                          _InfoRowData('Città di nascita', cittaNascita),
-                          _InfoRowData('Provincia',        provNascita),
+                          _InfoRowData('Data di nascita',      dataNascita),
+                          _InfoRowData('Città di nascita',     cittaNascita),
+                          _InfoRowData('Provincia di nascita', provNascita),
                         ],
                       ),
                     ),

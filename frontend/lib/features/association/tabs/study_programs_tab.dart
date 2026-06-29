@@ -394,7 +394,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(isEditing ? 'Modifica Percorso (${_currentStep + 1}/2)' : 'Creazione Percorso (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text(isEditing ? 'Modifica Percorso (${_currentStep + 1}/2)' : 'Nuovo Percorso (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                   FadeHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
                 ],
               ),
@@ -427,8 +427,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildFieldLabel('Nome percorso di studio'),
-            TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Scientifico', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            _buildFieldLabel('Nome'),
+            TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Classico (biennio)', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
             _buildFieldLabel('Livello scolastico'),
             Wrap(
               spacing: 12, runSpacing: 12,
@@ -446,7 +446,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Fine'), TextField(controller: _maxYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 5', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
               ],
             ),
-            _buildFieldLabel('Descrizione (Opzionale)'),
+            _buildFieldLabel('Descrizione (opzionale)'),
             TextField(controller: _descController, textCapitalization: TextCapitalization.sentences, maxLines: 4, minLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black), decoration: InputDecoration(hintText: 'Aggiungi una descrizione...', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5)))),
           ],
         ),
@@ -463,7 +463,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Seleziona le Materie Ministeriali associate', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
+          Text('Seleziona le materie ministeriali associate', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           AnimatedSearchBar(controller: _subjectSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca materia ministeriale...'),
           const SizedBox(height: 16),

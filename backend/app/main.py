@@ -9,11 +9,12 @@ from app.api import (
     ministry_subjects,
     people,
     schools,
-    study_programs,
     statistics,
+    study_programs,
 )
 from app.api.auth import router as auth_router
 from app.core.config import settings
+from app.middleware import audit_logging_middleware
 
 app = FastAPI(
     title="Casa Michela API",
@@ -45,6 +46,7 @@ app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
 app.include_router(people.router)
 app.include_router(statistics.router)
+app.middleware("http")(audit_logging_middleware)
 
 @app.get("/health")
 def health_check():

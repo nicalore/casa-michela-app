@@ -42,11 +42,11 @@ class SchoolEnrollment(Base):
             "grade > 0",
             name="positive_grade",
         ),
-        # Chiave esterna composita verso la tabella ponte
         ForeignKeyConstraint(
             ["study_program_id", "school_mechanographic_code"],
             ["school_study_programs.study_program_id", "school_study_programs.school_mechanographic_code"],
             ondelete="RESTRICT",
+            onupdate="CASCADE",
         ),
     )
 
@@ -69,6 +69,7 @@ class SchoolEnrollment(Base):
         ForeignKey(
             "students.tax_code",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         nullable=False,
         index=True,
@@ -120,6 +121,5 @@ def _validate_school_enrollments(
 
         if not (program.min_year <= obj.grade <= program.max_year):
             raise ValueError(
-                "School enrollment grade is not compatible "
-                "with the selected study program"
+                "La classe selezionata non è compatibile con il percorso di studi."
             )

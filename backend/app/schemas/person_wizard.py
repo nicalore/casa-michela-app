@@ -60,11 +60,16 @@ class WizardCourseParticipantData(BaseModel):
     course_type:                    str
 
 
-class WizardStudentData(BaseModel):
-    authorized_early_exit:      bool
+class WizardSchoolEnrollmentData(BaseModel):
+    start_year:                 int
     school_mechanographic_code: str
     study_program_id:           int
     school_class:               str
+
+
+class WizardStudentData(BaseModel):
+    authorized_early_exit: bool
+    school_enrollments:    List[WizardSchoolEnrollmentData] = Field(default_factory=list)
 
 
 class WizardRelationships(BaseModel):

@@ -27,6 +27,7 @@ class StudyProgramSubject(Base):
         ForeignKey(
             "study_programs.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -36,6 +37,7 @@ class StudyProgramSubject(Base):
         ForeignKey(
             "ministry_subjects.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )

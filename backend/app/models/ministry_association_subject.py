@@ -27,6 +27,7 @@ class MinistryAssociationSubject(Base):
         ForeignKey(
             "ministry_subjects.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )
@@ -36,6 +37,7 @@ class MinistryAssociationSubject(Base):
         ForeignKey(
             "association_subjects.id",
             ondelete="CASCADE",
+            onupdate="CASCADE",
         ),
         primary_key=True,
     )

@@ -234,7 +234,7 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: 
                     [
-                      _buildFieldLabel('Nome Disciplina'),
+                      _buildFieldLabel('Nome'),
                       Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
                       _buildFieldLabel('Area'),
                       Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),

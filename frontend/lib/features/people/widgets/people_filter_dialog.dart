@@ -514,7 +514,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                     _buildFieldLabel('Scuola frequentata'),
                                     _AutocompleteField(
                                       controller: _schoolController,
-                                      hint:       'Es. Liceo F. Corradini',
+                                      hint:       'Es. Liceo Statale Francesco Corradini',
                                       options:    widget.availableSchools,
                                       onChanged:  (val) => setState(() 
                                       {
@@ -547,7 +547,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                     _buildFieldLabel('Indirizzo di studio'),
                                     _AutocompleteField(
                                       controller: _studyProgramController,
-                                      hint:       'Es. Liceo Scientifico',
+                                      hint:       'Es. Liceo Classico',
                                       options:    widget.availableStudyPrograms,
                                       onChanged:  (val) => setState(() 
                                       {

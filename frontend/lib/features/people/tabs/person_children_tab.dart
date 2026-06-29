@@ -1,9 +1,13 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/snackbar.dart';
 import '../models/child_item.dart';
 import '../models/person_item.dart';
+import '../person_wizard_components.dart';
 
 class PersonChildrenTab extends StatefulWidget 
 {
@@ -21,66 +25,167 @@ class PersonChildrenTab extends StatefulWidget
 
 class _PersonChildrenTabState extends State<PersonChildrenTab> 
 {
-  int _selectedChildIndex = 0;
+  late PersonItem _currentPerson;
+  int             _selectedChildIndex = 0;
+  bool            _isRefreshing       = false;
 
-  Widget _buildSubNavigation(List<ChildItem> children) 
+  @override
+  void initState() 
+  {
+    super.initState();
+    _currentPerson = widget.person;
+  }
+
+  @override
+  void didUpdateWidget(covariant PersonChildrenTab oldWidget) 
+  {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.person != widget.person) 
+    {
+      _currentPerson      = widget.person;
+      _selectedChildIndex = 0;
+    }
+  }
+
+  void _openChildrenEditDialog() async 
+  {
+    final bool? changed = await showGeneralDialog<bool>
+    (
+      context:            context,
+      barrierDismissible: true,
+      barrierLabel:       'ChildrenEdit',
+      barrierColor:       Colors.black.withValues(alpha: .15),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
+      transitionBuilder:  (context, animation, secondaryAnimation, child) 
+      {
+        final blurValue = animation.value * 8.0;
+        return BackdropFilter
+        (
+          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
+          child:  FadeTransition
+          (
+            opacity: animation,
+            child:   ScaleTransition
+            (
+              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
+              child: ChildrenEditDialog(person: _currentPerson),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (changed == true) 
+    {
+      setState(() 
+      {
+        _isRefreshing = true;
+      });
+
+      try 
+      {
+        final allPeople     = await ApiService().getPeople();
+        final updatedPerson = allPeople.firstWhere
+        (
+          (p)
+          {
+            return p.fiscalCode == _currentPerson.fiscalCode;
+          },
+          orElse: ()
+          {
+            return _currentPerson;
+          },
+        );
+
+        if (mounted) 
+        {
+          setState(() 
+          {
+            _currentPerson      = updatedPerson;
+            _selectedChildIndex = 0;
+          });
+        }
+      } 
+      catch (e) 
+      {
+        //SilentFail
+      } 
+      finally 
+      {
+        if (mounted) 
+        {
+          setState(() 
+          {
+            _isRefreshing = false;
+          });
+        }
+      }
+    }
+  }
+
+  Widget _buildSubNavigation(List<ChildItem> childrenList) 
   {
     return Padding
     (
       padding: const EdgeInsets.only(bottom: 24.0),
-      child: Row
+      child: SingleChildScrollView
       (
-        children: List.generate(children.length, (index) 
-        {
-          final isSelected = _selectedChildIndex == index;
-          final child      = children[index];
+        scrollDirection: Axis.horizontal,
+        child: Row
+        (
+          children: List.generate(childrenList.length, (index) 
+          {
+            final isSelected = _selectedChildIndex == index;
+            final child      = childrenList[index];
 
-          return Padding
-          (
-            padding: const EdgeInsets.only(right: 12.0),
-            child: MouseRegion
+            return Padding
             (
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector
+              padding: const EdgeInsets.only(right: 12.0),
+              child: MouseRegion
               (
-                onTap: () 
-                {
-                  setState(() 
-                  {
-                    _selectedChildIndex = index;
-                  });
-                },
-                child: AnimatedContainer
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector
                 (
-                  duration:   const Duration(milliseconds: 250),
-                  curve:      Curves.easeInOut,
-                  padding:    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration
+                  onTap: () 
+                  {
+                    setState(() 
+                    {
+                      _selectedChildIndex = index;
+                    });
+                  },
+                  child: AnimatedContainer
                   (
-                    color:        isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border:       Border.all
+                    duration:   const Duration(milliseconds: 250),
+                    curve:      Curves.easeInOut,
+                    padding:    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration
                     (
-                      color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
+                      color:        isSelected ? const Color(0xFF003C82) : Colors.white,
+                      border:       Border.all
+                      (
+                        color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
+                      ),
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: AnimatedDefaultTextStyle
-                  (
-                    duration: const Duration(milliseconds: 250),
-                    curve:    Curves.easeInOut,
-                    style:    GoogleFonts.plusJakartaSans
+                    child: AnimatedDefaultTextStyle
                     (
-                      fontSize:   14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color:      isSelected ? Colors.white : const Color(0xFF64748B),
+                      duration: const Duration(milliseconds: 250),
+                      curve:    Curves.easeInOut,
+                      style:    GoogleFonts.plusJakartaSans
+                      (
+                        fontSize:   14,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color:      isSelected ? Colors.white : const Color(0xFF64748B),
+                      ),
+                      child: Text('${child.firstName} ${child.lastName}'),
                     ),
-                    child: Text('${child.firstName} ${child.lastName}'),
                   ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -88,35 +193,70 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
   @override
   Widget build(BuildContext context) 
   {
-    final List<ChildItem> children = widget.person.children ?? [];
+    if (_isRefreshing) 
+    {
+      return const Center
+      (
+        child: Padding
+        (
+          padding: EdgeInsets.only(top: 32.0),
+          child:   CircularProgressIndicator
+          (
+            color: Color(0xFF003C82),
+          ),
+        ),
+      );
+    }
 
-    if (children.isEmpty) 
+    final List<ChildItem> currentChildren = _currentPerson.children ?? [];
+
+    if (currentChildren.isEmpty) 
     {
       return Center
       (
         child: Padding
         (
           padding: const EdgeInsets.only(top: 32.0),
-          child: Text
+          child: Column
           (
-            'Nessun figlio associato a questa anagrafica genitore.',
-            style: GoogleFonts.plusJakartaSans
-            (
-              fontSize:   16,
-              fontWeight: FontWeight.w500,
-              color:      const Color(0xFF64748B),
-            ),
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              Text
+              (
+                'Nessun figlio associato a questa anagrafica genitore.',
+                style: GoogleFonts.plusJakartaSans
+                (
+                  fontSize:   16,
+                  fontWeight: FontWeight.w500,
+                  color:      const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox
+              (
+                width: 255,
+                child: WizardAnimatedActionButton
+                (
+                  text:       'AGGIUNGI FIGLI',
+                  icon:       Icons.family_restroom_outlined,
+                  baseColor:  const Color(0xFF003C82),
+                  hoverColor: const Color(0xFF004D99),
+                  onPressed:  _openChildrenEditDialog,
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    if (_selectedChildIndex >= children.length) 
+    if (_selectedChildIndex >= currentChildren.length) 
     {
       _selectedChildIndex = 0;
     }
 
-    final child = children[_selectedChildIndex];
+    final child = currentChildren[_selectedChildIndex];
 
     final String nome           = child.firstName;
     final String cognome        = child.lastName;
@@ -154,7 +294,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: 
             [
-              _buildSubNavigation(children),
+              _buildSubNavigation(currentChildren),
               IntrinsicHeight
               (
                 child: Row
@@ -214,9 +354,9 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
                         leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
                         rows: 
                         [
-                          _InfoRowData('Data di nascita',  dataNascita),
-                          _InfoRowData('Città di nascita', cittaNascita),
-                          _InfoRowData('Provincia',        provNascita),
+                          _InfoRowData('Data di nascita',      dataNascita),
+                          _InfoRowData('Città di nascita',     cittaNascita),
+                          _InfoRowData('Provincia di nascita', provNascita),
                         ],
                       ),
                     ),
@@ -236,6 +376,22 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
                       ),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 48),
+              Center
+              (
+                child: SizedBox
+                (
+                  width: 255,
+                  child: WizardAnimatedActionButton
+                  (
+                    text:       'GESTISCI FIGLI',
+                    icon:       Icons.family_restroom_outlined,
+                    baseColor:  const Color(0xFF003C82),
+                    hoverColor: const Color(0xFF004D99),
+                    onPressed:  _openChildrenEditDialog,
+                  ),
                 ),
               ),
             ],
@@ -314,7 +470,6 @@ class _ChildSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    //IsolateSelectionToCardBody
     return SelectionArea
     (
       child: Container
@@ -483,4 +638,619 @@ class _InfoRowData
   final String value;
 
   const _InfoRowData(this.label, this.value);
+}
+
+class ChildrenEditDialog extends StatefulWidget 
+{
+  final PersonItem person;
+
+  const ChildrenEditDialog
+  ({
+    super.key,
+    required this.person,
+  });
+
+  @override
+  State<ChildrenEditDialog> createState() => _ChildrenEditDialogState();
+}
+
+class _ChildrenEditDialogState extends State<ChildrenEditDialog> 
+{
+  bool                        _isLoadingData    = true;
+  bool                        _isSubmitting     = false;
+  List<PersonItem>            _allMinors        = [];
+  final Set<String>           _selectedMinors   = {};
+
+  final TextEditingController _searchMinorsCtrl = TextEditingController();
+  String                      _searchMinorsText = '';
+  String                      _sortMinorsBy     = 'surname_asc';
+  String?                     _filterMinorsRole;
+
+  @override
+  void initState() 
+  {
+    super.initState();
+    _initSelectedMinors();
+    _loadAllData();
+  }
+
+  @override
+  void dispose() 
+  {
+    _searchMinorsCtrl.dispose();
+    super.dispose();
+  }
+
+  void _initSelectedMinors() 
+  {
+    if (widget.person.children != null) 
+    {
+      for (var child in widget.person.children!) 
+      {
+        _selectedMinors.add(child.fiscalCode);
+      }
+    }
+  }
+
+  Future<void> _loadAllData() async 
+  {
+    try 
+    {
+      final allPeople = await ApiService().getPeople();
+      
+      if (mounted) 
+      {
+        setState(() 
+        {
+          _allMinors = allPeople.where((p) 
+          {
+            final bool isMinor        = p.age != null && p.age! < 18;
+            final bool isAlreadyChild = widget.person.children?.any((c) => c.fiscalCode == p.fiscalCode) ?? false;
+            final bool isNotSelf      = p.fiscalCode != widget.person.fiscalCode;
+            return (isMinor || isAlreadyChild) && isNotSelf;
+          }).toList();
+          _isLoadingData = false;
+        });
+      }
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
+        setState(() 
+        {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
+
+  List<PersonItem> get _filteredMinors
+  {
+    var result = _allMinors.where((minor)
+    {
+      final query         = _searchMinorsText.toLowerCase();
+      final fullName      = '${minor.firstName} ${minor.lastName}'.toLowerCase();
+      final matchesSearch = fullName.contains(query);
+      final matchesRole   = _filterMinorsRole == null || minor.roles.any((r) => r.trim().toUpperCase() == _filterMinorsRole!.trim().toUpperCase());
+      
+      return matchesSearch && matchesRole;
+    }).toList();
+
+    result.sort((a, b)
+    {
+      if (_sortMinorsBy == 'name_asc') 
+      {
+        return a.firstName.compareTo(b.firstName);
+      }
+      if (_sortMinorsBy == 'name_desc') 
+      {
+        return b.firstName.compareTo(a.firstName);
+      }
+      if (_sortMinorsBy == 'surname_asc') 
+      {
+        return a.lastName.compareTo(b.lastName);
+      }
+      if (_sortMinorsBy == 'surname_desc') 
+      {
+        return b.lastName.compareTo(a.lastName);
+      }
+      if (_sortMinorsBy == 'date_desc') 
+      {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+      if (_sortMinorsBy == 'date_asc') 
+      {
+        return a.createdAt.compareTo(b.createdAt);
+      }
+      return 0;
+    });
+
+    return result;
+  }
+
+  void _onSave() async 
+  {
+    if (widget.person.children != null) 
+    {
+      bool hasAdultWarning = false;
+      for (final child in widget.person.children!) 
+      {
+        if (!_selectedMinors.contains(child.fiscalCode)) 
+        {
+          final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
+          if (minorIterable.isNotEmpty) 
+          {
+            final minorData  = minorIterable.first;
+            final bool isAdult = minorData.age == null || minorData.age! >= 18;
+
+            if (isAdult) 
+            {
+              hasAdultWarning = true;
+            }
+            else if (minorData.parents != null) 
+            {
+              final otherParents = minorData.parents!.where((p) => p.fiscalCode != widget.person.fiscalCode).toList();
+              if (otherParents.isEmpty) 
+              {
+                CustomSnackBar.show
+                (
+                  context: context, 
+                  message: 'Impossibile rimuovere il figlio: ${minorData.firstName} ${minorData.lastName} rimarrebbe senza genitori.', 
+                  isError: true,
+                );
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      if (hasAdultWarning) 
+      {
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: 'Attenzione: rimuovendo il figlio si perdono le responsabilità genitoriali su un figlio maggiorenne.', 
+          isError: false,
+        );
+      }
+    }
+
+    //MaxParentsValidation
+    for (final minorId in _selectedMinors) 
+    {
+      final minorIterable = _allMinors.where((m) => m.fiscalCode == minorId);
+      if (minorIterable.isNotEmpty) 
+      {
+        final minorData    = minorIterable.first;
+        final otherParents = minorData.parents?.where((p) => p.fiscalCode != widget.person.fiscalCode).toList() ?? [];
+        
+        if (otherParents.length >= 2) 
+        {
+          CustomSnackBar.show
+          (
+            context: context, 
+            message: 'Impossibile aggiungere ${minorData.firstName} ${minorData.lastName}: ha già due genitori associati.', 
+            isError: true,
+          );
+          return;
+        }
+      }
+    }
+
+    setState(() 
+    {
+      _isSubmitting = true;
+    });
+
+    try 
+    {
+      final payload = 
+      {
+        "general_data": 
+        {
+          "first_name":              widget.person.firstName,
+          "last_name":               widget.person.lastName,
+          "tax_code":                widget.person.fiscalCode,
+          "gender":                  widget.person.gender,
+          "birth_date":              widget.person.birthDate != null ? DateFormat('yyyy-MM-dd').format(widget.person.birthDate!) : null,
+          "birth_city":              widget.person.birthCity,
+          "birth_province":          widget.person.birthProvince,
+          "residence_type":          widget.person.residenceType,
+          "residence_address":       widget.person.address,
+          "residence_street_number": widget.person.addressNumber,
+          "residence_city":          widget.person.city,
+          "residence_province":      widget.person.province,
+          "postal_code":             widget.person.zipCode,
+          "email":                   widget.person.email,
+          "phone":                   widget.person.phoneNumber,
+        },
+        "roles":         widget.person.roles,
+        "relationships": 
+        {
+          "minors_tax_codes":  _selectedMinors.toList(),
+          "parents_tax_codes": widget.person.parents?.map((p) => p.fiscalCode).toList() ?? [],
+        }
+      };
+
+      await ApiService().updatePerson
+      (
+        widget.person.fiscalCode,
+        payload,
+      );
+
+      if (mounted) 
+      {
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: 'Associazione figli aggiornata con successo!', 
+          isError: false,
+        );
+        Navigator.of(context).pop(true);
+      }
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
+        CustomSnackBar.show
+        (
+          context: context, 
+          message: e.toString().replaceAll('Exception: ', ''), 
+          isError: true,
+        );
+      }
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
+        setState(() 
+        {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    final validMinors = _filteredMinors;
+
+    return Dialog
+    (
+      backgroundColor: Colors.transparent,
+      elevation:       0,
+      child: Container
+      (
+        width:       MediaQuery.of(context).size.width * 0.85,
+        height:      MediaQuery.of(context).size.height * 0.85,
+        constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
+        decoration: BoxDecoration
+        (
+          color:        const Color(0xFFF4F7F9),
+          borderRadius: BorderRadius.circular(40),
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
+              color:      Color(0x26000000),
+              offset:     Offset(0, 12),
+              blurRadius: 36,
+            )
+          ],
+        ),
+        child: ClipRRect
+        (
+          borderRadius: BorderRadius.circular(40),
+          child: Stack
+          (
+            children: 
+            [
+              Positioned
+              (
+                right: -400, 
+                top:   -400,
+                child: IgnorePointer
+                (
+                  child: Container
+                  (
+                    width:  800, 
+                    height: 800,
+                    decoration: const BoxDecoration
+                    (
+                      shape:    BoxShape.circle,
+                      gradient: RadialGradient
+                      (
+                        colors: [Color(0x22003C82), Color(0x00003C82)], 
+                        stops:  [0.0, 1.0]
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned
+              (
+                left:   -400, 
+                bottom: -400,
+                child: IgnorePointer
+                (
+                  child: Container
+                  (
+                    width:  800, 
+                    height: 800,
+                    decoration: const BoxDecoration
+                    (
+                      shape:    BoxShape.circle,
+                      gradient: RadialGradient
+                      (
+                        colors: [Color(0x22003C82), Color(0x00003C82)], 
+                        stops:  [0.0, 1.0]
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Column
+              (
+                children: 
+                [
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(top: 24, right: 24, left: 32),
+                    child: Row
+                    (
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: 
+                      [
+                        Text
+                        (
+                          'Modifica Figli',
+                          style: GoogleFonts.plusJakartaSans
+                          (
+                            fontSize:   26, 
+                            fontWeight: FontWeight.w700, 
+                            color:      const Color(0xFF003C82),
+                          ),
+                        ),
+                        WizardHoverCloseButton
+                        (
+                          onTap: () 
+                          {
+                            Navigator.of(context).pop();
+                          }
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
+                  Expanded
+                  (
+                    child: Padding
+                    (
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column
+                      (
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: 
+                        [
+                          Padding
+                          (
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Column
+                            (
+                              children: 
+                              [
+                                Text
+                                (
+                                  'Associazione Minori',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.plusJakartaSans
+                                  (
+                                    fontSize:   22,
+                                    fontWeight: FontWeight.w700,
+                                    color:      const Color(0xFF003C82),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text
+                                (
+                                  'Seleziona i minori di cui questa persona è genitore o tutore legale.',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.plusJakartaSans
+                                  (
+                                    fontSize:   16,
+                                    fontWeight: FontWeight.w500,
+                                    color:      const Color(0xFF64748B),
+                                    height:     1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row
+                          (
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: 
+                            [
+                              SizedBox
+                              (
+                                width: 260,
+                                child: WizardAnimatedSearchBar
+                                (
+                                  controller: _searchMinorsCtrl, 
+                                  onChanged:  (value) 
+                                  {
+                                    setState(() 
+                                    {
+                                      _searchMinorsText = value;
+                                    });
+                                  }, 
+                                  hintText:   'Cerca per nome...',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              WizardFilterMenu<String>
+                              (
+                                hint:          'Ordina per', 
+                                icon:          Icons.sort_rounded, 
+                                value:         _sortMinorsBy, 
+                                menuWidth:     180, 
+                                showClearIcon: false, 
+                                onChanged:     (val) 
+                                {
+                                  setState(() 
+                                  {
+                                    _sortMinorsBy = val;
+                                  });
+                                }, 
+                                onClear:       () 
+                                {
+                                }, 
+                                options: 
+                                [
+                                  WizardFilterOption(value: 'surname_asc',  label: 'Cognome (A-Z)'), 
+                                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                                  WizardFilterOption(value: 'name_asc',     label: 'Nome (A-Z)'), 
+                                  WizardFilterOption(value: 'name_desc',    label: 'Nome (Z-A)'), 
+                                  WizardFilterOption(value: 'date_desc',    label: 'Più recente'), 
+                                  WizardFilterOption(value: 'date_asc',     label: 'Meno recente'),
+                                ]
+                              ),
+                              const SizedBox(width: 12),
+                              WizardFilterMenu<String>
+                              (
+                                hint:          'Tutti i ruoli', 
+                                icon:          Icons.badge_outlined, 
+                                value:         _filterMinorsRole, 
+                                menuWidth:     200, 
+                                showClearIcon: true, 
+                                onChanged:     (val) 
+                                {
+                                  setState(() 
+                                  {
+                                    _filterMinorsRole = val;
+                                  });
+                                }, 
+                                onClear:       () 
+                                {
+                                  setState(() 
+                                  {
+                                    _filterMinorsRole = null;
+                                  });
+                                }, 
+                                options: 
+                                [
+                                  WizardFilterOption(value: 'STUDENTE',  label: 'Studente'), 
+                                  WizardFilterOption(value: 'CORSISTA',  label: 'Corsista'), 
+                                  WizardFilterOption(value: 'DOCENTE',   label: 'Docente'),
+                                  WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
+                                ]
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Expanded
+                          (
+                            child: _isLoadingData 
+                              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+                              : SizedBox
+                                (
+                                  width: double.infinity,
+                                  child: SingleChildScrollView
+                                  (
+                                    padding: const EdgeInsets.only(bottom: 40),
+                                    child: Wrap
+                                    (
+                                      spacing:    16,
+                                      runSpacing: 16,
+                                      alignment:  WrapAlignment.center,
+                                      children:   validMinors.map((minor) 
+                                      {
+                                        final minorId    = minor.fiscalCode;
+                                        final isSelected = _selectedMinors.contains(minorId);
+                                        
+                                        return WizardSelectablePersonCard
+                                        (
+                                          person:     minor,
+                                          isSelected: isSelected,
+                                          onTap:      () 
+                                          {
+                                            setState(() 
+                                            {
+                                              if (isSelected) 
+                                              {
+                                                _selectedMinors.remove(minorId);
+                                              } 
+                                              else 
+                                              {
+                                                _selectedMinors.add(minorId);
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(top: 16, bottom: 32),
+                    child: Row
+                    (
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: 
+                      [
+                        SizedBox
+                        (
+                          width: 230,
+                          child: WizardAnimatedActionButton
+                          (
+                            text:       'ANNULLA', 
+                            icon:       Icons.close_rounded, 
+                            baseColor:  const Color(0xFFE53935), 
+                            hoverColor: const Color(0xFFEF5350), 
+                            onPressed:  () 
+                            {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        SizedBox
+                        (
+                          width: 230,
+                          child: WizardAnimatedActionButton
+                          (
+                            text:       _isSubmitting ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
+                            icon:       Icons.check_circle_outline, 
+                            baseColor:  const Color(0xFF003C82), 
+                            hoverColor: const Color(0xFF004D99), 
+                            onPressed:  _isSubmitting 
+                              ? () 
+                                {
+                                } 
+                              : _onSave,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

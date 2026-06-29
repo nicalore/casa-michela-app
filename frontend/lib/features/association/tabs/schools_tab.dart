@@ -393,12 +393,12 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
               children: [
                 Switch(value: _isPrivate, activeColor: const Color(0xFF003C82), splashRadius: 0.0, hoverColor: Colors.transparent, focusColor: Colors.transparent, onChanged: (v) => setState(() { _isPrivate = v; if (v) _codeController.clear(); })),
                 const SizedBox(width: 8),
-                Text('Scuola Privata (Codice automatico)', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+                Text('Scuola Privata', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
               ],
             ),
             const SizedBox(height: 12),
             _buildFieldLabel('Codice Meccanografico'),
-            TextField(controller: _codeController, enabled: !_isPrivate, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: _isPrivate ? const Color(0xFF8A8A8A) : Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: _isPrivate ? 'Non richiesto' : 'Es. VIPC010004', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            TextField(controller: _codeController, enabled: !_isPrivate, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: _isPrivate ? const Color(0xFF8A8A8A) : Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: _isPrivate ? 'Non richiesto' : 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
             _buildFieldLabel('Nome'),
             TextField(controller: _nameController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Statale F. Corradini', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
             Row(
@@ -423,7 +423,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Seleziona i Percorsi di Studio attivi in questa scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
+          Text('Seleziona i percorsi di studio attivi in questa scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           AnimatedSearchBar(controller: _programSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca percorso di studio...'),
           const SizedBox(height: 16),

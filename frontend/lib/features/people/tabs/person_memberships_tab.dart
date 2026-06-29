@@ -566,7 +566,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFFE53935),
+                    color:      const Color(0xFF003C82),
                   ),
                 ),
                 FadeHoverIconButton
@@ -584,26 +584,26 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               padding:    const EdgeInsets.all(16),
               decoration: BoxDecoration
               (
-                color:        const Color(0xFFE53935).withValues(alpha: 0.08),
+                color:        const Color(0xFF003C82).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border:       Border.all(color: const Color(0xFFE53935).withValues(alpha: 0.3)),
+                border:       Border.all(color: const Color(0xFF003C82).withValues(alpha: 0.3)),
               ),
               child: Row
               (
                 children: 
                 [
-                  const Icon(Icons.warning_rounded, color: Color(0xFFE53935), size: 28),
+                  const Icon(Icons.warning_rounded, color: Color(0xFF003C82), size: 28),
                   const SizedBox(width: 16),
                   Expanded
                   (
                     child: Text
                     (
-                      'ATTENZIONE: Questa operazione è totalmente irreversibile. L\'iscrizione terminerà in data odierna e lo stato di collaborazione verrà disattivato.',
+                      'ATTENZIONE: Questa operazione è irreversibile. L\'iscrizione terminerà in data odierna e lo stato di collaborazione verrà disattivato.',
                       style: GoogleFonts.plusJakartaSans
                       (
                         fontSize:   14,
                         fontWeight: FontWeight.w600,
-                        color:      const Color(0xFFE53935),
+                        color:      const Color(0xFF003C82),
                         height:     1.3,
                       ),
                     ),
@@ -640,8 +640,8 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
                   (
                     text:       'ANNULLA',
                     icon:       Icons.cancel_outlined,
-                    baseColor:  const Color(0xFF64748B),
-                    hoverColor: const Color(0xFF475569),
+                    baseColor:  const Color(0xFFE53935),
+                    hoverColor: const Color(0xFFEF5350),
                     onPressed:  () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -652,8 +652,8 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
                   (
                     text:       _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
                     icon:       Icons.gavel_rounded,
-                    baseColor:  const Color(0xFFE53935),
-                    hoverColor: const Color(0xFFEF5350),
+                    baseColor:  const Color(0xFF003C82), 
+                    hoverColor: const Color(0xFF004D99), 
                     onPressed:  _isSaving ? () {} : _submitRevocation,
                   ),
                 ),

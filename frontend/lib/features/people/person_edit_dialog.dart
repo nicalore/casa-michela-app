@@ -10,13 +10,15 @@ import '../association/models/association_subject_item.dart';
 import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
 import 'models/person_item.dart';
+import 'models/school_enrollment_item.dart';
 import 'person_wizard_components.dart';
 
 class PersonEditDialog extends StatefulWidget 
 {
   final PersonItem person;
   
-  const PersonEditDialog({
+  const PersonEditDialog
+  ({
     super.key,
     required this.person,
   });
@@ -30,6 +32,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   int  _currentStep           = 0;
   int  _involvementType       = -1;
   bool _genitoreIsAssociato   = false;
+  bool _wasAssociato          = false;
   int  _currentFormCardIndex  = 0;
   int  _currentStep4CardIndex = 0;
   bool _movingForward         = true;
@@ -40,7 +43,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   final Set<String> _selectedRoles = {};
 
-  final List<Map<String, dynamic>> _availableRoles = [
+  final List<Map<String, dynamic>> _availableRoles = 
+  [
     {
       'id':    'DOCENTE', 
       'label': 'Docente', 
@@ -82,25 +86,24 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   Map<String, String> _formErrors = {};
   Uint8List?          _fotoProfilo;
 
-  // Dati Generali
-  final TextEditingController _nomeCtrl           = TextEditingController();
-  final TextEditingController _cognomeCtrl        = TextEditingController();
+  final TextEditingController _nomeCtrl            = TextEditingController();
+  final TextEditingController _cognomeCtrl         = TextEditingController();
   String?                     _sesso;
-  final TextEditingController _cfCtrl             = TextEditingController();
-  final TextEditingController _dataNascitaCtrl    = TextEditingController();
-  final TextEditingController _cittaNascitaCtrl   = TextEditingController();
-  final TextEditingController _provNascitaCtrl    = TextEditingController();
-  final TextEditingController _tipoViaCtrl        = TextEditingController();
-  final TextEditingController _indirizzoNomeCtrl  = TextEditingController();
-  final TextEditingController _civicoCtrl         = TextEditingController();
-  final TextEditingController _cittaResidenzaCtrl = TextEditingController();
-  final TextEditingController _provResidenzaCtrl  = TextEditingController();
-  final TextEditingController _capCtrl            = TextEditingController();
-  final TextEditingController _emailCtrl          = TextEditingController();
-  final TextEditingController _telefonoCtrl       = TextEditingController();
+  final TextEditingController _cfCtrl              = TextEditingController();
+  final TextEditingController _dataNascitaCtrl     = TextEditingController();
+  final TextEditingController _cittaNascitaCtrl    = TextEditingController();
+  final TextEditingController _provNascitaCtrl     = TextEditingController();
+  final TextEditingController _tipoViaCtrl         = TextEditingController();
+  final TextEditingController _indirizzoNomeCtrl   = TextEditingController();
+  final TextEditingController _civicoCtrl          = TextEditingController();
+  final TextEditingController _cittaResidenzaCtrl  = TextEditingController();
+  final TextEditingController _provResidenzaCtrl   = TextEditingController();
+  final TextEditingController _capCtrl             = TextEditingController();
+  final TextEditingController _emailCtrl           = TextEditingController();
+  final TextEditingController _telefonoCtrl        = TextEditingController();
 
-  // Dati Specifici
   final List<WizardEnrollmentRowData> _enrollmentRows = [];
+  final List<int?>                    _enrollmentIds  = [];
   final List<WizardSchoolRowData>     _schoolRows     = [];
 
   final TextEditingController _scadenzaCertificatoCtrl      = TextEditingController();
@@ -112,21 +115,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  String?          _uscitaAnticipata;
-  List<SchoolItem> _allSchools = [];
-  SchoolItem?      _scuolaSelezionata;
-  StudyProgramItem? _percorsoStudenteSelezionato;
-  String?          _classeFrequentata;
+  String?                _uscitaAnticipata;
+  List<SchoolItem>       _allSchools  = [];
   List<StudyProgramItem> _allPrograms = [];
 
-  // Parents
-  final TextEditingController _searchParentsCtrl = TextEditingController();
-  String                      _searchParentsText = '';
-  String                      _sortParentsBy     = 'surname_asc';
-  final Set<String>           _selectedParents   = {};
-  List<PersonItem>            _allAdults         = [];
+  final TextEditingController _searchParentsCtrl  = TextEditingController();
+  String                      _searchParentsText  = '';
+  String                      _sortParentsBy      = 'surname_asc';
+  final Set<String>           _selectedParents    = {};
+  List<PersonItem>            _allAdults          = [];
 
-  // Minors
   final TextEditingController _searchMinorsCtrl = TextEditingController();
   String                      _searchMinorsText = '';
   String                      _sortMinorsBy     = 'surname_asc';
@@ -134,7 +132,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final Set<String>           _selectedMinors   = {};
   List<PersonItem>            _allMinors        = [];
 
-  // Discipline
   List<AssociationSubjectItem> _allSubjects                 = [];
   final TextEditingController  _searchSubjectsCtrl          = TextEditingController();
   String                       _searchSubjectsText          = '';
@@ -193,7 +190,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   {
     try 
     {
-      final results = await Future.wait([
+      final results = await Future.wait(
+      [
         ApiService().getStudyPrograms(),
         ApiService().getSchools(), 
         ApiService().getAssociationSubjects(),
@@ -209,9 +207,54 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           _allSubjects = results[2] as List<AssociationSubjectItem>;
           
           final allPeople = results[3] as List<PersonItem>;
-          _allMinors = allPeople.where((p) => p.age != null && p.age! < 18 && p.fiscalCode != widget.person.fiscalCode).toList();
+          _allMinors = allPeople.where((p) => ((p.age != null && p.age! < 18) || (widget.person.children?.any((c) => c.fiscalCode == p.fiscalCode) ?? false)) && p.fiscalCode != widget.person.fiscalCode).toList();
           _allAdults = allPeople.where((p) => (p.age == null || p.age! >= 18) && p.roles.any((r) => r.toUpperCase() == 'GENITORE') && p.fiscalCode != widget.person.fiscalCode).toList();
           
+          //LoadSchoolEnrollments
+          if (_schoolRows.isEmpty && widget.person.roles.any((r) => r.toUpperCase() == 'STUDENTE'))
+          {
+            final enrollments = widget.person.schoolEnrollments ?? [];
+            if (enrollments.isNotEmpty) 
+            {
+              final sorted = List<SchoolEnrollmentItem>.from(enrollments)..sort((a, b) => b.startYear.compareTo(a.startYear));
+              for (var e in sorted) 
+              {
+                final school  = _allSchools.where((s) => s.mechanographicCode == e.schoolMechanographicCode).firstOrNull;
+                final program = _allPrograms.where((p) => p.id == e.studyProgramId).firstOrNull;
+                
+                String? gradeString;
+                if (program != null)
+                {
+                  const map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'};
+                  gradeString = map[e.grade];
+                }
+
+                _schoolRows.add(WizardSchoolRowData
+                (
+                  yearCtrl:        TextEditingController(text: e.startYear.toString()),
+                  selectedSchool:  school,
+                  selectedProgram: program,
+                  selectedGrade:   gradeString,
+                ));
+              }
+            }
+            else
+            {
+              SchoolItem?       matchedSchool;
+              StudyProgramItem? matchedProgram;
+              try { matchedSchool = _allSchools.firstWhere((s) => s.name == widget.person.schoolName); } catch (_) {}
+              try { matchedProgram = _allPrograms.firstWhere((p) => p.name == widget.person.studyProgram); } catch (_) {}
+
+              _schoolRows.add(WizardSchoolRowData
+              (
+                yearCtrl:        TextEditingController(text: widget.person.enrollmentYear ?? _getCurrentSchoolYearStart().toString()),
+                selectedSchool:  matchedSchool,
+                selectedProgram: matchedProgram,
+                selectedGrade:   widget.person.schoolClass,
+              ));
+            }
+          }
+
           _isLoadingData = false;
         });
       }
@@ -254,16 +297,95 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     _selectedRoles.clear();
     _selectedRoles.addAll(roles);
 
-    if (roles.length == 1 && roles.contains('ASSOCIATO')) {
+    if (roles.contains('ASSOCIATO') || roles.any((r) => r != 'GENITORE')) 
+    {
+      _wasAssociato = true;
+    } 
+    else 
+    {
+      _wasAssociato = false;
+    }
+
+    if (roles.length == 1 && roles.contains('ASSOCIATO')) 
+    {
       _involvementType = 1;
-    } else {
+    } 
+    else 
+    {
       _involvementType = 0;
     }
     
-    if (roles.contains('GENITORE') && roles.contains('ASSOCIATO')) {
+    if (roles.contains('GENITORE') && roles.contains('ASSOCIATO')) 
+    {
       _genitoreIsAssociato = true;
-    } else {
+    } 
+    else 
+    {
       _genitoreIsAssociato = false;
+    }
+
+    try 
+    {
+      final dynamic p = widget.person;
+      dynamic mems;
+      try { mems = p.memberships; } catch(_) {}
+      if (mems == null) { try { mems = p.member_data?['memberships']; } catch(_) {} }
+      
+      if (mems != null && mems is Iterable && mems.isNotEmpty) 
+      {
+        for (var mem in mems) 
+        {
+          int? mId;
+          try { mId = (mem is Map) ? mem['id'] : mem.id; } catch(_) {}
+          
+          final String yearStr = (mem is Map) ? mem['year']?.toString() ?? '' : mem.year?.toString() ?? '';
+          
+          dynamic startDate = (mem is Map) ? mem['start_date'] : mem.startDate;
+          String dateStr = '';
+          if (startDate != null) 
+          {
+            if (startDate is DateTime) 
+            {
+              dateStr = '${startDate.day.toString().padLeft(2, '0')}/${startDate.month.toString().padLeft(2, '0')}';
+            } 
+            else if (startDate is String) 
+            {
+              final DateTime? d = DateTime.tryParse(startDate);
+              if (d != null) 
+              {
+                dateStr = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+              } 
+              else 
+              {
+                final parts = startDate.split('-');
+                if (parts.length == 3) 
+                {
+                  dateStr = '${parts[2]}/${parts[1]}';
+                }
+              }
+            }
+          }
+          
+          _enrollmentRows.add(WizardEnrollmentRowData
+          (
+            yearCtrl: TextEditingController(text: yearStr),
+            dateCtrl: TextEditingController(text: dateStr),
+          ));
+          _enrollmentIds.add(mId);
+        }
+      }
+    } 
+    catch (_) {}
+
+    if (_enrollmentRows.isEmpty) 
+    {
+      final now = DateTime.now();
+      _enrollmentRows.add(WizardEnrollmentRowData
+      (
+        yearCtrl: TextEditingController(text: now.year.toString()),
+        dateCtrl: TextEditingController(text: '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}'),
+      ));
+      _enrollmentIds.add(null);
     }
 
     _scadenzaCertificatoCtrl.text = widget.person.medicalCertificateExpiration != null 
@@ -274,7 +396,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     if (widget.person.collaborationType == 'Volontario' || widget.person.collaborationType == 'VOLUNTEER') _tipoCollaborazione = 'Volontario';
     if (widget.person.collaborationType == 'Retribuito' || widget.person.collaborationType == 'PAID') _tipoCollaborazione = 'Retribuito';
-    if (widget.person.collaborationType == 'PCTO' || widget.person.collaborationType == 'FSC') _tipoCollaborazione = 'FSC';
+    if (widget.person.collaborationType == 'PCTO' || widget.person.collaborationType == 'FSC (Ex PCT0)') _tipoCollaborazione = 'FSC (Ex PCT0)';
 
     if (widget.person.adminRole != null) 
     {
@@ -351,6 +473,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
+  bool _isValidDayMonthYear(String dm, String yearStr) 
+  {
+    try 
+    {
+      final parts = dm.split('/');
+      if (parts.length != 2) return false;
+      
+      final day   = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final year  = int.parse(yearStr);
+      final date  = DateTime(year, month, day);
+      
+      return date.year == year && date.month == month && date.day == day;
+    } 
+    catch (_)
+    {
+      return false;
+    }
+  }
+
   bool get _isMinor
   {
     if (_dataNascitaCtrl.text.isEmpty) return false;
@@ -367,6 +509,28 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
     
     return age < 18;
+  }
+
+  int _getCurrentSchoolYearStart() 
+  {
+    final now = DateTime.now();
+    return now.month < 9 ? now.year - 1 : now.year;
+  }
+
+  int _romanToNumeric(String roman) 
+  {
+    const map = 
+    {
+      'I':    1, 
+      'II':   2, 
+      'III':  3, 
+      'IV':   4, 
+      'V':    5,
+      'VI':   6,
+      'VII':  7,
+      'VIII': 8,
+    };
+    return map[roman] ?? 1;
   }
 
   List<StudyProgramItem> _getProgramsForSubject(AssociationSubjectItem subject) 
@@ -485,8 +649,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   List<Widget> get _activeStep4Cards 
   {
     final List<Widget> cards       = [];
-    final              activeRoles = _selectedRoles.toList();
+    final List<String> activeRoles = _selectedRoles.toList();
     
+    final bool isOnlyGenitoreNotAssociato = activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_genitoreIsAssociato;
+
+    if (!isOnlyGenitoreNotAssociato)
+    {
+      cards.add(_buildFormCardIscrizione());
+    }
+
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
@@ -495,8 +666,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (activeRoles.contains('AMMINISTRATORE')) cards.add(_buildFormCardAmministratore());
     if (activeRoles.contains('DOCENTE')) cards.add(_buildFormCardDocente());
     if (activeRoles.contains('CORSISTA')) cards.add(_buildFormCardCorsista());
-    
-    if (activeRoles.contains('STUDENTE') && _isMinor) cards.add(_buildFormCardStudente());
+    if (activeRoles.contains('STUDENTE')) cards.add(_buildFormCardStudente());
     
     return cards;
   }
@@ -509,6 +679,37 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       CustomSnackBar.show(context: context, message: 'Seleziona almeno un ruolo.', isError: true);
       return false;
     }
+
+    final bool wasGenitore = widget.person.roles.any((r) => r.toUpperCase() == 'GENITORE');
+    final bool isGenitore  = _selectedRoles.contains('GENITORE');
+
+    if (wasGenitore && !isGenitore && widget.person.children != null) 
+    {
+      //CheckOrphanStatus
+      for (final child in widget.person.children!) 
+      {
+        final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
+        if (minorIterable.isNotEmpty)
+        {
+          final PersonItem minorData = minorIterable.first;
+          if (minorData.parents != null) 
+          {
+            final otherParents = minorData.parents!.where((p) => p.fiscalCode != widget.person.fiscalCode).toList();
+            if (otherParents.isEmpty) 
+            {
+              CustomSnackBar.show
+              (
+                context: context, 
+                message: 'Impossibile rimuovere il ruolo Genitore: ${minorData.firstName} ${minorData.lastName} rimarrebbe senza genitori.', 
+                isError: true,
+              );
+              return false;
+            }
+          }
+        }
+      }
+    }
+
     return true;
   }
 
@@ -594,7 +795,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (!isValid) 
     {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi.', isError: true);
     }
 
     return isValid;
@@ -613,9 +814,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       _studiUniversitariCtrl.text        = _studiUniversitariCtrl.text.trim();
     });
 
-    bool                isValid          = true;
+    bool                isValid             = true;
+    bool                showFutureYearError = false;
     int?                firstInvalidCard;
-    Map<String, String> newErrors        = {};
+    Map<String, String> newErrors           = {};
 
     void addError(String field, String message, int targetCardLogicIndex)
     {
@@ -627,12 +829,61 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       }
     }
 
-    final activeRoles = _selectedRoles.toList();
+    final List<String> activeRoles = _selectedRoles.toList();
+    final bool isOnlyGenitoreNotAssociato = activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_genitoreIsAssociato;
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
     
     int currentMappedIndex = 0;
+
+    if (!isOnlyGenitoreNotAssociato)
+    {
+      if (_enrollmentRows.isEmpty)
+      {
+        addError('enrollmentGeneral', 'Aggiungi almeno un\'iscrizione', currentMappedIndex);
+      }
+      for (int i = 0; i < _enrollmentRows.length; i++) 
+      {
+        final row = _enrollmentRows[i];
+        bool yearValid = false;
+        
+        if (row.yearCtrl.text.trim().isEmpty) 
+        {
+          addError('enrollmentYear_$i', 'Campo obbligatorio', currentMappedIndex);
+        } 
+        else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) 
+        {
+          addError('enrollmentYear_$i', 'Anno non valido', currentMappedIndex);
+        }
+        else
+        {
+          int parsedYear = int.parse(row.yearCtrl.text.trim());
+          if (parsedYear > DateTime.now().year)
+          {
+            addError('enrollmentYear_$i', 'Anno non futuro', currentMappedIndex);
+          }
+          else
+          {
+            yearValid = true;
+          }
+        }
+        
+        if (row.dateCtrl.text.trim().isEmpty) 
+        {
+          addError('enrollmentDate_$i', 'Campo obbligatorio', currentMappedIndex);
+        } 
+        else if (yearValid && !_isValidDayMonthYear(row.dateCtrl.text.trim(), row.yearCtrl.text.trim())) 
+        {
+          addError('enrollmentDate_$i', 'Data non valida', currentMappedIndex);
+        }
+        else if (!yearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim()))
+        {
+          addError('enrollmentDate_$i', 'Formato gg/mm', currentMappedIndex);
+        }
+      }
+      currentMappedIndex++;
+    }
 
     if (isStaff)
     {
@@ -683,11 +934,51 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++;
     }
     
-    if (activeRoles.contains('STUDENTE') && _isMinor)
+    if (activeRoles.contains('STUDENTE'))
     {
-      if (_uscitaAnticipata == null) 
+      if (_isMinor && _uscitaAnticipata == null) 
       {
         addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
+      }
+      if (_schoolRows.isEmpty) 
+      {
+        addError('schoolGeneral', 'Aggiungi almeno un anno scolastico', currentMappedIndex);
+      }
+
+      final Set<int> distinctYears = {};
+      for (int i = 0; i < _schoolRows.length; i++) 
+      {
+        final r = _schoolRows[i];
+
+        if (r.yearCtrl.text.trim().isEmpty) 
+        {
+          addError('schoolYear_$i', 'Obbligatorio', currentMappedIndex);
+        } 
+        else if (!RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text.trim())) 
+        {
+          addError('schoolYear_$i', 'Anno non valido', currentMappedIndex);
+        } 
+        else 
+        {
+          int parsedYear = int.parse(r.yearCtrl.text.trim());
+          if (parsedYear > _getCurrentSchoolYearStart()) 
+          {
+            addError('schoolYear_$i', 'Anno futuro non permesso', currentMappedIndex);
+            showFutureYearError = true;
+          } 
+          else if (distinctYears.contains(parsedYear)) 
+          {
+            addError('schoolYear_$i', 'Duplicato', currentMappedIndex);
+          } 
+          else 
+          {
+            distinctYears.add(parsedYear);
+          }
+        }
+
+        if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -704,7 +995,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (!isValid)
     {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati specifici. Correggi i campi evidenziati.', isError: true);
+      if (showFutureYearError)
+      {
+        CustomSnackBar.show(context: context, message: 'Non è possibile inserire anni scolastici futuri.', isError: true);
+      }
+      else
+      {
+        CustomSnackBar.show(context: context, message: 'Ci sono errori nelle informazioni associative. Correggi i campi.', isError: true);
+      }
     }
 
     return isValid;
@@ -716,17 +1014,63 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     try 
     {
-      final List<String> finalRoles = _selectedRoles.toList();
+      final Set<String> finalRolesSet = _selectedRoles.where((r) => r != 'ASSOCIATO').toSet();
         
-      if (_involvementType == 1) {
-          finalRoles.clear();
-          finalRoles.add('ASSOCIATO');
-      } else {
-          if (finalRoles.any((r) => r != 'GENITORE')) {
-              finalRoles.add('ASSOCIATO');
-          } else if (_genitoreIsAssociato) {
-              finalRoles.add('ASSOCIATO');
+      if (_involvementType == 1) 
+      {
+          finalRolesSet.clear();
+          finalRolesSet.add('ASSOCIATO');
+      } 
+      else 
+      {
+          if (finalRolesSet.any((r) => r != 'GENITORE')) 
+          {
+              finalRolesSet.add('ASSOCIATO');
+          } 
+          else if (_genitoreIsAssociato) 
+          {
+              finalRolesSet.add('ASSOCIATO');
           }
+      }
+
+      final List<String> finalRoles = finalRolesSet.toList();
+      final bool isOnlyGenitoreNotAssociato = finalRoles.length == 1 && finalRoles.contains('GENITORE') && !_genitoreIsAssociato;
+
+      List<Map<String, dynamic>> membershipsData = [];
+      if (!isOnlyGenitoreNotAssociato) 
+      {
+        for (int i = 0; i < _enrollmentRows.length; i++) 
+        {
+          final row = _enrollmentRows[i];
+          final parts   = row.dateCtrl.text.trim().split('/');
+          final isoDate = '${row.yearCtrl.text.trim()}-${parts[1]}-${parts[0]}';
+          
+          final Map<String, dynamic> memMap = 
+          {
+            "year":                int.parse(row.yearCtrl.text.trim()),
+            "start_date":          isoDate,
+            "end_date":            "${row.yearCtrl.text.trim()}-12-31",
+            "renewal_period_days": 30,
+            "revocation":          "NO"
+          };
+          
+          if (_enrollmentIds.length > i && _enrollmentIds[i] != null) 
+          {
+            memMap["id"] = _enrollmentIds[i];
+          }
+          
+          membershipsData.add(memMap);
+        }
+      }
+
+      Map<String, dynamic>? memberData;
+      if (!isOnlyGenitoreNotAssociato && membershipsData.isNotEmpty) 
+      {
+        memberData = 
+        {
+          "collaborating_active": _involvementType == 0,
+          "memberships":          membershipsData
+        };
       }
 
       Map<String, dynamic>? staffData;
@@ -743,9 +1087,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       {
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-        if (_tipoCollaborazione == 'FSC') collType = 'PCTO';
+        if (_tipoCollaborazione == 'FSC (Ex PCT0)') collType = 'PCTO';
 
-        staffData = {
+        staffData = 
+        {
           "collaboration_type": collType,
           "iban":               _ibanCtrl.text.isNotEmpty ? _ibanCtrl.text.trim().toUpperCase() : null,
         };
@@ -758,7 +1103,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         if (_ruoloAmministratore == 'Vicepresidente') adminRole = 'VICE_PRESIDENT';
         if (_ruoloAmministratore == 'Tesoriere') adminRole = 'TREASURER';
 
-        adminData = {
+        adminData = 
+        {
           "role":       adminRole,
           "other_role": adminRole == 'OTHER' ? _altroRuoloAmministratoreCtrl.text.trim() : null,
         };
@@ -766,22 +1112,25 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
       if (finalRoles.contains('DOCENTE')) 
       {
-        teacherData = {
+        teacherData = 
+        {
           "school_education":     _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
           "university_education": _studiUniversitariCtrl.text.isNotEmpty ? _studiUniversitariCtrl.text.trim() : null,
           "competences":          _subjectToggles.entries
               .where((e) => e.value) 
-              .map((e) => {
-                    "subject_id":        e.key,
-                    "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
-                  })
+              .map((e) => 
+              {
+                "subject_id":        e.key,
+                "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
+              })
               .toList(),
         };
       }
 
       if (finalRoles.contains('CORSISTA')) 
       {
-        courseParticipantData = {
+        courseParticipantData = 
+        {
           "medical_certificate_expiration": _scadenzaCertificatoCtrl.text.isNotEmpty ? _scadenzaCertificatoCtrl.text.trim().split('/').reversed.join('-') : null,
           "course_type":                    _tipoCorsoCtrl.text.trim(),
         };
@@ -789,13 +1138,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
       if (finalRoles.contains('STUDENTE')) 
       {
-        studentData = {
-          "authorized_early_exit": _isMinor ? (_uscitaAnticipata == 'Sì') : true,
+        studentData = 
+        {
+          "authorized_early_exit":      _isMinor ? (_uscitaAnticipata == 'Sì') : true,
+          "school_mechanographic_code": _schoolRows.isNotEmpty ? _schoolRows.first.selectedSchool!.mechanographicCode : '',
+          "study_program_id":           _schoolRows.isNotEmpty ? _schoolRows.first.selectedProgram!.id : 0,
+          "school_class":               _schoolRows.isNotEmpty ? _schoolRows.first.selectedGrade! : '',
         };
       }
 
-      final payload = {
-        "general_data": {
+      final payload = 
+      {
+        "general_data": 
+        {
           "first_name":              _nomeCtrl.text.trim(),
           "last_name":               _cognomeCtrl.text.trim(),
           "tax_code":                _cfCtrl.text.trim().toUpperCase(),
@@ -813,26 +1168,47 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           "phone":                   _telefonoCtrl.text.replaceAll(' ', ''),
         },
         "roles":                   finalRoles,
+        "member_data":             memberData,
         "staff_data":              staffData,
         "admin_data":              adminData,
         "teacher_data":            teacherData,
         "course_participant_data": courseParticipantData,
         "student_data":            studentData,
-        "relationships": {
+        "relationships": 
+        {
           "minors_tax_codes":  _selectedMinors.toList(),
           "parents_tax_codes": _selectedParents.toList(),
         }
       };
 
-      final newFiscalCode = await ApiService().updatePerson(
+      final newFiscalCode = await ApiService().updatePerson
+      (
         widget.person.fiscalCode,
         payload,
         imageBytes: _fotoProfilo,
       );
 
+      //UpdateAllSchoolEnrollments
+      if (finalRoles.contains('STUDENTE') && _schoolRows.isNotEmpty)
+      {
+        List<Map<String, dynamic>> payloadEnrollments = [];
+        for (var r in _schoolRows)
+        {
+          payloadEnrollments.add(
+          {
+            "start_year":                 int.parse(r.yearCtrl.text.trim()),
+            "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+            "study_program_id":           r.selectedProgram!.id,
+            "grade":                      _romanToNumeric(r.selectedGrade!),
+          });
+        }
+        await ApiService().updatePersonSchoolEnrollments(newFiscalCode, payloadEnrollments);
+      }
+
       if (mounted) 
       {
-        CustomSnackBar.show(
+        CustomSnackBar.show
+        (
           context: context, 
           message: 'Anagrafica aggiornata con successo!', 
           isError: false,
@@ -844,7 +1220,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     {
       if (mounted) 
       {
-        CustomSnackBar.show(
+        CustomSnackBar.show
+        (
           context: context, 
           message: e.toString().replaceAll('Exception: ', ''), 
           isError: true,
@@ -864,7 +1241,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   {
     final programs = _getProgramsForSubject(subject);
     
-    showGeneralDialog(
+    showGeneralDialog
+    (
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'ProgramsSelection', 
@@ -874,13 +1252,17 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       transitionBuilder:  (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
+          child:  FadeTransition
+          (
             opacity: animation,
-            child: ScaleTransition(
+            child:   ScaleTransition
+            (
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: WizardProgramsSelectionDialog(
+              child: WizardProgramsSelectionDialog
+              (
                 subject:         subject,
                 programs:        programs,
                 initialSelected: _selectedProgramsForSubject[subject.id] ?? {},
@@ -921,38 +1303,49 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   void _showCancelConfirmation() 
   {
-    showDialog(
+    showDialog
+    (
       context: context,
       builder: (BuildContext confirmContext) 
       {
-        return AlertDialog(
+        return AlertDialog
+        (
           backgroundColor: Colors.white,
           shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
+          title:           Text
+          (
             'Annulla Modifiche', 
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.plusJakartaSans
+            (
               fontWeight: FontWeight.w700, 
               color:      const Color(0xFF003C82),
             ),
           ),
-          content: Text(
+          content: Text
+          (
             'Sei sicuro di voler uscire? Le modifiche non salvate andranno perse.', 
             style: GoogleFonts.plusJakartaSans(fontSize: 16),
           ),
-          actions: [
-            TextButton(
-              style: ButtonStyle(
+          actions: 
+          [
+            TextButton
+            (
+              style: ButtonStyle
+              (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
                 foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFF8A8A8A)),
               ),
               onPressed: () => Navigator.pop(confirmContext), 
-              child: Text(
+              child:     Text
+              (
                 'RIPRENDI', 
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
               ),
             ),
-            TextButton(
-              style: ButtonStyle(
+            TextButton
+            (
+              style: ButtonStyle
+              (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
                 foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFFE53935)),
               ),
@@ -961,7 +1354,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                 Navigator.pop(confirmContext);
                 Navigator.of(context).pop();
               }, 
-              child: Text(
+              child: Text
+              (
                 'ESCI SENZA SALVARE', 
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
               ),
@@ -974,22 +1368,29 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   void _onNext() 
   {
-      if (_currentStep == 0) {
-          if (_involvementType == -1) {
+      if (_currentStep == 0) 
+      {
+          if (_involvementType == -1) 
+          {
               CustomSnackBar.show(context: context, message: 'Seleziona una categoria per continuare.', isError: true);
               return;
           }
           
-          if (_involvementType == 1) {
+          if (_involvementType == 1) 
+          {
               _selectedRoles.clear(); 
-              setState(() {
+              setState(() 
+              {
                   _movingForward        = true;
                   _currentStep          = 3;
                   _cardMovingForward    = true;
                   _currentFormCardIndex = 0;
               });
-          } else {
-              setState(() {
+          } 
+          else 
+          {
+              setState(() 
+              {
                   _movingForward = true;
                   _currentStep   = 1;
               });
@@ -997,24 +1398,34 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           return;
       }
 
-      if (_currentStep == 1) {
+      if (_currentStep == 1) 
+      {
           if (!_validateRoles()) return;
           
           bool requiresAdult = _selectedRoles.contains('GENITORE') || 
                                _selectedRoles.contains('PSICOLOGO') || 
                                _selectedRoles.contains('AMMINISTRATORE');
-          if (requiresAdult && _isMinor) {
+          if (requiresAdult && _isMinor) 
+          {
               CustomSnackBar.show(context: context, message: 'I ruoli Genitore, Psicologo e Amministratore richiedono la maggiore età.', isError: true);
               return;
           }
 
-          if (_selectedRoles.length == 1 && _selectedRoles.contains('GENITORE')) {
-              setState(() {
+          final activeRoles = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
+
+          if (activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_wasAssociato) 
+          {
+              setState(() 
+              {
                   _movingForward = true;
                   _currentStep   = 2;
               });
-          } else {
-              setState(() {
+          } 
+          else 
+          {
+              _genitoreIsAssociato = true;
+              setState(() 
+              {
                   _movingForward        = true;
                   _currentStep          = 3;
                   _cardMovingForward    = true;
@@ -1024,8 +1435,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           return;
       }
 
-      if (_currentStep == 2) {
-          setState(() {
+      if (_currentStep == 2) 
+      {
+          setState(() 
+          {
               _movingForward        = true;
               _currentStep          = 3;
               _cardMovingForward    = true;
@@ -1034,21 +1447,33 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           return;
       }
       
-      if (_currentStep == 3) {
+      if (_currentStep == 3) 
+      {
           if (!_validateDatiGenerali()) return;
 
-          if (_activeStep4Cards.isEmpty) {
-              if (_isMinor) {
+          if (_activeStep4Cards.isEmpty) 
+          {
+              if (_isMinor) 
+              {
                   setState(() { _movingForward = true; _currentStep = 5; });
-              } else if (_selectedRoles.contains('GENITORE')) {
+              } 
+              else if (_selectedRoles.contains('GENITORE')) 
+              {
                   setState(() { _movingForward = true; _currentStep = 6; });
-              } else if (_selectedRoles.contains('DOCENTE')) {
+              } 
+              else if (_selectedRoles.contains('DOCENTE')) 
+              {
                   setState(() { _movingForward = true; _currentStep = 7; });
-              } else {
+              } 
+              else 
+              {
                   _onSave();
               }
-          } else {
-              setState(() {
+          } 
+          else 
+          {
+              setState(() 
+              {
                   _movingForward         = true;
                   _currentStep           = 4;
                   _card4MovingForward    = true;
@@ -1058,47 +1483,116 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           return;
       }
       
-      if (_currentStep == 4) {
+      if (_currentStep == 4) 
+      {
           if (!_validateDatiSpecifici()) return;
           
-          if (_isMinor) {
+          if (_isMinor) 
+          {
               setState(() { _movingForward = true; _currentStep = 5; });
-          } else if (_selectedRoles.contains('GENITORE')) {
+          } 
+          else if (_selectedRoles.contains('GENITORE')) 
+          {
               setState(() { _movingForward = true; _currentStep = 6; });
-          } else if (_selectedRoles.contains('DOCENTE')) {
+          } 
+          else if (_selectedRoles.contains('DOCENTE')) 
+          {
               setState(() { _movingForward = true; _currentStep = 7; });
-          } else {
+          } 
+          else 
+          {
               _onSave();
           }
           return;
       }
       
-      if (_currentStep == 5) {
-          if (_selectedParents.isEmpty || _selectedParents.length > 2) {
+      if (_currentStep == 5) 
+      {
+          if (_selectedParents.isEmpty || _selectedParents.length > 2) 
+          {
               CustomSnackBar.show(context: context, message: 'Seleziona 1 o 2 genitori/tutori per il minore.', isError: true);
               return;
           }
           
-          if (_selectedRoles.contains('DOCENTE')) {
+          if (_selectedRoles.contains('DOCENTE')) 
+          {
               setState(() { _movingForward = true; _currentStep = 7; });
-          } else {
+          } 
+          else 
+          {
               _onSave();
           }
           return;
       }
       
-      if (_currentStep == 6) {
-          if (_selectedRoles.contains('DOCENTE')) {
+      if (_currentStep == 6) 
+      {
+          if (widget.person.children != null) 
+          {
+            for (final child in widget.person.children!) 
+            {
+              if (!_selectedMinors.contains(child.fiscalCode)) 
+              {
+                final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
+                if (minorIterable.isNotEmpty) 
+                {
+                  final minorData = minorIterable.first;
+                  if (minorData.parents != null) 
+                  {
+                    final otherParents = minorData.parents!.where((p) => p.fiscalCode != widget.person.fiscalCode).toList();
+                    if (otherParents.isEmpty) 
+                    {
+                      CustomSnackBar.show
+                      (
+                        context: context, 
+                        message: 'Impossibile rimuovere il figlio: ${minorData.firstName} ${minorData.lastName} rimarrebbe senza genitori.', 
+                        isError: true,
+                      );
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          for (final minorId in _selectedMinors) 
+          {
+            final minorIterable = _allMinors.where((m) => m.fiscalCode == minorId);
+            if (minorIterable.isNotEmpty) 
+            {
+              final minorData    = minorIterable.first;
+              final otherParents = minorData.parents?.where((p) => p.fiscalCode != widget.person.fiscalCode).toList() ?? [];
+
+              if (otherParents.length >= 2) 
+              {
+                CustomSnackBar.show
+                (
+                  context: context, 
+                  message: 'Impossibile aggiungere ${minorData.firstName} ${minorData.lastName}: ha già due genitori associati.', 
+                  isError: true,
+                );
+                return;
+              }
+            }
+          }
+
+          if (_selectedRoles.contains('DOCENTE')) 
+          {
               setState(() { _movingForward = true; _currentStep = 7; });
-          } else {
+          } 
+          else 
+          {
               _onSave();
           }
           return;
       }
       
-      if (_currentStep == 7) {
+      if (_currentStep == 7) 
+      {
           bool hasAtLeastOneSubject = _subjectToggles.values.any((isSelected) => isSelected == true);
-          if (!hasAtLeastOneSubject) {
+          if (!hasAtLeastOneSubject) 
+          {
               CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina insegnata per procedere.', isError: true);
               return;
           }
@@ -1107,45 +1601,75 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       }
   }
 
-  void _onBack() {
+  void _onBack() 
+  {
       setState(() => _movingForward = false);
 
-      if (_currentStep == 7) {
-          if (_selectedRoles.contains('GENITORE')) {
+      if (_currentStep == 7) 
+      {
+          if (_selectedRoles.contains('GENITORE')) 
+          {
               setState(() => _currentStep = 6);
-          } else if (_isMinor) {
+          } 
+          else if (_isMinor) 
+          {
               setState(() => _currentStep = 5);
-          } else {
+          } 
+          else 
+          {
               setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
           }
-      } else if (_currentStep == 6) {
-          if (_isMinor) {
+      } 
+      else if (_currentStep == 6) 
+      {
+          if (_isMinor) 
+          {
               setState(() => _currentStep = 5);
-          } else {
+          } 
+          else 
+          {
               setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
           }
-      } else if (_currentStep == 5) {
+      } 
+      else if (_currentStep == 5) 
+      {
           setState(() => _currentStep = _activeStep4Cards.isEmpty ? 3 : 4);
-      } else if (_currentStep == 4) {
+      } 
+      else if (_currentStep == 4) 
+      {
           setState(() => _currentStep = 3);
-      } else if (_currentStep == 3) {
-          if (_involvementType == 1) {
+      } 
+      else if (_currentStep == 3) 
+      {
+          final activeRoles = _selectedRoles.where((r) => r != 'ASSOCIATO').toList();
+
+          if (_involvementType == 1) 
+          {
               setState(() => _currentStep = 0);
-          } else if (_selectedRoles.length == 1 && _selectedRoles.contains('GENITORE')) {
+          } 
+          else if (activeRoles.length == 1 && activeRoles.contains('GENITORE') && !_wasAssociato) 
+          {
               setState(() => _currentStep = 2);
-          } else {
+          } 
+          else 
+          {
               setState(() => _currentStep = 1);
           }
-      } else if (_currentStep == 2) {
+      } 
+      else if (_currentStep == 2) 
+      {
           setState(() => _currentStep = 1);
-      } else if (_currentStep == 1) {
+      } 
+      else if (_currentStep == 1) 
+      {
           setState(() => _currentStep = 0);
       }
   }
 
   void _openReportDialog() 
   {
-    showGeneralDialog(
+    showGeneralDialog
+    (
       context:            context, 
       barrierDismissible: true, 
       barrierLabel:       'ReportError', 
@@ -1155,12 +1679,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       transitionBuilder:  (context, animation, secondaryAnimation, child) 
       {
         final blurValue = animation.value * 8.0;
-        return BackdropFilter(
+        return BackdropFilter
+        (
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child:  FadeTransition(
+          child:  FadeTransition
+          (
             opacity: animation,
-            child:   ScaleTransition(
-              scale: CurvedAnimation(
+            child:   ScaleTransition
+            (
+              scale: CurvedAnimation
+              (
                 parent:       animation, 
                 curve:        Curves.easeOutBack, 
                 reverseCurve: Curves.easeIn,
@@ -1170,1118 +1698,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStep0Type() 
-  {
-    return SizedBox(
-      key:   const ValueKey('step0_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Qual è il rapporto principale con l\'Associazione?',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Definisci la macro-categoria a cui appartiene questa persona.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing:    32,
-                  runSpacing: 32,
-                  alignment:  WrapAlignment.center,
-                  children: [
-                    WizardSelectionCard(
-                      title:      'Coinvolto Attivamente', 
-                      subtitle:   'Partecipa attivamente ai corsi, ai servizi, o ricopre ruoli organizzativi, operativi e amministrativi.', 
-                      icon:       Icons.workspaces_outline, 
-                      isSelected: _involvementType == 0, 
-                      onTap:      () => setState(() => _involvementType = 0),
-                    ),
-                    WizardSelectionCard(
-                      title:      'Solo Socio Sostenitore', 
-                      subtitle:   'Paga regolarmente la quota associativa per sostenere la realtà, senza ricoprire ruoli e senza usufruire di servizi.', 
-                      icon:       Icons.card_membership_rounded, 
-                      isSelected: _involvementType == 1, 
-                      onTap:      () => setState(() => _involvementType = 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep1Roles() 
-  {
-    return SizedBox(
-      key:   const ValueKey('step1_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Modifica Ruoli',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Aggiorna i ruoli ricoperti dalla persona all\'interno dell\'Associazione.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1150),
-                  child: Wrap(
-                    spacing:    24,
-                    runSpacing: 24,
-                    alignment:  WrapAlignment.center,
-                    children: _availableRoles.map((role) 
-                    {
-                      final isSelected = _selectedRoles.contains(role['id']);
-                      return SizedBox(
-                        width: 350,
-                        child: WizardSelectionCard(
-                          title:      role['label'], 
-                          subtitle:   role['desc'], 
-                          icon:       role['icon'], 
-                          isSelected: isSelected, 
-                          onTap:      () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep2Association() 
-  {
-    return SizedBox(
-      key:   const ValueKey('step2_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Iscrizione all\'Associazione',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Il genitore non è obbligato a tesserarsi per iscrivere i figli.\nScegli "Sì" solo se paga la quota associativa per sé stesso.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing:    32,
-                  runSpacing: 32,
-                  alignment:  WrapAlignment.center,
-                  children: [
-                    WizardSelectionCard(
-                      title:      'Sì, è tesserato', 
-                      subtitle:   'Il genitore paga la quota associativa ed è ufficialmente un socio.', 
-                      icon:       Icons.card_membership_rounded, 
-                      isSelected: _genitoreIsAssociato == true, 
-                      onTap:      () => setState(() => _genitoreIsAssociato = true),
-                    ),
-                    WizardSelectionCard(
-                      title:      'No, non è tesserato', 
-                      subtitle:   'Il genitore funge solo da responsabile legale per il minore.', 
-                      icon:       Icons.person_off_outlined, 
-                      isSelected: _genitoreIsAssociato == false, 
-                      onTap:      () => setState(() => _genitoreIsAssociato = false),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep3DatiGenerali() 
-  {
-    Widget currentCard = const SizedBox.shrink();
-
-    switch (_currentFormCardIndex) 
-    {
-      case 0:
-        currentCard = WizardFormSectionCard(
-          title:       'Protezione Dati',
-          leadingIcon: const WizardStaticAvatar(icon: Icons.security_rounded),
-          children: [
-            Text(
-              'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize:   16,
-                fontWeight: FontWeight.w500,
-                color:      const Color(0xFF64748B),
-                height:     1.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-            WizardOutlinedActionButton(
-              text:      'SEGNALA ERRORE ANAGRAFICA', 
-              icon:      Icons.report_problem_outlined, 
-              onPressed: _openReportDialog,
-            ),
-          ],
-        );
-        break;
-      case 1:
-        currentCard = WizardFormSectionCard(
-          title:       'Identità',
-          leadingIcon: const WizardStaticAvatar(icon: Icons.badge_outlined),
-          children: [
-            WizardFormInputRow(
-              label:       'Foto profilo',
-              inputWidget: WizardProfilePhotoUploader(
-                imageBytes:      _fotoProfilo,
-                initialImageUrl: widget.person.profileImageUrl,
-                onImagePicked:   (bytes) => setState(() => _fotoProfilo = bytes),
-              ),
-            ),
-            const SizedBox(height: 24),
-            WizardFormInputRow(
-              label:       'Nome',
-              inputWidget: WizardAnimatedTextField(
-                controller: _nomeCtrl, 
-                hint:       'Es. Mario', 
-                enabled:    false,
-                errorText:  _formErrors['nome'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('nome')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Cognome',
-              inputWidget: WizardAnimatedTextField(
-                controller: _cognomeCtrl, 
-                hint:       'Es. Rossi',
-                enabled:    false, 
-                errorText:  _formErrors['cognome'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cognome')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Sesso',
-              inputWidget: WizardAnimatedOverlayDropdown(
-                value:     _sesso, 
-                items:     const ['M', 'F'], 
-                hint:      'Seleziona', 
-                enabled:   false,
-                errorText: _formErrors['sesso'], 
-                onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Codice fiscale',
-              inputWidget: WizardAnimatedTextField(
-                controller: _cfCtrl, 
-                hint:       'Es. RSSMRA80A01L157H', 
-                enabled:    false,
-                errorText:  _formErrors['cf'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cf')),
-              ),
-            ),
-          ],
-        );
-        break;
-      case 2:
-        currentCard = WizardFormSectionCard(
-          title:       'Dati anagrafici',
-          leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
-          children: [
-            WizardFormInputRow(
-              label:       'Data di nascita',
-              inputWidget: WizardAnimatedTextField(
-                controller:      _dataNascitaCtrl, 
-                hint:            'gg/mm/aaaa', 
-                enabled:         false,
-                errorText:       _formErrors['dataNascita'], 
-                onChanged:       (_) => setState(() => _formErrors.remove('dataNascita')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Città di nascita',
-              inputWidget: WizardAnimatedTextField(
-                controller: _cittaNascitaCtrl, 
-                hint:       'Es. Thiene', 
-                enabled:    false,
-                errorText:  _formErrors['cittaNascita'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cittaNascita')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Provincia di nascita',
-              inputWidget: WizardAnimatedTextField(
-                controller: _provNascitaCtrl, 
-                hint:       'Es. VI', 
-                enabled:    false,
-                errorText:  _formErrors['provNascita'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
-              ),
-            ),
-          ],
-        );
-        break;
-      case 3:
-        currentCard = WizardFormSectionCard(
-          title:       'Residenza',
-          leadingIcon: const WizardStaticAvatar(icon: Icons.home_rounded),
-          children: [
-            WizardFormInputRow(
-              label:       'Indirizzo',
-              inputWidget: Row(
-                children: [
-                  Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Via/Strada/...', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
-                  const SizedBox(width: 8),
-                  Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
-                  const SizedBox(width: 8),
-                  Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Città',
-              inputWidget: WizardAnimatedTextField(
-                controller: _cittaResidenzaCtrl, 
-                hint:       'Es. Thiene', 
-                errorText:  _formErrors['cittaResidenza'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cittaResidenza')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Provincia',
-              inputWidget: WizardAnimatedTextField(
-                controller: _provResidenzaCtrl, 
-                hint:       'Es. VI', 
-                errorText:  _formErrors['provResidenza'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('provResidenza')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'CAP',
-              inputWidget: WizardAnimatedTextField(
-                controller:   _capCtrl, 
-                hint:         'Es. 36016', 
-                keyboardType: TextInputType.number, 
-                errorText:    _formErrors['cap'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('cap')),
-              ),
-            ),
-          ],
-        );
-        break;
-      case 4:
-        currentCard = WizardFormSectionCard(
-          title:       'Contatti',
-          leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
-          children: [
-            WizardFormInputRow(
-              label:       'Email',
-              inputWidget: WizardAnimatedTextField(
-                controller:   _emailCtrl, 
-                hint:         'Es. mario.rossi@email.com', 
-                keyboardType: TextInputType.emailAddress, 
-                errorText:    _formErrors['email'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('email')),
-              ),
-            ),
-            const SizedBox(height: 16),
-            WizardFormInputRow(
-              label:       'Telefono',
-              inputWidget: WizardAnimatedTextField(
-                controller:   _telefonoCtrl, 
-                hint:         'Es. 3331234567', 
-                keyboardType: TextInputType.phone, 
-                errorText:    _formErrors['telefono'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
-              ),
-            ),
-          ],
-        );
-        break;
-    }
-
-    return SizedBox(
-      key:   const ValueKey('step3_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Informazioni personali',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Modifica i dati anagrafici e di contatto.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Row(
-              mainAxisAlignment:  MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                WizardCarouselArrowButton(
-                  icon:       Icons.chevron_left_rounded, 
-                  isDisabled: _currentFormCardIndex == 0, 
-                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
-                ),
-                const SizedBox(width: 32),
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1000),
-                    child: AnimatedSwitcher(
-                      duration:       const Duration(milliseconds: 300),
-                      switchInCurve:  Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                      transitionBuilder: (child, animation) 
-                      {
-                        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                        
-                        return FadeTransition(
-                          opacity: animation, 
-                          child:   SlideTransition(
-                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-                            child:    child
-                          ),
-                        );
-                      },
-                      child:          KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 32),
-                WizardCarouselArrowButton(
-                  icon:       Icons.chevron_right_rounded, 
-                  isDisabled: _currentFormCardIndex == 4, 
-                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep4DatiSpecifici()
-  {
-    final cards = _activeStep4Cards;
-    
-    if (_isLoadingData) 
-    {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
-    }
-
-    return SizedBox(
-      key: const ValueKey('step4_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Informazioni associative',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Compila i dati richiesti dai ruoli selezionati.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                WizardCarouselArrowButton(
-                  icon:       Icons.chevron_left_rounded,
-                  isDisabled: _currentStep4CardIndex == 0,
-                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
-                ),
-                const SizedBox(width: 32),
-                Flexible(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
-                    child: AnimatedSwitcher(
-                      duration:           const Duration(milliseconds: 300),
-                      switchInCurve:      Curves.easeOutCubic,
-                      switchOutCurve:     Curves.easeInCubic,
-                      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                      transitionBuilder:  (child, animation) 
-                      {
-                        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
-                        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-                            child:    child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key:   ValueKey(_currentStep4CardIndex),
-                        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 32),
-                WizardCarouselArrowButton(
-                  icon:       Icons.chevron_right_rounded,
-                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
-                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep5Parents()
-  {
-    final validAdults = _filteredAdults;
-
-    return SizedBox(
-      key:   const ValueKey('step5_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Associazione Genitori',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Seleziona i genitori o tutori legali del minore (min 1, max 2).',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                    height:     1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 260,
-                child: WizardAnimatedSearchBar(
-                  controller: _searchParentsCtrl, 
-                  onChanged:  (value) => setState(() => _searchParentsText = value), 
-                  hintText:   'Cerca per nome...',
-                ),
-              ),
-              const SizedBox(width: 12),
-              WizardFilterMenu<String>(
-                hint:          'Ordina per', 
-                icon:          Icons.sort_rounded, 
-                value:         _sortParentsBy, 
-                menuWidth:     180, 
-                showClearIcon: false, 
-                onChanged:     (val) => setState(() => _sortParentsBy = val), 
-                onClear:       () {}, 
-                options: [
-                  WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
-                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
-                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
-                ]
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Wrap(
-                      spacing:    16,
-                      runSpacing: 16,
-                      alignment:  WrapAlignment.center,
-                      children:   validAdults.map((adult) 
-                      {
-                        final adultId    = adult.fiscalCode;
-                        final isSelected = _selectedParents.contains(adultId);
-                        
-                        return WizardSelectablePersonCard(
-                          person:     adult,
-                          isSelected: isSelected,
-                          onTap:      () => setState(() 
-                          {
-                            if (isSelected) 
-                            {
-                              _selectedParents.remove(adultId);
-                            } 
-                            else 
-                            {
-                              if (_selectedParents.length >= 2)
-                              {
-                                CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
-                                return;
-                              }
-                              _selectedParents.add(adultId);
-                            }
-                          }),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep6Minors()
-  {
-    final validMinors = _filteredMinors;
-
-    return SizedBox(
-      key:   const ValueKey('step6_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Associazione Minori',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Seleziona i minori di cui questa persona è genitore o tutore legale.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                    height:     1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 260,
-                child: WizardAnimatedSearchBar(
-                  controller: _searchMinorsCtrl, 
-                  onChanged:  (value) => setState(() => _searchMinorsText = value), 
-                  hintText:   'Cerca per nome...',
-                ),
-              ),
-              const SizedBox(width: 12),
-              WizardFilterMenu<String>(
-                hint:          'Ordina per', 
-                icon:          Icons.sort_rounded, 
-                value:         _sortMinorsBy, 
-                menuWidth:     180, 
-                showClearIcon: false, 
-                onChanged:     (val) => setState(() => _sortMinorsBy = val), 
-                onClear:       () {}, 
-                options: [
-                  WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
-                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
-                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
-                ]
-              ),
-              const SizedBox(width: 12),
-              WizardFilterMenu<String>(
-                hint:          'Tutti i ruoli', 
-                icon:          Icons.badge_outlined, 
-                value:         _filterMinorsRole, 
-                menuWidth:     200, 
-                showClearIcon: true, 
-                onChanged:     (val) => setState(() => _filterMinorsRole = val), 
-                onClear:       () => setState(() => _filterMinorsRole = null), 
-                options: [
-                  WizardFilterOption(value: 'STUDENTE', label: 'Studente'), 
-                  WizardFilterOption(value: 'CORSISTA', label: 'Corsista'), 
-                  WizardFilterOption(value: 'DOCENTE', label: 'Docente'),
-                  WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
-                ]
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Wrap(
-                      spacing:    16,
-                      runSpacing: 16,
-                      alignment:  WrapAlignment.center,
-                      children:   validMinors.map((minor) 
-                      {
-                        final minorId    = minor.fiscalCode;
-                        final isSelected = _selectedMinors.contains(minorId);
-                        
-                        return WizardSelectablePersonCard(
-                          person:     minor,
-                          isSelected: isSelected,
-                          onTap:      () => setState(() 
-                          {
-                            if (isSelected) 
-                            {
-                              _selectedMinors.remove(minorId);
-                            } 
-                            else 
-                            {
-                              _selectedMinors.add(minorId);
-                            }
-                          }),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep7Discipline() 
-  {
-    final validSubjects = _filteredFilteredSubjects;
-
-    return SizedBox(
-      key:   const ValueKey('step7_e'),
-      width: double.infinity,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                Text(
-                  'Discipline Insegnate',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Seleziona le discipline e i percorsi di studio in cui il docente insegnerà.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                    height:     1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 300,
-                child: WizardAnimatedSearchBar(
-                  controller: _searchSubjectsCtrl, 
-                  onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                  hintText:   'Cerca disciplina...',
-                ),
-              ),
-              const SizedBox(width: 16),
-              WizardFilterMenu<String>(
-                hint:          'Ordina per', 
-                icon:          Icons.sort_rounded, 
-                value:         _sortSubjectsBy, 
-                menuWidth:     180, 
-                showClearIcon: false, 
-                onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
-                onClear:       () {}, 
-                options: [
-                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
-                ]
-              ),
-              const SizedBox(width: 16),
-              WizardFilterMenu<String>(
-                hint:          'Tutte le aree', 
-                icon:          Icons.category_outlined, 
-                value:         _filterSubjectsArea, 
-                menuWidth:     200, 
-                showClearIcon: true, 
-                onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
-                onClear:       () => setState(() => _filterSubjectsArea = null), 
-                options: [
-                  WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
-                  WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
-                  WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
-                ]
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SizedBox(
-                  width: double.infinity,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 40),
-                    child: Wrap(
-                      spacing:    16,
-                      runSpacing: 16,
-                      alignment:  WrapAlignment.center,
-                      children:   validSubjects.map((subject) 
-                      {
-                        final isSelected    = _subjectToggles[subject.id] ?? false;
-                        final selectedCount = (_selectedProgramsForSubject[subject.id] ?? {}).length;
-                        
-                        return WizardSubjectGridCard(
-                          subject:       subject,
-                          isSelected:    isSelected,
-                          selectedCount: selectedCount,
-                          onTap:         () => _openProgramsDialog(subject),
-                          onRemove:      () 
-                          {
-                            setState(() 
-                            {
-                              _subjectToggles[subject.id] = false;
-                              _selectedProgramsForSubject.remove(subject.id);
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormCardStaff()
-  {
-    return WizardFormSectionCard(
-      title:       'Dati Amministrativi',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'IBAN',
-          inputWidget: WizardAnimatedTextField(
-            controller: _ibanCtrl, 
-            hint:       'Es. IT00A...', 
-            errorText:  _formErrors['iban'],
-            onChanged:  (_) => setState(() => _formErrors.remove('iban')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Collaborazione',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _tipoCollaborazione,
-            items:     const ['Volontario', 'Retribuito', 'FSC'],
-            hint:      'Seleziona',
-            errorText: _formErrors['tipoCollaborazione'],
-            onChanged: (val) => setState(() 
-            {
-              _tipoCollaborazione = val;
-              _formErrors.remove('tipoCollaborazione');
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardAmministratore()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Amministratore',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.computer_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Ruolo',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _ruoloAmministratore,
-            items:     const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Altro'],
-            hint:      'Seleziona',
-            errorText: _formErrors['ruoloAmministratore'],
-            onChanged: (val) => setState(() 
-            {
-              _ruoloAmministratore = val;
-              _formErrors.remove('ruoloAmministratore');
-            }),
-          ),
-        ),
-        if (_ruoloAmministratore == 'Altro') ...[
-          const SizedBox(height: 16),
-          WizardFormInputRow(
-            label:       'Specifica ruolo',
-            inputWidget: WizardAnimatedTextField(
-              controller: _altroRuoloAmministratoreCtrl, 
-              hint:       'Inserisci il ruolo', 
-              errorText:  _formErrors['altroRuoloAmministratore'],
-              onChanged:  (_) => setState(() => _formErrors.remove('altroRuoloAmministratore')),
-            ),
-          ),
-        ]
-      ],
-    );
-  }
-
-  Widget _buildFormCardDocente()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Docente',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Studi scolastici',
-          inputWidget: WizardAnimatedTextField(
-            controller: _studiScolasticiCtrl, 
-            hint:       'Es. Liceo', 
-            errorText:  _formErrors['studiScolastici'],
-            onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Studi universitari',
-          inputWidget: WizardAnimatedTextField(
-            controller: _studiUniversitariCtrl, 
-            hint:       'Es. Laurea', 
-            errorText:  _formErrors['studiUniversitari'],
-            onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardCorsista()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Corsista',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
-      children: [
-        WizardFormInputRow(
-          label:       'Scadenza cert.',
-          inputWidget: WizardAnimatedTextField(
-            controller:      _scadenzaCertificatoCtrl, 
-            hint:            'gg/mm/aaaa', 
-            keyboardType:    TextInputType.number,
-            inputFormatters: [WizardDateInputFormatter()],
-            errorText:       _formErrors['scadenzaCertificato'],
-            onChanged:       (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
-          ),
-        ),
-        const SizedBox(height: 16),
-        WizardFormInputRow(
-          label:       'Tipo corso',
-          inputWidget: WizardAnimatedTextField(
-            controller: _tipoCorsoCtrl, 
-            hint:       'Es. Pilates', 
-            errorText:  _formErrors['tipoCorso'],
-            onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCardStudente()
-  {
-    return WizardFormSectionCard(
-      title:       'Dettagli Studente',
-      leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
-      children: [
-        WizardFormInputRow(
-          label:       'Uscita anticipata',
-          inputWidget: WizardAnimatedOverlayDropdown(
-            value:     _uscitaAnticipata,
-            items:     const ['Sì', 'No'],
-            hint:      'Seleziona',
-            errorText: _formErrors['uscitaAnticipata'],
-            onChanged: (val) => setState(() 
-            {
-              _uscitaAnticipata = val;
-              _formErrors.remove('uscitaAnticipata');
-            }),
-          ),
-        ),
-      ],
     );
   }
 
@@ -2328,38 +1744,51 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       isLastStep = false;
     }
 
-    return Dialog(
+    return Dialog
+    (
       backgroundColor: Colors.transparent,
       elevation:       0,
-      child: Container(
+      child: Container
+      (
         width:       MediaQuery.of(context).size.width * 0.85,
         height:      MediaQuery.of(context).size.height * 0.85,
         constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
-        decoration: BoxDecoration(
+        decoration: BoxDecoration
+        (
           color:        const Color(0xFFF4F7F9),
           borderRadius: BorderRadius.circular(40),
-          boxShadow:    const [
-            BoxShadow(
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
               color:      Color(0x26000000),
               offset:     Offset(0, 12),
               blurRadius: 36,
             )
           ],
         ),
-        child: ClipRRect(
+        child: ClipRRect
+        (
           borderRadius: BorderRadius.circular(40),
-          child: Stack(
-            children: [
-              Positioned(
+          child: Stack
+          (
+            children: 
+            [
+              Positioned
+              (
                 right: -400, 
                 top:   -400,
-                child: IgnorePointer(
-                  child: Container(
+                child: IgnorePointer
+                (
+                  child: Container
+                  (
                     width:  800, 
                     height: 800,
-                    decoration: const BoxDecoration(
+                    decoration: const BoxDecoration
+                    (
                       shape:    BoxShape.circle,
-                      gradient: RadialGradient(
+                      gradient: RadialGradient
+                      (
                         colors: [Color(0x22003C82), Color(0x00003C82)], 
                         stops:  [0.0, 1.0]
                       ),
@@ -2367,16 +1796,21 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   ),
                 ),
               ),
-              Positioned(
+              Positioned
+              (
                 left:   -400, 
                 bottom: -400,
-                child: IgnorePointer(
-                  child: Container(
+                child: IgnorePointer
+                (
+                  child: Container
+                  (
                     width:  800, 
                     height: 800,
-                    decoration: const BoxDecoration(
+                    decoration: const BoxDecoration
+                    (
                       shape:    BoxShape.circle,
-                      gradient: RadialGradient(
+                      gradient: RadialGradient
+                      (
                         colors: [Color(0x22003C82), Color(0x00003C82)], 
                         stops:  [0.0, 1.0]
                       ),
@@ -2384,16 +1818,23 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   ),
                 ),
               ),
-              Column(
-                children: [
-                  Padding(
+              Column
+              (
+                children: 
+                [
+                  Padding
+                  (
                     padding: const EdgeInsets.only(top: 24, right: 24, left: 32),
-                    child: Row(
+                    child: Row
+                    (
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
+                      children: 
+                      [
+                        Text
+                        (
                           'Modifica Anagrafica',
-                          style: GoogleFonts.plusJakartaSans(
+                          style: GoogleFonts.plusJakartaSans
+                          (
                             fontSize:   26, 
                             fontWeight: FontWeight.w700, 
                             color:      const Color(0xFF003C82),
@@ -2404,10 +1845,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                     ),
                   ),
                   const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
-                  Expanded(
-                    child: Padding(
+                  Expanded
+                  (
+                    child: Padding
+                    (
                       padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: AnimatedSwitcher(
+                      child: AnimatedSwitcher
+                      (
                         duration:       const Duration(milliseconds: 300),
                         switchInCurve:  Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
@@ -2417,27 +1861,38 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_e';
                           Offset beginOffset = _movingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
                           
-                          return FadeTransition(
+                          return FadeTransition
+                          (
                             opacity: animation, 
-                            child:   SlideTransition(
+                            child:   SlideTransition
+                            (
                               position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
                               child:    child
                             ),
                           );
                         },
-                        child: _buildStepWidget(_currentStep),
+                        child: KeyedSubtree
+                        (
+                          key:   ValueKey('step${_currentStep}_e'),
+                          child: _buildStepWidget(_currentStep),
+                        ),
                       ),
                     ),
                   ),
-                  Padding(
+                  Padding
+                  (
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    child: Row(
+                    child: Row
+                    (
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                      children: 
+                      [
                         if (_currentStep == 0)
-                          SizedBox(
+                          SizedBox
+                          (
                             width: 230,
-                            child: WizardAnimatedActionButton(
+                            child: WizardAnimatedActionButton
+                            (
                               text:       'ANNULLA', 
                               icon:       Icons.close_rounded, 
                               baseColor:  const Color(0xFFE53935), 
@@ -2446,18 +1901,22 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                             ),
                           )
                         else
-                          SizedBox(
+                          SizedBox
+                          (
                             width: 230,
-                            child: WizardOutlinedActionButton(
+                            child: WizardOutlinedActionButton
+                            (
                               text:      'INDIETRO', 
                               icon:      Icons.arrow_back_rounded, 
                               onPressed: _onBack
                             ),
                           ),
                         const SizedBox(width: 24),
-                        SizedBox(
+                        SizedBox
+                        (
                           width: 230,
-                          child: WizardAnimatedActionButton(
+                          child: WizardAnimatedActionButton
+                          (
                             text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'SALVA MODIFICHE' : 'AVANTI'), 
                             icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
                             baseColor:  const Color(0xFF003C82), 
@@ -2476,13 +1935,1758 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       ),
     );
   }
+
+  Widget _buildStep0Type() 
+  {
+    return SizedBox
+    (
+      key:   const ValueKey('step0_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Qual è il rapporto di questa persona con l\'Associazione?',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Scegli la categoria che descrive meglio la sua posizione.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded
+          (
+            child: Center
+            (
+              child: SingleChildScrollView
+              (
+                child: Wrap
+                (
+                  spacing:    32,
+                  runSpacing: 32,
+                  alignment:  WrapAlignment.center,
+                  children: 
+                  [
+                    WizardSelectionCard
+                    (
+                      title:      'Coinvolto nelle attività', 
+                      subtitle:   'Partecipa alla vita dell\'Associazione, svolge uno o più ruoli oppure è un genitore.', 
+                      icon:       Icons.workspaces_outline, 
+                      isSelected: _involvementType == 0, 
+                      onTap:      () => setState(() => _involvementType = 0),
+                    ),
+                    WizardSelectionCard
+                    (
+                      title:      'Solo Socio', 
+                      subtitle:   'Paga regolarmente la quota di iscrizione per sostenere l\'Associazione, ma non ricopre alcun ruolo.', 
+                      icon:       Icons.card_membership_rounded, 
+                      isSelected: _involvementType == 1, 
+                      onTap:      () => setState(() => _involvementType = 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep1Roles() 
+  {
+    return SizedBox
+    (
+      key:   const ValueKey('step1_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Modifica Ruoli',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Aggiorna i ruoli ricoperti dalla persona all\'interno dell\'Associazione.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded
+          (
+            child: Center
+            (
+              child: SingleChildScrollView
+              (
+                child: ConstrainedBox
+                (
+                  constraints: const BoxConstraints(maxWidth: 1150),
+                  child: Wrap
+                  (
+                    spacing:    24,
+                    runSpacing: 24,
+                    alignment:  WrapAlignment.center,
+                    children: _availableRoles.map((role) 
+                    {
+                      final isSelected = _selectedRoles.contains(role['id']);
+                      return SizedBox
+                      (
+                        width: 350,
+                        child: WizardSelectionCard
+                        (
+                          title:      role['label'], 
+                          subtitle:   role['desc'], 
+                          icon:       role['icon'], 
+                          isSelected: isSelected, 
+                          onTap:      () => setState(() => isSelected ? _selectedRoles.remove(role['id']) : _selectedRoles.add(role['id'])),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep2Association() 
+  {
+    return SizedBox
+    (
+      key:   const ValueKey('step2_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Iscrizione all\'Associazione',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Il genitore può iscrivere il proprio figlio senza diventare socio. Scegli se desidera aderire anche personalmente.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Expanded
+          (
+            child: Center
+            (
+              child: SingleChildScrollView
+              (
+                child: Wrap
+                (
+                  spacing:    32,
+                  runSpacing: 32,
+                  alignment:  WrapAlignment.center,
+                  children: 
+                  [
+                    WizardSelectionCard
+                    (
+                      title:      'Sì', 
+                      subtitle:   'Il genitore aderisce all\'Associazione e versa la quota annuale.', 
+                      icon:       Icons.person_outlined, 
+                      isSelected: _genitoreIsAssociato == true, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = true),
+                    ),
+                    WizardSelectionCard
+                    (
+                      title:      'No', 
+                      subtitle:   'Il genitore viene registrato solo come tutore del minore.', 
+                      icon:       Icons.person_off_outlined, 
+                      isSelected: _genitoreIsAssociato == false, 
+                      onTap:      () => setState(() => _genitoreIsAssociato = false),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep3DatiGenerali() 
+  {
+    Widget currentCard = const SizedBox.shrink();
+
+    switch (_currentFormCardIndex) 
+    {
+      case 0:
+        currentCard = WizardFormSectionCard
+        (
+          title:       'Protezione Dati',
+          leadingIcon: const WizardStaticAvatar(icon: Icons.security_rounded),
+          children: 
+          [
+            Text
+            (
+              'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
+              style: GoogleFonts.plusJakartaSans
+              (
+                fontSize:   16,
+                fontWeight: FontWeight.w500,
+                color:      const Color(0xFF64748B),
+                height:     1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            WizardOutlinedActionButton
+            (
+              text:      'SEGNALA ERRORE ANAGRAFICA', 
+              icon:      Icons.report_problem_outlined, 
+              onPressed: _openReportDialog,
+            ),
+          ],
+        );
+        break;
+      case 1:
+        currentCard = WizardFormSectionCard
+        (
+          title:       'Identità',
+          leadingIcon: const WizardStaticAvatar(icon: Icons.badge_outlined),
+          children: 
+          [
+            WizardFormInputRow
+            (
+              label:       'Foto profilo',
+              inputWidget: WizardProfilePhotoUploader
+              (
+                imageBytes:      _fotoProfilo,
+                initialImageUrl: widget.person.profileImageUrl,
+                onImagePicked:   (bytes) => setState(() => _fotoProfilo = bytes),
+              ),
+            ),
+            const SizedBox(height: 24),
+            WizardFormInputRow
+            (
+              label:       'Nome',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _nomeCtrl, 
+                hint:       'Es. Mario', 
+                enabled:    false,
+                errorText:  _formErrors['nome'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('nome')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Cognome',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _cognomeCtrl, 
+                hint:       'Es. Rossi',
+                enabled:    false, 
+                errorText:  _formErrors['cognome'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('cognome')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Sesso',
+              inputWidget: WizardAnimatedOverlayDropdown
+              (
+                value:     _sesso, 
+                items:     const ['M', 'F'], 
+                hint:      'Seleziona', 
+                enabled:   false,
+                errorText: _formErrors['sesso'], 
+                onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Codice fiscale',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _cfCtrl, 
+                hint:       'Es. RSSMRA80A01L157H', 
+                enabled:    false,
+                errorText:  _formErrors['cf'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('cf')),
+              ),
+            ),
+          ],
+        );
+        break;
+      case 2:
+        currentCard = WizardFormSectionCard
+        (
+          title:       'Dati anagrafici',
+          leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
+          children: 
+          [
+            WizardFormInputRow
+            (
+              label:       'Data di nascita',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller:      _dataNascitaCtrl, 
+                hint:            'gg/mm/aaaa', 
+                enabled:         false,
+                errorText:       _formErrors['dataNascita'], 
+                onChanged:       (_) => setState(() => _formErrors.remove('dataNascita')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Città di nascita',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _cittaNascitaCtrl, 
+                hint:       'Es. Thiene', 
+                enabled:    false,
+                errorText:  _formErrors['cittaNascita'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('cittaNascita')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Provincia di nascita',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _provNascitaCtrl, 
+                hint:       'Es. VI', 
+                enabled:    false,
+                errorText:  _formErrors['provNascita'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
+              ),
+            ),
+          ],
+        );
+        break;
+      case 3:
+        currentCard = WizardFormSectionCard
+        (
+          title:       'Residenza',
+          leadingIcon: const WizardStaticAvatar(icon: Icons.home_rounded),
+          children: 
+          [
+            WizardFormInputRow
+            (
+              label:       'Indirizzo',
+              inputWidget: Row
+              (
+                children: 
+                [
+                  Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Via/Strada/...', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Città',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _cittaResidenzaCtrl, 
+                hint:       'Es. Thiene', 
+                errorText:  _formErrors['cittaResidenza'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('cittaResidenza')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Provincia',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller: _provResidenzaCtrl, 
+                hint:       'Es. VI', 
+                errorText:  _formErrors['provResidenza'], 
+                onChanged:  (_) => setState(() => _formErrors.remove('provResidenza')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'CAP',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller:   _capCtrl, 
+                hint:         'Es. 36016', 
+                keyboardType: TextInputType.number, 
+                errorText:    _formErrors['cap'], 
+                onChanged:    (_) => setState(() => _formErrors.remove('cap')),
+              ),
+            ),
+          ],
+        );
+        break;
+      case 4:
+        currentCard = WizardFormSectionCard
+        (
+          title:       'Contatti',
+          leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
+          children: 
+          [
+            WizardFormInputRow
+            (
+              label:       'Email',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller:   _emailCtrl, 
+                hint:         'Es. mario.rossi@email.com', 
+                keyboardType: TextInputType.emailAddress, 
+                errorText:    _formErrors['email'], 
+                onChanged:    (_) => setState(() => _formErrors.remove('email')),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WizardFormInputRow
+            (
+              label:       'Telefono',
+              inputWidget: WizardAnimatedTextField
+              (
+                controller:   _telefonoCtrl, 
+                hint:         'Es. 3331234567', 
+                keyboardType: TextInputType.phone, 
+                errorText:    _formErrors['telefono'], 
+                onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
+              ),
+            ),
+          ],
+        );
+        break;
+    }
+
+    return SizedBox
+    (
+      key:   const ValueKey('step3_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Informazioni personali',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Modifica i dati anagrafici e di contatto.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded
+          (
+            child: Row
+            (
+              mainAxisAlignment:  MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: 
+              [
+                WizardCarouselArrowButton
+                (
+                  icon:       Icons.chevron_left_rounded, 
+                  isDisabled: _currentFormCardIndex == 0, 
+                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
+                ),
+                const SizedBox(width: 32),
+                Flexible
+                (
+                  child: ConstrainedBox
+                  (
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: AnimatedSwitcher
+                    (
+                      duration:       const Duration(milliseconds: 300),
+                      switchInCurve:  Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder: (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                        
+                        return FadeTransition
+                        (
+                          opacity: animation, 
+                          child:   SlideTransition
+                          (
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
+                            child:    child
+                          ),
+                        );
+                      },
+                      child:         KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 32),
+                WizardCarouselArrowButton
+                (
+                  icon:       Icons.chevron_right_rounded, 
+                  isDisabled: _currentFormCardIndex == 4, 
+                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep4DatiSpecifici()
+  {
+    final cards = _activeStep4Cards;
+    
+    if (_isLoadingData) 
+    {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
+    }
+
+    return SizedBox
+    (
+      key: const ValueKey('step4_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Informazioni associative',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Compila i dati richiesti dai ruoli selezionati.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded
+          (
+            child: Row
+            (
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: 
+              [
+                WizardCarouselArrowButton
+                (
+                  icon:       Icons.chevron_left_rounded,
+                  isDisabled: _currentStep4CardIndex == 0,
+                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
+                ),
+                const SizedBox(width: 32),
+                Flexible
+                (
+                  child: ConstrainedBox
+                  (
+                    constraints: const BoxConstraints(maxWidth: 1100),
+                    child: AnimatedSwitcher
+                    (
+                      duration:           const Duration(milliseconds: 300),
+                      switchInCurve:      Curves.easeOutCubic,
+                      switchOutCurve:     Curves.easeInCubic,
+                      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                      transitionBuilder:  (child, animation) 
+                      {
+                        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+                        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+                        return FadeTransition
+                        (
+                          opacity: animation,
+                          child: SlideTransition
+                          (
+                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+                            child:    child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree
+                      (
+                        key:   ValueKey(_currentStep4CardIndex),
+                        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 32),
+                WizardCarouselArrowButton
+                (
+                  icon:       Icons.chevron_right_rounded,
+                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormCardIscrizione()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Iscrizioni Associative',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
+      children: 
+      [
+        ...List.generate(_enrollmentRows.length, (index) 
+        {
+          final row = _enrollmentRows[index];
+          return Padding
+          (
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row
+            (
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: 
+              [
+                Expanded
+                (
+                  flex:  2,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      if (index == 0) ...[
+                        Text
+                        (
+                          'Anno',
+                          style: GoogleFonts.plusJakartaSans
+                          (
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField
+                      (
+                        controller:   row.yearCtrl, 
+                        hint:         'Es. 2024', 
+                        keyboardType: TextInputType.number,
+                        errorText:    _formErrors['enrollmentYear_$index'],
+                        onChanged:    (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded
+                (
+                  flex:  3,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      if (index == 0) ...[
+                        Text
+                        (
+                          'Data inizio',
+                          style: GoogleFonts.plusJakartaSans
+                          (
+                            fontSize:   14, 
+                            fontWeight: FontWeight.w600, 
+                            color:      const Color(0xFF7A7A7A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      WizardAnimatedTextField
+                      (
+                        controller:      row.dateCtrl, 
+                        hint:            'gg/mm', 
+                        keyboardType:    TextInputType.number,
+                        inputFormatters: [WizardDayMonthInputFormatter()],
+                        errorText:       _formErrors['enrollmentDate_$index'],
+                        onChanged:       (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index > 0)
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(top: 6, left: 8),
+                    child: WizardRemoveRowButton
+                    (
+                      onTap: () 
+                      {
+                        setState(() 
+                        {
+                          _enrollmentRows[index].yearCtrl.dispose();
+                          _enrollmentRows[index].dateCtrl.dispose();
+                          _enrollmentRows.removeAt(index);
+                          if (_enrollmentIds.length > index) 
+                          {
+                            _enrollmentIds.removeAt(index);
+                          }
+                          _formErrors.remove('enrollmentYear_$index');
+                          _formErrors.remove('enrollmentDate_$index');
+                        });
+                      },
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48), 
+              ],
+            ),
+          );
+        }),
+        Align
+        (
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton
+          (
+            text:  'Aggiungi iscrizione',
+            icon:  Icons.add_rounded,
+            onTap: () 
+            {
+              int lastYear = DateTime.now().year;
+              if (_enrollmentRows.isNotEmpty) 
+              {
+                lastYear = int.tryParse(_enrollmentRows.last.yearCtrl.text) ?? lastYear;
+              }
+              setState(() 
+              {
+                _enrollmentRows.add(WizardEnrollmentRowData
+                (
+                  yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
+                  dateCtrl: TextEditingController(),
+                ));
+                _enrollmentIds.add(null);
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardStaff()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dati Amministrativi',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.account_balance_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'IBAN',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _ibanCtrl, 
+            hint:       'Es. IT00A...', 
+            errorText:  _formErrors['iban'],
+            onChanged:  (_) => setState(() => _formErrors.remove('iban')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Collaborazione',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _tipoCollaborazione,
+            items:     const ['Volontario', 'Retribuito', 'FSC (Ex PCT0)'],
+            hint:      'Seleziona',
+            errorText: _formErrors['tipoCollaborazione'],
+            onChanged: (val) => setState(() 
+            {
+              _tipoCollaborazione = val;
+              _formErrors.remove('tipoCollaborazione');
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardAmministratore()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dettagli Amministratore',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.computer_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Ruolo',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _ruoloAmministratore,
+            items:     const ['Presidente', 'Vicepresidente', 'Tesoriere', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['ruoloAmministratore'],
+            onChanged: (val) => setState(() 
+            {
+              _ruoloAmministratore = val;
+              _formErrors.remove('ruoloAmministratore');
+            }),
+          ),
+        ),
+        if (_ruoloAmministratore == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Specifica ruolo',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller: _altroRuoloAmministratoreCtrl, 
+              hint:       'Inserisci il ruolo', 
+              errorText:  _formErrors['altroRuoloAmministratore'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altroRuoloAmministratore')),
+            ),
+          ),
+        ]
+      ],
+    );
+  }
+
+  Widget _buildFormCardDocente()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dettagli Docente',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Studi scolastici',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _studiScolasticiCtrl, 
+            hint:       'Es. Liceo', 
+            errorText:  _formErrors['studiScolastici'],
+            onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Studi universitari',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _studiUniversitariCtrl, 
+            hint:       'Es. Laurea', 
+            errorText:  _formErrors['studiUniversitari'],
+            onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardCorsista()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dettagli Corsista',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.self_improvement_rounded),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Scadenza certificato',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller:      _scadenzaCertificatoCtrl, 
+            hint:            'gg/mm/aaaa', 
+            keyboardType:    TextInputType.number,
+            inputFormatters: [WizardDateInputFormatter()],
+            errorText:       _formErrors['scadenzaCertificato'],
+            onChanged:       (_) => setState(() => _formErrors.remove('scadenzaCertificato')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Tipo corso',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _tipoCorsoCtrl, 
+            hint:       'Es. Pilates', 
+            errorText:  _formErrors['tipoCorso'],
+            onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardStudente()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dettagli Studente',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.menu_book_outlined),
+      children: 
+      [
+        if (_isMinor) ...[
+          WizardFormInputRow
+          (
+            label:       'Uscita anticipata',
+            inputWidget: WizardAnimatedOverlayDropdown
+            (
+              value:     _uscitaAnticipata,
+              items:     const ['Sì', 'No'],
+              hint:      'Seleziona',
+              errorText: _formErrors['uscitaAnticipata'],
+              onChanged: (val) => setState(() 
+              {
+                _uscitaAnticipata = val;
+                _formErrors.remove('uscitaAnticipata');
+              }),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        ...List.generate(_schoolRows.length, (index)
+        {
+          final r = _schoolRows[index];
+          final List<String> schoolNames = _allSchools.map((s) => '${s.name} (${s.city})').toList();
+          
+          List<String> programNames = [];
+          List<String> gradeOptions = [];
+
+          if (r.selectedSchool != null)
+          {
+            try 
+            {
+              dynamic progs;
+              try { progs = (r.selectedSchool as dynamic).studyPrograms; } catch (_) {}
+              if (progs == null) { try { progs = (r.selectedSchool as dynamic).study_programs; } catch (_) {} }
+              
+              if (progs != null && progs is Iterable) 
+              {
+                for (var p in progs) 
+                {
+                  String? pName = (p is Map) ? p['name'] as String? : (p as dynamic).name as String?;
+                  if (pName != null && pName.isNotEmpty) 
+                  {
+                    if (_allPrograms.any((allP) => allP.name == pName) && !programNames.contains(pName)) 
+                    {
+                      programNames.add(pName);
+                    }
+
+                    if (r.selectedProgram != null && pName == r.selectedProgram!.name)
+                    {
+                      final globalProgram = _allPrograms.firstWhere((gp) => gp.id == r.selectedProgram!.id);
+                      
+                      const romanGrades = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'};
+                      for (int j = globalProgram.minYear; j <= globalProgram.maxYear; j++) 
+                      {
+                        if (romanGrades.containsKey(j) && !gradeOptions.contains(romanGrades[j]!))
+                        {
+                          gradeOptions.add(romanGrades[j]!);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            } 
+            catch (_) {}
+          }
+
+          if (r.selectedProgram != null && gradeOptions.isEmpty)
+          {
+            gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
+          }
+
+          return Container
+          (
+            margin:     const EdgeInsets.only(bottom: 16),
+            padding:    const EdgeInsets.all(20),
+            decoration: BoxDecoration
+            (
+              borderRadius: BorderRadius.circular(16),
+              border:       Border.all(color: const Color(0xFFE2E8F0)),
+              color:        const Color(0xFFF8FAFC),
+            ),
+            child: Row
+            (
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: 
+              [
+                Expanded
+                (
+                  flex: 2,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      Padding
+                      (
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text
+                        (
+                          'Anno inizio',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedTextField
+                      (
+                        controller:   r.yearCtrl,
+                        hint:         'Es. 2024',
+                        errorText:    _formErrors['schoolYear_$index'],
+                        keyboardType: TextInputType.number,
+                        onChanged:    (_) => setState(() => _formErrors.remove('schoolYear_$index')),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded
+                (
+                  flex: 4,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      Padding
+                      (
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text
+                        (
+                          'Scuola',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown
+                      (
+                        value:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
+                        items:      schoolNames,
+                        hint:       'Scuola',
+                        errorText:  _formErrors['schoolName_$index'],
+                        onChanged:  (val) 
+                        {
+                          setState(() 
+                          {
+                            r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+                            r.selectedProgram = null;
+                            r.selectedGrade   = null;
+                            _formErrors.remove('schoolName_$index');
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded
+                (
+                  flex: 4,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      Padding
+                      (
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text
+                        (
+                          'Percorso',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown
+                      (
+                        value:      r.selectedProgram?.name,
+                        items:      programNames,
+                        hint:       'Percorso',
+                        enabled:    r.selectedSchool != null && programNames.isNotEmpty,
+                        errorText:  _formErrors['schoolProgram_$index'],
+                        onChanged:  (val) 
+                        {
+                          setState(() 
+                          {
+                            r.selectedProgram = _allPrograms.firstWhere((p) => p.name == val);
+                            r.selectedGrade   = null;
+                            _formErrors.remove('schoolProgram_$index');
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded
+                (
+                  flex: 2,
+                  child: Column
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      Padding
+                      (
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text
+                        (
+                          'Classe',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                      WizardAnimatedOverlayDropdown
+                      (
+                        value:      r.selectedGrade,
+                        items:      gradeOptions,
+                        hint:       'Classe',
+                        enabled:    r.selectedProgram != null && gradeOptions.isNotEmpty,
+                        errorText:  _formErrors['schoolGrade_$index'],
+                        onChanged:  (val) => setState(() 
+                        {
+                          r.selectedGrade = val;
+                          _formErrors.remove('schoolGrade_$index');
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+                if (index > 0)
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(top: 28, left: 16),
+                    child: WizardRemoveRowButton
+                    (
+                      onTap: () => setState(() 
+                      {
+                        r.yearCtrl.dispose();
+                        _schoolRows.removeAt(index);
+                        _formErrors.remove('schoolYear_$index');
+                        _formErrors.remove('schoolName_$index');
+                        _formErrors.remove('schoolProgram_$index');
+                        _formErrors.remove('schoolGrade_$index');
+                      }),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 48),
+              ],
+            ),
+          );
+        }),
+        Align
+        (
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton
+          (
+            text:  'Aggiungi anno scolastico',
+            icon:  Icons.add_rounded,
+            onTap: () 
+            {
+              int lastYear = DateTime.now().year;
+              if (_schoolRows.isNotEmpty) 
+              {
+                int maxYear = 0;
+                for (var r in _schoolRows)
+                {
+                  int y = int.tryParse(r.yearCtrl.text) ?? 0;
+                  if (y > maxYear) maxYear = y;
+                }
+                lastYear = maxYear > 0 ? maxYear : lastYear;
+              }
+              setState(() 
+              {
+                _schoolRows.add(WizardSchoolRowData(yearCtrl: TextEditingController(text: (lastYear - 1).toString())));
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep5Parents()
+  {
+    final validAdults = _filteredAdults;
+
+    return SizedBox
+    (
+      key:   const ValueKey('step5_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Associazione Genitori',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Seleziona i genitori o i tutori legali del minore (almeno uno, massimo due).',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                    height:     1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row
+          (
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: 
+            [
+              SizedBox
+              (
+                width: 260,
+                child: WizardAnimatedSearchBar
+                (
+                  controller: _searchParentsCtrl, 
+                  onChanged:  (value) => setState(() => _searchParentsText = value), 
+                  hintText:   'Cerca per nome...',
+                ),
+              ),
+              const SizedBox(width: 12),
+              WizardFilterMenu<String>
+              (
+                hint:          'Ordina per', 
+                icon:          Icons.sort_rounded, 
+                value:         _sortParentsBy, 
+                menuWidth:     180, 
+                showClearIcon: false, 
+                onChanged:     (val) => setState(() => _sortParentsBy = val), 
+                onClear:       () {}, 
+                options: 
+                [
+                  WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
+                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
+                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
+                ]
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded
+          (
+            child: _isLoadingData 
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SizedBox
+                (
+                  width: double.infinity,
+                  child: SingleChildScrollView
+                  (
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Wrap
+                    (
+                      spacing:    16,
+                      runSpacing: 16,
+                      alignment:  WrapAlignment.center,
+                      children:   validAdults.map((adult) 
+                      {
+                        final adultId    = adult.fiscalCode;
+                        final isSelected = _selectedParents.contains(adultId);
+                        
+                        return WizardSelectablePersonCard
+                        (
+                          person:     adult,
+                          isSelected: isSelected,
+                          onTap:      () => setState(() 
+                          {
+                            if (isSelected) 
+                            {
+                              _selectedParents.remove(adultId);
+                            } 
+                            else 
+                            {
+                              if (_selectedParents.length >= 2)
+                              {
+                                CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
+                                return;
+                              }
+                              _selectedParents.add(adultId);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep6Minors()
+  {
+    final validMinors = _filteredMinors;
+
+    return SizedBox
+    (
+      key:   const ValueKey('step6_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Associazione Minori',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Seleziona i minori di cui questa persona è genitore o tutore legale.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                    height:     1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row
+          (
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: 
+            [
+              SizedBox
+              (
+                width: 260,
+                child: WizardAnimatedSearchBar
+                (
+                  controller: _searchMinorsCtrl, 
+                  onChanged:  (value) => setState(() => _searchMinorsText = value), 
+                  hintText:   'Cerca per nome...',
+                ),
+              ),
+              const SizedBox(width: 12),
+              WizardFilterMenu<String>
+              (
+                hint:          'Ordina per', 
+                icon:          Icons.sort_rounded, 
+                value:         _sortMinorsBy, 
+                menuWidth:     180, 
+                showClearIcon: false, 
+                onChanged:     (val) => setState(() => _sortMinorsBy = val), 
+                onClear:       () {}, 
+                options: 
+                [
+                  WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
+                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
+                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
+                ]
+              ),
+              const SizedBox(width: 12),
+              WizardFilterMenu<String>
+              (
+                hint:          'Tutti i ruoli', 
+                icon:          Icons.badge_outlined, 
+                value:         _filterMinorsRole, 
+                menuWidth:     200, 
+                showClearIcon: true, 
+                onChanged:     (val) => setState(() => _filterMinorsRole = val), 
+                onClear:       () => setState(() => _filterMinorsRole = null), 
+                options: 
+                [
+                  WizardFilterOption(value: 'STUDENTE', label: 'Studente'), 
+                  WizardFilterOption(value: 'CORSISTA', label: 'Corsista'), 
+                  WizardFilterOption(value: 'DOCENTE', label: 'Docente'),
+                  WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
+                ]
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded
+          (
+            child: _isLoadingData 
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SizedBox
+                (
+                  width: double.infinity,
+                  child: SingleChildScrollView
+                  (
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Wrap
+                    (
+                      spacing:    16,
+                      runSpacing: 16,
+                      alignment:  WrapAlignment.center,
+                      children:   validMinors.map((minor) 
+                      {
+                        final minorId    = minor.fiscalCode;
+                        final isSelected = _selectedMinors.contains(minorId);
+                        
+                        return WizardSelectablePersonCard
+                        (
+                          person:     minor,
+                          isSelected: isSelected,
+                          onTap:      () => setState(() 
+                          {
+                            if (isSelected) 
+                            {
+                              _selectedMinors.remove(minorId);
+                            } 
+                            else 
+                            {
+                              _selectedMinors.add(minorId);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep7Discipline() 
+  {
+    final validSubjects = _filteredFilteredSubjects;
+
+    return SizedBox
+    (
+      key:   const ValueKey('step7_e'),
+      width: double.infinity,
+      child: Column
+      (
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: 
+        [
+          Padding
+          (
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column
+            (
+              children: 
+              [
+                Text
+                (
+                  'Discipline Insegnate',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   22,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text
+                (
+                  'Seleziona le discipline e i percorsi di studio in cui il docente insegnerà.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   16,
+                    fontWeight: FontWeight.w500,
+                    color:      const Color(0xFF64748B),
+                    height:     1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row
+          (
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: 
+            [
+              SizedBox
+              (
+                width: 300,
+                child: WizardAnimatedSearchBar
+                (
+                  controller: _searchSubjectsCtrl, 
+                  onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                  hintText:   'Cerca disciplina...',
+                ),
+              ),
+              const SizedBox(width: 16),
+              WizardFilterMenu<String>
+              (
+                hint:          'Ordina per', 
+                icon:          Icons.sort_rounded, 
+                value:         _sortSubjectsBy, 
+                menuWidth:     180, 
+                showClearIcon: false, 
+                onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                onClear:       () {}, 
+                options: 
+                [
+                  WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                  WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                  WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                  WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
+                ]
+              ),
+              const SizedBox(width: 16),
+              WizardFilterMenu<String>
+              (
+                hint:          'Tutte le aree', 
+                icon:          Icons.category_outlined, 
+                value:         _filterSubjectsArea, 
+                menuWidth:     200, 
+                showClearIcon: true, 
+                onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
+                onClear:       () => setState(() => _filterSubjectsArea = null), 
+                options: 
+                [
+                  WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
+                  WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
+                  WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
+                ]
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded
+          (
+            child: _isLoadingData 
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SizedBox
+                (
+                  width: double.infinity,
+                  child: SingleChildScrollView
+                  (
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: Wrap
+                    (
+                      spacing:    16,
+                      runSpacing: 16,
+                      alignment:  WrapAlignment.center,
+                      children:   validSubjects.map((subject) 
+                      {
+                        final isSelected    = _subjectToggles[subject.id] ?? false;
+                        final selectedCount = (_selectedProgramsForSubject[subject.id] ?? {}).length;
+                        
+                        return WizardSubjectGridCard
+                        (
+                          subject:       subject,
+                          isSelected:    isSelected,
+                          selectedCount: selectedCount,
+                          onTap:         () => _openProgramsDialog(subject),
+                          onRemove:      () 
+                          {
+                            setState(() 
+                            {
+                              _subjectToggles[subject.id] = false;
+                              _selectedProgramsForSubject.remove(subject.id);
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ReportErrorDialog extends StatefulWidget 
 {
   final PersonItem person;
 
-  const _ReportErrorDialog({
+  const _ReportErrorDialog
+  ({
     required this.person,
   });
 
@@ -2572,11 +3776,14 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
 
   Widget _buildFieldLabel(String text) 
   {
-    return Padding(
+    return Padding
+    (
       padding: const EdgeInsets.only(bottom: 12, top: 16), 
-      child:   Text(
+      child:   Text
+      (
         text, 
-        style: GoogleFonts.plusJakartaSans(
+        style: GoogleFonts.plusJakartaSans
+        (
           color:      const Color(0xFF003C82), 
           fontWeight: FontWeight.w700, 
           fontSize:   16,
@@ -2588,34 +3795,46 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
   @override
   Widget build(BuildContext context) 
   {
-    return Dialog(
+    return Dialog
+    (
       backgroundColor: Colors.transparent, 
       elevation:       0,
-      child: Container(
+      child: Container
+      (
         width:       540, 
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration: BoxDecoration(
+        decoration: BoxDecoration
+        (
           color:        Colors.white, 
           borderRadius: BorderRadius.circular(30), 
-          boxShadow: const [
-            BoxShadow(
+          boxShadow: const 
+          [
+            BoxShadow
+            (
               color:      Color(0x1A000000), 
               offset:     Offset(0, 8), 
               blurRadius: 24,
             )
           ],
         ),
-        child: Column(
+        child: Column
+        (
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
+          children: 
+          [
+            Padding
+            (
               padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
+              child: Row
+              (
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
+                children: 
+                [
+                  Text
+                  (
                     'Segnala Errore', 
-                    style: GoogleFonts.plusJakartaSans(
+                    style: GoogleFonts.plusJakartaSans
+                    (
                       fontSize:   22, 
                       fontWeight: FontWeight.w700, 
                       color:      const Color(0xFF003C82),
@@ -2626,19 +3845,26 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
               ),
             ),
             const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            Flexible(
-              child: SingleChildScrollView(
+            Flexible
+            (
+              child: SingleChildScrollView
+              (
                 padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-                child: SizedBox(
+                child: SizedBox
+                (
                   width: double.infinity,
-                  child: Column(
+                  child: Column
+                  (
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                    children: 
+                    [
                       _buildFieldLabel('Campi da modificare'),
-                      Wrap(
+                      Wrap
+                      (
                         spacing:    12, 
                         runSpacing: 12,
-                        children: [
+                        children: 
+                        [
                           'Nome', 
                           'Cognome', 
                           'Sesso', 
@@ -2646,8 +3872,10 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                           'Data di nascita', 
                           'Città di nascita', 
                           'Provincia di nascita'
-                        ].map((field) {
-                          return _ErrorFieldChip(
+                        ].map((field) 
+                        {
+                          return _ErrorFieldChip
+                          (
                             label:      field, 
                             isSelected: _selectedFields.contains(field), 
                             onSelected: (v) 
@@ -2673,10 +3901,13 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                       if (_selectedFields.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _buildFieldLabel('Dettagli per campo'),
-                        ..._selectedFields.map((field) {
-                          return Padding(
+                        ..._selectedFields.map((field) 
+                        {
+                          return Padding
+                          (
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: WizardAnimatedTextField(
+                            child: WizardAnimatedTextField
+                            (
                               controller: _controllers[field]!, 
                               hint:       'Inserisci il dato corretto per $field...', 
                             ),
@@ -2688,12 +3919,17 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                 ),
               ),
             ),
-            Padding(
+            Padding
+            (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: WizardAnimatedActionButton(
+              child: Row
+              (
+                children: 
+                [
+                  Expanded
+                  (
+                    child: WizardAnimatedActionButton
+                    (
                       text:       'ANNULLA', 
                       icon:       Icons.cancel_outlined, 
                       baseColor:  const Color(0xFFE53935), 
@@ -2702,8 +3938,10 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: WizardAnimatedActionButton(
+                  Expanded
+                  (
+                    child: WizardAnimatedActionButton
+                    (
                       text:       _isSaving ? 'INVIO IN CORSO...' : 'INVIA SEGNALAZIONE', 
                       icon:       Icons.send_rounded, 
                       baseColor:  const Color(0xFF003C82), 
@@ -2727,7 +3965,8 @@ class _ErrorFieldChip extends StatefulWidget
   final bool               isSelected; 
   final ValueChanged<bool> onSelected; 
   
-  const _ErrorFieldChip({
+  const _ErrorFieldChip
+  ({
     required this.label, 
     required this.isSelected, 
     required this.onSelected, 
@@ -2744,26 +3983,33 @@ class _ErrorFieldChipState extends State<_ErrorFieldChip>
   @override 
   Widget build(BuildContext context) 
   { 
-    return MouseRegion(
+    return MouseRegion
+    (
       cursor:  SystemMouseCursors.click, 
       onEnter: (_) => setState(() => _isHovered = true), 
       onExit:  (_) => setState(() => _isHovered = false), 
-      child: GestureDetector(
+      child: GestureDetector
+      (
         onTap: () => widget.onSelected(!widget.isSelected), 
-        child: AnimatedContainer(
+        child: AnimatedContainer
+        (
           duration:   const Duration(milliseconds: 150), 
           padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 10), 
-          decoration: BoxDecoration(
+          decoration: BoxDecoration
+          (
             color:        widget.isSelected ? const Color(0xFF003C82) : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white), 
             borderRadius: BorderRadius.circular(100), 
-            border:       Border.all(
+            border:       Border.all
+            (
               color: widget.isSelected ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), 
               width: 1.0,
             ),
           ), 
-          child: AnimatedDefaultTextStyle(
+          child: AnimatedDefaultTextStyle
+          (
             duration: const Duration(milliseconds: 150), 
-            style: GoogleFonts.plusJakartaSans(
+            style: GoogleFonts.plusJakartaSans
+            (
               fontSize:   14, 
               fontWeight: FontWeight.w600, 
               color:      widget.isSelected ? Colors.white : const Color(0xFF003C82),

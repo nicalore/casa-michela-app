@@ -22,7 +22,7 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
   {
     super.initState();
     
-    //Initialize animation properties
+    //Initialize animations
     _scaleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 150),
@@ -39,7 +39,7 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
   @override
   void dispose()
   {
-    //Release resources
+    //Dispose controller
     _scaleController.dispose();
     
     super.dispose();
@@ -65,6 +65,7 @@ class _LoginButtonState extends State<LoginButton> with SingleTickerProviderStat
   Widget build(BuildContext context)
   {
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(

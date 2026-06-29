@@ -256,7 +256,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: 
                     [
-                      _buildFieldLabel('Nome Materia'),
+                      _buildFieldLabel('Nome'),
                       Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
                       Row
                       (
@@ -293,7 +293,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                       _buildFieldLabel('Descrizione'),
                       Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),
                       const SizedBox(height: 16),
-                      _buildFieldLabel('Discipline Interne associate'),
+                      _buildFieldLabel('Discipline interne associate'),
                       if (subject.associationSubjects.isEmpty) 
                         Text('Nessuna disciplina associata.', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))
                       else 

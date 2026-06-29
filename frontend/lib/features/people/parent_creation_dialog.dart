@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/snackbar.dart';
-import '../../../services/api_service.dart';
 import './models/person_item.dart';
 import 'person_wizard_components.dart';
 
@@ -337,7 +336,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
 
     if (!isValid)
     {
-      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi evidenziati.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Ci sono errori nei dati inseriti. Correggi i campi.', isError: true);
     }
 
     return isValid;
@@ -579,7 +578,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Il genitore non è obbligato a tesserarsi per iscrivere i figli.\nScegli "Sì" solo se paga la quota associativa per sé stesso.',
+                  'Il genitore può iscrivere il proprio figlio senza diventare socio.\nScegli se desidera aderire anche personalmente.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize:   16,
@@ -600,15 +599,15 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                   alignment:  WrapAlignment.center,
                   children: [
                     WizardSelectionCard(
-                      title:      'Sì, è tesserato', 
-                      subtitle:   'Il genitore paga la quota associativa ed è ufficialmente un socio.', 
-                      icon:       Icons.card_membership_rounded, 
+                      title:      'Sì', 
+                      subtitle:   'Il genitore aderisce all\'Associazione e versa la quota annuale.', 
+                      icon:       Icons.person_outlined, 
                       isSelected: _genitoreIsAssociato == true, 
                       onTap:      () => setState(() => _genitoreIsAssociato = true),
                     ),
                     WizardSelectionCard(
-                      title:      'No, non è tesserato', 
-                      subtitle:   'Il genitore funge solo da responsabile legale per il minore.', 
+                      title:      'No', 
+                      subtitle:   'Il genitore viene registrato solo come tutore del minore.', 
                       icon:       Icons.person_off_outlined, 
                       isSelected: _genitoreIsAssociato == false, 
                       onTap:      () => setState(() => _genitoreIsAssociato = false),
@@ -716,7 +715,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
         ),
         const SizedBox(height: 16),
         WizardFormInputRow(
-          label:       'Prov. di nascita',
+          label:       'Provincia di nascita',
           inputWidget: WizardAnimatedTextField(
             controller: _provNascitaCtrl, 
             hint:       'Es. VI',
@@ -963,7 +962,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                       Align(
                         alignment: Alignment.centerRight,
                         child: WizardTextLinkButton(
-                          text:  'AGGIUNGI ISCRIZIONE',
+                          text:  'Aggiungi iscrizione',
                           icon:  Icons.add_rounded,
                           onTap: () 
                           {

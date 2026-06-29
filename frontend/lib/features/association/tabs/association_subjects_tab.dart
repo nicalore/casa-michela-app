@@ -291,7 +291,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildFieldLabel('Nome'),
-                      TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Storia dell\'Arte', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+                      TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Grammatica latina', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Area'),
                       Wrap(
@@ -303,7 +303,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
                         ],
                       ),
                       const SizedBox(height: 16),
-                      _buildFieldLabel('Descrizione (Opzionale)'),
+                      _buildFieldLabel('Descrizione (opzionale)'),
                       TextField(controller: _descController, textCapitalization: TextCapitalization.sentences, maxLines: 4, minLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black), decoration: InputDecoration(hintText: 'Aggiungi una descrizione...', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5)))),
                     ],
                   ),

@@ -120,7 +120,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Password reimpostata con successo. Ora puoi accedere.',
+          message: 'Password reimpostata con successo! Ora puoi accedere.',
           isError: false,
         );
         context.go('/login');
@@ -376,18 +376,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                         children: [
                           Expanded(
                             child: AnimatedActionButton(
-                              text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                              icon: Icons.save_outlined,
-                              baseColor: const Color(0xFF003C82),
-                              hoverColor: const Color(0xFF004D99),
-                              onPressed: _isSaving ? () {} : _handleSave,
-                            ),
-                          ),
-                          
-                          const SizedBox(width: 16),
-                          
-                          Expanded(
-                            child: AnimatedActionButton(
                               text: 'ANNULLA',
                               icon: Icons.cancel_outlined,
                               baseColor: const Color(0xFFE53935),
@@ -395,6 +383,16 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                               onPressed: () => context.go('/login'),
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: AnimatedActionButton(
+                              text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
+                              icon: Icons.save_outlined,
+                              baseColor: const Color(0xFF003C82),
+                              hoverColor: const Color(0xFF004D99),
+                              onPressed: _isSaving ? () {} : _handleSave,
+                            ),
+                          ),               
                         ],
                       ),
                     ),

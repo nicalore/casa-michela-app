@@ -382,7 +382,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Password cambiata con successo',
+          message: 'Password cambiata con successo!',
           isError: false,
         );
         Navigator.of(context).pop();

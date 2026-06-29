@@ -91,8 +91,9 @@ class AuthService:
 
         now = datetime.now(UTC)
 
-        if account.locked_until is not None and now <= account.locked_until:
-            raise AccountLockedError(account.locked_until)
+        current_lock = account.locked_until
+        if current_lock is not None and now <= current_lock:
+            raise AccountLockedError(current_lock)
 
         if account.last_failed_login_attempt is not None:
             elapsed = now - account.last_failed_login_attempt
@@ -103,12 +104,18 @@ class AuthService:
             account.failed_login_attempts += 1
             account.last_failed_login_attempt = now
 
+            new_lock: datetime | None = None
             if account.failed_login_attempts >= settings.max_failed_login_attempts:
-                account.locked_until = now + timedelta(minutes=settings.account_lock_minutes)
+                new_lock = now + timedelta(minutes=settings.account_lock_minutes)
+                account.locked_until = new_lock
 
             await self.account_repository.save(account)
             await self.account_repository.commit()
             
+            #RaiseLockoutImmediately
+            if new_lock is not None:
+                raise AccountLockedError(new_lock)
+                
             raise AuthenticationError("Invalid username or password")
 
         if account.status != AccountStatusEnum.ACTIVE:
@@ -226,6 +233,35 @@ class AuthService:
         )
         await self.account_repository.commit()
 
+        #NotifyPasswordChange
+        if account.person and account.person.email:
+            try:
+                resend.Emails.send(
+                    {
+                        "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
+                        "to": account.person.email,
+                        "reply_to": "nicolo.calore@casamichela.it",
+                        "subject": "Conferma Modifica Password - Associazione Casa Michela",
+                        "html": """
+                        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
+                            <div style="text-align: center; margin-bottom: 30px;"> 
+                                <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
+                                <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
+                            </div> 
+                            <h2 style="color: #003C82;"> Password Modificata </h2>
+                            <p>Ciao,</p> 
+                            <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p> 
+                            <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
+                            <p>A presto,<br> 
+                            <strong>Associazione Casa Michela</strong></p> 
+                        </div>
+                        """
+                    }
+                )
+            except Exception as e:
+                #LogErrorSilently
+                print(f"Error sending email via Resend: {e}")
+
     async def request_password_reset(self, email: str) -> None:
         account = await self.account_repository.get_by_email(email)
 
@@ -246,26 +282,35 @@ class AuthService:
         reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
 
         try:
-            resend.Emails.send({
-               "from": "Associazione Casa Michela <supporto@app.casamichela.it>", 
-               "to": email, "reply_to": "nicolo.calore@casamichela.it", 
-               "subject": "Recupero Password - Associazione Casa Michela", 
-               "html": f""" <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-               <div style="text-align: center; margin-bottom: 30px;"> 
-               <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-               <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> </div> <h2 style="color: #003C82;"> Recupero Password </h2><p>
-               Ciao, </p> 
-               <p> Hai richiesto di reimpostare la password del tuo account. </p> 
-               <p> Per procedere, clicca sul pulsante qui sotto: </p>
-               <div style="text-align: center; margin: 30px 0;"> <a href="{reset_link}" style=" display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; " > Reimposta Password </a> </div> 
-               <p> Se il pulsante non funziona, copia e incolla il seguente link nel browser: </p> 
-               <p style="word-break: break-all;"> <a href="{reset_link}"> {reset_link} </a> </p>
-               <p> Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova. </p>
-               <p> Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione. </p>
-               <p> A presto,<br> 
-               <strong>Associazione Casa Michela</strong> </p> </div>
-               """
-            })
+            resend.Emails.send(
+                {
+                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
+                    "to": email,
+                    "reply_to": "nicolo.calore@casamichela.it",
+                    "subject": "Recupero Password - Associazione Casa Michela",
+                    "html": f"""
+                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
+                        <div style="text-align: center; margin-bottom: 30px;"> 
+                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
+                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
+                        </div> 
+                        <h2 style="color: #003C82;"> Recupero Password </h2>
+                        <p>Ciao,</p> 
+                        <p>Hai richiesto di reimpostare la password del tuo account.</p> 
+                        <p>Per procedere, clicca sul pulsante qui sotto:</p>
+                        <div style="text-align: center; margin: 30px 0;"> 
+                            <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 
+                        </div> 
+                        <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p> 
+                        <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
+                        <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
+                        <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
+                        <p>A presto,<br> 
+                        <strong>Associazione Casa Michela</strong></p> 
+                    </div>
+                    """
+                }
+            )
         except Exception as e:
             #LogErrorSilently
             print(f"Error sending email via Resend: {e}")

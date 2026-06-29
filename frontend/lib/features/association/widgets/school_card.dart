@@ -704,7 +704,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: 
                     [
-                      _buildFieldLabel('Nome Percorso'),
+                      _buildFieldLabel('Nome'),
                       Text
                       (
                         program.name, 

@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 import resend
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from sqlalchemy import select, delete, or_
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -46,6 +46,7 @@ router = APIRouter(prefix="/people", tags=["people"])
 
 resend.api_key = settings.resend_api_key
 
+
 def _translate_collaboration_type(collab_type: str | None) -> str | None:
     if not collab_type:
         return None
@@ -57,20 +58,23 @@ def _translate_collaboration_type(collab_type: str | None) -> str | None:
         return "PCTO"
     return collab_type
 
+
 def _translate_education_level(level: str | None) -> str | None:
     if not level:
         return None
     if level == "PRIMARY_SCHOOL":
-        return "Scuola Primaria"
+        return "Scuola primaria"
     if level == "MIDDLE_SCHOOL":
-        return "Secondaria I grado"
+        return "Scuola secondaria di I grado"
     if level == "HIGH_SCHOOL":
-        return "Secondaria II grado"
+        return "Scuola secondaria di II grado"
     return level
+
 
 def _roman_numeral(num: int) -> str:
     roman_map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V'}
     return roman_map.get(num, str(num))
+
 
 def _map_person_to_response(p: Person) -> PersonResponse:
     roles                   = []
@@ -395,249 +399,288 @@ async def get_person(tax_code: str, db: DbSession):
         
     return _map_person_to_response(person)
 
+
 @router.put("/{tax_code}", status_code=status.HTTP_200_OK)
 async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSession):
-    stmt = (
-        select(Person)
-        .options(
-            joinedload(Person.member_profile).joinedload(Member.course_participant_profile),
-            joinedload(Person.member_profile).joinedload(Member.student_profile).joinedload(Student.school_enrollments),
-            joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.administrator_profile),
-            joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.teacher_profile).joinedload(Teacher.teaching_competences),
-            joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.psychologist_profile),
-            joinedload(Person.member_profile).joinedload(Member.memberships),
-            joinedload(Person.parent_profile),
-            joinedload(Person.parental_relationships),
-        )
-        .where(Person.tax_code == tax_code.upper())
-    )
-    result = await db.execute(stmt)
-    person = result.unique().scalar_one_or_none()
+    # Eseguiamo query base senza costrutti complessi in lettura per evitare gli errori
+    person = await db.get(Person, tax_code.upper())
     
     if not person:
         raise HTTPException(status_code=404, detail="Persona non trovata")
         
     data = payload.general_data
     
-    new_tax_code = data.tax_code.upper()
-    if new_tax_code != person.tax_code:
+    if data.tax_code.upper() != person.tax_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La modifica del Codice Fiscale non è consentita per preservare l'integrità dei dati storici."
         )
     
-    person.first_name              = data.first_name
-    person.last_name               = data.last_name
-    person.gender                  = GenderEnum(data.gender)
-    person.birth_date              = data.birth_date
-    person.birth_city              = data.birth_city
-    person.birth_province          = data.birth_province
-    person.residence_type          = data.residence_type
-    person.residence_address       = data.residence_address
-    person.residence_street_number = data.residence_street_number
-    person.residence_city          = data.residence_city
-    person.residence_province      = data.residence_province
-    person.postal_code             = data.postal_code
-    person.email                   = data.email
-    person.phone                   = data.phone
-
-    if payload.relationships is not None:
-        stmt_del = delete(ParentalResponsibility).where(
-            or_(
-                ParentalResponsibility.parent_tax_code == person.tax_code,
-                ParentalResponsibility.child_tax_code == person.tax_code
-            )
+    # 0. Aggiornamento Anagrafica base
+    await db.execute(
+        update(Person)
+        .where(Person.tax_code == person.tax_code)
+        .values(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            gender=GenderEnum(data.gender),
+            birth_date=data.birth_date,
+            birth_city=data.birth_city,
+            birth_province=data.birth_province,
+            residence_type=data.residence_type,
+            residence_address=data.residence_address,
+            residence_street_number=data.residence_street_number,
+            residence_city=data.residence_city,
+            residence_province=data.residence_province,
+            postal_code=data.postal_code,
+            email=data.email,
+            phone=data.phone
         )
-        await db.execute(stmt_del)
-        await db.flush()
-        
-        for minor_code in payload.relationships.minors_tax_codes:
-            if minor_code != person.tax_code:
-                db.add(ParentalResponsibility(parent_tax_code=person.tax_code, child_tax_code=minor_code))
-                
-        for parent_code in payload.relationships.parents_tax_codes:
-            if parent_code != person.tax_code:
-                db.add(ParentalResponsibility(parent_tax_code=parent_code, child_tax_code=person.tax_code))
-        await db.flush()
-    
+    )
+    await db.flush()
+
     roles = [r.upper() for r in payload.roles]
 
+    # 1. Rimuoviamo tutte le vecchie dipendenze ParentalResponsibility prima di toccare i profili Genitore/Studente
+    if payload.relationships is not None:
+        await db.execute(
+            delete(ParentalResponsibility)
+            .where(
+                or_(
+                    ParentalResponsibility.parent_tax_code == person.tax_code,
+                    ParentalResponsibility.child_tax_code == person.tax_code
+                )
+            )
+        )
+        await db.flush()
+
+    # 2. Gestione Profilo Parent
     if "GENITORE" in roles:
-        if not person.parent_profile:
+        parent_exists = await db.scalar(select(Parent).where(Parent.tax_code == person.tax_code))
+        if not parent_exists:
             db.add(Parent(tax_code=person.tax_code))
+            await db.flush()
     else:
-        if person.parent_profile:
-            await db.delete(person.parent_profile)
+        await db.execute(delete(Parent).where(Parent.tax_code == person.tax_code))
+        await db.flush()
 
+    # 3. Ripristino delle ParentalResponsibilities aggiornate
+    if payload.relationships is not None:
+        # Aggiungo figli SOLO SE io sono effettivamente un genitore
+        if "GENITORE" in roles:
+            for minor_code in payload.relationships.minors_tax_codes:
+                if minor_code != person.tax_code:
+                    db.add(ParentalResponsibility(parent_tax_code=person.tax_code, child_tax_code=minor_code))
+        
+        # L'anagrafica che stiamo modificando può SEMPRE avere dei genitori
+        for p_code in payload.relationships.parents_tax_codes:
+            if p_code != person.tax_code:
+                db.add(ParentalResponsibility(parent_tax_code=p_code, child_tax_code=person.tax_code))
+        
+        await db.flush()
+
+    # 4. Gestione Profilo Associato
     needs_member = any(r in roles for r in ["ASSOCIATO", "STUDENTE", "CORSISTA", "DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
+    
     if needs_member:
-        if not person.member_profile:
-            person.member_profile = Member(tax_code=person.tax_code)
-            db.add(person.member_profile)
+        member_exists = await db.scalar(select(Member).where(Member.tax_code == person.tax_code))
+        if not member_exists:
+            db.add(Member(tax_code=person.tax_code))
+            await db.flush()
             
-        member = person.member_profile
+        if payload.member_data:
+            await db.execute(
+                update(Member)
+                .where(Member.tax_code == person.tax_code)
+                .values(collaborating_active=payload.member_data.collaborating_active)
+            )
+            await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
+            await db.flush()
+            
+            for m_data in payload.member_data.memberships:
+                db.add(Membership(
+                    member_tax_code=person.tax_code,
+                    year=m_data.year,
+                    start_date=m_data.start_date,
+                    end_date=m_data.end_date,
+                    renewal_period_days=m_data.renewal_period_days,
+                    revocation=MembershipRevocationEnum(m_data.revocation)
+                ))
+            await db.flush()
 
+        # Profilo Studente
         if "STUDENTE" in roles and payload.student_data:
             s_data = payload.student_data
-            if not member.student_profile:
-                member.student_profile = Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit)
-                db.add(member.student_profile)
+            student_exists = await db.scalar(select(Student).where(Student.tax_code == person.tax_code))
+            if not student_exists:
+                db.add(Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit))
+                await db.flush()
             else:
-                member.student_profile.authorized_early_exit = s_data.authorized_early_exit
-            
-            #Comment Aggiorna o crea l'iscrizione scolastica corrente
+                await db.execute(
+                    update(Student)
+                    .where(Student.tax_code == person.tax_code)
+                    .values(authorized_early_exit=s_data.authorized_early_exit)
+                )
+
             today = date.today()
             start_year = today.year - 1 if today.month < 9 else today.year
             grade_map  = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
             numeric_grade = grade_map.get(s_data.school_class, 1)
 
-            latest_enrollment = None
-            if member.student_profile.school_enrollments:
-                latest_enrollment = max(member.student_profile.school_enrollments, key=lambda e: e.start_year)
+            enrollments = (await db.execute(select(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))).scalars().all()
+            latest_enrollment = max(enrollments, key=lambda e: e.start_year) if enrollments else None
 
             if latest_enrollment and latest_enrollment.start_year == start_year:
-                latest_enrollment.grade = numeric_grade
-                latest_enrollment.study_program_id = s_data.study_program_id
-                latest_enrollment.school_mechanographic_code = s_data.school_mechanographic_code
+                await db.execute(
+                    update(SchoolEnrollment)
+                    .where(SchoolEnrollment.id == latest_enrollment.id)
+                    .values(
+                        grade=numeric_grade,
+                        study_program_id=s_data.study_program_id,
+                        school_mechanographic_code=s_data.school_mechanographic_code
+                    )
+                )
             else:
-                new_enrollment = SchoolEnrollment(
+                db.add(SchoolEnrollment(
                     student_tax_code=person.tax_code,
                     start_year=start_year,
                     grade=numeric_grade,
                     study_program_id=s_data.study_program_id,
                     school_mechanographic_code=s_data.school_mechanographic_code
-                )
-                db.add(new_enrollment)
+                ))
         else:
-            if member.student_profile:
-                for e in list(member.student_profile.school_enrollments):
-                    await db.delete(e)
-                await db.delete(member.student_profile)
+            await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
+            await db.execute(delete(Student).where(Student.tax_code == person.tax_code))
 
+        # Profilo Corsista
         if "CORSISTA" in roles and payload.course_participant_data:
             cp_data = payload.course_participant_data
-            if not member.course_participant_profile:
-                member.course_participant_profile = CourseParticipant(
+            cp_exists = await db.scalar(select(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code))
+            if not cp_exists:
+                db.add(CourseParticipant(
                     tax_code=person.tax_code,
                     medical_certificate_expiration=cp_data.medical_certificate_expiration,
                     course_type=cp_data.course_type
-                )
-                db.add(member.course_participant_profile)
+                ))
             else:
-                member.course_participant_profile.medical_certificate_expiration = cp_data.medical_certificate_expiration
-                member.course_participant_profile.course_type = cp_data.course_type
+                await db.execute(
+                    update(CourseParticipant)
+                    .where(CourseParticipant.tax_code == person.tax_code)
+                    .values(
+                        medical_certificate_expiration=cp_data.medical_certificate_expiration,
+                        course_type=cp_data.course_type
+                    )
+                )
         else:
-            if member.course_participant_profile:
-                await db.delete(member.course_participant_profile)
+            await db.execute(delete(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code))
 
+        # Profili Staff
         needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
         if needs_staff and payload.staff_data:
             st_data = payload.staff_data
             collab_enum = CollaborationTypeEnum(st_data.collaboration_type)
-            if not member.staff_profile:
-                member.staff_profile = Staff(
+            
+            staff_exists = await db.scalar(select(Staff).where(Staff.tax_code == person.tax_code))
+            if not staff_exists:
+                db.add(Staff(
                     tax_code=person.tax_code,
                     collaboration_type=collab_enum,
                     iban=st_data.iban if st_data.iban else None
-                )
-                db.add(member.staff_profile)
+                ))
+                await db.flush()
             else:
-                member.staff_profile.collaboration_type = collab_enum
-                member.staff_profile.iban = st_data.iban if st_data.iban else None
-                
-            staff = member.staff_profile
+                await db.execute(
+                    update(Staff)
+                    .where(Staff.tax_code == person.tax_code)
+                    .values(collaboration_type=collab_enum, iban=st_data.iban if st_data.iban else None)
+                )
 
+            # Amministratore
             if "AMMINISTRATORE" in roles and payload.admin_data:
                 ad_data = payload.admin_data
                 role_enum = AdministratorRoleEnum(ad_data.role)
-                if not staff.administrator_profile:
-                    staff.administrator_profile = Administrator(
+                
+                admin_exists = await db.scalar(select(Administrator).where(Administrator.tax_code == person.tax_code))
+                if not admin_exists:
+                    db.add(Administrator(
                         tax_code=person.tax_code,
                         role=role_enum,
                         other_role=ad_data.other_role if role_enum == AdministratorRoleEnum.OTHER else None
-                    )
-                    db.add(staff.administrator_profile)
+                    ))
                 else:
-                    staff.administrator_profile.role = role_enum
-                    staff.administrator_profile.other_role = ad_data.other_role if role_enum == AdministratorRoleEnum.OTHER else None
+                    await db.execute(
+                        update(Administrator)
+                        .where(Administrator.tax_code == person.tax_code)
+                        .values(
+                            role=role_enum,
+                            other_role=ad_data.other_role if role_enum == AdministratorRoleEnum.OTHER else None
+                        )
+                    )
             else:
-                if staff.administrator_profile:
-                    await db.delete(staff.administrator_profile)
+                await db.execute(delete(Administrator).where(Administrator.tax_code == person.tax_code))
 
+            # Docente
             if "DOCENTE" in roles and payload.teacher_data:
                 te_data = payload.teacher_data
-                if not staff.teacher_profile:
-                    staff.teacher_profile = Teacher(
+                teacher_exists = await db.scalar(select(Teacher).where(Teacher.tax_code == person.tax_code))
+                
+                if not teacher_exists:
+                    db.add(Teacher(
                         tax_code=person.tax_code,
                         school_education=te_data.school_education,
                         university_education=te_data.university_education
-                    )
-                    db.add(staff.teacher_profile)
+                    ))
+                    await db.flush()
                 else:
-                    staff.teacher_profile.school_education = te_data.school_education
-                    staff.teacher_profile.university_education = te_data.university_education
+                    await db.execute(
+                        update(Teacher)
+                        .where(Teacher.tax_code == person.tax_code)
+                        .values(
+                            school_education=te_data.school_education,
+                            university_education=te_data.university_education
+                        )
+                    )
                 
                 if te_data.competences is not None:
-                    for comp in list(staff.teacher_profile.teaching_competences):
-                        await db.delete(comp)
+                    await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
                     await db.flush()
-                    staff.teacher_profile.teaching_competences.clear()
-                    
                     for comp_data in te_data.competences:
                         for sp_id in comp_data.study_program_ids:
-                            new_comp = TeachingCompetence(
+                            db.add(TeachingCompetence(
                                 teacher_tax_code=person.tax_code,
                                 association_subject_id=comp_data.subject_id, 
                                 study_program_id=sp_id
-                            )
-                            db.add(new_comp)
+                            ))
             else:
-                if staff.teacher_profile:
-                    for comp in list(staff.teacher_profile.teaching_competences):
-                        await db.delete(comp)
-                    await db.delete(staff.teacher_profile)
+                await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
+                await db.execute(delete(Teacher).where(Teacher.tax_code == person.tax_code))
 
+            # Psicologo
             if "PSICOLOGO" in roles:
-                if not staff.psychologist_profile:
+                psy_exists = await db.scalar(select(Psychologist).where(Psychologist.tax_code == person.tax_code))
+                if not psy_exists:
                     db.add(Psychologist(tax_code=person.tax_code))
             else:
-                if staff.psychologist_profile:
-                    await db.delete(staff.psychologist_profile)
+                await db.execute(delete(Psychologist).where(Psychologist.tax_code == person.tax_code))
+
         else:
-            if member.staff_profile:
-                staff = member.staff_profile
-                if staff.administrator_profile:
-                    await db.delete(staff.administrator_profile)
-                if staff.teacher_profile:
-                    for comp in list(staff.teacher_profile.teaching_competences):
-                        await db.delete(comp)
-                    await db.delete(staff.teacher_profile)
-                if staff.psychologist_profile:
-                    await db.delete(staff.psychologist_profile)
-                await db.delete(staff)
+            await db.execute(delete(Administrator).where(Administrator.tax_code == person.tax_code))
+            await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
+            await db.execute(delete(Teacher).where(Teacher.tax_code == person.tax_code))
+            await db.execute(delete(Psychologist).where(Psychologist.tax_code == person.tax_code))
+            await db.execute(delete(Staff).where(Staff.tax_code == person.tax_code))
     else:
-        if person.member_profile:
-            m = person.member_profile
-            if m.student_profile:
-                for e in list(m.student_profile.school_enrollments):
-                    await db.delete(e)
-                await db.delete(m.student_profile)
-            if m.course_participant_profile:
-                await db.delete(m.course_participant_profile)
-            if m.staff_profile:
-                staff = m.staff_profile
-                if staff.administrator_profile:
-                    await db.delete(staff.administrator_profile)
-                if staff.teacher_profile:
-                    for comp in list(staff.teacher_profile.teaching_competences):
-                        await db.delete(comp)
-                    await db.delete(staff.teacher_profile)
-                if staff.psychologist_profile:
-                    await db.delete(staff.psychologist_profile)
-                await db.delete(staff)
-            for memb in list(m.memberships):
-                await db.delete(memb)
-            await db.delete(m)
+        # Pulizia totale se l'utente non è più associato (ma ad esempio solo Genitore)
+        await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
+        await db.execute(delete(Student).where(Student.tax_code == person.tax_code))
+        await db.execute(delete(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code))
+        await db.execute(delete(Administrator).where(Administrator.tax_code == person.tax_code))
+        await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
+        await db.execute(delete(Teacher).where(Teacher.tax_code == person.tax_code))
+        await db.execute(delete(Psychologist).where(Psychologist.tax_code == person.tax_code))
+        await db.execute(delete(Staff).where(Staff.tax_code == person.tax_code))
+        await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
+        await db.execute(delete(Member).where(Member.tax_code == person.tax_code))
 
     try:
         await db.commit()
@@ -679,6 +722,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
 
     return {"message": "Anagrafica aggiornata con successo", "new_tax_code": person.tax_code}
 
+
 @router.put("/{tax_code}/school-enrollments", status_code=status.HTTP_200_OK)
 async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolEnrollmentsUpdate, db: DbSession):
     if not payload.enrollments:
@@ -708,14 +752,9 @@ async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolE
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno."
         )
-
-    student = member.student_profile
     
-    for e in list(student.school_enrollments):
-        await db.delete(e)
-        
+    await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
     await db.flush() 
-    student.school_enrollments.clear()
     
     for e_data in payload.enrollments:
         new_e = SchoolEnrollment(
@@ -733,10 +772,10 @@ async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolE
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Errore durante l'aggiornamento delle iscrizioni scolastiche: {str(e)}"
+            detail=f"Errore: {str(e)}"
         )
         
-    return {"message": "Iscrizioni scolastiche aggiornate con successo"}
+    return {"message": "Anni scolastici aggiornati con successo!"}
 
 
 @router.post("/{tax_code}/parents", status_code=status.HTTP_200_OK)
@@ -866,17 +905,15 @@ async def report_person_error(tax_code: str, corrections: dict, db: DbSession):
         </div>
         <h2 style="color: #003C82;">Segnalazione Errore Anagrafica</h2>
         <p>Ciao Nicolò,</p>
-        <p>È stata inviata una richiesta di correzione per i dati anagrafici protetti di un utente all'interno del sistema gestionale.</p>
+        <p>È stata inviata una richiesta di correzione per i dati anagrafici di un utente.</p>
         
         <div style="background-color: #F8FAFC; padding: 20px; border-radius: 8px; border: 1px solid #E2E8F0; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Soggetto interessato:</strong> {person.first_name} {person.last_name}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Persona interessata:</strong> {person.first_name} {person.last_name}</p>
             <p style="margin: 0;"><strong>Codice Fiscale Attuale:</strong> {person.tax_code}</p>
         </div>
         
         <h3 style="color: #003C82; margin-top: 30px; margin-bottom: 15px;">Correzioni e modifiche richieste:</h3>
         {fields_html}
-        
-        <p style="margin-top: 30px; font-size: 13px; color: #64748B;">Questa mail è stata generata automaticamente dall'applicazione a seguito della compilazione del modulo di segnalazione errore.</p>
     </div>
     """
 
@@ -908,7 +945,7 @@ async def wizard_create_person(payload: PersonWizardPayload, db: DbSession):
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Errore didnt creato: {str(e)}"
+            detail=f"Errore durante la creazione: {str(e)}"
         )
 
 
@@ -962,7 +999,7 @@ async def update_person_memberships(tax_code: str, payload: PersonMembershipsUpd
         
     member = person.member_profile
     if not member:
-        raise HTTPException(status_code=400, detail="L'utente non possiede un profil da associato.")
+        raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da associato.")
         
     years = [m_data.year for m_data in payload.memberships]
     if len(years) != len(set(years)):
@@ -973,11 +1010,8 @@ async def update_person_memberships(tax_code: str, payload: PersonMembershipsUpd
 
     member.collaborating_active = payload.collaborating_active
     
-    for m in list(member.memberships):
-        await db.delete(m)
-        
+    await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
     await db.flush() 
-    member.memberships.clear()
     
     for m_data in payload.memberships:
         new_m = Membership(
@@ -996,7 +1030,7 @@ async def update_person_memberships(tax_code: str, payload: PersonMembershipsUpd
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Errore durante l'aggiornamento delle iscrizioni: {str(e)}"
+            detail=f"Errore: {str(e)}"
         )
         
     return {"message": "Iscrizioni aggiornate con successo"}
@@ -1020,7 +1054,7 @@ async def revoke_person_membership(tax_code: str, payload: RevokeMembershipPaylo
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da associato.")
         
     if not member.memberships:
-        raise HTTPException(status_code=400, detail="Nessuna iscrizione trouvata da revocare.")
+        raise HTTPException(status_code=400, detail="Nessuna iscrizione trovata da revocare.")
         
     latest_membership = max(member.memberships, key=lambda m: m.year)
     
@@ -1046,6 +1080,7 @@ async def revoke_person_membership(tax_code: str, payload: RevokeMembershipPaylo
         
     return {"message": "Iscrizione revocata con successo"}
 
+
 @router.put("/{tax_code}/teacher-competences", status_code=status.HTTP_200_OK)
 async def update_teacher_competences(tax_code: str, payload: PersonTeacherCompetencesUpdate, db: DbSession):
     if not payload.competences:
@@ -1069,13 +1104,8 @@ async def update_teacher_competences(tax_code: str, payload: PersonTeacherCompet
     if not member or not member.staff_profile or not member.staff_profile.teacher_profile:
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da docente.")
         
-    teacher = member.staff_profile.teacher_profile
-    
-    for comp in list(teacher.teaching_competences):
-        await db.delete(comp)
-        
+    await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
     await db.flush() 
-    teacher.teaching_competences.clear()
     
     for comp_data in payload.competences:
         if not comp_data.study_program_ids:
@@ -1094,7 +1124,7 @@ async def update_teacher_competences(tax_code: str, payload: PersonTeacherCompet
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Errore durante l'aggiornamento delle competenze: {str(e)}"
+            detail=f"Errore: {str(e)}"
         )
         
     return {"message": "Discipline aggiornate con successo"}

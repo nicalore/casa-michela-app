@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_db
 from app.models.school import School
+from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
 from app.schemas.school import SchoolCreate, SchoolResponse, SchoolUpdate
 
@@ -90,11 +91,25 @@ async def update_school(old_code: str, payload: SchoolUpdate, db: DbSession):
     school.city = payload.city
     school.province = payload.province
 
-    school.school_study_programs.clear()
-    if hasattr(payload, 'study_program_ids') and payload.study_program_ids:
-        school.school_study_programs.extend([
-            SchoolStudyProgram(study_program_id=pid) for pid in payload.study_program_ids
-        ])
+    # Sincronizzazione controllata delle foreign keys senza eliminare quelle frequentate
+    current_pids = {ssp.study_program_id for ssp in school.school_study_programs}
+    new_pids = set(payload.study_program_ids) if hasattr(payload, 'study_program_ids') and payload.study_program_ids else set()
+
+    to_remove = current_pids - new_pids
+    to_add = new_pids - current_pids
+
+    if to_remove:
+        stmt_check = select(SchoolEnrollment).where(
+            SchoolEnrollment.school_mechanographic_code == old_code,
+            SchoolEnrollment.study_program_id.in_(to_remove)
+        )
+        if (await db.execute(stmt_check)).scalars().first():
+            raise HTTPException(status_code=400, detail="Impossibile rimuovere percorsi di studio attualmente o precedentemente frequentati da studenti.")
+        
+        school.school_study_programs = [ssp for ssp in school.school_study_programs if ssp.study_program_id not in to_remove]
+
+    for pid in to_add:
+        school.school_study_programs.append(SchoolStudyProgram(study_program_id=pid))
 
     try:
         await db.commit()
@@ -118,6 +133,6 @@ async def delete_school(code: str, db: DbSession):
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Impossibile eliminare la scuola perché collegata ad altri dati protetti.") from e
+        raise HTTPException(status_code=400, detail="Impossibile eliminare la scuola perché ci sono studenti iscritti.") from e
     
     return {"detail": "Scuola eliminata"}

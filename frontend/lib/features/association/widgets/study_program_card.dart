@@ -242,7 +242,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: 
                     [
-                      _buildFieldLabel('Nome Percorso'),
+                      _buildFieldLabel('Nome'),
                       Text(program.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
                       Row
                       (

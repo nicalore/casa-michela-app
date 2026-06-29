@@ -1,14 +1,17 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import get_db
 from app.models.ministry_subject import MinistrySubject
+from app.models.school_enrollment import SchoolEnrollment
+from app.models.school_study_program import SchoolStudyProgram
 from app.models.study_program import StudyProgram
+from app.models.teaching_competence import TeachingCompetence
 from app.schemas.study_program import (
     StudyProgramCreate,
     StudyProgramResponse,
@@ -21,7 +24,6 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 @router.get("/", response_model=list[StudyProgramResponse])
 async def get_study_programs(db: DbSession):
-    # Caricamento a cascata profondo: StudyProgram -> MinistrySubject -> AssociationSubject
     stmt = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).order_by(StudyProgram.created_at.desc())
@@ -49,7 +51,6 @@ async def create_study_program(payload: StudyProgramCreate, db: DbSession):
         if len(subjects) != len(payload.ministry_subject_ids):
             raise HTTPException(status_code=400, detail="Alcune materie ministeriali selezionate non esistono.")
         
-        # Controllo di coerenza del livello
         if any(subj.level != payload.level for subj in subjects):
             raise HTTPException(status_code=400, detail="Tutte le materie ministeriali devono avere lo stesso livello del percorso.")
 
@@ -70,7 +71,6 @@ async def create_study_program(payload: StudyProgramCreate, db: DbSession):
         await db.rollback()
         raise HTTPException(status_code=400, detail="Dati non validi (es. intervallo anni).") from e
     
-    # Ricarica l'oggetto appena creato caricando l'intera profondità relazionale
     stmt_reload = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).where(StudyProgram.id == new_program.id)
@@ -83,7 +83,6 @@ async def update_study_program(program_id: int, payload: StudyProgramUpdate, db:
     if not payload.ministry_subject_ids:
         raise HTTPException(status_code=400, detail="Seleziona almeno una materia ministeriale.")
 
-    # Carica il programma e le sue relazioni a cascata
     program = (await db.execute(
         select(StudyProgram)
         .options(selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects))
@@ -108,7 +107,6 @@ async def update_study_program(program_id: int, payload: StudyProgramUpdate, db:
         if len(subjects) != len(payload.ministry_subject_ids):
             raise HTTPException(status_code=400, detail="Alcune materie ministeriali selezionate non esistono.")
 
-        # Controllo di coerenza del livello
         if any(subj.level != payload.level for subj in subjects):
             raise HTTPException(status_code=400, detail="Tutte le materie ministeriali devono avere lo stesso livello del percorso.")
 
@@ -125,7 +123,6 @@ async def update_study_program(program_id: int, payload: StudyProgramUpdate, db:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Dati non validi o anni non coerenti per il livello selezionato.") from e
     
-    # Ricarica per restituire lo stato finale coerente e serializzabile (con association_subjects espliciti in memoria)
     stmt_reload = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).where(StudyProgram.id == program_id)
@@ -138,12 +135,46 @@ async def delete_study_program(program_id: int, db: DbSession):
     program = (await db.execute(select(StudyProgram).where(StudyProgram.id == program_id))).scalars().first()
     if not program:
         raise HTTPException(status_code=404, detail="Indirizzo di studio non trovato.")
-        
+
+    # 1. Controllo studenti iscritti
+    stmt_students = select(SchoolEnrollment.id).where(SchoolEnrollment.study_program_id == program_id).limit(1)
+    if (await db.execute(stmt_students)).scalars().first():
+        raise HTTPException(
+            status_code=400, 
+            detail="Impossibile eliminare il percorso di studi: è frequentato (o lo è stato) da uno o più studenti."
+        )
+
+    # 2. Controllo scuole rimaste senza percorsi
+    subq_schools = select(SchoolStudyProgram.school_mechanographic_code).where(
+        SchoolStudyProgram.study_program_id == program_id
+    )
+    stmt_schools = select(SchoolStudyProgram.school_mechanographic_code).where(
+        SchoolStudyProgram.school_mechanographic_code.in_(subq_schools)
+    ).group_by(SchoolStudyProgram.school_mechanographic_code).having(
+        func.count(SchoolStudyProgram.study_program_id) == 1
+    )
+    
+    if (await db.execute(stmt_schools)).scalars().first():
+        raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi: una o più scuole rimarrebbero senza percorsi.")
+
+    # 3. Controllo docenti rimasti senza competenze
+    subq_teachers = select(TeachingCompetence.teacher_tax_code).where(
+        TeachingCompetence.study_program_id == program_id
+    )
+    stmt_teachers = select(TeachingCompetence.teacher_tax_code).where(
+        TeachingCompetence.teacher_tax_code.in_(subq_teachers)
+    ).group_by(TeachingCompetence.teacher_tax_code).having(
+        func.count(TeachingCompetence.study_program_id) == 1
+    )
+    
+    if (await db.execute(stmt_teachers)).scalars().first():
+        raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi: uno o più docenti rimarrebbero senza competenze associate.")
+
     try:
         await db.delete(program)
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi.") from e
+        raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi in quanto protetto da vincoli referenziali.") from e
     
     return {"detail": "Indirizzo di studio eliminato."}

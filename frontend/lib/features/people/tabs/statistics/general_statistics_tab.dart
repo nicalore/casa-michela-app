@@ -350,7 +350,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
               [
                 Text
                 (
-                  'Fidelizzazione Generale', 
+                  'Fidelizzazione Iscritti', 
                   style: GoogleFonts.plusJakartaSans
                   (
                     fontSize:   18, 
@@ -680,7 +680,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
                   (
                     child: _buildSummaryCard
                     (
-                      title:      'Iscritti Totali Attuali', 
+                      title:      'Iscritti Totali', 
                       count:      _currentTotals?.currentTotalMembers ?? 0, 
                       deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
                       deltaYear:  _currentTotals?.membersDeltaYear ?? 0,
@@ -692,7 +692,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
                   (
                     child: _buildSummaryCard
                     (
-                      title:      'Collaboratori Attivi Attuali', 
+                      title:      'Collaboratori Attivi', 
                       count:      _currentTotals?.currentActiveCollaborators ?? 0, 
                       deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
                       deltaYear:  _currentTotals?.collabDeltaYear ?? 0,
@@ -1148,11 +1148,11 @@ class _StatFilterMenu<T> extends StatefulWidget
 
 class _StatFilterMenuState<T> extends State<_StatFilterMenu<T>> 
 { 
-  final GlobalKey                       _buttonKey   = GlobalKey(); 
-  OverlayEntry?                         _overlayEntry; 
-  final GlobalKey<_StatFilterOverlayContentState> _menuKey = GlobalKey(); 
-  bool                                  _isHovered   = false; 
-  bool                                  _isMenuOpen  = false; 
+  final GlobalKey                                 _buttonKey = GlobalKey(); 
+  OverlayEntry?                                   _overlayEntry; 
+  final GlobalKey<_StatFilterOverlayContentState> _menuKey   = GlobalKey(); 
+  bool                                            _isHovered = false; 
+  bool                                            _isMenuOpen = false; 
 
   void _toggleMenu() 
   { 
@@ -1356,52 +1356,54 @@ class _StatFilterOverlayContentState<T> extends State<_StatFilterOverlayContent<
     return Material
     (
       color: Colors.transparent, 
-      child: Container
+      child: IntrinsicWidth
       (
-        width:       180, 
-        constraints: const BoxConstraints(maxHeight: 300), 
-        decoration:  BoxDecoration
+        child: Container
         (
-          color:        Colors.white, 
-          borderRadius: BorderRadius.circular(16), 
-          boxShadow:    const 
-          [
-            BoxShadow
-            (
-              color:        Color(0x14000000), 
-              blurRadius:   20, 
-              spreadRadius: 2,
-            ),
-          ],
-        ), 
-        child: AnimatedSize
-        (
-          duration:  const Duration(milliseconds: 180), 
-          curve:     Curves.easeOut, 
-          alignment: Alignment.topCenter, 
-          child: _expanded 
-            ? Padding
+          constraints: const BoxConstraints(maxHeight: 300, minWidth: 130), 
+          decoration:  BoxDecoration
+          (
+            color:        Colors.white, 
+            borderRadius: BorderRadius.circular(16), 
+            boxShadow:    const 
+            [
+              BoxShadow
               (
-                padding: const EdgeInsets.symmetric(vertical: 8), 
-                child: SingleChildScrollView
+                color:        Color(0x14000000), 
+                blurRadius:   20, 
+                spreadRadius: 2,
+              ),
+            ],
+          ), 
+          child: AnimatedSize
+          (
+            duration:  const Duration(milliseconds: 180), 
+            curve:     Curves.easeOut, 
+            alignment: Alignment.topCenter, 
+            child: _expanded 
+              ? Padding
                 (
-                  child: Column
+                  padding: const EdgeInsets.symmetric(vertical: 8), 
+                  child: SingleChildScrollView
                   (
-                    mainAxisSize:       MainAxisSize.min, 
-                    crossAxisAlignment: CrossAxisAlignment.start, 
-                    children:           widget.options.map((option) 
-                    { 
-                      return _StatFilterMenuItem
-                      (
-                        text:       option.label, 
-                        isSelected: widget.currentValue == option.value, 
-                        onTap:      () => widget.onSelected(option.value),
-                      ); 
-                    }).toList(),
+                    child: Column
+                    (
+                      mainAxisSize:       MainAxisSize.min, 
+                      crossAxisAlignment: CrossAxisAlignment.stretch, 
+                      children:           widget.options.map((option) 
+                      { 
+                        return _StatFilterMenuItem
+                        (
+                          text:       option.label, 
+                          isSelected: widget.currentValue == option.value, 
+                          onTap:      () => widget.onSelected(option.value),
+                        ); 
+                      }).toList(),
+                    ),
                   ),
-                ),
-              ) 
-            : const SizedBox(width: 180, height: 0),
+                ) 
+              : const SizedBox.shrink(),
+          ),
         ),
       ),
     ); 
@@ -1442,7 +1444,6 @@ class _StatFilterMenuItemState extends State<_StatFilterMenuItem>
         onTap: widget.onTap, 
         child: Container
         (
-          width:   double.infinity, 
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
           color:   Colors.transparent, 
           child: Row

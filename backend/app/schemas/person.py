@@ -125,17 +125,6 @@ class RelationshipsUpdate(BaseModel):
     parents_tax_codes: List[str] = []
 
 
-class PersonUpdatePayload(BaseModel):
-    general_data: GeneralDataUpdate
-    roles: List[str]
-    staff_data: Optional[StaffUpdateData] = None
-    admin_data: Optional[AdminUpdateData] = None
-    teacher_data: Optional[TeacherUpdateData] = None
-    course_participant_data: Optional[CourseParticipantUpdateData] = None
-    student_data: Optional[StudentUpdateData] = None
-    relationships: Optional[RelationshipsUpdate] = None
-
-
 class MembershipUpdateItem(BaseModel):
     year: int
     start_date: date
@@ -147,6 +136,18 @@ class MembershipUpdateItem(BaseModel):
 class PersonMembershipsUpdate(BaseModel):
     collaborating_active: bool
     memberships: List[MembershipUpdateItem]
+
+
+class PersonUpdatePayload(BaseModel):
+    general_data: GeneralDataUpdate
+    roles: List[str]
+    member_data: Optional[PersonMembershipsUpdate] = None
+    staff_data: Optional[StaffUpdateData] = None
+    admin_data: Optional[AdminUpdateData] = None
+    teacher_data: Optional[TeacherUpdateData] = None
+    course_participant_data: Optional[CourseParticipantUpdateData] = None
+    student_data: Optional[StudentUpdateData] = None
+    relationships: Optional[RelationshipsUpdate] = None
 
 
 class RevokeMembershipPayload(BaseModel):

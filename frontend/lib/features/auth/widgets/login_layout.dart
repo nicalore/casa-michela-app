@@ -740,7 +740,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         CustomSnackBar.show
         (
           context: context,
-          message: 'Email di recupero inviata con successo',
+          message: 'Email di recupero inviata con successo!',
           isError: false,
         );
         Navigator.of(context).pop();
@@ -901,11 +901,11 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                   (
                     child: AnimatedActionButton
                     (
-                      text: _isSending ? 'INVIO IN CORSO...' : 'INVIA LINK',
-                      icon: Icons.send_rounded,
-                      baseColor: const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
-                      onPressed: _isSending ? () {} : _handleSend,
+                      text: 'ANNULLA',
+                      icon: Icons.cancel_outlined,
+                      baseColor: const Color(0xFFE53935),
+                      hoverColor: const Color(0xFFEF5350),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -913,11 +913,11 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                   (
                     child: AnimatedActionButton
                     (
-                      text: 'ANNULLA',
-                      icon: Icons.cancel_outlined,
-                      baseColor: const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
-                      onPressed: () => Navigator.of(context).pop(),
+                      text: _isSending ? 'INVIO IN CORSO...' : 'INVIA LINK',
+                      icon: Icons.send_rounded,
+                      baseColor: const Color(0xFF003C82),
+                      hoverColor: const Color(0xFF004D99),
+                      onPressed: _isSending ? () {} : _handleSend,
                     ),
                   ),
                 ],
