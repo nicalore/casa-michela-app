@@ -22,7 +22,7 @@ class CasaMichelaApp extends StatelessWidget
   Widget build(BuildContext context) 
   {
     return MaterialApp.router(
-      title: 'Casa Michela',
+      title: 'Associazione Casa Michela',
       debugShowCheckedModeBanner: false,
       routerConfig: appRouter,
     );

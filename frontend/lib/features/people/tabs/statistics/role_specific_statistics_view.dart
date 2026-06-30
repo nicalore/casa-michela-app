@@ -452,7 +452,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  Widget _buildTrendChartCard({required String title, required List<MemberTrendItem> data, required bool isMonthly, required bool showFilters, required String resolution, required int startYear, required int endYear, required ValueChanged<String> onResolutionChanged, required ValueChanged<int> onStartYearChanged, required ValueChanged<int> onEndYearChanged}) 
+  Widget _buildIscrittiRetentionCard() 
   {
     //IsolateSelectionToCardBody
     return SelectionArea
@@ -486,7 +486,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
               [
                 Text
                 (
-                  title, 
+                  'Fidelizzazione Iscritti', 
                   style: GoogleFonts.plusJakartaSans
                   (
                     fontSize:   18, 
@@ -494,36 +494,317 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                     color:      const Color(0xFF1E293B),
                   ),
                 ),
-                if (showFilters)
-                  Wrap
-                  (
-                    spacing: 12,
-                    children: 
-                    [
-                      _FilterMenuWidget<String>
-                      (
-                        hint:      'Risoluzione', 
-                        value:     resolution, 
-                        options:   _getResolutionOptions(), 
-                        onChanged: onResolutionChanged,
-                      ),
-                      _FilterMenuWidget<int>
-                      (
-                        hint:      'Da anno', 
-                        value:     startYear, 
-                        options:   _getYearOptions(), 
-                        onChanged: onStartYearChanged,
-                      ),
-                      _FilterMenuWidget<int>
-                      (
-                        hint:      'A anno', 
-                        value:     endYear, 
-                        options:   _getYearOptions(), 
-                        onChanged: onEndYearChanged,
-                      ),
-                    ],
-                  ),
+                _FilterMenuWidget<int>
+                (
+                  hint:      'Anno', 
+                  value:     _selectedRetentionYear, 
+                  options:   _getYearOptions(), 
+                  onChanged: (v) 
+                  { 
+                    setState(() => _selectedRetentionYear = v); 
+                    _loadData(); 
+                  },
+                ),
               ],
+            ),
+            const SizedBox(height: 24),
+            if (_retentionData != null)
+              Row
+              (
+                children: 
+                [
+                  Text
+                  (
+                    '${_retentionData!.retentionRatePercentage.toStringAsFixed(1)}%', 
+                    style: GoogleFonts.plusJakartaSans
+                    (
+                      fontSize:   54, 
+                      fontWeight: FontWeight.w700, 
+                      color:      const Color(0xFF003C82),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded
+                  (
+                    child: Text
+                    (
+                      _retentionData!.retainedMembers == 1 
+                        ? '1 iscritto mantenuto su ${_retentionData!.previousYearMembers} dell\'anno precedente.'
+                        : '${_retentionData!.retainedMembers} iscritti mantenuti su ${_retentionData!.previousYearMembers} dell\'anno precedente.', 
+                      style: GoogleFonts.plusJakartaSans
+                      (
+                        fontSize: 16, 
+                        color:    const Color(0xFF64748B), 
+                        height:   1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollabRetentionCard({required bool stackHeader}) 
+  {
+    final filtersWidget = Wrap
+    (
+      spacing:    12,
+      runSpacing: 8,
+      alignment:  WrapAlignment.start,
+      children: 
+      [
+        _FilterMenuWidget<String>
+        (
+          hint:    'Tipo', 
+          value:   _collabRetentionType, 
+          options: 
+          [
+            _FilterMenuOption(value: 'year',  label: 'Annuale'), 
+            _FilterMenuOption(value: 'month', label: 'Mensile'),
+          ], 
+          onChanged: (v) 
+          { 
+            setState(() 
+            { 
+              _collabRetentionType = v; 
+              if (v == 'month' && _selectedCollabYear == 2022 && _selectedCollabMonth < 11) 
+              {
+                _selectedCollabMonth = 11; 
+              }
+            }); 
+            _loadData(); 
+          },
+        ),
+        if (_collabRetentionType == 'month') 
+          _FilterMenuWidget<int>
+          (
+            hint:      'Mese', 
+            value:     _selectedCollabMonth, 
+            options:   _getCollabMonthOptions(), 
+            onChanged: (v) 
+            { 
+              setState(() => _selectedCollabMonth = v); 
+              _loadData(); 
+            },
+          ),
+        _FilterMenuWidget<int>
+        (
+          hint:      'Anno', 
+          value:     _selectedCollabYear, 
+          options:   _getYearOptions(), 
+          onChanged: (v) 
+          { 
+            setState(() 
+            { 
+              _selectedCollabYear = v; 
+              if (v == 2022 && _selectedCollabMonth < 11) 
+              {
+                _selectedCollabMonth = 11; 
+              }
+            }); 
+            _loadData(); 
+          },
+        ),
+      ],
+    );
+
+    final titleWidget = Text
+    (
+      'Fidelizzazione Collaboratori Attivi', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    //IsolateSelectionToCardBody
+    return SelectionArea
+    (
+      child: Container
+      (
+        padding:    const EdgeInsets.all(24),
+        decoration: BoxDecoration
+        (
+          color:        Colors.white, 
+          borderRadius: BorderRadius.circular(16), 
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
+              color:      Color(0x0A000000), 
+              offset:     Offset(0, 4), 
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
+            stackHeader
+              ? Column
+                (
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: 
+                  [
+                    titleWidget,
+                    const SizedBox(height: 12),
+                    filtersWidget,
+                  ],
+                )
+              : Row
+                (
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: 
+                  [
+                    titleWidget,
+                    filtersWidget,
+                  ],
+                ),
+            const SizedBox(height: 24),
+            if (_collabRetentionData != null)
+              Row
+              (
+                children: 
+                [
+                  Text
+                  (
+                    '${_collabRetentionData!.retentionRatePercentage.toStringAsFixed(1)}%', 
+                    style: GoogleFonts.plusJakartaSans
+                    (
+                      fontSize:   54, 
+                      fontWeight: FontWeight.w700, 
+                      color:      const Color(0xFF003C82),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded
+                  (
+                    child: Text
+                    (
+                      _collabRetentionType == 'year' 
+                        ? (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.') 
+                        : (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.'), 
+                      style: GoogleFonts.plusJakartaSans
+                      (
+                        fontSize: 16, 
+                        color:    const Color(0xFF64748B), 
+                        height:   1.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendChartCard({required String title, required List<MemberTrendItem> data, required bool isMonthly, required bool showFilters, required String resolution, required int startYear, required int endYear, required ValueChanged<String> onResolutionChanged, required ValueChanged<int> onStartYearChanged, required ValueChanged<int> onEndYearChanged}) 
+  {
+    final filtersWidget = Wrap
+    (
+      spacing:    12,
+      runSpacing: 8,
+      alignment:  WrapAlignment.start,
+      children: 
+      [
+        _FilterMenuWidget<String>
+        (
+          hint:      'Risoluzione', 
+          value:     resolution, 
+          options:   _getResolutionOptions(), 
+          onChanged: onResolutionChanged,
+        ),
+        _FilterMenuWidget<int>
+        (
+          hint:      'Da anno', 
+          value:     startYear, 
+          options:   _getYearOptions(), 
+          onChanged: onStartYearChanged,
+        ),
+        _FilterMenuWidget<int>
+        (
+          hint:      'A anno', 
+          value:     endYear, 
+          options:   _getYearOptions(), 
+          onChanged: onEndYearChanged,
+        ),
+      ],
+    );
+
+    final titleWidget = Text
+    (
+      title, 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    //IsolateSelectionToCardBody
+    return SelectionArea
+    (
+      child: Container
+      (
+        padding:    const EdgeInsets.all(24),
+        decoration: BoxDecoration
+        (
+          color:        Colors.white, 
+          borderRadius: BorderRadius.circular(16), 
+          boxShadow:    const 
+          [
+            BoxShadow
+            (
+              color:      Color(0x0A000000), 
+              offset:     Offset(0, 4), 
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
+            LayoutBuilder
+            (
+              builder: (context, constraints) 
+              {
+                final stackHeader = showFilters && constraints.maxWidth < 760;
+
+                return stackHeader
+                  ? Column
+                    (
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: 
+                      [
+                        titleWidget,
+                        const SizedBox(height: 12),
+                        filtersWidget,
+                      ],
+                    )
+                  : Row
+                    (
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: 
+                      [
+                        titleWidget,
+                        if (showFilters) filtersWidget,
+                      ],
+                    );
+              },
             ),
             const SizedBox(height: 48),
             SizedBox
@@ -1220,248 +1501,24 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
                 ],
               ),
               const SizedBox(height: 24),
-              Row
+              LayoutBuilder
               (
-                children: 
-                [
-                  Expanded
+                builder: (context, constraints) 
+                {
+                  final cardWidth   = (constraints.maxWidth - 24) / 2;
+                  final stackHeader = cardWidth < 620;
+
+                  return Row
                   (
-                    //IsolateSelectionToCardBody
-                    child: SelectionArea
-                    (
-                      child: Container
-                      (
-                        padding:    const EdgeInsets.all(24),
-                        decoration: BoxDecoration
-                        (
-                          color:        Colors.white, 
-                          borderRadius: BorderRadius.circular(16), 
-                          boxShadow:    const 
-                          [
-                            BoxShadow
-                            (
-                              color:      Color(0x0A000000), 
-                              offset:     Offset(0, 4), 
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: Column
-                        (
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: 
-                          [
-                            Row
-                            (
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: 
-                              [
-                                Text
-                                (
-                                  'Fidelizzazione Iscritti', 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   18, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      const Color(0xFF1E293B),
-                                  ),
-                                ),
-                                _FilterMenuWidget<int>
-                                (
-                                  hint:      'Anno', 
-                                  value:     _selectedRetentionYear, 
-                                  options:   _getYearOptions(), 
-                                  onChanged: (v) 
-                                  { 
-                                    setState(() => _selectedRetentionYear = v); 
-                                    _loadData(); 
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            if (_retentionData != null)
-                              Row
-                              (
-                                children: 
-                                [
-                                  Text
-                                  (
-                                    '${_retentionData!.retentionRatePercentage.toStringAsFixed(1)}%', 
-                                    style: GoogleFonts.plusJakartaSans
-                                    (
-                                      fontSize:   54, 
-                                      fontWeight: FontWeight.w700, 
-                                      color:      const Color(0xFF003C82),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded
-                                  (
-                                    child: Text
-                                    (
-                                      _retentionData!.retainedMembers == 1 
-                                        ? '1 iscritto mantenuto su ${_retentionData!.previousYearMembers} dell\'anno precedente.'
-                                        : '${_retentionData!.retainedMembers} iscritti mantenuti su ${_retentionData!.previousYearMembers} dell\'anno precedente.', 
-                                      style: GoogleFonts.plusJakartaSans
-                                      (
-                                        fontSize: 16, 
-                                        color:    const Color(0xFF64748B), 
-                                        height:   1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded
-                  (
-                    //IsolateSelectionToCardBody
-                    child: SelectionArea
-                    (
-                      child: Container
-                      (
-                        padding:    const EdgeInsets.all(24),
-                        decoration: BoxDecoration
-                        (
-                          color:        Colors.white, 
-                          borderRadius: BorderRadius.circular(16), 
-                          boxShadow:    const 
-                          [
-                            BoxShadow
-                            (
-                              color:      Color(0x0A000000), 
-                              offset:     Offset(0, 4), 
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                        child: Column
-                        (
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: 
-                          [
-                            Row
-                            (
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: 
-                              [
-                                Text
-                                (
-                                  'Fidelizzazione Collaboratori Attivi', 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   18, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      const Color(0xFF1E293B),
-                                  ),
-                                ),
-                                Wrap
-                                (
-                                  spacing: 12,
-                                  children: 
-                                  [
-                                    _FilterMenuWidget<String>
-                                    (
-                                      hint:    'Tipo', 
-                                      value:   _collabRetentionType, 
-                                      options: 
-                                      [
-                                        _FilterMenuOption(value: 'year',  label: 'Annuale'), 
-                                        _FilterMenuOption(value: 'month', label: 'Mensile'),
-                                      ], 
-                                      onChanged: (v) 
-                                      { 
-                                        setState(() 
-                                        { 
-                                          _collabRetentionType = v; 
-                                          if (v == 'month' && _selectedCollabYear == 2022 && _selectedCollabMonth < 11) 
-                                          {
-                                            _selectedCollabMonth = 11; 
-                                          }
-                                        }); 
-                                        _loadData(); 
-                                      },
-                                    ),
-                                    if (_collabRetentionType == 'month') 
-                                      _FilterMenuWidget<int>
-                                      (
-                                        hint:      'Mese', 
-                                        value:     _selectedCollabMonth, 
-                                        options:   _getCollabMonthOptions(), 
-                                        onChanged: (v) 
-                                        { 
-                                          setState(() => _selectedCollabMonth = v); 
-                                          _loadData(); 
-                                        },
-                                      ),
-                                    _FilterMenuWidget<int>
-                                    (
-                                      hint:      'Anno', 
-                                      value:     _selectedCollabYear, 
-                                      options:   _getYearOptions(), 
-                                      onChanged: (v) 
-                                      { 
-                                        setState(() 
-                                        { 
-                                          _selectedCollabYear = v; 
-                                          if (v == 2022 && _selectedCollabMonth < 11) 
-                                          {
-                                            _selectedCollabMonth = 11; 
-                                          }
-                                        }); 
-                                        _loadData(); 
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            if (_collabRetentionData != null)
-                              Row
-                              (
-                                children: 
-                                [
-                                  Text
-                                  (
-                                    '${_collabRetentionData!.retentionRatePercentage.toStringAsFixed(1)}%', 
-                                    style: GoogleFonts.plusJakartaSans
-                                    (
-                                      fontSize:   54, 
-                                      fontWeight: FontWeight.w700, 
-                                      color:      const Color(0xFF003C82),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded
-                                  (
-                                    child: Text
-                                    (
-                                      _collabRetentionType == 'year' 
-                                        ? (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nell\'anno precedente.') 
-                                        : (_collabRetentionData!.retainedMembers == 1 ? '1 collaboratore mantenuto rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.' : '${_collabRetentionData!.retainedMembers} collaboratori mantenuti rispetto ai ${_collabRetentionData!.previousYearMembers} attivi nel mese precedente.'), 
-                                      style: GoogleFonts.plusJakartaSans
-                                      (
-                                        fontSize: 16, 
-                                        color:    const Color(0xFF64748B), 
-                                        height:   1.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: 
+                    [
+                      Expanded(child: _buildIscrittiRetentionCard()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildCollabRetentionCard(stackHeader: stackHeader)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               if (_cityData.isNotEmpty || _ageData.isNotEmpty)

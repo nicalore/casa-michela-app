@@ -141,6 +141,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   bool                         _isSubmitting               = false;
 
   final List<Map<String, dynamic>> _pendingPersonsToCreate = [];
+  static const double _kCompactCardBoxHeight = 560.0;
 
   @override
   void initState() 
@@ -2136,6 +2137,48 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         currentCard = const SizedBox.shrink();
     }
 
+    final double viewportWidth = MediaQuery.of(context).size.width;
+    final bool   isCompact     = viewportWidth < 1100;
+
+    final Widget animatedCard = AnimatedSwitcher
+    (
+      duration:           const Duration(milliseconds: 300),
+      switchInCurve:      Curves.easeOutCubic,
+      switchOutCurve:     Curves.easeInCubic,
+      layoutBuilder:      (Widget? currentChild, List<Widget> previousChildren) 
+      {
+        return Stack
+        (
+          alignment: Alignment.topCenter,
+          children:  <Widget>
+          [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder:  (Widget child, Animation<double> animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+        Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+        return FadeTransition
+        (
+          opacity: animation,
+          child: SlideTransition
+          (
+            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+            child:    child,
+          ),
+        );
+      },
+      child: KeyedSubtree
+      (
+        key:   ValueKey(_currentFormCardIndex),
+        child: currentCard,
+      ),
+    );
+
     return Column
     (
       key: const ValueKey('step3'),
@@ -2178,70 +2221,74 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         const SizedBox(height: 16),
         Expanded
         (
-          child: Row
-          (
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: 
-            [
-              WizardCarouselArrowButton
-              (
-                icon:       Icons.chevron_left_rounded,
-                isDisabled: _currentFormCardIndex == 0,
-                onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
-              ),
-              const SizedBox(width: 32),
-              ConstrainedBox
-              (
-                constraints: const BoxConstraints(maxWidth: 1000),
-                child: AnimatedSwitcher
+          child: isCompact
+              ? Center
                 (
-                  duration:           const Duration(milliseconds: 300),
-                  switchInCurve:      Curves.easeOutCubic,
-                  switchOutCurve:     Curves.easeInCubic,
-                  layoutBuilder:      (Widget? currentChild, List<Widget> previousChildren) 
-                  {
-                    return Stack
-                    (
-                      alignment: Alignment.center,
-                      children:  <Widget>
-                      [
-                        ...previousChildren,
-                        if (currentChild != null) currentChild,
-                      ],
-                    );
-                  },
-                  transitionBuilder:  (Widget child, Animation<double> animation) 
-                  {
-                    final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                    Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-
-                    return FadeTransition
-                    (
-                      opacity: animation,
-                      child: SlideTransition
-                      (
-                        position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-                        child:    child,
-                      ),
-                    );
-                  },
-                  child: KeyedSubtree
+                  child: Column
                   (
-                    key:   ValueKey(_currentFormCardIndex),
-                    child: currentCard,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: 
+                    [
+                      SizedBox
+                      (
+                        height: _kCompactCardBoxHeight,
+                        width:  viewportWidth - 64,
+                        child:  SingleChildScrollView
+                        (
+                          child: animatedCard,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row
+                      (
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: 
+                        [
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_left_rounded,
+                            isDisabled: _currentFormCardIndex == 0,
+                            onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
+                          ),
+                          const SizedBox(width: 24),
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_right_rounded,
+                            isDisabled: _currentFormCardIndex == 3,
+                            onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
+                )
+              : Row
+                (
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: 
+                  [
+                    WizardCarouselArrowButton
+                    (
+                      icon:       Icons.chevron_left_rounded,
+                      isDisabled: _currentFormCardIndex == 0,
+                      onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
+                    ),
+                    const SizedBox(width: 32),
+                    ConstrainedBox
+                    (
+                      constraints: const BoxConstraints(maxWidth: 1000),
+                      child:       animatedCard,
+                    ),
+                    const SizedBox(width: 32),
+                    WizardCarouselArrowButton
+                    (
+                      icon:       Icons.chevron_right_rounded,
+                      isDisabled: _currentFormCardIndex == 3,
+                      onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 32),
-              WizardCarouselArrowButton
-              (
-                icon:       Icons.chevron_right_rounded,
-                isDisabled: _currentFormCardIndex == 3,
-                onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -2250,6 +2297,37 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   Widget _buildStep4DatiSpecifici()
   {
     final cards = _activeStep4Cards;
+
+    final double viewportWidth = MediaQuery.of(context).size.width;
+    final bool   isCompact     = viewportWidth < 1200;
+
+    final Widget animatedCards = AnimatedSwitcher
+    (
+      duration:           const Duration(milliseconds: 300),
+      switchInCurve:      Curves.easeOutCubic,
+      switchOutCurve:     Curves.easeInCubic,
+      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+      transitionBuilder:  (child, animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+        return FadeTransition
+        (
+          opacity: animation,
+          child: SlideTransition
+          (
+            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+            child:    child,
+          ),
+        );
+      },
+      child: KeyedSubtree
+      (
+        key:   ValueKey(_currentStep4CardIndex),
+        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+      ),
+    );
     
     return Column
     (
@@ -2293,62 +2371,77 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         const SizedBox(height: 16),
         Expanded
         (
-          child: Row
-          (
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: 
-            [
-              WizardCarouselArrowButton
-              (
-                icon:       Icons.chevron_left_rounded,
-                isDisabled: _currentStep4CardIndex == 0,
-                onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
-              ),
-              const SizedBox(width: 32),
-              Flexible
-              (
-                child: ConstrainedBox
+          child: isCompact
+              ? Center
                 (
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: AnimatedSwitcher
+                  child: Column
                   (
-                    duration:           const Duration(milliseconds: 300),
-                    switchInCurve:      Curves.easeOutCubic,
-                    switchOutCurve:     Curves.easeInCubic,
-                    layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                    transitionBuilder:  (child, animation) 
-                    {
-                      final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
-                      Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-
-                      return FadeTransition
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: 
+                    [
+                      SizedBox
                       (
-                        opacity: animation,
-                        child: SlideTransition
+                        height: _kCompactCardBoxHeight,
+                        width:  viewportWidth - 64,
+                        child:  SingleChildScrollView
                         (
-                          position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-                          child:    child,
+                          child: animatedCards,
                         ),
-                      );
-                    },
-                    child: KeyedSubtree
-                    (
-                      key:   ValueKey(_currentStep4CardIndex),
-                      child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
-                    ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row
+                      (
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: 
+                        [
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_left_rounded,
+                            isDisabled: _currentStep4CardIndex == 0,
+                            onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
+                          ),
+                          const SizedBox(width: 24),
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_right_rounded,
+                            isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                            onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
+                )
+              : Row
+                (
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: 
+                  [
+                    WizardCarouselArrowButton
+                    (
+                      icon:       Icons.chevron_left_rounded,
+                      isDisabled: _currentStep4CardIndex == 0,
+                      onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
+                    ),
+                    const SizedBox(width: 32),
+                    Flexible
+                    (
+                      child: ConstrainedBox
+                      (
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child:       animatedCards,
+                      ),
+                    ),
+                    const SizedBox(width: 32),
+                    WizardCarouselArrowButton
+                    (
+                      icon:       Icons.chevron_right_rounded,
+                      isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                      onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 32),
-              WizardCarouselArrowButton
-              (
-                icon:       Icons.chevron_right_rounded,
-                isDisabled: _currentStep4CardIndex >= cards.length - 1,
-                onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -3490,7 +3583,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         const SizedBox(height: 16),
         WizardFormInputRow
         (
-          label:       'Provincia di nascita',
+          label:       'Provincia',
           inputWidget: WizardAnimatedTextField
           (
             controller: _provNascitaCtrl, 

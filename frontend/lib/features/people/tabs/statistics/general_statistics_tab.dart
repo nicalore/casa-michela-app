@@ -411,8 +411,77 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     );
   }
 
-  Widget _buildCollabRetentionCard() 
+  Widget _buildCollabRetentionCard({required bool stackHeader}) 
   {
+    final filtersWidget = Wrap
+    (
+      spacing:    12,
+      runSpacing: 8,
+      alignment:  WrapAlignment.start,
+      children: 
+      [
+        _StatFilterMenu<String>
+        (
+          hint:      'Tipo', 
+          value:     _collabRetentionType, 
+          options:   _getRetentionTypeOptions(),
+          onChanged: (v) 
+          { 
+            setState(() 
+            { 
+              _collabRetentionType = v; 
+              if (v == 'month' && _selectedCollabYear == 2022 && _selectedCollabMonth < 11) 
+              {
+                _selectedCollabMonth = 11;
+              }
+            }); 
+            _loadData(); 
+          },
+        ),
+        if (_collabRetentionType == 'month')
+          _StatFilterMenu<int>
+          (
+            hint:      'Mese', 
+            value:     _selectedCollabMonth, 
+            options:   _getCollabMonthOptions(),
+            onChanged: (v) 
+            { 
+              setState(() => _selectedCollabMonth = v); 
+              _loadData(); 
+            },
+          ),
+        _StatFilterMenu<int>
+        (
+          hint:      'Anno', 
+          value:     _selectedCollabYear, 
+          options:   _getYearOptions(),
+          onChanged: (v) 
+          { 
+            setState(() 
+            { 
+              _selectedCollabYear = v; 
+              if (v == 2022 && _selectedCollabMonth < 11) 
+              {
+                _selectedCollabMonth = 11;
+              }
+            }); 
+            _loadData(); 
+          },
+        ),
+      ],
+    );
+
+    final titleWidget = Text
+    (
+      'Fidelizzazione Collaboratori Attivi', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
     //MakeCardSelectable
     return SelectionArea
     (
@@ -438,78 +507,27 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
-            (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
+            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
+            stackHeader
+              ? Column
                 (
-                  'Fidelizzazione Collaboratori Attivi', 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w600, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                Wrap
-                (
-                  spacing: 12,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: 
                   [
-                    _StatFilterMenu<String>
-                    (
-                      hint:      'Tipo', 
-                      value:     _collabRetentionType, 
-                      options:   _getRetentionTypeOptions(),
-                      onChanged: (v) 
-                      { 
-                        setState(() 
-                        { 
-                          _collabRetentionType = v; 
-                          if (v == 'month' && _selectedCollabYear == 2022 && _selectedCollabMonth < 11) 
-                          {
-                            _selectedCollabMonth = 11;
-                          }
-                        }); 
-                        _loadData(); 
-                      },
-                    ),
-                    if (_collabRetentionType == 'month')
-                      _StatFilterMenu<int>
-                      (
-                        hint:      'Mese', 
-                        value:     _selectedCollabMonth, 
-                        options:   _getCollabMonthOptions(),
-                        onChanged: (v) 
-                        { 
-                          setState(() => _selectedCollabMonth = v); 
-                          _loadData(); 
-                        },
-                      ),
-                    _StatFilterMenu<int>
-                    (
-                      hint:      'Anno', 
-                      value:     _selectedCollabYear, 
-                      options:   _getYearOptions(),
-                      onChanged: (v) 
-                      { 
-                        setState(() 
-                        { 
-                          _selectedCollabYear = v; 
-                          if (v == 2022 && _selectedCollabMonth < 11) 
-                          {
-                            _selectedCollabMonth = 11;
-                          }
-                        }); 
-                        _loadData(); 
-                      },
-                    ),
+                    titleWidget,
+                    const SizedBox(height: 12),
+                    filtersWidget,
+                  ],
+                )
+              : Row
+                (
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: 
+                  [
+                    titleWidget,
+                    filtersWidget,
                   ],
                 ),
-              ],
-            ),
             const SizedBox(height: 24),
             if (_collabRetentionData != null)
               Row
@@ -552,6 +570,48 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Widget _buildTrendChartCard({required String title, required List<MemberTrendItem> data, required bool isMonthly, required bool showFilters, required String resolution, required int startYear, required int endYear, required ValueChanged<String> onResolutionChanged, required ValueChanged<int> onStartYearChanged, required ValueChanged<int> onEndYearChanged}) 
   {
+    final filtersWidget = Wrap
+    (
+      spacing:    12,
+      runSpacing: 8,
+      alignment:  WrapAlignment.start,
+      children: 
+      [
+        _StatFilterMenu<String>
+        (
+          hint:      'Risoluzione', 
+          value:     resolution, 
+          options:   _getResolutionOptions(), 
+          onChanged: onResolutionChanged,
+        ),
+        _StatFilterMenu<int>
+        (
+          hint:      'Da anno', 
+          value:     startYear, 
+          options:   _getYearOptions(), 
+          onChanged: onStartYearChanged,
+        ),
+        _StatFilterMenu<int>
+        (
+          hint:      'A anno', 
+          value:     endYear, 
+          options:   _getYearOptions(), 
+          onChanged: onEndYearChanged,
+        ),
+      ],
+    );
+
+    final titleWidget = Text
+    (
+      title, 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
     //MakeCardSelectable
     return SelectionArea
     (
@@ -577,51 +637,34 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
+            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
+            LayoutBuilder
             (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
-                (
-                  title, 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w600, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                if (showFilters)
-                  Wrap
-                  (
-                    spacing: 12,
-                    children: 
-                    [
-                      _StatFilterMenu<String>
-                      (
-                        hint:      'Risoluzione', 
-                        value:     resolution, 
-                        options:   _getResolutionOptions(), 
-                        onChanged: onResolutionChanged,
-                      ),
-                      _StatFilterMenu<int>
-                      (
-                        hint:      'Da anno', 
-                        value:     startYear, 
-                        options:   _getYearOptions(), 
-                        onChanged: onStartYearChanged,
-                      ),
-                      _StatFilterMenu<int>
-                      (
-                        hint:      'A anno', 
-                        value:     endYear, 
-                        options:   _getYearOptions(), 
-                        onChanged: onEndYearChanged,
-                      ),
-                    ],
-                  )
-              ],
+              builder: (context, constraints) 
+              {
+                final stackHeader = showFilters && constraints.maxWidth < 760;
+
+                return stackHeader
+                  ? Column
+                    (
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: 
+                      [
+                        titleWidget,
+                        const SizedBox(height: 12),
+                        filtersWidget,
+                      ],
+                    )
+                  : Row
+                    (
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: 
+                      [
+                        titleWidget,
+                        if (showFilters) filtersWidget,
+                      ],
+                    );
+              },
             ),
             const SizedBox(height: 48),
             SizedBox
@@ -702,14 +745,24 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
                 ],
               ),
               const SizedBox(height: 24),
-              Row
+              LayoutBuilder
               (
-                children: 
-                [
-                  Expanded(child: _buildRetentionCard()),
-                  const SizedBox(width: 24),
-                  Expanded(child: _buildCollabRetentionCard()),
-                ],
+                builder: (context, constraints) 
+                {
+                  final cardWidth   = (constraints.maxWidth - 24) / 2;
+                  final stackHeader = cardWidth < 620;
+
+                  return Row
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: 
+                    [
+                      Expanded(child: _buildRetentionCard()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildCollabRetentionCard(stackHeader: stackHeader)),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               _buildTrendChartCard

@@ -7,17 +7,15 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="frontend">
+  <meta name="apple-mobile-web-app-title" content="<Associazione Casa Michela>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>frontend</title>
+  <title>Associazione Casa Michela</title>
   <link rel="manifest" href="manifest.json">
 
   <style>
@@ -45,6 +43,71 @@
       will-change: transform;
     }
   </style>
+
+  <script>
+    window.__casaMichelaConfig = {
+      phoneDprMultiplier:  1,   // moltiplicatore DPR per i telefoni
+      tabletDprMultiplier: 1.1,   // moltiplicatore DPR per i tablet (più conservativo, schermo già grande)
+      maxForcedDpr:        6,   // tetto di sicurezza assoluto, qualunque dispositivo
+      phoneMaxZoom:        4,   // zoom massimo pinch su telefono
+      tabletMaxZoom:       2    // zoom massimo pinch su tablet (più conservativo, sfocatura meno percettibile)
+    };
+
+    // --- Rilevamento tablet vs telefono in più passi, dal più affidabile al più approssimativo ---
+    function detectIsTablet() {
+      var ua = (navigator.userAgent || '').toLowerCase();
+      var maxTouchPoints = navigator.maxTouchPoints || 0;
+
+      // 1. Match esplicito di tablet noti
+      if (/ipad/.test(ua))      { return true; }
+      if (/tablet/.test(ua))    { return true; }
+      if (/playbook/.test(ua))  { return true; }
+      if (/silk/.test(ua))      { return true; } // Kindle Fire
+
+      // 2. Caso speciale iPad recenti (iPadOS 13+): si dichiarano "Macintosh" ma hanno touch multipunto.
+      //    Un Mac vero non ha touch screen, quindi questa combinazione è quasi certamente un iPad.
+      if (/macintosh/.test(ua) && maxTouchPoints > 1) { return true; }
+
+      // 3. Match esplicito di telefoni: "Mobile" senza "Tablet" è quasi sempre un telefono
+      if (/mobile/.test(ua) && !/tablet/.test(ua)) { return false; }
+      if (/iphone/.test(ua))                       { return false; }
+      if (/ipod/.test(ua))                         { return false; }
+
+      // 4. Fallback dimensionale per casi ambigui (es. WebView non standard, browser sconosciuti):
+      //    stima la diagonale fisica con una soglia conservativa di 7.5 pollici.
+      var dpr = window.devicePixelRatio || 1;
+      var physicalWidthPx = screen.width * dpr;
+      var physicalHeightPx = screen.height * dpr;
+      var assumedPpi = 401;
+      var widthInches = physicalWidthPx / assumedPpi;
+      var heightInches = physicalHeightPx / assumedPpi;
+      var diagonal = Math.sqrt(widthInches * widthInches + heightInches * heightInches);
+
+      return diagonal >= 7.5;
+    }
+
+    window.__casaMichelaIsTablet = detectIsTablet();
+
+    // --- Override del devicePixelRatio una volta sola, PRIMA del bootstrap Flutter ---
+    (function () {
+      var cfg = window.__casaMichelaConfig;
+      var multiplier = window.__casaMichelaIsTablet ? cfg.tabletDprMultiplier : cfg.phoneDprMultiplier;
+
+      if (multiplier <= 1) { return; }
+
+      var nativeDpr = window.devicePixelRatio || 1;
+      var forcedDpr = Math.min(nativeDpr * multiplier, cfg.maxForcedDpr);
+
+      try {
+        Object.defineProperty(window, 'devicePixelRatio', {
+          configurable: true,
+          get: function () { return forcedDpr; }
+        });
+      } catch (e) {
+        //Fallback: nessuna nitidezza extra
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="flutter-viewport">
@@ -57,10 +120,12 @@
     (function () {
       var DESKTOP_WIDTH = 1024;
       var MIN_USER_ZOOM = 1;
-      var MAX_USER_ZOOM = 4;
       var PAN_THRESHOLD = 12;
-      var MOMENTUM_FRICTION = 0.95;   // decadimento per ~16ms di frame: più basso = si ferma prima
-      var MOMENTUM_MIN_VELOCITY = 0.02; // px/ms sotto cui fermiamo l'animazione
+      var MOMENTUM_FRICTION = 0.95;
+      var MOMENTUM_MIN_VELOCITY = 0.02;
+
+      var cfg = window.__casaMichelaConfig;
+      var MAX_USER_ZOOM = window.__casaMichelaIsTablet ? cfg.tabletMaxZoom : cfg.phoneMaxZoom;
 
       var host = document.getElementById('flutter_host');
       var wrapper = document.getElementById('flutter-scale-wrapper');
@@ -103,7 +168,6 @@
       var singleStartPan = { x: 0, y: 0 };
       var singlePanClaimed = false;
 
-      // --- Velocità per l'effetto inerzia ---
       var velocityX = 0;
       var velocityY = 0;
       var lastSampleTime = 0;

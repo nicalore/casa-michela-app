@@ -356,7 +356,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
                         [
                           _InfoRowData('Data di nascita',      dataNascita),
                           _InfoRowData('Città di nascita',     cittaNascita),
-                          _InfoRowData('Provincia di nascita', provNascita),
+                          _InfoRowData('Provincia', provNascita),
                         ],
                       ),
                     ),

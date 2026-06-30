@@ -139,6 +139,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   String?                      _filterSubjectsArea;
   final Map<int, bool>         _subjectToggles              = {};
   final Map<int, Set<int>>     _selectedProgramsForSubject  = {};
+  static const double _kCompactCardBoxHeight = 560.0;
 
   @override
   void initState() 
@@ -2331,7 +2332,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             const SizedBox(height: 16),
             WizardFormInputRow
             (
-              label:       'Provincia di nascita',
+              label:       'Provincia',
               inputWidget: WizardAnimatedTextField
               (
                 controller: _provNascitaCtrl, 
@@ -2443,6 +2444,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         break;
     }
 
+    final Widget animatedCard = AnimatedSwitcher
+    (
+      duration:       const Duration(milliseconds: 300),
+      switchInCurve:  Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+      transitionBuilder: (child, animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+        
+        return FadeTransition
+        (
+          opacity: animation, 
+          child:   SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child),
+        );
+      },
+      child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+    );
+
     return SizedBox
     (
       key:   const ValueKey('step3_e'),
@@ -2486,60 +2507,79 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             ),
           ),
           const SizedBox(height: 16),
-          Expanded
+          Builder
           (
-            child: Row
-            (
-              mainAxisAlignment:  MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: 
-              [
-                WizardCarouselArrowButton
-                (
-                  icon:       Icons.chevron_left_rounded, 
-                  isDisabled: _currentFormCardIndex == 0, 
-                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })
-                ),
-                const SizedBox(width: 32),
-                Flexible
-                (
-                  child: ConstrainedBox
-                  (
-                    constraints: const BoxConstraints(maxWidth: 1000),
-                    child: AnimatedSwitcher
-                    (
-                      duration:       const Duration(milliseconds: 300),
-                      switchInCurve:  Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                      transitionBuilder: (child, animation) 
-                      {
-                        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                        
-                        return FadeTransition
+            builder: (context)
+            {
+              final double screenWidth        = MediaQuery.of(context).size.width;
+              final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
+              final bool   isCompact          = dialogContentWidth < 1192;
+
+              return Expanded
+              (
+                child: isCompact
+                    ? Center
+                      (
+                        child: Column
                         (
-                          opacity: animation, 
-                          child:   SlideTransition
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: 
+                          [
+                            SizedBox
+                            (
+                              height: _kCompactCardBoxHeight,
+                              width:  dialogContentWidth,
+                              child:  SingleChildScrollView(child: animatedCard),
+                            ),
+                            const SizedBox(height: 24),
+                            Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                WizardCarouselArrowButton
+                                (
+                                  icon:       Icons.chevron_left_rounded, 
+                                  isDisabled: _currentFormCardIndex == 0, 
+                                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; }),
+                                ),
+                                const SizedBox(width: 24),
+                                WizardCarouselArrowButton
+                                (
+                                  icon:       Icons.chevron_right_rounded, 
+                                  isDisabled: _currentFormCardIndex == 4, 
+                                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : Row
+                      (
+                        mainAxisAlignment:  MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: 
+                        [
+                          WizardCarouselArrowButton
                           (
-                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-                            child:    child
+                            icon:       Icons.chevron_left_rounded, 
+                            isDisabled: _currentFormCardIndex == 0, 
+                            onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; }),
                           ),
-                        );
-                      },
-                      child:         KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 32),
-                WizardCarouselArrowButton
-                (
-                  icon:       Icons.chevron_right_rounded, 
-                  isDisabled: _currentFormCardIndex == 4, 
-                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })
-                ),
-              ],
-            ),
+                          const SizedBox(width: 32),
+                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1000), child: animatedCard)),
+                          const SizedBox(width: 32),
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_right_rounded, 
+                            isDisabled: _currentFormCardIndex == 4, 
+                            onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; }),
+                          ),
+                        ],
+                      ),
+              );
+            },
           ),
         ],
       ),
@@ -2554,6 +2594,34 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
     }
+
+    final Widget animatedCards = AnimatedSwitcher
+    (
+      duration:           const Duration(milliseconds: 300),
+      switchInCurve:      Curves.easeOutCubic,
+      switchOutCurve:     Curves.easeInCubic,
+      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+      transitionBuilder:  (child, animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+        return FadeTransition
+        (
+          opacity: animation,
+          child: SlideTransition
+          (
+            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+            child:    child,
+          ),
+        );
+      },
+      child: KeyedSubtree
+      (
+        key:   ValueKey(_currentStep4CardIndex),
+        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+      ),
+    );
 
     return SizedBox
     (
@@ -2598,64 +2666,79 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             ),
           ),
           const SizedBox(height: 16),
-          Expanded
+          Builder
           (
-            child: Row
-            (
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: 
-              [
-                WizardCarouselArrowButton
-                (
-                  icon:       Icons.chevron_left_rounded,
-                  isDisabled: _currentStep4CardIndex == 0,
-                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
-                ),
-                const SizedBox(width: 32),
-                Flexible
-                (
-                  child: ConstrainedBox
-                  (
-                    constraints: const BoxConstraints(maxWidth: 1100),
-                    child: AnimatedSwitcher
-                    (
-                      duration:           const Duration(milliseconds: 300),
-                      switchInCurve:      Curves.easeOutCubic,
-                      switchOutCurve:     Curves.easeInCubic,
-                      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
-                      transitionBuilder:  (child, animation) 
-                      {
-                        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
-                        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+            builder: (context)
+            {
+              final double screenWidth        = MediaQuery.of(context).size.width;
+              final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
+              final bool   isCompact          = dialogContentWidth < 1292;
 
-                        return FadeTransition
-                        (
-                          opacity: animation,
-                          child: SlideTransition
-                          (
-                            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-                            child:    child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree
+              return Expanded
+              (
+                child: isCompact
+                    ? Center
                       (
-                        key:   ValueKey(_currentStep4CardIndex),
-                        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+                        child: Column
+                        (
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: 
+                          [
+                            SizedBox
+                            (
+                              height: _kCompactCardBoxHeight,
+                              width:  dialogContentWidth,
+                              child:  SingleChildScrollView(child: animatedCards),
+                            ),
+                            const SizedBox(height: 24),
+                            Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                WizardCarouselArrowButton
+                                (
+                                  icon:       Icons.chevron_left_rounded,
+                                  isDisabled: _currentStep4CardIndex == 0,
+                                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
+                                ),
+                                const SizedBox(width: 24),
+                                WizardCarouselArrowButton
+                                (
+                                  icon:       Icons.chevron_right_rounded,
+                                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : Row
+                      (
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: 
+                        [
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_left_rounded,
+                            isDisabled: _currentStep4CardIndex == 0,
+                            onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
+                          ),
+                          const SizedBox(width: 32),
+                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: animatedCards)),
+                          const SizedBox(width: 32),
+                          WizardCarouselArrowButton
+                          (
+                            icon:       Icons.chevron_right_rounded,
+                            isDisabled: _currentStep4CardIndex >= cards.length - 1,
+                            onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 32),
-                WizardCarouselArrowButton
-                (
-                  icon:       Icons.chevron_right_rounded,
-                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
-                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -3871,7 +3954,7 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                           'Codice fiscale', 
                           'Data di nascita', 
                           'Città di nascita', 
-                          'Provincia di nascita'
+                          'Provincia'
                         ].map((field) 
                         {
                           return _ErrorFieldChip

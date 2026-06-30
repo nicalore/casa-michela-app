@@ -19,6 +19,7 @@ class PersonInfoTab extends StatelessWidget
   String _getAdminRoleText(PersonItem person) 
   {
     final role = person.adminRole;
+    
     if (role == null) 
     {
       return '-';
@@ -28,14 +29,17 @@ class PersonInfoTab extends StatelessWidget
     {
       return person.adminOtherRole ?? '-';
     }
+    
     if (role == 'PRESIDENT' || role == 'Presidente') 
     {
       return 'Presidente';
     }
+    
     if (role == 'VICE_PRESIDENT' || role == 'Vicepresidente') 
     {
       return 'Vicepresidente';
     }
+    
     if (role == 'TREASURER' || role == 'Tesoriere') 
     {
       return 'Tesoriere';
@@ -46,13 +50,19 @@ class PersonInfoTab extends StatelessWidget
 
   bool _isAdult(DateTime? birthDate)
   {
-    if (birthDate == null) return false;
+    if (birthDate == null) 
+    {
+      return false;
+    }
+    
     final now = DateTime.now();
-    int age = now.year - birthDate.year;
+    int   age = now.year - birthDate.year;
+    
     if (now.month < birthDate.month || (now.month == birthDate.month && now.day < birthDate.day)) 
     {
       age--;
     }
+    
     return age >= 18;
   }
 
@@ -100,6 +110,7 @@ class PersonInfoTab extends StatelessWidget
                     Expanded(
                       child: _InfoSectionCard(
                         title:       'Identità',
+                        labelWidth:  160,
                         leadingIcon: const _StaticAvatar(icon: Icons.badge_rounded),
                         rows: [
                           _InfoRowData('Nome',           nome),
@@ -114,6 +125,7 @@ class PersonInfoTab extends StatelessWidget
                     Expanded(
                       child: _InfoSectionCard(
                         title:       'Residenza',
+                        labelWidth:  110,
                         leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
                         rows: [
                           _InfoRowData('Indirizzo', indirizzo),
@@ -135,11 +147,12 @@ class PersonInfoTab extends StatelessWidget
                     Expanded(
                       child: _InfoSectionCard(
                         title:       'Dati anagrafici',
+                        labelWidth:  160,
                         leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
                         rows: [
-                          _InfoRowData('Data di nascita',      dataNascita),
-                          _InfoRowData('Città di nascita',     cittaNascita),
-                          _InfoRowData('Provincia di nascita', provNascita),
+                          _InfoRowData('Data di nascita',  dataNascita),
+                          _InfoRowData('Città di nascita', cittaNascita),
+                          _InfoRowData('Provincia',        provNascita),
                         ],
                       ),
                     ),
@@ -147,6 +160,7 @@ class PersonInfoTab extends StatelessWidget
                     Expanded(
                       child: _InfoSectionCard(
                         title:       'Contatti',
+                        labelWidth:  110,
                         leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
                         rows: [
                           _InfoRowData('Email',    email),
@@ -165,6 +179,7 @@ class PersonInfoTab extends StatelessWidget
                   width: double.infinity,
                   child: _InfoSectionCard(
                     title:       'Dettagli collaborazione',
+                    labelWidth:  205,
                     leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
                     rows: [
                       _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
@@ -180,6 +195,7 @@ class PersonInfoTab extends StatelessWidget
                   width: double.infinity,
                   child: _InfoSectionCard(
                     title:       'Dettagli amministratore',
+                    labelWidth:  205,
                     leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
                     rows: [
                       _InfoRowData('Ruolo', _getAdminRoleText(person)),
@@ -194,6 +210,7 @@ class PersonInfoTab extends StatelessWidget
                   width: double.infinity,
                   child: _InfoSectionCard(
                     title:       'Dettagli docente',
+                    labelWidth:  205,
                     leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
                     rows: [
                       _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
@@ -209,6 +226,7 @@ class PersonInfoTab extends StatelessWidget
                   width: double.infinity,
                   child: _InfoSectionCard(
                     title:       'Dettagli studente',
+                    labelWidth:  205,
                     leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
                     rows: [
                       _InfoRowData(
@@ -228,6 +246,7 @@ class PersonInfoTab extends StatelessWidget
                   width: double.infinity,
                   child: _InfoSectionCard(
                     title:       'Dettagli corsista',
+                    labelWidth:  205,
                     leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
                     rows: [
                       _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
@@ -262,11 +281,13 @@ class _InfoSectionCard extends StatelessWidget
 {
   final String               title;
   final Widget               leadingIcon;
+  final double               labelWidth;
   final List<_InfoRowData?>? rows;
 
   const _InfoSectionCard({
     required this.title,
     required this.leadingIcon,
+    this.labelWidth = 160,
     this.rows,
   });
 
@@ -288,19 +309,21 @@ class _InfoSectionCard extends StatelessWidget
       
       if (rowData == null) 
       {
-        rowWidget = const Opacity(
+        rowWidget = Opacity(
           opacity: 0.0,
           child:   _InfoRow(
-            label: '-',
-            value: '-',
+            label:      '-',
+            value:      '-',
+            labelWidth: labelWidth,
           ),
         );
       } 
       else 
       {
         rowWidget = _InfoRow(
-          label: rowData.label,
-          value: rowData.value,
+          label:      rowData.label,
+          value:      rowData.value,
+          labelWidth: labelWidth,
         );
       }
       
@@ -413,10 +436,12 @@ class _InfoRow extends StatelessWidget
 {
   final String label;
   final String value;
+  final double labelWidth;
 
   const _InfoRow({
     required this.label,
     required this.value,
+    required this.labelWidth,
   });
 
   @override
@@ -426,7 +451,7 @@ class _InfoRow extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 220, 
+          width: labelWidth, 
           child: Text(
             label,
             style: GoogleFonts.plusJakartaSans(

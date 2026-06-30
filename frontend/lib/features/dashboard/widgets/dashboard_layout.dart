@@ -390,9 +390,7 @@ class _DashboardLayoutState extends State<DashboardLayout> {
               isMenuOpen: _isMenuOpen,
               onProfileTap: _toggleMenu,
               fullName: _currentUser?.fullName ?? '',
-              profileImageUrl: _currentUser?.profileImageUrl == null
-                  ? null
-                  : '${ApiConfig.baseUrl}${_currentUser!.profileImageUrl}',
+              profileImageUrl: _currentUser?.profileImageUrl,
             ),
             Positioned(
               top: 115,
