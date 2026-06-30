@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -24,6 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="frontend">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -31,16 +19,289 @@
 
   <title>frontend</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #flutter-viewport {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #flutter-scale-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+      will-change: transform;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <div id="flutter-viewport">
+    <div id="flutter-scale-wrapper">
+      <div id="flutter_host"></div>
+    </div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    (function () {
+      var DESKTOP_WIDTH = 1024;
+      var MIN_USER_ZOOM = 1;
+      var MAX_USER_ZOOM = 4;
+      var PAN_THRESHOLD = 12;
+      var MOMENTUM_FRICTION = 0.95;   // decadimento per ~16ms di frame: più basso = si ferma prima
+      var MOMENTUM_MIN_VELOCITY = 0.02; // px/ms sotto cui fermiamo l'animazione
+
+      var host = document.getElementById('flutter_host');
+      var wrapper = document.getElementById('flutter-scale-wrapper');
+      var viewport = document.getElementById('flutter-viewport');
+
+      var baseScale = 1;
+      var userZoom = 1;
+      var panX = 0;
+      var panY = 0;
+
+      function totalScale() {
+        return baseScale * userZoom;
+      }
+
+      function applyTransform() {
+        wrapper.style.transform =
+          'translate(' + panX + 'px,' + panY + 'px) scale(' + totalScale() + ')';
+      }
+
+      function clampPan() {
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+        var s = totalScale();
+        var contentWidth = DESKTOP_WIDTH * s;
+        var contentHeight = parseFloat(host.style.height || 0) * s;
+        var minX = Math.min(0, vw - contentWidth);
+        var minY = Math.min(0, vh - contentHeight);
+        panX = Math.max(minX, Math.min(0, panX));
+        panY = Math.max(minY, Math.min(0, panY));
+      }
+
+      var pinchActive = false;
+      var pinchStartDistance = 0;
+      var pinchStartZoom = 1;
+      var pinchContentX = 0;
+      var pinchContentY = 0;
+
+      var singleTouchId = null;
+      var singleStart = { x: 0, y: 0 };
+      var singleStartPan = { x: 0, y: 0 };
+      var singlePanClaimed = false;
+
+      // --- Velocità per l'effetto inerzia ---
+      var velocityX = 0;
+      var velocityY = 0;
+      var lastSampleTime = 0;
+      var lastSampleX = 0;
+      var lastSampleY = 0;
+      var momentumRAF = null;
+
+      function cancelMomentum() {
+        if (momentumRAF !== null) {
+          cancelAnimationFrame(momentumRAF);
+          momentumRAF = null;
+        }
+      }
+
+      function startMomentum() {
+        cancelMomentum();
+        var lastTime = performance.now();
+
+        function step(now) {
+          var dt = now - lastTime;
+          lastTime = now;
+          var friction = Math.pow(MOMENTUM_FRICTION, dt / 16);
+          velocityX *= friction;
+          velocityY *= friction;
+
+          panX += velocityX * dt;
+          panY += velocityY * dt;
+          clampPan();
+          applyTransform();
+
+          if (Math.abs(velocityX) > MOMENTUM_MIN_VELOCITY || Math.abs(velocityY) > MOMENTUM_MIN_VELOCITY) {
+            momentumRAF = requestAnimationFrame(step);
+          } else {
+            momentumRAF = null;
+          }
+        }
+
+        momentumRAF = requestAnimationFrame(step);
+      }
+
+      function trackVelocitySample(t) {
+        var now = performance.now();
+        var dt = now - lastSampleTime;
+        if (dt > 0 && lastSampleTime > 0) {
+          var instVX = (t.clientX - lastSampleX) / dt;
+          var instVY = (t.clientY - lastSampleY) / dt;
+          velocityX = velocityX * 0.7 + instVX * 0.3;
+          velocityY = velocityY * 0.7 + instVY * 0.3;
+        }
+        lastSampleTime = now;
+        lastSampleX = t.clientX;
+        lastSampleY = t.clientY;
+      }
+
+      function layout() {
+        var vw = window.innerWidth;
+        var vh = window.innerHeight;
+
+        if (vw >= DESKTOP_WIDTH) {
+          baseScale = 1;
+          host.style.width = vw + 'px';
+          host.style.height = vh + 'px';
+        } else {
+          baseScale = vw / DESKTOP_WIDTH;
+          host.style.width = DESKTOP_WIDTH + 'px';
+          host.style.height = (vh / baseScale) + 'px';
+        }
+
+        userZoom = 1;
+        panX = 0;
+        panY = 0;
+        pinchActive = false;
+        singleTouchId = null;
+        singlePanClaimed = false;
+        cancelMomentum();
+        applyTransform();
+      }
+
+      function dist(a, b) {
+        var dx = a.clientX - b.clientX;
+        var dy = a.clientY - b.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function startPinch(t1, t2) {
+        pinchActive = true;
+        pinchStartDistance = dist(t1, t2);
+        pinchStartZoom = userZoom;
+        var midX = (t1.clientX + t2.clientX) / 2;
+        var midY = (t1.clientY + t2.clientY) / 2;
+        var s = totalScale();
+        pinchContentX = (midX - panX) / s;
+        pinchContentY = (midY - panY) / s;
+        singleTouchId = null;
+        singlePanClaimed = false;
+      }
+
+      viewport.addEventListener('touchstart', function (e) {
+        cancelMomentum();
+
+        if (e.touches.length === 2) {
+          startPinch(e.touches[0], e.touches[1]);
+          e.preventDefault();
+        } else if (e.touches.length === 1 && userZoom > 1.02) {
+          var t = e.touches[0];
+          singleTouchId = t.identifier;
+          singleStart = { x: t.clientX, y: t.clientY };
+          singleStartPan = { x: panX, y: panY };
+          singlePanClaimed = false;
+          velocityX = 0;
+          velocityY = 0;
+          lastSampleTime = 0;
+          trackVelocitySample(t);
+        }
+      }, { capture: true, passive: false });
+
+      viewport.addEventListener('touchmove', function (e) {
+        if (e.touches.length === 2 && pinchActive) {
+          var t1 = e.touches[0], t2 = e.touches[1];
+          var ratio = dist(t1, t2) / pinchStartDistance;
+          userZoom = Math.max(MIN_USER_ZOOM, Math.min(MAX_USER_ZOOM, pinchStartZoom * ratio));
+
+          var midX = (t1.clientX + t2.clientX) / 2;
+          var midY = (t1.clientY + t2.clientY) / 2;
+          var s = totalScale();
+          panX = midX - pinchContentX * s;
+          panY = midY - pinchContentY * s;
+
+          clampPan();
+          applyTransform();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        if (e.touches.length === 1 && singleTouchId !== null) {
+          var t = e.touches[0];
+          if (t.identifier !== singleTouchId) { return; }
+
+          trackVelocitySample(t);
+
+          var dx = t.clientX - singleStart.x;
+          var dy = t.clientY - singleStart.y;
+
+          if (!singlePanClaimed) {
+            if (Math.sqrt(dx * dx + dy * dy) <= PAN_THRESHOLD) {
+              return;
+            }
+            singlePanClaimed = true;
+          }
+
+          panX = singleStartPan.x + dx;
+          panY = singleStartPan.y + dy;
+          clampPan();
+          applyTransform();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, { capture: true, passive: false });
+
+      viewport.addEventListener('touchend', function (e) {
+        if (pinchActive && e.touches.length === 1) {
+          pinchActive = false;
+          var t = e.touches[0];
+          singleTouchId = t.identifier;
+          singleStart = { x: t.clientX, y: t.clientY };
+          singleStartPan = { x: panX, y: panY };
+          singlePanClaimed = true;
+          velocityX = 0;
+          velocityY = 0;
+          lastSampleTime = 0;
+          trackVelocitySample(t);
+          return;
+        }
+
+        if (e.touches.length === 0) {
+          if (singlePanClaimed) {
+            startMomentum();
+          }
+          pinchActive = false;
+          singleTouchId = null;
+          singlePanClaimed = false;
+        }
+      }, { capture: true });
+
+      viewport.addEventListener('touchcancel', function () {
+        pinchActive = false;
+        singleTouchId = null;
+        singlePanClaimed = false;
+        cancelMomentum();
+      }, { capture: true });
+
+      layout();
+      window.addEventListener('resize', layout);
+      window.addEventListener('orientationchange', layout);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
