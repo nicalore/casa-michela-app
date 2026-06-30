@@ -333,7 +333,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                 const SizedBox(height: 12),
                                 
                                 Text(
-                                  'Al primo accesso o dopo un reset amministrativo è obbligatorio impostare una nuova password personale.',
+                                  'Al primo accesso o in particolari situazioni è obbligatorio impostare una nuova password.',
                                   textAlign: TextAlign.center,
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 15,

@@ -23,27 +23,32 @@ from app.core.security import (
     verify_password,
 )
 from app.models.account import AccountStatusEnum
-from app.models.refresh_token import RefreshToken
+from app.models.refresh_token import RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.auth_result import AuthResult
 
-#ConfigureResendAPIKey
+# Configure Resend API Key
 resend.api_key = settings.resend_api_key
+
 
 class AuthenticationError(Exception):
     pass
 
+
 class AccountDisabledError(Exception):
     pass
 
+
 class InvalidRefreshTokenError(Exception):
     pass
+
 
 class AccountLockedError(Exception):
     def __init__(self, locked_until: datetime) -> None:
         self.locked_until = locked_until
         super().__init__(f"Account locked until {locked_until}")
+
 
 class AuthService:
     def __init__(
@@ -73,6 +78,7 @@ class AuthService:
             token_id=refresh_token_id,
             token_hash=hash_refresh_token(refresh_token),
             expires_at=now + timedelta(days=settings.refresh_token_expire_days),
+            token_type=TokenTypeEnum.REFRESH,
         )
 
         await self.refresh_token_repository.save(refresh_token_record)
@@ -111,17 +117,17 @@ class AuthService:
 
             await self.account_repository.save(account)
             await self.account_repository.commit()
-            
-            #RaiseLockoutImmediately
+
+            # RaiseLockoutImmediately
             if new_lock is not None:
                 raise AccountLockedError(new_lock)
-                
+
             raise AuthenticationError("Invalid username or password")
 
         if account.status != AccountStatusEnum.ACTIVE:
             raise AccountDisabledError("Account disabled")
 
-        #ResetFailedLoginCounters
+        # ResetFailedLoginCounters
         account.failed_login_attempts = 0
         account.last_failed_login_attempt = None
         account.locked_until = None
@@ -132,7 +138,7 @@ class AuthService:
         await self.account_repository.commit()
 
         return result
-    
+
     async def refresh(self, refresh_token: str) -> AuthResult:
         try:
             payload = decode_refresh_token(refresh_token)
@@ -148,6 +154,9 @@ class AuthService:
         if stored_token is None or stored_token.revoked_at is not None:
             raise InvalidRefreshTokenError()
 
+        if stored_token.token_type != TokenTypeEnum.REFRESH:
+            raise InvalidRefreshTokenError()
+
         now = datetime.now(UTC)
         if now >= stored_token.expires_at:
             raise InvalidRefreshTokenError()
@@ -156,7 +165,6 @@ class AuthService:
         if expected_hash != stored_token.token_hash:
             raise InvalidRefreshTokenError()
 
-        #ValidateTypeForTaxCode
         tax_code = payload.get("sub")
         if not isinstance(tax_code, str):
             raise InvalidRefreshTokenError()
@@ -170,7 +178,7 @@ class AuthService:
         await self.account_repository.commit()
 
         return result
-    
+
     async def logout(self, refresh_token: str) -> None:
         try:
             payload = decode_refresh_token(refresh_token)
@@ -184,6 +192,9 @@ class AuthService:
         stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
 
         if stored_token is None or stored_token.revoked_at is not None:
+            raise InvalidRefreshTokenError()
+
+        if stored_token.token_type != TokenTypeEnum.REFRESH:
             raise InvalidRefreshTokenError()
 
         expected_hash = hash_refresh_token(refresh_token)
@@ -219,6 +230,9 @@ class AuthService:
         if stored_token is None or stored_token.revoked_at is not None:
             raise InvalidRefreshTokenError()
 
+        if stored_token.token_type != TokenTypeEnum.REFRESH:
+            raise InvalidRefreshTokenError()
+
         expected_hash = hash_refresh_token(refresh_token)
         if expected_hash != stored_token.token_hash:
             raise InvalidRefreshTokenError()
@@ -227,13 +241,14 @@ class AuthService:
         account.password_reset_required = False
 
         await self.account_repository.save(account)
+        # Revoca tutti i token (REFRESH e PASSWORD_RESET) tranne la sessione corrente
         await self.refresh_token_repository.revoke_all_for_account_except(
             account_tax_code=account.tax_code,
             token_id=token_id,
         )
         await self.account_repository.commit()
 
-        #NotifyPasswordChange
+        # NotifyPasswordChange
         if account.person and account.person.email:
             try:
                 resend.Emails.send(
@@ -255,11 +270,11 @@ class AuthService:
                             <p>A presto,<br> 
                             <strong>Associazione Casa Michela</strong></p> 
                         </div>
-                        """
+                        """,
                     }
                 )
             except Exception as e:
-                #LogErrorSilently
+                # LogErrorSilently
                 print(f"Error sending email via Resend: {e}")
 
     async def request_password_reset(self, email: str) -> None:
@@ -269,15 +284,30 @@ class AuthService:
             return
 
         expires = timedelta(hours=1)
+        now = datetime.now(UTC)
+        reset_token_id = str(uuid4())
+
         reset_token = jwt_encode(
             {
                 "sub": account.tax_code,
                 "type": "reset",
-                "exp": datetime.now(UTC) + expires,
+                "jti": reset_token_id,
+                "exp": now + expires,
             },
             settings.jwt_access_secret,
             algorithm=settings.jwt_algorithm,
         )
+
+        reset_token_record = RefreshToken(
+            account_tax_code=account.tax_code,
+            token_id=reset_token_id,
+            token_hash=hash_refresh_token(reset_token),
+            expires_at=now + expires,
+            token_type=TokenTypeEnum.PASSWORD_RESET,
+        )
+
+        await self.refresh_token_repository.save(reset_token_record)
+        await self.account_repository.commit()
 
         reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
 
@@ -308,11 +338,11 @@ class AuthService:
                         <p>A presto,<br> 
                         <strong>Associazione Casa Michela</strong></p> 
                     </div>
-                    """
+                    """,
                 }
             )
         except Exception as e:
-            #LogErrorSilently
+            # LogErrorSilently
             print(f"Error sending email via Resend: {e}")
 
     async def reset_password(self, token: str, new_password: str) -> None:
@@ -323,27 +353,43 @@ class AuthService:
                 algorithms=[settings.jwt_algorithm],
             )
         except InvalidTokenError as err:
-            raise AuthenticationError("Invalid or expired reset token") from err
+            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.") from err
 
         if payload.get("type") != "reset":
             raise AuthenticationError("Invalid token type")
 
-        #ValidateTypeForTaxCode
         tax_code = payload.get("sub")
         if not isinstance(tax_code, str):
             raise AuthenticationError("Invalid token payload")
 
-        account = await self.account_repository.get_by_tax_code(tax_code)
+        token_id = payload.get("jti")
+        if not isinstance(token_id, str):
+            raise AuthenticationError("Invalid token payload")
 
+        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
+
+        if stored_token is None or stored_token.revoked_at is not None:
+            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.")
+
+        if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
+            raise AuthenticationError("Invalid token type")
+
+        if hash_refresh_token(token) != stored_token.token_hash:
+            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.")
+
+        account = await self.account_repository.get_by_tax_code(tax_code)
         if account is None:
             raise AuthenticationError("Account not found")
 
         validate_password(new_password)
 
+        # Consuma il token prima di modificare la password
+        await self.refresh_token_repository.revoke(stored_token)
+
         account.password_hash = hash_password(new_password)
         account.password_reset_required = False
-        
-        #ResetSecurityCounters
+
+        # ResetSecurityCounters
         account.failed_login_attempts = 0
         account.locked_until = None
 

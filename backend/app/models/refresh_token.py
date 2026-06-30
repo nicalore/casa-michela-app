@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -11,6 +12,7 @@ from sqlalchemy import (
     String,
     func,
 )
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -22,6 +24,9 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.account import Account
 
+class TokenTypeEnum(StrEnum):
+    REFRESH = "REFRESH"
+    PASSWORD_RESET = "PASSWORD_RESET"
 
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
@@ -92,4 +97,11 @@ class RefreshToken(Base):
 
     account: Mapped[Account] = relationship(
         back_populates="refresh_tokens",
+    )
+
+    token_type: Mapped[TokenTypeEnum] = mapped_column(
+        SqlEnum(TokenTypeEnum, name="token_type_enum"),
+        nullable=False,
+        default=TokenTypeEnum.REFRESH,
+        server_default="REFRESH",
     )

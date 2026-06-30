@@ -235,7 +235,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password. Riprova più tardi.');
     }
   }
 

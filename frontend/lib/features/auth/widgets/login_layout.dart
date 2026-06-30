@@ -94,7 +94,7 @@ class _LoginLayoutState extends State<LoginLayout>
     {
       if (!mounted) return;
 
-      String message = 'Errore imprevisto';
+      String message = 'Errore imprevisto. Riprova più tardi.';
 
       switch (e.response?.statusCode)
       {
@@ -103,7 +103,7 @@ class _LoginLayoutState extends State<LoginLayout>
           break;
 
         case 403:
-          message = 'Account disabilitato. Se ritieni ci sia un errore, contatta l\'Associazione';
+          message = 'Account disabilitato. Se ritieni ci sia un errore, contatta l\'Associazione.';
           break;
 
         case 423:
