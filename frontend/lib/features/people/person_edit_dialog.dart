@@ -139,6 +139,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   String?                      _filterSubjectsArea;
   final Map<int, bool>         _subjectToggles              = {};
   final Map<int, Set<int>>     _selectedProgramsForSubject  = {};
+
   static const double _kCompactCardBoxHeight = 560.0;
 
   @override
@@ -2206,21 +2207,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             Text
             (
               'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
-              style: GoogleFonts.plusJakartaSans
-              (
-                fontSize:   16,
-                fontWeight: FontWeight.w500,
-                color:      const Color(0xFF64748B),
-                height:     1.5,
-              ),
+              style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B), height: 1.5),
             ),
             const SizedBox(height: 32),
-            WizardOutlinedActionButton
-            (
-              text:      'SEGNALA ERRORE ANAGRAFICA', 
-              icon:      Icons.report_problem_outlined, 
-              onPressed: _openReportDialog,
-            ),
+            WizardOutlinedActionButton(text: 'SEGNALA ERRORE ANAGRAFICA', icon: Icons.report_problem_outlined, onPressed: _openReportDialog),
           ],
         );
         break;
@@ -2234,66 +2224,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             WizardFormInputRow
             (
               label:       'Foto profilo',
-              inputWidget: WizardProfilePhotoUploader
-              (
-                imageBytes:      _fotoProfilo,
-                initialImageUrl: widget.person.profileImageUrl,
-                onImagePicked:   (bytes) => setState(() => _fotoProfilo = bytes),
-              ),
+              inputWidget: WizardProfilePhotoUploader(imageBytes: _fotoProfilo, initialImageUrl: widget.person.profileImageUrl, onImagePicked: (bytes) => setState(() => _fotoProfilo = bytes)),
             ),
             const SizedBox(height: 24),
-            WizardFormInputRow
-            (
-              label:       'Nome',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _nomeCtrl, 
-                hint:       'Es. Mario', 
-                enabled:    false,
-                errorText:  _formErrors['nome'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('nome')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Nome', inputWidget: WizardAnimatedTextField(controller: _nomeCtrl, hint: 'Es. Mario', enabled: false, errorText: _formErrors['nome'], onChanged: (_) => setState(() => _formErrors.remove('nome')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Cognome',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _cognomeCtrl, 
-                hint:       'Es. Rossi',
-                enabled:    false, 
-                errorText:  _formErrors['cognome'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cognome')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Cognome', inputWidget: WizardAnimatedTextField(controller: _cognomeCtrl, hint: 'Es. Rossi', enabled: false, errorText: _formErrors['cognome'], onChanged: (_) => setState(() => _formErrors.remove('cognome')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Sesso',
-              inputWidget: WizardAnimatedOverlayDropdown
-              (
-                value:     _sesso, 
-                items:     const ['M', 'F'], 
-                hint:      'Seleziona', 
-                enabled:   false,
-                errorText: _formErrors['sesso'], 
-                onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }),
-              ),
-            ),
+            WizardFormInputRow(label: 'Sesso', inputWidget: WizardAnimatedOverlayDropdown(value: _sesso, items: const ['M', 'F'], hint: 'Seleziona', enabled: false, errorText: _formErrors['sesso'], onChanged: (val) => setState(() { _sesso = val; _formErrors.remove('sesso'); }))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Codice fiscale',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _cfCtrl, 
-                hint:       'Es. RSSMRA80A01L157H', 
-                enabled:    false,
-                errorText:  _formErrors['cf'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cf')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Codice fiscale', inputWidget: WizardAnimatedTextField(controller: _cfCtrl, hint: 'Es. RSSMRA80A01L157H', enabled: false, errorText: _formErrors['cf'], onChanged: (_) => setState(() => _formErrors.remove('cf')))),
           ],
         );
         break;
@@ -2304,44 +2244,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
           children: 
           [
-            WizardFormInputRow
-            (
-              label:       'Data di nascita',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller:      _dataNascitaCtrl, 
-                hint:            'gg/mm/aaaa', 
-                enabled:         false,
-                errorText:       _formErrors['dataNascita'], 
-                onChanged:       (_) => setState(() => _formErrors.remove('dataNascita')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', enabled: false, errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Città di nascita',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _cittaNascitaCtrl, 
-                hint:       'Es. Thiene', 
-                enabled:    false,
-                errorText:  _formErrors['cittaNascita'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cittaNascita')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Città di nascita', inputWidget: WizardAnimatedTextField(controller: _cittaNascitaCtrl, hint: 'Es. Thiene', enabled: false, errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Provincia',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _provNascitaCtrl, 
-                hint:       'Es. VI', 
-                enabled:    false,
-                errorText:  _formErrors['provNascita'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Provincia', inputWidget: WizardAnimatedTextField(controller: _provNascitaCtrl, hint: 'Es. VI', enabled: false, errorText: _formErrors['provNascita'], onChanged: (_) => setState(() => _formErrors.remove('provNascita')))),
           ],
         );
         break;
@@ -2368,42 +2275,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               ),
             ),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Città',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _cittaResidenzaCtrl, 
-                hint:       'Es. Thiene', 
-                errorText:  _formErrors['cittaResidenza'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('cittaResidenza')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Città', inputWidget: WizardAnimatedTextField(controller: _cittaResidenzaCtrl, hint: 'Es. Thiene', errorText: _formErrors['cittaResidenza'], onChanged: (_) => setState(() => _formErrors.remove('cittaResidenza')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Provincia',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller: _provResidenzaCtrl, 
-                hint:       'Es. VI', 
-                errorText:  _formErrors['provResidenza'], 
-                onChanged:  (_) => setState(() => _formErrors.remove('provResidenza')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Provincia', inputWidget: WizardAnimatedTextField(controller: _provResidenzaCtrl, hint: 'Es. VI', errorText: _formErrors['provResidenza'], onChanged: (_) => setState(() => _formErrors.remove('provResidenza')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'CAP',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller:   _capCtrl, 
-                hint:         'Es. 36016', 
-                keyboardType: TextInputType.number, 
-                errorText:    _formErrors['cap'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('cap')),
-              ),
-            ),
+            WizardFormInputRow(label: 'CAP', inputWidget: WizardAnimatedTextField(controller: _capCtrl, hint: 'Es. 36016', keyboardType: TextInputType.number, errorText: _formErrors['cap'], onChanged: (_) => setState(() => _formErrors.remove('cap')))),
           ],
         );
         break;
@@ -2414,55 +2290,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           leadingIcon: const WizardStaticAvatar(icon: Icons.alternate_email_rounded),
           children: 
           [
-            WizardFormInputRow
-            (
-              label:       'Email',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller:   _emailCtrl, 
-                hint:         'Es. mario.rossi@email.com', 
-                keyboardType: TextInputType.emailAddress, 
-                errorText:    _formErrors['email'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('email')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Email', inputWidget: WizardAnimatedTextField(controller: _emailCtrl, hint: 'Es. mario.rossi@email.com', keyboardType: TextInputType.emailAddress, errorText: _formErrors['email'], onChanged: (_) => setState(() => _formErrors.remove('email')))),
             const SizedBox(height: 16),
-            WizardFormInputRow
-            (
-              label:       'Telefono',
-              inputWidget: WizardAnimatedTextField
-              (
-                controller:   _telefonoCtrl, 
-                hint:         'Es. 3331234567', 
-                keyboardType: TextInputType.phone, 
-                errorText:    _formErrors['telefono'], 
-                onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
-              ),
-            ),
+            WizardFormInputRow(label: 'Telefono', inputWidget: WizardAnimatedTextField(controller: _telefonoCtrl, hint: 'Es. 3331234567', keyboardType: TextInputType.phone, errorText: _formErrors['telefono'], onChanged: (_) => setState(() => _formErrors.remove('telefono')))),
           ],
         );
         break;
     }
-
-    final Widget animatedCard = AnimatedSwitcher
-    (
-      duration:       const Duration(milliseconds: 300),
-      switchInCurve:  Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
-      transitionBuilder: (child, animation) 
-      {
-        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-        Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-        
-        return FadeTransition
-        (
-          opacity: animation, 
-          child:   SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child),
-        );
-      },
-      child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
-    );
 
     return SizedBox
     (
@@ -2480,44 +2314,61 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             (
               children: 
               [
-                Text
-                (
-                  'Informazioni personali',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
+                Text('Informazioni personali', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                 const SizedBox(height: 8),
-                Text
-                (
-                  'Modifica i dati anagrafici e di contatto.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
+                Text('Modifica i dati anagrafici e di contatto.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Builder
+          Expanded
           (
-            builder: (context)
-            {
-              final double screenWidth        = MediaQuery.of(context).size.width;
-              final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
-              final bool   isCompact          = dialogContentWidth < 1192;
+            child: LayoutBuilder
+            (
+              builder: (context, constraints)
+              {
+                final bool isCompact = constraints.maxWidth < 900;
 
-              return Expanded
-              (
-                child: isCompact
+                final Widget desktopAnimatedCard = AnimatedSwitcher
+                (
+                  duration:       const Duration(milliseconds: 300),
+                  switchInCurve:  Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  transitionBuilder: (child, animation) 
+                  {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                    Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                    return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                  },
+                  child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                );
+
+                final Widget compactAnimatedCard = AnimatedSwitcher
+                (
+                  duration:       const Duration(milliseconds: 300),
+                  switchInCurve:  Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  transitionBuilder: (child, animation) 
+                  {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                    Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                    return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                  },
+                  child: KeyedSubtree
+                  (
+                    key:   ValueKey(_currentFormCardIndex),
+                    child: SizedBox
+                    (
+                      height: _kCompactCardBoxHeight,
+                      width:  constraints.maxWidth,
+                      child:  SingleChildScrollView(child: currentCard),
+                    ),
+                  ),
+                );
+
+                return isCompact
                     ? Center
                       (
                         child: Column
@@ -2525,31 +2376,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: 
                           [
-                            SizedBox
-                            (
-                              height: _kCompactCardBoxHeight,
-                              width:  dialogContentWidth,
-                              child:  SingleChildScrollView(child: animatedCard),
-                            ),
+                            SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCard),
                             const SizedBox(height: 24),
                             Row
                             (
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: 
                               [
-                                WizardCarouselArrowButton
-                                (
-                                  icon:       Icons.chevron_left_rounded, 
-                                  isDisabled: _currentFormCardIndex == 0, 
-                                  onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; }),
-                                ),
+                                WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
                                 const SizedBox(width: 24),
-                                WizardCarouselArrowButton
-                                (
-                                  icon:       Icons.chevron_right_rounded, 
-                                  isDisabled: _currentFormCardIndex == 4, 
-                                  onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; }),
-                                ),
+                                WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 4, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
                               ],
                             ),
                           ],
@@ -2561,25 +2397,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: 
                         [
-                          WizardCarouselArrowButton
-                          (
-                            icon:       Icons.chevron_left_rounded, 
-                            isDisabled: _currentFormCardIndex == 0, 
-                            onTap:      () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; }),
-                          ),
+                          WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
                           const SizedBox(width: 32),
-                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1000), child: animatedCard)),
+                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1000), child: desktopAnimatedCard)),
                           const SizedBox(width: 32),
-                          WizardCarouselArrowButton
-                          (
-                            icon:       Icons.chevron_right_rounded, 
-                            isDisabled: _currentFormCardIndex == 4, 
-                            onTap:      () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; }),
-                          ),
+                          WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 4, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
                         ],
-                      ),
-              );
-            },
+                      );
+              },
+            ),
           ),
         ],
       ),
@@ -2595,33 +2421,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
     }
 
-    final Widget animatedCards = AnimatedSwitcher
-    (
-      duration:           const Duration(milliseconds: 300),
-      switchInCurve:      Curves.easeOutCubic,
-      switchOutCurve:     Curves.easeInCubic,
-      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
-      transitionBuilder:  (child, animation) 
-      {
-        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
-        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-
-        return FadeTransition
-        (
-          opacity: animation,
-          child: SlideTransition
-          (
-            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-            child:    child,
-          ),
-        );
-      },
-      child: KeyedSubtree
-      (
-        key:   ValueKey(_currentStep4CardIndex),
-        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
-      ),
-    );
+    final Widget currentCardStep4 = cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink();
 
     return SizedBox
     (
@@ -2639,44 +2439,61 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             (
               children: 
               [
-                Text
-                (
-                  'Informazioni associative',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   22,
-                    fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
-                  ),
-                ),
+                Text('Informazioni associative', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                 const SizedBox(height: 8),
-                Text
-                (
-                  'Compila i dati richiesti dai ruoli selezionati.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   16,
-                    fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
-                  ),
-                ),
+                Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          Builder
+          Expanded
           (
-            builder: (context)
-            {
-              final double screenWidth        = MediaQuery.of(context).size.width;
-              final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
-              final bool   isCompact          = dialogContentWidth < 1292;
+            child: LayoutBuilder
+            (
+              builder: (context, constraints)
+              {
+                final bool isCompact = constraints.maxWidth < 900;
 
-              return Expanded
-              (
-                child: isCompact
+                final Widget desktopAnimatedCards = AnimatedSwitcher
+                (
+                  duration:           const Duration(milliseconds: 300),
+                  switchInCurve:      Curves.easeOutCubic,
+                  switchOutCurve:     Curves.easeInCubic,
+                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  transitionBuilder:  (child, animation) 
+                  {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+                    Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                    return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                  },
+                  child: KeyedSubtree(key: ValueKey(_currentStep4CardIndex), child: currentCardStep4),
+                );
+
+                final Widget compactAnimatedCards = AnimatedSwitcher
+                (
+                  duration:           const Duration(milliseconds: 300),
+                  switchInCurve:      Curves.easeOutCubic,
+                  switchOutCurve:     Curves.easeInCubic,
+                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  transitionBuilder:  (child, animation) 
+                  {
+                    final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+                    Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                    return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                  },
+                  child: KeyedSubtree
+                  (
+                    key:   ValueKey(_currentStep4CardIndex),
+                    child: SizedBox
+                    (
+                      height: _kCompactCardBoxHeight,
+                      width:  constraints.maxWidth,
+                      child:  SingleChildScrollView(child: currentCardStep4),
+                    ),
+                  ),
+                );
+
+                return isCompact
                     ? Center
                       (
                         child: Column
@@ -2684,31 +2501,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: 
                           [
-                            SizedBox
-                            (
-                              height: _kCompactCardBoxHeight,
-                              width:  dialogContentWidth,
-                              child:  SingleChildScrollView(child: animatedCards),
-                            ),
+                            SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCards),
                             const SizedBox(height: 24),
                             Row
                             (
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: 
                               [
-                                WizardCarouselArrowButton
-                                (
-                                  icon:       Icons.chevron_left_rounded,
-                                  isDisabled: _currentStep4CardIndex == 0,
-                                  onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
-                                ),
+                                WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep4CardIndex == 0, onTap: () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; })),
                                 const SizedBox(width: 24),
-                                WizardCarouselArrowButton
-                                (
-                                  icon:       Icons.chevron_right_rounded,
-                                  isDisabled: _currentStep4CardIndex >= cards.length - 1,
-                                  onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
-                                ),
+                                WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep4CardIndex >= cards.length - 1, onTap: () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; })),
                               ],
                             ),
                           ],
@@ -2720,25 +2522,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: 
                         [
-                          WizardCarouselArrowButton
-                          (
-                            icon:       Icons.chevron_left_rounded,
-                            isDisabled: _currentStep4CardIndex == 0,
-                            onTap:      () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; }),
-                          ),
+                          WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep4CardIndex == 0, onTap: () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; })),
                           const SizedBox(width: 32),
-                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: animatedCards)),
+                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: desktopAnimatedCards)),
                           const SizedBox(width: 32),
-                          WizardCarouselArrowButton
-                          (
-                            icon:       Icons.chevron_right_rounded,
-                            isDisabled: _currentStep4CardIndex >= cards.length - 1,
-                            onTap:      () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; }),
-                          ),
+                          WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep4CardIndex >= cards.length - 1, onTap: () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; })),
                         ],
-                      ),
-              );
-            },
+                      );
+              },
+            ),
           ),
         ],
       ),

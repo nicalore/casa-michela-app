@@ -234,7 +234,7 @@ async def request_password_reset(
     refresh_token_repository = RefreshTokenRepository(db)
     auth_service = AuthService(account_repository, refresh_token_repository)
 
-    await auth_service.request_password_reset(email=request.email)
+    await auth_service.request_password_reset(username=request.username)
 
     return {"message": "If the email exists, a recovery link has been sent."}
 
@@ -265,3 +265,22 @@ async def reset_password(
         ) from None
 
     return {"message": "Password successfully reset."}
+
+@router.get("/validate-reset-token")
+async def validate_reset_token(
+    token: str,
+    db: DbSession,
+) -> dict:
+    account_repository = AccountRepository(db)
+    refresh_token_repository = RefreshTokenRepository(db)
+    auth_service = AuthService(account_repository, refresh_token_repository)
+
+    try:
+        await auth_service.validate_reset_token(token=token)
+    except AuthenticationError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        ) from None
+
+    return {"valid": True}

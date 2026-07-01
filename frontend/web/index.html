@@ -42,39 +42,85 @@
       transform-origin: top left;
       will-change: transform;
     }
+
+    /* --- Overlay landscape --- */
+    #landscape-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 999999;
+      background: linear-gradient(135deg, #003C82 0%, #001E41 100%);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 24px;
+      text-align: center;
+      padding: 32px;
+      box-sizing: border-box;
+    }
+    #landscape-overlay.visible {
+      display: flex;
+    }
+    #landscape-overlay svg {
+      width: 72px;
+      height: 72px;
+      fill: none;
+      stroke: white;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      animation: rotate-hint 2.5s ease-in-out infinite;
+    }
+    @keyframes rotate-hint {
+      0%, 100% { transform: rotate(0deg); }
+      30%, 70% { transform: rotate(-90deg); }
+    }
+    #landscape-overlay h2 {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.3px;
+    }
+    #landscape-overlay p {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.5;
+      max-width: 340px;
+    }
   </style>
 
   <script>
     window.__casaMichelaConfig = {
-      phoneDprMultiplier:  1,   // moltiplicatore DPR per i telefoni
-      tabletDprMultiplier: 1.1,   // moltiplicatore DPR per i tablet (più conservativo, schermo già grande)
-      maxForcedDpr:        6,   // tetto di sicurezza assoluto, qualunque dispositivo
-      phoneMaxZoom:        4,   // zoom massimo pinch su telefono
-      tabletMaxZoom:       2    // zoom massimo pinch su tablet (più conservativo, sfocatura meno percettibile)
+      phoneDprMultiplier:  1,
+      tabletDprMultiplier: 1.1,
+      maxForcedDpr:        6,
+      phoneMaxZoom:        4,
+      tabletMaxZoom:       2
     };
 
-    // --- Rilevamento tablet vs telefono in più passi, dal più affidabile al più approssimativo ---
+    // --- Rilevamento tablet vs telefono ---
     function detectIsTablet() {
       var ua = (navigator.userAgent || '').toLowerCase();
       var maxTouchPoints = navigator.maxTouchPoints || 0;
 
-      // 1. Match esplicito di tablet noti
       if (/ipad/.test(ua))      { return true; }
       if (/tablet/.test(ua))    { return true; }
       if (/playbook/.test(ua))  { return true; }
-      if (/silk/.test(ua))      { return true; } // Kindle Fire
-
-      // 2. Caso speciale iPad recenti (iPadOS 13+): si dichiarano "Macintosh" ma hanno touch multipunto.
-      //    Un Mac vero non ha touch screen, quindi questa combinazione è quasi certamente un iPad.
+      if (/silk/.test(ua))      { return true; }
       if (/macintosh/.test(ua) && maxTouchPoints > 1) { return true; }
 
-      // 3. Match esplicito di telefoni: "Mobile" senza "Tablet" è quasi sempre un telefono
       if (/mobile/.test(ua) && !/tablet/.test(ua)) { return false; }
       if (/iphone/.test(ua))                       { return false; }
       if (/ipod/.test(ua))                         { return false; }
 
-      // 4. Fallback dimensionale per casi ambigui (es. WebView non standard, browser sconosciuti):
-      //    stima la diagonale fisica con una soglia conservativa di 7.5 pollici.
       var dpr = window.devicePixelRatio || 1;
       var physicalWidthPx = screen.width * dpr;
       var physicalHeightPx = screen.height * dpr;
@@ -86,9 +132,22 @@
       return diagonal >= 7.5;
     }
 
-    window.__casaMichelaIsTablet = detectIsTablet();
+    // Rilevamento touch device (telefono o tablet, non desktop)
+    function detectIsTouchDevice() {
+      var maxTouchPoints = navigator.maxTouchPoints || 0;
+      if (maxTouchPoints > 1) { return true; }
 
-    // --- Override del devicePixelRatio una volta sola, PRIMA del bootstrap Flutter ---
+      var ua = (navigator.userAgent || '').toLowerCase();
+      if (/iphone|ipad|ipod|android|mobile|tablet|silk|playbook/.test(ua)) { return true; }
+      if (/macintosh/.test(ua) && maxTouchPoints > 0) { return true; }
+
+      return false;
+    }
+
+    window.__casaMichelaIsTablet      = detectIsTablet();
+    window.__casaMichelaIsTouchDevice = detectIsTouchDevice();
+
+    // --- Override del devicePixelRatio ---
     (function () {
       var cfg = window.__casaMichelaConfig;
       var multiplier = window.__casaMichelaIsTablet ? cfg.tabletDprMultiplier : cfg.phoneDprMultiplier;
@@ -103,13 +162,59 @@
           configurable: true,
           get: function () { return forcedDpr; }
         });
-      } catch (e) {
-        //Fallback: nessuna nitidezza extra
+      } catch (e) {}
+    })();
+
+    // --- Blocco landscape su dispositivi touch ---
+    (function () {
+      if (!window.__casaMichelaIsTouchDevice) { return; }
+
+      // Tentativo 1: API nativa (funziona su Android Chrome, fallisce silenziosamente altrove)
+      try {
+        var lockTarget = screen.orientation || screen.mozOrientation || screen.msOrientation;
+        if (lockTarget && typeof lockTarget.lock === 'function') {
+          lockTarget.lock('portrait').catch(function () {});
+        }
+      } catch (e) {}
+
+      // Tentativo 2: overlay di fallback per browser che non supportano orientation.lock (iOS Safari)
+      function checkLandscape() {
+        var overlay = document.getElementById('landscape-overlay');
+        if (!overlay) { return; }
+
+        var isLandscape = window.innerWidth > window.innerHeight;
+
+        if (isLandscape) {
+          overlay.classList.add('visible');
+        } else {
+          overlay.classList.remove('visible');
+        }
       }
+
+      // Controlla subito e ad ogni cambio
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', checkLandscape);
+      } else {
+        checkLandscape();
+      }
+      window.addEventListener('resize', checkLandscape);
+      window.addEventListener('orientationchange', function () {
+        setTimeout(checkLandscape, 150);
+      });
     })();
   </script>
 </head>
 <body>
+  <!-- Overlay landscape (solo touch devices) -->
+  <div id="landscape-overlay">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+      <line x1="12" y1="18" x2="12" y2="18.01" stroke-width="2"/>
+    </svg>
+    <h2>Ruota il dispositivo</h2>
+    <p>Per una migliore esperienza, utilizza l'applicazione in modalità verticale.</p>
+  </div>
+
   <div id="flutter-viewport">
     <div id="flutter-scale-wrapper">
       <div id="flutter_host"></div>

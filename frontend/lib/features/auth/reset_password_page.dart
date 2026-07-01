@@ -35,12 +35,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   bool _hasSpecial = false;
 
   bool _isSaving = false;
+  bool _isValidating = true;
 
   @override
   void initState()
   {
     super.initState();
     _newPasswordController.addListener(_validatePolicies);
+    _validateToken();
   }
 
   @override
@@ -52,10 +54,35 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     super.dispose();
   }
 
+  Future<void> _validateToken() async
+  {
+    try
+    {
+      await _apiService.validateResetToken(token: widget.token);
+
+      if (mounted)
+      {
+        setState(() => _isValidating = false);
+      }
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        context.go('/login');
+        CustomSnackBar.show(
+          context: context,
+          message: 'Il link non è più valido. Richiedine uno nuovo.',
+          isError: true,
+        );
+      }
+    }
+  }
+
   void _validatePolicies()
   {
     final text = _newPasswordController.text;
-    
+
     setState(()
     {
       _hasMinLength = text.length >= 12;
@@ -78,7 +105,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         message: 'Compila tutti i campi',
         isError: true,
       );
-      
+
       return;
     }
 
@@ -89,7 +116,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         message: 'Le password non coincidono',
         isError: true,
       );
-      
+
       return;
     }
 
@@ -100,14 +127,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         message: 'La password non rispetta i criteri di sicurezza',
         isError: true,
       );
-      
+
       return;
     }
 
-    setState(()
-    {
-      _isSaving = true;
-    });
+    setState(() => _isSaving = true);
 
     try
     {
@@ -141,10 +165,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     {
       if (mounted)
       {
-        setState(()
-        {
-          _isSaving = false;
-        });
+        setState(() => _isSaving = false);
       }
     }
   }
@@ -196,7 +217,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       backgroundColor: const Color(0xFFF4F7F9),
       body: Stack(
         children: [
-          //BackgroundCircles
+          // BackgroundCircles
           Positioned(
             right: -800,
             top: -800,
@@ -239,167 +260,171 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
               ),
             ),
           ),
-          
-          //MainContent
+
+          // MainContent
           Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Container(
-                width: 500,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A000000),
-                      offset: Offset(0, 8),
-                      blurRadius: 24,
-                    )
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 24, right: 16, left: 32),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Nuova Password',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF003C82),
-                            ),
-                          ),
+            child: _isValidating
+                ? const CircularProgressIndicator(
+                    color: Color(0xFF003C82),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Container(
+                      width: 500,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            offset: Offset(0, 8),
+                            blurRadius: 24,
+                          )
                         ],
                       ),
-                    ),
-                    
-                    const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-                    
-                    Padding(
-                      padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildFieldLabel('Nuova password'),
-                          TextField(
-                            controller: _newPasswordController,
-                            obscureText: _obscureNew,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 18,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Inserisci nuova password',
-                              hintStyle: GoogleFonts.plusJakartaSans(
-                                fontSize: 18,
-                                color: const Color(0xFFB3B3B3),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                  color: const Color(0xFF6B7280),
-                                ),
-                                onPressed: () => setState(() => _obscureNew = !_obscureNew),
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                              ),
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24, right: 16, left: 32),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _buildPolicyRow('Almeno 12 caratteri', _hasMinLength),
-                                _buildPolicyRow('Almeno una lettera minuscola', _hasLower),
-                                _buildPolicyRow('Almeno una lettera maiuscola', _hasUpper),
-                                _buildPolicyRow('Almeno un numero', _hasDigit),
-                                _buildPolicyRow('Almeno un carattere speciale', _hasSpecial),
+                                Text(
+                                  'Nuova Password',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF003C82),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          
-                          _buildFieldLabel('Conferma password'),
-                          TextField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirm,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 18,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Ripeti nuova password',
-                              hintStyle: GoogleFonts.plusJakartaSans(
-                                fontSize: 18,
-                                color: const Color(0xFFB3B3B3),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              focusedBorder: const UnderlineInputBorder(
-                                borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                  color: const Color(0xFF6B7280),
+
+                          const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+
+                          Padding(
+                            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Nuova password'),
+                                TextField(
+                                  controller: _newPasswordController,
+                                  obscureText: _obscureNew,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Inserisci nuova password',
+                                    hintStyle: GoogleFonts.plusJakartaSans(
+                                      fontSize: 18,
+                                      color: const Color(0xFFB3B3B3),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    focusedBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        color: const Color(0xFF6B7280),
+                                      ),
+                                      onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                                      splashColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                    ),
+                                  ),
                                 ),
-                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                                splashColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                              ),
+
+                                const SizedBox(height: 16),
+
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildPolicyRow('Almeno 12 caratteri', _hasMinLength),
+                                      _buildPolicyRow('Almeno una lettera minuscola', _hasLower),
+                                      _buildPolicyRow('Almeno una lettera maiuscola', _hasUpper),
+                                      _buildPolicyRow('Almeno un numero', _hasDigit),
+                                      _buildPolicyRow('Almeno un carattere speciale', _hasSpecial),
+                                    ],
+                                  ),
+                                ),
+
+                                _buildFieldLabel('Conferma password'),
+                                TextField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: _obscureConfirm,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Ripeti nuova password',
+                                    hintStyle: GoogleFonts.plusJakartaSans(
+                                      fontSize: 18,
+                                      color: const Color(0xFFB3B3B3),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    focusedBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        color: const Color(0xFF6B7280),
+                                      ),
+                                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                      splashColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          Padding(
+                            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: AnimatedActionButton(
+                                    text: 'ANNULLA',
+                                    icon: Icons.cancel_outlined,
+                                    baseColor: const Color(0xFFE53935),
+                                    hoverColor: const Color(0xFFEF5350),
+                                    onPressed: () => context.go('/login'),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: AnimatedActionButton(
+                                    text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
+                                    icon: Icons.save_outlined,
+                                    baseColor: const Color(0xFF003C82),
+                                    hoverColor: const Color(0xFF004D99),
+                                    onPressed: _isSaving ? () {} : _handleSave,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    
-                    Padding(
-                      padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: AnimatedActionButton(
-                              text: 'ANNULLA',
-                              icon: Icons.cancel_outlined,
-                              baseColor: const Color(0xFFE53935),
-                              hoverColor: const Color(0xFFEF5350),
-                              onPressed: () => context.go('/login'),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: AnimatedActionButton(
-                              text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                              icon: Icons.save_outlined,
-                              baseColor: const Color(0xFF003C82),
-                              hoverColor: const Color(0xFF004D99),
-                              onPressed: _isSaving ? () {} : _handleSave,
-                            ),
-                          ),               
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
           ),
         ],
       ),

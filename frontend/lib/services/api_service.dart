@@ -212,11 +212,11 @@ class ApiService
     }
   }
 
-  Future<void> requestPasswordReset({required String email}) async
+  Future<void> requestPasswordReset({required String username}) async
   {
     try
     {
-      await _dio.post('/auth/request-password-reset', data: {'email': email});
+      await _dio.post('/auth/request-password-reset', data: {'username': username});
     }
     on DioException catch (e)
     {
@@ -236,6 +236,21 @@ class ApiService
     on DioException catch (e)
     {
       throw Exception(e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password. Riprova più tardi.');
+    }
+  }
+
+  Future<void> validateResetToken({required String token}) async
+  {
+    try
+    {
+      await _dio.get(
+        '/auth/validate-reset-token',
+        queryParameters: {'token': token},
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Token non valido o scaduto.');
     }
   }
 

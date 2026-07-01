@@ -1,8 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class PasswordResetRequest(BaseModel):
-    email: EmailStr
+    username: str
 
 class PasswordResetConfirm(BaseModel):
     token: str

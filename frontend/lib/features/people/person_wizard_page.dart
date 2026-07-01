@@ -2140,7 +2140,46 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     final double viewportWidth = MediaQuery.of(context).size.width;
     final bool   isCompact     = viewportWidth < 1100;
 
-    final Widget animatedCard = AnimatedSwitcher
+    final Widget desktopAnimatedCard = AnimatedSwitcher
+    (
+      duration:           const Duration(milliseconds: 300),
+      switchInCurve:      Curves.easeOutCubic,
+      switchOutCurve:     Curves.easeInCubic,
+      layoutBuilder:      (Widget? currentChild, List<Widget> previousChildren) 
+      {
+        return Stack
+        (
+          alignment: Alignment.center,
+          children:  <Widget>
+          [
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder:  (Widget child, Animation<double> animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+        Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+        return FadeTransition
+        (
+          opacity: animation,
+          child: SlideTransition
+          (
+            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+            child:    child,
+          ),
+        );
+      },
+      child: KeyedSubtree
+      (
+        key:   ValueKey(_currentFormCardIndex),
+        child: currentCard,
+      ),
+    );
+
+    final Widget compactAnimatedCard = AnimatedSwitcher
     (
       duration:           const Duration(milliseconds: 300),
       switchInCurve:      Curves.easeOutCubic,
@@ -2175,7 +2214,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       child: KeyedSubtree
       (
         key:   ValueKey(_currentFormCardIndex),
-        child: currentCard,
+        child: SizedBox
+        (
+          height: _kCompactCardBoxHeight,
+          width:  viewportWidth - 64,
+          child:  SingleChildScrollView(child: currentCard),
+        ),
       ),
     );
 
@@ -2233,10 +2277,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                       (
                         height: _kCompactCardBoxHeight,
                         width:  viewportWidth - 64,
-                        child:  SingleChildScrollView
-                        (
-                          child: animatedCard,
-                        ),
+                        child:  compactAnimatedCard,
                       ),
                       const SizedBox(height: 24),
                       Row
@@ -2278,7 +2319,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                     ConstrainedBox
                     (
                       constraints: const BoxConstraints(maxWidth: 1000),
-                      child:       animatedCard,
+                      child:       desktopAnimatedCard,
                     ),
                     const SizedBox(width: 32),
                     WizardCarouselArrowButton
@@ -2301,7 +2342,35 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     final double viewportWidth = MediaQuery.of(context).size.width;
     final bool   isCompact     = viewportWidth < 1200;
 
-    final Widget animatedCards = AnimatedSwitcher
+    final Widget desktopAnimatedCards = AnimatedSwitcher
+    (
+      duration:           const Duration(milliseconds: 300),
+      switchInCurve:      Curves.easeOutCubic,
+      switchOutCurve:     Curves.easeInCubic,
+      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+      transitionBuilder:  (child, animation) 
+      {
+        final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
+        Offset beginOffset = _card4MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+
+        return FadeTransition
+        (
+          opacity: animation,
+          child: SlideTransition
+          (
+            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
+            child:    child,
+          ),
+        );
+      },
+      child: KeyedSubtree
+      (
+        key:   ValueKey(_currentStep4CardIndex),
+        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+      ),
+    );
+
+    final Widget compactAnimatedCards = AnimatedSwitcher
     (
       duration:           const Duration(milliseconds: 300),
       switchInCurve:      Curves.easeOutCubic,
@@ -2325,7 +2394,12 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       child: KeyedSubtree
       (
         key:   ValueKey(_currentStep4CardIndex),
-        child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink(),
+        child: SizedBox
+        (
+          height: _kCompactCardBoxHeight,
+          width:  viewportWidth - 64,
+          child:  SingleChildScrollView(child: cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink()),
+        ),
       ),
     );
     
@@ -2383,10 +2457,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                       (
                         height: _kCompactCardBoxHeight,
                         width:  viewportWidth - 64,
-                        child:  SingleChildScrollView
-                        (
-                          child: animatedCards,
-                        ),
+                        child:  compactAnimatedCards,
                       ),
                       const SizedBox(height: 24),
                       Row
@@ -2430,7 +2501,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                       child: ConstrainedBox
                       (
                         constraints: const BoxConstraints(maxWidth: 1100),
-                        child:       animatedCards,
+                        child:       desktopAnimatedCards,
                       ),
                     ),
                     const SizedBox(width: 32),

@@ -699,48 +699,45 @@ class _ForgotPasswordDialogContent extends StatefulWidget
 
 class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogContent>
 {
-  final TextEditingController _emailController = TextEditingController();
-  final ApiService            _apiService      = ApiService();
-  bool                        _isSending       = false;
+  final TextEditingController _usernameController = TextEditingController();
+  final ApiService            _apiService         = ApiService();
+  bool                        _isSending          = false;
 
   @override
   void dispose()
   {
-    _emailController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
   Future<void> _handleSend() async
   {
-    final email = _emailController.text.trim();
+    final username = _usernameController.text.trim();
 
-    if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email))
+    if (username.isEmpty)
     {
       CustomSnackBar.show
       (
         context: context,
-        message: 'Inserisci un indirizzo email valido',
+        message: 'Inserisci il tuo nome utente',
         isError: true,
       );
-      
+
       return;
     }
 
-    setState(()
-    {
-      _isSending = true;
-    });
+    setState(() => _isSending = true);
 
     try
     {
-      await _apiService.requestPasswordReset(email: email);
+      await _apiService.requestPasswordReset(username: username);
 
       if (mounted)
       {
         CustomSnackBar.show
         (
           context: context,
-          message: 'Email di recupero inviata con successo!',
+          message: 'Se il nome utente è corretto, riceverai un link via email.',
           isError: false,
         );
         Navigator.of(context).pop();
@@ -753,7 +750,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         CustomSnackBar.show
         (
           context: context,
-          message: 'Errore durante l\'invio dell\'email. Riprova più tardi.',
+          message: 'Errore durante l\'invio. Riprova più tardi.',
           isError: true,
         );
       }
@@ -762,10 +759,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
     {
       if (mounted)
       {
-        setState(()
-        {
-          _isSending = false;
-        });
+        setState(() => _isSending = false);
       }
     }
   }
@@ -784,7 +778,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         (
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const 
+          boxShadow: const
           [
             BoxShadow
             (
@@ -797,7 +791,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
         child: Column
         (
           mainAxisSize: MainAxisSize.min,
-          children: 
+          children:
           [
             Padding
             (
@@ -805,7 +799,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
               child: Row
               (
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: 
+                children:
                 [
                   Text
                   (
@@ -834,12 +828,13 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
               child: Column
               (
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: 
+                children:
                 [
                   Text
                   (
-                    'Inserisci l\'indirizzo email associato al tuo account. Ti invieremo un link per impostare una nuova password.\n' 
-                    'Se non ricordi l\'indirizzo email o il nome utente associato al tuo account, contatta l\'Associazione.',
+                    'Inserisci il nome utente associato al tuo account. '
+                    'Se esiste, ti invieremo un link di recupero all\'indirizzo email registrato.\n'
+                    'Se non ricordi il tuo nome utente, contatta l\'Associazione.',
                     style: GoogleFonts.plusJakartaSans
                     (
                       fontSize: 14,
@@ -853,7 +848,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text
                     (
-                      'Indirizzo email',
+                      'Nome utente',
                       style: GoogleFonts.plusJakartaSans
                       (
                         color: const Color(0xFF003C82),
@@ -864,8 +859,8 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                   ),
                   TextField
                   (
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _usernameController,
+                    keyboardType: TextInputType.text,
                     style: GoogleFonts.plusJakartaSans
                     (
                       fontSize: 18,
@@ -874,7 +869,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
                     ),
                     decoration: InputDecoration
                     (
-                      hintText: 'Es. mario.rossi@email.com',
+                      hintText: 'Es. mario.rossi',
                       hintStyle: GoogleFonts.plusJakartaSans
                       (
                         fontSize: 18,
@@ -895,7 +890,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
               child: Row
               (
-                children: 
+                children:
                 [
                   Expanded
                   (

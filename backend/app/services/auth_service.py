@@ -28,7 +28,6 @@ from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.auth_result import AuthResult
 
-# Configure Resend API Key
 resend.api_key = settings.resend_api_key
 
 
@@ -127,7 +126,6 @@ class AuthService:
         if account.status != AccountStatusEnum.ACTIVE:
             raise AccountDisabledError("Account disabled")
 
-        # ResetFailedLoginCounters
         account.failed_login_attempts = 0
         account.last_failed_login_attempt = None
         account.locked_until = None
@@ -277,73 +275,87 @@ class AuthService:
                 # LogErrorSilently
                 print(f"Error sending email via Resend: {e}")
 
-    async def request_password_reset(self, email: str) -> None:
-        account = await self.account_repository.get_by_email(email)
-
-        if account is None:
-            return
-
-        expires = timedelta(hours=1)
-        now = datetime.now(UTC)
-        reset_token_id = str(uuid4())
-
-        reset_token = jwt_encode(
-            {
-                "sub": account.tax_code,
-                "type": "reset",
-                "jti": reset_token_id,
-                "exp": now + expires,
-            },
-            settings.jwt_access_secret,
-            algorithm=settings.jwt_algorithm,
-        )
-
-        reset_token_record = RefreshToken(
-            account_tax_code=account.tax_code,
-            token_id=reset_token_id,
-            token_hash=hash_refresh_token(reset_token),
-            expires_at=now + expires,
-            token_type=TokenTypeEnum.PASSWORD_RESET,
-        )
-
-        await self.refresh_token_repository.save(reset_token_record)
-        await self.account_repository.commit()
-
-        reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
+    async def request_password_reset(self, username: str) -> None:
+        import asyncio
+        start    = asyncio.get_event_loop().time()
+        min_time = 2.0
 
         try:
-            resend.Emails.send(
+            account = await self.account_repository.get_by_username(username)
+
+            if account is None:
+                return
+
+            if account.person is None or not account.person.email:
+                return
+
+            expires        = timedelta(hours=1)
+            now            = datetime.now(UTC)
+            reset_token_id = str(uuid4())
+
+            reset_token = jwt_encode(
                 {
-                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
-                    "to": email,
-                    "reply_to": "nicolo.calore@casamichela.it",
-                    "subject": "Recupero Password - Associazione Casa Michela",
-                    "html": f"""
-                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-                        <div style="text-align: center; margin-bottom: 30px;"> 
-                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
-                        </div> 
-                        <h2 style="color: #003C82;"> Recupero Password </h2>
-                        <p>Ciao,</p> 
-                        <p>Hai richiesto di reimpostare la password del tuo account.</p> 
-                        <p>Per procedere, clicca sul pulsante qui sotto:</p>
-                        <div style="text-align: center; margin: 30px 0;"> 
-                            <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 
-                        </div> 
-                        <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p> 
-                        <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
-                        <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
-                        <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
-                        <p>A presto,<br> 
-                        <strong>Associazione Casa Michela</strong></p> 
-                    </div>
-                    """,
-                }
+                    "sub":  account.tax_code,
+                    "type": "reset",
+                    "jti":  reset_token_id,
+                    "exp":  now + expires,
+                },
+                settings.jwt_access_secret,
+                algorithm=settings.jwt_algorithm,
             )
-        except Exception as e:
-            # LogErrorSilently
-            print(f"Error sending email via Resend: {e}")
+
+            reset_token_record = RefreshToken(
+                account_tax_code=account.tax_code,
+                token_id=reset_token_id,
+                token_hash=hash_refresh_token(reset_token),
+                expires_at=now + expires,
+                token_type=TokenTypeEnum.PASSWORD_RESET,
+            )
+
+            await self.refresh_token_repository.save(reset_token_record)
+            await self.account_repository.commit()
+
+            reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
+
+            try:
+                resend.Emails.send(
+                    {
+                        "from":     "Associazione Casa Michela <supporto@app.casamichela.it>",
+                        "to":       account.person.email,
+                        "reply_to": "nicolo.calore@casamichela.it",
+                        "subject":  "Recupero Password - Associazione Casa Michela",
+                        "html":     f"""
+                        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
+                            <div style="text-align: center; margin-bottom: 30px;"> 
+                                <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
+                                <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
+                            </div> 
+                            <h2 style="color: #003C82;"> Recupero Password </h2>
+                            <p>Ciao,</p> 
+                            <p>Hai richiesto di reimpostare la password del tuo account.</p> 
+                            <p>Per procedere, clicca sul pulsante qui sotto:</p>
+                            <div style="text-align: center; margin: 30px 0;"> 
+                                <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 
+                            </div> 
+                            <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p> 
+                            <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
+                            <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
+                            <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
+                            <p>A presto,<br> 
+                            <strong>Associazione Casa Michela</strong></p> 
+                        </div>
+                        """,
+                    }
+                )
+            except Exception as e:
+                # LogErrorSilently
+                print(f"Error sending email via Resend: {e}")
+
+        finally:
+            elapsed   = asyncio.get_event_loop().time() - start
+            remaining = min_time - elapsed
+            if remaining > 0:
+                await asyncio.sleep(remaining)
 
     async def reset_password(self, token: str, new_password: str) -> None:
         try:
@@ -389,9 +401,40 @@ class AuthService:
         account.password_hash = hash_password(new_password)
         account.password_reset_required = False
 
-        # ResetSecurityCounters
         account.failed_login_attempts = 0
         account.locked_until = None
 
         await self.account_repository.save(account)
         await self.account_repository.commit()
+
+    async def validate_reset_token(self, token: str) -> None:
+        try:
+            payload = jwt_decode(
+                token,
+                settings.jwt_access_secret,
+                algorithms=[settings.jwt_algorithm],
+            )
+        except InvalidTokenError as err:
+            raise AuthenticationError("Invalid or expired reset token") from err
+
+        if payload.get("type") != "reset":
+            raise AuthenticationError("Invalid token type")
+
+        tax_code = payload.get("sub")
+        if not isinstance(tax_code, str):
+            raise AuthenticationError("Invalid token payload")
+
+        token_id = payload.get("jti")
+        if not isinstance(token_id, str):
+            raise AuthenticationError("Invalid token payload")
+
+        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
+
+        if stored_token is None or stored_token.revoked_at is not None:
+            raise AuthenticationError("Invalid or expired reset token")
+
+        if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
+            raise AuthenticationError("Invalid token type")
+
+        if hash_refresh_token(token) != stored_token.token_hash:
+            raise AuthenticationError("Invalid or expired reset token") 

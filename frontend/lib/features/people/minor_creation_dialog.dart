@@ -105,6 +105,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   String?                     _filterSubjectsArea;
   final Map<int, bool>        _subjectToggles             = {};
   final Map<int, Set<int>>    _selectedProgramsForSubject = {};
+
   static const double _kCompactCardBoxHeight = 560.0;
 
   @override
@@ -1789,34 +1790,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
           break;
       }
 
-      final Widget animatedCard = AnimatedSwitcher
-      (
-        duration:       const Duration(milliseconds: 300),
-        switchInCurve:  Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
-        transitionBuilder: (child, animation) 
-        {
-          final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-          Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-          
-          return FadeTransition
-          (
-            opacity: animation, 
-            child:   SlideTransition
-            (
-              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-              child:    child,
-            ),
-          );
-        },
-        child: KeyedSubtree
-        (
-          key:   ValueKey(_currentFormCardIndex), 
-          child: currentCard,
-        ),
-      );
-
       return SizedBox
       (
         key:   const ValueKey('step2_m'),
@@ -1840,17 +1813,54 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               ),
             ),
             const SizedBox(height: 16),
-            Builder
+            Expanded
             (
-              builder: (context)
-              {
-                final double screenWidth        = MediaQuery.of(context).size.width;
-                final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
-                final bool   isCompact          = dialogContentWidth < 1192;
+              child: LayoutBuilder
+              (
+                builder: (context, constraints)
+                {
+                  final bool isCompact = constraints.maxWidth < 900;
 
-                return Expanded
-                (
-                  child: isCompact
+                  final Widget desktopAnimatedCard = AnimatedSwitcher
+                  (
+                    duration:       const Duration(milliseconds: 300),
+                    switchInCurve:  Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    transitionBuilder: (child, animation) 
+                    {
+                      final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                      Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                      return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                    },
+                    child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                  );
+
+                  final Widget compactAnimatedCard = AnimatedSwitcher
+                  (
+                    duration:       const Duration(milliseconds: 300),
+                    switchInCurve:  Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    transitionBuilder: (child, animation) 
+                    {
+                      final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                      Offset beginOffset = _card1MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                      return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                    },
+                    child: KeyedSubtree
+                    (
+                      key:   ValueKey(_currentFormCardIndex),
+                      child: SizedBox
+                      (
+                        height: _kCompactCardBoxHeight,
+                        width:  constraints.maxWidth,
+                        child:  SingleChildScrollView(child: currentCard),
+                      ),
+                    ),
+                  );
+
+                  return isCompact
                       ? Center
                         (
                           child: Column
@@ -1858,31 +1868,16 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: 
                             [
-                              SizedBox
-                              (
-                                height: _kCompactCardBoxHeight,
-                                width:  dialogContentWidth,
-                                child:  SingleChildScrollView(child: animatedCard),
-                              ),
+                              SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCard),
                               const SizedBox(height: 24),
                               Row
                               (
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: 
                                 [
-                                  WizardCarouselArrowButton
-                                  (
-                                    icon:       Icons.chevron_left_rounded, 
-                                    isDisabled: _currentFormCardIndex == 0, 
-                                    onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
-                                  ),
+                                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; })),
                                   const SizedBox(width: 24),
-                                  WizardCarouselArrowButton
-                                  (
-                                    icon:       Icons.chevron_right_rounded, 
-                                    isDisabled: _currentFormCardIndex == 3, 
-                                    onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
-                                  ),
+                                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; })),
                                 ],
                               ),
                             ],
@@ -1894,25 +1889,15 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: 
                           [
-                            WizardCarouselArrowButton
-                            (
-                              icon:       Icons.chevron_left_rounded, 
-                              isDisabled: _currentFormCardIndex == 0, 
-                              onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
-                            ),
+                            WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; })),
                             const SizedBox(width: 32),
-                            Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1000), child: animatedCard)),
+                            Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1000), child: desktopAnimatedCard)),
                             const SizedBox(width: 32),
-                            WizardCarouselArrowButton
-                            (
-                              icon:       Icons.chevron_right_rounded, 
-                              isDisabled: _currentFormCardIndex == 3, 
-                              onTap:      () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; }),
-                            ),
+                            WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; })),
                           ],
-                        ),
-                );
-              },
+                        );
+                },
+              ),
             ),
           ],
         ),
@@ -1922,34 +1907,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     if (step == 3) 
     {
       final cards = _activeStep2Cards;
-      
-      final Widget animatedCards = AnimatedSwitcher
-      (
-        duration:       const Duration(milliseconds: 300),
-        switchInCurve:  Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
-        transitionBuilder: (child, animation) 
-        {
-          final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
-          Offset beginOffset = _card2MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-          
-          return FadeTransition
-          (
-            opacity: animation, 
-            child:   SlideTransition
-            (
-              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-              child:    child,
-            ),
-          );
-        },
-        child: KeyedSubtree
-        (
-          key:   ValueKey(_currentStep2CardIndex), 
-          child: cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink(),
-        ),
-      );
+      final Widget currentCardStep3 = cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink();
 
       return SizedBox
       (
@@ -1974,17 +1932,54 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               ),
             ),
             const SizedBox(height: 16),
-            Builder
+            Expanded
             (
-              builder: (context)
-              {
-                final double screenWidth        = MediaQuery.of(context).size.width;
-                final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
-                final bool   isCompact          = dialogContentWidth < 1292;
+              child: LayoutBuilder
+              (
+                builder: (context, constraints)
+                {
+                  final bool isCompact = constraints.maxWidth < 900;
 
-                return Expanded
-                (
-                  child: isCompact
+                  final Widget desktopAnimatedCards = AnimatedSwitcher
+                  (
+                    duration:       const Duration(milliseconds: 300),
+                    switchInCurve:  Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    transitionBuilder: (child, animation) 
+                    {
+                      final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
+                      Offset beginOffset = _card2MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                      return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                    },
+                    child: KeyedSubtree(key: ValueKey(_currentStep2CardIndex), child: currentCardStep3),
+                  );
+
+                  final Widget compactAnimatedCards = AnimatedSwitcher
+                  (
+                    duration:       const Duration(milliseconds: 300),
+                    switchInCurve:  Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    transitionBuilder: (child, animation) 
+                    {
+                      final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
+                      Offset beginOffset = _card2MovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                      return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                    },
+                    child: KeyedSubtree
+                    (
+                      key:   ValueKey(_currentStep2CardIndex),
+                      child: SizedBox
+                      (
+                        height: _kCompactCardBoxHeight,
+                        width:  constraints.maxWidth,
+                        child:  SingleChildScrollView(child: currentCardStep3),
+                      ),
+                    ),
+                  );
+
+                  return isCompact
                       ? Center
                         (
                           child: Column
@@ -1992,31 +1987,16 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: 
                             [
-                              SizedBox
-                              (
-                                height: _kCompactCardBoxHeight,
-                                width:  dialogContentWidth,
-                                child:  SingleChildScrollView(child: animatedCards),
-                              ),
+                              SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCards),
                               const SizedBox(height: 24),
                               Row
                               (
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: 
                                 [
-                                  WizardCarouselArrowButton
-                                  (
-                                    icon:       Icons.chevron_left_rounded, 
-                                    isDisabled: _currentStep2CardIndex == 0, 
-                                    onTap:      () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; }),
-                                  ),
+                                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep2CardIndex == 0, onTap: () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; })),
                                   const SizedBox(width: 24),
-                                  WizardCarouselArrowButton
-                                  (
-                                    icon:       Icons.chevron_right_rounded, 
-                                    isDisabled: _currentStep2CardIndex >= cards.length - 1, 
-                                    onTap:      () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; }),
-                                  ),
+                                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep2CardIndex >= cards.length - 1, onTap: () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; })),
                                 ],
                               ),
                             ],
@@ -2028,25 +2008,15 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: 
                           [
-                            WizardCarouselArrowButton
-                            (
-                              icon:       Icons.chevron_left_rounded, 
-                              isDisabled: _currentStep2CardIndex == 0, 
-                              onTap:      () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; }),
-                            ),
+                            WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep2CardIndex == 0, onTap: () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; })),
                             const SizedBox(width: 32),
-                            Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: animatedCards)),
+                            Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: desktopAnimatedCards)),
                             const SizedBox(width: 32),
-                            WizardCarouselArrowButton
-                            (
-                              icon:       Icons.chevron_right_rounded, 
-                              isDisabled: _currentStep2CardIndex >= cards.length - 1, 
-                              onTap:      () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; }),
-                            ),
+                            WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep2CardIndex >= cards.length - 1, onTap: () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; })),
                           ],
-                        ),
-                );
-              },
+                        );
+                },
+              ),
             ),
           ],
         ),

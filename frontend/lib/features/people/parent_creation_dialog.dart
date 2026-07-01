@@ -43,6 +43,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
   final TextEditingController _emailCtrl          = TextEditingController();
   final TextEditingController _telefonoCtrl       = TextEditingController();
   final List<WizardEnrollmentRowData> _enrollmentRows = [];
+
   static const double _kCompactCardBoxHeight = 560.0;
 
 
@@ -1049,10 +1050,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                     height:     800,
                     decoration: const BoxDecoration(
                       shape:    BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [Color(0x22003C82), Color(0x00003C82)], 
-                        stops:  [0.0, 1.0]
-                      ),
+                      gradient: RadialGradient(colors: [Color(0x22003C82), Color(0x00003C82)], stops: [0.0, 1.0]),
                     ),
                   ),
                 ),
@@ -1066,10 +1064,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                     height:     800,
                     decoration: const BoxDecoration(
                       shape:    BoxShape.circle,
-                      gradient: RadialGradient(
-                        colors: [Color(0x22003C82), Color(0x00003C82)], 
-                        stops:  [0.0, 1.0]
-                      ),
+                      gradient: RadialGradient(colors: [Color(0x22003C82), Color(0x00003C82)], stops: [0.0, 1.0]),
                     ),
                   ),
                 ),
@@ -1081,10 +1076,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Nuovo Genitore',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)),
-                        ),
+                        Text('Nuovo Genitore', style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
                         WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
                     ),
@@ -1102,117 +1094,120 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                         {
                           final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_p';
                           Offset beginOffset = _movingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                          
-                          return FadeTransition(
-                            opacity: animation, 
-                            child:   SlideTransition(
-                              position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), 
-                              child:    child
-                            ),
-                          );
+                          return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
                         },
                         child: _currentStep == 0 ? _buildStep0Association() :
-                               _currentStep == 1 ? SizedBox(
-                                 key: const ValueKey('step1_p'),
-                                 child: Column(
-                                   mainAxisAlignment: MainAxisAlignment.center,
-                                   children: [
-                                     Padding(
-                                       padding: const EdgeInsets.symmetric(vertical: 16),
-                                       child: Column(
-                                         children: [
-                                           Text(
-                                             'Informazioni Personali Genitore', 
-                                             textAlign: TextAlign.center, 
-                                             style:     GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))
-                                           ),
-                                           const SizedBox(height: 8),
-                                           Text(
-                                             'Compila i dati del genitore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', 
-                                             textAlign: TextAlign.center, 
-                                             style:     GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))
-                                           ),
-                                         ],
-                                       ),
-                                     ),
-                                     const SizedBox(height: 16),
-                                      Expanded
+                              _currentStep == 1 ? SizedBox
+                              (
+                                key: const ValueKey('step1_p'),
+                                child: Column
+                                (
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: 
+                                  [
+                                    Padding
+                                    (
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      child: Column
                                       (
-                                        child: Builder
-                                        (
-                                          builder: (context)
-                                          {
-                                            final double screenWidth        = MediaQuery.of(context).size.width;
-                                            final double dialogContentWidth = (screenWidth * 0.85).clamp(0, 1200) - 64;
-                                            final bool   isCompact          = dialogContentWidth < 992;
+                                        children: 
+                                        [
+                                          Text('Informazioni Personali Genitore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                                          const SizedBox(height: 8),
+                                          Text('Compila i dati del genitore. Dopo la creazione, sarà possibile modificare solo la residenza e i contatti.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Expanded
+                                    (
+                                      child: LayoutBuilder
+                                      (
+                                        builder: (context, constraints)
+                                        {
+                                          final bool isCompact = constraints.maxWidth < 900;
 
-                                            final Widget animatedCard = AnimatedSwitcher
+                                          final Widget desktopAnimatedCard = AnimatedSwitcher
+                                          (
+                                            duration:       const Duration(milliseconds: 300),
+                                            switchInCurve:  Curves.easeOutCubic,
+                                            switchOutCurve: Curves.easeInCubic,
+                                            layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                                            transitionBuilder: (child, animation) 
+                                            {
+                                              final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                                              Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                                              return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                                            },
+                                            child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
+                                          );
+
+                                          final Widget compactAnimatedCard = AnimatedSwitcher
+                                          (
+                                            duration:       const Duration(milliseconds: 300),
+                                            switchInCurve:  Curves.easeOutCubic,
+                                            switchOutCurve: Curves.easeInCubic,
+                                            layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                                            transitionBuilder: (child, animation) 
+                                            {
+                                              final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
+                                              Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
+                                              return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child));
+                                            },
+                                            child: KeyedSubtree
                                             (
-                                              duration:       const Duration(milliseconds: 300),
-                                              switchInCurve:  Curves.easeOutCubic,
-                                              switchOutCurve: Curves.easeInCubic,
-                                              layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
-                                              transitionBuilder: (child, animation) 
-                                              {
-                                                final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
-                                                Offset beginOffset = _cardMovingForward ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0)) : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-                                                
-                                                return FadeTransition
-                                                (
-                                                  opacity: animation, 
-                                                  child:   SlideTransition(position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation), child: child),
-                                                );
-                                              },
-                                              child: KeyedSubtree(key: ValueKey(_currentFormCardIndex), child: currentCard),
-                                            );
+                                              key:   ValueKey(_currentFormCardIndex),
+                                              child: SizedBox
+                                              (
+                                                height: _kCompactCardBoxHeight,
+                                                width:  constraints.maxWidth,
+                                                child:  SingleChildScrollView(child: currentCard),
+                                              ),
+                                            ),
+                                          );
 
-                                            return isCompact
-                                                ? Center
+                                          return isCompact
+                                              ? Center
+                                                (
+                                                  child: Column
                                                   (
-                                                    child: Column
-                                                    (
-                                                      mainAxisAlignment: MainAxisAlignment.center,
-                                                      children: 
-                                                      [
-                                                        SizedBox
-                                                        (
-                                                          height: _kCompactCardBoxHeight,
-                                                          width:  dialogContentWidth,
-                                                          child:  SingleChildScrollView(child: animatedCard),
-                                                        ),
-                                                        const SizedBox(height: 24),
-                                                        Row
-                                                        (
-                                                          mainAxisAlignment: MainAxisAlignment.center,
-                                                          children: 
-                                                          [
-                                                            WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
-                                                            const SizedBox(width: 24),
-                                                            WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  )
-                                                : Row
-                                                  (
-                                                    mainAxisAlignment:  MainAxisAlignment.center,
-                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    mainAxisAlignment: MainAxisAlignment.center,
                                                     children: 
                                                     [
-                                                      WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
-                                                      const SizedBox(width: 32),
-                                                      ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: animatedCard),
-                                                      const SizedBox(width: 32),
-                                                      WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
+                                                      SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCard),
+                                                      const SizedBox(height: 24),
+                                                      Row
+                                                      (
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: 
+                                                        [
+                                                          WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
+                                                          const SizedBox(width: 24),
+                                                          WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
+                                                        ],
+                                                      ),
                                                     ],
-                                                  );
-                                          },
-                                        ),
+                                                  ),
+                                                )
+                                              : Row
+                                                (
+                                                  mainAxisAlignment:  MainAxisAlignment.center,
+                                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                                  children: 
+                                                  [
+                                                    WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _cardMovingForward = false; _currentFormCardIndex--; })),
+                                                    const SizedBox(width: 32),
+                                                    ConstrainedBox(constraints: const BoxConstraints(maxWidth: 800), child: desktopAnimatedCard),
+                                                    const SizedBox(width: 32),
+                                                    WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _cardMovingForward = true; _currentFormCardIndex++; })),
+                                                  ],
+                                                );
+                                        },
                                       ),
-                                   ],
-                                 ),
-                               ) : _buildStep2Iscrizioni(),
+                                    ),
+                                  ],
+                                ),
+                              ) : _buildStep2Iscrizioni(),
                       ),
                     ),
                   ),
@@ -1224,22 +1219,12 @@ class _ParentCreationDialogState extends State<ParentCreationDialog>
                         if (_currentStep == 0)
                           SizedBox(
                             width: 200,
-                            child: WizardAnimatedActionButton(
-                              text:       'ANNULLA', 
-                              icon:       Icons.close_rounded, 
-                              baseColor:  const Color(0xFFE53935), 
-                              hoverColor: const Color(0xFFEF5350), 
-                              onPressed:  () => Navigator.of(context).pop()
-                            ),
+                            child: WizardAnimatedActionButton(text: 'ANNULLA', icon: Icons.close_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () => Navigator.of(context).pop()),
                           )
                         else
                           SizedBox(
                             width: 200,
-                            child: WizardOutlinedActionButton(
-                              text:      'INDIETRO', 
-                              icon:      Icons.arrow_back_rounded, 
-                              onPressed: _onBack,
-                            ),
+                            child: WizardOutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _onBack),
                           ),
                         const SizedBox(width: 24),
                         SizedBox(
