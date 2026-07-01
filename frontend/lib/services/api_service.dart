@@ -208,7 +208,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante il cambio password');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante il cambio password. Riprova più tardi.');
     }
   }
 
@@ -220,7 +220,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la richiesta di recupero password');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la richiesta di recupero password. Riprova più tardi.');
     }
   }
 
@@ -272,7 +272,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione. Riprova più tardi.');
     }
   }
 
@@ -323,7 +323,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'upload dell\'immagine');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante il caricamento dell\'immagine.');
     }
   }
 
@@ -380,7 +380,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della scuola.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della scuola. Riprova più tardi.');
     }
   }
 
@@ -417,7 +417,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della scuola.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della scuola. Riprova più tardi.');
     }
   }
 
@@ -429,7 +429,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola. Riprova più tardi.');
     }
   }
 
@@ -500,7 +500,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione del percorso. Riprova più tardi.');
     }
   }
 
@@ -544,7 +544,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica del percorso. Riprova più tardi.');
     }
   }
 
@@ -556,7 +556,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione del percorso. Riprova più tardi.');
     }
   }
 
@@ -609,7 +609,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della materia. Riprova più tardi.');
     }
   }
 
@@ -642,7 +642,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della materia. Riprova più tardi.');
     }
   }
 
@@ -654,7 +654,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
   }
 
@@ -689,7 +689,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento: ');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.');
     }
   }
 
@@ -714,7 +714,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la creazione della persona.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
     }
   }
 
@@ -729,7 +729,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile inviare la segnalazione errore al server.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile inviare la segnalazione. Riprova più tardi.');
     }
   }
 
@@ -747,7 +747,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
     }
   }
 
@@ -764,7 +764,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la revoca dell\'iscrizione.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.');
     }
   }
 
@@ -781,7 +781,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
     }
   }
 
@@ -793,7 +793,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -805,7 +805,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -817,7 +817,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -830,7 +830,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali attuali.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali attuali. Riprova più tardi.');
     }
   }
 
@@ -850,7 +850,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend degli iscritti.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend degli iscritti. Riprova più tardi.');
     }
   }
 
@@ -870,7 +870,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend dei collaboratori.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend dei collaboratori. Riprova più tardi.');
     }
   }
 
@@ -883,7 +883,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di retention.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di fidelizzazione. Riprova più tardi.');
     }
   }
 
@@ -896,7 +896,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di retention collaboratori.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di fidelizzazione collaboratori. Riprova più tardi.');
     }
   }
 
@@ -909,7 +909,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali del ruolo.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali del ruolo. Riprova più tardi.');
     }
   }
 
@@ -930,7 +930,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend del ruolo.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend del ruolo. Riprova più tardi.');
     }
   }
 
@@ -951,7 +951,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend collaboratori del ruolo.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend collaboratori del ruolo. Riprova più tardi.');
     }
   }
 
@@ -964,7 +964,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la retention del ruolo.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la fidelizzazione del ruolo. Riprova più tardi.');
     }
   }
 
@@ -977,7 +977,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la retention collaboratori del ruolo.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la fidelizzazione collaboratori. Riprova più tardi.');
     }
   }
 
@@ -990,7 +990,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per città.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per città. Riprova più tardi.');
     }
   }
 
@@ -1003,7 +1003,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per età.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per età. Riprova più tardi.');
     }
   }
 
@@ -1018,7 +1018,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto.');
+      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -1031,7 +1031,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione scolastica.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione scolastica. Riprova più tardi.');
     }
   }
 
@@ -1044,7 +1044,7 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare le statistiche materie docenti.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare le statistiche sulle materie dei docenti. Riprova più tardi.');
     }
   }
 
@@ -1057,7 +1057,24 @@ class ApiService
     } 
     on DioException catch (e) 
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione corsi.');
+      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione dei corsi. Riprova più tardi.');
+    }
+  }
+
+  Future<bool> checkFiscalCodeExists(String fiscalCode) async 
+  {
+    try 
+    {
+      await _dio.get('/people/$fiscalCode');
+      return true;
+    } 
+    on DioException catch (e) 
+    {
+      if (e.response?.statusCode == 404) 
+      {
+        return false;
+      }
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la verifica del codice fiscale. Riprova più tardi.');
     }
   }
 }

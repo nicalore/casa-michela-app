@@ -110,11 +110,11 @@ class _AccountTabState extends State<AccountTab>
         child: Padding(
           padding: const EdgeInsets.only(top: 40.0),
           child: Text(
-            'Errore nel caricamento dell\'account',
+            'Errore durante il caricamento dell\'account. Riprova più tardi.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFFC62828),
+              color: const Color(0xFF94A3B8),
             ),
           ),
         ),

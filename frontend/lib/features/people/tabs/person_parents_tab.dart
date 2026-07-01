@@ -102,14 +102,14 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
-          'Rimuovi Responsabilità',
+          'Rimuovi Responsabilità Genitoriali',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFFE53935),
+            color: const Color(0xFF003C82),
           ),
         ),
         content: Text(
-          'Sei sicuro di voler rimuovere irreversibilmente ogni responsabilità genitoriale collegata a questa anagrafica?\nGli ex-genitori non avranno più alcun accesso ai dati di questo utente.',
+          'Dopo la rimozione delle responsabilità genitoriali, questa persona gestirà autonomamente il proprio rapporto con l\'Associazione. L\'operazione è irreversibile.',
           style: GoogleFonts.plusJakartaSans(fontSize: 16),
         ),
         actions: [
@@ -375,7 +375,7 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
               ),
               const SizedBox(height: 48),
               Center(
-                child: Column(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SizedBox(
@@ -389,9 +389,9 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
                       ),
                     ),
                     if (isAdult) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(width: 16),
                       SizedBox(
-                        width: 544,
+                        width: 395,
                         child: WizardAnimatedActionButton(
                           text: 'RIMUOVI RESPONSABILITÀ GENITORIALI',
                           icon: Icons.gavel_rounded,

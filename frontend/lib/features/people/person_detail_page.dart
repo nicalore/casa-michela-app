@@ -341,11 +341,11 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
       return Expanded(
         child: Center(
           child: Text(
-            'Errore nel caricamento: ${_errorMessage ?? "Dati non disponibili"}',
+            'Errore durante il caricamento. Riprova più tardi.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFFC62828),
+              color: const Color( 0xFF94A3B8),
             ),
           ),
         ),

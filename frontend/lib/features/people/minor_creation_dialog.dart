@@ -11,6 +11,7 @@ import '../association/models/association_subject_item.dart';
 import '../association/models/study_program_item.dart';
 import '../association/models/school_item.dart';
 import './models/person_item.dart';
+import '../../services/api_service.dart';
 
 import 'person_wizard_components.dart';
 
@@ -40,6 +41,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   bool _card1MovingForward  = true;
   bool _card2MovingForward  = true;
   bool _isSubmitting        = false;
+  bool _isCheckingCf        = false;
 
   final Set<String> _selectedRoles = {};
   
@@ -427,6 +429,48 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     return isValid;
   }
 
+  Future<bool> _checkCodiceFiscaleEsistente() async 
+  {
+    setState(() => _isCheckingCf = true);
+
+    try 
+    {
+      final bool esiste = await ApiService().checkFiscalCodeExists(_cfCtrl.text.trim().toUpperCase());
+
+      if (esiste) 
+      {
+        setState(() 
+        {
+          _formErrors['cf']      = 'Codice fiscale già presente';
+          _card1MovingForward    = 0 >= _currentFormCardIndex;
+          _currentFormCardIndex  = 0;
+        });
+
+        if (mounted) 
+        {
+          CustomSnackBar.show(context: context, message: 'Esiste già una persona con questo codice fiscale.', isError: true);
+        }
+      }
+
+      return esiste;
+    } 
+    catch (_) 
+    {
+      if (mounted) 
+      {
+        CustomSnackBar.show(context: context, message: 'Impossibile verificare il codice fiscale. Riprova.', isError: true);
+      }
+      return true;
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
+        setState(() => _isCheckingCf = false);
+      }
+    }
+  }
+
   bool _validateDatiSpecifici() 
   {
     _scadenzaCertificatoCtrl.text = _scadenzaCertificatoCtrl.text.trim();
@@ -749,7 +793,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     }
   }
 
-  void _onNext() 
+  Future<void> _onNext() async 
   {
     if (_currentStep == 0) 
     {
@@ -801,6 +845,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     if (_currentStep == 2) 
     {
       if (!_validateDatiGenerali()) return;
+
+      final bool cfEsistente = await _checkCodiceFiscaleEsistente();
+      if (cfEsistente) return;
       
       if (_activeStep2Cards.isEmpty)
       {
@@ -2452,11 +2499,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                           width: 200,
                           child: WizardAnimatedActionButton
                           (
-                            text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI'), 
+                            text:       _isCheckingCf ? 'VERIFICA...' : (_isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI')), 
                             icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
                             baseColor:  const Color(0xFF003C82), 
                             hoverColor: const Color(0xFF004D99), 
-                            onPressed:  _isSubmitting ? () {} : _onNext,
+                            onPressed:  (_isSubmitting || _isCheckingCf) ? () {} : _onNext,
                           ),
                         ),
                       ],
