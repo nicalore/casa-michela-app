@@ -74,7 +74,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     {
       final query = _searchText.toLowerCase();
       final matchesSearch = subject.name.toLowerCase().contains(query);
-      final matchesArea = _filterArea == null || subject.area == _filterArea;
+      final matchesArea = _filterArea == null || subject.areas.contains(_filterArea);
       return matchesSearch && matchesArea;
     }).toList();
 
@@ -90,11 +90,11 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     return result;
   }
 
-  Future<bool> _executeCreate(String name, String level, String area, String description, List<int> associationIds, Function(String) onError) async
+  Future<bool> _executeCreate(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
   {
     try
     {
-      final created = await _apiService.createMinistrySubject(name: name, level: level, area: area, description: description, associationSubjectIds: associationIds);
+      final created = await _apiService.createMinistrySubject(name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
       setState(() { _ministrySubjects.add(created); });
       if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale creata con successo!', isError: false);
       return true;
@@ -106,11 +106,11 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     }
   }
 
-  Future<bool> _executeEdit(int id, String name, String level, String area, String description, List<int> associationIds, Function(String) onError) async
+  Future<bool> _executeEdit(int id, String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
   {
     try
     {
-      final updated = await _apiService.updateMinistrySubject(id: id, name: name, level: level, area: area, description: description, associationSubjectIds: associationIds);
+      final updated = await _apiService.updateMinistrySubject(id: id, name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
       setState(()
       {
         final index = _ministrySubjects.indexWhere((s) => s.id == id);
@@ -156,10 +156,10 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
                 existingSubject: subject,
                 availableAssociationSubjects: _availableAssociationSubjects,
                 onCancelEdit: onCancelEdit,
-                onSave: (name, level, area, description, associationIds, onError) async
+                onSave: (name, level, areas, description, associationIds, onError) async
                 {
-                  if (subject == null) return await _executeCreate(name, level, area, description, associationIds, onError);
-                  else return await _executeEdit(subject.id, name, level, area, description, associationIds, onError);
+                  if (subject == null) return await _executeCreate(name, level, areas, description, associationIds, onError);
+                  else return await _executeEdit(subject.id, name, level, areas, description, associationIds, onError);
                 },
               ),
             ),
@@ -222,7 +222,7 @@ class _MinistrySubjectWizardDialog extends StatefulWidget
   final MinistrySubjectItem? existingSubject;
   final List<AssociationSubjectItem> availableAssociationSubjects;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(String name, String level, String area, String description, List<int> associationIds, Function(String) onError) onSave;
+  final Future<bool> Function(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) onSave;
 
   const _MinistrySubjectWizardDialog({
     this.existingSubject, required this.availableAssociationSubjects, this.onCancelEdit, required this.onSave
@@ -234,6 +234,8 @@ class _MinistrySubjectWizardDialog extends StatefulWidget
 
 class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDialog>
 {
+  static const int _kMaxAreas = 3;
+
   int _currentStep = 0;
   final PageController _pageController = PageController();
   bool _isSaving = false;
@@ -243,7 +245,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   final TextEditingController _disciplineSearchCtrl = TextEditingController();
 
   String? _selectedLevel;
-  String? _selectedArea;
+  List<String> _selectedAreas = [];
   List<int> _selectedAssociations = [];
 
   @override
@@ -255,7 +257,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       _nameController.text = widget.existingSubject!.name;
       _descController.text = widget.existingSubject!.description ?? '';
       _selectedLevel = widget.existingSubject!.level;
-      _selectedArea = widget.existingSubject!.area;
+      _selectedAreas = List<String>.from(widget.existingSubject!.areas);
       _selectedAssociations = widget.existingSubject!.associationSubjects.map((a) => a.id).toList();
     }
   }
@@ -277,7 +279,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       _descController.clear();
       _disciplineSearchCtrl.clear();
       _selectedLevel = null;
-      _selectedArea = null;
+      _selectedAreas = [];
       _selectedAssociations.clear();
       _currentStep = 0;
       _pageController.jumpToPage(0);
@@ -290,12 +292,24 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     {
       if (isSelected)
       {
-        if (_selectedArea != area) _selectedAssociations.clear();
-        _selectedArea = area;
+        if (_selectedAreas.length >= _kMaxAreas)
+        {
+          CustomSnackBar.show(context: context, message: 'Puoi selezionare al massimo $_kMaxAreas aree.', isError: true);
+          return;
+        }
+        _selectedAreas.add(area);
       }
       else
       {
-        _selectedArea = null;
+        _selectedAreas.remove(area);
+
+        // Rimuove solo le discipline interne dell'area appena deselezionata,
+        // lasciando intatte quelle delle altre aree ancora selezionate
+        final idsToRemove = widget.availableAssociationSubjects
+            .where((a) => a.area == area)
+            .map((a) => a.id)
+            .toSet();
+        _selectedAssociations.removeWhere((id) => idsToRemove.contains(id));
       }
     });
   }
@@ -306,7 +320,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     {
       if (_nameController.text.trim().isEmpty) { CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true); return; }
       if (_selectedLevel == null) { CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true); return; }
-      if (_selectedArea == null) { CustomSnackBar.show(context: context, message: 'Seleziona un\'area di appartenenza.', isError: true); return; }
+      if (_selectedAreas.isEmpty) { CustomSnackBar.show(context: context, message: 'Seleziona almeno un\'area di appartenenza.', isError: true); return; }
       setState(() => _currentStep++);
       _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
@@ -316,7 +330,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
 
       setState(() => _isSaving = true);
       
-      bool success = await widget.onSave(_nameController.text.trim(), _selectedLevel!, _selectedArea!, _descController.text.trim(), _selectedAssociations, (errorMsg) {
+      bool success = await widget.onSave(_nameController.text.trim(), _selectedLevel!, _selectedAreas, _descController.text.trim(), _selectedAssociations, (errorMsg) {
         if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true);
       });
 
@@ -398,13 +412,13 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                 CustomChip(label: 'Secondaria di II Grado', isSelected: _selectedLevel == 'HIGH_SCHOOL', onSelected: (v) => setState(() => _selectedLevel = v ? 'HIGH_SCHOOL' : null)),
               ],
             ),
-            _buildFieldLabel('Area'),
+            _buildFieldLabel('Aree (massimo $_kMaxAreas)'),
             Wrap(
               spacing: 12, runSpacing: 12,
               children: [
-                CustomChip(label: 'Area Umanistica', isSelected: _selectedArea == 'HUMANITIES', onSelected: (v) => _onAreaChanged('HUMANITIES', v)),
-                CustomChip(label: 'Area Linguistica', isSelected: _selectedArea == 'LINGUISTICS', onSelected: (v) => _onAreaChanged('LINGUISTICS', v)),
-                CustomChip(label: 'Area Scientifica', isSelected: _selectedArea == 'SCIENCES', onSelected: (v) => _onAreaChanged('SCIENCES', v)),
+                CustomChip(label: 'Area Umanistica', isSelected: _selectedAreas.contains('HUMANITIES'), onSelected: (v) => _onAreaChanged('HUMANITIES', v)),
+                CustomChip(label: 'Area Linguistica', isSelected: _selectedAreas.contains('LINGUISTICS'), onSelected: (v) => _onAreaChanged('LINGUISTICS', v)),
+                CustomChip(label: 'Area Scientifica', isSelected: _selectedAreas.contains('SCIENCES'), onSelected: (v) => _onAreaChanged('SCIENCES', v)),
               ],
             ),
             _buildFieldLabel('Descrizione (opzionale)'),
@@ -418,7 +432,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   Widget _buildStep2()
   {
     final query = _disciplineSearchCtrl.text.toLowerCase();
-    final filteredAssoc = widget.availableAssociationSubjects.where((a) => a.area == _selectedArea && a.name.toLowerCase().contains(query)).toList();
+    final filteredAssoc = widget.availableAssociationSubjects.where((a) => _selectedAreas.contains(a.area) && a.name.toLowerCase().contains(query)).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -428,7 +442,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
           const SizedBox(height: 12),
           AnimatedSearchBar(controller: _disciplineSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca disciplina interna...'),
           const SizedBox(height: 16),
-          Expanded(child: filteredAssoc.isEmpty ? Center(child: Text('Nessuna disciplina trovata per l\'area.', style: GoogleFonts.plusJakartaSans(fontSize: 15, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))) : SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredAssoc.map((a) => CustomChip(label: a.name, isSelected: _selectedAssociations.contains(a.id), onSelected: (v) => setState(() { if (v) { _selectedAssociations.add(a.id); } else { _selectedAssociations.remove(a.id); } }))).toList()))),
+          Expanded(child: filteredAssoc.isEmpty ? Center(child: Text('Nessuna disciplina trovata per le aree selezionate.', style: GoogleFonts.plusJakartaSans(fontSize: 15, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))) : SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredAssoc.map((a) => CustomChip(label: a.name, isSelected: _selectedAssociations.contains(a.id), onSelected: (v) => setState(() { if (v) { _selectedAssociations.add(a.id); } else { _selectedAssociations.remove(a.id); } }))).toList()))),
         ],
       ),
     );

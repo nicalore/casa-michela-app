@@ -568,7 +568,7 @@ class ApiService
       id:                  e['id'],
       name:                e['name'],
       level:               e['level'],
-      area:                e['area'],
+      areas:               (e['area'] as List).cast<String>(),
       description:         e['description'],
       createdAt:           DateTime.parse(e['created_at']),
       associationSubjects: e['association_subjects'] != null
@@ -580,7 +580,7 @@ class ApiService
     )).toList();
   }
 
-  Future<MinistrySubjectItem> createMinistrySubject({required String name, required String level, required String area, required String description, required List<int> associationSubjectIds}) async
+  Future<MinistrySubjectItem> createMinistrySubject({required String name, required String level, required List<String> areas, required String description, required List<int> associationSubjectIds}) async
   {
     try
     {
@@ -589,7 +589,7 @@ class ApiService
         data: {
           'name':                    name,
           'level':                   level,
-          'area':                    area,
+          'area':                    areas,
           'description':             description,
           'association_subject_ids': associationSubjectIds,
         },
@@ -599,7 +599,7 @@ class ApiService
         id:                  response.data['id'],
         name:                response.data['name'],
         level:               response.data['level'],
-        area:                response.data['area'],
+        areas:               (response.data['area'] as List).cast<String>(),
         description:         response.data['description'],
         createdAt:           DateTime.parse(response.data['created_at']),
         associationSubjects: response.data['association_subjects'] != null
@@ -613,7 +613,7 @@ class ApiService
     }
   }
 
-  Future<MinistrySubjectItem> updateMinistrySubject({required int id, required String name, required String level, required String area, required String description, required List<int> associationSubjectIds}) async
+  Future<MinistrySubjectItem> updateMinistrySubject({required int id, required String name, required String level, required List<String> areas, required String description, required List<int> associationSubjectIds}) async
   {
     try
     {
@@ -622,7 +622,7 @@ class ApiService
         data: {
           'name':                    name,
           'level':                   level,
-          'area':                    area,
+          'area':                    areas,
           'description':             description,
           'association_subject_ids': associationSubjectIds,
         },
@@ -632,7 +632,7 @@ class ApiService
         id:                  response.data['id'],
         name:                response.data['name'],
         level:               response.data['level'],
-        area:                response.data['area'],
+        areas:               (response.data['area'] as List).cast<String>(),
         description:         response.data['description'],
         createdAt:           DateTime.parse(response.data['created_at']),
         associationSubjects: response.data['association_subjects'] != null

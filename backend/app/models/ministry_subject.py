@@ -12,6 +12,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -52,6 +53,18 @@ class MinistrySubject(Base):
             """,
             name="ministry_subject_description_not_blank",
         ),
+        CheckConstraint(
+            "cardinality(area) BETWEEN 1 AND 3",
+            name="ministry_subject_area_count_range",
+        ),
+        CheckConstraint(
+            """
+            (area[1] IS DISTINCT FROM area[2] OR area[2] IS NULL)
+            AND (area[1] IS DISTINCT FROM area[3] OR area[3] IS NULL)
+            AND (area[2] IS DISTINCT FROM area[3] OR area[3] IS NULL)
+            """,
+            name="ministry_subject_area_no_duplicates",
+        ),
         *no_surrounding_whitespace_constraints(
             "name",
             "description",
@@ -76,10 +89,12 @@ class MinistrySubject(Base):
         nullable=False,
     )
 
-    area: Mapped[SubjectAreaEnum] = mapped_column(
-        SqlEnum(
-            SubjectAreaEnum,
-            name="subject_area_enum",
+    area: Mapped[list[SubjectAreaEnum]] = mapped_column(
+        ARRAY(
+            SqlEnum(
+                SubjectAreaEnum,
+                name="subject_area_enum",
+            )
         ),
         nullable=False,
     )

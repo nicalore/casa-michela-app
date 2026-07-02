@@ -829,7 +829,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                                 id:                  subj.id, 
                                 name:                subj.name, 
                                 level:               '', 
-                                area:                '', 
+                                areas:               const [], 
                                 description:         '', 
                                 createdAt:           DateTime.now(), 
                                 associationSubjects: const [],

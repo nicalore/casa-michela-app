@@ -81,7 +81,7 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
               (
                 subject:         widget.subject,
                 levelItalian:    _translateLevel(widget.subject.level),
-                areaItalian:     _translateArea(widget.subject.area),
+                areasItalian:    widget.subject.areas.map(_translateArea).toList(),
                 onEditRequested: ()
                 {
                   //PopsTheCurrentDialogUsingItsOwnStillValidContext
@@ -160,7 +160,7 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 const SizedBox(height: 2),
                 Text
                 (
-                  _translateArea(widget.subject.area), 
+                  widget.subject.areas.map(_translateArea).join(', '), 
                   maxLines:   1, 
                   overflow:   TextOverflow.ellipsis,
                   style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
@@ -178,7 +178,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
 {
   final MinistrySubjectItem subject;
   final String              levelItalian;
-  final String              areaItalian;
+  final List<String>        areasItalian;
   final VoidCallback        onEditRequested;
   final VoidCallback        onDelete;
 
@@ -186,7 +186,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
   ({
     required this.subject, 
     required this.levelItalian, 
-    required this.areaItalian, 
+    required this.areasItalian, 
     required this.onEditRequested, 
     required this.onDelete,
   });
@@ -278,37 +278,22 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                     [
                       _buildFieldLabel('Nome'),
                       Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-                      Row
+                      _buildFieldLabel('Livello'),
+                      Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
+                      _buildFieldLabel('Aree'),
+                      Wrap
                       (
-                        children: 
-                        [
-                          Expanded
+                        spacing:    8, 
+                        runSpacing: 8,
+                        children:   areasItalian.map((area) 
+                        {
+                          return Container
                           (
-                            flex:  2, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Livello'), 
-                                Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
-                              ],
-                            ),
-                          ),
-                          Expanded
-                          (
-                            flex:  1, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Area'), 
-                                Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
-                              ],
-                            ),
-                          ),
-                        ],
+                            padding:    const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
+                            decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E5EC))), 
+                            child:      Text(area, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+                          );
+                        }).toList(),
                       ),
                       _buildFieldLabel('Descrizione'),
                       Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),

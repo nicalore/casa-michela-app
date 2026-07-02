@@ -10,7 +10,7 @@ from app.schemas.association_subject import AssociationSubjectOption
 class MinistrySubjectBase(BaseModel):
     name: str = Field(..., min_length=1)
     level: EducationLevelEnum
-    area: SubjectAreaEnum
+    area: list[SubjectAreaEnum] = Field(..., min_length=1, max_length=3)
     description: str | None = Field(None, max_length=1000)
 
     @field_validator("name")
@@ -24,6 +24,13 @@ class MinistrySubjectBase(BaseModel):
         if v is not None:
             cleaned = v.strip()
             return cleaned if len(cleaned) > 0 else None
+        return v
+
+    @field_validator("area")
+    @classmethod
+    def no_duplicate_areas(cls, v: list[SubjectAreaEnum]) -> list[SubjectAreaEnum]:
+        if len(set(v)) != len(v):
+            raise ValueError("Le aree selezionate non possono contenere duplicati.")
         return v
 
 

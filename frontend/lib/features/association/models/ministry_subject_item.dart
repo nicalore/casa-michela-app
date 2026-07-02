@@ -3,7 +3,7 @@ class MinistrySubjectItem
   final int id;
   final String name;
   final String level;
-  final String area;
+  final List<String> areas;
   final String? description;
   final DateTime createdAt;
   final List<AssociationSubjectOption> associationSubjects;
@@ -12,7 +12,7 @@ class MinistrySubjectItem
     required this.id,
     required this.name,
     required this.level,
-    required this.area,
+    required this.areas,
     this.description,
     required this.createdAt,
     this.associationSubjects = const [],
