@@ -62,7 +62,7 @@ async def create_ministry_subject(payload: MinistrySubjectCreate, db: DbSession)
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Errore durante la creazione.") from e
+        raise HTTPException(status_code=400, detail="Errore durante la creazione della disciplina.") from e
 
     stmt_reload = select(MinistrySubject).options(
         selectinload(MinistrySubject.association_subjects)

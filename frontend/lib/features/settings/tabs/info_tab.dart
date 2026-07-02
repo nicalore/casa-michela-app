@@ -126,15 +126,18 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                widget.title,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF003C82),
+              //TitleCanNowWrapToASecondLineInsteadOfOverflowingWhenTheCardGetsNarrow
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF003C82),
+                  ),
                 ),
               ),
-              
+              const SizedBox(width: 12),
               Icon(
                 Icons.chevron_right_rounded,
                 color: _isHovering ? const Color(0xFF003C82) : const Color(0xFFB3B3B3),

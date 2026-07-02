@@ -15,6 +15,7 @@ import '../features/settings/settings_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
 import '../shared/widgets/casa_michela_loader.dart';
+import '../shared/widgets/not_found_page.dart';
 
 final apiService = ApiService();
 
@@ -102,6 +103,9 @@ CustomTransitionPage _buildLogoTransitionPage({
 final appRouter = GoRouter(
   initialLocation: '/dashboard',
   refreshListenable: apiService.authState,
+  errorBuilder: (context, state) => NotFoundPage(
+    requestedLocation: state.uri.toString(),
+  ),
   redirect: (context, state)
   {
     final authState = apiService.authState.value;

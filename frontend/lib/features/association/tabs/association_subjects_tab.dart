@@ -266,7 +266,9 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
     return Dialog(
       backgroundColor: Colors.transparent, elevation: 0,
       child: Container(
-        width: 540, constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre540
+        width: double.infinity,
+        constraints: BoxConstraints(maxWidth: 540, maxHeight: MediaQuery.of(context).size.height * 0.85),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -312,34 +314,83 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
             ),
             Padding(
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 24),
-              child: Row(
-                children: [
-                  Expanded(child: AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); })),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: AnimatedActionButton(
-                      text: _isSaving ? 'SALVATAGGIO...' : (isEditing ? 'SALVA MODIFICHE' : 'CREA'), icon: isEditing ? Icons.save_outlined : Icons.check_circle_outline, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99),
-                      onPressed: () async
-                      {
-                        if (_isSaving) return;
-                        final name = _nameController.text.trim();
-                        if (name.isEmpty) { CustomSnackBar.show(context: context, message: "Il nome non può essere vuoto.", isError: true); return; }
-                        if (_selectedArea == null) { CustomSnackBar.show(context: context, message: "Seleziona un'area di appartenenza.", isError: true); return; }
-                        
-                        setState(() => _isSaving = true);
-                        bool success = await widget.onSave(name, _selectedArea!, _descController.text.trim(), (errorMsg) { if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true); });
-                        if (mounted) setState(() => _isSaving = false);
-                        
-                        if (success) { if (isEditing) Navigator.of(context).pop(); else _resetForm(); }
-                      },
-                    ),
-                  ),
-                ],
+              child: _ResponsiveDialogButtonsRow(
+                secondaryButton: AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
+                //IconaSempreLaSpuntaPerLazioneDiSalvataggio_NonPiuIlDischetto_RichiestaEsplicita
+                primaryButton: AnimatedActionButton(
+                  text: _isSaving ? 'SALVATAGGIO...' : (isEditing ? 'SALVA MODIFICHE' : 'CREA'), icon: Icons.check_circle_outline, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99),
+                  onPressed: () async
+                  {
+                    if (_isSaving) return;
+                    final name = _nameController.text.trim();
+                    if (name.isEmpty) { CustomSnackBar.show(context: context, message: "Il nome non può essere vuoto.", isError: true); return; }
+                    if (_selectedArea == null) { CustomSnackBar.show(context: context, message: "Seleziona un'area di appartenenza.", isError: true); return; }
+                    
+                    setState(() => _isSaving = true);
+                    bool success = await widget.onSave(name, _selectedArea!, _descController.text.trim(), (errorMsg) { if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true); });
+                    if (mounted) setState(() => _isSaving = false);
+                    
+                    if (success) { if (isEditing) Navigator.of(context).pop(); else _resetForm(); }
+                  },
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra_SoloLoStackingUsaLarghezzaFissa
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final Widget secondaryButton;
+  final Widget primaryButton;
+  final double breakpoint;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.secondaryButton,
+    required this.primaryButton,
+    this.breakpoint = 460,
+  });
+
+  static const double _kStackedButtonWidth = 240;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              SizedBox(width: _kStackedButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kStackedButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row
+        (
+          children: 
+          [
+            Expanded(child: secondaryButton),
+            const SizedBox(width: 16),
+            Expanded(child: primaryButton),
+          ],
+        );
+      },
     );
   }
 }

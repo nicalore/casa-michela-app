@@ -44,8 +44,6 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   final TextEditingController _telefonoCtrl = TextEditingController();
   final List<WizardEnrollmentRowData> _enrollmentRows = [];
 
-  static const double _kCompactCardBoxHeight = 560.0;
-
   @override
   void initState() {
     super.initState();
@@ -795,42 +793,20 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       children: [
         WizardFormInputRow(
           label: 'Indirizzo',
-          inputWidget: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: WizardAnimatedTextField(
-                  controller: _tipoViaCtrl,
-                  hint: 'Via/Strada/...',
-                  errorText: _formErrors['tipoVia'],
-                  onChanged: (_) =>
-                      setState(() => _formErrors.remove('tipoVia')),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 5,
-                child: WizardAnimatedTextField(
-                  controller: _indirizzoNomeCtrl,
-                  hint: 'Nome',
-                  errorText: _formErrors['indirizzoNome'],
-                  onChanged: (_) =>
-                      setState(() => _formErrors.remove('indirizzoNome')),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: WizardAnimatedTextField(
-                  controller: _civicoCtrl,
-                  hint: 'N°',
-                  errorText: _formErrors['civico'],
-                  onChanged: (_) =>
-                      setState(() => _formErrors.remove('civico')),
-                ),
-              ),
-            ],
+          //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
+          inputWidget: _WizardAddressFieldsRow(
+            tipoViaCtrl: _tipoViaCtrl,
+            tipoViaError: _formErrors['tipoVia'],
+            onTipoViaChanged: (_) =>
+                setState(() => _formErrors.remove('tipoVia')),
+            nomeCtrl: _indirizzoNomeCtrl,
+            nomeError: _formErrors['indirizzoNome'],
+            onNomeChanged: (_) =>
+                setState(() => _formErrors.remove('indirizzoNome')),
+            civicoCtrl: _civicoCtrl,
+            civicoError: _formErrors['civico'],
+            onCivicoChanged: (_) =>
+                setState(() => _formErrors.remove('civico')),
           ),
         ),
         const SizedBox(height: 16),
@@ -948,106 +924,33 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                       icon: Icons.assignment_ind_outlined,
                     ),
                     children: [
+                      //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
                       ...List.generate(_enrollmentRows.length, (index) {
                         final row = _enrollmentRows[index];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (index == 0) ...[
-                                      Text(
-                                        'Anno',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF7A7A7A),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    WizardAnimatedTextField(
-                                      controller: row.yearCtrl,
-                                      hint: 'Es. 2024',
-                                      keyboardType: TextInputType.number,
-                                      errorText:
-                                          _formErrors['enrollmentYear_$index'],
-                                      onChanged: (_) => setState(
-                                        () => _formErrors.remove(
-                                          'enrollmentYear_$index',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 3,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (index == 0) ...[
-                                      Text(
-                                        'Data inizio',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF7A7A7A),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                    WizardAnimatedTextField(
-                                      controller: row.dateCtrl,
-                                      hint: 'gg/mm',
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        WizardDayMonthInputFormatter(),
-                                      ],
-                                      errorText:
-                                          _formErrors['enrollmentDate_$index'],
-                                      onChanged: (_) => setState(
-                                        () => _formErrors.remove(
-                                          'enrollmentDate_$index',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (index > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: 6,
-                                    left: 8,
-                                  ),
-                                  child: WizardRemoveRowButton(
-                                    onTap: () {
-                                      setState(() {
-                                        _enrollmentRows[index].yearCtrl
-                                            .dispose();
-                                        _enrollmentRows[index].dateCtrl
-                                            .dispose();
-                                        _enrollmentRows.removeAt(index);
-                                        _formErrors.remove(
-                                          'enrollmentYear_$index',
-                                        );
-                                        _formErrors.remove(
-                                          'enrollmentDate_$index',
-                                        );
-                                      });
-                                    },
-                                  ),
-                                )
-                              else
-                                const SizedBox(width: 48),
-                            ],
+                          child: _WizardEnrollmentFieldRow(
+                            yearCtrl: row.yearCtrl,
+                            dateCtrl: row.dateCtrl,
+                            yearError: _formErrors['enrollmentYear_$index'],
+                            dateError: _formErrors['enrollmentDate_$index'],
+                            onYearChanged: (_) => setState(
+                              () => _formErrors.remove('enrollmentYear_$index'),
+                            ),
+                            onDateChanged: (_) => setState(
+                              () => _formErrors.remove('enrollmentDate_$index'),
+                            ),
+                            onRemove: index > 0
+                                ? () {
+                                    setState(() {
+                                      _enrollmentRows[index].yearCtrl.dispose();
+                                      _enrollmentRows[index].dateCtrl.dispose();
+                                      _enrollmentRows.removeAt(index);
+                                      _formErrors.remove('enrollmentYear_$index');
+                                      _formErrors.remove('enrollmentDate_$index');
+                                    });
+                                  }
+                                : null,
                           ),
                         );
                       }),
@@ -1278,220 +1181,149 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                           final bool isCompact =
                                               constraints.maxWidth < 900;
 
-                                          final Widget desktopAnimatedCard =
-                                              AnimatedSwitcher(
-                                                duration: const Duration(
-                                                  milliseconds: 300,
-                                                ),
-                                                switchInCurve:
-                                                    Curves.easeOutCubic,
-                                                switchOutCurve:
-                                                    Curves.easeInCubic,
-                                                layoutBuilder:
-                                                    (
-                                                      currentChild,
-                                                      previousChildren,
-                                                    ) => Stack(
-                                                      alignment:
-                                                          Alignment.center,
+                                          final Widget desktopAnimatedCard = AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            switchInCurve: Curves.easeOutCubic,
+                                            switchOutCurve: Curves.easeInCubic,
+                                            layoutBuilder:
+                                                (currentChild, previousChildren) =>
+                                                    Stack(
+                                                      alignment: Alignment.center,
                                                       children: [
                                                         ...previousChildren,
-                                                        if (currentChild !=
-                                                            null)
+                                                        if (currentChild != null)
                                                           currentChild,
                                                       ],
                                                     ),
-                                                transitionBuilder:
-                                                    (child, animation) {
-                                                      final isEntering =
-                                                          (child.key
-                                                                  as ValueKey<
-                                                                    int
-                                                                  >)
-                                                              .value ==
-                                                          _currentFormCardIndex;
-                                                      Offset beginOffset =
-                                                          _cardMovingForward
-                                                          ? (isEntering
-                                                                ? const Offset(
-                                                                    0.05,
-                                                                    0,
-                                                                  )
-                                                                : const Offset(
-                                                                    -0.05,
-                                                                    0,
-                                                                  ))
-                                                          : (isEntering
-                                                                ? const Offset(
-                                                                    -0.05,
-                                                                    0,
-                                                                  )
-                                                                : const Offset(
-                                                                    0.05,
-                                                                    0,
-                                                                  ));
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: SlideTransition(
-                                                          position:
-                                                              Tween<Offset>(
-                                                                begin:
-                                                                    beginOffset,
-                                                                end:
-                                                                    Offset.zero,
-                                                              ).animate(
-                                                                animation,
-                                                              ),
-                                                          child: child,
-                                                        ),
-                                                      );
-                                                    },
-                                                child: KeyedSubtree(
-                                                  key: ValueKey(
-                                                    _currentFormCardIndex,
-                                                  ),
-                                                  child: currentCard,
+                                            transitionBuilder: (child, animation) {
+                                              final isEntering =
+                                                  (child.key as ValueKey<int>)
+                                                      .value ==
+                                                  _currentFormCardIndex;
+                                              Offset beginOffset =
+                                                  _cardMovingForward
+                                                  ? (isEntering
+                                                        ? const Offset(0.05, 0)
+                                                        : const Offset(-0.05, 0))
+                                                  : (isEntering
+                                                        ? const Offset(-0.05, 0)
+                                                        : const Offset(0.05, 0));
+                                              return FadeTransition(
+                                                opacity: animation,
+                                                child: SlideTransition(
+                                                  position: Tween<Offset>(
+                                                    begin: beginOffset,
+                                                    end: Offset.zero,
+                                                  ).animate(animation),
+                                                  child: child,
                                                 ),
                                               );
+                                            },
+                                            child: KeyedSubtree(
+                                              key: ValueKey(_currentFormCardIndex),
+                                              child: currentCard,
+                                            ),
+                                          );
 
-                                          final Widget compactAnimatedCard =
-                                              AnimatedSwitcher(
-                                                duration: const Duration(
-                                                  milliseconds: 300,
-                                                ),
-                                                switchInCurve:
-                                                    Curves.easeOutCubic,
-                                                switchOutCurve:
-                                                    Curves.easeInCubic,
-                                                layoutBuilder:
-                                                    (
-                                                      currentChild,
-                                                      previousChildren,
-                                                    ) => Stack(
+                                          //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                                          //ScrollsInternallyIfStillNotEnough_SameFixAppliedInPersonWizardPage
+                                          final Widget compactAnimatedCard = AnimatedSwitcher(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            switchInCurve: Curves.easeOutCubic,
+                                            switchOutCurve: Curves.easeInCubic,
+                                            layoutBuilder:
+                                                (currentChild, previousChildren) =>
+                                                    Stack(
                                                       alignment:
                                                           Alignment.topCenter,
                                                       children: [
                                                         ...previousChildren,
-                                                        if (currentChild !=
-                                                            null)
+                                                        if (currentChild != null)
                                                           currentChild,
                                                       ],
                                                     ),
-                                                transitionBuilder:
-                                                    (child, animation) {
-                                                      final isEntering =
-                                                          (child.key
-                                                                  as ValueKey<
-                                                                    int
-                                                                  >)
-                                                              .value ==
-                                                          _currentFormCardIndex;
-                                                      Offset beginOffset =
-                                                          _cardMovingForward
-                                                          ? (isEntering
-                                                                ? const Offset(
-                                                                    0.05,
-                                                                    0,
-                                                                  )
-                                                                : const Offset(
-                                                                    -0.05,
-                                                                    0,
-                                                                  ))
-                                                          : (isEntering
-                                                                ? const Offset(
-                                                                    -0.05,
-                                                                    0,
-                                                                  )
-                                                                : const Offset(
-                                                                    0.05,
-                                                                    0,
-                                                                  ));
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: SlideTransition(
-                                                          position:
-                                                              Tween<Offset>(
-                                                                begin:
-                                                                    beginOffset,
-                                                                end:
-                                                                    Offset.zero,
-                                                              ).animate(
-                                                                animation,
-                                                              ),
-                                                          child: child,
-                                                        ),
-                                                      );
-                                                    },
-                                                child: KeyedSubtree(
-                                                  key: ValueKey(
-                                                    _currentFormCardIndex,
-                                                  ),
-                                                  child: SizedBox(
-                                                    height:
-                                                        _kCompactCardBoxHeight,
-                                                    width: constraints.maxWidth,
-                                                    child:
-                                                        SingleChildScrollView(
-                                                          child: currentCard,
-                                                        ),
-                                                  ),
+                                            transitionBuilder: (child, animation) {
+                                              final isEntering =
+                                                  (child.key as ValueKey<int>)
+                                                      .value ==
+                                                  _currentFormCardIndex;
+                                              Offset beginOffset =
+                                                  _cardMovingForward
+                                                  ? (isEntering
+                                                        ? const Offset(0.05, 0)
+                                                        : const Offset(-0.05, 0))
+                                                  : (isEntering
+                                                        ? const Offset(-0.05, 0)
+                                                        : const Offset(0.05, 0));
+                                              return FadeTransition(
+                                                opacity: animation,
+                                                child: SlideTransition(
+                                                  position: Tween<Offset>(
+                                                    begin: beginOffset,
+                                                    end: Offset.zero,
+                                                  ).animate(animation),
+                                                  child: child,
                                                 ),
                                               );
+                                            },
+                                            child: KeyedSubtree(
+                                              key: ValueKey(_currentFormCardIndex),
+                                              child: SizedBox(
+                                                width: constraints.maxWidth,
+                                                child: SingleChildScrollView(
+                                                  child: currentCard,
+                                                ),
+                                              ),
+                                            ),
+                                          );
 
                                           return isCompact
-                                              ? Center(
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      SizedBox(
-                                                        height:
-                                                            _kCompactCardBoxHeight,
-                                                        width: constraints
-                                                            .maxWidth,
-                                                        child:
-                                                            compactAnimatedCard,
+                                              ? Column(
+                                                  children: [
+                                                    //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                                                    Expanded(
+                                                      child: SizedBox(
+                                                        width: constraints.maxWidth,
+                                                        child: compactAnimatedCard,
                                                       ),
-                                                      const SizedBox(
-                                                        height: 24,
-                                                      ),
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          WizardCarouselArrowButton(
-                                                            icon: Icons
-                                                                .chevron_left_rounded,
-                                                            isDisabled:
-                                                                _currentFormCardIndex ==
-                                                                0,
-                                                            onTap: () => setState(() {
-                                                              _cardMovingForward =
-                                                                  false;
-                                                              _currentFormCardIndex--;
-                                                            }),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 24,
-                                                          ),
-                                                          WizardCarouselArrowButton(
-                                                            icon: Icons
-                                                                .chevron_right_rounded,
-                                                            isDisabled:
-                                                                _currentFormCardIndex ==
-                                                                3,
-                                                            onTap: () => setState(() {
-                                                              _cardMovingForward =
-                                                                  true;
-                                                              _currentFormCardIndex++;
-                                                            }),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                    const SizedBox(height: 24),
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.center,
+                                                      children: [
+                                                        WizardCarouselArrowButton(
+                                                          icon: Icons
+                                                              .chevron_left_rounded,
+                                                          isDisabled:
+                                                              _currentFormCardIndex ==
+                                                              0,
+                                                          onTap: () => setState(() {
+                                                            _cardMovingForward =
+                                                                false;
+                                                            _currentFormCardIndex--;
+                                                          }),
+                                                        ),
+                                                        const SizedBox(width: 24),
+                                                        WizardCarouselArrowButton(
+                                                          icon: Icons
+                                                              .chevron_right_rounded,
+                                                          isDisabled:
+                                                              _currentFormCardIndex ==
+                                                              3,
+                                                          onTap: () => setState(() {
+                                                            _cardMovingForward =
+                                                                true;
+                                                            _currentFormCardIndex++;
+                                                          }),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
                                                 )
                                               : Row(
                                                   mainAxisAlignment:
@@ -1506,8 +1338,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           _currentFormCardIndex ==
                                                           0,
                                                       onTap: () => setState(() {
-                                                        _cardMovingForward =
-                                                            false;
+                                                        _cardMovingForward = false;
                                                         _currentFormCardIndex--;
                                                       }),
                                                     ),
@@ -1517,8 +1348,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           const BoxConstraints(
                                                             maxWidth: 800,
                                                           ),
-                                                      child:
-                                                          desktopAnimatedCard,
+                                                      child: desktopAnimatedCard,
                                                     ),
                                                     const SizedBox(width: 32),
                                                     WizardCarouselArrowButton(
@@ -1528,8 +1358,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           _currentFormCardIndex ==
                                                           3,
                                                       onTap: () => setState(() {
-                                                        _cardMovingForward =
-                                                            true;
+                                                        _cardMovingForward = true;
                                                         _currentFormCardIndex++;
                                                       }),
                                                     ),
@@ -1547,41 +1376,37 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_currentStep == 0)
-                          SizedBox(
-                            width: 200,
-                            child: WizardAnimatedActionButton(
+                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothFixedWidthButtonsSideBySide
+                    //FixedWidthInBothBranches_NeverStretchesToFillTheAvailableSpace
+                    child: _ResponsiveWizardBottomBar(
+                      secondaryButton: _currentStep == 0
+                          ? WizardAnimatedActionButton(
                               text: 'ANNULLA',
                               icon: Icons.close_rounded,
                               baseColor: const Color(0xFFE53935),
                               hoverColor: const Color(0xFFEF5350),
                               onPressed: () => Navigator.of(context).pop(),
-                            ),
-                          )
-                        else
-                          SizedBox(
-                            width: 200,
-                            child: WizardOutlinedActionButton(
+                            )
+                          : WizardOutlinedActionButton(
                               text: 'INDIETRO',
                               icon: Icons.arrow_back_rounded,
                               onPressed: _onBack,
                             ),
-                          ),
-                        const SizedBox(width: 24),
-                        SizedBox(
-                          width: 200,
-                          child: WizardAnimatedActionButton(
-                            text:       _isCheckingCf ? 'VERIFICA...' : (_isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA GENITORE' : 'AVANTI')), 
-                            icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-                            baseColor:  const Color(0xFF003C82), 
-                            hoverColor: const Color(0xFF004D99), 
-                            onPressed:  (_isSubmitting || _isCheckingCf) ? () {} : _onNext,
-                          ),
-                        ),
-                      ],
+                      primaryButton: WizardAnimatedActionButton(
+                        text: _isCheckingCf
+                            ? 'VERIFICA...'
+                            : (_isSubmitting
+                                  ? 'SALVATAGGIO...'
+                                  : (isLastStep ? 'CREA GENITORE' : 'AVANTI')),
+                        icon: isLastStep
+                            ? Icons.check_circle_outline
+                            : Icons.arrow_forward_rounded,
+                        baseColor: const Color(0xFF003C82),
+                        hoverColor: const Color(0xFF004D99),
+                        onPressed: (_isSubmitting || _isCheckingCf)
+                            ? () {}
+                            : _onNext,
+                      ),
                     ),
                   ),
                 ],
@@ -1590,6 +1415,260 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecideRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
+//StessoCriterioDiPersonWizardPage_MaConLarghezzaFissa200InveceDi240_CoerenteConQuestoDialog
+class _ResponsiveWizardBottomBar extends StatelessWidget {
+  final Widget secondaryButton;
+  final Widget primaryButton;
+
+  const _ResponsiveWizardBottomBar({
+    required this.secondaryButton,
+    required this.primaryButton,
+  });
+
+  static const double _kButtonWidth = 200;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        if (isCompact) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: _kButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(width: _kButtonWidth, child: secondaryButton),
+            const SizedBox(width: _kSpacing),
+            SizedBox(width: _kButtonWidth, child: primaryButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDiPersonWizardPage
+class _WizardAddressFieldsRow extends StatelessWidget {
+  final TextEditingController tipoViaCtrl;
+  final String? tipoViaError;
+  final ValueChanged<String> onTipoViaChanged;
+
+  final TextEditingController nomeCtrl;
+  final String? nomeError;
+  final ValueChanged<String> onNomeChanged;
+
+  final TextEditingController civicoCtrl;
+  final String? civicoError;
+  final ValueChanged<String> onCivicoChanged;
+
+  const _WizardAddressFieldsRow({
+    required this.tipoViaCtrl,
+    required this.tipoViaError,
+    required this.onTipoViaChanged,
+    required this.nomeCtrl,
+    required this.nomeError,
+    required this.onNomeChanged,
+    required this.civicoCtrl,
+    required this.civicoError,
+    required this.onCivicoChanged,
+  });
+
+  static const double _kBreakpoint = 420;
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget tipoViaField = WizardAnimatedTextField(
+          controller: tipoViaCtrl,
+          hint: 'Via/Strada/...',
+          errorText: tipoViaError,
+          onChanged: onTipoViaChanged,
+        );
+
+        final Widget nomeField = WizardAnimatedTextField(
+          controller: nomeCtrl,
+          hint: 'Nome',
+          errorText: nomeError,
+          onChanged: onNomeChanged,
+        );
+
+        final Widget civicoField = WizardAnimatedTextField(
+          controller: civicoCtrl,
+          hint: 'N°',
+          errorText: civicoError,
+          onChanged: onCivicoChanged,
+        );
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              tipoViaField,
+              const SizedBox(height: 16),
+              nomeField,
+              const SizedBox(height: 16),
+              civicoField,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: tipoViaField),
+            const SizedBox(width: 8),
+            Expanded(flex: 5, child: nomeField),
+            const SizedBox(width: 8),
+            Expanded(flex: 2, child: civicoField),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDiPersonWizardPage
+class _WizardEnrollmentFieldRow extends StatelessWidget {
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+  final String? yearError;
+  final String? dateError;
+  final ValueChanged<String> onYearChanged;
+  final ValueChanged<String> onDateChanged;
+  final VoidCallback? onRemove;
+
+  const _WizardEnrollmentFieldRow({
+    required this.yearCtrl,
+    required this.dateCtrl,
+    required this.yearError,
+    required this.dateError,
+    required this.onYearChanged,
+    required this.onDateChanged,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 360;
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget yearField = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('Anno'),
+            WizardAnimatedTextField(
+              controller: yearCtrl,
+              hint: 'Es. 2024',
+              keyboardType: TextInputType.number,
+              errorText: yearError,
+              onChanged: onYearChanged,
+            ),
+          ],
+        );
+
+        final Widget dateField = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('Data inizio'),
+            WizardAnimatedTextField(
+              controller: dateCtrl,
+              hint: 'gg/mm',
+              keyboardType: TextInputType.number,
+              inputFormatters: [WizardDayMonthInputFormatter()],
+              errorText: dateError,
+              onChanged: onDateChanged,
+            ),
+          ],
+        );
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              yearField,
+              const SizedBox(height: 16),
+              onRemove == null
+                  ? dateField
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(child: dateField),
+                        const SizedBox(width: 8),
+                        WizardRemoveRowButton(onTap: onRemove!),
+                      ],
+                    ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 2, child: yearField),
+            const SizedBox(width: 16),
+            Expanded(flex: 3, child: dateField),
+            //RicalibratoRispettoAllOriginale_top:6EraCalibratoQuandoLetichettaCompariva
+            //SoloSullaPrimaRiga_QuiCompareSempre_QuindiIlCampoSiSpostaInBassoDiCirca27px
+            onRemove != null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 32, left: 8),
+                    child: WizardRemoveRowButton(onTap: onRemove!),
+                  )
+                : const SizedBox(width: 48),
+          ],
+        );
+      },
     );
   }
 }

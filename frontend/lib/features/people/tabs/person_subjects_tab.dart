@@ -10,7 +10,7 @@ import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../person_wizard_components.dart';
 
-class PersonSubjectsTab extends StatelessWidget 
+class PersonSubjectsTab extends StatefulWidget 
 {
   final PersonItem   person;
   final VoidCallback onUpdate;
@@ -20,6 +20,46 @@ class PersonSubjectsTab extends StatelessWidget
     required this.person,
     required this.onUpdate,
   });
+
+  @override
+  State<PersonSubjectsTab> createState() => _PersonSubjectsTabState();
+}
+
+class _PersonSubjectsTabState extends State<PersonSubjectsTab>
+{
+  final TextEditingController _searchCtrl = TextEditingController();
+  String  _searchText = '';
+  String  _sortBy     = 'name_asc';
+  String? _filterArea;
+
+  @override
+  void dispose()
+  {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<TeacherSubjectItem> get _filteredSubjects
+  {
+    final List<TeacherSubjectItem> subjects = widget.person.teacherSubjects ?? [];
+
+    var result = subjects.where((subj)
+    {
+      final query         = _searchText.toLowerCase();
+      final matchesSearch = subj.subjectName.toLowerCase().contains(query);
+      final matchesArea   = _filterArea == null || subj.subjectArea == _filterArea;
+      return matchesSearch && matchesArea;
+    }).toList();
+
+    result.sort((a, b)
+    {
+      if (_sortBy == 'name_asc') return a.subjectName.compareTo(b.subjectName);
+      if (_sortBy == 'name_desc') return b.subjectName.compareTo(a.subjectName);
+      return 0;
+    });
+
+    return result;
+  }
 
   void _openEditDialog(BuildContext context) 
   {
@@ -40,8 +80,8 @@ class PersonSubjectsTab extends StatelessWidget
             child: ScaleTransition(
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
               child: _SubjectsEditDialog(
-                person:   person, 
-                onUpdate: onUpdate,
+                person:   widget.person, 
+                onUpdate: widget.onUpdate,
               ),
             ),
           ),
@@ -79,9 +119,9 @@ class PersonSubjectsTab extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    final List<TeacherSubjectItem> subjects = person.teacherSubjects ?? [];
+    final List<TeacherSubjectItem> allSubjects = widget.person.teacherSubjects ?? [];
 
-    if (subjects.isEmpty) 
+    if (allSubjects.isEmpty) 
     {
       return Center(
         child: Padding(
@@ -114,6 +154,8 @@ class PersonSubjectsTab extends StatelessWidget
       );
     }
 
+    final validSubjects = _filteredSubjects;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(
         top:    16,
@@ -123,21 +165,78 @@ class PersonSubjectsTab extends StatelessWidget
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
+          constraints: const BoxConstraints(maxWidth: 1520),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing:    16,
-                runSpacing: 16,
-                children:   subjects.map((subj) 
-                {
-                  return _SubjectReadOnlyCard(
-                    subject: subj,
-                    onTap:   () => _openReadOnlyProgramsDialog(context, subj),
-                  );
-                }).toList(),
+              Row(
+                children: [
+                  Expanded(
+                    child: WizardAnimatedSearchBar(
+                      controller: _searchCtrl,
+                      onChanged:  (value) => setState(() => _searchText = value),
+                      hintText:   'Cerca disciplina...',
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  WizardFilterMenu<String>(
+                    hint:          'Ordina per',
+                    icon:          Icons.sort_rounded,
+                    value:         _sortBy,
+                    menuWidth:     180,
+                    showClearIcon: false,
+                    onChanged:     (val) => setState(() => _sortBy = val),
+                    onClear:       () {},
+                    options: [
+                      WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'),
+                      WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  WizardFilterMenu<String>(
+                    hint:          'Tutte le aree',
+                    icon:          Icons.category_outlined,
+                    value:         _filterArea,
+                    menuWidth:     200,
+                    showClearIcon: true,
+                    onChanged:     (val) => setState(() => _filterArea = val),
+                    onClear:       () => setState(() => _filterArea = null),
+                    options: [
+                      WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'),
+                      WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'),
+                      WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica'),
+                    ],
+                  ),
+                ],
               ),
+              const SizedBox(height: 24),
+              if (validSubjects.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Center(
+                    child: Text(
+                      'Nessuna disciplina trovata per questa ricerca.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   16,
+                        fontWeight: FontWeight.w500,
+                        color:      const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing:    16,
+                  runSpacing: 16,
+                  alignment:  WrapAlignment.start,
+                  children:   validSubjects.map((subj) 
+                  {
+                    return _SubjectReadOnlyCard(
+                      subject: subj,
+                      onTap:   () => _openReadOnlyProgramsDialog(context, subj),
+                    );
+                  }).toList(),
+                ),
               const SizedBox(height: 48),
               Center(
                 child: SizedBox(
@@ -182,71 +281,90 @@ class _SubjectReadOnlyCardState extends State<_SubjectReadOnlyCard>
   {
     final int count = widget.subject.studyProgramIds.length;
 
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration:   const Duration(milliseconds: 180),
-          curve:      Curves.easeOut,
-          width:      320,
-          height:     100,
-          padding:    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          alignment:  Alignment.centerLeft,
-          decoration: BoxDecoration(
-            color:        Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: _isHovering ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), 
-              width: 2,
+    return Tooltip(
+      message:      widget.subject.subjectName,
+      waitDuration: const Duration(milliseconds: 600),
+      padding:      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle:    GoogleFonts.plusJakartaSans(
+        fontSize:   14, 
+        fontWeight: FontWeight.w500, 
+        color:      Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color:        const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: MouseRegion(
+        cursor:  SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit:  (_) => setState(() => _isHovering = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration:    const Duration(milliseconds: 180),
+            curve:       Curves.easeOut,
+            width:       360,
+            constraints: const BoxConstraints(minHeight: 100),
+            padding:     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            alignment:   Alignment.centerLeft,
+            decoration: BoxDecoration(
+              color:        Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: _isHovering ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), 
+                width: 2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color:      Color(0x0A000000), 
+                  offset:     Offset(0, 4), 
+                  blurRadius: 16,
+                )
+              ],
             ),
-            boxShadow: const [
-              BoxShadow(
-                color:      Color(0x0A000000), 
-                offset:     Offset(0, 4), 
-                blurRadius: 16,
-              )
-            ],
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.subject_rounded,
-                size:  32,
-                color: Color(0xFF003C82),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment:  MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.subject.subjectName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize:   16,
-                        fontWeight: FontWeight.w700,
-                        color:      const Color(0xFF003C82),
-                        height:     1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      count == 1 ? '1 percorso' : '$count percorsi',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize:   13,
-                        fontWeight: FontWeight.w600,
-                        color:      const Color(0xFF003C82),
-                      ),
-                    ),
-                  ],
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.subject_rounded,
+                  size:  32,
+                  color: Color(0xFFB3B3B3),
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize:       MainAxisSize.min,
+                    mainAxisAlignment:  MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.subject.subjectName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize:   16,
+                          fontWeight: FontWeight.w700,
+                          color:      const Color(0xFF2A2A2A),
+                          height:     1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        count == 1 ? '1 percorso' : '$count percorsi',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize:   13,
+                          fontWeight: FontWeight.w600,
+                          color:      const Color(0xFF8A8A8A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -693,48 +811,52 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
                   const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: WizardAnimatedSearchBar(
-                            controller: _searchSubjectsCtrl, 
-                            onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                            hintText:   'Cerca disciplina...',
-                          ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1140),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: WizardAnimatedSearchBar(
+                                controller: _searchSubjectsCtrl, 
+                                onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                                hintText:   'Cerca disciplina...',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            WizardFilterMenu<String>(
+                              hint:          'Ordina per', 
+                              icon:          Icons.sort_rounded, 
+                              value:         _sortSubjectsBy, 
+                              menuWidth:     180, 
+                              showClearIcon: false, 
+                              onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                              onClear:       () {}, 
+                              options: [
+                                WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                                WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                                WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                                WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
+                              ]
+                            ),
+                            const SizedBox(width: 16),
+                            WizardFilterMenu<String>(
+                              hint:          'Tutte le aree', 
+                              icon:          Icons.category_outlined, 
+                              value:         _filterSubjectsArea, 
+                              menuWidth:     200, 
+                              showClearIcon: true, 
+                              onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
+                              onClear:       () => setState(() => _filterSubjectsArea = null), 
+                              options: [
+                                WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
+                                WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
+                                WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
+                              ]
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        WizardFilterMenu<String>(
-                          hint:          'Ordina per', 
-                          icon:          Icons.sort_rounded, 
-                          value:         _sortSubjectsBy, 
-                          menuWidth:     180, 
-                          showClearIcon: false, 
-                          onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
-                          onClear:       () {}, 
-                          options: [
-                            WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                            WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                            WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                            WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
-                          ]
-                        ),
-                        const SizedBox(width: 16),
-                        WizardFilterMenu<String>(
-                          hint:          'Tutte le aree', 
-                          icon:          Icons.category_outlined, 
-                          value:         _filterSubjectsArea, 
-                          menuWidth:     200, 
-                          showClearIcon: true, 
-                          onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
-                          onClear:       () => setState(() => _filterSubjectsArea = null), 
-                          options: [
-                            WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
-                            WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
-                            WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
-                          ]
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -754,30 +876,35 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
                                   ),
                                 ),
                               )
-                            : Wrap(
-                                spacing:    16,
-                                runSpacing: 16,
-                                alignment:  WrapAlignment.center,
-                                children:   validSubjects.map((subject) 
-                                {
-                                  final isSelected    = _subjectToggles[subject.id] ?? false;
-                                  final selectedCount = (_selectedProgramsForSubject[subject.id] ?? {}).length;
-                                  
-                                  return WizardSubjectGridCard(
-                                    subject:       subject,
-                                    isSelected:    isSelected,
-                                    selectedCount: selectedCount,
-                                    onTap:         () => _openProgramsDialog(subject),
-                                    onRemove:      () 
+                            : Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 1140),
+                                  child: Wrap(
+                                    spacing:    16,
+                                    runSpacing: 16,
+                                    alignment:  WrapAlignment.start,
+                                    children:   validSubjects.map((subject) 
                                     {
-                                      setState(() 
-                                      {
-                                        _subjectToggles[subject.id] = false;
-                                        _selectedProgramsForSubject.remove(subject.id);
-                                      });
-                                    },
-                                  );
-                                }).toList(),
+                                      final isSelected    = _subjectToggles[subject.id] ?? false;
+                                      final selectedCount = (_selectedProgramsForSubject[subject.id] ?? {}).length;
+                                      
+                                      return WizardSubjectGridCard(
+                                        subject:       subject,
+                                        isSelected:    isSelected,
+                                        selectedCount: selectedCount,
+                                        onTap:         () => _openProgramsDialog(subject),
+                                        onRemove:      () 
+                                        {
+                                          setState(() 
+                                          {
+                                            _subjectToggles[subject.id] = false;
+                                            _selectedProgramsForSubject.remove(subject.id);
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
                               ),
                         ),
                   ),

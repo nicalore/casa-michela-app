@@ -945,7 +945,7 @@ async def wizard_create_person(payload: PersonWizardPayload, db: DbSession):
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Errore durante la creazione: {str(e)}"
+            detail=f"Errore durante la creazione della persona: {str(e)}"
         )
 
 

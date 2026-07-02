@@ -21,6 +21,10 @@ import 'tabs/person_parents_tab.dart';
 import 'tabs/person_children_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 
+const double _kNavCompactBreakpoint = 700.0;
+
+const double _kHeaderCardCompactBreakpoint = 420.0;
+
 class PersonDetailPage extends StatefulWidget {
   final String fiscalCode;
 
@@ -206,6 +210,41 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
     }
   }
 
+  Widget _buildBackButton() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(40),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(40),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        onTap: () {
+          context.go('/people');
+        },
+        child: Container(
+          width: 88,
+          height: 54,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.all(Radius.circular(40)),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x0A000000),
+                offset: Offset(0, 4),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF003C82),
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderCard() {
     if (_person == null) {
       return const SizedBox.shrink();
@@ -239,92 +278,94 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
       _person!.roles,
     );
 
-    return Container(
-      width: 800,
-      height: 180,
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+    final Widget avatar = Container(
+      width: 100,
+      height: 100,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            offset: Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
+        color: const Color(0xFFE2E8F0),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF003C82), width: 3.0),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF003C82), width: 3.0),
-            ),
-            child: ClipOval(
-              child: hasImage
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return fallbackWidget;
-                      },
-                    )
-                  : fallbackWidget,
-            ),
-          ),
-          const SizedBox(width: 32),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_person!.firstName} ${_person!.lastName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF003C82),
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: processedRoles.map((role) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE0E5EC)),
-                      ),
-                      child: Text(
-                        role,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: ClipOval(
+        child: hasImage
+            ? Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return fallbackWidget;
+                },
+              )
+            : fallbackWidget,
       ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kHeaderCardCompactBreakpoint;
+
+        final Widget nameAndRoles = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: isCompact
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_person!.firstName} ${_person!.lastName}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: isCompact ? TextAlign.center : TextAlign.start,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF003C82),
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _HeaderRoleChipsRow(
+              roles: processedRoles,
+              centered: isCompact,
+            ),
+          ],
+        );
+
+        return Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 140),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 20 : 32,
+            vertical: 24,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(40),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                offset: Offset(0, 4),
+                blurRadius: 16,
+              ),
+            ],
+          ),
+          child: isCompact
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    avatar,
+                    const SizedBox(height: 16),
+                    nameAndRoles,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    avatar,
+                    const SizedBox(width: 32),
+                    Expanded(child: nameAndRoles),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -356,44 +397,35 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(40),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(40),
-                  splashFactory: NoSplash.splashFactory,
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  onTap: () {
-                    context.go('/people');
-                  },
-                  child: Container(
-                    width: 88,
-                    height: 54,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.all(Radius.circular(40)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          offset: Offset(0, 4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: Color(0xFF003C82),
-                      size: 26,
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(child: Center(child: _buildHeaderCard())),
-              const SizedBox(width: 88),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final bool isCompact = constraints.maxWidth < _kNavCompactBreakpoint;
+
+              final Widget headerCard = ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: _buildHeaderCard(),
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildBackButton(),
+                    const SizedBox(height: 16),
+                    headerCard,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBackButton(),
+                  Expanded(child: Center(child: headerCard)),
+                  const SizedBox(width: 88),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 32),
           AppCustomTabBar(
@@ -425,7 +457,9 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
         minWidth: AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height) {
-          final viewportWidth = MediaQuery.of(context).size.width;
+          //LarghezzaVERADelCanvasFlutter_NonQuellaClampataAlMinimoDaAppPageContainer
+          //ServeAdAppCustomTabBarPerSapereQuantoSpazioEDAVVEROVisibile_EQuindiSePaginare
+          final double viewportWidth = MediaQuery.of(context).size.width;
 
           return Container(
             width: width,
@@ -507,6 +541,151 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
           );
         },
       ),
+    );
+  }
+}
+
+class _HeaderRoleChipsRow extends StatelessWidget {
+  final List<String> roles;
+  final bool centered;
+
+  const _HeaderRoleChipsRow({required this.roles, this.centered = false});
+
+  static const double _chipHorizontalPadding = 28;
+  static const double _chipBorderAllowance = 2;
+  static const double _chipSpacing = 8;
+
+  double _measureChipWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (roles.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chipStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        );
+        final extraStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF64748B),
+        );
+
+        int visibleCount = roles.length;
+        while (visibleCount > 1) {
+          double totalWidth = 0;
+          for (int i = 0; i < visibleCount; i++) {
+            totalWidth += _measureChipWidth(roles[i], chipStyle);
+            if (i > 0) totalWidth += _chipSpacing;
+          }
+
+          final int remaining = roles.length - visibleCount;
+          if (remaining > 0) {
+            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
+          }
+
+          if (totalWidth <= constraints.maxWidth) break;
+          visibleCount--;
+        }
+
+        final int extraCount = roles.length - visibleCount;
+        final List<String> hiddenRoles = roles.sublist(visibleCount);
+
+        final List<Widget> chips = [];
+        for (int i = 0; i < visibleCount; i++) {
+          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_HeaderRoleChip(label: roles[i], style: chipStyle));
+        }
+        if (extraCount > 0) {
+          chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_HeaderRoleChip(
+            label: '+$extraCount',
+            style: extraStyle,
+            hiddenRoles: hiddenRoles,
+          ));
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            child: Align(
+              alignment: centered ? Alignment.center : Alignment.centerLeft,
+              child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeaderRoleChip extends StatelessWidget {
+  final String label;
+  final TextStyle style;
+  final List<String>? hiddenRoles;
+
+  const _HeaderRoleChip({required this.label, required this.style, this.hiddenRoles});
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E5EC)),
+      ),
+      child: Text(label, style: style),
+    );
+
+    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
+
+    return Tooltip(
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      richMessage: TextSpan(
+        children: [
+          TextSpan(
+            text: 'Altri ruoli:\n',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: const Color(0xFF94A3B8),
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+          TextSpan(
+            text: hiddenRoles!.join('\n'),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+      child: chip,
     );
   }
 }

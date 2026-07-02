@@ -200,37 +200,18 @@ class PersonMembershipsTab extends StatelessWidget
             const SizedBox(height: 40),
             Center
             (
-              child: Row
+              child: _ResponsiveActionButtonsRow
               (
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: 
-                [
-                  SizedBox
-                  (
-                    width: 240,
-                    child: AnimatedActionButton
-                    (
-                      text:       'MODIFICA ISCRIZIONI',
-                      icon:       Icons.edit_rounded,
-                      baseColor:  const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
-                      onPressed:  () => _showEditDialog(context),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  SizedBox
-                  (
-                    width: 240,
-                    child: AnimatedActionButton
-                    (
-                      text:       'REVOCA ISCRIZIONE',
-                      icon:       Icons.gavel_rounded,
-                      baseColor:  const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
-                      onPressed:  () => _showRevokeDialog(context),
-                    ),
-                  ),
-                ],
+                primaryText:         'MODIFICA ISCRIZIONI',
+                primaryIcon:         Icons.edit_rounded,
+                primaryColor:        const Color(0xFF003C82),
+                primaryHoverColor:   const Color(0xFF004D99),
+                primaryOnPressed:    () => _showEditDialog(context),
+                secondaryText:       'REVOCA ISCRIZIONE',
+                secondaryIcon:       Icons.gavel_rounded,
+                secondaryColor:      const Color(0xFFE53935),
+                secondaryHoverColor: const Color(0xFFEF5350),
+                secondaryOnPressed:  () => _showRevokeDialog(context),
               ),
             ),
           ],
@@ -402,10 +383,9 @@ class PersonMembershipsTab extends StatelessWidget
               ),
             ],
             const SizedBox(height: 32),
-            Row
+            //SempreIncolonnate_NonSoloQuandoLoSpazioNonBasta_RichiestaEsplicita
+            _buildStackedDateItems
             (
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: 
               [
                 _buildDateItem('Data inizio', dateFormat.format(membership.startDate)),
                 _buildDateItem('Data fine', dateFormat.format(membership.endDate)),
@@ -421,6 +401,21 @@ class PersonMembershipsTab extends StatelessWidget
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStackedDateItems(List<Widget> items)
+  {
+    final List<Widget> stacked = [];
+    for (int i = 0; i < items.length; i++)
+    {
+      if (i > 0) stacked.add(const SizedBox(height: 20));
+      stacked.add(items[i]);
+    }
+    return Column
+    (
+      mainAxisSize: MainAxisSize.min,
+      children: stacked,
     );
   }
 
@@ -455,6 +450,192 @@ class PersonMembershipsTab extends StatelessWidget
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedButtons_BasedOnActualAvailableWidth
+class _ResponsiveActionButtonsRow extends StatelessWidget
+{
+  final String primaryText;
+  final IconData primaryIcon;
+  final Color primaryColor;
+  final Color primaryHoverColor;
+  final VoidCallback primaryOnPressed;
+
+  final String secondaryText;
+  final IconData secondaryIcon;
+  final Color secondaryColor;
+  final Color secondaryHoverColor;
+  final VoidCallback secondaryOnPressed;
+
+  const _ResponsiveActionButtonsRow
+  ({
+    required this.primaryText,
+    required this.primaryIcon,
+    required this.primaryColor,
+    required this.primaryHoverColor,
+    required this.primaryOnPressed,
+    required this.secondaryText,
+    required this.secondaryIcon,
+    required this.secondaryColor,
+    required this.secondaryHoverColor,
+    required this.secondaryOnPressed,
+  });
+
+  static const double _kButtonWidth = 240;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget primaryButton = SizedBox
+        (
+          width: _kButtonWidth,
+          child: AnimatedActionButton
+          (
+            text:       primaryText,
+            icon:       primaryIcon,
+            baseColor:  primaryColor,
+            hoverColor: primaryHoverColor,
+            onPressed:  primaryOnPressed,
+          ),
+        );
+
+        final Widget secondaryButton = SizedBox
+        (
+          width: _kButtonWidth,
+          child: AnimatedActionButton
+          (
+            text:       secondaryText,
+            icon:       secondaryIcon,
+            baseColor:  secondaryColor,
+            hoverColor: secondaryHoverColor,
+            onPressed:  secondaryOnPressed,
+          ),
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              primaryButton,
+              const SizedBox(height: 16),
+              secondaryButton,
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: 
+          [
+            primaryButton,
+            const SizedBox(width: _kSpacing),
+            secondaryButton,
+          ],
+        );
+      },
+    );
+  }
+}
+
+//UsataDentroIDueDialog_PulsantiAPienaLarghezzaCheSiImpilanoSottoSoglia
+//IlPrimoParametro_confirm_VaSempreSopraQuandoImpilati_IlSecondo_cancel_VaSempreSotto
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final String cancelText;
+  final IconData cancelIcon;
+  final Color cancelColor;
+  final Color cancelHoverColor;
+  final VoidCallback cancelOnPressed;
+
+  final String confirmText;
+  final IconData confirmIcon;
+  final Color confirmColor;
+  final Color confirmHoverColor;
+  final VoidCallback confirmOnPressed;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.cancelText,
+    required this.cancelIcon,
+    required this.cancelColor,
+    required this.cancelHoverColor,
+    required this.cancelOnPressed,
+    required this.confirmText,
+    required this.confirmIcon,
+    required this.confirmColor,
+    required this.confirmHoverColor,
+    required this.confirmOnPressed,
+  });
+
+  //SottoQuestaLarghezzaTestiLunghiComeCONFERMAREVOCARischianoDiEssereSchiacciati
+  static const double _kBreakpoint = 460;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget cancelButton = AnimatedActionButton
+        (
+          text:       cancelText,
+          icon:       cancelIcon,
+          baseColor:  cancelColor,
+          hoverColor: cancelHoverColor,
+          onPressed:  cancelOnPressed,
+        );
+
+        final Widget confirmButton = AnimatedActionButton
+        (
+          text:       confirmText,
+          icon:       confirmIcon,
+          baseColor:  confirmColor,
+          hoverColor: confirmHoverColor,
+          onPressed:  confirmOnPressed,
+        );
+
+        if (isCompact)
+        {
+          //TastoAnnullaSempreInFondoQuandoIBottoniSiImpilano_RichiestaEsplicita
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              confirmButton,
+              const SizedBox(height: 16),
+              cancelButton,
+            ],
+          );
+        }
+
+        return Row
+        (
+          children: 
+          [
+            Expanded(child: cancelButton),
+            const SizedBox(width: 16),
+            Expanded(child: confirmButton),
+          ],
+        );
+      },
     );
   }
 }
@@ -532,7 +713,10 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
       elevation:       0,
       child: Container
       (
-        width:       540,
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre540
+        //SenzaQuestoIBottoniInternoNonRicevonoMaiUnoStrettoAbbastanzaDaImpilarsi
+        width:       double.infinity,
+        constraints: const BoxConstraints(maxWidth: 540),
         padding:     const EdgeInsets.all(32),
         decoration:  BoxDecoration
         (
@@ -630,34 +814,18 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               onSelected: (val) => setState(() => _selectedType = val),
             ),
             const SizedBox(height: 32),
-            Row
+            _ResponsiveDialogButtonsRow
             (
-              children: 
-              [
-                Expanded
-                (
-                  child: AnimatedActionButton
-                  (
-                    text:       'ANNULLA',
-                    icon:       Icons.cancel_outlined,
-                    baseColor:  const Color(0xFFE53935),
-                    hoverColor: const Color(0xFFEF5350),
-                    onPressed:  () => Navigator.of(context).pop(),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded
-                (
-                  child: AnimatedActionButton
-                  (
-                    text:       _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
-                    icon:       Icons.gavel_rounded,
-                    baseColor:  const Color(0xFF003C82), 
-                    hoverColor: const Color(0xFF004D99), 
-                    onPressed:  _isSaving ? () {} : _submitRevocation,
-                  ),
-                ),
-              ],
+              cancelText:        'ANNULLA',
+              cancelIcon:        Icons.cancel_outlined,
+              cancelColor:       const Color(0xFFE53935),
+              cancelHoverColor:  const Color(0xFFEF5350),
+              cancelOnPressed:   () => Navigator.of(context).pop(),
+              confirmText:       _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
+              confirmIcon:       Icons.gavel_rounded,
+              confirmColor:      const Color(0xFF003C82),
+              confirmHoverColor: const Color(0xFF004D99),
+              confirmOnPressed:  _isSaving ? () {} : _submitRevocation,
             ),
           ],
         ),
@@ -973,8 +1141,13 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       elevation:       0,
       child: Container
       (
-        width:       680, 
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre680
+        width:       double.infinity,
+        constraints: BoxConstraints
+        (
+          maxWidth:  680,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         decoration:  BoxDecoration
         (
           color:        Colors.white, 
@@ -1045,96 +1218,19 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                       ),
                       const SizedBox(height: 32),
                       _buildFieldLabel('Storico Iscrizioni'),
+                      //OgniRigaOraDecideDaSolaSeAffiancareOImpilareIDueCampi
                       ...List.generate(_rows.length, (i) 
                       {
                         final r = _rows[i];
-                        return Container
+                        return _MembershipEditRow
                         (
-                          margin:     const EdgeInsets.only(bottom: 16),
-                          padding:    const EdgeInsets.all(16),
-                          decoration: BoxDecoration
-                          (
-                            borderRadius: BorderRadius.circular(16),
-                            border:       Border.all(color: const Color(0xFFE2E8F0)),
-                            color:        const Color(0xFFF8FAFC),
-                          ),
-                          child: Row
-                          (
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: 
-                            [
-                              Expanded
-                              (
-                                flex: 2,
-                                child: Column
-                                (
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: 
-                                  [
-                                    Text
-                                    (
-                                      'Anno', 
-                                      style: GoogleFonts.plusJakartaSans
-                                      (
-                                        fontSize:   12, 
-                                        fontWeight: FontWeight.w600, 
-                                        color:      const Color(0xFF64748B),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    WizardAnimatedTextField
-                                    (
-                                      controller:   r.yearCtrl,
-                                      hint:         'Es. 2024',
-                                      errorText:    _errors['year_$i'],
-                                      keyboardType: TextInputType.number,
-                                      onChanged:    (_) => setState(() => _errors.remove('year_$i')),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded
-                              (
-                                flex: 3,
-                                child: Column
-                                (
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: 
-                                  [
-                                    Text
-                                    (
-                                      'Data inizio', 
-                                      style: GoogleFonts.plusJakartaSans
-                                      (
-                                        fontSize:   12, 
-                                        fontWeight: FontWeight.w600, 
-                                        color:      const Color(0xFF64748B),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    WizardAnimatedTextField
-                                    (
-                                      controller:      r.dateCtrl,
-                                      hint:            'gg/mm',
-                                      errorText:       _errors['start_$i'],
-                                      inputFormatters: [WizardDayMonthInputFormatter()],
-                                      keyboardType:    TextInputType.number,
-                                      onChanged:       (_) => setState(() => _errors.remove('start_$i')),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding
-                              (
-                                padding: const EdgeInsets.only(top: 22, left: 8),
-                                child: WizardRemoveRowButton
-                                (
-                                  onTap: () => setState(() => _rows.removeAt(i)),
-                                ),
-                              ),
-                            ],
-                          ),
+                          yearCtrl:      r.yearCtrl,
+                          dateCtrl:      r.dateCtrl,
+                          yearError:     _errors['year_$i'],
+                          startError:    _errors['start_$i'],
+                          onYearChanged: (_) => setState(() => _errors.remove('year_$i')),
+                          onDateChanged: (_) => setState(() => _errors.remove('start_$i')),
+                          onRemove:      () => setState(() => _rows.removeAt(i)),
                         );
                       }),
                       const SizedBox(height: 8),
@@ -1143,7 +1239,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
                         alignment: Alignment.centerRight,
                         child: WizardTextLinkButton
                         (
-                          text:  'AGGIUNGI ISCRIZIONE',
+                          text:  'Aggiungi iscrizione',
                           icon:  Icons.add_rounded,
                           onTap: _addEmptyRow,
                         ),
@@ -1156,38 +1252,160 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
             Padding
             (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-              child: Row
+              child: _ResponsiveDialogButtonsRow
               (
-                children: 
-                [
-                  Expanded
-                  (
-                    child: AnimatedActionButton
-                    (
-                      text:       'ANNULLA', 
-                      icon:       Icons.cancel_outlined, 
-                      baseColor:  const Color(0xFFE53935), 
-                      hoverColor: const Color(0xFFEF5350), 
-                      onPressed:  () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded
-                  (
-                    child: AnimatedActionButton
-                    (
-                      text:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
-                      icon:       Icons.save_outlined, 
-                      baseColor:  const Color(0xFF003C82), 
-                      hoverColor: const Color(0xFF004D99),
-                      onPressed:  _isSaving ? () {} : _save,
-                    ),
-                  ),
-                ],
+                cancelText:        'ANNULLA',
+                cancelIcon:        Icons.cancel_outlined,
+                cancelColor:       const Color(0xFFE53935),
+                cancelHoverColor:  const Color(0xFFEF5350),
+                cancelOnPressed:   () => Navigator.of(context).pop(),
+                confirmText:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
+                confirmIcon:       Icons.save_outlined,
+                confirmColor:      const Color(0xFF003C82),
+                confirmHoverColor: const Color(0xFF004D99),
+                confirmOnPressed:  _isSaving ? () {} : _save,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareAnnoEDataInizio_InBaseAllaLarghezzaRealeDellaRiga
+//DaImpilato_Il"-"SiSpostaAccantoAllUltimoCampo_AllineatoInBasso
+class _MembershipEditRow extends StatelessWidget
+{
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+  final String? yearError;
+  final String? startError;
+  final ValueChanged<String> onYearChanged;
+  final ValueChanged<String> onDateChanged;
+  final VoidCallback onRemove;
+
+  const _MembershipEditRow
+  ({
+    required this.yearCtrl,
+    required this.dateCtrl,
+    required this.yearError,
+    required this.startError,
+    required this.onYearChanged,
+    required this.onDateChanged,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 360;
+
+  Widget _buildFieldBlock(String label, Widget field)
+  {
+    return Column
+    (
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: 
+      [
+        Text
+        (
+          label, 
+          style: GoogleFonts.plusJakartaSans
+          (
+            fontSize:   12, 
+            fontWeight: FontWeight.w600, 
+            color:      const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 4),
+        field,
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container
+    (
+      margin:     const EdgeInsets.only(bottom: 16),
+      padding:    const EdgeInsets.all(16),
+      decoration: BoxDecoration
+      (
+        borderRadius: BorderRadius.circular(16),
+        border:       Border.all(color: const Color(0xFFE2E8F0)),
+        color:        const Color(0xFFF8FAFC),
+      ),
+      child: LayoutBuilder
+      (
+        builder: (context, constraints)
+        {
+          final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+          final Widget yearField = _buildFieldBlock
+          (
+            'Anno',
+            WizardAnimatedTextField
+            (
+              controller:   yearCtrl,
+              hint:         'Es. 2024',
+              errorText:    yearError,
+              keyboardType: TextInputType.number,
+              onChanged:    onYearChanged,
+            ),
+          );
+
+          final Widget dateField = _buildFieldBlock
+          (
+            'Data inizio',
+            WizardAnimatedTextField
+            (
+              controller:      dateCtrl,
+              hint:            'gg/mm',
+              errorText:       startError,
+              inputFormatters: [WizardDayMonthInputFormatter()],
+              keyboardType:    TextInputType.number,
+              onChanged:       onDateChanged,
+            ),
+          );
+
+          if (isCompact)
+          {
+            return Column
+            (
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: 
+              [
+                yearField,
+                const SizedBox(height: 16),
+                Row
+                (
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: 
+                  [
+                    Expanded(child: dateField),
+                    const SizedBox(width: 8),
+                    WizardRemoveRowButton(onTap: onRemove),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              Expanded(flex: 2, child: yearField),
+              const SizedBox(width: 16),
+              Expanded(flex: 3, child: dateField),
+              Padding
+              (
+                padding: const EdgeInsets.only(top: 22, left: 8),
+                child:   WizardRemoveRowButton(onTap: onRemove),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

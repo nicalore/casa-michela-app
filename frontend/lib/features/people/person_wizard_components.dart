@@ -1003,120 +1003,153 @@ class _WizardProfilePhotoUploaderState
 
     final bool hasImage = imageProvider != null;
 
-    return Row(
-      children: [
-        Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8EEF7),
-            shape: BoxShape.circle,
-            image: hasImage
-                ? DecorationImage(image: imageProvider, fit: BoxFit.cover)
-                : null,
-          ),
-          child: !hasImage
-              ? const Icon(
-                  Icons.person_outline,
-                  size: 48,
-                  color: Color(0xFF003C82),
-                )
-              : null,
-        ),
-        const SizedBox(width: 24),
-        SizedBox(
-          height: 48,
-          child: Row(
-            children: [
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) {
-                  setState(() {
-                    _isHoveringUpload = true;
-                  });
-                },
-                onExit: (_) {
-                  setState(() {
-                    _isHoveringUpload = false;
-                  });
-                },
-                child: GestureDetector(
-                  onTap: _pickImage,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _isHoveringUpload
-                          ? const Color(0xFFF5F8FC)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
+    final Widget avatar = Container(
+      width: 110,
+      height: 110,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EEF7),
+        shape: BoxShape.circle,
+        image: hasImage
+            ? DecorationImage(image: imageProvider, fit: BoxFit.cover)
+            : null,
+      ),
+      child: !hasImage
+          ? const Icon(
+              Icons.person_outline,
+              size: 48,
+              color: Color(0xFF003C82),
+            )
+          : null,
+    );
+
+    //SafetyNetPerLoCasoEstremo_LaRigaHaUnaLarghezzaMinimaIntrinseca(~155px)_ChePuoSuperare
+    //LoSpazioDisponibileAncheNelRamoImpilato_LoScrollOrizzontaleTagliavaIlBottoneSenzaAlcunIndizioVisivo
+    //FittedBoxScalaL'InteroBottoneComeBloccoUnico_RestaSempreCompletamenteVisibileECliccabile
+    //StessoCriterioGiaUsatoPeiNumeriDelleStatistiche_UnBottoneNonPuoAndareACapoInModoSensato
+    final Widget buttonsRow = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        height: 48,
+        child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              setState(() {
+                _isHoveringUpload = true;
+              });
+            },
+            onExit: (_) {
+              setState(() {
+                _isHoveringUpload = false;
+              });
+            },
+            child: GestureDetector(
+              onTap: _pickImage,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _isHoveringUpload
+                      ? const Color(0xFFF5F8FC)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: const Color(0xFF003C82),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.upload_rounded,
+                      size: 20,
+                      color: Color(0xFF003C82),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      !hasImage ? 'Carica foto' : 'Cambia foto',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                         color: const Color(0xFF003C82),
-                        width: 1.5,
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.upload_rounded,
-                          size: 20,
-                          color: Color(0xFF003C82),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          !hasImage ? 'Carica foto' : 'Cambia foto',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF003C82),
-                          ),
-                        ),
-                      ],
-                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (hasImage) ...[
+            const SizedBox(width: 12),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) {
+                setState(() {
+                  _isHoveringTrash = true;
+                });
+              },
+              onExit: (_) {
+                setState(() {
+                  _isHoveringTrash = false;
+                });
+              },
+              child: GestureDetector(
+                onTap: _removeImage,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: _isHoveringTrash
+                        ? const Color(0xFFE53935).withValues(alpha: 0.15)
+                        : const Color(0xFFE53935).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 22,
+                    color: Color(0xFFE53935),
                   ),
                 ),
               ),
-              if (hasImage) ...[
-                const SizedBox(width: 12),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  onEnter: (_) {
-                    setState(() {
-                      _isHoveringTrash = true;
-                    });
-                  },
-                  onExit: (_) {
-                    setState(() {
-                      _isHoveringTrash = false;
-                    });
-                  },
-                  child: GestureDetector(
-                    onTap: _removeImage,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _isHoveringTrash
-                            ? const Color(0xFFE53935).withValues(alpha: 0.15)
-                            : const Color(0xFFE53935).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.delete_outline_rounded,
-                        size: 22,
-                        color: Color(0xFFE53935),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
+        ],
         ),
-      ],
+      ),
+    );
+
+    //RowNeeded110(avatar)+24(spacing)+~150to190(buttons)=~290to325px_ButNeverGotThatMuch
+    //FromTheFormLabelledRowAboveIt_HenceTheHorizontalOverflowSeenOnNarrowScreens
+    //StacksVerticallyBelowTheThreshold_InsteadOfLettingTheButtonsRowOverflowToTheRight
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 320;
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              avatar,
+              const SizedBox(height: 16),
+              buttonsRow,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            avatar,
+            const SizedBox(width: 24),
+            Flexible(child: buttonsRow),
+          ],
+        );
+      },
     );
   }
 }
@@ -1823,139 +1856,157 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: widget.isSelected
-          ? SystemMouseCursors.basic
-          : SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
-          _isHovering = true;
-        });
-      },
-      onExit: (_) {
-        setState(() {
-          _isHovering = false;
-        });
-      },
-      child: GestureDetector(
-        onTap: widget.isSelected ? null : widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 320,
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
-                  : const Color(0xFFE2E8F0),
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.subject_rounded,
-                size: 32,
-                color: widget.isSelected
+    return Tooltip(
+      message: widget.subject.name,
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: MouseRegion(
+        cursor: widget.isSelected
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        onEnter: (_) {
+          setState(() {
+            _isHovering = true;
+          });
+        },
+        onExit: (_) {
+          setState(() {
+            _isHovering = false;
+          });
+        },
+        child: GestureDetector(
+          onTap: widget.isSelected ? null : widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: 360,
+            constraints: const BoxConstraints(minHeight: 110),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: (_isHovering || widget.isSelected)
                     ? const Color(0xFF003C82)
-                    : const Color(0xFFB3B3B3),
+                    : const Color(0xFFE2E8F0),
+                width: 2,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.subject.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: widget.isSelected
-                            ? const Color(0xFF003C82)
-                            : const Color(0xFF2A2A2A),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.isSelected
-                          ? (widget.selectedCount == 1
-                                ? '1 percorso'
-                                : '${widget.selectedCount} percorsi')
-                          : 'Non assegnata',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: widget.isSelected
-                            ? const Color(0xFF003C82)
-                            : const Color(0xFF8A8A8A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.isSelected) ...[
-                const SizedBox(width: 8),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: widget.onTap,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.edit_rounded,
-                            size: 18,
-                            color: Color(0xFF003C82),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: widget.onRemove ?? () {},
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.backspace_rounded,
-                            size: 18,
-                            color: Color(0xFFE53935),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 16,
                 ),
               ],
-            ],
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.subject_rounded,
+                  size: 32,
+                  color: widget.isSelected
+                      ? const Color(0xFF003C82)
+                      : const Color(0xFFB3B3B3),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.subject.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: widget.isSelected
+                              ? const Color(0xFF003C82)
+                              : const Color(0xFF2A2A2A),
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.isSelected
+                            ? (widget.selectedCount == 1
+                                  ? '1 percorso'
+                                  : '${widget.selectedCount} percorsi')
+                            : 'Non assegnata',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: widget.isSelected
+                              ? const Color(0xFF003C82)
+                              : const Color(0xFF8A8A8A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.isSelected) ...[
+                  const SizedBox(width: 8),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: widget.onTap,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              size: 18,
+                              color: Color(0xFF003C82),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: widget.onRemove ?? () {},
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.backspace_rounded,
+                              size: 18,
+                              color: Color(0xFFE53935),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2015,8 +2066,11 @@ class _WizardProgramsSelectionDialogState
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        width: 600,
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre600
+        //SenzaQuestoIlBreakpointSullaRigaDeiBottoniQuiSottoNonScatterebbeMai
+        width: double.infinity,
         constraints: BoxConstraints(
+          maxWidth: 600,
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(
@@ -2059,14 +2113,17 @@ class _WizardProgramsSelectionDialogState
             const Divider(height: 16, thickness: 1, color: Color(0xFFF0F0F0)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              //WrapInsteadOfRow_SameSafetyNetUsedElsewhereForHeaderActionRows
+              //InvisibleWhenBothLabelsFitOnOneLine_WrapsBelowInsteadOfOverflowingWhenTheyDont
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 24,
+                runSpacing: 8,
                 children: [
                   WizardTextLinkButton(
                     text: 'Seleziona tutti',
                     onTap: _selectAll,
                   ),
-                  const SizedBox(width: 24),
                   WizardTextLinkButton(
                     text: 'Deseleziona tutti',
                     onTap: _deselectAll,
@@ -2107,39 +2164,79 @@ class _WizardProgramsSelectionDialogState
                 bottom: 32,
                 top: 16,
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: WizardAnimatedActionButton(
-                      text: 'ANNULLA',
-                      icon: Icons.close_rounded,
-                      baseColor: const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
-                      onPressed: () {
-                        widget.onCancel();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: WizardAnimatedActionButton(
-                      text: 'CONFERMA',
-                      icon: Icons.check_circle_outline,
-                      baseColor: const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
-                      onPressed: () {
-                        widget.onSave(_selected);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                ],
+              //StacksVerticallyWhenTheDialogIsTooNarrowForBothButtonsSideBySide
+              //FixedWidthInBothBranches_NeverStretchesToFillTheAvailableSpace
+              child: _ResponsiveWizardDialogButtonsRow(
+                secondaryButton: WizardAnimatedActionButton(
+                  text: 'ANNULLA',
+                  icon: Icons.close_rounded,
+                  baseColor: const Color(0xFFE53935),
+                  hoverColor: const Color(0xFFEF5350),
+                  onPressed: () {
+                    widget.onCancel();
+                    Navigator.of(context).pop();
+                  },
+                ),
+                primaryButton: WizardAnimatedActionButton(
+                  text: 'CONFERMA',
+                  icon: Icons.check_circle_outline,
+                  baseColor: const Color(0xFF003C82),
+                  hoverColor: const Color(0xFF004D99),
+                  onPressed: () {
+                    widget.onSave(_selected);
+                    Navigator.of(context).pop();
+                  },
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+//DecidesRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
+//SameCriterionUsedForThePersonWizardsMainBottomBar_ConfermaSempreSopra_AnnullaSempreSotto
+class _ResponsiveWizardDialogButtonsRow extends StatelessWidget {
+  final Widget secondaryButton;
+  final Widget primaryButton;
+
+  const _ResponsiveWizardDialogButtonsRow({
+    required this.secondaryButton,
+    required this.primaryButton,
+  });
+
+  static const double _kButtonWidth = 240;
+  static const double _kSpacing = 16;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        if (isCompact) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(width: _kButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(width: _kButtonWidth, child: secondaryButton),
+            const SizedBox(width: _kSpacing),
+            SizedBox(width: _kButtonWidth, child: primaryButton),
+          ],
+        );
+      },
     );
   }
 }
@@ -2603,98 +2700,231 @@ class _WizardSelectablePersonCardState
     final List<String> processedRoles = RoleLabelMapper.processRoles(
       widget.person.roles,
     );
+    final String fullName =
+        '${widget.person.firstName} ${widget.person.lastName}';
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
-          _isHovering = true;
-        });
-      },
-      onExit: (_) {
-        setState(() {
-          _isHovering = false;
-        });
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 380,
-          constraints: const BoxConstraints(minHeight: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
-                  : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
+    return Tooltip(
+      message: fullName,
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) {
+          setState(() {
+            _isHovering = true;
+          });
+        },
+        onExit: (_) {
+          setState(() {
+            _isHovering = false;
+          });
+        },
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: 420,
+            constraints: const BoxConstraints(minHeight: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: (_isHovering || widget.isSelected)
+                    ? const Color(0xFF003C82)
+                    : Colors.transparent,
+                width: 2,
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildAvatar(),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${widget.person.firstName} ${widget.person.lastName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: processedRoles.map((role) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F7FA),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE0E5EC)),
-                          ),
-                          child: Text(
-                            role,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 16,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF003C82),
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _WizardRoleChipsRow(roles: processedRoles),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Mostra i chip dei ruoli su una singola riga. Se non entrano tutti nello
+/// spazio disponibile, tronca la lista e sostituisce quelli in eccesso con
+/// un chip "+N" che, al passaggio del mouse, mostra i ruoli nascosti.
+class _WizardRoleChipsRow extends StatelessWidget {
+  final List<String> roles;
+
+  const _WizardRoleChipsRow({required this.roles});
+
+  static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
+  static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
+  static const double _chipSpacing = 6;
+
+  double _measureChipWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (roles.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chipStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        );
+        final extraStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF64748B),
+        );
+
+        int visibleCount = roles.length;
+        while (visibleCount > 1) {
+          double totalWidth = 0;
+          for (int i = 0; i < visibleCount; i++) {
+            totalWidth += _measureChipWidth(roles[i], chipStyle);
+            if (i > 0) totalWidth += _chipSpacing;
+          }
+
+          final int remaining = roles.length - visibleCount;
+          if (remaining > 0) {
+            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
+          }
+
+          if (totalWidth <= constraints.maxWidth) break;
+          visibleCount--;
+        }
+
+        final int extraCount = roles.length - visibleCount;
+        final List<String> hiddenRoles = roles.sublist(visibleCount);
+
+        final List<Widget> chips = [];
+        for (int i = 0; i < visibleCount; i++) {
+          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_WizardRoleChip(label: roles[i], style: chipStyle));
+        }
+        if (extraCount > 0) {
+          chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_WizardRoleChip(
+            label: '+$extraCount',
+            style: extraStyle,
+            hiddenRoles: hiddenRoles,
+          ));
+        }
+
+        return Row(mainAxisSize: MainAxisSize.min, children: chips);
+      },
+    );
+  }
+}
+
+class _WizardRoleChip extends StatelessWidget {
+  final String label;
+  final TextStyle style;
+  final List<String>? hiddenRoles;
+
+  const _WizardRoleChip({required this.label, required this.style, this.hiddenRoles});
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E5EC)),
+      ),
+      child: Text(label, style: style),
+    );
+
+    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
+
+    return Tooltip(
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      richMessage: TextSpan(
+        children: [
+          TextSpan(
+            text: 'Altri ruoli:\n',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: const Color(0xFF94A3B8),
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+          TextSpan(
+            text: hiddenRoles!.join('\n'),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+      child: chip,
     );
   }
 }

@@ -314,49 +314,57 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             ),
           ),
           const SizedBox(height: 8),
-          Row
+          //NumbersCantWrapToANewLine_ScaleDownIsTheCorrectFallbackHere_UnlikeTextContentElsewhere
+          //RequiresMainAxisSizeMin_FittedBoxGivesUnboundedConstraints_MaxWouldThrowAnInfiniteWidthError
+          FittedBox
           (
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline:       TextBaseline.alphabetic,
-            children: 
-            [
-              Text
-              (
-                text,
-                style: GoogleFonts.plusJakartaSans
+            fit:       BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row
+            (
+              mainAxisSize:       MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline:       TextBaseline.alphabetic,
+              children: 
+              [
+                Text
                 (
-                  fontSize:   36,
-                  fontWeight: FontWeight.w800,
-                  color:      color,
-                ),
-              ),
-              if (percentage != null)
-                Padding
-                (
-                  padding: const EdgeInsets.only(left: 10),
-                  child: Text
+                  text,
+                  style: GoogleFonts.plusJakartaSans
                   (
-                    '${percentage.toStringAsFixed(1)}%',
-                    style: GoogleFonts.plusJakartaSans
+                    fontSize:   36,
+                    fontWeight: FontWeight.w800,
+                    color:      color,
+                  ),
+                ),
+                if (percentage != null)
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(left: 10),
+                    child: Text
                     (
-                      fontSize:   24,
-                      fontWeight: FontWeight.w600,
-                      color:      const Color(0xFF94A3B8),
+                      '${percentage.toStringAsFixed(1)}%',
+                      style: GoogleFonts.plusJakartaSans
+                      (
+                        fontSize:   24,
+                        fontWeight: FontWeight.w600,
+                        color:      const Color(0xFF94A3B8),
+                      ),
                     ),
                   ),
-                ),
-              if (isDelta && value != 0) 
-                Padding
-                (
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Icon
+                if (isDelta && value != 0) 
+                  Padding
                   (
-                    value > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                    color: color,
-                    size:  26,
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon
+                    (
+                      value > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      color: color,
+                      size:  26,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -454,6 +462,29 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Widget _buildIscrittiRetentionCard() 
   {
+    final titleWidget = Text
+    (
+      'Fidelizzazione Iscritti', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    final filtersWidget = _FilterMenuWidget<int>
+    (
+      hint:      'Anno', 
+      value:     _selectedRetentionYear, 
+      options:   _getYearOptions(), 
+      onChanged: (v) 
+      { 
+        setState(() => _selectedRetentionYear = v); 
+        _loadData(); 
+      },
+    );
+
     //IsolateSelectionToCardBody
     return SelectionArea
     (
@@ -479,33 +510,11 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
+            _ResponsiveCardHeader
             (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
-                (
-                  'Fidelizzazione Iscritti', 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w600, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                _FilterMenuWidget<int>
-                (
-                  hint:      'Anno', 
-                  value:     _selectedRetentionYear, 
-                  options:   _getYearOptions(), 
-                  onChanged: (v) 
-                  { 
-                    setState(() => _selectedRetentionYear = v); 
-                    _loadData(); 
-                  },
-                ),
-              ],
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 480,
             ),
             const SizedBox(height: 24),
             if (_retentionData != null)
@@ -547,7 +556,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  Widget _buildCollabRetentionCard({required bool stackHeader}) 
+  Widget _buildCollabRetentionCard() 
   {
     final filtersWidget = Wrap
     (
@@ -647,27 +656,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
-            stackHeader
-              ? Column
-                (
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: 
-                  [
-                    titleWidget,
-                    const SizedBox(height: 12),
-                    filtersWidget,
-                  ],
-                )
-              : Row
-                (
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: 
-                  [
-                    titleWidget,
-                    filtersWidget,
-                  ],
-                ),
+            _ResponsiveCardHeader
+            (
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 620,
+            ),
             const SizedBox(height: 24),
             if (_collabRetentionData != null)
               Row
@@ -777,35 +771,14 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
-            LayoutBuilder
-            (
-              builder: (context, constraints) 
-              {
-                final stackHeader = showFilters && constraints.maxWidth < 760;
-
-                return stackHeader
-                  ? Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        titleWidget,
-                        const SizedBox(height: 12),
-                        filtersWidget,
-                      ],
-                    )
-                  : Row
-                    (
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: 
-                      [
-                        titleWidget,
-                        if (showFilters) filtersWidget,
-                      ],
-                    );
-              },
-            ),
+            showFilters
+              ? _ResponsiveCardHeader
+                (
+                  title:      titleWidget,
+                  filters:    filtersWidget,
+                  breakpoint: 760,
+                )
+              : titleWidget,
             const SizedBox(height: 48),
             SizedBox
             (
@@ -967,6 +940,34 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Widget _buildEducationChartCard() 
   {
+    final titleWidget = Text
+    (
+      'Distribuzione scolastica', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    final filtersWidget = _FilterMenuWidget<String>
+    (
+      hint:    'Raggruppa per', 
+      value:   _educationDistributionType, 
+      options: 
+      [
+        _FilterMenuOption(value: 'school',  label: 'Scuola'),
+        _FilterMenuOption(value: 'program', label: 'Percorso di studio'),
+        _FilterMenuOption(value: 'level',   label: 'Livello di istruzione'),
+      ], 
+      onChanged: (v) 
+      { 
+        setState(() => _educationDistributionType = v); 
+        _loadEducationData(); 
+      },
+    );
+
     //IsolateSelectionToCardBody
     return SelectionArea
     (
@@ -992,38 +993,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
+            //WasAPlainSpaceBetweenRowBefore_TheSingleChipHadNoWayToWrapWhenTooWide
+            _ResponsiveCardHeader
             (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
-                (
-                  'Distribuzione scolastica', 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w600, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                _FilterMenuWidget<String>
-                (
-                  hint:    'Raggruppa per', 
-                  value:   _educationDistributionType, 
-                  options: 
-                  [
-                    _FilterMenuOption(value: 'school',  label: 'Scuola'),
-                    _FilterMenuOption(value: 'program', label: 'Percorso di studio'),
-                    _FilterMenuOption(value: 'level',   label: 'Livello di istruzione'),
-                  ], 
-                  onChanged: (v) 
-                  { 
-                    setState(() => _educationDistributionType = v); 
-                    _loadEducationData(); 
-                  },
-                ),
-              ],
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 560,
             ),
             const SizedBox(height: 48),
             SizedBox
@@ -1168,12 +1143,199 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
+  Widget _buildTeacherSubjectsSections() 
+  {
+    final Widget topSection = Column
+    (
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize:       MainAxisSize.min,
+      children: 
+      [
+        Text
+        (
+          '10 discipline più coperte', 
+          style: GoogleFonts.plusJakartaSans
+          (
+            fontSize:   16, 
+            fontWeight: FontWeight.w600, 
+            color:      const Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (_teacherStats!.top10Subjects.isEmpty)
+          Text
+          (
+            'Nessun dato', 
+            style: GoogleFonts.plusJakartaSans
+            (
+              color:    const Color(0xFF94A3B8), 
+              fontSize: 14,
+            ),
+          )
+        else
+          ..._teacherStats!.top10Subjects.map((s) => _buildSubjectRow(s)),
+      ],
+    );
+
+    final Widget bottomSection = Column
+    (
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize:       MainAxisSize.min,
+      children: 
+      [
+        Text
+        (
+          '10 discipline meno coperte', 
+          style: GoogleFonts.plusJakartaSans
+          (
+            fontSize:   16, 
+            fontWeight: FontWeight.w600, 
+            color:      const Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (_teacherStats!.bottom10Subjects.isEmpty)
+          Text
+          (
+            'Nessun dato', 
+            style: GoogleFonts.plusJakartaSans
+            (
+              color:    const Color(0xFF94A3B8), 
+              fontSize: 14,
+            ),
+          )
+        else
+          ..._teacherStats!.bottom10Subjects.map((s) => _buildSubjectRow(s)),
+      ],
+    );
+
+    final Widget pieSection = Column
+    (
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize:       MainAxisSize.min,
+      children: 
+      [
+        Text
+        (
+          'Distribuzione per area', 
+          style: GoogleFonts.plusJakartaSans
+          (
+            fontSize:   16, 
+            fontWeight: FontWeight.w600, 
+            color:      const Color(0xFF1E293B),
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox
+        (
+          height: 320, 
+          child:  _teacherStats!.areaDistribution.isEmpty 
+            ? Center
+              (
+                child: Text
+                (
+                  'Nessun dato', 
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    color:    const Color(0xFF94A3B8), 
+                    fontSize: 14,
+                  ),
+                ),
+              ) 
+            : _PieChartWidget
+              (
+                data: _teacherStats!.areaDistribution.map((e) => ChartPieItem(label: _translateArea(e.area), count: e.count)).toList(),
+              ),
+        ),
+      ],
+    );
+
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool isCompact = constraints.maxWidth < 900;
+
+        if (isCompact) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              topSection,
+              const SizedBox(height: 24),
+              const Divider(color: Color(0xFFF1F5F9), thickness: 2),
+              const SizedBox(height: 24),
+              bottomSection,
+              const SizedBox(height: 24),
+              const Divider(color: Color(0xFFF1F5F9), thickness: 2),
+              const SizedBox(height: 24),
+              pieSection,
+            ],
+          );
+        }
+
+        return IntrinsicHeight
+        (
+          child: Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              Expanded(flex: 4, child: topSection),
+              const Padding
+              (
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child:   VerticalDivider(color: Color(0xFFF1F5F9), thickness: 2),
+              ),
+              Expanded(flex: 4, child: bottomSection),
+              const Padding
+              (
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child:   VerticalDivider(color: Color(0xFFF1F5F9), thickness: 2),
+              ),
+              Expanded(flex: 5, child: pieSection),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildTeacherSubjectsCard() 
   {
     if (_teacherStats == null) 
     {
       return const SizedBox();
     }
+
+    final titleWidget = Text
+    (
+      'Analisi Competenze', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w700, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    final filtersWidget = _FilterMenuWidget<String>
+    (
+      hint:    'Classifica', 
+      value:   _teacherRankingMode, 
+      options: 
+      [
+        _FilterMenuOption(value: 'absolute', label: 'Per disciplina'),
+        _FilterMenuOption(value: 'program',  label: 'Per disciplina e percorso'),
+      ], 
+      onChanged: (v) 
+      { 
+        setState(() => _teacherRankingMode = v); 
+        _loadTeacherData(); 
+      },
+    );
 
     //IsolateSelectionToCardBody
     return SelectionArea
@@ -1200,37 +1362,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
+            //WasAPlainSpaceBetweenRowBefore_TheSingleChipHadNoWayToWrapWhenTooWide
+            _ResponsiveCardHeader
             (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
-                (
-                  'Analisi Competenze', 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w700, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                _FilterMenuWidget<String>
-                (
-                  hint:    'Classifica', 
-                  value:   _teacherRankingMode, 
-                  options: 
-                  [
-                    _FilterMenuOption(value: 'absolute', label: 'Per disciplina'),
-                    _FilterMenuOption(value: 'program',  label: 'Per disciplina e percorso'),
-                  ], 
-                  onChanged: (v) 
-                  { 
-                    setState(() => _teacherRankingMode = v); 
-                    _loadTeacherData(); 
-                  },
-                ),
-              ],
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 560,
             ),
             const SizedBox(height: 32),
             Row
@@ -1311,138 +1448,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             const SizedBox(height: 32),
             const Divider(color: Color(0xFFF1F5F9), thickness: 2),
             const SizedBox(height: 32),
-            IntrinsicHeight
-            (
-              child: Row
-              (
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: 
-                [
-                  Expanded
-                  (
-                    flex: 4,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Text
-                        (
-                          '10 discipline più coperte', 
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:   16, 
-                            fontWeight: FontWeight.w600, 
-                            color:      const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (_teacherStats!.top10Subjects.isEmpty)
-                          Text
-                          (
-                            'Nessun dato', 
-                            style: GoogleFonts.plusJakartaSans
-                            (
-                              color:    const Color(0xFF94A3B8), 
-                              fontSize: 14,
-                            ),
-                          )
-                        else
-                          ..._teacherStats!.top10Subjects.map((s) => _buildSubjectRow(s)),
-                      ],
-                    ),
-                  ),
-                  const Padding
-                  (
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child:   VerticalDivider(color: Color(0xFFF1F5F9), thickness: 2),
-                  ),
-                  Expanded
-                  (
-                    flex: 4,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Text
-                        (
-                          '10 discipline meno coperte', 
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:   16, 
-                            fontWeight: FontWeight.w600, 
-                            color:      const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        if (_teacherStats!.bottom10Subjects.isEmpty)
-                          Text
-                          (
-                            'Nessun dato', 
-                            style: GoogleFonts.plusJakartaSans
-                            (
-                              color:    const Color(0xFF94A3B8), 
-                              fontSize: 14,
-                            ),
-                          )
-                        else
-                          ..._teacherStats!.bottom10Subjects.map((s) => _buildSubjectRow(s)),
-                      ],
-                    ),
-                  ),
-                  const Padding
-                  (
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child:   VerticalDivider(color: Color(0xFFF1F5F9), thickness: 2),
-                  ),
-                  Expanded
-                  (
-                    flex: 5,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment:  MainAxisAlignment.start,
-                      children: 
-                      [
-                        Text
-                        (
-                          'Distribuzione per area', 
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:   16, 
-                            fontWeight: FontWeight.w600, 
-                            color:      const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox
-                        (
-                          height: 320, 
-                          child:  _teacherStats!.areaDistribution.isEmpty 
-                            ? Center
-                              (
-                                child: Text
-                                (
-                                  'Nessun dato', 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    color:    const Color(0xFF94A3B8), 
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ) 
-                            : _PieChartWidget
-                              (
-                                data: _teacherStats!.areaDistribution.map((e) => ChartPieItem(label: _translateArea(e.area), count: e.count)).toList(),
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildTeacherSubjectsSections(),
           ],
         ),
       ),
@@ -1469,75 +1475,45 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: 
             [
-              Row
+              _ResponsiveCardPair
               (
-                children: 
-                [
-                  Expanded
-                  (
-                    child: _buildSummaryCard
-                    (
-                      title:      'Iscritti', 
-                      count:      _currentTotals?.currentTotalMembers ?? 0, 
-                      deltaMonth: _currentTotals?.membersDeltaMonth ?? 0, 
-                      deltaYear:  _currentTotals?.membersDeltaYear ?? 0, 
-                      icon:       Icons.person_outline,
-                      percentage: _currentTotals?.percentageOfTotalMembers,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded
-                  (
-                    child: _buildSummaryCard
-                    (
-                      title:      'Collaboratori Attivi', 
-                      count:      _currentTotals?.currentActiveCollaborators ?? 0, 
-                      deltaMonth: _currentTotals?.collabDeltaMonth ?? 0, 
-                      deltaYear:  _currentTotals?.collabDeltaYear ?? 0, 
-                      icon:       Icons.handshake_outlined,
-                      percentage: _currentTotals?.percentageOfTotalCollaborators,
-                    ),
-                  ),
-                ],
+                first: _buildSummaryCard
+                (
+                  title:      'Iscritti', 
+                  count:      _currentTotals?.currentTotalMembers ?? 0, 
+                  deltaMonth: _currentTotals?.membersDeltaMonth ?? 0, 
+                  deltaYear:  _currentTotals?.membersDeltaYear ?? 0, 
+                  icon:       Icons.person_outline,
+                  percentage: _currentTotals?.percentageOfTotalMembers,
+                ),
+                second: _buildSummaryCard
+                (
+                  title:      'Collaboratori Attivi', 
+                  count:      _currentTotals?.currentActiveCollaborators ?? 0, 
+                  deltaMonth: _currentTotals?.collabDeltaMonth ?? 0, 
+                  deltaYear:  _currentTotals?.collabDeltaYear ?? 0, 
+                  icon:       Icons.handshake_outlined,
+                  percentage: _currentTotals?.percentageOfTotalCollaborators,
+                ),
               ),
               const SizedBox(height: 24),
-              LayoutBuilder
+              _ResponsiveCardPair
               (
-                builder: (context, constraints) 
-                {
-                  final cardWidth   = (constraints.maxWidth - 24) / 2;
-                  final stackHeader = cardWidth < 620;
-
-                  return Row
-                  (
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: 
-                    [
-                      Expanded(child: _buildIscrittiRetentionCard()),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildCollabRetentionCard(stackHeader: stackHeader)),
-                    ],
-                  );
-                },
+                first:  _buildIscrittiRetentionCard(),
+                second: _buildCollabRetentionCard(),
               ),
               const SizedBox(height: 24),
               if (_cityData.isNotEmpty || _ageData.isNotEmpty)
                 Padding
                 (
                   padding: const EdgeInsets.only(bottom: 24.0),
-                  child: Row
-                  (
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
-                      if (_cityData.isNotEmpty)
-                        Expanded(child: _buildCityChartCard()),
-                      if (_cityData.isNotEmpty && _ageData.isNotEmpty)
-                        const SizedBox(width: 24),
-                      if (_ageData.isNotEmpty)
-                        Expanded(child: _buildAgeChartCard()),
-                    ],
-                  ),
+                  child: (_cityData.isNotEmpty && _ageData.isNotEmpty)
+                      ? _ResponsiveCardPair
+                        (
+                          first:  _buildCityChartCard(),
+                          second: _buildAgeChartCard(),
+                        )
+                      : (_cityData.isNotEmpty ? _buildCityChartCard() : _buildAgeChartCard()),
                 ),
               if (widget.roleKey == 'student')
                 Padding
@@ -1641,6 +1617,120 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedLayout_BasedOnActualAvailableWidth
+//NoIntrinsicHeightHere_CardsCanHaveDifferentHeightsWithoutBeingStretchedToMatch
+class _ResponsiveCardPair extends StatelessWidget 
+{
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair
+  ({
+    required this.first,
+    required this.second,
+    this.breakpoint = 900.0,
+  });
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(child: first),
+            const SizedBox(width: 24),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//SharedHeaderPattern_TitleLeftFiltersRight_StacksBelowBreakpoint
+//FiltersAlwaysWrappedInFlexible_EvenInSideBySideMode_SoAnInternalWrapCanAbsorbTheSqueeze
+//IfTheBreakpointEstimateIsSlightlyOff_InsteadOfOverflowingBeforeStackingKicksIn
+class _ResponsiveCardHeader extends StatelessWidget 
+{
+  final Widget title;
+  final Widget filters;
+  final double breakpoint;
+
+  const _ResponsiveCardHeader
+  ({
+    required this.title,
+    required this.filters,
+    this.breakpoint = 620,
+  });
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool stackHeader = constraints.maxWidth < breakpoint;
+
+        if (stackHeader) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              title,
+              const SizedBox(height: 12),
+              filters,
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment:  MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            title,
+            Flexible
+            (
+              child: Align
+              (
+                alignment: Alignment.centerRight,
+                child:     filters,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -2106,6 +2196,8 @@ class _BarChartPainter extends CustomPainter
   bool shouldRepaint(covariant _BarChartPainter oldDelegate) => oldDelegate.hoverPosition != hoverPosition || oldDelegate.data != data;
 }
 
+//RestructuredFromAnAbsolutePositionedOverlayToARowWithTwoExpandedChildren
+//PieAndLegendAreNowSeparateFlexRegions_StructurallyImpossibleToOverlapRegardlessOfWidthOrLabelLength
 class _PieChartWidget extends StatefulWidget 
 {
   final List<ChartPieItem> data;
@@ -2131,229 +2223,263 @@ class _PieChartWidgetState extends State<_PieChartWidget>
     Color(0xFF818CF8), Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFEF4444)
   ];
 
+  void _handleHover(Offset pos, Offset center, double radius, int total) 
+  {
+    int? foundIndex;
+    final dx = pos.dx - center.dx;
+    final dy = pos.dy - center.dy;
+    final dist = math.sqrt(dx * dx + dy * dy);
+
+    if (dist <= radius + 15 && dist >= radius - 35) 
+    {
+      final angle = math.atan2(dy, dx);
+      final normalizedAngle = angle < 0 ? angle + 2 * math.pi : angle;
+      
+      double startAngle = -math.pi / 2;
+      final gap = widget.data.length > 1 ? 0.04 : 0.0;
+      
+      for (int i = 0; i < widget.data.length; i++) 
+      {
+        final sweepAngle = (widget.data[i].count / total) * 2 * math.pi;
+        final startCheck = startAngle < 0 ? startAngle + 2 * math.pi : startAngle;
+        double endCheck  = startCheck + sweepAngle - gap;
+        
+        if (endCheck > 2 * math.pi) 
+        {
+          if (normalizedAngle >= startCheck || normalizedAngle <= endCheck - 2 * math.pi) 
+          {
+            foundIndex = i; 
+            break;
+          }
+        } 
+        else 
+        {
+          if (normalizedAngle >= startCheck && normalizedAngle <= endCheck) 
+          {
+            foundIndex = i; 
+            break;
+          }
+        }
+        startAngle += sweepAngle;
+      }
+    }
+    
+    setState(() 
+    { 
+      _hoverPosition = pos; 
+      _hoveredIndex  = foundIndex; 
+      if (foundIndex != null) 
+      { 
+        _popupTargetPosition = pos; 
+        _cachedLabel         = widget.data[foundIndex].label;
+        _cachedCount         = widget.data[foundIndex].count;
+        _cachedPercentage    = (_cachedCount! / total) * 100;
+      } 
+    });
+  }
+
   @override
   Widget build(BuildContext context) 
   {
     final total = widget.data.fold(0, (sum, item) => sum + item.count);
 
-    return LayoutBuilder
+    return Row
     (
-      builder: (context, constraints) 
-      {
-        final center = Offset(constraints.maxWidth * 0.35, constraints.maxHeight / 2);
-        final radius = math.min(constraints.maxWidth * 0.6, constraints.maxHeight) / 2 - 20;
-
-        return Stack
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: 
+      [
+        Expanded
         (
-          clipBehavior: Clip.none,
-          children: 
-          [
-            Positioned.fill
-            (
-              child: MouseRegion
-              (
-                onHover: (event) 
-                {
-                  final pos = event.localPosition;
-                  int? foundIndex;
-                  final dx = pos.dx - center.dx;
-                  final dy = pos.dy - center.dy;
-                  final dist = math.sqrt(dx * dx + dy * dy);
+          flex: 3,
+          child: LayoutBuilder
+          (
+            builder: (context, constraints) 
+            {
+              //CenteredWithinItsOwnFlexRegionOnly_NoLongerReservingRoomForALegendItDoesntKnowAboutAnymore
+              final center = Offset(constraints.maxWidth / 2, constraints.maxHeight / 2);
+              final radius = math.max(20.0, math.min(constraints.maxWidth, constraints.maxHeight) / 2 - 16);
 
-                  if (dist <= radius + 15 && dist >= radius - 35) 
-                  {
-                    final angle = math.atan2(dy, dx);
-                    final normalizedAngle = angle < 0 ? angle + 2 * math.pi : angle;
-                    
-                    double startAngle = -math.pi / 2;
-                    final gap = widget.data.length > 1 ? 0.04 : 0.0;
-                    
-                    for (int i = 0; i < widget.data.length; i++) 
-                    {
-                      final sweepAngle = (widget.data[i].count / total) * 2 * math.pi;
-                      final startCheck = startAngle < 0 ? startAngle + 2 * math.pi : startAngle;
-                      double endCheck  = startCheck + sweepAngle - gap;
-                      
-                      if (endCheck > 2 * math.pi) 
-                      {
-                        if (normalizedAngle >= startCheck || normalizedAngle <= endCheck - 2 * math.pi) 
-                        {
-                          foundIndex = i; 
-                          break;
-                        }
-                      } 
-                      else 
-                      {
-                        if (normalizedAngle >= startCheck && normalizedAngle <= endCheck) 
-                        {
-                          foundIndex = i; 
-                          break;
-                        }
-                      }
-                      startAngle += sweepAngle;
-                    }
-                  }
-                  
-                  setState(() 
-                  { 
-                    _hoverPosition = pos; 
-                    _hoveredIndex  = foundIndex; 
-                    if (foundIndex != null) 
-                    { 
-                      _popupTargetPosition = pos; 
-                      _cachedLabel         = widget.data[foundIndex].label;
-                      _cachedCount         = widget.data[foundIndex].count;
-                      _cachedPercentage    = (_cachedCount! / total) * 100;
-                    } 
-                  });
-                },
-                onExit: (_) => setState(() 
-                { 
-                  _hoverPosition = null; 
-                  _hoveredIndex  = null; 
-                }),
-                child: CustomPaint
-                (
-                  size:    Size.infinite, 
-                  painter: _PieChartPainter
-                  (
-                    data:         widget.data, 
-                    total:        total, 
-                    colors:       _colors, 
-                    center:       center, 
-                    radius:       radius, 
-                    hoveredIndex: _hoveredIndex,
-                  ),
-                ),
-              ),
-            ),
-            if (_popupTargetPosition != null)
-              Positioned
+              return Stack
               (
-                left: _popupTargetPosition!.dx, 
-                top:  _popupTargetPosition!.dy - 15,
-                child: IgnorePointer
-                (
-                  child: FractionalTranslation
+                clipBehavior: Clip.none,
+                children: 
+                [
+                  Positioned.fill
                   (
-                    translation: const Offset(-0.5, -1.0),
-                    child: AnimatedScale
+                    child: MouseRegion
                     (
-                      scale:    _hoveredIndex != null ? 1.0 : 0.6, 
-                      duration: const Duration(milliseconds: 200), 
-                      curve:    Curves.easeOutBack,
-                      child: AnimatedOpacity
+                      onHover: (event) => _handleHover(event.localPosition, center, radius, total),
+                      onExit:  (_) => setState(() 
+                      { 
+                        _hoverPosition = null; 
+                        _hoveredIndex  = null; 
+                      }),
+                      child: CustomPaint
                       (
-                        opacity:  _hoveredIndex != null ? 1.0 : 0.0, 
-                        duration: const Duration(milliseconds: 150), 
-                        curve:    Curves.easeOut,
-                        child: Column
+                        size:    Size.infinite, 
+                        painter: _PieChartPainter
                         (
-                          mainAxisSize: MainAxisSize.min,
-                          children: 
-                          [
-                            Container
-                            (
-                              padding:    const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
-                              decoration: BoxDecoration
-                              (
-                                color:        const Color(0xFF1E293B), 
-                                borderRadius: BorderRadius.circular(8), 
-                                boxShadow:    const 
-                                [
-                                  BoxShadow
-                                  (
-                                    color:      Color(0x1F000000), 
-                                    offset:     Offset(0, 3), 
-                                    blurRadius: 6,
-                                  ),
-                                ],
-                              ), 
-                              child: Text
-                              (
-                                '${_cachedLabel ?? ""}: ${_cachedCount ?? 0} (${_cachedPercentage?.toStringAsFixed(1) ?? "0"}%)', 
-                                style: GoogleFonts.plusJakartaSans
-                                (
-                                  color:      Colors.white, 
-                                  fontSize:   14, 
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            CustomPaint
-                            (
-                              size:    const Size(10, 5), 
-                              painter: _TriangleArrowPainter(color: const Color(0xFF1E293B)),
-                            ),
-                          ],
+                          data:         widget.data, 
+                          total:        total, 
+                          colors:       _colors, 
+                          center:       center, 
+                          radius:       radius, 
+                          hoveredIndex: _hoveredIndex,
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            Positioned
-            (
-              right:  24, 
-              top:    0, 
-              bottom: 0,
-              child: Center
-              (
-                child: Column
-                (
-                  mainAxisSize:       MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: List.generate(widget.data.length, (i) 
-                  {
-                    final p = (widget.data[i].count / total) * 100;
-                    return Padding
+                  if (_popupTargetPosition != null)
+                    Positioned
                     (
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Row
+                      left: _popupTargetPosition!.dx, 
+                      top:  _popupTargetPosition!.dy - 15,
+                      child: IgnorePointer
                       (
-                        children: 
-                        [
-                          Container
+                        child: FractionalTranslation
+                        (
+                          translation: const Offset(-0.5, -1.0),
+                          child: AnimatedScale
                           (
-                            width:  14, 
-                            height: 14, 
-                            decoration: BoxDecoration
+                            scale:    _hoveredIndex != null ? 1.0 : 0.6, 
+                            duration: const Duration(milliseconds: 200), 
+                            curve:    Curves.easeOutBack,
+                            child: AnimatedOpacity
                             (
-                              color: _colors[i % _colors.length], 
-                              shape: BoxShape.circle,
+                              opacity:  _hoveredIndex != null ? 1.0 : 0.0, 
+                              duration: const Duration(milliseconds: 150), 
+                              curve:    Curves.easeOut,
+                              child: Column
+                              (
+                                mainAxisSize: MainAxisSize.min,
+                                children: 
+                                [
+                                  Container
+                                  (
+                                    padding:    const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
+                                    decoration: BoxDecoration
+                                    (
+                                      color:        const Color(0xFF1E293B), 
+                                      borderRadius: BorderRadius.circular(8), 
+                                      boxShadow:    const 
+                                      [
+                                        BoxShadow
+                                        (
+                                          color:      Color(0x1F000000), 
+                                          offset:     Offset(0, 3), 
+                                          blurRadius: 6,
+                                        ),
+                                      ],
+                                    ), 
+                                    child: Text
+                                    (
+                                      '${_cachedLabel ?? ""}: ${_cachedCount ?? 0} (${_cachedPercentage?.toStringAsFixed(1) ?? "0"}%)', 
+                                      style: GoogleFonts.plusJakartaSans
+                                      (
+                                        color:      Colors.white, 
+                                        fontSize:   14, 
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  CustomPaint
+                                  (
+                                    size:    const Size(10, 5), 
+                                    painter: _TriangleArrowPainter(color: const Color(0xFF1E293B)),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Text
-                          (
-                            '${widget.data[i].label} ', 
-                            style: GoogleFonts.plusJakartaSans
-                            (
-                              fontSize:   14, 
-                              fontWeight: FontWeight.w600, 
-                              color:      const Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text
-                          (
-                            '(${p.toStringAsFixed(1)}%)', 
-                            style: GoogleFonts.plusJakartaSans
-                            (
-                              fontSize:   14, 
-                              fontWeight: FontWeight.w500, 
-                              color:      const Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    );
-                  }),
-                ),
-              ),
-            )
-          ],
-        );
-      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 16),
+        //OwnDedicatedFlexRegion_NeverOverlapsTheChartRegardlessOfLabelLength
+        //ScrollableSoALongListOfCategoriesNeverOverflowsVerticallyEither
+        Expanded
+        (
+          flex: 2,
+          child: SingleChildScrollView
+          (
+            child: Column
+            (
+              mainAxisSize:       MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: List.generate(widget.data.length, (i) 
+              {
+                final p = (widget.data[i].count / total) * 100;
+                return Padding
+                (
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row
+                  (
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: 
+                    [
+                      Padding
+                      (
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Container
+                        (
+                          width:  14, 
+                          height: 14, 
+                          decoration: BoxDecoration
+                          (
+                            color: _colors[i % _colors.length], 
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      //PreventsTheSameClassOfOverflowBugOnLongLabels_NotYetReportedButSameRootCause
+                      Expanded
+                      (
+                        child: Text.rich
+                        (
+                          TextSpan
+                          (
+                            children: 
+                            [
+                              TextSpan
+                              (
+                                text:  '${widget.data[i].label} ', 
+                                style: GoogleFonts.plusJakartaSans
+                                (
+                                  fontSize:   14, 
+                                  fontWeight: FontWeight.w600, 
+                                  color:      const Color(0xFF1E293B),
+                                ),
+                              ),
+                              TextSpan
+                              (
+                                text:  '(${p.toStringAsFixed(1)}%)', 
+                                style: GoogleFonts.plusJakartaSans
+                                (
+                                  fontSize:   14, 
+                                  fontWeight: FontWeight.w500, 
+                                  color:      const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2441,14 +2567,15 @@ class _LineChartPainter extends CustomPainter
     {
       return;
     }
-    final paintLine = Paint()
+    
+    final paintLine   = Paint()
       ..color       = const Color(0xFF003C82)
       ..strokeWidth = 3
       ..style       = PaintingStyle.stroke
       ..strokeCap   = StrokeCap.round
       ..strokeJoin  = StrokeJoin.round;
       
-    final paintGrid = Paint()
+    final paintGrid   = Paint()
       ..color       = const Color(0xFFE2E8F0)
       ..strokeWidth = 1
       ..style       = PaintingStyle.stroke;
@@ -2480,24 +2607,83 @@ class _LineChartPainter extends CustomPainter
     final points = <Offset>[];
     final stepX  = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth / 2;
 
+    //DeterminesHowManyLabelsCanBeDrawnWithoutOverlapping_BasedOnTheSpaceActuallyAvailablePerPoint
+    //VersusARepresentativeLabelsRenderedWidth
+    int labelStride = 1;
+    if (data.length > 1) 
+    {
+      final sampleText = isMonthly ? '${_monthNames[0]}\n9999' : '9999';
+      final sampleTextPainter = TextPainter
+      (
+        text: TextSpan
+        (
+          text:  sampleText, 
+          style: GoogleFonts.plusJakartaSans(fontSize: 13),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign:     TextAlign.center,
+      )..layout();
+
+      final double neededWidth = sampleTextPainter.width + 8;
+      if (stepX > 0 && neededWidth > stepX) 
+      {
+        labelStride = (neededWidth / stepX).ceil();
+      }
+
+      //L'ULTIMO punto viene sempre mostrato per dare contesto sul mese/anno più
+      //recente. Ma se il campionamento a passo fisso piazza l'etichetta precedente
+      //troppo vicino a quella finale, le due si sovrappongono (bug osservato:
+      //"Mag 2026" incollato a "Lug 2026"). In quel caso si rimuove la precedente
+      //invece di lasciarle entrambe: l'ultimo mese ha sempre la priorità.
+      final List<int> regularIndices = [];
+      for (int i = 0; i < data.length; i += labelStride) 
+      {
+        regularIndices.add(i);
+      }
+
+      final int lastIndex = data.length - 1;
+      if (regularIndices.isEmpty || regularIndices.last != lastIndex) 
+      {
+        if (regularIndices.isNotEmpty) 
+        {
+          final double lastRegularX = paddingLeft + (regularIndices.last * stepX);
+          final double trueLastX    = paddingLeft + (lastIndex * stepX);
+          if ((trueLastX - lastRegularX) < neededWidth) 
+          {
+            regularIndices.removeLast();
+          }
+        }
+        regularIndices.add(lastIndex);
+      }
+
+      _labelIndices = regularIndices.toSet();
+    }
+    else 
+    {
+      _labelIndices = {0};
+    }
+
     for (int i = 0; i < data.length; i++) 
     {
       final x = paddingLeft + (i * stepX);
       final y = chartHeight - ((data[i].totalMembers / maxValue) * chartHeight);
       points.add(Offset(x, y));
 
-      textPainter.text = TextSpan
-      (
-        text:  isMonthly ? '${_monthNames[(data[i].month ?? 1) - 1]}\n${data[i].year}' : '${data[i].year}', 
-        style: GoogleFonts.plusJakartaSans
+      if (_labelIndices.contains(i)) 
+      {
+        textPainter.text = TextSpan
         (
-          color:    const Color(0xFF94A3B8), 
-          fontSize: 13,
-        ),
-      );
-      textPainter.textAlign = TextAlign.center;
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x - (textPainter.width / 2), chartHeight + 8));
+          text:  isMonthly ? '${_monthNames[(data[i].month ?? 1) - 1]}\n${data[i].year}' : '${data[i].year}', 
+          style: GoogleFonts.plusJakartaSans
+          (
+            color:    const Color(0xFF94A3B8), 
+            fontSize: 13,
+          ),
+        );
+        textPainter.textAlign = TextAlign.center;
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(x - (textPainter.width / 2), chartHeight + 8));
+      }
     }
 
     final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -2522,7 +2708,7 @@ class _LineChartPainter extends CustomPainter
           begin:  Alignment.topCenter, 
           end:    Alignment.bottomCenter,
         ).createShader(Rect.fromLTWH(paddingLeft, 0, chartWidth, chartHeight))
-        ..style = PaintingStyle.fill,
+        ..style  = PaintingStyle.fill,
     );
 
     for (final point in points) 
@@ -2531,6 +2717,9 @@ class _LineChartPainter extends CustomPainter
       canvas.drawCircle(point, 3, Paint()..color = Colors.white..style = PaintingStyle.fill);
     }
   }
+
+  //ScratchSetRecomputedOnEveryPaint_NotPartOfTheWidgetsPersistentState
+  Set<int> _labelIndices = {};
 
   @override
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) => oldDelegate.hoverPosition != hoverPosition || oldDelegate.data != data;

@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../models/person_item.dart';
 import '../person_wizard_components.dart';
 
+//BelowThisWidth_TheTwoSideBySideCardsStackVertically_InsteadOfBeingSqueezedNarrow
+const double _kCardPairBreakpoint = 820.0;
+
 class PersonInfoTab extends StatelessWidget 
 {
   final PersonItem   person;
@@ -103,72 +106,52 @@ class PersonInfoTab extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _InfoSectionCard(
-                        title:       'Identità',
-                        labelWidth:  160,
-                        leadingIcon: const _StaticAvatar(icon: Icons.badge_rounded),
-                        rows: [
-                          _InfoRowData('Nome',           nome),
-                          _InfoRowData('Cognome',        cognome),
-                          _InfoRowData('Sesso',          sesso),
-                          _InfoRowData('Codice fiscale', person.fiscalCode),
-                          null,
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _InfoSectionCard(
-                        title:       'Residenza',
-                        labelWidth:  110,
-                        leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
-                        rows: [
-                          _InfoRowData('Indirizzo', indirizzo),
-                          _InfoRowData('N°',        civico),
-                          _InfoRowData('Città',     cittaResidenza),
-                          _InfoRowData('Provincia', provResidenza),
-                          _InfoRowData('CAP',       cap),
-                        ],
-                      ),
-                    ),
+              _ResponsiveCardPair(
+                first: _InfoSectionCard(
+                  title:       'Identità',
+                  labelWidth:  160,
+                  leadingIcon: const _StaticAvatar(icon: Icons.badge_rounded),
+                  rows: [
+                    _InfoRowData('Nome',           nome),
+                    _InfoRowData('Cognome',        cognome),
+                    _InfoRowData('Sesso',          sesso),
+                    _InfoRowData('Codice fiscale', person.fiscalCode),
+                    null,
+                  ],
+                ),
+                second: _InfoSectionCard(
+                  title:       'Residenza',
+                  labelWidth:  110,
+                  leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
+                  rows: [
+                    _InfoRowData('Indirizzo', indirizzo),
+                    _InfoRowData('N°',        civico),
+                    _InfoRowData('Città',     cittaResidenza),
+                    _InfoRowData('Provincia', provResidenza),
+                    _InfoRowData('CAP',       cap),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _InfoSectionCard(
-                        title:       'Dati anagrafici',
-                        labelWidth:  160,
-                        leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
-                        rows: [
-                          _InfoRowData('Data di nascita',  dataNascita),
-                          _InfoRowData('Città di nascita', cittaNascita),
-                          _InfoRowData('Provincia',        provNascita),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _InfoSectionCard(
-                        title:       'Contatti',
-                        labelWidth:  110,
-                        leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
-                        rows: [
-                          _InfoRowData('Email',    email),
-                          _InfoRowData('Telefono', telefono),
-                          null,
-                        ],
-                      ),
-                    ),
+              _ResponsiveCardPair(
+                first: _InfoSectionCard(
+                  title:       'Dati anagrafici',
+                  labelWidth:  160,
+                  leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
+                  rows: [
+                    _InfoRowData('Data di nascita',  dataNascita),
+                    _InfoRowData('Città di nascita', cittaNascita),
+                    _InfoRowData('Provincia',        provNascita),
+                  ],
+                ),
+                second: _InfoSectionCard(
+                  title:       'Contatti',
+                  labelWidth:  110,
+                  leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
+                  rows: [
+                    _InfoRowData('Email',    email),
+                    _InfoRowData('Telefono', telefono),
+                    null,
                   ],
                 ),
               ),
@@ -273,6 +256,54 @@ class PersonInfoTab extends StatelessWidget
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedLayout_BasedOnActualAvailableWidth
+class _ResponsiveCardPair extends StatelessWidget
+{
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair({
+    required this.first,
+    required this.second,
+    this.breakpoint = _kCardPairBreakpoint,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const SizedBox(width: 24),
+              Expanded(child: second),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -432,6 +463,9 @@ class _StaticAvatar extends StatelessWidget
   }
 }
 
+//RevertedToTheSimpleFixedLabel+ExpandedValueStructure
+//NoLayoutBuilderHere_ItWouldConflictWithTheAncestorIntrinsicHeightInResponsiveCardPair
+//SafeBecause_ResponsiveCardPairAlreadyGuaranteesAdequateWidthBeforeTheseCardsSitSideBySide
 class _InfoRow extends StatelessWidget 
 {
   final String label;

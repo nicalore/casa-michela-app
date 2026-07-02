@@ -51,15 +51,21 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
 
   void _showDetailsDialog(BuildContext context)
   {
+    //StableReferenceToTheCardsOwnContext_MustSurviveTheDialogsOpenCloseCycle
+    //DoNotLetThisGetShadowedByTransitionBuildersOwnContextParamBelow
+    final BuildContext cardContext = context;
+
     showGeneralDialog
     (
-      context:            context,
+      context:            cardContext,
       barrierDismissible: true,
       barrierLabel:       'MinistrySubjectDetails',
       barrierColor:       Colors.black.withValues(alpha: .15),
       transitionDuration: const Duration(milliseconds: 240),
       pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder:  (context, animation, secondaryAnimation, child)
+      //RenamedFrom"context"ToAvoidShadowingTheOuterCardContext_ThisIsTheDialogsOwnContext
+      //ItBecomesInvalidAssoonAsThisSpecificDialogIsPopped_NeverStoreItInALongLivedClosure
+      transitionBuilder:  (dialogContext, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
         return BackdropFilter
@@ -78,8 +84,10 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 areaItalian:     _translateArea(widget.subject.area),
                 onEditRequested: ()
                 {
-                  Navigator.of(context).pop();
-                  widget.onEditRequested(() => _showDetailsDialog(context));
+                  //PopsTheCurrentDialogUsingItsOwnStillValidContext
+                  Navigator.of(dialogContext).pop();
+                  //ButHandsTheReopenCallbackTheCard'sStableContext_NotTheSoonToBeDefunctDialogOne
+                  widget.onEditRequested(() => _showDetailsDialog(cardContext));
                 },
                 onDelete:        widget.onDelete,
               ),
@@ -90,63 +98,75 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context)
   {
-    return MouseRegion
+    return Tooltip
     (
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector
+      message:      widget.subject.name,
+      waitDuration: const Duration(milliseconds: 600),
+      padding:      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+      decoration:   BoxDecoration
       (
-        onTap: () => _showDetailsDialog(context),
-        child: AnimatedContainer
+        color:        const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow:    const [BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16)],
+      ),
+      child: MouseRegion
+      (
+        cursor:  SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit:  (_) => setState(() => _isHovering = false),
+        child: GestureDetector
         (
-          duration:   const Duration(milliseconds: 180),
-          curve:      Curves.easeOut,
-          width:      320,
-          height:     136,
-          padding:    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          alignment:  Alignment.centerLeft,
-          decoration: BoxDecoration
+          onTap: () => _showDetailsDialog(context),
+          child: AnimatedContainer
           (
-            color:        Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
-            boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
-          ),
-          child: Column
-          (
-            mainAxisAlignment:  MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _AutoResizeText
-              (
-                text:        widget.subject.name, 
-                maxFontSize: 22, 
-                minFontSize: 16, 
-                maxLines:    2,
-                style:       GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.1),
-              ),
-              const SizedBox(height: 6),
-              Text
-              (
-                _translateLevel(widget.subject.level), 
-                maxLines:   1, 
-                overflow:   TextOverflow.ellipsis,
-                style:      GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
-              ),
-              const SizedBox(height: 2),
-              Text
-              (
-                _translateArea(widget.subject.area), 
-                maxLines:   1, 
-                overflow:   TextOverflow.ellipsis,
-                style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
-              ),
-            ],
+            duration:   const Duration(milliseconds: 180),
+            curve:      Curves.easeOut,
+            width:      360,
+            height:     140,
+            padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+            decoration: BoxDecoration
+            (
+              color:        Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
+              boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
+            ),
+            child: Column
+            (
+              mainAxisAlignment:  MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: 
+              [
+                Text
+                (
+                  widget.subject.name, 
+                  maxLines: 2, 
+                  overflow: TextOverflow.ellipsis,
+                  style:    GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
+                ),
+                const SizedBox(height: 6),
+                Text
+                (
+                  _translateLevel(widget.subject.level), 
+                  maxLines:   1, 
+                  overflow:   TextOverflow.ellipsis,
+                  style:      GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 2),
+                Text
+                (
+                  _translateArea(widget.subject.area), 
+                  maxLines:   1, 
+                  overflow:   TextOverflow.ellipsis,
+                  style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -335,45 +355,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AutoResizeText extends StatelessWidget
-{
-  final String    text;
-  final double    maxFontSize;
-  final double    minFontSize;
-  final int       maxLines;
-  final TextStyle style;
-
-  const _AutoResizeText
-  ({
-    required this.text, 
-    required this.maxFontSize, 
-    required this.minFontSize, 
-    required this.maxLines, 
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        double currentFontSize        = maxFontSize;
-        final TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr, maxLines: maxLines);
-        while (currentFontSize > minFontSize)
-        {
-          textPainter.text = TextSpan(text: text, style: style.copyWith(fontSize: currentFontSize));
-          textPainter.layout(maxWidth: constraints.maxWidth);
-          if (!textPainter.didExceedMaxLines) break;
-          currentFontSize -= 1;
-        }
-        return Text(text, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style.copyWith(fontSize: currentFontSize));
-      }
     );
   }
 }

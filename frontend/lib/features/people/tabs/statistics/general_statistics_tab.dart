@@ -194,33 +194,41 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
             ),
           ),
           const SizedBox(height: 8),
-          Row
+          //SameDefensivePatternAppliedInRoleSpecificStatisticsView_LowRiskEvenThoughNotReportedHere
+          //ScalesDownOnlyWhenNeeded_InvisibleWhenTheContentAlreadyFits
+          FittedBox
           (
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: 
-            [
-              Text
-              (
-                text,
-                style: GoogleFonts.plusJakartaSans
+            fit:       BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row
+            (
+              mainAxisSize:       MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: 
+              [
+                Text
                 (
-                  fontSize:   36,
-                  fontWeight: FontWeight.w800,
-                  color:      color,
-                ),
-              ),
-              if (isDelta && value != 0) 
-                Padding
-                (
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Icon
+                  text,
+                  style: GoogleFonts.plusJakartaSans
                   (
-                    value > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                    color: color,
-                    size:  26,
+                    fontSize:   36,
+                    fontWeight: FontWeight.w800,
+                    color:      color,
                   ),
                 ),
-            ],
+                if (isDelta && value != 0) 
+                  Padding
+                  (
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon
+                    (
+                      value > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      color: color,
+                      size:  26,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -318,6 +326,29 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Widget _buildRetentionCard() 
   {
+    final titleWidget = Text
+    (
+      'Fidelizzazione Iscritti', 
+      style: GoogleFonts.plusJakartaSans
+      (
+        fontSize:   18, 
+        fontWeight: FontWeight.w600, 
+        color:      const Color(0xFF1E293B),
+      ),
+    );
+
+    final filtersWidget = _StatFilterMenu<int>
+    (
+      hint:      'Anno', 
+      value:     _selectedRetentionYear, 
+      options:   _getYearOptions(),
+      onChanged: (v) 
+      { 
+        setState(() => _selectedRetentionYear = v); 
+        _loadData(); 
+      },
+    );
+
     //MakeCardSelectable
     return SelectionArea
     (
@@ -343,33 +374,11 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            Row
+            _ResponsiveCardHeader
             (
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: 
-              [
-                Text
-                (
-                  'Fidelizzazione Iscritti', 
-                  style: GoogleFonts.plusJakartaSans
-                  (
-                    fontSize:   18, 
-                    fontWeight: FontWeight.w600, 
-                    color:      const Color(0xFF1E293B),
-                  ),
-                ),
-                _StatFilterMenu<int>
-                (
-                  hint:      'Anno', 
-                  value:     _selectedRetentionYear, 
-                  options:   _getYearOptions(),
-                  onChanged: (v) 
-                  { 
-                    setState(() => _selectedRetentionYear = v); 
-                    _loadData(); 
-                  },
-                ),
-              ],
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 480,
             ),
             const SizedBox(height: 24),
             if (_retentionData != null)
@@ -411,7 +420,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     );
   }
 
-  Widget _buildCollabRetentionCard({required bool stackHeader}) 
+  Widget _buildCollabRetentionCard() 
   {
     final filtersWidget = Wrap
     (
@@ -507,27 +516,12 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
-            stackHeader
-              ? Column
-                (
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: 
-                  [
-                    titleWidget,
-                    const SizedBox(height: 12),
-                    filtersWidget,
-                  ],
-                )
-              : Row
-                (
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: 
-                  [
-                    titleWidget,
-                    filtersWidget,
-                  ],
-                ),
+            _ResponsiveCardHeader
+            (
+              title:      titleWidget,
+              filters:    filtersWidget,
+              breakpoint: 620,
+            ),
             const SizedBox(height: 24),
             if (_collabRetentionData != null)
               Row
@@ -637,35 +631,14 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: 
           [
-            //SwitchBetweenInlineAndStackedHeaderBasedOnAvailableCardWidth
-            LayoutBuilder
-            (
-              builder: (context, constraints) 
-              {
-                final stackHeader = showFilters && constraints.maxWidth < 760;
-
-                return stackHeader
-                  ? Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        titleWidget,
-                        const SizedBox(height: 12),
-                        filtersWidget,
-                      ],
-                    )
-                  : Row
-                    (
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: 
-                      [
-                        titleWidget,
-                        if (showFilters) filtersWidget,
-                      ],
-                    );
-              },
-            ),
+            showFilters
+              ? _ResponsiveCardHeader
+                (
+                  title:      titleWidget,
+                  filters:    filtersWidget,
+                  breakpoint: 760,
+                )
+              : titleWidget,
             const SizedBox(height: 48),
             SizedBox
             (
@@ -715,54 +688,30 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: 
             [
-              Row
+              _ResponsiveCardPair
               (
-                children: 
-                [
-                  Expanded
-                  (
-                    child: _buildSummaryCard
-                    (
-                      title:      'Iscritti Totali', 
-                      count:      _currentTotals?.currentTotalMembers ?? 0, 
-                      deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
-                      deltaYear:  _currentTotals?.membersDeltaYear ?? 0,
-                      icon:       Icons.people_alt_outlined,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded
-                  (
-                    child: _buildSummaryCard
-                    (
-                      title:      'Collaboratori Attivi', 
-                      count:      _currentTotals?.currentActiveCollaborators ?? 0, 
-                      deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
-                      deltaYear:  _currentTotals?.collabDeltaYear ?? 0,
-                      icon:       Icons.handshake_outlined,
-                    ),
-                  ),
-                ],
+                first: _buildSummaryCard
+                (
+                  title:      'Iscritti Totali', 
+                  count:      _currentTotals?.currentTotalMembers ?? 0, 
+                  deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
+                  deltaYear:  _currentTotals?.membersDeltaYear ?? 0,
+                  icon:       Icons.people_alt_outlined,
+                ),
+                second: _buildSummaryCard
+                (
+                  title:      'Collaboratori Attivi', 
+                  count:      _currentTotals?.currentActiveCollaborators ?? 0, 
+                  deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
+                  deltaYear:  _currentTotals?.collabDeltaYear ?? 0,
+                  icon:       Icons.handshake_outlined,
+                ),
               ),
               const SizedBox(height: 24),
-              LayoutBuilder
+              _ResponsiveCardPair
               (
-                builder: (context, constraints) 
-                {
-                  final cardWidth   = (constraints.maxWidth - 24) / 2;
-                  final stackHeader = cardWidth < 620;
-
-                  return Row
-                  (
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: 
-                    [
-                      Expanded(child: _buildRetentionCard()),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildCollabRetentionCard(stackHeader: stackHeader)),
-                    ],
-                  );
-                },
+                first:  _buildRetentionCard(),
+                second: _buildCollabRetentionCard(),
               ),
               const SizedBox(height: 24),
               _buildTrendChartCard
@@ -849,6 +798,119 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedLayout_BasedOnActualAvailableWidth
+//NoIntrinsicHeightHere_CardsCanHaveDifferentHeightsWithoutBeingStretchedToMatch
+class _ResponsiveCardPair extends StatelessWidget 
+{
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair
+  ({
+    required this.first,
+    required this.second,
+    this.breakpoint = 900.0,
+  });
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(child: first),
+            const SizedBox(width: 24),
+            Expanded(child: second),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//SharedHeaderPattern_TitleLeftFiltersRight_StacksBelowBreakpoint
+//FiltersAlwaysWrappedInFlexible_EvenInSideBySideMode_SoAnInternalWrapCanAbsorbTheSqueeze
+class _ResponsiveCardHeader extends StatelessWidget 
+{
+  final Widget title;
+  final Widget filters;
+  final double breakpoint;
+
+  const _ResponsiveCardHeader
+  ({
+    required this.title,
+    required this.filters,
+    this.breakpoint = 620,
+  });
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool stackHeader = constraints.maxWidth < breakpoint;
+
+        if (stackHeader) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              title,
+              const SizedBox(height: 12),
+              filters,
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment:  MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            title,
+            Flexible
+            (
+              child: Align
+              (
+                alignment: Alignment.centerRight,
+                child:     filters,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1112,24 +1174,83 @@ class _LineChartPainter extends CustomPainter
     final points = <Offset>[];
     final stepX  = data.length > 1 ? chartWidth / (data.length - 1) : chartWidth / 2;
 
+    //DeterminesHowManyLabelsCanBeDrawnWithoutOverlapping_BasedOnTheSpaceActuallyAvailablePerPoint
+    //VersusARepresentativeLabelsRenderedWidth
+    int labelStride = 1;
+    if (data.length > 1) 
+    {
+      final sampleText = isMonthly ? '${_monthNames[0]}\n9999' : '9999';
+      final sampleTextPainter = TextPainter
+      (
+        text: TextSpan
+        (
+          text:  sampleText, 
+          style: GoogleFonts.plusJakartaSans(fontSize: 13),
+        ),
+        textDirection: TextDirection.ltr,
+        textAlign:     TextAlign.center,
+      )..layout();
+
+      final double neededWidth = sampleTextPainter.width + 8;
+      if (stepX > 0 && neededWidth > stepX) 
+      {
+        labelStride = (neededWidth / stepX).ceil();
+      }
+
+      //L'ULTIMO punto viene sempre mostrato per dare contesto sul mese/anno più
+      //recente. Ma se il campionamento a passo fisso piazza l'etichetta precedente
+      //troppo vicino a quella finale, le due si sovrappongono (bug osservato:
+      //"Mag 2026" incollato a "Lug 2026"). In quel caso si rimuove la precedente
+      //invece di lasciarle entrambe: l'ultimo mese ha sempre la priorità.
+      final List<int> regularIndices = [];
+      for (int i = 0; i < data.length; i += labelStride) 
+      {
+        regularIndices.add(i);
+      }
+
+      final int lastIndex = data.length - 1;
+      if (regularIndices.isEmpty || regularIndices.last != lastIndex) 
+      {
+        if (regularIndices.isNotEmpty) 
+        {
+          final double lastRegularX = paddingLeft + (regularIndices.last * stepX);
+          final double trueLastX    = paddingLeft + (lastIndex * stepX);
+          if ((trueLastX - lastRegularX) < neededWidth) 
+          {
+            regularIndices.removeLast();
+          }
+        }
+        regularIndices.add(lastIndex);
+      }
+
+      _labelIndices = regularIndices.toSet();
+    }
+    else 
+    {
+      _labelIndices = {0};
+    }
+
     for (int i = 0; i < data.length; i++) 
     {
       final x = paddingLeft + (i * stepX);
       final y = chartHeight - ((data[i].totalMembers / maxValue) * chartHeight);
       points.add(Offset(x, y));
 
-      textPainter.text      = TextSpan
-      (
-        text:  isMonthly ? '${_monthNames[(data[i].month ?? 1) - 1]}\n${data[i].year}' : '${data[i].year}', 
-        style: GoogleFonts.plusJakartaSans
+      if (_labelIndices.contains(i)) 
+      {
+        textPainter.text = TextSpan
         (
-          color:    const Color(0xFF94A3B8), 
-          fontSize: 13,
-        ),
-      );
-      textPainter.textAlign = TextAlign.center;
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x - (textPainter.width / 2), chartHeight + 8));
+          text:  isMonthly ? '${_monthNames[(data[i].month ?? 1) - 1]}\n${data[i].year}' : '${data[i].year}', 
+          style: GoogleFonts.plusJakartaSans
+          (
+            color:    const Color(0xFF94A3B8), 
+            fontSize: 13,
+          ),
+        );
+        textPainter.textAlign = TextAlign.center;
+        textPainter.layout();
+        textPainter.paint(canvas, Offset(x - (textPainter.width / 2), chartHeight + 8));
+      }
     }
 
     final path = Path()..moveTo(points.first.dx, points.first.dy);
@@ -1163,6 +1284,8 @@ class _LineChartPainter extends CustomPainter
       canvas.drawCircle(point, 3, Paint()..color = Colors.white..style = PaintingStyle.fill);
     }
   }
+
+  Set<int> _labelIndices = {};
 
   @override
   bool shouldRepaint(covariant _LineChartPainter oldDelegate) => oldDelegate.hoverPosition != hoverPosition || oldDelegate.data != data;

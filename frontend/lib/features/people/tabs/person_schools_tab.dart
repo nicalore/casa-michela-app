@@ -237,22 +237,35 @@ class PersonSchoolsTab extends StatelessWidget
               ],
             ),
             const SizedBox(height: 32),
-            Row
+            //SempreIncolonnate_NonSoloQuandoLoSpazioNonBasta_StessoCriterioDelleIscrizioni
+            _buildStackedInfoItems
             (
-              mainAxisAlignment:  MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
               [
-                Expanded(child: _buildInfoItem('Scuola',   item.schoolName)),
-                Expanded(child: _buildInfoItem('Livello',  item.educationLevel)),
-                Expanded(child: _buildInfoItem('Percorso', item.studyProgramName)),
-                Expanded(child: _buildInfoItem('Classe',   _getRomanGrade(item.grade))),
-                Expanded(child: _buildInfoItem('Ripetente', isRipetente ? 'Sì' : 'No', highlight: isRipetente)),
+                _buildInfoItem('Scuola',   item.schoolName),
+                _buildInfoItem('Livello',  item.educationLevel),
+                _buildInfoItem('Percorso', item.studyProgramName),
+                _buildInfoItem('Classe',   _getRomanGrade(item.grade)),
+                _buildInfoItem('Ripetente', isRipetente ? 'Sì' : 'No', highlight: isRipetente),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStackedInfoItems(List<Widget> items)
+  {
+    final List<Widget> stacked = [];
+    for (int i = 0; i < items.length; i++)
+    {
+      if (i > 0) stacked.add(const SizedBox(height: 20));
+      stacked.add(items[i]);
+    }
+    return Column
+    (
+      mainAxisSize: MainAxisSize.min,
+      children: stacked,
     );
   }
 
@@ -287,6 +300,176 @@ class PersonSchoolsTab extends StatelessWidget
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+}
+
+//UsataNelBottomBarDelDialogModifica_ImpilaTastiSottoSoglia_ConfermaSopra_AnnullaSempreInFondo
+//StessoCriterioUsatoPerLeIscrizioni_MaConWizardAnimatedActionButton_CoerenteConQuestoFile
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final String cancelText;
+  final IconData cancelIcon;
+  final Color cancelColor;
+  final Color cancelHoverColor;
+  final VoidCallback cancelOnPressed;
+
+  final String confirmText;
+  final IconData confirmIcon;
+  final Color confirmColor;
+  final Color confirmHoverColor;
+  final VoidCallback confirmOnPressed;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.cancelText,
+    required this.cancelIcon,
+    required this.cancelColor,
+    required this.cancelHoverColor,
+    required this.cancelOnPressed,
+    required this.confirmText,
+    required this.confirmIcon,
+    required this.confirmColor,
+    required this.confirmHoverColor,
+    required this.confirmOnPressed,
+  });
+
+  static const double _kBreakpoint = 460;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget cancelButton = WizardAnimatedActionButton
+        (
+          text:       cancelText,
+          icon:       cancelIcon,
+          baseColor:  cancelColor,
+          hoverColor: cancelHoverColor,
+          onPressed:  cancelOnPressed,
+        );
+
+        final Widget confirmButton = WizardAnimatedActionButton
+        (
+          text:       confirmText,
+          icon:       confirmIcon,
+          baseColor:  confirmColor,
+          hoverColor: confirmHoverColor,
+          onPressed:  confirmOnPressed,
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              confirmButton,
+              const SizedBox(height: 16),
+              cancelButton,
+            ],
+          );
+        }
+
+        return Row
+        (
+          children: 
+          [
+            Expanded(child: cancelButton),
+            const SizedBox(width: 16),
+            Expanded(child: confirmButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareIQuattroCampiDellaRigaScuola_InBaseAllaLarghezzaReale
+//RiceveIBlocchiGiaCostruiti_LaLogicaDiCalcoloDeiDropdownRestaNelDialogParent
+//IlBottoneDiRimozioneSiAffiancaAllUltimoCampo_ClasseQuandoImpilato_StessoCriterioDelleIscrizioni
+class _ResponsiveFourFieldRow extends StatelessWidget
+{
+  final Widget yearField;
+  final Widget schoolField;
+  final Widget programField;
+  final Widget gradeField;
+  final VoidCallback onRemove;
+
+  const _ResponsiveFourFieldRow
+  ({
+    required this.yearField,
+    required this.schoolField,
+    required this.programField,
+    required this.gradeField,
+    required this.onRemove,
+  });
+
+  //SottoQuestaLarghezza4CampiAffiancatiDiventanoIllegibili_SchoolEProgramInParticolare
+  static const double _kBreakpoint = 700;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              yearField,
+              const SizedBox(height: 16),
+              schoolField,
+              const SizedBox(height: 16),
+              programField,
+              const SizedBox(height: 16),
+              Row
+              (
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: 
+                [
+                  Expanded(child: gradeField),
+                  const SizedBox(width: 8),
+                  WizardRemoveRowButton(onTap: onRemove),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(flex: 2, child: yearField),
+            const SizedBox(width: 16),
+            Expanded(flex: 5, child: schoolField),
+            const SizedBox(width: 16),
+            Expanded(flex: 5, child: programField),
+            const SizedBox(width: 16),
+            Expanded(flex: 2, child: gradeField),
+            Padding
+            (
+              padding: const EdgeInsets.only(top: 28, left: 16),
+              child:   WizardRemoveRowButton(onTap: onRemove),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -601,8 +784,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       elevation:       0,
       child: Container
       (
-        width:       980, 
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre980
+        //SenzaQuestoIlBreakpointSuiBottoniESulleRigheNonScatterebbeMai
+        width:       double.infinity,
+        constraints: BoxConstraints
+        (
+          maxWidth:  980,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
         decoration:  BoxDecoration
         (
           color:        Colors.white, 
@@ -726,6 +915,95 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                               {
                                 gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
                               }
+
+                              final Widget yearField = Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  _buildFieldLabel('Anno inizio'),
+                                  WizardAnimatedTextField
+                                  (
+                                    controller:   r.yearCtrl,
+                                    hint:         'Es. 2024',
+                                    errorText:    _errors['year_$i'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged:    (_) => setState(() => _errors.remove('year_$i')),
+                                  ),
+                                ],
+                              );
+
+                              final Widget schoolField = Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  _buildFieldLabel('Scuola'),
+                                  _FormOverlayDropdown
+                                  (
+                                    value:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
+                                    options:    schoolNames,
+                                    hint:       'Seleziona scuola',
+                                    errorText:  _errors['school_$i'],
+                                    onSelected: (val) 
+                                    {
+                                      setState(() 
+                                      {
+                                        r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+                                        r.selectedProgram = null;
+                                        r.selectedGrade   = null;
+                                        _errors.remove('school_$i');
+                                      });
+                                    },
+                                  ),
+                                ],
+                              );
+
+                              final Widget programField = Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  _buildFieldLabel('Percorso'),
+                                  _FormOverlayDropdown
+                                  (
+                                    value:      r.selectedProgram?.name,
+                                    options:    programNames,
+                                    hint:       'Seleziona percorso',
+                                    errorText:  _errors['program_$i'],
+                                    onSelected: (val) 
+                                    {
+                                      setState(() 
+                                      {
+                                        r.selectedProgram = _allPrograms.firstWhere((p) => p.name == val);
+                                        r.selectedGrade   = null;
+                                        _errors.remove('program_$i');
+                                      });
+                                    },
+                                  ),
+                                ],
+                              );
+
+                              final Widget gradeField = Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  _buildFieldLabel('Classe'),
+                                  _FormOverlayDropdown
+                                  (
+                                    value:      r.selectedGrade,
+                                    options:    gradeOptions,
+                                    hint:       'Classe',
+                                    errorText:  _errors['grade_$i'],
+                                    onSelected: (val) => setState(() 
+                                    {
+                                      r.selectedGrade = val;
+                                      _errors.remove('grade_$i');
+                                    }),
+                                  ),
+                                ],
+                              );
                               
                               return Container
                               (
@@ -737,124 +1015,14 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                                   border:       Border.all(color: const Color(0xFFE2E8F0)),
                                   color:        const Color(0xFFF8FAFC),
                                 ),
-                                child: Row
+                                //DecideRowVsColumnInBaseAllaLarghezzaRealeDelDialog
+                                child: _ResponsiveFourFieldRow
                                 (
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: 
-                                  [
-                                    Expanded
-                                    (
-                                      flex: 2,
-                                      child: Column
-                                      (
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: 
-                                        [
-                                          _buildFieldLabel('Anno inizio'),
-                                          WizardAnimatedTextField
-                                          (
-                                            controller:   r.yearCtrl,
-                                            hint:         'Es. 2024',
-                                            errorText:    _errors['year_$i'],
-                                            keyboardType: TextInputType.number,
-                                            onChanged:    (_) => setState(() => _errors.remove('year_$i')),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded
-                                    (
-                                      flex: 5,
-                                      child: Column
-                                      (
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: 
-                                        [
-                                          _buildFieldLabel('Scuola'),
-                                          _FormOverlayDropdown
-                                          (
-                                            value:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
-                                            options:    schoolNames,
-                                            hint:       'Seleziona scuola',
-                                            errorText:  _errors['school_$i'],
-                                            onSelected: (val) 
-                                            {
-                                              setState(() 
-                                              {
-                                                r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
-                                                r.selectedProgram = null;
-                                                r.selectedGrade   = null;
-                                                _errors.remove('school_$i');
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded
-                                    (
-                                      flex: 5,
-                                      child: Column
-                                      (
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: 
-                                        [
-                                          _buildFieldLabel('Percorso'),
-                                          _FormOverlayDropdown
-                                          (
-                                            value:      r.selectedProgram?.name,
-                                            options:    programNames,
-                                            hint:       'Seleziona percorso',
-                                            errorText:  _errors['program_$i'],
-                                            onSelected: (val) 
-                                            {
-                                              setState(() 
-                                              {
-                                                r.selectedProgram = _allPrograms.firstWhere((p) => p.name == val);
-                                                r.selectedGrade   = null;
-                                                _errors.remove('program_$i');
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded
-                                    (
-                                      flex: 2,
-                                      child: Column
-                                      (
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: 
-                                        [
-                                          _buildFieldLabel('Classe'),
-                                          _FormOverlayDropdown
-                                          (
-                                            value:      r.selectedGrade,
-                                            options:    gradeOptions,
-                                            hint:       'Classe',
-                                            errorText:  _errors['grade_$i'],
-                                            onSelected: (val) => setState(() 
-                                            {
-                                              r.selectedGrade = val;
-                                              _errors.remove('grade_$i');
-                                            }),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Padding
-                                    (
-                                      padding: const EdgeInsets.only(top: 28, left: 16),
-                                      child: WizardRemoveRowButton
-                                      (
-                                        onTap: () => setState(() => _rows.removeAt(i)),
-                                      ),
-                                    ),
-                                  ],
+                                  yearField:    yearField,
+                                  schoolField:  schoolField,
+                                  programField: programField,
+                                  gradeField:   gradeField,
+                                  onRemove:     () => setState(() => _rows.removeAt(i)),
                                 ),
                               );
                             }),
@@ -877,34 +1045,18 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                   Padding
                   (
                     padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-                    child: Row
+                    child: _ResponsiveDialogButtonsRow
                     (
-                      children: 
-                      [
-                        Expanded
-                        (
-                          child: WizardAnimatedActionButton
-                          (
-                            text:       'ANNULLA', 
-                            icon:       Icons.cancel_outlined, 
-                            baseColor:  const Color(0xFFE53935), 
-                            hoverColor: const Color(0xFFEF5350), 
-                            onPressed:  () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded
-                        (
-                          child: WizardAnimatedActionButton
-                          (
-                            text:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
-                            icon:       Icons.save_outlined, 
-                            baseColor:  const Color(0xFF003C82), 
-                            hoverColor: const Color(0xFF004D99),
-                            onPressed:  _isSaving ? () {} : _save,
-                          ),
-                        ),
-                      ],
+                      cancelText:        'ANNULLA',
+                      cancelIcon:        Icons.cancel_outlined,
+                      cancelColor:       const Color(0xFFE53935),
+                      cancelHoverColor:  const Color(0xFFEF5350),
+                      cancelOnPressed:   () => Navigator.of(context).pop(),
+                      confirmText:       _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
+                      confirmIcon:       Icons.save_outlined,
+                      confirmColor:      const Color(0xFF003C82),
+                      confirmHoverColor: const Color(0xFF004D99),
+                      confirmOnPressed:  _isSaving ? () {} : _save,
                     ),
                   ),
                 ],

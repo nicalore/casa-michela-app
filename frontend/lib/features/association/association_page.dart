@@ -32,57 +32,57 @@ class _AssociationPageState extends State<AssociationPage>
     'Percorsi di studio',
   ];
 
+  //StacksToNewLineInsteadOfOverflowing_WasAPlainRowBeforeWithNoWrapAndNoScroll
   Widget _buildSubNavigation() 
   {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
-      child: Row(
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
         children: List.generate(_didatticaTabs.length, (index) 
         {
           final isSelected = _didatticaSelectedTab == index;
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () 
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () 
+              {
+                setState(() 
                 {
-                  setState(() 
-                  {
-                    _didatticaSelectedTab = index;
-                  });
-                },
-                child: AnimatedContainer(
+                  _didatticaSelectedTab = index;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF003C82) : Colors.white,
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF003C82)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: isSelected
+                        ? Colors.white
+                        : const Color(0xFF64748B),
                   ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF003C82)
-                          : const Color(0xFFE2E8F0),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF64748B),
-                    ),
-                    child: Text(_didatticaTabs[index]),
-                  ),
+                  child: Text(_didatticaTabs[index]),
                 ),
               ),
             ),

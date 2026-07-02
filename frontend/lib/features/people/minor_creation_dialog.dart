@@ -108,8 +108,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   final Map<int, bool>        _subjectToggles             = {};
   final Map<int, Set<int>>    _selectedProgramsForSubject = {};
 
-  static const double _kCompactCardBoxHeight = 560.0;
-
   @override
   void initState() 
   {
@@ -1254,180 +1252,58 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
             }
 
-            return Container
+            //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia_TrovatoMancanteInUnControlloSuccessivo
+            return _WizardSchoolFieldRow
             (
-              margin:     const EdgeInsets.only(bottom: 16),
-              padding:    const EdgeInsets.all(20),
-              decoration: BoxDecoration
-              (
-                borderRadius: BorderRadius.circular(16),
-                border:       Border.all(color: const Color(0xFFE2E8F0)),
-                color:        const Color(0xFFF8FAFC),
-              ),
-              child: Row
-              (
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: 
-                [
-                  Expanded
-                  (
-                    flex: 2,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text
-                          (
-                            'Anno inizio',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
-                          ),
-                        ),
-                        WizardAnimatedTextField
-                        (
-                          controller:   r.yearCtrl,
-                          hint:         'Es. 2024',
-                          errorText:    _formErrors['schoolYear_$index'],
-                          keyboardType: TextInputType.number,
-                          onChanged:    (_) => setState(() => _formErrors.remove('schoolYear_$index')),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded
-                  (
-                    flex: 4,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text
-                          (
-                            'Scuola',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
-                          ),
-                        ),
-                        WizardAnimatedOverlayDropdown
-                        (
-                          value:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
-                          items:      schoolNames,
-                          hint:       'Scuola',
-                          errorText:  _formErrors['schoolName_$index'],
-                          onChanged:  (val) 
-                          {
-                            setState(() 
-                            {
-                              r.selectedSchool  = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
-                              r.selectedProgram = null;
-                              r.selectedGrade   = null;
-                              _formErrors.remove('schoolName_$index');
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded
-                  (
-                    flex: 4,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text
-                          (
-                            'Percorso',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
-                          ),
-                        ),
-                        WizardAnimatedOverlayDropdown
-                        (
-                          value:      r.selectedProgram?.name,
-                          items:      programNames,
-                          hint:       'Percorso',
-                          enabled:    r.selectedSchool != null && programNames.isNotEmpty,
-                          errorText:  _formErrors['schoolProgram_$index'],
-                          onChanged:  (val) 
-                          {
-                            setState(() 
-                            {
-                              r.selectedProgram = widget.allPrograms.firstWhere((p) => p.name == val);
-                              r.selectedGrade   = null;
-                              _formErrors.remove('schoolProgram_$index');
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded
-                  (
-                    flex: 2,
-                    child: Column
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: 
-                      [
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text
-                          (
-                            'Classe',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
-                          ),
-                        ),
-                        WizardAnimatedOverlayDropdown
-                        (
-                          value:      r.selectedGrade,
-                          items:      gradeOptions,
-                          hint:       'Classe',
-                          enabled:    r.selectedProgram != null && gradeOptions.isNotEmpty,
-                          errorText:  _formErrors['schoolGrade_$index'],
-                          onChanged:  (val) => setState(() 
-                          {
-                            r.selectedGrade = val;
-                            _formErrors.remove('schoolGrade_$index');
-                          }),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (index > 0)
-                    Padding
-                    (
-                      padding: const EdgeInsets.only(top: 28, left: 16),
-                      child: WizardRemoveRowButton
-                      (
-                        onTap: () => setState(() 
-                        {
-                          r.yearCtrl.dispose();
-                          _schoolRows.removeAt(index);
-                          _formErrors.remove('schoolYear_$index');
-                          _formErrors.remove('schoolName_$index');
-                          _formErrors.remove('schoolProgram_$index');
-                          _formErrors.remove('schoolGrade_$index');
-                        }),
-                      ),
-                    )
-                  else
-                    const SizedBox(width: 48),
-                ],
-              ),
+              yearCtrl:         r.yearCtrl,
+              yearError:        _formErrors['schoolYear_$index'],
+              onYearChanged:    (_) => setState(() => _formErrors.remove('schoolYear_$index')),
+              schoolValue:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
+              schoolOptions:    schoolNames,
+              schoolError:      _formErrors['schoolName_$index'],
+              onSchoolSelected: (val) 
+              {
+                setState(() 
+                {
+                  r.selectedSchool  = widget.allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
+                  r.selectedProgram = null;
+                  r.selectedGrade   = null;
+                  _formErrors.remove('schoolName_$index');
+                });
+              },
+              programValue:      r.selectedProgram?.name,
+              programOptions:    programNames,
+              programEnabled:    r.selectedSchool != null && programNames.isNotEmpty,
+              programError:      _formErrors['schoolProgram_$index'],
+              onProgramSelected: (val) 
+              {
+                setState(() 
+                {
+                  r.selectedProgram = widget.allPrograms.firstWhere((p) => p.name == val);
+                  r.selectedGrade   = null;
+                  _formErrors.remove('schoolProgram_$index');
+                });
+              },
+              gradeValue:      r.selectedGrade,
+              gradeOptions:    gradeOptions,
+              gradeEnabled:    r.selectedProgram != null && gradeOptions.isNotEmpty,
+              gradeError:      _formErrors['schoolGrade_$index'],
+              onGradeSelected: (val) => setState(() 
+              {
+                r.selectedGrade = val;
+                _formErrors.remove('schoolGrade_$index');
+              }),
+              onRemove: index > 0
+                  ? () => setState(() 
+                    {
+                      r.yearCtrl.dispose();
+                      _schoolRows.removeAt(index);
+                      _formErrors.remove('schoolYear_$index');
+                      _formErrors.remove('schoolName_$index');
+                      _formErrors.remove('schoolProgram_$index');
+                      _formErrors.remove('schoolGrade_$index');
+                    })
+                  : null,
             );
           }),
           Align
@@ -1471,105 +1347,34 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: 
       [
+        //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
         ...List.generate(_enrollmentRows.length, (index) 
         {
           final row = _enrollmentRows[index];
           return Padding
           (
             padding: const EdgeInsets.only(bottom: 16),
-            child: Row
+            child: _WizardEnrollmentFieldRow
             (
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
-              [
-                Expanded
-                (
-                  flex:  2,
-                  child: Column
-                  (
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
-                      if (index == 0) ...[
-                        Text
-                        (
-                          'Anno',
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:   14, 
-                            fontWeight: FontWeight.w600, 
-                            color:      const Color(0xFF7A7A7A),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      WizardAnimatedTextField
-                      (
-                        controller:   row.yearCtrl, 
-                        hint:         'Es. 2024', 
-                        keyboardType: TextInputType.number,
-                        errorText:    _formErrors['enrollmentYear_$index'],
-                        onChanged:    (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded
-                (
-                  flex:  3,
-                  child: Column
-                  (
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
-                      if (index == 0) ...[
-                        Text
-                        (
-                          'Data inizio',
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:   14, 
-                            fontWeight: FontWeight.w600, 
-                            color:      const Color(0xFF7A7A7A),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      WizardAnimatedTextField
-                      (
-                        controller:      row.dateCtrl, 
-                        hint:            'gg/mm', 
-                        keyboardType:    TextInputType.number,
-                        inputFormatters: [WizardDayMonthInputFormatter()],
-                        errorText:       _formErrors['enrollmentDate_$index'],
-                        onChanged:       (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
-                      ),
-                    ],
-                  ),
-                ),
-                if (index > 0)
-                  Padding
-                  (
-                    padding: const EdgeInsets.only(top: 28, left: 16),
-                    child: WizardRemoveRowButton
-                    (
-                      onTap: () 
+              yearCtrl:      row.yearCtrl,
+              dateCtrl:      row.dateCtrl,
+              yearError:     _formErrors['enrollmentYear_$index'],
+              dateError:     _formErrors['enrollmentDate_$index'],
+              onYearChanged: (_) => setState(() => _formErrors.remove('enrollmentYear_$index')),
+              onDateChanged: (_) => setState(() => _formErrors.remove('enrollmentDate_$index')),
+              onRemove:      index > 0
+                  ? () 
+                    {
+                      setState(() 
                       {
-                        setState(() 
-                        {
-                          _enrollmentRows[index].yearCtrl.dispose();
-                          _enrollmentRows[index].dateCtrl.dispose();
-                          _enrollmentRows.removeAt(index);
-                          _formErrors.remove('enrollmentYear_$index');
-                          _formErrors.remove('enrollmentDate_$index');
-                        });
-                      },
-                    ),
-                  )
-                else
-                  const SizedBox(width: 48), 
-              ],
+                        _enrollmentRows[index].yearCtrl.dispose();
+                        _enrollmentRows[index].dateCtrl.dispose();
+                        _enrollmentRows.removeAt(index);
+                        _formErrors.remove('enrollmentYear_$index');
+                        _formErrors.remove('enrollmentDate_$index');
+                      });
+                    }
+                  : null,
             ),
           );
         }),
@@ -1748,16 +1553,18 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               WizardFormInputRow
               (
                 label:       'Indirizzo',
-                inputWidget: Row
+                //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
+                inputWidget: _WizardAddressFieldsRow
                 (
-                  children: 
-                  [
-                    Expanded(flex: 3, child: WizardAnimatedTextField(controller: _tipoViaCtrl, hint: 'Via/Strada/...', errorText: _formErrors['tipoVia'], onChanged: (_) => setState(() => _formErrors.remove('tipoVia')))),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 5, child: WizardAnimatedTextField(controller: _indirizzoNomeCtrl, hint: 'Nome', errorText: _formErrors['indirizzoNome'], onChanged: (_) => setState(() => _formErrors.remove('indirizzoNome')))),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: WizardAnimatedTextField(controller: _civicoCtrl, hint: 'N°', errorText: _formErrors['civico'], onChanged: (_) => setState(() => _formErrors.remove('civico')))),
-                  ],
+                  tipoViaCtrl:      _tipoViaCtrl,
+                  tipoViaError:     _formErrors['tipoVia'],
+                  onTipoViaChanged: (_) => setState(() => _formErrors.remove('tipoVia')),
+                  nomeCtrl:         _indirizzoNomeCtrl,
+                  nomeError:        _formErrors['indirizzoNome'],
+                  onNomeChanged:    (_) => setState(() => _formErrors.remove('indirizzoNome')),
+                  civicoCtrl:       _civicoCtrl,
+                  civicoError:      _formErrors['civico'],
+                  onCivicoChanged:  (_) => setState(() => _formErrors.remove('civico')),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1898,9 +1705,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     child: KeyedSubtree
                     (
                       key:   ValueKey(_currentFormCardIndex),
+                      //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
                       child: SizedBox
                       (
-                        height: _kCompactCardBoxHeight,
                         width:  constraints.maxWidth,
                         child:  SingleChildScrollView(child: currentCard),
                       ),
@@ -1908,27 +1715,27 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   );
 
                   return isCompact
-                      ? Center
+                      ? Column
                         (
-                          child: Column
-                          (
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: 
-                            [
-                              SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCard),
-                              const SizedBox(height: 24),
-                              Row
-                              (
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: 
-                                [
-                                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; })),
-                                  const SizedBox(width: 24),
-                                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; })),
-                                ],
-                              ),
-                            ],
-                          ),
+                          children: 
+                          [
+                            //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                            Expanded
+                            (
+                              child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCard),
+                            ),
+                            const SizedBox(height: 24),
+                            Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentFormCardIndex == 0, onTap: () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; })),
+                                const SizedBox(width: 24),
+                                WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentFormCardIndex == 3, onTap: () => setState(() { _card1MovingForward = true; _currentFormCardIndex++; })),
+                              ],
+                            ),
+                          ],
                         )
                       : Row
                         (
@@ -2017,9 +1824,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     child: KeyedSubtree
                     (
                       key:   ValueKey(_currentStep2CardIndex),
+                      //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
                       child: SizedBox
                       (
-                        height: _kCompactCardBoxHeight,
                         width:  constraints.maxWidth,
                         child:  SingleChildScrollView(child: currentCardStep3),
                       ),
@@ -2027,27 +1834,27 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   );
 
                   return isCompact
-                      ? Center
+                      ? Column
                         (
-                          child: Column
-                          (
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: 
-                            [
-                              SizedBox(height: _kCompactCardBoxHeight, width: constraints.maxWidth, child: compactAnimatedCards),
-                              const SizedBox(height: 24),
-                              Row
-                              (
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: 
-                                [
-                                  WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep2CardIndex == 0, onTap: () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; })),
-                                  const SizedBox(width: 24),
-                                  WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep2CardIndex >= cards.length - 1, onTap: () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; })),
-                                ],
-                              ),
-                            ],
-                          ),
+                          children: 
+                          [
+                            //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                            Expanded
+                            (
+                              child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCards),
+                            ),
+                            const SizedBox(height: 24),
+                            Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep2CardIndex == 0, onTap: () => setState(() { _card2MovingForward = false; _currentStep2CardIndex--; })),
+                                const SizedBox(width: 24),
+                                WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep2CardIndex >= cards.length - 1, onTap: () => setState(() { _card2MovingForward = true; _currentStep2CardIndex++; })),
+                              ],
+                            ),
+                          ],
                         )
                       : Row
                         (
@@ -2148,38 +1955,50 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               ),
             ),
             const SizedBox(height: 8),
-            Row
+            //SearchBarOnItsOwnFullWidthLine_FilterInAWrapBelow_StessoCriterioDiPersonWizardPage
+            Center
             (
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: 
-              [
-                SizedBox
+              child: ConstrainedBox
+              (
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Column
                 (
-                  width: 300,
-                  child: WizardAnimatedSearchBar
-                  (
-                    controller: _searchSubjectsCtrl, 
-                    onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                    hintText:   'Cerca disciplina...',
-                  ),
-                ),
-                const SizedBox(width: 16),
-                WizardFilterMenu<String>
-                (
-                  hint:          'Ordina per', 
-                  icon:          Icons.sort_rounded, 
-                  value:         _sortSubjectsBy, 
-                  menuWidth:     180, 
-                  showClearIcon: false, 
-                  onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
-                  onClear:       () {}, 
-                  options: 
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: 
                   [
-                    WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                    WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                  ]
+                    WizardAnimatedSearchBar
+                    (
+                      controller: _searchSubjectsCtrl, 
+                      onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                      hintText:   'Cerca disciplina...',
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap
+                    (
+                      spacing:    12,
+                      runSpacing: 12,
+                      children: 
+                      [
+                        WizardFilterMenu<String>
+                        (
+                          hint:          'Ordina per', 
+                          icon:          Icons.sort_rounded, 
+                          value:         _sortSubjectsBy, 
+                          menuWidth:     180, 
+                          showClearIcon: false, 
+                          onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                          onClear:       () {}, 
+                          options: 
+                          [
+                            WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                            WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                          ]
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 24),
             Expanded
@@ -2464,49 +2283,32 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   Padding
                   (
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    child: Row
+                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothFixedWidthButtonsSideBySide
+                    child: _ResponsiveWizardBottomBar
                     (
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: 
-                      [
-                        if (_currentStep == 0)
-                          SizedBox
-                          (
-                            width: 200,
-                            child: WizardAnimatedActionButton
+                      secondaryButton: _currentStep == 0
+                          ? WizardAnimatedActionButton
                             (
                               text:       'ANNULLA', 
                               icon:       Icons.close_rounded, 
                               baseColor:  const Color(0xFFE53935), 
                               hoverColor: const Color(0xFFEF5350), 
                               onPressed:  () => Navigator.of(context).pop(),
-                            ),
-                          )
-                        else
-                          SizedBox
-                          (
-                            width: 200,
-                            child: WizardOutlinedActionButton
+                            )
+                          : WizardOutlinedActionButton
                             (
                               text:      'INDIETRO', 
                               icon:      Icons.arrow_back_rounded, 
                               onPressed: _onBack,
                             ),
-                          ),
-                        const SizedBox(width: 24),
-                        SizedBox
-                        (
-                          width: 200,
-                          child: WizardAnimatedActionButton
-                          (
-                            text:       _isCheckingCf ? 'VERIFICA...' : (_isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI')), 
-                            icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-                            baseColor:  const Color(0xFF003C82), 
-                            hoverColor: const Color(0xFF004D99), 
-                            onPressed:  (_isSubmitting || _isCheckingCf) ? () {} : _onNext,
-                          ),
-                        ),
-                      ],
+                      primaryButton: WizardAnimatedActionButton
+                      (
+                        text:       _isCheckingCf ? 'VERIFICA...' : (_isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI')), 
+                        icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
+                        baseColor:  const Color(0xFF003C82), 
+                        hoverColor: const Color(0xFF004D99), 
+                        onPressed:  (_isSubmitting || _isCheckingCf) ? () {} : _onNext,
+                      ),
                     ),
                   ),
                 ],
@@ -2514,6 +2316,522 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+//DecideRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
+//StessoCriterioDiPersonWizardPage_ConLarghezzaFissa200CoerenteConQuestoDialog
+class _ResponsiveWizardBottomBar extends StatelessWidget
+{
+  final Widget secondaryButton;
+  final Widget primaryButton;
+
+  const _ResponsiveWizardBottomBar
+  ({
+    required this.secondaryButton,
+    required this.primaryButton,
+  });
+
+  static const double _kButtonWidth = 200;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              SizedBox(width: _kButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: 
+          [
+            SizedBox(width: _kButtonWidth, child: secondaryButton),
+            const SizedBox(width: _kSpacing),
+            SizedBox(width: _kButtonWidth, child: primaryButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDiPersonWizardPage
+class _WizardAddressFieldsRow extends StatelessWidget
+{
+  final TextEditingController tipoViaCtrl;
+  final String?               tipoViaError;
+  final ValueChanged<String>  onTipoViaChanged;
+
+  final TextEditingController nomeCtrl;
+  final String?               nomeError;
+  final ValueChanged<String>  onNomeChanged;
+
+  final TextEditingController civicoCtrl;
+  final String?               civicoError;
+  final ValueChanged<String>  onCivicoChanged;
+
+  const _WizardAddressFieldsRow
+  ({
+    required this.tipoViaCtrl,
+    required this.tipoViaError,
+    required this.onTipoViaChanged,
+    required this.nomeCtrl,
+    required this.nomeError,
+    required this.onNomeChanged,
+    required this.civicoCtrl,
+    required this.civicoError,
+    required this.onCivicoChanged,
+  });
+
+  static const double _kBreakpoint = 420;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 6),
+      child:   Text
+      (
+        text, 
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   13, 
+          fontWeight: FontWeight.w600, 
+          color:      const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget tipoViaField = WizardAnimatedTextField
+        (
+          controller: tipoViaCtrl, 
+          hint:       'Via/Strada/...',
+          errorText:  tipoViaError,
+          onChanged:  onTipoViaChanged,
+        );
+
+        final Widget nomeField = WizardAnimatedTextField
+        (
+          controller: nomeCtrl, 
+          hint:       'Nome',
+          errorText:  nomeError,
+          onChanged:  onNomeChanged,
+        );
+
+        final Widget civicoField = WizardAnimatedTextField
+        (
+          controller: civicoCtrl, 
+          hint:       'N°',
+          errorText:  civicoError,
+          onChanged:  onCivicoChanged,
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              tipoViaField,
+              const SizedBox(height: 16),
+              nomeField,
+              const SizedBox(height: 16),
+              civicoField,
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(flex: 3, child: tipoViaField),
+            const SizedBox(width: 8),
+            Expanded(flex: 5, child: nomeField),
+            const SizedBox(width: 8),
+            Expanded(flex: 2, child: civicoField),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDiPersonWizardPage
+class _WizardEnrollmentFieldRow extends StatelessWidget
+{
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+  final String?               yearError;
+  final String?               dateError;
+  final ValueChanged<String>  onYearChanged;
+  final ValueChanged<String>  onDateChanged;
+  final VoidCallback?         onRemove;
+
+  const _WizardEnrollmentFieldRow
+  ({
+    required this.yearCtrl,
+    required this.dateCtrl,
+    required this.yearError,
+    required this.dateError,
+    required this.onYearChanged,
+    required this.onDateChanged,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 360;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 8),
+      child:   Text
+      (
+        text, 
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   14, 
+          fontWeight: FontWeight.w600, 
+          color:      const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget yearField = Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            _buildLabel('Anno'),
+            WizardAnimatedTextField
+            (
+              controller:   yearCtrl, 
+              hint:         'Es. 2024', 
+              keyboardType: TextInputType.number,
+              errorText:    yearError,
+              onChanged:    onYearChanged,
+            ),
+          ],
+        );
+
+        final Widget dateField = Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            _buildLabel('Data inizio'),
+            WizardAnimatedTextField
+            (
+              controller:      dateCtrl, 
+              hint:            'gg/mm', 
+              keyboardType:    TextInputType.number,
+              inputFormatters: [WizardDayMonthInputFormatter()],
+              errorText:       dateError,
+              onChanged:       onDateChanged,
+            ),
+          ],
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              yearField,
+              const SizedBox(height: 16),
+              onRemove == null
+                  ? dateField
+                  : Row
+                    (
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: 
+                      [
+                        Expanded(child: dateField),
+                        const SizedBox(width: 8),
+                        WizardRemoveRowButton(onTap: onRemove!),
+                      ],
+                    ),
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(flex: 2, child: yearField),
+            const SizedBox(width: 16),
+            Expanded(flex: 3, child: dateField),
+            onRemove != null
+                ? Padding
+                  (
+                    padding: const EdgeInsets.only(top: 32, left: 8),
+                    child:   WizardRemoveRowButton(onTap: onRemove!),
+                  )
+                : const SizedBox(width: 48),
+          ],
+        );
+      },
+    );
+  }
+}
+
+//DecideSeAffiancareOImpilareIQuattroCampi_StessoCriterioDiPersonWizardPage
+//AggiuntoInUnControlloSuccessivo_MancavaInQuestoFileNonostanteLaCard"DettagliStudente"LoUsi
+class _WizardSchoolFieldRow extends StatelessWidget
+{
+  final TextEditingController yearCtrl;
+  final String?                yearError;
+  final ValueChanged<String>   onYearChanged;
+
+  final String?                 schoolValue;
+  final List<String>            schoolOptions;
+  final String?                 schoolError;
+  final ValueChanged<String>    onSchoolSelected;
+
+  final String?                 programValue;
+  final List<String>            programOptions;
+  final bool                    programEnabled;
+  final String?                 programError;
+  final ValueChanged<String>    onProgramSelected;
+
+  final String?                 gradeValue;
+  final List<String>            gradeOptions;
+  final bool                    gradeEnabled;
+  final String?                 gradeError;
+  final ValueChanged<String>    onGradeSelected;
+
+  final VoidCallback?           onRemove;
+
+  const _WizardSchoolFieldRow
+  ({
+    required this.yearCtrl,
+    required this.yearError,
+    required this.onYearChanged,
+    required this.schoolValue,
+    required this.schoolOptions,
+    required this.schoolError,
+    required this.onSchoolSelected,
+    required this.programValue,
+    required this.programOptions,
+    required this.programEnabled,
+    required this.programError,
+    required this.onProgramSelected,
+    required this.gradeValue,
+    required this.gradeOptions,
+    required this.gradeEnabled,
+    required this.gradeError,
+    required this.onGradeSelected,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 700;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 8),
+      child:   Text
+      (
+        text, 
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   12, 
+          fontWeight: FontWeight.w700, 
+          color:      const Color(0xFF64748B),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container
+    (
+      margin:     const EdgeInsets.only(bottom: 16),
+      padding:    const EdgeInsets.all(20),
+      decoration: BoxDecoration
+      (
+        borderRadius: BorderRadius.circular(16),
+        border:       Border.all(color: const Color(0xFFE2E8F0)),
+        color:        const Color(0xFFF8FAFC),
+      ),
+      child: LayoutBuilder
+      (
+        builder: (context, constraints)
+        {
+          final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+          final Widget yearField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _buildLabel('Anno inizio'),
+              WizardAnimatedTextField
+              (
+                controller:   yearCtrl,
+                hint:         'Es. 2024',
+                errorText:    yearError,
+                keyboardType: TextInputType.number,
+                onChanged:    onYearChanged,
+              ),
+            ],
+          );
+
+          final Widget schoolField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _buildLabel('Scuola'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      schoolValue,
+                items:      schoolOptions,
+                hint:       'Scuola',
+                errorText:  schoolError,
+                onChanged:  onSchoolSelected,
+              ),
+            ],
+          );
+
+          final Widget programField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _buildLabel('Percorso'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      programValue,
+                items:      programOptions,
+                hint:       'Percorso',
+                enabled:    programEnabled,
+                errorText:  programError,
+                onChanged:  onProgramSelected,
+              ),
+            ],
+          );
+
+          final Widget gradeField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _buildLabel('Classe'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      gradeValue,
+                items:      gradeOptions,
+                hint:       'Classe',
+                enabled:    gradeEnabled,
+                errorText:  gradeError,
+                onChanged:  onGradeSelected,
+              ),
+            ],
+          );
+
+          if (isCompact)
+          {
+            return Column
+            (
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: 
+              [
+                yearField,
+                const SizedBox(height: 16),
+                schoolField,
+                const SizedBox(height: 16),
+                programField,
+                const SizedBox(height: 16),
+                onRemove == null
+                    ? gradeField
+                    : Row
+                      (
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: 
+                        [
+                          Expanded(child: gradeField),
+                          const SizedBox(width: 8),
+                          WizardRemoveRowButton(onTap: onRemove!),
+                        ],
+                      ),
+              ],
+            );
+          }
+
+          return Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              Expanded(flex: 2, child: yearField),
+              const SizedBox(width: 16),
+              Expanded(flex: 5, child: schoolField),
+              const SizedBox(width: 16),
+              Expanded(flex: 5, child: programField),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: gradeField),
+              onRemove != null
+                  ? Padding
+                    (
+                      padding: const EdgeInsets.only(top: 28, left: 16),
+                      child:   WizardRemoveRowButton(onTap: onRemove!),
+                    )
+                  : const SizedBox(width: 48),
+            ],
+          );
+        },
       ),
     );
   }

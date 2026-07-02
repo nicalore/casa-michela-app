@@ -25,6 +25,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      background-color: #FFFFFF;
     }
     #flutter-viewport {
       position: absolute;
@@ -34,6 +35,7 @@
       height: 100%;
       overflow: hidden;
       touch-action: none;
+      background-color: #FFFFFF;
     }
     #flutter-scale-wrapper {
       position: absolute;
@@ -41,6 +43,30 @@
       left: 0;
       transform-origin: top left;
       will-change: transform;
+    }
+
+    /* --- Splash overlay iniziale (bianco -> blur -> app) --- */
+    #splash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000000;
+      background-color: #FFFFFF;
+      backdrop-filter: blur(0px);
+      -webkit-backdrop-filter: blur(0px);
+      opacity: 1;
+      pointer-events: none;
+      transition:
+        opacity 700ms ease-out,
+        backdrop-filter 700ms ease-out,
+        -webkit-backdrop-filter 700ms ease-out;
+    }
+    #splash-overlay.splash-overlay-hidden {
+      opacity: 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     /* --- Overlay landscape --- */
@@ -202,9 +228,31 @@
         setTimeout(checkLandscape, 150);
       });
     })();
+
+    // --- Rimozione splash overlay iniziale (chiamata da Dart al primo frame) ---
+    window.__hideCasaMichelaSplash = function () {
+      var overlay = document.getElementById('splash-overlay');
+      if (!overlay) { return; }
+
+      overlay.classList.add('splash-overlay-hidden');
+
+      var cleanup = function () {
+        overlay.removeEventListener('transitionend', cleanup);
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      };
+      overlay.addEventListener('transitionend', cleanup);
+
+      // Fallback: se transitionend non scatta (browser molto vecchi), rimuovi comunque
+      setTimeout(cleanup, 900);
+    };
   </script>
 </head>
 <body>
+  <!-- Splash overlay iniziale: bianco pieno finché Flutter non dipinge il primo frame -->
+  <div id="splash-overlay"></div>
+
   <!-- Overlay landscape (solo touch devices) -->
   <div id="landscape-overlay">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -327,11 +375,22 @@
         lastSampleY = t.clientY;
       }
 
+      // --- Layout responsivo del canvas Flutter ---
+      // La scalatura automatica del canvas (virtual DESKTOP_WIDTH + CSS scale) è
+      // riservata ai soli dispositivi touch: è il meccanismo che permette il
+      // pinch-zoom su telefono/tablet, dove Flutter non ha ancora breakpoint
+      // dedicati sotto una certa larghezza.
+      // Su desktop/mouse, invece, Flutter deve SEMPRE ricevere le dimensioni
+      // reali della finestra: è l'unico modo perché i widget interni (Wrap,
+      // LayoutBuilder con soglie) possano fare reflow reale invece di essere
+      // scalati via CSS.
       function layout() {
         var vw = window.innerWidth;
         var vh = window.innerHeight;
 
-        if (vw >= DESKTOP_WIDTH) {
+        var shouldScale = window.__casaMichelaIsTouchDevice && vw < DESKTOP_WIDTH;
+
+        if (!shouldScale) {
           baseScale = 1;
           host.style.width = vw + 'px';
           host.style.height = vh + 'px';

@@ -75,107 +75,220 @@ class _PersonCardState extends State<PersonCard> {
     final List<String> processedRoles = RoleLabelMapper.processRoles(
       widget.person.roles,
     );
-    final List<String> displayRoles = processedRoles.take(3).toList();
-    final int extraRolesCount = processedRoles.length - 3;
+    final String fullName =
+        '${widget.person.firstName} ${widget.person.lastName}';
 
-    final List<Widget> roleChips = displayRoles.map((role) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F7FA),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0E5EC)),
-        ),
-        child: Text(
-          role,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
-          ),
-        ),
-      );
-    }).toList();
-
-    //Add extra roles indicator chip
-    if (extraRolesCount > 0) {
-      roleChips.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F7FA),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE0E5EC)),
-          ),
-          child: Text(
-            '+$extraRolesCount',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 380,
-          constraints: const BoxConstraints(minHeight: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: _isHovering ? const Color(0xFF003C82) : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
+    return Tooltip(
+      message: fullName,
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: 420,
+            constraints: const BoxConstraints(minHeight: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: _isHovering ? const Color(0xFF003C82) : Colors.transparent,
+                width: 2,
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildAvatar(),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${widget.person.firstName} ${widget.person.lastName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, children: roleChips),
-                  ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 16,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF003C82),
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _RoleChipsRow(roles: processedRoles),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RoleChipsRow extends StatelessWidget {
+  final List<String> roles;
+
+  const _RoleChipsRow({required this.roles});
+
+  static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
+  static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
+  static const double _chipSpacing = 6;
+
+  double _measureChipWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (roles.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chipStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        );
+        final extraStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF64748B),
+        );
+
+        // Trova il numero massimo di chip che entrano nella riga, lasciando
+        // spazio al chip "+N" per i ruoli rimanenti quando serve.
+        int visibleCount = roles.length;
+        while (visibleCount > 1) {
+          double totalWidth = 0;
+          for (int i = 0; i < visibleCount; i++) {
+            totalWidth += _measureChipWidth(roles[i], chipStyle);
+            if (i > 0) totalWidth += _chipSpacing;
+          }
+
+          final int remaining = roles.length - visibleCount;
+          if (remaining > 0) {
+            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
+          }
+
+          if (totalWidth <= constraints.maxWidth) break;
+          visibleCount--;
+        }
+
+        final int extraCount = roles.length - visibleCount;
+        final List<String> hiddenRoles = roles.sublist(visibleCount);
+
+        final List<Widget> chips = [];
+        for (int i = 0; i < visibleCount; i++) {
+          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_RoleChip(label: roles[i], style: chipStyle));
+        }
+        if (extraCount > 0) {
+          chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_RoleChip(
+            label: '+$extraCount',
+            style: extraStyle,
+            hiddenRoles: hiddenRoles,
+          ));
+        }
+
+        return Row(mainAxisSize: MainAxisSize.min, children: chips);
+      },
+    );
+  }
+}
+
+class _RoleChip extends StatelessWidget {
+  final String label;
+  final TextStyle style;
+  final List<String>? hiddenRoles;
+
+  const _RoleChip({required this.label, required this.style, this.hiddenRoles});
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E5EC)),
+      ),
+      child: Text(label, style: style),
+    );
+
+    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
+
+    return Tooltip(
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      richMessage: TextSpan(
+        children: [
+          TextSpan(
+            text: 'Altri ruoli:\n',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: const Color(0xFF94A3B8),
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+          TextSpan(
+            text: hiddenRoles!.join('\n'),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+      child: chip,
     );
   }
 }

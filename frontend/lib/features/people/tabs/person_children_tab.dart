@@ -124,68 +124,63 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     }
   }
 
+  //StackToNewLineInsteadOfHorizontalScroll_SameWrapNotShrinkPrincipleUsedElsewhere
   Widget _buildSubNavigation(List<ChildItem> childrenList) 
   {
     return Padding
     (
       padding: const EdgeInsets.only(bottom: 24.0),
-      child: SingleChildScrollView
+      child: Wrap
       (
-        scrollDirection: Axis.horizontal,
-        child: Row
-        (
-          children: List.generate(childrenList.length, (index) 
-          {
-            final isSelected = _selectedChildIndex == index;
-            final child      = childrenList[index];
+        spacing:    12,
+        runSpacing: 12,
+        children: List.generate(childrenList.length, (index) 
+        {
+          final isSelected = _selectedChildIndex == index;
+          final child      = childrenList[index];
 
-            return Padding
+          return MouseRegion
+          (
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector
             (
-              padding: const EdgeInsets.only(right: 12.0),
-              child: MouseRegion
+              onTap: () 
+              {
+                setState(() 
+                {
+                  _selectedChildIndex = index;
+                });
+              },
+              child: AnimatedContainer
               (
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector
+                duration:   const Duration(milliseconds: 250),
+                curve:      Curves.easeInOut,
+                padding:    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration
                 (
-                  onTap: () 
-                  {
-                    setState(() 
-                    {
-                      _selectedChildIndex = index;
-                    });
-                  },
-                  child: AnimatedContainer
+                  color:        isSelected ? const Color(0xFF003C82) : Colors.white,
+                  border:       Border.all
                   (
-                    duration:   const Duration(milliseconds: 250),
-                    curve:      Curves.easeInOut,
-                    padding:    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration
-                    (
-                      color:        isSelected ? const Color(0xFF003C82) : Colors.white,
-                      border:       Border.all
-                      (
-                        color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: AnimatedDefaultTextStyle
-                    (
-                      duration: const Duration(milliseconds: 250),
-                      curve:    Curves.easeInOut,
-                      style:    GoogleFonts.plusJakartaSans
-                      (
-                        fontSize:   14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color:      isSelected ? Colors.white : const Color(0xFF64748B),
-                      ),
-                      child: Text('${child.firstName} ${child.lastName}'),
-                    ),
+                    color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
                   ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: AnimatedDefaultTextStyle
+                (
+                  duration: const Duration(milliseconds: 250),
+                  curve:    Curves.easeInOut,
+                  style:    GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color:      isSelected ? Colors.white : const Color(0xFF64748B),
+                  ),
+                  child: Text('${child.firstName} ${child.lastName}'),
                 ),
               ),
-            );
-          }),
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -295,86 +290,59 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
             children: 
             [
               _buildSubNavigation(currentChildren),
-              IntrinsicHeight
+              //StacksVerticallyBelowTheBreakpoint_SamePolicyAsPersonInfoTab
+              _ResponsiveCardPair
               (
-                child: Row
+                first: _ChildSectionCard
                 (
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: 
+                  title:       'Identità',
+                  leadingIcon: const _StaticAvatar(icon: Icons.badge_rounded),
+                  rows: 
                   [
-                    Expanded
-                    (
-                      child: _ChildSectionCard
-                      (
-                        title:       'Identità',
-                        leadingIcon: const _StaticAvatar(icon: Icons.badge_rounded),
-                        rows: 
-                        [
-                          _InfoRowData('Nome',           nome),
-                          _InfoRowData('Cognome',        cognome),
-                          _InfoRowData('Sesso',          sesso),
-                          _InfoRowData('Codice fiscale', child.fiscalCode),
-                          null,
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded
-                    (
-                      child: _ChildSectionCard
-                      (
-                        title:       'Residenza',
-                        leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
-                        rows: 
-                        [
-                          _InfoRowData('Indirizzo', indirizzo),
-                          _InfoRowData('N°',        civico),
-                          _InfoRowData('Città',     cittaResidenza),
-                          _InfoRowData('Provincia', provResidenza),
-                          _InfoRowData('CAP',       cap),
-                        ],
-                      ),
-                    ),
+                    _InfoRowData('Nome',           nome),
+                    _InfoRowData('Cognome',        cognome),
+                    _InfoRowData('Sesso',          sesso),
+                    _InfoRowData('Codice fiscale', child.fiscalCode),
+                    null,
+                  ],
+                ),
+                second: _ChildSectionCard
+                (
+                  title:       'Residenza',
+                  leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
+                  rows: 
+                  [
+                    _InfoRowData('Indirizzo', indirizzo),
+                    _InfoRowData('N°',        civico),
+                    _InfoRowData('Città',     cittaResidenza),
+                    _InfoRowData('Provincia', provResidenza),
+                    _InfoRowData('CAP',       cap),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              IntrinsicHeight
+              _ResponsiveCardPair
               (
-                child: Row
+                first: _ChildSectionCard
                 (
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: 
+                  title:       'Dati anagrafici',
+                  leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
+                  rows: 
                   [
-                    Expanded
-                    (
-                      child: _ChildSectionCard
-                      (
-                        title:       'Dati anagrafici',
-                        leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
-                        rows: 
-                        [
-                          _InfoRowData('Data di nascita',      dataNascita),
-                          _InfoRowData('Città di nascita',     cittaNascita),
-                          _InfoRowData('Provincia', provNascita),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded
-                    (
-                      child: _ChildSectionCard
-                      (
-                        title:       'Contatti',
-                        leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
-                        rows: 
-                        [
-                          _InfoRowData('Email',    email),
-                          _InfoRowData('Telefono', telefono),
-                          null,
-                        ],
-                      ),
-                    ),
+                    _InfoRowData('Data di nascita',      dataNascita),
+                    _InfoRowData('Città di nascita',     cittaNascita),
+                    _InfoRowData('Provincia', provNascita),
+                  ],
+                ),
+                second: _ChildSectionCard
+                (
+                  title:       'Contatti',
+                  leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
+                  rows: 
+                  [
+                    _InfoRowData('Email',    email),
+                    _InfoRowData('Telefono', telefono),
+                    null,
                   ],
                 ),
               ),
@@ -398,6 +366,62 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedLayout_BasedOnActualAvailableWidth
+//LayoutBuilderStaysOutsideIntrinsicHeight_NeverInside_SameFixAppliedInPersonInfoTab
+class _ResponsiveCardPair extends StatelessWidget
+{
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair
+  ({
+    required this.first,
+    required this.second,
+    this.breakpoint = 820.0,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return IntrinsicHeight
+        (
+          child: Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              Expanded(child: first),
+              const SizedBox(width: 24),
+              Expanded(child: second),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1008,7 +1032,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                       [
                         Text
                         (
-                          'Modifica Figli',
+                          'Gestisci Figli',
                           style: GoogleFonts.plusJakartaSans
                           (
                             fontSize:   26, 
@@ -1037,121 +1061,98 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: 
                         [
-                          Padding
+                          const SizedBox(height: 16),
+                          //SearchBarOnItsOwnLine_FiltersInAWrapBelow_RequestedExplicitly
+                          Center
                           (
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Column
+                            child: ConstrainedBox
                             (
-                              children: 
-                              [
-                                Text
-                                (
-                                  'Associazione Minori',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   22,
-                                    fontWeight: FontWeight.w700,
-                                    color:      const Color(0xFF003C82),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text
-                                (
-                                  'Seleziona i minori di cui questa persona è genitore o tutore legale.',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   16,
-                                    fontWeight: FontWeight.w500,
-                                    color:      const Color(0xFF64748B),
-                                    height:     1.4,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row
-                          (
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: 
-                            [
-                              SizedBox
+                              constraints: const BoxConstraints(maxWidth: 1320),
+                              child: Column
                               (
-                                width: 260,
-                                child: WizardAnimatedSearchBar
-                                (
-                                  controller: _searchMinorsCtrl, 
-                                  onChanged:  (value) 
-                                  {
-                                    setState(() 
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: 
+                                [
+                                  WizardAnimatedSearchBar
+                                  (
+                                    controller: _searchMinorsCtrl, 
+                                    onChanged:  (value) 
                                     {
-                                      _searchMinorsText = value;
-                                    });
-                                  }, 
-                                  hintText:   'Cerca per nome...',
-                                ),
+                                      setState(() 
+                                      {
+                                        _searchMinorsText = value;
+                                      });
+                                    }, 
+                                    hintText:   'Cerca minore...',
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap
+                                  (
+                                    spacing:    12,
+                                    runSpacing: 12,
+                                    children: 
+                                    [
+                                      WizardFilterMenu<String>
+                                      (
+                                        hint:          'Ordina per', 
+                                        icon:          Icons.sort_rounded, 
+                                        value:         _sortMinorsBy, 
+                                        menuWidth:     180, 
+                                        showClearIcon: false, 
+                                        onChanged:     (val) 
+                                        {
+                                          setState(() 
+                                          {
+                                            _sortMinorsBy = val;
+                                          });
+                                        }, 
+                                        onClear:       () 
+                                        {
+                                        }, 
+                                        options: 
+                                        [
+                                          WizardFilterOption(value: 'surname_asc',  label: 'Cognome (A-Z)'), 
+                                          WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                                          WizardFilterOption(value: 'name_asc',     label: 'Nome (A-Z)'), 
+                                          WizardFilterOption(value: 'name_desc',    label: 'Nome (Z-A)'), 
+                                          WizardFilterOption(value: 'date_desc',    label: 'Più recente'), 
+                                          WizardFilterOption(value: 'date_asc',     label: 'Meno recente'),
+                                        ]
+                                      ),
+                                      WizardFilterMenu<String>
+                                      (
+                                        hint:          'Tutti i ruoli', 
+                                        icon:          Icons.badge_outlined, 
+                                        value:         _filterMinorsRole, 
+                                        menuWidth:     200, 
+                                        showClearIcon: true, 
+                                        onChanged:     (val) 
+                                        {
+                                          setState(() 
+                                          {
+                                            _filterMinorsRole = val;
+                                          });
+                                        }, 
+                                        onClear:       () 
+                                        {
+                                          setState(() 
+                                          {
+                                            _filterMinorsRole = null;
+                                          });
+                                        }, 
+                                        options: 
+                                        [
+                                          WizardFilterOption(value: 'STUDENTE',  label: 'Studente'), 
+                                          WizardFilterOption(value: 'CORSISTA',  label: 'Corsista'), 
+                                          WizardFilterOption(value: 'DOCENTE',   label: 'Docente'),
+                                          WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
+                                        ]
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 12),
-                              WizardFilterMenu<String>
-                              (
-                                hint:          'Ordina per', 
-                                icon:          Icons.sort_rounded, 
-                                value:         _sortMinorsBy, 
-                                menuWidth:     180, 
-                                showClearIcon: false, 
-                                onChanged:     (val) 
-                                {
-                                  setState(() 
-                                  {
-                                    _sortMinorsBy = val;
-                                  });
-                                }, 
-                                onClear:       () 
-                                {
-                                }, 
-                                options: 
-                                [
-                                  WizardFilterOption(value: 'surname_asc',  label: 'Cognome (A-Z)'), 
-                                  WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                                  WizardFilterOption(value: 'name_asc',     label: 'Nome (A-Z)'), 
-                                  WizardFilterOption(value: 'name_desc',    label: 'Nome (Z-A)'), 
-                                  WizardFilterOption(value: 'date_desc',    label: 'Più recente'), 
-                                  WizardFilterOption(value: 'date_asc',     label: 'Meno recente'),
-                                ]
-                              ),
-                              const SizedBox(width: 12),
-                              WizardFilterMenu<String>
-                              (
-                                hint:          'Tutti i ruoli', 
-                                icon:          Icons.badge_outlined, 
-                                value:         _filterMinorsRole, 
-                                menuWidth:     200, 
-                                showClearIcon: true, 
-                                onChanged:     (val) 
-                                {
-                                  setState(() 
-                                  {
-                                    _filterMinorsRole = val;
-                                  });
-                                }, 
-                                onClear:       () 
-                                {
-                                  setState(() 
-                                  {
-                                    _filterMinorsRole = null;
-                                  });
-                                }, 
-                                options: 
-                                [
-                                  WizardFilterOption(value: 'STUDENTE',  label: 'Studente'), 
-                                  WizardFilterOption(value: 'CORSISTA',  label: 'Corsista'), 
-                                  WizardFilterOption(value: 'DOCENTE',   label: 'Docente'),
-                                  WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
-                                ]
-                              ),
-                            ],
+                            ),
                           ),
                           const SizedBox(height: 24),
                           Expanded
@@ -1164,36 +1165,43 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                                   child: SingleChildScrollView
                                   (
                                     padding: const EdgeInsets.only(bottom: 40),
-                                    child: Wrap
+                                    child: Center
                                     (
-                                      spacing:    16,
-                                      runSpacing: 16,
-                                      alignment:  WrapAlignment.center,
-                                      children:   validMinors.map((minor) 
-                                      {
-                                        final minorId    = minor.fiscalCode;
-                                        final isSelected = _selectedMinors.contains(minorId);
-                                        
-                                        return WizardSelectablePersonCard
+                                      child: ConstrainedBox
+                                      (
+                                        constraints: const BoxConstraints(maxWidth: 1320),
+                                        child: Wrap
                                         (
-                                          person:     minor,
-                                          isSelected: isSelected,
-                                          onTap:      () 
+                                          spacing:    16,
+                                          runSpacing: 16,
+                                          alignment:  WrapAlignment.start,
+                                          children:   validMinors.map((minor) 
                                           {
-                                            setState(() 
-                                            {
-                                              if (isSelected) 
+                                            final minorId    = minor.fiscalCode;
+                                            final isSelected = _selectedMinors.contains(minorId);
+                                            
+                                            return WizardSelectablePersonCard
+                                            (
+                                              person:     minor,
+                                              isSelected: isSelected,
+                                              onTap:      () 
                                               {
-                                                _selectedMinors.remove(minorId);
-                                              } 
-                                              else 
-                                              {
-                                                _selectedMinors.add(minorId);
-                                              }
-                                            });
-                                          },
-                                        );
-                                      }).toList(),
+                                                setState(() 
+                                                {
+                                                  if (isSelected) 
+                                                  {
+                                                    _selectedMinors.remove(minorId);
+                                                  } 
+                                                  else 
+                                                  {
+                                                    _selectedMinors.add(minorId);
+                                                  }
+                                                });
+                                              },
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1204,45 +1212,22 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                   ),
                   Padding
                   (
-                    padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    child: Row
+                    padding: const EdgeInsets.only(top: 16, bottom: 32, left: 32, right: 32),
+                    child: Center
                     (
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: 
-                      [
-                        SizedBox
-                        (
-                          width: 230,
-                          child: WizardAnimatedActionButton
-                          (
-                            text:       'ANNULLA', 
-                            icon:       Icons.close_rounded, 
-                            baseColor:  const Color(0xFFE53935), 
-                            hoverColor: const Color(0xFFEF5350), 
-                            onPressed:  () 
-                            {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        SizedBox
-                        (
-                          width: 230,
-                          child: WizardAnimatedActionButton
-                          (
-                            text:       _isSubmitting ? 'SALVATAGGIO...' : 'SALVA MODIFICHE', 
-                            icon:       Icons.check_circle_outline, 
-                            baseColor:  const Color(0xFF003C82), 
-                            hoverColor: const Color(0xFF004D99), 
-                            onPressed:  _isSubmitting 
-                              ? () 
-                                {
-                                } 
-                              : _onSave,
-                          ),
-                        ),
-                      ],
+                      child: _ResponsiveDialogButtonsRow
+                      (
+                        cancelText:        'ANNULLA',
+                        cancelIcon:        Icons.close_rounded,
+                        cancelColor:       const Color(0xFFE53935),
+                        cancelHoverColor:  const Color(0xFFEF5350),
+                        cancelOnPressed:   () => Navigator.of(context).pop(),
+                        confirmText:       _isSubmitting ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
+                        confirmIcon:       Icons.check_circle_outline,
+                        confirmColor:      const Color(0xFF003C82),
+                        confirmHoverColor: const Color(0xFF004D99),
+                        confirmOnPressed:  _isSubmitting ? () {} : _onSave,
+                      ),
                     ),
                   ),
                 ],
@@ -1251,6 +1236,103 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
           ),
         ),
       ),
+    );
+  }
+}
+
+//UsataNelBottomBarDelDialogGestisciFigli_ImpilaITastiSottoSoglia_SalvaSopra_AnnullaSotto
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final String cancelText;
+  final IconData cancelIcon;
+  final Color cancelColor;
+  final Color cancelHoverColor;
+  final VoidCallback cancelOnPressed;
+
+  final String confirmText;
+  final IconData confirmIcon;
+  final Color confirmColor;
+  final Color confirmHoverColor;
+  final VoidCallback confirmOnPressed;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.cancelText,
+    required this.cancelIcon,
+    required this.cancelColor,
+    required this.cancelHoverColor,
+    required this.cancelOnPressed,
+    required this.confirmText,
+    required this.confirmIcon,
+    required this.confirmColor,
+    required this.confirmHoverColor,
+    required this.confirmOnPressed,
+  });
+
+  static const double _kButtonWidth = 230;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget cancelButton = SizedBox
+        (
+          width: _kButtonWidth,
+          child: WizardAnimatedActionButton
+          (
+            text:       cancelText,
+            icon:       cancelIcon,
+            baseColor:  cancelColor,
+            hoverColor: cancelHoverColor,
+            onPressed:  cancelOnPressed,
+          ),
+        );
+
+        final Widget confirmButton = SizedBox
+        (
+          width: _kButtonWidth,
+          child: WizardAnimatedActionButton
+          (
+            text:       confirmText,
+            icon:       confirmIcon,
+            baseColor:  confirmColor,
+            hoverColor: confirmHoverColor,
+            onPressed:  confirmOnPressed,
+          ),
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              confirmButton,
+              const SizedBox(height: 16),
+              cancelButton,
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: 
+          [
+            cancelButton,
+            const SizedBox(width: _kSpacing),
+            confirmButton,
+          ],
+        );
+      },
     );
   }
 }

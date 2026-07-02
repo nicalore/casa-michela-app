@@ -113,51 +113,51 @@ class _ProfileTabState extends State<ProfileTab>
     return role;
   }
 
+  //StacksToNewLineInsteadOfOverflowing_WasAPlainRowBeforeWithNoWrapAndNoScroll
   Widget _buildSubNavigation() 
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 32.0),
-      child:   Row(
-        children: List.generate(_subTabs.length, (index) 
+      child:   Wrap(
+        spacing:    12,
+        runSpacing: 12,
+        children:   List.generate(_subTabs.length, (index) 
         {
           final isSelected = _selectedSubTab == index;
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child:   MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child:  GestureDetector(
-                onTap: () 
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child:  GestureDetector(
+              onTap: () 
+              {
+                setState(() 
                 {
-                  setState(() 
-                  {
-                    _selectedSubTab = index;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration:   const Duration(milliseconds: 250),
-                  curve:      Curves.easeInOut,
-                  padding:    const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical:   10,
+                  _selectedSubTab = index;
+                });
+              },
+              child: AnimatedContainer(
+                duration:   const Duration(milliseconds: 250),
+                curve:      Curves.easeInOut,
+                padding:    const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical:   10,
+                ),
+                decoration: BoxDecoration(
+                  color:  isSelected ? const Color(0xFF003C82) : Colors.white,
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
                   ),
-                  decoration: BoxDecoration(
-                    color:  isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 250),
+                  curve:    Curves.easeInOut,
+                  style:    GoogleFonts.plusJakartaSans(
+                    fontSize:   14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color:      isSelected ? Colors.white : const Color(0xFF64748B),
                   ),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    curve:    Curves.easeInOut,
-                    style:    GoogleFonts.plusJakartaSans(
-                      fontSize:   14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color:      isSelected ? Colors.white : const Color(0xFF64748B),
-                    ),
-                    child: Text(_subTabs[index]),
-                  ),
+                  child: Text(_subTabs[index]),
                 ),
               ),
             ),
@@ -244,75 +244,57 @@ class _ProfileTabState extends State<ProfileTab>
               _buildSubNavigation(),
 
               if (_selectedSubTab == 0) ...[
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title:       'Identità',
-                          labelWidth:  160,
-                          leadingIcon: _ProfileAvatar(
-                            profileImageUrl: me.profileImageUrl,
-                            onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
-                          ),
-                          rows: [
-                            _InfoRowData('Nome',           nome),
-                            _InfoRowData('Cognome',        cognome),
-                            _InfoRowData('Sesso',          sesso),
-                            _InfoRowData('Codice fiscale', cf),
-                            null,
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title:       'Residenza',
-                          labelWidth:  110,
-                          leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
-                          rows: [
-                            _InfoRowData('Indirizzo', indirizzo),
-                            _InfoRowData('N°',        civico),
-                            _InfoRowData('Città',     cittaResidenza),
-                            _InfoRowData('Provincia', provResidenza),
-                            _InfoRowData('CAP',       cap),
-                          ],
-                        ),
-                      ),
+                //StacksVerticallyBelowTheBreakpoint_LayoutBuilderStaysOutsideIntrinsicHeight
+                //SameFixAppliedInPersonInfoTab_NeverNestLayoutBuilderInsideIntrinsicHeight
+                _ResponsiveCardPair(
+                  first: _ProfileSectionCard(
+                    title:       'Identità',
+                    labelWidth:  160,
+                    leadingIcon: _ProfileAvatar(
+                      profileImageUrl: me.profileImageUrl,
+                      onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
+                    ),
+                    rows: [
+                      _InfoRowData('Nome',           nome),
+                      _InfoRowData('Cognome',        cognome),
+                      _InfoRowData('Sesso',          sesso),
+                      _InfoRowData('Codice fiscale', cf),
+                      null,
+                    ],
+                  ),
+                  second: _ProfileSectionCard(
+                    title:       'Residenza',
+                    labelWidth:  110,
+                    leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
+                    rows: [
+                      _InfoRowData('Indirizzo', indirizzo),
+                      _InfoRowData('N°',        civico),
+                      _InfoRowData('Città',     cittaResidenza),
+                      _InfoRowData('Provincia', provResidenza),
+                      _InfoRowData('CAP',       cap),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title:       'Dati anagrafici',
-                          labelWidth:  160,
-                          leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
-                          rows: [
-                            _InfoRowData('Data di nascita',  dataNascita),
-                            _InfoRowData('Città di nascita', cittaNascita),
-                            _InfoRowData('Provincia',        provNascita),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: _ProfileSectionCard(
-                          title:       'Contatti',
-                          labelWidth:  110,
-                          leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
-                          rows: [
-                            _InfoRowData('Email',    email),
-                            _InfoRowData('Telefono', telefono),
-                            null,
-                          ],
-                        ),
-                      ),
+                _ResponsiveCardPair(
+                  first: _ProfileSectionCard(
+                    title:       'Dati anagrafici',
+                    labelWidth:  160,
+                    leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
+                    rows: [
+                      _InfoRowData('Data di nascita',  dataNascita),
+                      _InfoRowData('Città di nascita', cittaNascita),
+                      _InfoRowData('Provincia',        provNascita),
+                    ],
+                  ),
+                  second: _ProfileSectionCard(
+                    title:       'Contatti',
+                    labelWidth:  110,
+                    leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
+                    rows: [
+                      _InfoRowData('Email',    email),
+                      _InfoRowData('Telefono', telefono),
+                      null,
                     ],
                   ),
                 ),
@@ -430,6 +412,60 @@ class _ProfileTabState extends State<ProfileTab>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ResponsiveCardPair extends StatelessWidget 
+{
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair
+  ({
+    required this.first,
+    required this.second,
+    this.breakpoint = 820.0,
+  });
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints) 
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact) 
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return IntrinsicHeight
+        (
+          child: Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              Expanded(child: first),
+              const SizedBox(width: 24),
+              Expanded(child: second),
+            ],
+          ),
+        );
+      },
     );
   }
 }

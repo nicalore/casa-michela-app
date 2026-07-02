@@ -34,7 +34,7 @@ class _AppPageContainerState extends State<AppPageContainer>
   {
     //ReleaseResources
     _verticalController.dispose();
-    
+
     super.dispose();
   }
 

@@ -347,7 +347,11 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     return Dialog(
       backgroundColor: Colors.transparent, elevation: 0,
       child: Container(
-        width: 600, height: 550,
+        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre600
+        //SenzaQuestoIlBreakpointSulRigaDeiBottoniNonScatterebbeMai_LaLarghezzaEraFissaPrima
+        width: double.infinity,
+        height: 550,
+        constraints: const BoxConstraints(maxWidth: 600),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
         child: Column(
           children: [
@@ -364,15 +368,13 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             Expanded(child: PageView(controller: _pageController, physics: const NeverScrollableScrollPhysics(), children: [_buildStep1(), _buildStep2()])),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
-                    Expanded(child: _OutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _prevStep))
-                  else 
-                    Expanded(child: AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); })),
-                  const SizedBox(width: 16),
-                  Expanded(child: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'), icon: _currentStep == 1 ? (isEditing ? Icons.save_outlined : Icons.check_circle_outline) : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep)),
-                ],
+              //IndietroSiComportaComeAnnulla_PartecipaAlloStackingPerCoerenza_ComeRichiesto
+              child: _ResponsiveDialogButtonsRow(
+                secondaryButton: _currentStep > 0
+                    ? _OutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _prevStep)
+                    : AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
+                //IconaSempreLaSpuntaPerLazioneDiSalvataggio_NonPiuIlDischetto_RichiestaEsplicita
+                primaryButton: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'), icon: _currentStep == 1 ? Icons.check_circle_outline : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep),
               ),
             ),
           ],
@@ -430,6 +432,59 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
           Expanded(child: SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredPrograms.map((p) => CustomChip(label: p.name, isSelected: _selectedPrograms.contains(p.id), onSelected: (v) => setState(() { if (v) { _selectedPrograms.add(p.id); } else { _selectedPrograms.remove(p.id); } }))).toList()))),
         ],
       ),
+    );
+  }
+}
+
+//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra_SoloLoStackingUsaLarghezzaFissa
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final Widget secondaryButton;
+  final Widget primaryButton;
+  final double breakpoint;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.secondaryButton,
+    required this.primaryButton,
+    this.breakpoint = 460,
+  });
+
+  static const double _kStackedButtonWidth = 240;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              SizedBox(width: _kStackedButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kStackedButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row
+        (
+          children: 
+          [
+            Expanded(child: secondaryButton),
+            const SizedBox(width: 16),
+            Expanded(child: primaryButton),
+          ],
+        );
+      },
     );
   }
 }

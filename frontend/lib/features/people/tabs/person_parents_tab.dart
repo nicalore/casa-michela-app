@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/config/api_config.dart';
 import '../../../services/api_service.dart';
@@ -169,51 +169,50 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
   Widget _buildSubNavigation(List<ParentItem> parents) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
-      child: Row(
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
         children: List.generate(parents.length, (index) {
           final isSelected = _selectedParentIndex == index;
           final parent = parents[index];
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedParentIndex = index;
-                  });
-                },
-                child: AnimatedContainer(
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedParentIndex = index;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF003C82) : Colors.white,
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF003C82)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: isSelected
+                        ? Colors.white
+                        : const Color(0xFF64748B),
                   ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF003C82) : Colors.white,
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF003C82)
-                          : const Color(0xFFE2E8F0),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOut,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF64748B),
-                    ),
-                    child: Text('${parent.firstName} ${parent.lastName}'),
-                  ),
+                  child: Text('${parent.firstName} ${parent.lastName}'),
                 ),
               ),
             ),
@@ -297,117 +296,202 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSubNavigation(parents),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _ParentSectionCard(
-                        title: 'Identità',
-                        leadingIcon: const _StaticAvatar(
-                          icon: Icons.badge_rounded,
-                        ),
-                        rows: [
-                          _InfoRowData('Nome', nome),
-                          _InfoRowData('Cognome', cognome),
-                          _InfoRowData('Sesso', sesso),
-                          _InfoRowData(
-                            'Codice fiscale',
-                            currentParent.fiscalCode,
-                          ),
-                          null,
-                        ],
-                      ),
+              _ResponsiveCardPair(
+                first: _ParentSectionCard(
+                  title: 'Identità',
+                  leadingIcon: const _StaticAvatar(
+                    icon: Icons.badge_rounded,
+                  ),
+                  rows: [
+                    _InfoRowData('Nome', nome),
+                    _InfoRowData('Cognome', cognome),
+                    _InfoRowData('Sesso', sesso),
+                    _InfoRowData(
+                      'Codice fiscale',
+                      currentParent.fiscalCode,
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _ParentSectionCard(
-                        title: 'Residenza',
-                        leadingIcon: const _StaticAvatar(
-                          icon: Icons.home_rounded,
-                        ),
-                        rows: [
-                          _InfoRowData('Indirizzo', indirizzo),
-                          _InfoRowData('N°', civico),
-                          _InfoRowData('Città', cittaResidenza),
-                          _InfoRowData('Provincia', provResidenza),
-                          _InfoRowData('CAP', cap),
-                        ],
-                      ),
-                    ),
+                    null,
+                  ],
+                ),
+                second: _ParentSectionCard(
+                  title: 'Residenza',
+                  leadingIcon: const _StaticAvatar(
+                    icon: Icons.home_rounded,
+                  ),
+                  rows: [
+                    _InfoRowData('Indirizzo', indirizzo),
+                    _InfoRowData('N°', civico),
+                    _InfoRowData('Città', cittaResidenza),
+                    _InfoRowData('Provincia', provResidenza),
+                    _InfoRowData('CAP', cap),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _ParentSectionCard(
-                        title: 'Dati anagrafici',
-                        leadingIcon: const _StaticAvatar(
-                          icon: Icons.cake_rounded,
-                        ),
-                        rows: [
-                          _InfoRowData('Data di nascita', dataNascita),
-                          _InfoRowData('Città di nascita', cittaNascita),
-                          _InfoRowData('Provincia', provNascita),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: _ParentSectionCard(
-                        title: 'Contatti',
-                        leadingIcon: const _StaticAvatar(
-                          icon: Icons.alternate_email_rounded,
-                        ),
-                        rows: [
-                          _InfoRowData('Email', email),
-                          _InfoRowData('Telefono', telefono),
-                          null,
-                        ],
-                      ),
-                    ),
+              _ResponsiveCardPair(
+                first: _ParentSectionCard(
+                  title: 'Dati anagrafici',
+                  leadingIcon: const _StaticAvatar(
+                    icon: Icons.cake_rounded,
+                  ),
+                  rows: [
+                    _InfoRowData('Data di nascita', dataNascita),
+                    _InfoRowData('Città di nascita', cittaNascita),
+                    _InfoRowData('Provincia', provNascita),
+                  ],
+                ),
+                second: _ParentSectionCard(
+                  title: 'Contatti',
+                  leadingIcon: const _StaticAvatar(
+                    icon: Icons.alternate_email_rounded,
+                  ),
+                  rows: [
+                    _InfoRowData('Email', email),
+                    _InfoRowData('Telefono', telefono),
+                    null,
                   ],
                 ),
               ),
               const SizedBox(height: 48),
               Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 230,
-                      child: WizardAnimatedActionButton(
-                        text: 'MODIFICA GENITORI',
-                        icon: Icons.edit_rounded,
-                        baseColor: const Color(0xFF003C82),
-                        hoverColor: const Color(0xFF004D99),
-                        onPressed: _openParentSelectionDialog,
-                      ),
-                    ),
-                    if (isAdult) ...[
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 395,
-                        child: WizardAnimatedActionButton(
-                          text: 'RIMUOVI RESPONSABILITÀ GENITORIALI',
-                          icon: Icons.gavel_rounded,
-                          baseColor: const Color(0xFFE53935),
-                          hoverColor: const Color(0xFFEF5350),
-                          onPressed: _onRemoveResponsibilityTap,
-                        ),
-                      ),
-                    ],
-                  ],
+                child: _ResponsiveParentActionButtonsRow(
+                  onModify: _openParentSelectionDialog,
+                  onRemoveResponsibility:
+                      isAdult ? _onRemoveResponsibilityTap : null,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+//DecidesBetweenSideBySideAndStackedLayout_BasedOnActualAvailableWidth
+//LayoutBuilderStaysOutsideIntrinsicHeight_NeverInside_SameFixAppliedInPersonInfoTab
+class _ResponsiveCardPair extends StatelessWidget {
+  final Widget first;
+  final Widget second;
+  final double breakpoint;
+
+  const _ResponsiveCardPair({
+    required this.first,
+    required this.second,
+    this.breakpoint = 820.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              first,
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const SizedBox(width: 24),
+              Expanded(child: second),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+//DecideSoloSeAffiancareOImpilare_LaLARGHEZZADeiBottoniRestaSempreFissa_MaiStretch
+//LaSceltaTraEtichettaLungaOCortaEStaticaPerModalitaDiLayout_NonRicalcolataAOgniResize
+class _ResponsiveParentActionButtonsRow extends StatelessWidget {
+  final VoidCallback onModify;
+  final VoidCallback? onRemoveResponsibility;
+
+  const _ResponsiveParentActionButtonsRow({
+    required this.onModify,
+    required this.onRemoveResponsibility,
+  });
+
+  static const double _kPrimaryWidth = 230;
+  static const double _kSecondaryWidthSideBySide = 395;
+  static const double _kSecondaryWidthStacked = 300;
+  static const double _kSpacing = 16;
+  static const double _kSideBySideBreakpoint =
+      _kPrimaryWidth + _kSpacing + _kSecondaryWidthSideBySide + 40;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget primaryButton = SizedBox(
+      width: _kPrimaryWidth,
+      child: WizardAnimatedActionButton(
+        text: 'MODIFICA GENITORI',
+        icon: Icons.edit_rounded,
+        baseColor: const Color(0xFF003C82),
+        hoverColor: const Color(0xFF004D99),
+        onPressed: onModify,
+      ),
+    );
+
+    if (onRemoveResponsibility == null) {
+      return primaryButton;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool sideBySide = constraints.maxWidth >= _kSideBySideBreakpoint;
+
+        if (sideBySide) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              primaryButton,
+              const SizedBox(width: _kSpacing),
+              SizedBox(
+                width: _kSecondaryWidthSideBySide,
+                child: WizardAnimatedActionButton(
+                  text: 'RIMUOVI RESPONSABILITÀ GENITORIALI',
+                  icon: Icons.gavel_rounded,
+                  baseColor: const Color(0xFFE53935),
+                  hoverColor: const Color(0xFFEF5350),
+                  onPressed: onRemoveResponsibility!,
+                ),
+              ),
+            ],
+          );
+        }
+
+        //ModificaGenitoriSempreSopra_RimuoviResponsabilitàSotto_RichiestaEsplicita
+        //LarghezzaFissaAncheQuiConSizedBox_NoStretch_NoCrossAxisAlignmentStretch
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            primaryButton,
+            const SizedBox(height: 16),
+            SizedBox(
+              width: _kSecondaryWidthStacked,
+              child: WizardAnimatedActionButton(
+                text: 'RIMUOVI RESPONSABILITÀ',
+                icon: Icons.gavel_rounded,
+                baseColor: const Color(0xFFE53935),
+                hoverColor: const Color(0xFFEF5350),
+                onPressed: onRemoveResponsibility!,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -679,23 +763,22 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        width: 900,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
+        width: MediaQuery.of(context).size.width * 0.85,
+        height: MediaQuery.of(context).size.height * 0.85,
+        constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
         decoration: BoxDecoration(
           color: const Color(0xFFF4F7F9),
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(40),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
+              color: Color(0x26000000),
+              offset: Offset(0, 12),
+              blurRadius: 36,
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(40),
           child: Stack(
             children: [
               Positioned(
@@ -735,18 +818,14 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
               Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(
-                      top: 24,
-                      right: 24,
-                      left: 32,
-                    ),
+                    padding: const EdgeInsets.only(top: 24, right: 24, left: 32),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'Gestisci Genitori',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 24,
+                            fontSize: 26,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF003C82),
                           ),
@@ -757,159 +836,139 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
                       ],
                     ),
                   ),
-                  const Divider(
-                    height: 32,
-                    thickness: 1,
-                    color: Color(0xFFE2E8F0),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _LocalAnimatedSearchBar(
-                            controller: _searchCtrl,
-                            hintText: 'Cerca per nome...',
-                            onChanged: (val) =>
-                                setState(() => _searchText = val),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        _LocalFilterMenu<String>(
-                          hint: 'Ordina per',
-                          icon: Icons.sort_rounded,
-                          value: _sortBy,
-                          menuWidth: 180,
-                          showClearIcon: false,
-                          onChanged: (val) => setState(() => _sortBy = val),
-                          onClear: () {},
-                          options: [
-                            _LocalFilterOption(
-                              value: 'surname_asc',
-                              label: 'Cognome (A-Z)',
-                            ),
-                            _LocalFilterOption(
-                              value: 'surname_desc',
-                              label: 'Cognome (Z-A)',
-                            ),
-                            _LocalFilterOption(
-                              value: 'name_asc',
-                              label: 'Nome (A-Z)',
-                            ),
-                            _LocalFilterOption(
-                              value: 'name_desc',
-                              label: 'Nome (Z-A)',
-                            ),
-                            _LocalFilterOption(
-                              value: 'date_desc',
-                              label: 'Più recente',
-                            ),
-                            _LocalFilterOption(
-                              value: 'date_asc',
-                              label: 'Meno recente',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
                   Expanded(
-                    child: _isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF003C82),
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 32,
-                              vertical: 16,
-                            ),
-                            child: validAdults.isEmpty
-                                ? Center(
-                                    child: Text(
-                                      'Nessun genitore disponibile trovato.',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF64748B),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1320),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _LocalAnimatedSearchBar(
+                                    controller: _searchCtrl,
+                                    hintText: 'Cerca genitore...',
+                                    onChanged: (val) => setState(() => _searchText = val),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: [
+                                      _LocalFilterMenu<String>(
+                                        hint: 'Ordina per',
+                                        icon: Icons.sort_rounded,
+                                        value: _sortBy,
+                                        menuWidth: 180,
+                                        showClearIcon: false,
+                                        onChanged: (val) => setState(() => _sortBy = val),
+                                        onClear: () {},
+                                        options: [
+                                          _LocalFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'),
+                                          _LocalFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'),
+                                          _LocalFilterOption(value: 'name_asc', label: 'Nome (A-Z)'),
+                                          _LocalFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                                          _LocalFilterOption(value: 'date_desc', label: 'Più recente'),
+                                          _LocalFilterOption(value: 'date_asc', label: 'Meno recente'),
+                                        ],
                                       ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Expanded(
+                            child: _isLoading
+                                ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+                                : SizedBox(
+                                    width: double.infinity,
+                                    child: SingleChildScrollView(
+                                      padding: const EdgeInsets.only(bottom: 40),
+                                      child: validAdults.isEmpty
+                                          ? Padding(
+                                              padding: const EdgeInsets.only(top: 40),
+                                              child: Center(
+                                                child: Text(
+                                                  'Nessun genitore disponibile trovato.',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: const Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          : Center(
+                                              child: ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 1320),
+                                                child: Wrap(
+                                                  spacing: 16,
+                                                  runSpacing: 16,
+                                                  alignment: WrapAlignment.start,
+                                                  children: validAdults.map((adult) {
+                                                    final bool isSelected = _selectedCodes.contains(adult.fiscalCode);
+                                                    return _LocalSelectablePersonCard(
+                                                      person: adult,
+                                                      isSelected: isSelected,
+                                                      onTap: () => setState(() {
+                                                        if (isSelected) {
+                                                          _selectedCodes.remove(adult.fiscalCode);
+                                                        } else {
+                                                          if (_selectedCodes.length >= 2) {
+                                                            CustomSnackBar.show(
+                                                              context: context,
+                                                              message: 'Massimo 2 genitori selezionabili.',
+                                                              isError: true,
+                                                            );
+                                                            return;
+                                                          }
+                                                          _selectedCodes.add(adult.fiscalCode);
+                                                        }
+                                                      }),
+                                                    );
+                                                  }).toList(),
+                                                ),
+                                              ),
+                                            ),
                                     ),
-                                  )
-                                : Wrap(
-                                    spacing: 16,
-                                    runSpacing: 16,
-                                    alignment: WrapAlignment.center,
-                                    children: validAdults.map((adult) {
-                                      final bool isSelected = _selectedCodes
-                                          .contains(adult.fiscalCode);
-                                      return _LocalSelectablePersonCard(
-                                        person: adult,
-                                        isSelected: isSelected,
-                                        onTap: () => setState(() {
-                                          if (isSelected) {
-                                            _selectedCodes.remove(
-                                              adult.fiscalCode,
-                                            );
-                                          } else {
-                                            if (_selectedCodes.length >= 2) {
-                                              CustomSnackBar.show(
-                                                context: context,
-                                                message:
-                                                    'Massimo 2 genitori selezionabili.',
-                                                isError: true,
-                                              );
-                                              return;
-                                            }
-                                            _selectedCodes.add(
-                                              adult.fiscalCode,
-                                            );
-                                          }
-                                        }),
-                                      );
-                                    }).toList(),
                                   ),
                           ),
+                        ],
+                      ),
+                    ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: WizardAnimatedActionButton(
-                            text: 'ANNULLA',
-                            icon: Icons.close_rounded,
-                            baseColor: const Color(0xFFE53935),
-                            hoverColor: const Color(0xFFEF5350),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: WizardAnimatedActionButton(
-                            text: 'CONFERMA',
-                            icon: Icons.check_circle_outline,
-                            baseColor: const Color(0xFF003C82),
-                            hoverColor: const Color(0xFF004D99),
-                            onPressed: () {
-                              if (_selectedCodes.isEmpty) {
-                                CustomSnackBar.show(
-                                  context: context,
-                                  message:
-                                      'Seleziona almeno un genitore per procedere.',
-                                  isError: true,
-                                );
-                                return;
-                              }
-                              Navigator.of(context).pop(_selectedCodes);
-                            },
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(top: 16, bottom: 32, left: 32, right: 32),
+                    child: Center(
+                      child: _ResponsiveDialogButtonsRow(
+                        cancelText: 'ANNULLA',
+                        cancelIcon: Icons.close_rounded,
+                        cancelColor: const Color(0xFFE53935),
+                        cancelHoverColor: const Color(0xFFEF5350),
+                        cancelOnPressed: () => Navigator.of(context).pop(),
+                        confirmText: 'CONFERMA',
+                        confirmIcon: Icons.check_circle_outline,
+                        confirmColor: const Color(0xFF003C82),
+                        confirmHoverColor: const Color(0xFF004D99),
+                        confirmOnPressed: () {
+                          if (_selectedCodes.isEmpty) {
+                            CustomSnackBar.show(
+                              context: context,
+                              message: 'Seleziona almeno un genitore per procedere.',
+                              isError: true,
+                            );
+                            return;
+                          }
+                          Navigator.of(context).pop(_selectedCodes);
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -918,6 +977,90 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+//UsataNelBottomBarDelDialogGestisciGenitori_ImpilaITastiSottoSoglia_ConfermaSopra_AnnullaSotto
+//GiaCorrettaConSizedBoxALarghezzaFissa_NessunaModificaNecessariaQui
+class _ResponsiveDialogButtonsRow extends StatelessWidget {
+  final String cancelText;
+  final IconData cancelIcon;
+  final Color cancelColor;
+  final Color cancelHoverColor;
+  final VoidCallback cancelOnPressed;
+
+  final String confirmText;
+  final IconData confirmIcon;
+  final Color confirmColor;
+  final Color confirmHoverColor;
+  final VoidCallback confirmOnPressed;
+
+  const _ResponsiveDialogButtonsRow({
+    required this.cancelText,
+    required this.cancelIcon,
+    required this.cancelColor,
+    required this.cancelHoverColor,
+    required this.cancelOnPressed,
+    required this.confirmText,
+    required this.confirmIcon,
+    required this.confirmColor,
+    required this.confirmHoverColor,
+    required this.confirmOnPressed,
+  });
+
+  static const double _kButtonWidth = 230;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget cancelButton = SizedBox(
+          width: _kButtonWidth,
+          child: WizardAnimatedActionButton(
+            text: cancelText,
+            icon: cancelIcon,
+            baseColor: cancelColor,
+            hoverColor: cancelHoverColor,
+            onPressed: cancelOnPressed,
+          ),
+        );
+
+        final Widget confirmButton = SizedBox(
+          width: _kButtonWidth,
+          child: WizardAnimatedActionButton(
+            text: confirmText,
+            icon: confirmIcon,
+            baseColor: confirmColor,
+            hoverColor: confirmHoverColor,
+            onPressed: confirmOnPressed,
+          ),
+        );
+
+        if (isCompact) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              confirmButton,
+              const SizedBox(height: 16),
+              cancelButton,
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            cancelButton,
+            const SizedBox(width: _kSpacing),
+            confirmButton,
+          ],
+        );
+      },
     );
   }
 }
@@ -1424,90 +1567,223 @@ class _LocalSelectablePersonCardState
     final List<String> processedRoles = RoleLabelMapper.processRoles(
       widget.person.roles,
     );
+    final String fullName =
+        '${widget.person.firstName} ${widget.person.lastName}';
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 380,
-          constraints: const BoxConstraints(minHeight: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
-                  : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
+    return Tooltip(
+      message: fullName,
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: 420,
+            constraints: const BoxConstraints(minHeight: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: (_isHovering || widget.isSelected)
+                    ? const Color(0xFF003C82)
+                    : Colors.transparent,
+                width: 2,
               ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildAvatar(),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${widget.person.firstName} ${widget.person.lastName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: processedRoles.map((role) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F7FA),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE0E5EC)),
-                          ),
-                          child: Text(
-                            role,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  offset: Offset(0, 4),
+                  blurRadius: 16,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildAvatar(),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF003C82),
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _LocalRoleChipsRow(roles: processedRoles),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Mostra i chip dei ruoli su una singola riga. Se non entrano tutti nello
+/// spazio disponibile, tronca la lista e sostituisce quelli in eccesso con
+/// un chip "+N" che, al passaggio del mouse, mostra i ruoli nascosti.
+class _LocalRoleChipsRow extends StatelessWidget {
+  final List<String> roles;
+
+  const _LocalRoleChipsRow({required this.roles});
+
+  static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
+  static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
+  static const double _chipSpacing = 6;
+
+  double _measureChipWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (roles.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final chipStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        );
+        final extraStyle = GoogleFonts.plusJakartaSans(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF64748B),
+        );
+
+        int visibleCount = roles.length;
+        while (visibleCount > 1) {
+          double totalWidth = 0;
+          for (int i = 0; i < visibleCount; i++) {
+            totalWidth += _measureChipWidth(roles[i], chipStyle);
+            if (i > 0) totalWidth += _chipSpacing;
+          }
+
+          final int remaining = roles.length - visibleCount;
+          if (remaining > 0) {
+            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
+          }
+
+          if (totalWidth <= constraints.maxWidth) break;
+          visibleCount--;
+        }
+
+        final int extraCount = roles.length - visibleCount;
+        final List<String> hiddenRoles = roles.sublist(visibleCount);
+
+        final List<Widget> chips = [];
+        for (int i = 0; i < visibleCount; i++) {
+          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_LocalRoleChip(label: roles[i], style: chipStyle));
+        }
+        if (extraCount > 0) {
+          chips.add(const SizedBox(width: _chipSpacing));
+          chips.add(_LocalRoleChip(
+            label: '+$extraCount',
+            style: extraStyle,
+            hiddenRoles: hiddenRoles,
+          ));
+        }
+
+        return Row(mainAxisSize: MainAxisSize.min, children: chips);
+      },
+    );
+  }
+}
+
+class _LocalRoleChip extends StatelessWidget {
+  final String label;
+  final TextStyle style;
+  final List<String>? hiddenRoles;
+
+  const _LocalRoleChip({required this.label, required this.style, this.hiddenRoles});
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E5EC)),
+      ),
+      child: Text(label, style: style),
+    );
+
+    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
+
+    return Tooltip(
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      richMessage: TextSpan(
+        children: [
+          TextSpan(
+            text: 'Altri ruoli:\n',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: const Color(0xFF94A3B8),
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+          TextSpan(
+            text: hiddenRoles!.join('\n'),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+      child: chip,
     );
   }
 }
