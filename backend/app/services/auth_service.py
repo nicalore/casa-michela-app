@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import resend
 from jwt import (
@@ -29,6 +30,8 @@ from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.auth_result import AuthResult
 
 resend.api_key = settings.resend_api_key
+
+_LOCAL_TIMEZONE = ZoneInfo("Europe/Rome")
 
 
 class AuthenticationError(Exception):
@@ -88,6 +91,76 @@ class AuthService:
             password_reset_required=account.password_reset_required,
         )
 
+    def _send_account_locked_email(self, account, locked_until: datetime) -> None:
+        if not (account.person and account.person.email):
+            return
+
+        local_unlock_time = locked_until.astimezone(_LOCAL_TIMEZONE)
+        formatted_unlock_time = local_unlock_time.strftime("%d/%m/%Y alle ore %H:%M")
+
+        try:
+            resend.Emails.send(
+                {
+                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
+                    "to": account.person.email,
+                    "reply_to": "nicolo.calore@casamichela.it",
+                    "subject": "Account temporaneamente bloccato - Associazione Casa Michela",
+                    "html": f"""
+                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
+                        <div style="text-align: center; margin-bottom: 30px;"> 
+                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
+                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
+                        </div> 
+                        <h2 style="color: #003C82;"> Account Temporaneamente Bloccato </h2>
+                        <p>Ciao,</p> 
+                        <p>Per proteggere il tuo account, abbiamo temporaneamente bloccato l'accesso a seguito di ripetuti tentativi di autenticazione non riusciti.</p> 
+                        <p>Potrai effettuare nuovamente l'accesso a partire dal seguente momento:</p>
+                        <div style="text-align: center; margin: 30px 0;"> 
+                            <strong>{formatted_unlock_time}</strong> 
+                        </div> 
+                        <p>Se sei stato tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
+                        <p>Se invece ritieni che qualcuno abbia tentato di accedere al tuo account, ti invitiamo a rispondere a questa email o a contattare l'Associazione il prima possibile.</p>
+                        <p>A presto,<br> 
+                        <strong>Associazione Casa Michela</strong></p> 
+                    </div>
+                    """,        
+                }
+            )
+        except Exception as e:
+            # LogErrorSilently
+            print(f"Error sending email via Resend: {e}")
+
+    def _send_password_changed_email(self, account) -> None:
+        if not (account.person and account.person.email):
+            return
+
+        try:
+            resend.Emails.send(
+                {
+                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
+                    "to": account.person.email,
+                    "reply_to": "nicolo.calore@casamichela.it",
+                    "subject": "Conferma Modifica Password - Associazione Casa Michela",
+                    "html": """
+                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
+                        <div style="text-align: center; margin-bottom: 30px;"> 
+                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
+                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
+                        </div> 
+                        <h2 style="color: #003C82;"> Password Modificata </h2>
+                        <p>Ciao,</p> 
+                        <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p> 
+                        <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
+                        <p>A presto,<br> 
+                        <strong>Associazione Casa Michela</strong></p> 
+                    </div>
+                    """,
+                }
+            )
+        except Exception as e:
+            # LogErrorSilently
+            print(f"Error sending email via Resend: {e}")
+
     async def authenticate(self, username: str, password: str) -> AuthResult:
         account = await self.account_repository.get_by_username(username)
 
@@ -119,6 +192,7 @@ class AuthService:
 
             # RaiseLockoutImmediately
             if new_lock is not None:
+                self._send_account_locked_email(account, new_lock)
                 raise AccountLockedError(new_lock)
 
             raise AuthenticationError("Invalid username or password")
@@ -246,34 +320,7 @@ class AuthService:
         )
         await self.account_repository.commit()
 
-        # NotifyPasswordChange
-        if account.person and account.person.email:
-            try:
-                resend.Emails.send(
-                    {
-                        "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
-                        "to": account.person.email,
-                        "reply_to": "nicolo.calore@casamichela.it",
-                        "subject": "Conferma Modifica Password - Associazione Casa Michela",
-                        "html": """
-                        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-                            <div style="text-align: center; margin-bottom: 30px;"> 
-                                <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-                                <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
-                            </div> 
-                            <h2 style="color: #003C82;"> Password Modificata </h2>
-                            <p>Ciao,</p> 
-                            <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p> 
-                            <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
-                            <p>A presto,<br> 
-                            <strong>Associazione Casa Michela</strong></p> 
-                        </div>
-                        """,
-                    }
-                )
-            except Exception as e:
-                # LogErrorSilently
-                print(f"Error sending email via Resend: {e}")
+        self._send_password_changed_email(account)
 
     async def request_password_reset(self, username: str) -> None:
         import asyncio
@@ -407,6 +454,8 @@ class AuthService:
         await self.account_repository.save(account)
         await self.account_repository.commit()
 
+        self._send_password_changed_email(account)
+
     async def validate_reset_token(self, token: str) -> None:
         try:
             payload = jwt_decode(
@@ -437,4 +486,10 @@ class AuthService:
             raise AuthenticationError("Invalid token type")
 
         if hash_refresh_token(token) != stored_token.token_hash:
-            raise AuthenticationError("Invalid or expired reset token") 
+            raise AuthenticationError("Invalid or expired reset token")
+
+
+
+
+
+
