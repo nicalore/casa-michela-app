@@ -61,7 +61,33 @@ async def get_current_account(
     return account
 
 
+async def get_current_active_account(
+    account: Annotated[
+        Account,
+        Depends(get_current_account),
+    ],
+) -> Account:
+    if account.password_reset_required:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="PASSWORD_RESET_REQUIRED",
+        )
+
+    return account
+
+
+# Da usare per la quasi totalità degli endpoint dell'area riservata.
+# Blocca con 403 chiunque abbia il reset password obbligatorio pendente,
+# a prescindere dalla validità del token (RF-IAM-012).
 CurrentAccount = Annotated[
+    Account,
+    Depends(get_current_active_account),
+]
+
+# Da usare SOLO per gli endpoint che devono restare accessibili anche con
+# reset password pendente: l'endpoint di cambio password stesso, e
+# logout. Non usarla per nient'altro.
+CurrentAccountAllowPendingReset = Annotated[
     Account,
     Depends(get_current_account),
 ]

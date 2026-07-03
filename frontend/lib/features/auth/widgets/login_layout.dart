@@ -64,29 +64,19 @@ class _LoginLayoutState extends State<LoginLayout>
     try
     {
       //PerformLoginApiCall
-      final result = await _apiService.login
+      // apiService.login imposta internamente authState a
+      // AuthState.passwordChangeRequired o AuthState.authenticated a
+      // seconda della risposta del backend. Non serve più decidere qui
+      // dove navigare: il redirect globale del router (che ascolta
+      // authState) porta l'utente sulla schermata corretta anche se qui
+      // proviamo comunque ad andare in dashboard.
+      await _apiService.login
       (
         username: username,
         password: password,
       );
 
       if (!mounted) return;
-
-      if (result.passwordResetRequired)
-      {
-        context.replace
-        (
-          '/force-password-change',
-          extra: 
-          {
-            'username': _usernameController.text,
-            'currentPassword': _passwordController.text,
-            'refreshToken': result.refreshToken,
-          },
-        );
-
-        return;
-      }
 
       context.replace('/dashboard');
     }

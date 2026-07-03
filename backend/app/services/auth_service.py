@@ -379,7 +379,7 @@ class AuthService:
                             </div> 
                             <h2 style="color: #003C82;"> Recupero Password </h2>
                             <p>Ciao,</p> 
-                            <p>Hai richiesto di reimpostare la password del tuo account.</p> 
+                            <p>Hai chiesto di reimpostare la password del tuo account.</p> 
                             <p>Per procedere, clicca sul pulsante qui sotto:</p>
                             <div style="text-align: center; margin: 30px 0;"> 
                                 <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 

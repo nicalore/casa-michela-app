@@ -1,6 +1,7 @@
-enum AuthState 
+enum AuthState
 {
   loading,
   authenticated,
+  passwordChangeRequired,
   unauthenticated,
 }

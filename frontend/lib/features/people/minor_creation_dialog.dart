@@ -1955,46 +1955,38 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               ),
             ),
             const SizedBox(height: 8),
-            //SearchBarOnItsOwnFullWidthLine_FilterInAWrapBelow_StessoCriterioDiPersonWizardPage
+            //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
+            //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
             Center
             (
               child: ConstrainedBox
               (
                 constraints: const BoxConstraints(maxWidth: 500),
-                child: Column
+                child: _ResponsiveSearchFilterRow
                 (
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: 
+                  breakpoint: 380,
+                  searchBar: WizardAnimatedSearchBar
+                  (
+                    controller: _searchSubjectsCtrl, 
+                    onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                    hintText:   'Cerca disciplina...',
+                  ),
+                  filterWidgets: 
                   [
-                    WizardAnimatedSearchBar
+                    WizardFilterMenu<String>
                     (
-                      controller: _searchSubjectsCtrl, 
-                      onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                      hintText:   'Cerca disciplina...',
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap
-                    (
-                      spacing:    12,
-                      runSpacing: 12,
-                      children: 
+                      hint:          'Ordina per', 
+                      icon:          Icons.sort_rounded, 
+                      value:         _sortSubjectsBy, 
+                      menuWidth:     180, 
+                      showClearIcon: false, 
+                      onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                      onClear:       () {}, 
+                      options: 
                       [
-                        WizardFilterMenu<String>
-                        (
-                          hint:          'Ordina per', 
-                          icon:          Icons.sort_rounded, 
-                          value:         _sortSubjectsBy, 
-                          menuWidth:     180, 
-                          showClearIcon: false, 
-                          onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
-                          onClear:       () {}, 
-                          options: 
-                          [
-                            WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                            WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                          ]
-                        ),
-                      ],
+                        WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                        WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                      ]
                     ),
                   ],
                 ),
@@ -2464,10 +2456,13 @@ class _WizardAddressFieldsRow extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children: 
             [
+              _buildLabel('Via / Piazza'),
               tipoViaField,
               const SizedBox(height: 16),
+              _buildLabel('Nome via'),
               nomeField,
               const SizedBox(height: 16),
+              _buildLabel('Numero civico'),
               civicoField,
             ],
           );
@@ -2833,6 +2828,64 @@ class _WizardSchoolFieldRow extends StatelessWidget
           );
         },
       ),
+    );
+  }
+}
+
+
+//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
+class _ResponsiveSearchFilterRow extends StatelessWidget
+{
+  final Widget searchBar;
+  final List<Widget> filterWidgets;
+  final double breakpoint;
+  final double spacing;
+
+  const _ResponsiveSearchFilterRow
+  ({
+    required this.searchBar,
+    required this.filterWidgets,
+    this.breakpoint = 700,
+    this.spacing = 12,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              searchBar,
+              SizedBox(height: spacing),
+              Wrap
+              (
+                spacing:    spacing,
+                runSpacing: spacing,
+                children:   filterWidgets,
+              ),
+            ],
+          );
+        }
+
+        final List<Widget> rowChildren = [Expanded(child: searchBar)];
+        for (final w in filterWidgets)
+        {
+          rowChildren.add(SizedBox(width: spacing));
+          rowChildren.add(w);
+        }
+
+        return Row(children: rowChildren);
+      },
     );
   }
 }

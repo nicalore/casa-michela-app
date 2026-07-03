@@ -8,7 +8,7 @@ from fastapi import (
     status,
 )
 
-from app.api.current_account import CurrentAccount
+from app.api.current_account import CurrentAccount, CurrentAccountAllowPendingReset
 from app.api.dependencies import DbSession
 from app.core.password_policy import PasswordPolicyError
 from app.repositories.account_repository import AccountRepository
@@ -126,7 +126,7 @@ async def me(current_account: CurrentAccount, db: DbSession):
     )
 
     address_part = f"{person.residence_type} {person.residence_address}".strip()
-    
+
     return {
         "tax_code": account.tax_code,
         "username": account.username,
@@ -183,18 +183,18 @@ async def upload_profile_image(
 
     with open(destination, "wb") as output:
         output.write(content)
-        
+
     profile_image_url = f"/uploads/profile-images/{filename}"
     current_account.person.profile_image_url = profile_image_url
 
     await db.commit()
-    return {"profile_image_url": profile_image_url}  
+    return {"profile_image_url": profile_image_url}
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     request: ChangePasswordRequest,
-    current_account: CurrentAccount,
+    current_account: CurrentAccountAllowPendingReset,
     db: DbSession,
 ) -> None:
     account_repository = AccountRepository(db)

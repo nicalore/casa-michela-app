@@ -845,38 +845,32 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
                         children: [
                           const SizedBox(height: 16),
                           Center(
+                            //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 1320),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _LocalAnimatedSearchBar(
-                                    controller: _searchCtrl,
-                                    hintText: 'Cerca genitore...',
-                                    onChanged: (val) => setState(() => _searchText = val),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      _LocalFilterMenu<String>(
-                                        hint: 'Ordina per',
-                                        icon: Icons.sort_rounded,
-                                        value: _sortBy,
-                                        menuWidth: 180,
-                                        showClearIcon: false,
-                                        onChanged: (val) => setState(() => _sortBy = val),
-                                        onClear: () {},
-                                        options: [
-                                          _LocalFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'),
-                                          _LocalFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'),
-                                          _LocalFilterOption(value: 'name_asc', label: 'Nome (A-Z)'),
-                                          _LocalFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                                          _LocalFilterOption(value: 'date_desc', label: 'Più recente'),
-                                          _LocalFilterOption(value: 'date_asc', label: 'Meno recente'),
-                                        ],
-                                      ),
+                              child: _ResponsiveSearchFilterRow(
+                                breakpoint: 500,
+                                searchBar: _LocalAnimatedSearchBar(
+                                  controller: _searchCtrl,
+                                  hintText: 'Cerca genitore...',
+                                  onChanged: (val) => setState(() => _searchText = val),
+                                ),
+                                filterWidgets: [
+                                  _LocalFilterMenu<String>(
+                                    hint: 'Ordina per',
+                                    icon: Icons.sort_rounded,
+                                    value: _sortBy,
+                                    menuWidth: 180,
+                                    showClearIcon: false,
+                                    onChanged: (val) => setState(() => _sortBy = val),
+                                    onClear: () {},
+                                    options: [
+                                      _LocalFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'),
+                                      _LocalFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'),
+                                      _LocalFilterOption(value: 'name_asc', label: 'Nome (A-Z)'),
+                                      _LocalFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                                      _LocalFilterOption(value: 'date_desc', label: 'Più recente'),
+                                      _LocalFilterOption(value: 'date_asc', label: 'Meno recente'),
                                     ],
                                   ),
                                 ],
@@ -1784,6 +1778,53 @@ class _LocalRoleChip extends StatelessWidget {
         ],
       ),
       child: chip,
+    );
+  }
+}
+
+//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
+class _ResponsiveSearchFilterRow extends StatelessWidget {
+  final Widget searchBar;
+  final List<Widget> filterWidgets;
+  final double breakpoint;
+  final double spacing;
+
+  const _ResponsiveSearchFilterRow({
+    required this.searchBar,
+    required this.filterWidgets,
+    this.breakpoint = 700,
+    this.spacing = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              searchBar,
+              SizedBox(height: spacing),
+              Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: filterWidgets,
+              ),
+            ],
+          );
+        }
+
+        final List<Widget> rowChildren = [Expanded(child: searchBar)];
+        for (final w in filterWidgets) {
+          rowChildren.add(SizedBox(width: spacing));
+          rowChildren.add(w);
+        }
+
+        return Row(children: rowChildren);
+      },
     );
   }
 }

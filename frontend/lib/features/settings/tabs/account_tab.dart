@@ -1,58 +1,47 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_service.dart';
-import '../../../services/session_service.dart';
-import '../../auth/models/me_response.dart';
 import '../../../shared/widgets/casa_michela_loader.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../auth/models/me_response.dart';
 
-class AccountTab extends StatefulWidget
-{
+class AccountTab extends StatefulWidget {
   const AccountTab({super.key});
 
   @override
   State<AccountTab> createState() => _AccountTabState();
 }
 
-class _AccountTabState extends State<AccountTab>
-{
+class _AccountTabState extends State<AccountTab> {
   final ApiService _apiService = ApiService();
-  
+
   MeResponse? _me;
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
-  void initState()
-  {
+  void initState() {
     super.initState();
     _fetchAccount();
   }
 
-  Future<void> _fetchAccount() async
-  {
-    try
-    {
+  Future<void> _fetchAccount() async {
+    try {
       final meResponse = await _apiService.me();
-      
-      if (mounted)
-      {
-        setState(()
-        {
+
+      if (mounted) {
+        setState(() {
           _me = meResponse;
           _isLoading = false;
         });
       }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        setState(()
-        {
+    } catch (e) {
+      if (mounted) {
+        setState(() {
           _isLoading = false;
           _errorMessage = e.toString();
         });
@@ -60,19 +49,18 @@ class _AccountTabState extends State<AccountTab>
     }
   }
 
-  void _showChangePasswordDialog(BuildContext context, String username)
-  {
+  void _showChangePasswordDialog(BuildContext context) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'ChangePassword',
       barrierColor: Colors.black.withValues(alpha: .15),
       transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child)
-      {
+      pageBuilder: (animation, secondaryAnimation, child) =>
+          const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
         final blurValue = animation.value * 8.0;
-        
+
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
           child: FadeTransition(
@@ -83,7 +71,7 @@ class _AccountTabState extends State<AccountTab>
                 curve: Curves.easeOutBack,
                 reverseCurve: Curves.easeIn,
               ),
-              child: _ChangePasswordDialogContent(username: username),
+              child: const _ChangePasswordDialogContent(),
             ),
           ),
         );
@@ -92,10 +80,8 @@ class _AccountTabState extends State<AccountTab>
   }
 
   @override
-  Widget build(BuildContext context)
-  {
-    if (_isLoading)
-    {
+  Widget build(BuildContext context) {
+    if (_isLoading) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
@@ -104,8 +90,7 @@ class _AccountTabState extends State<AccountTab>
       );
     }
 
-    if (_errorMessage != null || _me == null)
-    {
+    if (_errorMessage != null || _me == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 40.0),
@@ -124,12 +109,7 @@ class _AccountTabState extends State<AccountTab>
     final me = _me!;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top: 16,
-        left: 32,
-        right: 32,
-        bottom: 32,
-      ),
+      padding: const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 32),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
@@ -167,9 +147,9 @@ class _AccountTabState extends State<AccountTab>
                           color: Color(0xFF003C82),
                         ),
                       ),
-                      
+
                       const SizedBox(width: 24),
-                      
+
                       Expanded(
                         child: Text(
                           'Credenziali di accesso',
@@ -184,7 +164,7 @@ class _AccountTabState extends State<AccountTab>
                     ],
                   ),
                 ),
-                
+
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24.0),
                   child: Divider(
@@ -193,7 +173,7 @@ class _AccountTabState extends State<AccountTab>
                     color: Color(0xFFF1F5F9),
                   ),
                 ),
-                
+
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -208,7 +188,7 @@ class _AccountTabState extends State<AccountTab>
                         ),
                       ),
                     ),
-                    
+
                     Expanded(
                       child: Text(
                         me.username,
@@ -221,9 +201,9 @@ class _AccountTabState extends State<AccountTab>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 Align(
                   alignment: Alignment.centerLeft,
                   child: SizedBox(
@@ -233,7 +213,7 @@ class _AccountTabState extends State<AccountTab>
                       icon: Icons.lock_reset_rounded,
                       baseColor: const Color(0xFF003C82),
                       hoverColor: const Color(0xFF002B5E),
-                      onPressed: () => _showChangePasswordDialog(context, me.username),
+                      onPressed: () => _showChangePasswordDialog(context),
                     ),
                   ),
                 ),
@@ -246,23 +226,20 @@ class _AccountTabState extends State<AccountTab>
   }
 }
 
-class _ChangePasswordDialogContent extends StatefulWidget
-{
-  final String username;
-
-  const _ChangePasswordDialogContent({
-    required this.username,
-  });
+class _ChangePasswordDialogContent extends StatefulWidget {
+  const _ChangePasswordDialogContent();
 
   @override
-  State<_ChangePasswordDialogContent> createState() => _ChangePasswordDialogContentState();
+  State<_ChangePasswordDialogContent> createState() =>
+      _ChangePasswordDialogContentState();
 }
 
-class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogContent>
-{
+class _ChangePasswordDialogContentState
+    extends State<_ChangePasswordDialogContent> {
   final TextEditingController _oldPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _obscureOld = true;
   bool _obscureNew = true;
@@ -277,15 +254,13 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
   bool _isSaving = false;
 
   @override
-  void initState()
-  {
+  void initState() {
     super.initState();
     _newPasswordController.addListener(_validatePolicies);
   }
 
   @override
-  void dispose()
-  {
+  void dispose() {
     _newPasswordController.removeListener(_validatePolicies);
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
@@ -293,11 +268,9 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
     super.dispose();
   }
 
-  void _validatePolicies()
-  {
+  void _validatePolicies() {
     final text = _newPasswordController.text;
-    setState(()
-    {
+    setState(() {
       _hasMinLength = text.length >= 12;
       _hasLower = RegExp(r'[a-z]').hasMatch(text);
       _hasUpper = RegExp(r'[A-Z]').hasMatch(text);
@@ -306,14 +279,12 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
     });
   }
 
-  Future<void> _handleSave() async
-  {
+  Future<void> _handleSave() async {
     final oldPassword = _oldPasswordController.text;
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
-    {
+    if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
       CustomSnackBar.show(
         context: context,
         message: 'Compila tutti i campi',
@@ -322,8 +293,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
       return;
     }
 
-    if (oldPassword == newPassword)
-    {
+    if (oldPassword == newPassword) {
       CustomSnackBar.show(
         context: context,
         message: 'La nuova password non può essere uguale alla vecchia',
@@ -332,8 +302,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
       return;
     }
 
-    if (newPassword != confirmPassword)
-    {
+    if (newPassword != confirmPassword) {
       CustomSnackBar.show(
         context: context,
         message: 'Le password non coincidono',
@@ -342,8 +311,11 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
       return;
     }
 
-    if (!_hasMinLength || !_hasLower || !_hasUpper || !_hasDigit || !_hasSpecial)
-    {
+    if (!_hasMinLength ||
+        !_hasLower ||
+        !_hasUpper ||
+        !_hasDigit ||
+        !_hasSpecial) {
       CustomSnackBar.show(
         context: context,
         message: 'La password non rispetta i criteri di sicurezza',
@@ -352,34 +324,22 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
       return;
     }
 
-    setState(()
-    {
+    setState(() {
       _isSaving = true;
     });
 
-    try
-    {
-      final refreshToken = await SessionService.getRefreshToken();
-      
-      if (refreshToken == null)
-      {
-        throw Exception('Sessione non valida');
-      }
-
+    try {
+      // ApiService.changePassword usa internamente il refresh token della
+      // sessione corrente: non va più letto a mano da SessionService.
+      // La sessione resta valida dopo il cambio (il backend revoca tutti
+      // i refresh token tranne quello appena usato), quindi non serve
+      // nemmeno rifare login per ottenere nuovi token.
       await ApiService().changePassword(
         currentPassword: oldPassword,
         newPassword: newPassword,
-        refreshToken: refreshToken,
       );
 
-      //Silent login to fetch new valid tokens preventing the 401 error
-      await ApiService().login(
-        username: widget.username,
-        password: newPassword,
-      );
-
-      if (mounted)
-      {
+      if (mounted) {
         CustomSnackBar.show(
           context: context,
           message: 'Password cambiata con successo!',
@@ -387,32 +347,24 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
         );
         Navigator.of(context).pop();
       }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
+    } catch (e) {
+      if (mounted) {
         CustomSnackBar.show(
           context: context,
           message: e.toString().replaceAll('Exception: ', ''),
           isError: true,
         );
       }
-    }
-    finally
-    {
-      if (mounted)
-      {
-        setState(()
-        {
+    } finally {
+      if (mounted) {
+        setState(() {
           _isSaving = false;
         });
       }
     }
   }
 
-  Widget _buildFieldLabel(String text)
-  {
+  Widget _buildFieldLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, top: 16),
       child: Text(
@@ -426,26 +378,29 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
     );
   }
 
-  Widget _buildPolicyRow(String text, bool isValid)
-  {
+  Widget _buildPolicyRow(String text, bool isValid) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Row(
         children: [
           Icon(
-            isValid ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            isValid
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
             color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFB3B3B3),
             size: 18,
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           Text(
             text,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: isValid ? const Color(0xFF4CAF50) : const Color(0xFF8A8A8A),
+              color: isValid
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFF8A8A8A),
             ),
           ),
         ],
@@ -454,8 +409,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
   }
 
   @override
-  Widget build(BuildContext context)
-  {
+  Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -469,7 +423,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
               color: Color(0x1A000000),
               offset: Offset(0, 8),
               blurRadius: 24,
-            )
+            ),
           ],
         ),
         child: Column(
@@ -497,9 +451,9 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                 ],
               ),
             ),
-            
+
             const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            
+
             Padding(
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
               child: Column(
@@ -522,20 +476,26 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                         fontWeight: FontWeight.w500,
                       ),
                       focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                        borderSide: BorderSide(
+                          color: Color(0xFF003C82),
+                          width: 2,
+                        ),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureOld ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          _obscureOld
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                           color: const Color(0xFF6B7280),
                         ),
-                        onPressed: () => setState(() => _obscureOld = !_obscureOld),
+                        onPressed: () =>
+                            setState(() => _obscureOld = !_obscureOld),
                         splashColor: Colors.transparent,
                         highlightColor: Colors.transparent,
                       ),
                     ),
                   ),
-                  
+
                   _buildFieldLabel('Nuova password'),
                   TextField(
                     controller: _newPasswordController,
@@ -553,22 +513,28 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                         fontWeight: FontWeight.w500,
                       ),
                       focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                        borderSide: BorderSide(
+                          color: Color(0xFF003C82),
+                          width: 2,
+                        ),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          _obscureNew
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                           color: const Color(0xFF6B7280),
                         ),
-                        onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                        onPressed: () =>
+                            setState(() => _obscureNew = !_obscureNew),
                         splashColor: Colors.transparent,
                         highlightColor: Colors.transparent,
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -580,14 +546,23 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildPolicyRow('Almeno 12 caratteri', _hasMinLength),
-                        _buildPolicyRow('Almeno una lettera minuscola', _hasLower),
-                        _buildPolicyRow('Almeno una lettera maiuscola', _hasUpper),
+                        _buildPolicyRow(
+                          'Almeno una lettera minuscola',
+                          _hasLower,
+                        ),
+                        _buildPolicyRow(
+                          'Almeno una lettera maiuscola',
+                          _hasUpper,
+                        ),
                         _buildPolicyRow('Almeno un numero', _hasDigit),
-                        _buildPolicyRow('Almeno un carattere speciale', _hasSpecial),
+                        _buildPolicyRow(
+                          'Almeno un carattere speciale',
+                          _hasSpecial,
+                        ),
                       ],
                     ),
                   ),
-                  
+
                   _buildFieldLabel('Conferma password'),
                   TextField(
                     controller: _confirmPasswordController,
@@ -605,14 +580,20 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                         fontWeight: FontWeight.w500,
                       ),
                       focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                        borderSide: BorderSide(
+                          color: Color(0xFF003C82),
+                          width: 2,
+                        ),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                          _obscureConfirm
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                           color: const Color(0xFF6B7280),
                         ),
-                        onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                        onPressed: () =>
+                            setState(() => _obscureConfirm = !_obscureConfirm),
                         splashColor: Colors.transparent,
                         highlightColor: Colors.transparent,
                       ),
@@ -621,9 +602,14 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                 ],
               ),
             ),
-            
+
             Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
+              padding: const EdgeInsets.only(
+                left: 32,
+                right: 32,
+                bottom: 32,
+                top: 32,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -639,7 +625,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                   Expanded(
                     child: AnimatedActionButton(
                       text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                      icon: Icons.save_outlined,
+                      icon: Icons.check_circle_outline,
                       baseColor: const Color(0xFF003C82),
                       hoverColor: const Color(0xFF004D99),
                       onPressed: _isSaving ? () {} : _handleSave,

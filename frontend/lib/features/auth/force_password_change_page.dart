@@ -8,16 +8,7 @@ import '../../shared/widgets/snackbar.dart';
 
 class ForcePasswordChangePage extends StatefulWidget
 {
-  final String username;
-  final String refreshToken;
-  final String currentPassword;
-
-  const ForcePasswordChangePage({
-    super.key,
-    required this.username,
-    required this.refreshToken,
-    required this.currentPassword,
-  });
+  const ForcePasswordChangePage({super.key});
 
   @override
   State<ForcePasswordChangePage> createState() => _ForcePasswordChangePageState();
@@ -25,10 +16,12 @@ class ForcePasswordChangePage extends StatefulWidget
 
 class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 {
+  final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final ApiService _apiService = ApiService();
 
+  bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
 
@@ -51,6 +44,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   void dispose()
   {
     _newPasswordController.removeListener(_validatePolicies);
+    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -60,7 +54,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   void _validatePolicies()
   {
     final text = _newPasswordController.text;
-    
+
     setState(()
     {
       _hasMinLength = text.length >= 12;
@@ -71,20 +65,21 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     });
   }
 
-//HandlePasswordChange
+  //HandlePasswordChange
   Future<void> _handleSave() async
   {
+    final currentPassword = _currentPasswordController.text;
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (newPassword.isEmpty || confirmPassword.isEmpty)
+    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
     {
       CustomSnackBar.show(
         context: context,
         message: 'Compila tutti i campi',
         isError: true,
       );
-      
+
       return;
     }
 
@@ -95,7 +90,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         message: 'Le password non coincidono',
         isError: true,
       );
-      
+
       return;
     }
 
@@ -106,7 +101,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         message: 'La password non rispetta i criteri di sicurezza',
         isError: true,
       );
-      
+
       return;
     }
 
@@ -117,22 +112,16 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
     try
     {
-      // 1. Esegue il cambio password
+      // changePassword aggiorna anche apiService.authState internamente:
+      // appena diventa AuthState.authenticated, il redirect globale del
+      // router porta l'utente in dashboard senza bisogno di rifare login.
       await _apiService.changePassword(
-        currentPassword: widget.currentPassword,
+        currentPassword: currentPassword,
         newPassword: newPassword,
-        refreshToken: widget.refreshToken,
       );
-      
-      await _apiService.login(
-         username: widget.username,
-        password: newPassword,
-      );
-      
-      ApiService.forcePasswordChangeCompleted = true;
 
       if (!mounted) return;
-      
+
       CustomSnackBar.show(
         context: context,
         message: 'Password aggiornata con successo!',
@@ -144,7 +133,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     catch (e)
     {
       if (!mounted) return;
-      
+
       CustomSnackBar.show(
         context: context,
         message: e.toString().replaceAll('Exception: ', ''),
@@ -191,9 +180,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
             color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFB3B3B3),
             size: 18,
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           Text(
             text,
             style: GoogleFonts.plusJakartaSans(
@@ -318,9 +307,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                   size: 56,
                                   color: Color(0xFF003C82),
                                 ),
-                                
+
                                 const SizedBox(height: 16),
-                                
+
                                 Text(
                                   'Aggiorna Password',
                                   style: GoogleFonts.plusJakartaSans(
@@ -329,9 +318,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                     color: const Color(0xFF003C82),
                                   ),
                                 ),
-                                
+
                                 const SizedBox(height: 12),
-                                
+
                                 Text(
                                   'Al primo accesso o in particolari situazioni è obbligatorio impostare una nuova password.',
                                   textAlign: TextAlign.center,
@@ -344,18 +333,55 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                               ],
                             ),
                           ),
-                          
+
                           const Divider(
                             height: 1,
                             thickness: 1,
                             color: Color(0xFFF0F0F0),
                           ),
-                          
+
                           Padding(
                             padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                _buildFieldLabel('Password attuale'),
+                                TextField(
+                                  controller: _currentPasswordController,
+                                  obscureText: _obscureCurrent,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Inserisci la password attuale',
+                                    hintStyle: GoogleFonts.plusJakartaSans(
+                                      fontSize: 18,
+                                      color: const Color(0xFFB3B3B3),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    focusedBorder: const UnderlineInputBorder(
+                                      borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureCurrent ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        color: const Color(0xFF6B7280),
+                                      ),
+                                      onPressed: ()
+                                      {
+                                        setState(()
+                                        {
+                                          _obscureCurrent = !_obscureCurrent;
+                                        });
+                                      },
+                                      splashColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                    ),
+                                  ),
+                                ),
+
                                 _buildFieldLabel('Nuova password'),
                                 TextField(
                                   controller: _newPasswordController,
@@ -392,9 +418,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                     ),
                                   ),
                                 ),
-                                
+
                                 const SizedBox(height: 24),
-                                
+
                                 Container(
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
@@ -413,9 +439,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                     ],
                                   ),
                                 ),
-                                
+
                                 const SizedBox(height: 8),
-                                
+
                                 _buildFieldLabel('Conferma password'),
                                 TextField(
                                   controller: _confirmPasswordController,
@@ -452,9 +478,9 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                                     ),
                                   ),
                                 ),
-                                
+
                                 const SizedBox(height: 40),
-                                
+
                                 SizedBox(
                                   width: double.infinity,
                                   child: AnimatedActionButton(

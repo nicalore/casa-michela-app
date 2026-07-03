@@ -2965,45 +2965,37 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SearchBarOnItsOwnFullWidthLine_FilterInAWrapBelow_StessoCriterioDiPersonWizardPage
-              child: Column
+              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
+              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
+              child: _ResponsiveSearchFilterRow
               (
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: 
+                breakpoint: 500,
+                searchBar: WizardAnimatedSearchBar
+                (
+                  controller: _searchParentsCtrl, 
+                  onChanged:  (value) => setState(() => _searchParentsText = value), 
+                  hintText:   'Cerca genitore...',
+                ),
+                filterWidgets: 
                 [
-                  WizardAnimatedSearchBar
+                  WizardFilterMenu<String>
                   (
-                    controller: _searchParentsCtrl, 
-                    onChanged:  (value) => setState(() => _searchParentsText = value), 
-                    hintText:   'Cerca genitore...',
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap
-                  (
-                    spacing:    12,
-                    runSpacing: 12,
-                    children: 
+                    hint:          'Ordina per', 
+                    icon:          Icons.sort_rounded, 
+                    value:         _sortParentsBy, 
+                    menuWidth:     180, 
+                    showClearIcon: false, 
+                    onChanged:     (val) => setState(() => _sortParentsBy = val), 
+                    onClear:       () {}, 
+                    options: 
                     [
-                      WizardFilterMenu<String>
-                      (
-                        hint:          'Ordina per', 
-                        icon:          Icons.sort_rounded, 
-                        value:         _sortParentsBy, 
-                        menuWidth:     180, 
-                        showClearIcon: false, 
-                        onChanged:     (val) => setState(() => _sortParentsBy = val), 
-                        onClear:       () {}, 
-                        options: 
-                        [
-                          WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
-                          WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                          WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                          WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
-                          WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                          WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
-                        ]
-                      ),
-                    ],
+                      WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
+                      WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                      WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                      WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
+                      WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                      WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
+                    ]
                   ),
                 ],
               ),
@@ -3121,62 +3113,54 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SearchBarOnItsOwnFullWidthLine_FiltersInAWrapBelow_StessoCriterioDiPersonWizardPage
-              child: Column
+              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
+              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
+              child: _ResponsiveSearchFilterRow
               (
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: 
+                breakpoint: 700,
+                searchBar: WizardAnimatedSearchBar
+                (
+                  controller: _searchMinorsCtrl, 
+                  onChanged:  (value) => setState(() => _searchMinorsText = value), 
+                  hintText:   'Cerca minore...',
+                ),
+                filterWidgets: 
                 [
-                  WizardAnimatedSearchBar
+                  WizardFilterMenu<String>
                   (
-                    controller: _searchMinorsCtrl, 
-                    onChanged:  (value) => setState(() => _searchMinorsText = value), 
-                    hintText:   'Cerca minore...',
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap
-                  (
-                    spacing:    12,
-                    runSpacing: 12,
-                    children: 
+                    hint:          'Ordina per', 
+                    icon:          Icons.sort_rounded, 
+                    value:         _sortMinorsBy, 
+                    menuWidth:     180, 
+                    showClearIcon: false, 
+                    onChanged:     (val) => setState(() => _sortMinorsBy = val), 
+                    onClear:       () {}, 
+                    options: 
                     [
-                      WizardFilterMenu<String>
-                      (
-                        hint:          'Ordina per', 
-                        icon:          Icons.sort_rounded, 
-                        value:         _sortMinorsBy, 
-                        menuWidth:     180, 
-                        showClearIcon: false, 
-                        onChanged:     (val) => setState(() => _sortMinorsBy = val), 
-                        onClear:       () {}, 
-                        options: 
-                        [
-                          WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
-                          WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
-                          WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                          WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
-                          WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                          WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
-                        ]
-                      ),
-                      WizardFilterMenu<String>
-                      (
-                        hint:          'Tutti i ruoli', 
-                        icon:          Icons.badge_outlined, 
-                        value:         _filterMinorsRole, 
-                        menuWidth:     200, 
-                        showClearIcon: true, 
-                        onChanged:     (val) => setState(() => _filterMinorsRole = val), 
-                        onClear:       () => setState(() => _filterMinorsRole = null), 
-                        options: 
-                        [
-                          WizardFilterOption(value: 'STUDENTE', label: 'Studente'), 
-                          WizardFilterOption(value: 'CORSISTA', label: 'Corsista'), 
-                          WizardFilterOption(value: 'DOCENTE', label: 'Docente'),
-                          WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
-                        ]
-                      ),
-                    ],
+                      WizardFilterOption(value: 'surname_asc', label: 'Cognome (A-Z)'), 
+                      WizardFilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
+                      WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                      WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'), 
+                      WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                      WizardFilterOption(value: 'date_asc', label: 'Meno recente'),
+                    ]
+                  ),
+                  WizardFilterMenu<String>
+                  (
+                    hint:          'Tutti i ruoli', 
+                    icon:          Icons.badge_outlined, 
+                    value:         _filterMinorsRole, 
+                    menuWidth:     200, 
+                    showClearIcon: true, 
+                    onChanged:     (val) => setState(() => _filterMinorsRole = val), 
+                    onClear:       () => setState(() => _filterMinorsRole = null), 
+                    options: 
+                    [
+                      WizardFilterOption(value: 'STUDENTE', label: 'Studente'), 
+                      WizardFilterOption(value: 'CORSISTA', label: 'Corsista'), 
+                      WizardFilterOption(value: 'DOCENTE', label: 'Docente'),
+                      WizardFilterOption(value: 'ASSOCIATO', label: 'Solo Associato'),
+                    ]
                   ),
                 ],
               ),
@@ -3289,59 +3273,51 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1140),
-              //SearchBarOnItsOwnFullWidthLine_FiltersInAWrapBelow_StessoCriterioDiPersonWizardPage
-              child: Column
+              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
+              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
+              child: _ResponsiveSearchFilterRow
               (
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: 
+                breakpoint: 650,
+                searchBar: WizardAnimatedSearchBar
+                (
+                  controller: _searchSubjectsCtrl, 
+                  onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                  hintText:   'Cerca disciplina...',
+                ),
+                filterWidgets: 
                 [
-                  WizardAnimatedSearchBar
+                  WizardFilterMenu<String>
                   (
-                    controller: _searchSubjectsCtrl, 
-                    onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                    hintText:   'Cerca disciplina...',
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap
-                  (
-                    spacing:    12,
-                    runSpacing: 12,
-                    children: 
+                    hint:          'Ordina per', 
+                    icon:          Icons.sort_rounded, 
+                    value:         _sortSubjectsBy, 
+                    menuWidth:     180, 
+                    showClearIcon: false, 
+                    onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
+                    onClear:       () {}, 
+                    options: 
                     [
-                      WizardFilterMenu<String>
-                      (
-                        hint:          'Ordina per', 
-                        icon:          Icons.sort_rounded, 
-                        value:         _sortSubjectsBy, 
-                        menuWidth:     180, 
-                        showClearIcon: false, 
-                        onChanged:     (val) => setState(() => _sortSubjectsBy = val), 
-                        onClear:       () {}, 
-                        options: 
-                        [
-                          WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
-                          WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
-                          WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
-                          WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
-                        ]
-                      ),
-                      WizardFilterMenu<String>
-                      (
-                        hint:          'Tutte le aree', 
-                        icon:          Icons.category_outlined, 
-                        value:         _filterSubjectsArea, 
-                        menuWidth:     200, 
-                        showClearIcon: true, 
-                        onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
-                        onClear:       () => setState(() => _filterSubjectsArea = null), 
-                        options: 
-                        [
-                          WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
-                          WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
-                          WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
-                        ]
-                      ),
-                    ],
+                      WizardFilterOption(value: 'name_asc', label: 'Nome (A-Z)'), 
+                      WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
+                      WizardFilterOption(value: 'date_desc', label: 'Più recente'), 
+                      WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
+                    ]
+                  ),
+                  WizardFilterMenu<String>
+                  (
+                    hint:          'Tutte le aree', 
+                    icon:          Icons.category_outlined, 
+                    value:         _filterSubjectsArea, 
+                    menuWidth:     200, 
+                    showClearIcon: true, 
+                    onChanged:     (val) => setState(() => _filterSubjectsArea = val), 
+                    onClear:       () => setState(() => _filterSubjectsArea = null), 
+                    options: 
+                    [
+                      WizardFilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), 
+                      WizardFilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), 
+                      WizardFilterOption(value: 'SCIENCES', label: 'Area Scientifica')
+                    ]
                   ),
                 ],
               ),
@@ -3673,6 +3649,8 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
   }
 }
 
+//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra(50/50)_SoloLoStackingUsaLarghezzaFissa
+//StessoCriterioGiaUsatoInAssociationSubjectsTab
 class _ResponsiveReportDialogButtonsRow extends StatelessWidget
 {
   final Widget secondaryButton;
@@ -3931,10 +3909,13 @@ class _WizardAddressFieldsRow extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children: 
             [
+              _buildLabel('Via / Piazza'),
               tipoViaField,
               const SizedBox(height: 16),
+              _buildLabel('Nome via'),
               nomeField,
               const SizedBox(height: 16),
+              _buildLabel('Numero civico'),
               civicoField,
             ],
           );
@@ -4299,6 +4280,64 @@ class _WizardSchoolFieldRow extends StatelessWidget
           );
         },
       ),
+    );
+  }
+}
+
+
+//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
+class _ResponsiveSearchFilterRow extends StatelessWidget
+{
+  final Widget searchBar;
+  final List<Widget> filterWidgets;
+  final double breakpoint;
+  final double spacing;
+
+  const _ResponsiveSearchFilterRow
+  ({
+    required this.searchBar,
+    required this.filterWidgets,
+    this.breakpoint = 700,
+    this.spacing = 12,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              searchBar,
+              SizedBox(height: spacing),
+              Wrap
+              (
+                spacing:    spacing,
+                runSpacing: spacing,
+                children:   filterWidgets,
+              ),
+            ],
+          );
+        }
+
+        final List<Widget> rowChildren = [Expanded(child: searchBar)];
+        for (final w in filterWidgets)
+        {
+          rowChildren.add(SizedBox(width: spacing));
+          rowChildren.add(w);
+        }
+
+        return Row(children: rowChildren);
+      },
     );
   }
 }

@@ -60,7 +60,7 @@ CustomTransitionPage _buildLogoTransitionPage({
         builder: (context, _)
         {
           final double blurIntensity = overlayAnimation.value * 20.0;
-          final double backgroundOpacity = overlayAnimation.value * 0.65;
+          final double backgroundOpacity = overlayAnimation.value;
 
           return Stack(
             fit: StackFit.expand,
@@ -70,7 +70,7 @@ CustomTransitionPage _buildLogoTransitionPage({
                 child: child,
               ),
               if (overlayAnimation.value > 0)
-                IgnorePointer(
+                AbsorbPointer(
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -119,13 +119,26 @@ final appRouter = GoRouter(
       {
         return null;
       }
-      
+
       return '/login';
+    }
+
+    // Account con reset password obbligatorio pendente: bloccato ovunque
+    // tranne che sulla pagina dedicata, a prescindere da come si è arrivati
+    // in questo stato (login appena fatto, resume di sessione, refresh token).
+    if (authState == AuthState.passwordChangeRequired)
+    {
+      if (path == '/force-password-change')
+      {
+        return null;
+      }
+
+      return '/force-password-change';
     }
 
     if (authState == AuthState.authenticated)
     {
-      if (isPublicRoute || path == '/')
+      if (isPublicRoute || path == '/' || path == '/force-password-change')
       {
         return '/dashboard';
       }
@@ -165,42 +178,10 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/force-password-change',
-      redirect: (context, state)
-      {
-        if (ApiService.forcePasswordChangeCompleted)
-        {
-          return '/dashboard';
-        }
-
-        return null;
-      },
-      pageBuilder: (context, state)
-      {
-        final data = state.extra as Map<String, dynamic>?;
-
-        // Estrazione sicura dei dati
-        final username = data?['username'] as String?;
-        final refreshToken = data?['refreshToken'] as String?;
-        final currentPassword = data?['currentPassword'] as String?;
-
-        // Se manca anche un solo dato, si torna al login senza crash
-        if (username == null || refreshToken == null || currentPassword == null)
-        {
-          return _buildLogoTransitionPage(
-            key: state.pageKey,
-            child: const LoginPage(),
-          );
-        }
-
-        return _buildLogoTransitionPage(
-          key: state.pageKey,
-          child: ForcePasswordChangePage(
-            username: username,
-            refreshToken: refreshToken,
-            currentPassword: currentPassword,
-          ),
-        );
-      },
+      pageBuilder: (context, state) => _buildLogoTransitionPage(
+        key: state.pageKey,
+        child: const ForcePasswordChangePage(),
+      ),
     ),
     GoRoute(
       path: '/reset-password',
@@ -241,7 +222,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state)
       {
         final fiscalCode = state.pathParameters['fiscalCode']!;
-        
+
         return _buildLogoTransitionPage(
           key: state.pageKey,
           child: PersonDetailPage(fiscalCode: fiscalCode),

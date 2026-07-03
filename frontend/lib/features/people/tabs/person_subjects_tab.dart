@@ -169,16 +169,16 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: WizardAnimatedSearchBar(
-                      controller: _searchCtrl,
-                      onChanged:  (value) => setState(() => _searchText = value),
-                      hintText:   'Cerca disciplina...',
-                    ),
-                  ),
-                  const SizedBox(width: 16),
+              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold
+              //QuestaRigaNonAvevaMaiRicevutoAlcunTrattamentoResponsive_SforavaSempreASchermiStretti
+              _ResponsiveSearchFilterRow(
+                breakpoint: 650,
+                searchBar: WizardAnimatedSearchBar(
+                  controller: _searchCtrl,
+                  onChanged:  (value) => setState(() => _searchText = value),
+                  hintText:   'Cerca disciplina...',
+                ),
+                filterWidgets: [
                   WizardFilterMenu<String>(
                     hint:          'Ordina per',
                     icon:          Icons.sort_rounded,
@@ -192,7 +192,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                       WizardFilterOption(value: 'name_desc', label: 'Nome (Z-A)'),
                     ],
                   ),
-                  const SizedBox(width: 16),
                   WizardFilterMenu<String>(
                     hint:          'Tutte le aree',
                     icon:          Icons.category_outlined,
@@ -814,16 +813,15 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1140),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: WizardAnimatedSearchBar(
-                                controller: _searchSubjectsCtrl, 
-                                onChanged:  (value) => setState(() => _searchSubjectsText = value), 
-                                hintText:   'Cerca disciplina...',
-                              ),
-                            ),
-                            const SizedBox(width: 16),
+                        //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold
+                        child: _ResponsiveSearchFilterRow(
+                          breakpoint: 650,
+                          searchBar: WizardAnimatedSearchBar(
+                            controller: _searchSubjectsCtrl, 
+                            onChanged:  (value) => setState(() => _searchSubjectsText = value), 
+                            hintText:   'Cerca disciplina...',
+                          ),
+                          filterWidgets: [
                             WizardFilterMenu<String>(
                               hint:          'Ordina per', 
                               icon:          Icons.sort_rounded, 
@@ -839,7 +837,6 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
                                 WizardFilterOption(value: 'date_asc', label: 'Meno recente'), 
                               ]
                             ),
-                            const SizedBox(width: 16),
                             WizardFilterMenu<String>(
                               hint:          'Tutte le aree', 
                               icon:          Icons.category_outlined, 
@@ -910,28 +907,23 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
                   ),
                   Padding(
                     padding: const EdgeInsets.all(32),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: WizardAnimatedActionButton(
-                            text:       'ANNULLA',
-                            icon:       Icons.close_rounded,
-                            baseColor:  const Color(0xFFE53935),
-                            hoverColor: const Color(0xFFEF5350),
-                            onPressed:  () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: WizardAnimatedActionButton(
-                            text:       _isSubmitting ? 'SALVATAGGIO...' : 'CONFERMA',
-                            icon:       Icons.check_circle_outline,
-                            baseColor:  const Color(0xFF003C82),
-                            hoverColor: const Color(0xFF004D99),
-                            onPressed:  _isSubmitting ? () {} : _submitForm,
-                          ),
-                        ),
-                      ],
+                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothButtonsSideBySide
+                    //QuestaRigaNonAvevaMaiRicevutoAlcunTrattamentoResponsive
+                    child: _ResponsiveDialogButtonsRow(
+                      secondaryButton: WizardAnimatedActionButton(
+                        text:       'ANNULLA',
+                        icon:       Icons.close_rounded,
+                        baseColor:  const Color(0xFFE53935),
+                        hoverColor: const Color(0xFFEF5350),
+                        onPressed:  () => Navigator.of(context).pop(),
+                      ),
+                      primaryButton: WizardAnimatedActionButton(
+                        text:       _isSubmitting ? 'SALVATAGGIO...' : 'CONFERMA',
+                        icon:       Icons.check_circle_outline,
+                        baseColor:  const Color(0xFF003C82),
+                        hoverColor: const Color(0xFF004D99),
+                        onPressed:  _isSubmitting ? () {} : _submitForm,
+                      ),
                     ),
                   ),
                 ],
@@ -940,6 +932,116 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
           ),
         ),
       ),
+    );
+  }
+}
+//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_StessoCriterioUsatoAltroveInQuestaApp
+class _ResponsiveSearchFilterRow extends StatelessWidget
+{
+  final Widget searchBar;
+  final List<Widget> filterWidgets;
+  final double breakpoint;
+  final double spacing;
+
+  const _ResponsiveSearchFilterRow
+  ({
+    required this.searchBar,
+    required this.filterWidgets,
+    this.breakpoint = 700,
+    this.spacing = 12,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              searchBar,
+              SizedBox(height: spacing),
+              Wrap
+              (
+                spacing:    spacing,
+                runSpacing: spacing,
+                children:   filterWidgets,
+              ),
+            ],
+          );
+        }
+
+        final List<Widget> rowChildren = [Expanded(child: searchBar)];
+        for (final w in filterWidgets)
+        {
+          rowChildren.add(SizedBox(width: spacing));
+          rowChildren.add(w);
+        }
+
+        return Row(children: rowChildren);
+      },
+    );
+  }
+}
+
+//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra(50/50)_SoloLoStackingUsaLarghezzaFissa
+//StessoCriterioGiaUsatoInPersonEditDialog
+class _ResponsiveDialogButtonsRow extends StatelessWidget
+{
+  final Widget secondaryButton;
+  final Widget primaryButton;
+  final double breakpoint;
+
+  const _ResponsiveDialogButtonsRow
+  ({
+    required this.secondaryButton,
+    required this.primaryButton,
+    this.breakpoint = 460,
+  });
+
+  static const double _kStackedButtonWidth = 240;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children: 
+            [
+              SizedBox(width: _kStackedButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kStackedButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row
+        (
+          children: 
+          [
+            Expanded(child: secondaryButton),
+            const SizedBox(width: 16),
+            Expanded(child: primaryButton),
+          ],
+        );
+      },
     );
   }
 }

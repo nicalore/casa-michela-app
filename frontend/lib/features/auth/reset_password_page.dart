@@ -6,23 +6,19 @@ import '../../services/api_service.dart';
 import '../../shared/widgets/shared_components.dart';
 import '../../shared/widgets/snackbar.dart';
 
-class ResetPasswordPage extends StatefulWidget
-{
+class ResetPasswordPage extends StatefulWidget {
   final String token;
 
-  const ResetPasswordPage({
-    super.key,
-    required this.token,
-  });
+  const ResetPasswordPage({super.key, required this.token});
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
 }
 
-class _ResetPasswordPageState extends State<ResetPasswordPage>
-{
+class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final ApiService _apiService = ApiService();
 
   bool _obscureNew = true;
@@ -38,37 +34,29 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   bool _isValidating = true;
 
   @override
-  void initState()
-  {
+  void initState() {
     super.initState();
     _newPasswordController.addListener(_validatePolicies);
     _validateToken();
   }
 
   @override
-  void dispose()
-  {
+  void dispose() {
     _newPasswordController.removeListener(_validatePolicies);
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _validateToken() async
-  {
-    try
-    {
+  Future<void> _validateToken() async {
+    try {
       await _apiService.validateResetToken(token: widget.token);
 
-      if (mounted)
-      {
+      if (mounted) {
         setState(() => _isValidating = false);
       }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
+    } catch (e) {
+      if (mounted) {
         context.go('/login');
         CustomSnackBar.show(
           context: context,
@@ -79,12 +67,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     }
   }
 
-  void _validatePolicies()
-  {
+  void _validatePolicies() {
     final text = _newPasswordController.text;
 
-    setState(()
-    {
+    setState(() {
       _hasMinLength = text.length >= 12;
       _hasLower = RegExp(r'[a-z]').hasMatch(text);
       _hasUpper = RegExp(r'[A-Z]').hasMatch(text);
@@ -93,13 +79,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     });
   }
 
-  Future<void> _handleSave() async
-  {
+  Future<void> _handleSave() async {
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (newPassword.isEmpty || confirmPassword.isEmpty)
-    {
+    if (newPassword.isEmpty || confirmPassword.isEmpty) {
       CustomSnackBar.show(
         context: context,
         message: 'Compila tutti i campi',
@@ -109,8 +93,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       return;
     }
 
-    if (newPassword != confirmPassword)
-    {
+    if (newPassword != confirmPassword) {
       CustomSnackBar.show(
         context: context,
         message: 'Le password non coincidono',
@@ -120,8 +103,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
       return;
     }
 
-    if (!_hasMinLength || !_hasLower || !_hasUpper || !_hasDigit || !_hasSpecial)
-    {
+    if (!_hasMinLength ||
+        !_hasLower ||
+        !_hasUpper ||
+        !_hasDigit ||
+        !_hasSpecial) {
       CustomSnackBar.show(
         context: context,
         message: 'La password non rispetta i criteri di sicurezza',
@@ -133,15 +119,13 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
 
     setState(() => _isSaving = true);
 
-    try
-    {
+    try {
       await _apiService.confirmPasswordReset(
         token: widget.token,
         newPassword: newPassword,
       );
 
-      if (mounted)
-      {
+      if (mounted) {
         CustomSnackBar.show(
           context: context,
           message: 'Password reimpostata con successo! Ora puoi accedere.',
@@ -149,29 +133,22 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         );
         context.go('/login');
       }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
+    } catch (e) {
+      if (mounted) {
         CustomSnackBar.show(
           context: context,
           message: e.toString().replaceAll('Exception: ', ''),
           isError: true,
         );
       }
-    }
-    finally
-    {
-      if (mounted)
-      {
+    } finally {
+      if (mounted) {
         setState(() => _isSaving = false);
       }
     }
   }
 
-  Widget _buildFieldLabel(String text)
-  {
+  Widget _buildFieldLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, top: 16),
       child: Text(
@@ -185,14 +162,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     );
   }
 
-  Widget _buildPolicyRow(String text, bool isValid)
-  {
+  Widget _buildPolicyRow(String text, bool isValid) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
       child: Row(
         children: [
           Icon(
-            isValid ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            isValid
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
             color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFB3B3B3),
             size: 18,
           ),
@@ -202,7 +180,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: isValid ? const Color(0xFF4CAF50) : const Color(0xFF8A8A8A),
+              color: isValid
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFF8A8A8A),
             ),
           ),
         ],
@@ -211,8 +191,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   }
 
   @override
-  Widget build(BuildContext context)
-  {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F9),
       body: Stack(
@@ -264,9 +243,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
           // MainContent
           Center(
             child: _isValidating
-                ? const CircularProgressIndicator(
-                    color: Color(0xFF003C82),
-                  )
+                ? const CircularProgressIndicator(color: Color(0xFF003C82))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(24.0),
                     child: Container(
@@ -279,14 +256,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                             color: Color(0x1A000000),
                             offset: Offset(0, 8),
                             blurRadius: 24,
-                          )
+                          ),
                         ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.only(top: 24, right: 16, left: 32),
+                            padding: const EdgeInsets.only(
+                              top: 24,
+                              right: 16,
+                              left: 32,
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -302,10 +283,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                             ),
                           ),
 
-                          const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+                          const Divider(
+                            height: 32,
+                            thickness: 1,
+                            color: Color(0xFFF0F0F0),
+                          ),
 
                           Padding(
-                            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+                            padding: const EdgeInsets.only(
+                              left: 32,
+                              right: 32,
+                              bottom: 8,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -326,14 +315,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                                       fontWeight: FontWeight.w500,
                                     ),
                                     focusedBorder: const UnderlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                                      borderSide: BorderSide(
+                                        color: Color(0xFF003C82),
+                                        width: 2,
+                                      ),
                                     ),
                                     suffixIcon: IconButton(
                                       icon: Icon(
-                                        _obscureNew ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        _obscureNew
+                                            ? Icons.visibility_off_rounded
+                                            : Icons.visibility_rounded,
                                         color: const Color(0xFF6B7280),
                                       ),
-                                      onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                                      onPressed: () => setState(
+                                        () => _obscureNew = !_obscureNew,
+                                      ),
                                       splashColor: Colors.transparent,
                                       highlightColor: Colors.transparent,
                                     ),
@@ -347,16 +343,34 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      _buildPolicyRow('Almeno 12 caratteri', _hasMinLength),
-                                      _buildPolicyRow('Almeno una lettera minuscola', _hasLower),
-                                      _buildPolicyRow('Almeno una lettera maiuscola', _hasUpper),
-                                      _buildPolicyRow('Almeno un numero', _hasDigit),
-                                      _buildPolicyRow('Almeno un carattere speciale', _hasSpecial),
+                                      _buildPolicyRow(
+                                        'Almeno 12 caratteri',
+                                        _hasMinLength,
+                                      ),
+                                      _buildPolicyRow(
+                                        'Almeno una lettera minuscola',
+                                        _hasLower,
+                                      ),
+                                      _buildPolicyRow(
+                                        'Almeno una lettera maiuscola',
+                                        _hasUpper,
+                                      ),
+                                      _buildPolicyRow(
+                                        'Almeno un numero',
+                                        _hasDigit,
+                                      ),
+                                      _buildPolicyRow(
+                                        'Almeno un carattere speciale',
+                                        _hasSpecial,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -378,14 +392,22 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                                       fontWeight: FontWeight.w500,
                                     ),
                                     focusedBorder: const UnderlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xFF003C82), width: 2),
+                                      borderSide: BorderSide(
+                                        color: Color(0xFF003C82),
+                                        width: 2,
+                                      ),
                                     ),
                                     suffixIcon: IconButton(
                                       icon: Icon(
-                                        _obscureConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                        _obscureConfirm
+                                            ? Icons.visibility_off_rounded
+                                            : Icons.visibility_rounded,
                                         color: const Color(0xFF6B7280),
                                       ),
-                                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                      onPressed: () => setState(
+                                        () =>
+                                            _obscureConfirm = !_obscureConfirm,
+                                      ),
                                       splashColor: Colors.transparent,
                                       highlightColor: Colors.transparent,
                                     ),
@@ -396,7 +418,12 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                           ),
 
                           Padding(
-                            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
+                            padding: const EdgeInsets.only(
+                              left: 32,
+                              right: 32,
+                              bottom: 32,
+                              top: 32,
+                            ),
                             child: Row(
                               children: [
                                 Expanded(
@@ -411,8 +438,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: AnimatedActionButton(
-                                    text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                                    icon: Icons.save_outlined,
+                                    text: _isSaving
+                                        ? 'SALVATAGGIO...'
+                                        : 'SALVA',
+                                    icon: Icons.check_circle_outline,
                                     baseColor: const Color(0xFF003C82),
                                     hoverColor: const Color(0xFF004D99),
                                     onPressed: _isSaving ? () {} : _handleSave,
