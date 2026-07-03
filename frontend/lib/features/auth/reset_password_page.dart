@@ -125,6 +125,14 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         newPassword: newPassword,
       );
 
+      // Il link di reset è un'azione fuori banda, indipendente da questo
+      // browser. Se qui c'era già una sessione attiva (anche di un altro
+      // account, su un dispositivo condiviso), va chiusa esplicitamente:
+      // altrimenti il redirect del router vedrebbe ancora
+      // AuthState.authenticated e riporterebbe l'utente dritto nella
+      // dashboard di quella sessione invece che al login.
+      await _apiService.logout();
+
       if (mounted) {
         CustomSnackBar.show(
           context: context,
@@ -428,8 +436,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                               children: [
                                 Expanded(
                                   child: AnimatedActionButton(
-                                    text: 'ANNULLA',
-                                    icon: Icons.cancel_outlined,
+                                    text: 'TORNA AL LOGIN',
+                                    icon: Icons.logout_rounded,
                                     baseColor: const Color(0xFFE53935),
                                     hoverColor: const Color(0xFFEF5350),
                                     onPressed: () => context.go('/login'),

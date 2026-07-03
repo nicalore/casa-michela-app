@@ -296,7 +296,7 @@ class _ChangePasswordDialogContentState
     if (oldPassword == newPassword) {
       CustomSnackBar.show(
         context: context,
-        message: 'La nuova password non può essere uguale alla vecchia',
+        message: 'La nuova password non può coincidere con quella attuale.',
         isError: true,
       );
       return;

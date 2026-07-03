@@ -32,6 +32,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   bool _hasSpecial = false;
 
   bool _isSaving = false;
+  bool _isCancelling = false;
 
   @override
   void initState()
@@ -65,6 +66,21 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     });
   }
 
+  //HandleCancel
+  Future<void> _handleCancel() async
+  {
+    setState(()
+    {
+      _isCancelling = true;
+    });
+
+    await _apiService.logout();
+
+    if (!mounted) return;
+
+    context.go('/login');
+  }
+
   //HandlePasswordChange
   Future<void> _handleSave() async
   {
@@ -77,6 +93,17 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
       CustomSnackBar.show(
         context: context,
         message: 'Compila tutti i campi',
+        isError: true,
+      );
+
+      return;
+    }
+
+    if (currentPassword == newPassword)
+    {
+      CustomSnackBar.show(
+        context: context,
+        message: 'La nuova password non può coincidere con quella attuale.',
         isError: true,
       );
 
@@ -209,7 +236,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         {
           CustomSnackBar.show(
             context: context,
-            message: 'Devi cambiare la password per procedere.',
+            message: 'Devi cambiare la password per procedere, oppure torna alla schermata di login.',
             isError: true,
           );
         }
@@ -481,15 +508,30 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
                                 const SizedBox(height: 40),
 
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: AnimatedActionButton(
-                                    text: _isSaving ? 'SALVATAGGIO...' : 'SALVA E ACCEDI',
-                                    icon: Icons.login_rounded,
-                                    baseColor: const Color(0xFF003C82),
-                                    hoverColor: const Color(0xFF004D99),
-                                    onPressed: _isSaving ? () {} : _handleSave,
-                                  ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: AnimatedActionButton(
+                                        text: _isCancelling ? 'USCITA...' : 'TORNA AL LOGIN',
+                                        icon: Icons.logout_rounded,
+                                        baseColor: const Color(0xFFE53935),
+                                        hoverColor: const Color(0xFFEF5350),
+                                        onPressed: (_isSaving || _isCancelling) ? () {} : _handleCancel,
+                                      ),
+                                    ),
+
+                                    const SizedBox(width: 16),
+
+                                    Expanded(
+                                      child: AnimatedActionButton(
+                                        text: _isSaving ? 'SALVATAGGIO...' : 'SALVA E ACCEDI',
+                                        icon: Icons.login_rounded,
+                                        baseColor: const Color(0xFF003C82),
+                                        hoverColor: const Color(0xFF004D99),
+                                        onPressed: (_isSaving || _isCancelling) ? () {} : _handleSave,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

@@ -111,7 +111,18 @@ final appRouter = GoRouter(
     final authState = apiService.authState.value;
     final path = state.uri.path;
 
-    final isPublicRoute = path == '/login' || path == '/reset-password';
+    // Il link di reimpostazione password arriva via email ed è un'azione
+    // fuori banda, autenticata dal token nell'URL e non dalla sessione
+    // del browser. Deve restare sempre raggiungibile, a prescindere da
+    // cosa sta succedendo nella sessione corrente (loggato, reset
+    // obbligatorio pendente, nessuna sessione). Per questo il controllo
+    // viene prima di qualunque logica basata su authState.
+    if (path == '/reset-password')
+    {
+      return null;
+    }
+
+    final isPublicRoute = path == '/login';
 
     if (authState == AuthState.unauthenticated)
     {
@@ -123,9 +134,6 @@ final appRouter = GoRouter(
       return '/login';
     }
 
-    // Account con reset password obbligatorio pendente: bloccato ovunque
-    // tranne che sulla pagina dedicata, a prescindere da come si è arrivati
-    // in questo stato (login appena fatto, resume di sessione, refresh token).
     if (authState == AuthState.passwordChangeRequired)
     {
       if (path == '/force-password-change')

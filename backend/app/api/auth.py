@@ -26,6 +26,7 @@ from app.services.auth_service import (
     AuthenticationError,
     AuthService,
     InvalidRefreshTokenError,
+    PasswordReuseError,
 )
 from app.services.role_service import RoleService
 
@@ -212,6 +213,11 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La password attuale non è corretta",
+        ) from None
+    except PasswordReuseError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nuova password non può coincidere con quella attuale.",
         ) from None
     except PasswordPolicyError as err:
         raise HTTPException(

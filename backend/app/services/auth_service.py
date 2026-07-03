@@ -46,6 +46,10 @@ class InvalidRefreshTokenError(Exception):
     pass
 
 
+class PasswordReuseError(Exception):
+    pass
+
+
 class AccountLockedError(Exception):
     def __init__(self, locked_until: datetime) -> None:
         self.locked_until = locked_until
@@ -286,6 +290,9 @@ class AuthService:
         if not verify_password(current_password, account.password_hash):
             raise AuthenticationError("Current password is incorrect")
 
+        if verify_password(new_password, account.password_hash):
+            raise PasswordReuseError("New password must differ from the current one")
+
         validate_password(new_password)
 
         try:
@@ -379,7 +386,7 @@ class AuthService:
                             </div> 
                             <h2 style="color: #003C82;"> Recupero Password </h2>
                             <p>Ciao,</p> 
-                            <p>Hai chiesto di reimpostare la password del tuo account.</p> 
+                            <p>Hai richiesto di reimpostare la password del tuo account.</p> 
                             <p>Per procedere, clicca sul pulsante qui sotto:</p>
                             <div style="text-align: center; margin: 30px 0;"> 
                                 <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 
@@ -487,9 +494,3 @@ class AuthService:
 
         if hash_refresh_token(token) != stored_token.token_hash:
             raise AuthenticationError("Invalid or expired reset token")
-
-
-
-
-
-
