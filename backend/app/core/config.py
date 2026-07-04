@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     jwt_access_secret: str = "CHANGE_ME_ACCESS"
     jwt_refresh_secret: str = "CHANGE_ME_REFRESH"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1
+    access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
     max_failed_login_attempts: int = 5
     failed_login_reset_minutes: int = 30
