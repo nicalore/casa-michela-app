@@ -28,6 +28,10 @@ class _PeopleStatisticsTabState extends State<PeopleStatisticsTab>
     'Corsisti',
   ];
 
+  //TieneTracciaDiQualiSottoTabSonoStatiAperti_UnaVoltaVisitatoRestaMontatoNellIndexedStack
+  //VieneAzzeratoSoloQuandoPeopleStatisticsTabVieneDistruttoDalPadre_UscendoDaPersoneOTornandoSuRicerca
+  final Set<int> _visitedTabs = {0};
+
   //StacksToNewLineInsteadOfScrollingOffScreenInvisibly_SameWrapNotShrinkPrinciple
   //UsedForTheChildrenAndParentsChipsElsewhereInTheApp
   Widget _buildSubNavigation() 
@@ -49,6 +53,7 @@ class _PeopleStatisticsTabState extends State<PeopleStatisticsTab>
                 setState(() 
                 {
                   _selectedTab = index;
+                  _visitedTabs.add(index);
                 });
               },
               child: AnimatedContainer(
@@ -91,23 +96,17 @@ class _PeopleStatisticsTabState extends State<PeopleStatisticsTab>
 
   Widget _buildTabContent() 
   {
-    switch (_selectedTab) 
-    {
-      case 0:
-        return const GeneralStatisticsTab();
-      case 1:
-        return const AdministratorsStatisticsTab();
-      case 2:
-        return const PsychologistsStatisticsTab();
-      case 3:
-        return const TeachersStatisticsTab();
-      case 4:
-        return const StudentsStatisticsTab();
-      case 5:
-        return const CourseParticipantsStatisticsTab();
-      default:
-        return const SizedBox();
-    }
+    return IndexedStack(
+      index: _selectedTab,
+      children: [
+        _visitedTabs.contains(0) ? const GeneralStatisticsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(1) ? const AdministratorsStatisticsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(2) ? const PsychologistsStatisticsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(3) ? const TeachersStatisticsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(4) ? const StudentsStatisticsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(5) ? const CourseParticipantsStatisticsTab() : const SizedBox.shrink(),
+      ],
+    );
   }
 
   @override

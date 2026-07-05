@@ -123,6 +123,7 @@ alembic/versions/__pycache__/
 
 # Generated documentation
 **/doc/api/
+*.csv
 
 # Flutter symbols
 app.*.symbols

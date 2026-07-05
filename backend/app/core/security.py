@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Any
@@ -39,6 +40,32 @@ def verify_password(
         InvalidHashError,
     ):
         return False
+
+
+# ==========================
+# VARIANTI ASYNC (RNF-IAMPERF-03)
+# ==========================
+# argon2-cffi non offre un'API nativa asincrona: hash_password() e
+# verify_password() sono funzioni sincrone e CPU-bound (l'hashing è
+# deliberatamente lento, per resistere a bruteforce). Chiamate
+# direttamente dentro una coroutine, bloccano l'intero event loop per
+# tutta la loro durata: sotto login concorrenti, le richieste si
+# serializzano invece di essere processate in parallelo (misurato nel
+# load test TC-IAM-135: mediana di /auth/login raddoppiata da 470ms a
+# 950ms con 100 utenti concorrenti).
+#
+# asyncio.to_thread delega l'esecuzione al thread pool di default di
+# asyncio, liberando l'event loop nel frattempo. Usare SEMPRE queste
+# varianti nel codice che gira dentro richieste FastAPI; le versioni
+# sincrone restano per gli script standalone (create_user.py,
+# load_test_accounts.py) dove non esiste concorrenza da proteggere.
+
+async def hash_password_async(password: str) -> str:
+    return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(password: str, password_hash: str) -> bool:
+    return await asyncio.to_thread(verify_password, password, password_hash)
 
 
 def create_access_token(

@@ -22,6 +22,10 @@ class _SettingsPageState extends State<SettingsPage>
 {
   int _selectedTab = 0;
 
+  //TieneTracciaDiQualiTabSonoStatiAperti_UnaVoltaVisitatoRestaMontatoNellIndexedStack
+  //VieneAzzeratoSoloQuandoSettingsPageVieneDistruttaDaGoRouter_UscendoDaImpostazioni
+  final Set<int> _visitedTabs = {0};
+
   final List<String> _tabs = [
     'Profilo',
     'Account',
@@ -182,20 +186,21 @@ class _SettingsPageState extends State<SettingsPage>
                             setState(()
                             {
                               _selectedTab = index;
+                              _visitedTabs.add(index);
                             });
                           },
                           maxWidth: viewportWidth - 80,
                         ),
                         const SizedBox(height: 24),
-                        
-                        ////IndexedStack keeps all tabs rendered in the tree,
-                        ////preventing state loss and re-fetching on tab switch
+
+                        //IndexedStack_TieneVivoLoStatoDeiTabGiaVisitati_IlPlaceholderVieneSostituitoSoloAllaPrimaVisita
+                        //DopoDiCheIlTabRestaMontatoENonSiRicaricaPiuFinoAllaChiusuraDellaPagina
                         IndexedStack(
                           index: _selectedTab,
-                          children: const [
-                            ProfileTab(),
-                            AccountTab(),
-                            InfoTab(),
+                          children: [
+                            _visitedTabs.contains(0) ? const ProfileTab() : const SizedBox.shrink(),
+                            _visitedTabs.contains(1) ? const AccountTab() : const SizedBox.shrink(),
+                            _visitedTabs.contains(2) ? const InfoTab() : const SizedBox.shrink(),
                           ],
                         ),
                       ],

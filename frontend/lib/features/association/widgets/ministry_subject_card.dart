@@ -49,23 +49,23 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
     }
   }
 
+  String _translateAreas(List<String> areas)
+  {
+    if (areas.isEmpty) return '';
+    return areas.map(_translateArea).join(', ');
+  }
+
   void _showDetailsDialog(BuildContext context)
   {
-    //StableReferenceToTheCardsOwnContext_MustSurviveTheDialogsOpenCloseCycle
-    //DoNotLetThisGetShadowedByTransitionBuildersOwnContextParamBelow
-    final BuildContext cardContext = context;
-
     showGeneralDialog
     (
-      context:            cardContext,
+      context:            context,
       barrierDismissible: true,
       barrierLabel:       'MinistrySubjectDetails',
       barrierColor:       Colors.black.withValues(alpha: .15),
       transitionDuration: const Duration(milliseconds: 240),
       pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      //RenamedFrom"context"ToAvoidShadowingTheOuterCardContext_ThisIsTheDialogsOwnContext
-      //ItBecomesInvalidAssoonAsThisSpecificDialogIsPopped_NeverStoreItInALongLivedClosure
-      transitionBuilder:  (dialogContext, animation, secondaryAnimation, child)
+      transitionBuilder:  (context, animation, secondaryAnimation, child)
       {
         final blurValue = animation.value * 8.0;
         return BackdropFilter
@@ -81,13 +81,11 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
               (
                 subject:         widget.subject,
                 levelItalian:    _translateLevel(widget.subject.level),
-                areasItalian:    widget.subject.areas.map(_translateArea).toList(),
+                areaItalian:     _translateAreas(widget.subject.areas),
                 onEditRequested: ()
                 {
-                  //PopsTheCurrentDialogUsingItsOwnStillValidContext
-                  Navigator.of(dialogContext).pop();
-                  //ButHandsTheReopenCallbackTheCard'sStableContext_NotTheSoonToBeDefunctDialogOne
-                  widget.onEditRequested(() => _showDetailsDialog(cardContext));
+                  Navigator.of(context).pop();
+                  widget.onEditRequested(() => _showDetailsDialog(context));
                 },
                 onDelete:        widget.onDelete,
               ),
@@ -98,75 +96,59 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
     );
   }
 
-@override
+  @override
   Widget build(BuildContext context)
   {
-    return Tooltip
+    return MouseRegion
     (
-      message:      widget.subject.name,
-      waitDuration: const Duration(milliseconds: 600),
-      padding:      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
-      decoration:   BoxDecoration
+      cursor:  SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit:  (_) => setState(() => _isHovering = false),
+      child: GestureDetector
       (
-        color:        const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border:       Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow:    const [BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16)],
-      ),
-      child: MouseRegion
-      (
-        cursor:  SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit:  (_) => setState(() => _isHovering = false),
-        child: GestureDetector
+        onTap: () => _showDetailsDialog(context),
+        child: AnimatedContainer
         (
-          onTap: () => _showDetailsDialog(context),
-          child: AnimatedContainer
+          duration:   const Duration(milliseconds: 180),
+          curve:      Curves.easeOut,
+          width:      360,
+          height:     140,
+          padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          decoration: BoxDecoration
           (
-            duration:   const Duration(milliseconds: 180),
-            curve:      Curves.easeOut,
-            width:      360,
-            height:     140,
-            padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-            decoration: BoxDecoration
-            (
-              color:        Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
-              boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
-            ),
-            child: Column
-            (
-              mainAxisAlignment:  MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
-              [
-                Text
-                (
-                  widget.subject.name, 
-                  maxLines: 2, 
-                  overflow: TextOverflow.ellipsis,
-                  style:    GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
-                ),
-                const SizedBox(height: 6),
-                Text
-                (
-                  _translateLevel(widget.subject.level), 
-                  maxLines:   1, 
-                  overflow:   TextOverflow.ellipsis,
-                  style:      GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 2),
-                Text
-                (
-                  widget.subject.areas.map(_translateArea).join(', '), 
-                  maxLines:   1, 
-                  overflow:   TextOverflow.ellipsis,
-                  style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
-                ),
-              ],
-            ),
+            color:        Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
+            boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
+          ),
+          child: Column
+          (
+            mainAxisAlignment:  MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _CardOverflowTooltipText
+              (
+                text:  widget.subject.name,
+                style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
+              ),
+              const SizedBox(height: 6),
+              Text
+              (
+                _translateLevel(widget.subject.level), 
+                maxLines:   1, 
+                overflow:   TextOverflow.ellipsis,
+                style:      GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 2),
+              Text
+              (
+                _translateAreas(widget.subject.areas), 
+                maxLines:   1, 
+                overflow:   TextOverflow.ellipsis,
+                style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
+              ),
+            ],
           ),
         ),
       ),
@@ -178,7 +160,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
 {
   final MinistrySubjectItem subject;
   final String              levelItalian;
-  final List<String>        areasItalian;
+  final String              areaItalian;
   final VoidCallback        onEditRequested;
   final VoidCallback        onDelete;
 
@@ -186,7 +168,7 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
   ({
     required this.subject, 
     required this.levelItalian, 
-    required this.areasItalian, 
+    required this.areaItalian, 
     required this.onEditRequested, 
     required this.onDelete,
   });
@@ -278,22 +260,37 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                     [
                       _buildFieldLabel('Nome'),
                       Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-                      _buildFieldLabel('Livello'),
-                      Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
-                      _buildFieldLabel('Aree'),
-                      Wrap
+                      Row
                       (
-                        spacing:    8, 
-                        runSpacing: 8,
-                        children:   areasItalian.map((area) 
-                        {
-                          return Container
+                        children: 
+                        [
+                          Expanded
                           (
-                            padding:    const EdgeInsets.symmetric(horizontal: 12, vertical: 6), 
-                            decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E5EC))), 
-                            child:      Text(area, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
-                          );
-                        }).toList(),
+                            flex:  2, 
+                            child: Column
+                            (
+                              crossAxisAlignment: CrossAxisAlignment.start, 
+                              children: 
+                              [
+                                _buildFieldLabel('Livello'), 
+                                Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
+                              ],
+                            ),
+                          ),
+                          Expanded
+                          (
+                            flex:  1, 
+                            child: Column
+                            (
+                              crossAxisAlignment: CrossAxisAlignment.start, 
+                              children: 
+                              [
+                                _buildFieldLabel('Area'), 
+                                Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       _buildFieldLabel('Descrizione'),
                       Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),
@@ -340,6 +337,63 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Mostra il testo troncato con `ellipsis` e, solo se il testo eccede
+/// effettivamente lo spazio disponibile su `maxLines`, lo avvolge in un
+/// Tooltip che rivela il contenuto completo al passaggio del mouse.
+class _CardOverflowTooltipText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  const _CardOverflowTooltipText({
+    required this.text,
+    required this.style,
+    this.maxLines = 2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: maxLines,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final Widget textWidget = Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+
+        if (!painter.didExceedMaxLines) return textWidget;
+
+        return Tooltip(
+          message: text,
+          waitDuration: const Duration(milliseconds: 600),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B).withValues(alpha: .98),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+            ],
+          ),
+          child: textWidget,
+        );
+      },
     );
   }
 }

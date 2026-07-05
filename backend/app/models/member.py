@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
+    DateTime,
     ForeignKey,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +37,13 @@ class Member(Base):
         nullable=False,
         default=True,
         server_default="true",
+    )
+    
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     person: Mapped[Person] = relationship(

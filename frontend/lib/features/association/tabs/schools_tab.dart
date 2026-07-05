@@ -174,6 +174,7 @@ class _SchoolsTabState extends State<SchoolsTab>
   }
 
   @override
+  @override
   Widget build(BuildContext context) 
   {
     return Column(
@@ -204,14 +205,20 @@ class _SchoolsTabState extends State<SchoolsTab>
         const SizedBox(height: 16),
         Text(_filteredSchools.length == 1 ? '1 scuola trovata' : '${_filteredSchools.length} scuole trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
         const SizedBox(height: 16),
-        if (_isLoading) const Padding(padding: EdgeInsets.only(top: 60), child: Center(child: CircularProgressIndicator(color: Color(0xFF003C82))))
-        else Center(
-          child: Wrap(
-            alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-            children: _filteredSchools.map((school) {
-              return SchoolCard(school: school, availableStudyPrograms: _availableStudyPrograms, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => _executeDelete(school));
-            }).toList(),
-          ),
+        //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SingleChildScrollView(
+                  child: Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                      children: _filteredSchools.map((school) {
+                        return SchoolCard(school: school, availableStudyPrograms: _availableStudyPrograms, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => _executeDelete(school));
+                      }).toList(),
+                    ),
+                  ),
+                ),
         ),
       ],
     );

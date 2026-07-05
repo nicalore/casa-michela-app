@@ -624,6 +624,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog> {
       await _apiService.revokePersonMembership(
         widget.person.fiscalCode,
         typeEn,
+        widget.person.memberUpdatedAt,
       );
 
       if (mounted) {
@@ -970,6 +971,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
         widget.person.fiscalCode,
         _isActiveCollaborator,
         payloadMemberships,
+        widget.person.memberUpdatedAt,
       );
 
       if (mounted) {
@@ -1016,7 +1018,6 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre680
         width: double.infinity,
         constraints: BoxConstraints(
           maxWidth: 680,

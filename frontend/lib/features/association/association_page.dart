@@ -24,6 +24,10 @@ class _AssociationPageState extends State<AssociationPage>
   int _mainSelectedTab = 0;
   int _didatticaSelectedTab = 0;
 
+  //TieneTracciaDiQualiTabSonoStatiAperti_UnaVoltaVisitatoRestaMontatoNellIndexedStack
+  //VieneAzzeratoSoloQuandoAssociationPageVieneDistruttaDaGoRouter_UscendoDallaPagina
+  final Set<int> _visitedTabs = {};
+
   final List<String> _mainTabs = ['Scuole', 'Didattica'];
 
   final List<String> _didatticaTabs = [
@@ -31,6 +35,21 @@ class _AssociationPageState extends State<AssociationPage>
     'Materie ministeriali',
     'Percorsi di studio',
   ];
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _visitedTabs.add(_computeContentIndex());
+  }
+
+  //MappaLaCoppia(mainTab,didatticaTab)SuUnIndiceUnicoPerLIndexedStack
+  //0=Scuole_1=DisciplineInterne_2=MaterieMinisteriali_3=PercorsiDiStudio
+  int _computeContentIndex()
+  {
+    if (_mainSelectedTab == 0) return 0;
+    return 1 + _didatticaSelectedTab;
+  }
 
   //StacksToNewLineInsteadOfOverflowing_WasAPlainRowBeforeWithNoWrapAndNoScroll
   Widget _buildSubNavigation() 
@@ -52,6 +71,7 @@ class _AssociationPageState extends State<AssociationPage>
                 setState(() 
                 {
                   _didatticaSelectedTab = index;
+                  _visitedTabs.add(_computeContentIndex());
                 });
               },
               child: AnimatedContainer(
@@ -92,24 +112,19 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
+  //IndexedStack_TieneVivoLoStatoDeiTabGiaVisitati_IlPlaceholderVieneSostituitoSoloAllaPrimaVisita
+  //DopoDiCheIlTabRestaMontatoENonSiRicaricaPiuFinoAllaChiusuraDellIntoraPagina
   Widget _buildTabContent() 
   {
-    if (_mainSelectedTab == 0) 
-    {
-      return const SchoolsTab();
-    }
-
-    switch (_didatticaSelectedTab) 
-    {
-      case 0:
-        return const AssociationSubjectsTab();
-      case 1:
-        return const MinistrySubjectsTab();
-      case 2:
-        return const StudyProgramsTab();
-      default:
-        return const SizedBox();
-    }
+    return IndexedStack(
+      index: _computeContentIndex(),
+      children: [
+        _visitedTabs.contains(0) ? const SchoolsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(1) ? const AssociationSubjectsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(2) ? const MinistrySubjectsTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(3) ? const StudyProgramsTab() : const SizedBox.shrink(),
+      ],
+    );
   }
 
   @override
@@ -125,6 +140,7 @@ class _AssociationPageState extends State<AssociationPage>
 
           return Container(
             width: width,
+            height: height,
             color: const Color(0xFFF4F7F9),
             child: Stack(
               children: [
@@ -274,22 +290,17 @@ class _AssociationPageState extends State<AssociationPage>
                             setState(() 
                             {
                               _mainSelectedTab = index;
+                              _visitedTabs.add(_computeContentIndex());
                             });
                           },
                           maxWidth: viewportWidth - 80,
                         ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOutCirc,
-                          alignment: Alignment.topCenter,
-                          child: _mainSelectedTab == 1
-                              ? _buildSubNavigation()
-                              : const SizedBox(
-                                  height: 24,
-                                  width: double.infinity,
-                                ),
+                        _mainSelectedTab == 1
+                            ? _buildSubNavigation()
+                            : const SizedBox(height: 24, width: double.infinity),
+                        Expanded(
+                          child: _buildTabContent(),
                         ),
-                        _buildTabContent(),
                       ],
                     ),
                   ),

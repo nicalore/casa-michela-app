@@ -1069,7 +1069,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         memberData = 
         {
           "collaborating_active": _involvementType == 0,
-          "memberships":          membershipsData
+          "memberships":          membershipsData,
+          if (widget.person.memberUpdatedAt != null)
+            "expected_updated_at": widget.person.memberUpdatedAt!.toIso8601String(),
         };
       }
 
@@ -1124,6 +1126,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                 "study_program_ids": _selectedProgramsForSubject[e.key]?.toList() ?? [],
               })
               .toList(),
+          if (widget.person.teacherUpdatedAt != null)
+            "expected_updated_at": widget.person.teacherUpdatedAt!.toIso8601String(),
         };
       }
 
@@ -1144,6 +1148,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           "school_mechanographic_code": _schoolRows.isNotEmpty ? _schoolRows.first.selectedSchool!.mechanographicCode : '',
           "study_program_id":           _schoolRows.isNotEmpty ? _schoolRows.first.selectedProgram!.id : 0,
           "school_class":               _schoolRows.isNotEmpty ? _schoolRows.first.selectedGrade! : '',
+          if (widget.person.studentUpdatedAt != null)
+            "expected_updated_at": widget.person.studentUpdatedAt!.toIso8601String(),
         };
       }
 
@@ -1202,7 +1208,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             "grade":                      _romanToNumeric(r.selectedGrade!),
           });
         }
-        await ApiService().updatePersonSchoolEnrollments(newFiscalCode, payloadEnrollments);
+        await ApiService().updatePersonSchoolEnrollments(
+          newFiscalCode,
+          payloadEnrollments,
+          widget.person.studentUpdatedAt,
+        );
       }
 
       if (mounted) 

@@ -19,9 +19,9 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
-    hash_password,
+    hash_password_async,
     hash_refresh_token,
-    verify_password,
+    verify_password_async,
 )
 from app.models.account import AccountStatusEnum
 from app.models.refresh_token import RefreshToken, TokenTypeEnum
@@ -182,7 +182,10 @@ class AuthService:
             if elapsed >= timedelta(minutes=settings.failed_login_reset_minutes):
                 account.failed_login_attempts = 0
 
-        if not verify_password(password, account.password_hash):
+        # Delegata a thread separato (asyncio.to_thread): l'hashing
+        # Argon2 è CPU-bound e bloccherebbe l'event loop, serializzando
+        # login concorrenti (vedi RNF-IAMPERF-03).
+        if not await verify_password_async(password, account.password_hash):
             account.failed_login_attempts += 1
             account.last_failed_login_attempt = now
 
@@ -287,10 +290,12 @@ class AuthService:
         new_password: str,
         refresh_token: str,
     ) -> None:
-        if not verify_password(current_password, account.password_hash):
+        # Entrambe le verifiche delegate a thread separato: prima
+        # bloccavano sequenzialmente l'event loop una dopo l'altra.
+        if not await verify_password_async(current_password, account.password_hash):
             raise AuthenticationError("Current password is incorrect")
 
-        if verify_password(new_password, account.password_hash):
+        if await verify_password_async(new_password, account.password_hash):
             raise PasswordReuseError("New password must differ from the current one")
 
         validate_password(new_password)
@@ -316,7 +321,7 @@ class AuthService:
         if expected_hash != stored_token.token_hash:
             raise InvalidRefreshTokenError()
 
-        account.password_hash = hash_password(new_password)
+        account.password_hash = await hash_password_async(new_password)
         account.password_reset_required = False
 
         await self.account_repository.save(account)
@@ -452,7 +457,7 @@ class AuthService:
         # Consuma il token prima di modificare la password
         await self.refresh_token_repository.revoke(stored_token)
 
-        account.password_hash = hash_password(new_password)
+        account.password_hash = await hash_password_async(new_password)
         account.password_reset_required = False
 
         account.failed_login_attempts = 0

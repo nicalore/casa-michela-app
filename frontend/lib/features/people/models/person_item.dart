@@ -45,6 +45,13 @@ class PersonItem
   final String?      schoolEducation;
   final String?      universityEducation;
   final DateTime?    medicalCertificateExpiration;
+
+  // Timestamp dei tre aggregati soggetti a controllo di concorrenza
+  // ottimistica (RNF-IAM-REL-07). Vanno rimandati indietro come
+  // expected_updated_at nei rispettivi endpoint di modifica.
+  final DateTime?    memberUpdatedAt;
+  final DateTime?    studentUpdatedAt;
+  final DateTime?    teacherUpdatedAt;
   
   final List<MembershipItem>?       memberships;
   final List<SchoolEnrollmentItem>? schoolEnrollments;
@@ -83,6 +90,9 @@ class PersonItem
     this.taughtSubjects = const [],
     this.courseType,
     this.isMedicalCertificateValid,
+    this.memberUpdatedAt,
+    this.studentUpdatedAt,
+    this.teacherUpdatedAt,
     this.memberships,
     this.schoolEnrollments,
     this.parents,
@@ -129,6 +139,9 @@ class PersonItem
       taughtSubjects:            (json['taught_subjects'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       courseType:                json['course_type'],
       isMedicalCertificateValid: json['is_medical_certificate_valid'],
+      memberUpdatedAt:           json['member_updated_at'] != null ? DateTime.parse(json['member_updated_at']) : null,
+      studentUpdatedAt:          json['student_updated_at'] != null ? DateTime.parse(json['student_updated_at']) : null,
+      teacherUpdatedAt:          json['teacher_updated_at'] != null ? DateTime.parse(json['teacher_updated_at']) : null,
       memberships:               json['memberships'] != null 
                                      ? (json['memberships'] as List<dynamic>).map((e) => MembershipItem.fromJson(e as Map<String, dynamic>)).toList() 
                                      : null,

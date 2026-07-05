@@ -632,6 +632,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
       await _apiService.updatePersonSchoolEnrollments(
         widget.person.fiscalCode,
         payloadEnrollments,
+        widget.person.studentUpdatedAt,
       );
 
       if (mounted) {
@@ -988,6 +989,54 @@ class _SchoolRowData {
   });
 }
 
+class _DropdownOverflowTooltipText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+
+  const _DropdownOverflowTooltipText({required this.text, required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final Widget textWidget = Text(
+          text,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+
+        if (!painter.didExceedMaxLines) return textWidget;
+
+        return Tooltip(
+          message: text,
+          waitDuration: const Duration(milliseconds: 600),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B).withValues(alpha: .98),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+            ],
+          ),
+          child: textWidget,
+        );
+      },
+    );
+  }
+}
+
 class _FormOverlayDropdown extends StatefulWidget {
   final String? value;
   final List<String> options;
@@ -1093,9 +1142,8 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(
-                  widget.value ?? widget.hint,
-                  overflow: TextOverflow.ellipsis,
+                child: _DropdownOverflowTooltipText(
+                  text: widget.value ?? widget.hint,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: widget.value != null
@@ -1272,10 +1320,9 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                Expanded(
+                child: _DropdownOverflowTooltipText(
+                  text: widget.text,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: (widget.isSelected || _hover)

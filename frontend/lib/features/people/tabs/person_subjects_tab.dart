@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -280,90 +281,66 @@ class _SubjectReadOnlyCardState extends State<_SubjectReadOnlyCard>
   {
     final int count = widget.subject.studyProgramIds.length;
 
-    return Tooltip(
-      message:      widget.subject.subjectName,
-      waitDuration: const Duration(milliseconds: 600),
-      padding:      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle:    GoogleFonts.plusJakartaSans(
-        fontSize:   14, 
-        fontWeight: FontWeight.w500, 
-        color:      Colors.white,
-      ),
-      decoration: BoxDecoration(
-        color:        const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border:       Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
-      child: MouseRegion(
-        cursor:  SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit:  (_) => setState(() => _isHovering = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration:    const Duration(milliseconds: 180),
-            curve:       Curves.easeOut,
-            width:       360,
-            constraints: const BoxConstraints(minHeight: 100),
-            padding:     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            alignment:   Alignment.centerLeft,
-            decoration: BoxDecoration(
-              color:        Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: _isHovering ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), 
-                width: 2,
+    return MouseRegion(
+      cursor:  SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit:  (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration:    const Duration(milliseconds: 180),
+          curve:       Curves.easeOut,
+          width:       360,
+          constraints: const BoxConstraints(minHeight: 100),
+          padding:     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          alignment:   Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color:        Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: _isHovering ? const Color(0xFF003C82) : const Color(0xFFE2E8F0), 
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.subject_rounded,
+                size:  32,
+                color: Color(0xFFB3B3B3),
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color:      Color(0x0A000000), 
-                  offset:     Offset(0, 4), 
-                  blurRadius: 16,
-                )
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.subject_rounded,
-                  size:  32,
-                  color: Color(0xFFB3B3B3),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisSize:       MainAxisSize.min,
-                    mainAxisAlignment:  MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.subject.subjectName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize:   16,
-                          fontWeight: FontWeight.w700,
-                          color:      const Color(0xFF2A2A2A),
-                          height:     1.15,
-                        ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisSize:       MainAxisSize.min,
+                  mainAxisAlignment:  MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CardOverflowTooltipText(
+                      text: widget.subject.subjectName,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   16,
+                        fontWeight: FontWeight.w700,
+                        color:      const Color(0xFF2A2A2A),
+                        height:     1.15,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        count == 1 ? '1 percorso' : '$count percorsi',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize:   13,
-                          fontWeight: FontWeight.w600,
-                          color:      const Color(0xFF8A8A8A),
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      count == 1 ? '1 percorso' : '$count percorsi',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   13,
+                        fontWeight: FontWeight.w600,
+                        color:      const Color(0xFF8A8A8A),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -702,6 +679,7 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
       await ApiService().updateTeacherCompetences(
         widget.person.fiscalCode, 
         competences,
+        widget.person.teacherUpdatedAt,
       );
 
       if (mounted) 
@@ -1042,6 +1020,94 @@ class _ResponsiveDialogButtonsRow extends StatelessWidget
           ],
         );
       },
+    );
+  }
+}
+
+class _CardOverflowTooltipText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  const _CardOverflowTooltipText({
+    required this.text,
+    required this.style,
+    this.maxLines = 2,
+  });
+
+  @override
+  State<_CardOverflowTooltipText> createState() =>
+      _CardOverflowTooltipTextState();
+}
+
+class _CardOverflowTooltipTextState extends State<_CardOverflowTooltipText> {
+  final GlobalKey _textKey = GlobalKey();
+  bool _isOverflowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PaintingBinding.instance.systemFonts.addListener(_scheduleOverflowCheck);
+    _scheduleOverflowCheck();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CardOverflowTooltipText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text || oldWidget.style != widget.style) {
+      _scheduleOverflowCheck();
+    }
+  }
+
+  @override
+  void dispose() {
+    PaintingBinding.instance.systemFonts.removeListener(_scheduleOverflowCheck);
+    super.dispose();
+  }
+
+  void _scheduleOverflowCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = _textKey.currentContext?.findRenderObject();
+      if (renderObject is RenderParagraph) {
+        final bool overflowing = renderObject.didExceedMaxLines;
+        if (overflowing != _isOverflowing) {
+          setState(() => _isOverflowing = overflowing);
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget textWidget = Text(
+      widget.text,
+      key: _textKey,
+      maxLines: widget.maxLines,
+      overflow: TextOverflow.ellipsis,
+      style: widget.style,
+    );
+
+    if (!_isOverflowing) return textWidget;
+
+    return Tooltip(
+      message: widget.text,
+      waitDuration: const Duration(milliseconds: 600),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      textStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: .98),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF334155), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+        ],
+      ),
+      child: textWidget,
     );
   }
 }

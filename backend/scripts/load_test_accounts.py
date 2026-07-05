@@ -184,7 +184,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     create_parser = subparsers.add_parser("create", help="Crea gli account di test")
-    create_parser.add_argument("-n", "--count", type=int, default=100, help="Numero di account (default: 100)")
+    create_parser.add_argument("-n", "--count", type=int, default=500, help="Numero di account (default: 100)")
 
     subparsers.add_parser("delete", help="Elimina tutti gli account di test")
     subparsers.add_parser("list", help="Conta gli account di test presenti")

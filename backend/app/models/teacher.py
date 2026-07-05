@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     String,
+    func,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -61,6 +64,16 @@ class Teacher(Base):
     university_education: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
+    )
+
+    # Colonna di concorrenza ottimistica per l'aggregato Teacher (discipline
+    # insegnate). Stessa logica di Member.updated_at, applicata qui a
+    # update_teacher_competences e al ramo docente di update_person.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     staff_member: Mapped[Staff] = relationship(

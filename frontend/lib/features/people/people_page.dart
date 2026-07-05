@@ -21,7 +21,29 @@ class _PeoplePageState extends State<PeoplePage>
 {
   int _mainSelectedTab = 0;
 
+  //TieneTracciaDiQualiTabSonoStatiAperti_UnaVoltaVisitatoRestaMontatoNellIndexedStack
+  //VieneAzzeratoSoloQuandoPeoplePageVieneDistruttaDaGoRouter_UscendoDallaPagina
+  final Set<int> _visitedTabs = {};
+
   final List<String> _mainTabs = ['Ricerca', 'Statistiche'];
+
+  @override
+  void initState() 
+  {
+    super.initState();
+    _visitedTabs.add(_mainSelectedTab);
+  }
+
+  Widget _buildTabContent() 
+  {
+    return IndexedStack(
+      index: _mainSelectedTab,
+      children: [
+        _visitedTabs.contains(0) ? const PeopleSearchTab() : const SizedBox.shrink(),
+        _visitedTabs.contains(1) ? const PeopleStatisticsTab() : const SizedBox.shrink(),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) 
@@ -180,18 +202,13 @@ class _PeoplePageState extends State<PeoplePage>
                             setState(() 
                             {
                               _mainSelectedTab = index;
+                              _visitedTabs.add(index);
                             });
                           },
                         ),
                         const SizedBox(height: 24),
                         Expanded(
-                          child: IndexedStack(
-                            index:    _mainSelectedTab,
-                            children: const [
-                              PeopleSearchTab(),
-                              PeopleStatisticsTab(),
-                            ],
-                          ),
+                          child: _buildTabContent(),
                         ),
                       ],
                     ),

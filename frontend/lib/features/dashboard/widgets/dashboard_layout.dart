@@ -12,7 +12,7 @@ import 'user_menu.dart';
 import '../../../services/api_service.dart';
 import '../../auth/models/me_response.dart';
 import '../../../core/utils/role_label_mapper.dart';
-import '../../../core/config/api_config.dart';
+import '../../../shared/widgets/snackbar.dart';
 
 class DashboardLayout extends StatefulWidget {
   final double width;
@@ -65,11 +65,33 @@ class _DashboardLayoutState extends State<DashboardLayout> {
     }
   }
 
-  //LogoutUser
+  // LogoutUser
+  // Il logout locale (pulizia sessione + redirect a /login, gestito dal
+  // router tramite authState) avviene SOLO se apiService.logout() va a
+  // buon fine. In caso di malfunzionamento (rete assente, timeout, errore
+  // lato server durante l'invalidazione del token) l'eccezione propagata
+  // da ApiService viene intercettata qui: la procedura di logout viene
+  // interrotta, l'utente resta autenticato sulla dashboard e viene
+  // notificato con uno snackbar di errore (TC-IAM-012 / RF-IAM-018).
   Future<void> _logout() async {
     final apiService = ApiService();
 
-    await apiService.logout();
+    try {
+      await apiService.logout();
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isMenuOpen = false;
+      });
+
+      CustomSnackBar.show(
+        context: context,
+        message: e.toString().replaceFirst('Exception: ', ''),
+        isError: true,
+      );
+      return;
+    }
 
     if (!mounted) return;
 

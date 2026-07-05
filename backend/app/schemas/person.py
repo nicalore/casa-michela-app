@@ -106,6 +106,10 @@ class TeacherUpdateData(BaseModel):
     school_education: Optional[str] = None
     university_education: Optional[str] = None
     competences: Optional[List[TeacherCompetenceUpdateItem]] = None
+    # Timestamp letto da PersonResponse.teacher_updated_at, usato dal ramo
+    # docente di update_person per il controllo di concorrenza ottimistica
+    # sulle competenze insegnate (stesso aggregato di update_teacher_competences).
+    expected_updated_at: Optional[datetime] = None
 
 
 class CourseParticipantUpdateData(BaseModel):
@@ -118,6 +122,7 @@ class StudentUpdateData(BaseModel):
     school_mechanographic_code: str
     study_program_id: int
     school_class: str
+    expected_updated_at: Optional[datetime] = None
 
 
 class RelationshipsUpdate(BaseModel):
@@ -136,6 +141,12 @@ class MembershipUpdateItem(BaseModel):
 class PersonMembershipsUpdate(BaseModel):
     collaborating_active: bool
     memberships: List[MembershipUpdateItem]
+    # Timestamp letto dal client al momento del caricamento della persona
+    # (PersonResponse.member_updated_at). Usato per il controllo di
+    # concorrenza ottimistica in update_person_memberships e nel ramo
+    # membership di update_person. Opzionale per non rompere eventuali
+    # chiamate esistenti che non lo mandano ancora.
+    expected_updated_at: Optional[datetime] = None
 
 
 class PersonUpdatePayload(BaseModel):
@@ -152,6 +163,8 @@ class PersonUpdatePayload(BaseModel):
 
 class RevokeMembershipPayload(BaseModel):
     revocation_type: str
+    # Stesso motivo di PersonMembershipsUpdate.expected_updated_at.
+    expected_updated_at: Optional[datetime] = None
 
 
 class SchoolEnrollmentUpdateItem(BaseModel):
@@ -163,6 +176,9 @@ class SchoolEnrollmentUpdateItem(BaseModel):
 
 class PersonSchoolEnrollmentsUpdate(BaseModel):
     enrollments: List[SchoolEnrollmentUpdateItem]
+    # Timestamp letto da PersonResponse.student_updated_at, usato dal
+    # controllo di concorrenza ottimistica in update_person_school_enrollments.
+    expected_updated_at: Optional[datetime] = None
 
 
 class ParentUpdatePayload(BaseModel):
@@ -176,11 +192,14 @@ class TeacherSubjectResponse(BaseModel):
     study_program_ids: List[int]
     study_programs: List[str]
 
-model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PersonTeacherCompetencesUpdate(BaseModel):
     competences: List[TeacherCompetenceUpdateItem]
+    # Timestamp letto da PersonResponse.teacher_updated_at, usato dal
+    # controllo di concorrenza ottimistica in update_teacher_competences.
+    expected_updated_at: Optional[datetime] = None
 
 
 class PersonResponse(BaseModel):
@@ -223,6 +242,14 @@ class PersonResponse(BaseModel):
     school_education: Optional[str] = None
     university_education: Optional[str] = None
     medical_certificate_expiration: Optional[date] = None
+
+    # Timestamp dei tre aggregati soggetti a controllo di concorrenza
+    # ottimistica (RNF-IAM-REL-07). None se la persona non possiede il
+    # relativo profilo. Vanno riportati indietro come expected_updated_at
+    # nei rispettivi endpoint di modifica.
+    member_updated_at: Optional[datetime] = None
+    student_updated_at: Optional[datetime] = None
+    teacher_updated_at: Optional[datetime] = None
 
     memberships: Optional[List[MembershipResponse]] = None
     school_enrollments: Optional[List[SchoolEnrollmentResponse]] = None

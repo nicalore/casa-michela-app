@@ -203,14 +203,20 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         const SizedBox(height: 16),
         Text(_filteredSubjects.length == 1 ? '1 materia trovata' : '${_filteredSubjects.length} materie trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
         const SizedBox(height: 16),
-        if (_isLoading) const Padding(padding: EdgeInsets.only(top: 60), child: Center(child: CircularProgressIndicator(color: Color(0xFF003C82))))
-        else Center(
-          child: Wrap(
-            alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-            children: _filteredSubjects.map((subject) {
-              return MinistrySubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => _executeDelete(subject));
-            }).toList(),
-          ),
+        //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SingleChildScrollView(
+                  child: Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                      children: _filteredSubjects.map((subject) {
+                        return MinistrySubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => _executeDelete(subject));
+                      }).toList(),
+                    ),
+                  ),
+                ),
         ),
       ],
     );

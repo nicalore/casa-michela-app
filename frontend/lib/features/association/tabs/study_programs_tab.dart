@@ -198,14 +198,20 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         const SizedBox(height: 16),
         Text(_filteredPrograms.length == 1 ? '1 percorso trovato' : '${_filteredPrograms.length} percorsi trovati', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
         const SizedBox(height: 16),
-        if (_isLoading) const Padding(padding: EdgeInsets.only(top: 60), child: Center(child: CircularProgressIndicator(color: Color(0xFF003C82))))
-        else Center(
-          child: Wrap(
-            alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-            children: _filteredPrograms.map((program) {
-              return StudyProgramCard(program: program, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel), onDelete: () => _executeDelete(program));
-            }).toList(),
-          ),
+        //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              : SingleChildScrollView(
+                  child: Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                      children: _filteredPrograms.map((program) {
+                        return StudyProgramCard(program: program, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel), onDelete: () => _executeDelete(program));
+                      }).toList(),
+                    ),
+                  ),
+                ),
         ),
       ],
     );
@@ -232,6 +238,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   int _currentStep = 0;
   final PageController _pageController = PageController();
   bool _isSaving = false;
+  bool _isClampingYears = false; //Guardia_EvitaRicorsioneQuandoAggiustiamoIlSecondoControllerACascata
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -241,6 +248,9 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   String? _selectedLevel;
   List<int> _selectedSubjects = [];
+
+  //TettoMassimoAnniAmmessoPerIlLivelloCorrentementeSelezionato_3perMedie_5perElementariESuperiori
+  int get _maxYearForSelectedLevel => _selectedLevel == 'MIDDLE_SCHOOL' ? 3 : 5;
 
   @override
   void initState()
@@ -328,6 +338,40 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     });
   }
 
+  //ClampaInTempoRealeIlValoreAppenaDigitato_EPropagaAlSecondoEstremoSeVieneScavalcato
+  void _onYearChanged(bool isMinField)
+  {
+    if (_isClampingYears) return;
+    if (_selectedLevel == null) return; // Senza livello non c'è ancora un tetto da applicare, ci pensa la validazione dello step
+
+    final TextEditingController controller = isMinField ? _minYearController : _maxYearController;
+    final TextEditingController otherController = isMinField ? _maxYearController : _minYearController;
+
+    if (controller.text.isEmpty) return; // L'utente sta ancora digitando (es. ha appena cancellato tutto)
+
+    final int? typed = int.tryParse(controller.text);
+    if (typed == null) return;
+
+    final int maxAllowed = _maxYearForSelectedLevel;
+    final int clamped = typed < 1 ? 1 : (typed > maxAllowed ? maxAllowed : typed);
+
+    _isClampingYears = true;
+
+    if (clamped != typed)
+    {
+      controller.value = controller.value.copyWith(text: clamped.toString(), selection: TextSelection.collapsed(offset: clamped.toString().length));
+    }
+
+    final int? otherValue = int.tryParse(otherController.text);
+    if (otherValue != null && ((isMinField && clamped > otherValue) || (!isMinField && clamped < otherValue)))
+    {
+      otherController.value = otherController.value.copyWith(text: clamped.toString(), selection: TextSelection.collapsed(offset: clamped.toString().length));
+    }
+
+    _isClampingYears = false;
+    setState((){}); // Aggiorna il testo di supporto sotto ai campi
+  }
+
   void _nextStep() async
   {
     if (_currentStep == 0)
@@ -340,6 +384,9 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       final maxYear = int.tryParse(_maxYearController.text);
 
       if (minYear == null || maxYear == null || minYear > maxYear || minYear < 1) { CustomSnackBar.show(context: context, message: 'Intervallo di anni non valido.', isError: true); return; }
+
+      //ControlloDifensivoRidondanteRispettoAlClampInTempoReale_CopreEdgeCaseComeInputProgrammaticiOFuturiRefactor
+      if (maxYear > _maxYearForSelectedLevel) { CustomSnackBar.show(context: context, message: 'Per il livello selezionato l\'anno massimo consentito è $_maxYearForSelectedLevel.', isError: true); return; }
 
       setState(() => _currentStep++);
       _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
@@ -440,11 +487,17 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Inizio'), TextField(controller: _minYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 1', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Inizio'), TextField(controller: _minYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onYearChanged(true), style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 1', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
                 const SizedBox(width: 32),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Fine'), TextField(controller: _maxYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 5', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Fine'), TextField(controller: _maxYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onYearChanged(false), style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 5', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
               ],
             ),
+            //FeedbackVisivoDelVincolo_CompareSoloDopoLaSceltaDelLivelloPerNonConfondereLUtentePrima
+            if (_selectedLevel != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic)),
+              ),
             _buildFieldLabel('Descrizione (opzionale)'),
             TextField(controller: _descController, textCapitalization: TextCapitalization.sentences, maxLines: 4, minLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black), decoration: InputDecoration(hintText: 'Aggiungi una descrizione...', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5)))),
           ],

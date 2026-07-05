@@ -87,7 +87,7 @@ class _UserMenuState extends State<UserMenu>
               onRoleSelected: widget.onRoleSelected,
             ),
             const Divider(height: 1),
-            _MenuButton(
+            _HoverMenuItem(
               icon: Icons.settings_outlined,
               text: 'Impostazioni',
               color: const Color(0xFF003C82),
@@ -96,7 +96,7 @@ class _UserMenuState extends State<UserMenu>
                 context.go('/settings');
               },
             ),
-            _MenuButton(
+            _HoverMenuItem(
               icon: Icons.logout_rounded,
               text: 'Logout',
               color: const Color(0xFFC62828),
@@ -187,43 +187,14 @@ class _RoleSection extends StatelessWidget
                       .where((role) => role != activeRole)
                       .map((role)
                       {
-                        return InkWell(
+                        return _HoverMenuItem(
+                          icon: _getRoleIcon(role),
+                          text: role,
+                          color: const Color(0xFF003C82),
                           onTap: ()
                           {
                             onRoleSelected(role);
                           },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: _leadingSpace),
-                                SizedBox(
-                                  width: 18,
-                                  child: Icon(
-                                    _getRoleIcon(role),
-                                    size: 18,
-                                    color: const Color(0xFF003C82),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    role,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: const Color(0xFF003C82),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         );
                       })
                       .toList(),
@@ -235,14 +206,16 @@ class _RoleSection extends StatelessWidget
   }
 }
 
-class _MenuButton extends StatefulWidget
+// Voce di menù con hover: mostra una barretta laterale animata senza
+// spostare icona e testo (nessuno shift orizzontale durante l'hover).
+class _HoverMenuItem extends StatefulWidget
 {
   final IconData icon;
   final String text;
   final Color color;
   final VoidCallback onTap;
 
-  const _MenuButton({
+  const _HoverMenuItem({
     required this.icon,
     required this.text,
     required this.color,
@@ -250,10 +223,10 @@ class _MenuButton extends StatefulWidget
   });
 
   @override
-  State<_MenuButton> createState() => _MenuButtonState();
+  State<_HoverMenuItem> createState() => _HoverMenuItemState();
 }
 
-class _MenuButtonState extends State<_MenuButton>
+class _HoverMenuItemState extends State<_HoverMenuItem>
 {
   bool _hover = false;
 
@@ -284,8 +257,12 @@ class _MenuButtonState extends State<_MenuButton>
             horizontal: 16,
             vertical: 12,
           ),
-          child: Row(
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.centerLeft,
             children: [
+              // Barretta di hover: posizionata sotto la Row, non ne
+              // influenza la larghezza né la posizione degli elementi.
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
@@ -296,26 +273,29 @@ class _MenuButtonState extends State<_MenuButton>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: _hover ? (_leadingSpace - 2) : _leadingSpace,
-              ),
-              SizedBox(
-                width: 18,
-                child: Icon(
-                  widget.icon,
-                  size: 18,
-                  color: widget.color,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                widget.text,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: widget.color,
-                ),
+              Row(
+                children: [
+                  const SizedBox(width: _leadingSpace),
+                  SizedBox(
+                    width: 18,
+                    child: Icon(
+                      widget.icon,
+                      size: 18,
+                      color: widget.color,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: widget.color,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

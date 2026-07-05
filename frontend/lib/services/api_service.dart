@@ -40,67 +40,73 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
-  ApiService._internal()
-  {
-    final options = BaseOptions(
-      baseUrl:        ApiConfig.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    );
+ApiService._internal()
+{
+  final options = BaseOptions(
+    baseUrl:        ApiConfig.baseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  );
 
-    _dio      = Dio(options);
-    _tokenDio = Dio(options);
+  _dio      = Dio(options);
+  _tokenDio = Dio(options);
 
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler)
+  _dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler)
+      {
+        if (_accessToken != null)
         {
-          if (_accessToken != null)
-          {
-            options.headers['Authorization'] = 'Bearer $_accessToken';
-          }
-          return handler.next(options);
-        },
-        onError: (error, handler) async
+          options.headers['Authorization'] = 'Bearer $_accessToken';
+        }
+        return handler.next(options);
+      },
+      onError: (error, handler) async
+      {
+        final statusCode = error.response?.statusCode;
+
+        if (statusCode != 401 || _refreshToken == null)
         {
-          final statusCode = error.response?.statusCode;
+          return handler.next(error);
+        }
 
-          if (statusCode != 401 || _refreshToken == null)
+        if (_isRefreshing)
+        {
+          return handler.next(error);
+        }
+
+        _isRefreshing = true;
+
+        try
+        {
+          await _performTokenRefresh();
+
+          final requestOptions = error.requestOptions;
+          requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
+          
+          if (requestOptions.data is Map &&
+              (requestOptions.data as Map).containsKey('refresh_token'))
           {
-            return handler.next(error);
+            (requestOptions.data as Map)['refresh_token'] = _refreshToken;
           }
 
-          if (_isRefreshing)
-          {
-            return handler.next(error);
-          }
-
-          _isRefreshing = true;
-
-          try
-          {
-            await _performTokenRefresh();
-
-            final requestOptions = error.requestOptions;
-            requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
-
-            final retryResponse = await _dio.fetch(requestOptions);
-            return handler.resolve(retryResponse);
-          }
-          catch (_)
-          {
-            await _clearSession();
-            authState.value = AuthState.unauthenticated;
-            return handler.next(error);
-          }
-          finally
-          {
-            _isRefreshing = false;
-          }
-        },
-      ),
-    );
-  }
+          final retryResponse = await _dio.fetch(requestOptions);
+          return handler.resolve(retryResponse);
+        }
+        catch (_)
+        {
+          await _clearSession();
+          authState.value = AuthState.unauthenticated;
+          return handler.next(error);
+        }
+        finally
+        {
+          _isRefreshing = false;
+        }
+      },
+    ),
+  );
+}
 
   bool get isAuthenticated
   {
@@ -755,7 +761,12 @@ class ApiService
     }
   }
 
-  Future<void> updatePersonMemberships(String fiscalCode, bool collaboratingActive, List<Map<String, dynamic>> memberships) async
+  Future<void> updatePersonMemberships(
+    String fiscalCode,
+    bool collaboratingActive,
+    List<Map<String, dynamic>> memberships,
+    DateTime? expectedUpdatedAt,
+  ) async
   {
     try
     {
@@ -764,6 +775,7 @@ class ApiService
         data: {
           'collaborating_active': collaboratingActive,
           'memberships': memberships,
+          if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );
     }
@@ -773,7 +785,7 @@ class ApiService
     }
   }
 
-  Future<void> revokePersonMembership(String fiscalCode, String revocationType) async
+  Future<void> revokePersonMembership(String fiscalCode, String revocationType, DateTime? expectedUpdatedAt) async
   {
     try
     {
@@ -781,6 +793,7 @@ class ApiService
         '/people/$fiscalCode/revoke-membership',
         data: {
           'revocation_type': revocationType,
+          if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );
     }
@@ -790,22 +803,27 @@ class ApiService
     }
   }
 
-  Future<void> updatePersonSchoolEnrollments(String fiscalCode, List<Map<String, dynamic>> enrollments) async
+  Future<void> updatePersonSchoolEnrollments(
+  String fiscalCode,
+  List<Map<String, dynamic>> enrollments,
+  DateTime? expectedUpdatedAt,
+) async
+{
+  try
   {
-    try
-    {
-      await _dio.put(
-        '/people/$fiscalCode/school-enrollments',
-        data: {
-          'enrollments': enrollments,
-        },
-      );
-    }
-    on DioException catch (e)
-    {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
-    }
+    await _dio.put(
+      '/people/$fiscalCode/school-enrollments',
+      data: {
+        'enrollments': enrollments,
+        if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+      },
+    );
   }
+  on DioException catch (e)
+  {
+    throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
+  }
+}
 
   Future<void> addParent(String childTaxCode, String parentTaxCode) async
   {
@@ -1029,13 +1047,20 @@ class ApiService
     }
   }
 
-  Future<void> updateTeacherCompetences(String taxCode, List<Map<String, dynamic>> competences) async
+  Future<void> updateTeacherCompetences(
+    String taxCode,
+    List<Map<String, dynamic>> competences,
+    DateTime? expectedUpdatedAt,
+  ) async
   {
     try
     {
       await _dio.put(
         '/people/$taxCode/teacher-competences',
-        data: {'competences': competences},
+        data: {
+          'competences': competences,
+          if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
       );
     }
     on DioException catch (e)

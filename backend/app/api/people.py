@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import resend
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -76,6 +76,26 @@ def _roman_numeral(num: int) -> str:
     return roman_map.get(num, str(num))
 
 
+def _assert_not_stale(entity, expected_updated_at: datetime | None, *, entity_label: str) -> None:
+    """
+    Controllo di concorrenza ottimistica generico su un qualsiasi aggregato
+    con colonna updated_at (Member, Student, Teacher, ...).
+
+    Se il client non manda expected_updated_at non blocchiamo (retrocompatibilità
+    con eventuali chiamate che non lo inviano ancora). Se lo manda e non coincide
+    con il valore attuale a DB, un'altra scrittura è avvenuta nel frattempo:
+    rifiutiamo invece di sovrascrivere alla cieca (RNF-IAM-REL-07 / TC-IAM-147).
+    """
+    if expected_updated_at is None:
+        return
+
+    if entity.updated_at.replace(microsecond=0) != expected_updated_at.replace(microsecond=0):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{entity_label} sono stati modificati da un altro utente nel frattempo. Ricarica la pagina e riprova.",
+        )
+
+
 def _map_person_to_response(p: Person) -> PersonResponse:
     roles                   = []
     is_active_collab        = None
@@ -101,6 +121,13 @@ def _map_person_to_response(p: Person) -> PersonResponse:
     school_education               = None
     university_education           = None
     medical_certificate_expiration = None
+
+    # Timestamp dei tre aggregati soggetti a controllo di concorrenza
+    # ottimistica (RNF-IAM-REL-07). Restano None se la persona non possiede
+    # il relativo profilo.
+    member_updated_at  = None
+    student_updated_at = None
+    teacher_updated_at = None
     
     if p.parent_profile is not None:
         roles.append('Genitore')
@@ -169,6 +196,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
     if member is not None:
         roles.append('Associato')
         is_active_collab = member.collaborating_active
+        member_updated_at = member.updated_at
         
         if member.memberships:
             first_membership = min(member.memberships, key=lambda m: m.year)
@@ -198,6 +226,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
             roles.append('Studente')
             student    = member.student_profile
             early_exit = student.authorized_early_exit
+            student_updated_at = student.updated_at
             
             if student.school_enrollments:
                 for e in student.school_enrollments:
@@ -238,6 +267,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                 roles.append('Docente')
                 school_education     = staff.teacher_profile.school_education
                 university_education = staff.teacher_profile.university_education
+                teacher_updated_at   = staff.teacher_profile.updated_at
                 subjects_set         = set()
                 
                 teacher_subjects_dict = {}
@@ -303,6 +333,9 @@ def _map_person_to_response(p: Person) -> PersonResponse:
         parents=parents_list if parents_list else None,
         children=children_list if children_list else None,
         teacher_subjects=teacher_subjects_list if teacher_subjects_list else None,
+        member_updated_at=member_updated_at,
+        student_updated_at=student_updated_at,
+        teacher_updated_at=teacher_updated_at,
         iban=iban,
         admin_role=admin_role,
         admin_other_role=admin_other_role,
@@ -489,10 +522,16 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             await db.flush()
             
         if payload.member_data:
+            current_member = await db.scalar(select(Member).where(Member.tax_code == person.tax_code))
+            _assert_not_stale(current_member, payload.member_data.expected_updated_at, entity_label="Le iscrizioni")
+
             await db.execute(
                 update(Member)
                 .where(Member.tax_code == person.tax_code)
-                .values(collaborating_active=payload.member_data.collaborating_active)
+                .values(
+                    collaborating_active=payload.member_data.collaborating_active,
+                    updated_at=datetime.now(timezone.utc),
+                )
             )
             await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
             await db.flush()
@@ -511,16 +550,23 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
         # Profilo Studente
         if "STUDENTE" in roles and payload.student_data:
             s_data = payload.student_data
-            student_exists = await db.scalar(select(Student).where(Student.tax_code == person.tax_code))
-            if not student_exists:
-                db.add(Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit))
-                await db.flush()
-            else:
+            current_student = await db.scalar(select(Student).where(Student.tax_code == person.tax_code))
+
+            if current_student is not None:
+                # Il controllo va fatto PRIMA di scrivere qualunque campo,
+                # altrimenti scriviamo dati parziali anche in caso di conflitto.
+                _assert_not_stale(current_student, s_data.expected_updated_at, entity_label="Lo storico scolastico")
                 await db.execute(
                     update(Student)
                     .where(Student.tax_code == person.tax_code)
-                    .values(authorized_early_exit=s_data.authorized_early_exit)
+                    .values(
+                        authorized_early_exit=s_data.authorized_early_exit,
+                        updated_at=datetime.now(timezone.utc),
+                    )
                 )
+            else:
+                db.add(Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit))
+                await db.flush()
 
             today = date.today()
             start_year = today.year - 1 if today.month < 9 else today.year
@@ -642,6 +688,14 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                     )
                 
                 if te_data.competences is not None:
+                    current_teacher = await db.scalar(select(Teacher).where(Teacher.tax_code == person.tax_code))
+                    _assert_not_stale(current_teacher, te_data.expected_updated_at, entity_label="Le discipline insegnate")
+
+                    await db.execute(
+                        update(Teacher)
+                        .where(Teacher.tax_code == person.tax_code)
+                        .values(updated_at=datetime.now(timezone.utc))
+                    )
                     await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
                     await db.flush()
                     for comp_data in te_data.competences:
@@ -745,14 +799,19 @@ async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolE
     member = person.member_profile
     if not member or not member.student_profile:
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da studente.")
-        
+
+    student = member.student_profile
+    _assert_not_stale(student, payload.expected_updated_at, entity_label="Lo storico scolastico")
+
     years = [e.start_year for e in payload.enrollments]
     if len(years) != len(set(years)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno."
         )
-    
+
+    student.updated_at = datetime.now(timezone.utc)
+
     await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
     await db.flush() 
     
@@ -1000,6 +1059,8 @@ async def update_person_memberships(tax_code: str, payload: PersonMembershipsUpd
     member = person.member_profile
     if not member:
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da associato.")
+
+    _assert_not_stale(member, payload.expected_updated_at, entity_label="Le iscrizioni")
         
     years = [m_data.year for m_data in payload.memberships]
     if len(years) != len(set(years)):
@@ -1009,6 +1070,7 @@ async def update_person_memberships(tax_code: str, payload: PersonMembershipsUpd
         )
 
     member.collaborating_active = payload.collaborating_active
+    member.updated_at = datetime.now(timezone.utc)
     
     await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
     await db.flush() 
@@ -1052,6 +1114,8 @@ async def revoke_person_membership(tax_code: str, payload: RevokeMembershipPaylo
     member = person.member_profile
     if not member:
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da associato.")
+
+    _assert_not_stale(member, payload.expected_updated_at, entity_label="Le iscrizioni")
         
     if not member.memberships:
         raise HTTPException(status_code=400, detail="Nessuna iscrizione trovata da revocare.")
@@ -1068,6 +1132,7 @@ async def revoke_person_membership(tax_code: str, payload: RevokeMembershipPaylo
     latest_membership.revocation          = MembershipRevocationEnum(payload.revocation_type)
     
     member.collaborating_active = False
+    member.updated_at = datetime.now(timezone.utc)
     
     try:
         await db.commit()
@@ -1103,6 +1168,11 @@ async def update_teacher_competences(tax_code: str, payload: PersonTeacherCompet
     member = person.member_profile
     if not member or not member.staff_profile or not member.staff_profile.teacher_profile:
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da docente.")
+
+    teacher = member.staff_profile.teacher_profile
+    _assert_not_stale(teacher, payload.expected_updated_at, entity_label="Le discipline insegnate")
+
+    teacher.updated_at = datetime.now(timezone.utc)
         
     await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
     await db.flush() 

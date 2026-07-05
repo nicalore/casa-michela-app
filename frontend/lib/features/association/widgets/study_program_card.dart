@@ -90,70 +90,54 @@ class _StudyProgramCardState extends State<StudyProgramCard>
     );
   }
 
-@override
+  @override
   Widget build(BuildContext context)
   {
-    return Tooltip
+    return MouseRegion
     (
-      message:      widget.program.name,
-      waitDuration: const Duration(milliseconds: 600),
-      padding:      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
-      decoration:   BoxDecoration
+      cursor:  SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit:  (_) => setState(() => _isHovering = false),
+      child: GestureDetector
       (
-        color:        const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border:       Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow:    const [BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16)],
-      ),
-      child: MouseRegion
-      (
-        cursor:  SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit:  (_) => setState(() => _isHovering = false),
-        child: GestureDetector
+        onTap: () => _showDetailsDialog(context),
+        child: AnimatedContainer
         (
-          onTap: () => _showDetailsDialog(context),
-          child: AnimatedContainer
+          duration:   const Duration(milliseconds: 180),
+          curve:      Curves.easeOut,
+          width:      360,
+          height:     140,
+          padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          decoration: BoxDecoration
           (
-            duration:   const Duration(milliseconds: 180),
-            curve:      Curves.easeOut,
-            width:      360,
-            height:     140,
-            padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-            decoration: BoxDecoration
-            (
-              color:        Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
-              boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
-            ),
-            child: Column
-            (
-              mainAxisAlignment:  MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
+            color:        Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
+            boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
+          ),
+          child: Column
+          (
+            mainAxisAlignment:  MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              _CardOverflowTooltipText
+              (
+                text:  widget.program.name,
+                style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
+              ),
+              if (widget.program.description.isNotEmpty) ...
               [
+                const SizedBox(height: 6),
                 Text
                 (
-                  widget.program.name, 
+                  widget.program.description, 
                   maxLines: 2, 
-                  overflow: TextOverflow.ellipsis,
-                  style:    GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
+                  overflow: TextOverflow.ellipsis, 
+                  style:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
                 ),
-                if (widget.program.description.isNotEmpty) ...
-                [
-                  const SizedBox(height: 6),
-                  Text
-                  (
-                    widget.program.description, 
-                    maxLines: 2, 
-                    overflow: TextOverflow.ellipsis, 
-                    style:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -409,6 +393,63 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Mostra il testo troncato con `ellipsis` e, solo se il testo eccede
+/// effettivamente lo spazio disponibile su `maxLines`, lo avvolge in un
+/// Tooltip che rivela il contenuto completo al passaggio del mouse.
+class _CardOverflowTooltipText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  const _CardOverflowTooltipText({
+    required this.text,
+    required this.style,
+    this.maxLines = 2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: maxLines,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final Widget textWidget = Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+
+        if (!painter.didExceedMaxLines) return textWidget;
+
+        return Tooltip(
+          message: text,
+          waitDuration: const Duration(milliseconds: 600),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B).withValues(alpha: .98),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+            ],
+          ),
+          child: textWidget,
+        );
+      },
     );
   }
 }

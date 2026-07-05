@@ -1892,7 +1892,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 const SizedBox(height: 8),
                 Text
                 (
-                  'Scegli la categoria che descrive meglio la sua posizione',
+                  'Scegli la categoria che descrive meglio la sua posizione.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans
                   (

@@ -28,15 +28,6 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
   List<double> _tabWidths = [];
   double _totalTabsWidth = 0;
 
-  // Chiavi per misurare la larghezza REALE di ogni tab tramite una riga
-  // "ombra" invisibile (vedi build()). Non ci fidiamo più di TextPainter:
-  // su Flutter Web il font può risultare già "in coda" per via di un'altra
-  // richiesta della stessa famiglia/peso fatta più in alto nell'albero
-  // (es. il nome nella header card), nel qual caso anche un'attesa esplicita
-  // su GoogleFonts.pendingFonts() si risolve subito senza garantire nulla.
-  // Misurare il widget vero, dopo che è stato davvero disegnato, elimina
-  // il problema alla radice: qualunque sia la causa del disallineamento,
-  // la riga ombra userà sempre lo stesso font effettivamente in uso.
   List<GlobalKey> _measureKeys = [];
   bool _measurementScheduled = false;
 

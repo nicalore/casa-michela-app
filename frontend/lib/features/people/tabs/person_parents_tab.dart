@@ -1564,80 +1564,56 @@ class _LocalSelectablePersonCardState
     final String fullName =
         '${widget.person.firstName} ${widget.person.lastName}';
 
-    return Tooltip(
-      message: fullName,
-      waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle: GoogleFonts.plusJakartaSans(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.white,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovering = true),
-        onExit: (_) => setState(() => _isHovering = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            width: 420,
-            constraints: const BoxConstraints(minHeight: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: (_isHovering || widget.isSelected)
-                    ? const Color(0xFF003C82)
-                    : Colors.transparent,
-                width: 2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  offset: Offset(0, 4),
-                  blurRadius: 16,
-                ),
-              ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 420,
+          constraints: const BoxConstraints(minHeight: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: (_isHovering || widget.isSelected)
+                  ? const Color(0xFF003C82)
+                  : Colors.transparent,
+              width: 2,
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildAvatar(),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fullName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF003C82),
-                          height: 1.1,
-                        ),
+            boxShadow: const [
+              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildAvatar(),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CardOverflowTooltipText(
+                      text: fullName,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF003C82),
+                        height: 1.1,
                       ),
-                      const SizedBox(height: 8),
-                      _LocalRoleChipsRow(roles: processedRoles),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                    _LocalRoleChipsRow(roles: processedRoles),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1824,6 +1800,60 @@ class _ResponsiveSearchFilterRow extends StatelessWidget {
         }
 
         return Row(children: rowChildren);
+      },
+    );
+  }
+}
+
+class _CardOverflowTooltipText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+
+  const _CardOverflowTooltipText({
+    required this.text,
+    required this.style,
+    this.maxLines = 2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: maxLines,
+        )..layout(maxWidth: constraints.maxWidth);
+
+        final Widget textWidget = Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        );
+
+        if (!painter.didExceedMaxLines) return textWidget;
+
+        return Tooltip(
+          message: text,
+          waitDuration: const Duration(milliseconds: 600),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B).withValues(alpha: .98),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
+            ],
+          ),
+          child: textWidget,
+        );
       },
     );
   }
