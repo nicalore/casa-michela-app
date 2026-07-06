@@ -57,9 +57,6 @@ The application is designed with a modular structure, including:
 
 ## PROJECT STATUS
 
-> [!WARNING]
-> The project is currently in early development.​
-
 Current activities include:
 
 * Database creation
