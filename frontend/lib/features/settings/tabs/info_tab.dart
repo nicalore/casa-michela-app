@@ -9,7 +9,7 @@ class InfoTab extends StatelessWidget
   Widget build(BuildContext context)
   {
     final int currentYear = DateTime.now().year;
-    const String appVersion = '0.0.9';
+    const String appVersion = '0.1.0';
 
     //DocumentList
     final List<String> documents = [
