@@ -114,6 +114,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         final index = _programs.indexWhere((p) => p.id == id);
         if (index != -1) _programs[index] = updated;
       });
+      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso modificato con successo!', isError: false);
       return true;
     }
     catch (e)
@@ -129,6 +130,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     {
       await _apiService.deleteStudyProgram(item.id);
       setState(() { _programs.removeWhere((p) => p.id == item.id); });
+      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso eliminato con successo!', isError: false);
     }
     catch (e)
     {

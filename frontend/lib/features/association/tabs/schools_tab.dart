@@ -120,6 +120,8 @@ class _SchoolsTabState extends State<SchoolsTab>
         final index = _schools.indexWhere((s) => s.mechanographicCode == oldCode);
         if (index != -1) _schools[index] = updatedSchool;
       });
+      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
+      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola modificata con successo!', isError: false);
       return true;
     } 
     catch (e) 
@@ -135,6 +137,8 @@ class _SchoolsTabState extends State<SchoolsTab>
     {
       await _apiService.deleteSchool(item.mechanographicCode);
       setState(() { _schools.removeWhere((s) => s.mechanographicCode == item.mechanographicCode); });
+      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
+      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola eliminata con successo!', isError: false);
     } 
     catch (e) 
     {
@@ -354,8 +358,6 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     return Dialog(
       backgroundColor: Colors.transparent, elevation: 0,
       child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre600
-        //SenzaQuestoIlBreakpointSulRigaDeiBottoniNonScatterebbeMai_LaLarghezzaEraFissaPrima
         width: double.infinity,
         height: 550,
         constraints: const BoxConstraints(maxWidth: 600),

@@ -166,7 +166,12 @@ class PersonInfoTab extends StatelessWidget
                     leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
                     rows: [
                       _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                      _InfoRowData('IBAN',                person.iban?.isNotEmpty == true ? person.iban! : '-'),
+                      //IbanNascostoDiDefault_MostratoSoloAlTapSull'iconaOcchio_VediIsSensitiveInInfoRowData
+                      _InfoRowData(
+                        'IBAN',
+                        person.iban?.isNotEmpty == true ? person.iban! : '-',
+                        isSensitive: true,
+                      ),
                     ],
                   ),
                 ),
@@ -349,6 +354,15 @@ class _InfoSectionCard extends StatelessWidget
           ),
         );
       } 
+      else if (rowData.isSensitive)
+      {
+        //RigaMascherataDiDefault_ToggleGestitoInternamenteDaObscurableInfoRow
+        rowWidget = _ObscurableInfoRow(
+          label:      rowData.label,
+          value:      rowData.value,
+          labelWidth: labelWidth,
+        );
+      }
       else 
       {
         rowWidget = _InfoRow(
@@ -510,10 +524,99 @@ class _InfoRow extends StatelessWidget
   }
 }
 
+//StessaLogicaDelToggleUsataInLoginTextField_MaStatoLocaleAllaSingolaRigaInveceCheAlCampoDiInput
+//DefaultNascosto__isVisibleParteFalse_ComeRichiesto
+class _ObscurableInfoRow extends StatefulWidget
+{
+  final String label;
+  final String value;
+  final double labelWidth;
+
+  const _ObscurableInfoRow({
+    required this.label,
+    required this.value,
+    required this.labelWidth,
+  });
+
+  @override
+  State<_ObscurableInfoRow> createState() => _ObscurableInfoRowState();
+}
+
+class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
+{
+  bool _isVisible = false;
+
+  //NessunaIconaDaMostrareSeIlValoreEAssente_NonHaSensoUnToggleSuUnTrattino
+  bool get _hasValue => widget.value.isNotEmpty && widget.value != '-';
+
+  //SostituisceOgniCarattereNonSpazioConUnPallino_CosìLaStrutturaAGruppiRestaLeggibile
+  String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final String displayValue = !_hasValue
+        ? widget.value
+        : (_isVisible ? widget.value : _maskedValue);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: widget.labelWidth,
+          child: Text(
+            widget.label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize:   18,
+              fontWeight: FontWeight.w500,
+              color:      const Color(0xFF7A7A7A),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            displayValue,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize:   18,
+              fontWeight: FontWeight.w600,
+              color:      const Color(0xFF2A2A2A),
+              letterSpacing: (_hasValue && !_isVisible) ? 3 : 0,
+            ),
+          ),
+        ),
+        if (_hasValue)
+          IconButton(
+            onPressed: ()
+            {
+              setState(()
+              {
+                _isVisible = !_isVisible;
+              });
+            },
+            splashColor:    Colors.transparent,
+            highlightColor: Colors.transparent,
+            hoverColor:     Colors.transparent,
+            focusColor:     Colors.transparent,
+            padding:        EdgeInsets.zero,
+            constraints:    const BoxConstraints(),
+            icon: Icon(
+              _isVisible
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size:  22,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _InfoRowData 
 {
   final String label;
   final String value;
+  final bool   isSensitive;
 
-  const _InfoRowData(this.label, this.value);
+  const _InfoRowData(this.label, this.value, {this.isSensitive = false});
 }

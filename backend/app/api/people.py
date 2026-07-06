@@ -92,7 +92,7 @@ def _assert_not_stale(entity, expected_updated_at: datetime | None, *, entity_la
     if entity.updated_at.replace(microsecond=0) != expected_updated_at.replace(microsecond=0):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"{entity_label} sono stati modificati da un altro utente nel frattempo. Ricarica la pagina e riprova.",
+            detail=f"{entity_label} sono state modificate da un altro utente nel frattempo. Ricarica la pagina e riprova.",
         )
 
 
@@ -555,7 +555,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             if current_student is not None:
                 # Il controllo va fatto PRIMA di scrivere qualunque campo,
                 # altrimenti scriviamo dati parziali anche in caso di conflitto.
-                _assert_not_stale(current_student, s_data.expected_updated_at, entity_label="Lo storico scolastico")
+                _assert_not_stale(current_student, s_data.expected_updated_at, entity_label="Le iscrizioni scolastiche")
                 await db.execute(
                     update(Student)
                     .where(Student.tax_code == person.tax_code)
@@ -801,7 +801,7 @@ async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolE
         raise HTTPException(status_code=400, detail="L'utente non possiede un profilo da studente.")
 
     student = member.student_profile
-    _assert_not_stale(student, payload.expected_updated_at, entity_label="Lo storico scolastico")
+    _assert_not_stale(student, payload.expected_updated_at, entity_label="Le iscrizioni scolastiche")
 
     years = [e.start_year for e in payload.enrollments]
     if len(years) != len(set(years)):

@@ -176,6 +176,20 @@ async def upload_profile_image(
     uploads_dir = Path("uploads/profile-images")
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
+    # Se esiste già una foto precedente, va rimossa dal disco prima di
+    # scrivere quella nuova: il nome file include l'estensione
+    # (es. CLRNCL97P19L840L.jpg), quindi caricare un formato diverso da
+    # quello attuale produce un file nuovo senza mai liberare il vecchio.
+    # Stessa identica logica di delete_profile_image, applicata qui prima
+    # della scrittura invece che al posto di essa.
+    previous_url = current_account.person.profile_image_url
+
+    if previous_url is not None:
+        previous_path = uploads_dir / Path(previous_url).name
+
+        if previous_path.exists():
+            previous_path.unlink()
+
     extension = Path(file.filename).suffix.lower()
     filename = f"{current_account.tax_code}{extension}"
     destination = uploads_dir / filename
@@ -190,6 +204,31 @@ async def upload_profile_image(
 
     await db.commit()
     return {"profile_image_url": profile_image_url}
+
+
+@router.delete("/profile-image", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_profile_image(
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> None:
+    person = current_account.person
+    profile_image_url = person.profile_image_url
+
+    if profile_image_url is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile image to remove",
+        )
+
+    filename = Path(profile_image_url).name
+    file_path = Path("uploads/profile-images") / filename
+
+    if file_path.exists():
+        file_path.unlink()
+
+    person.profile_image_url = None
+
+    await db.commit()
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

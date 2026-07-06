@@ -14,11 +14,15 @@ import '../person_wizard_components.dart';
 class PersonParentsTab extends StatefulWidget {
   final PersonItem person;
   final VoidCallback onUpdate;
+  //ChiamatoSoloDopoLaRimozioneDelleResponsabilitàGenitoriali_RiportaAllaTabInformazioniPersonali
+  //PerchéIlTabGenitoriSparisceDallaListaEL'IndexedStackResterebbeAllaVecchiaPosizioneVuota
+  final VoidCallback onResponsibilityRemoved;
 
   const PersonParentsTab({
     super.key,
     required this.person,
     required this.onUpdate,
+    required this.onResponsibilityRemoved,
   });
 
   @override
@@ -144,7 +148,8 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
                   message: 'Responsabilità rimosse con successo.',
                   isError: false,
                 );
-                widget.onUpdate();
+                //NonPiuWidget.onUpdate()QuiI_LaTabGenitoriStaPerSparire_ServeIlRedirectEsplicito
+                widget.onResponsibilityRemoved();
               } catch (e) {
                 CustomSnackBar.show(
                   context: context,

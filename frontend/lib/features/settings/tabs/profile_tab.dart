@@ -252,6 +252,8 @@ class _ProfileTabState extends State<ProfileTab>
                     labelWidth:  160,
                     leadingIcon: _ProfileAvatar(
                       profileImageUrl: me.profileImageUrl,
+                      firstName:       nome,
+                      lastName:        cognome,
                       onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
                     ),
                     rows: [
@@ -335,7 +337,12 @@ class _ProfileTabState extends State<ProfileTab>
                       leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
                       rows: [
                         _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                        _InfoRowData('IBAN',                person.iban?.isNotEmpty == true ? person.iban! : '-'),
+                        //IbanNascostoDiDefault_MostratoSoloAlTapSull'iconaOcchio_VediIsSensitiveInInfoRowData
+                        _InfoRowData(
+                          'IBAN',
+                          person.iban?.isNotEmpty == true ? person.iban! : '-',
+                          isSensitive: true,
+                        ),
                       ],
                     ),
                   ),
@@ -575,6 +582,15 @@ class _ProfileSectionCard extends StatelessWidget
           ),
         );
       } 
+      else if (rowData.isSensitive)
+      {
+        //RigaMascherataDiDefault_ToggleGestitoInternamenteDaObscurableInfoRow
+        rowWidget = _ObscurableInfoRow(
+          label:      rowData.label,
+          value:      rowData.value,
+          labelWidth: labelWidth,
+        );
+      }
       else 
       {
         rowWidget = _ProfileInfoRow(
@@ -626,13 +642,67 @@ class _StaticAvatar extends StatelessWidget
   }
 }
 
+//SingolaIconaCliccabileMostrataDentroL'OverlayScuroSull'Avatar
+//OraStatefulPerchéServeUnHoverIndipendenteDallo_isHoveringDell'AvatarPadre_
+//CheGestisceSoloComparsa/ScomparsaDell'IntestCoppiaDiIcone
+class _AvatarIconButton extends StatefulWidget
+{
+  final IconData      icon;
+  final VoidCallback  onTap;
+  final double        iconSize;
+
+  const _AvatarIconButton({
+    required this.icon,
+    required this.onTap,
+    this.iconSize = 20,
+  });
+
+  @override
+  State<_AvatarIconButton> createState() => _AvatarIconButtonState();
+}
+
+class _AvatarIconButtonState extends State<_AvatarIconButton>
+{
+  bool _isHoveringIcon = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHoveringIcon = true),
+      onExit:  (_) => setState(() => _isHoveringIcon = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap:    widget.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: AnimatedScale(
+            scale:    _isHoveringIcon ? 1.2 : 1.0,
+            duration: const Duration(milliseconds: 150),
+            curve:    Curves.easeOut,
+            child: Icon(
+              widget.icon,
+              color: Colors.white,
+              size:  widget.iconSize,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileAvatar extends StatefulWidget 
 {
   final String?      profileImageUrl;
+  final String       firstName;
+  final String       lastName;
   final VoidCallback onImageUpdated;
 
   const _ProfileAvatar({
     required this.onImageUpdated, 
+    required this.firstName,
+    required this.lastName,
     this.profileImageUrl,
   });
 
@@ -642,10 +712,38 @@ class _ProfileAvatar extends StatefulWidget
 
 class _ProfileAvatarState extends State<_ProfileAvatar> 
 {
-  bool _isHovering  = false;
+  bool _isHovering = false;
   bool _isUploading = false;
+  bool _isDeleting  = false;
 
   final ImagePicker _picker = ImagePicker();
+
+  //FIX_SFARFALLIO_HOVER: il cache buster viene generato una sola volta
+  //(initState) e rigenerato SOLO quando profileImageUrl cambia davvero
+  //(didUpdateWidget), non ad ogni rebuild. Prima il getter lo ricalcolava
+  //ogni volta: ogni hover faceva setState -> rebuild -> nuovo timestamp ->
+  //nuova ValueKey -> CircleAvatar ricreato da zero -> flash del
+  //backgroundColor mentre la NetworkImage ripartiva. Stessa causa/fix già
+  //presente in DashboardHeader (_sessionCacheBuster).
+  late String _cacheBuster;
+
+  @override
+  void initState() 
+  {
+    super.initState();
+    _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileAvatar oldWidget) 
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.profileImageUrl != widget.profileImageUrl) 
+    {
+      _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+    }
+  }
 
   String? get _absoluteImageUrl 
   {
@@ -661,9 +759,16 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       url = '${ApiConfig.baseUrl}$url';
     }
 
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return '$url?v=$_cacheBuster';
+  }
 
-    return '$url?v=$timestamp';
+  //StessaLogicaDiPersonCard_PrimaLetteraNomeEPrimaLetteraCognome
+  String get _initials 
+  {
+    final String first = widget.firstName.isNotEmpty ? widget.firstName[0] : '';
+    final String last  = widget.lastName.isNotEmpty  ? widget.lastName[0]  : '';
+
+    return '$first$last'.toUpperCase();
   }
 
   Future<void> _pickAndUploadImage() async 
@@ -713,82 +818,197 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     }
   }
 
+  //StileAllineatoAlDialogDiConfermaUsatoInPersonParentsTab_PerRimuoviResponsabilitàGenitoriali
+  //StessoShape_StessiColori_StessoButtonStyleSenzaOverlayDiHover
+  Future<void> _confirmAndDeleteImage() async 
+  {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Rimuovi Foto Profilo',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w700,
+            color:      const Color(0xFF003C82),
+          ),
+        ),
+        content: Text(
+          'La foto verrà eliminata definitivamente. Potrai sempre caricarne una nuova in seguito.',
+          style: GoogleFonts.plusJakartaSans(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            style: ButtonStyle(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'ANNULLA',
+              style: GoogleFonts.plusJakartaSans(
+                color:      const Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            style: ButtonStyle(
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'RIMUOVI',
+              style: GoogleFonts.plusJakartaSans(
+                color:      const Color(0xFFE53935),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) 
+    {
+      return;
+    }
+
+    await _deleteImage();
+  }
+
+  Future<void> _deleteImage() async 
+  {
+    try 
+    {
+      setState(() 
+      {
+        _isDeleting = true;
+      });
+
+      await ApiService().deleteProfileImage();
+
+      widget.onImageUpdated();
+    } 
+    catch (e) 
+    {
+      if (mounted) 
+      {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:         Text('Errore durante la rimozione: $e'),
+            backgroundColor: const Color(0xFFC62828),
+          ),
+        );
+      }
+    } 
+    finally 
+    {
+      if (mounted) 
+      {
+        setState(() 
+        {
+          _isDeleting  = false;
+          _isHovering  = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) 
   {
-    final imageUrl = _absoluteImageUrl;
+    final String? imageUrl = _absoluteImageUrl;
+    final bool    hasImage = imageUrl != null;
+    final bool    isBusy   = _isUploading || _isDeleting;
 
-    return MouseRegion(
-      cursor:  _isUploading ? SystemMouseCursors.basic : SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit:  (_) => setState(() => _isHovering = false),
-      child:   GestureDetector(
-        onTap: _isUploading ? null : _pickAndUploadImage,
-        child: SizedBox(
-          width:  90,
-          height: 90,
-          child:  Stack(
-            fit:      StackFit.expand,
-            children: [
-              CircleAvatar(
-                key:             ValueKey(imageUrl),
-                backgroundColor: const Color(0xFFE8EEF7),
-                backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-                child:           imageUrl == null
-                    ? const Icon(
-                        Icons.person,
-                        size:  48,
-                        color: Color(0xFF003C82),
-                      )
-                    : null,
-              ),
-              
-              if (_isUploading)
-                AnimatedContainer(
-                  duration:   const Duration(milliseconds: 300),
-                  decoration: const BoxDecoration(
-                    color: Colors.black45,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: SizedBox(
-                      width:  24,
-                      height: 24,
-                      child:  CircularProgressIndicator(
-                        color:       Colors.white,
-                        strokeWidth: 3,
-                      ),
+    return SizedBox(
+      width:  90,
+      height: 90,
+      child:  Stack(
+        fit:      StackFit.expand,
+        children: [
+          CircleAvatar(
+            key:             ValueKey(imageUrl),
+            backgroundColor: const Color(0xFFE8EEF7),
+            backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
+            child:           !hasImage
+                ? Text(
+                    _initials,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize:   32,
+                      fontWeight: FontWeight.w700,
+                      color:      const Color(0xFF003C82),
                     ),
+                  )
+                : null,
+          ),
+
+          if (isBusy)
+            AnimatedContainer(
+              duration:   const Duration(milliseconds: 300),
+              decoration: const BoxDecoration(
+                color: Colors.black45,
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width:  24,
+                  height: 24,
+                  child:  CircularProgressIndicator(
+                    color:       Colors.white,
+                    strokeWidth: 3,
                   ),
-                )
-              else
-                AnimatedContainer(
-                  duration:   const Duration(milliseconds: 350),
-                  curve:      Curves.easeOut,
-                  decoration: BoxDecoration(
-                    color: _isHovering ? Colors.black54 : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: AnimatedScale(
-                      scale:    _isHovering ? 1.0 : 0.4,
-                      duration: const Duration(milliseconds: 350),
-                      curve:    Curves.easeOutBack,
-                      child:    AnimatedOpacity(
-                        opacity:  _isHovering ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 250),
-                        child:    const Icon(
-                          Icons.edit_rounded,
-                          color: Colors.white,
-                          size:  28,
-                        ),
-                      ),
+                ),
+              ),
+            )
+          else
+            //OverlayUnicoSull'InteroCerchio_MatitaECestinoCompaionoInsiemeAlHover
+            MouseRegion(
+              cursor:  SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _isHovering = true),
+              onExit:  (_) => setState(() => _isHovering = false),
+              child: AnimatedContainer(
+                duration:   const Duration(milliseconds: 350),
+                curve:      Curves.easeOut,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isHovering ? Colors.black54 : Colors.transparent,
+                ),
+                child: Center(
+                  child: AnimatedScale(
+                    scale:    _isHovering ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 350),
+                    curve:    Curves.easeOutBack,
+                    child:    AnimatedOpacity(
+                      opacity:  _isHovering ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 250),
+                      child: hasImage
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _AvatarIconButton(
+                                  icon:  Icons.edit_rounded,
+                                  onTap: _pickAndUploadImage,
+                                ),
+                                const SizedBox(width: 4),
+                                _AvatarIconButton(
+                                  icon:  Icons.delete_outline_rounded,
+                                  onTap: _confirmAndDeleteImage,
+                                ),
+                              ],
+                            )
+                          : _AvatarIconButton(
+                              icon:     Icons.edit_rounded,
+                              onTap:    _pickAndUploadImage,
+                              iconSize: 26,
+                            ),
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -838,6 +1058,94 @@ class _ProfileInfoRow extends StatelessWidget
   }
 }
 
+//StessaLogicaDelToggleUsataInLoginTextField_MaStatoLocaleAllaSingolaRigaInveceCheAlCampoDiInput
+//DefaultNascosto__isVisibleParteFalse_ComeRichiesto
+class _ObscurableInfoRow extends StatefulWidget
+{
+  final String label;
+  final String value;
+  final double labelWidth;
+
+  const _ObscurableInfoRow({
+    required this.label,
+    required this.value,
+    required this.labelWidth,
+  });
+
+  @override
+  State<_ObscurableInfoRow> createState() => _ObscurableInfoRowState();
+}
+
+class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
+{
+  bool _isVisible = false;
+
+  //NessunaIconaDaMostrareSeIlValoreEAssente_NonHaSensoUnToggleSuUnTrattino
+  bool get _hasValue => widget.value.isNotEmpty && widget.value != '-';
+
+  //SostituisceOgniCarattereNonSpazioConUnPallino_CosìLaStrutturaAGruppiRestaLeggibile
+  String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final String displayValue = !_hasValue
+        ? widget.value
+        : (_isVisible ? widget.value : _maskedValue);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: widget.labelWidth,
+          child: Text(
+            widget.label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize:   18,
+              fontWeight: FontWeight.w500,
+              color:      const Color(0xFF7A7A7A),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            displayValue,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize:   18,
+              fontWeight: FontWeight.w600,
+              color:      const Color(0xFF2A2A2A),
+              letterSpacing: (_hasValue && !_isVisible) ? 3 : 0,
+            ),
+          ),
+        ),
+        if (_hasValue)
+          IconButton(
+            onPressed: ()
+            {
+              setState(()
+              {
+                _isVisible = !_isVisible;
+              });
+            },
+            splashColor:    Colors.transparent,
+            highlightColor: Colors.transparent,
+            hoverColor:     Colors.transparent,
+            focusColor:     Colors.transparent,
+            padding:        EdgeInsets.zero,
+            constraints:    const BoxConstraints(),
+            icon: Icon(
+              _isVisible
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size:  22,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _RoleChip extends StatelessWidget 
 {
   final String label;
@@ -872,6 +1180,7 @@ class _InfoRowData
 {
   final String label;
   final String value;
+  final bool   isSensitive;
 
-  const _InfoRowData(this.label, this.value);
+  const _InfoRowData(this.label, this.value, {this.isSensitive = false});
 }

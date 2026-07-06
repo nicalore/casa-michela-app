@@ -56,6 +56,30 @@ class _DashboardHeaderState extends State<DashboardHeader>
     return '$url?v=$_sessionCacheBuster';
   }
 
+  //EstraeLeIniziali_PrimaLetteraDelPrimoENomeEPrimaLetteraDell'UltimoNome
+  //StessaLogicaDiInizialiUsataInPersonCard_MaQuiPartiamoDaFullNameGiaConcatenato
+  //PercioSplittiamoSuGliSpaziInveceDiAccedereDirettamenteAFirstName/LastName
+  String _getInitials(String fullName)
+  {
+    final List<String> parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty)
+    {
+      return '';
+    }
+
+    if (parts.length == 1)
+    {
+      return parts.first.substring(0, 1).toUpperCase();
+    }
+
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -64,6 +88,7 @@ class _DashboardHeaderState extends State<DashboardHeader>
     //Hide clock below 1024px
     final bool showClock = viewportWidth > 1024;
     final String? finalImageUrl = _absoluteImageUrl;
+    final String initials = _getInitials(widget.fullName);
 
     return Positioned(
       left: 40,
@@ -162,14 +187,18 @@ class _DashboardHeaderState extends State<DashboardHeader>
                       ),
                       child: CircleAvatar(
                         key: ValueKey(finalImageUrl),
-                        backgroundColor: Colors.transparent,
+                        backgroundColor: Colors.white,
                         backgroundImage: finalImageUrl != null
                             ? NetworkImage(finalImageUrl)
                             : null,
                         child: finalImageUrl == null
-                            ? const Icon(
-                                Icons.person,
-                                color: Color(0xFF003C82),
+                            ? Text(
+                                initials,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF003C82),
+                                ),
                               )
                             : null,
                       ),

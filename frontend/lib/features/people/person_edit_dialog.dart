@@ -2235,7 +2235,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
           children: 
           [
-            WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', enabled: false, errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
+            WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', enabled: true, errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
             const SizedBox(height: 16),
             WizardFormInputRow(label: 'Città di nascita', inputWidget: WizardAnimatedTextField(controller: _cittaNascitaCtrl, hint: 'Es. Thiene', enabled: false, errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')))),
             const SizedBox(height: 16),
@@ -2699,7 +2699,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           inputWidget: WizardAnimatedTextField
           (
             controller: _studiScolasticiCtrl, 
-            hint:       'Es. Liceo', 
+            hint:       'Es. Liceo Classico', 
             errorText:  _formErrors['studiScolastici'],
             onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
           ),
@@ -2711,7 +2711,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           inputWidget: WizardAnimatedTextField
           (
             controller: _studiUniversitariCtrl, 
-            hint:       'Es. Laurea', 
+            hint:       'Es. Laurea in Informatica', 
             errorText:  _formErrors['studiUniversitari'],
             onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
           ),

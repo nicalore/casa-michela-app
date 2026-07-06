@@ -97,7 +97,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   final TextEditingController _ibanCtrl                = TextEditingController();
   String?                     _tipoCollaborazione;
   final TextEditingController _studiScolasticiCtrl     = TextEditingController();
-  final TextEditingController _studiUniversitariCtrl   = TextEditingController();
 
   String? _uscitaAnticipata;
 
@@ -145,7 +144,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     _tipoCorsoCtrl.dispose();
     _ibanCtrl.dispose();
     _studiScolasticiCtrl.dispose();
-    _studiUniversitariCtrl.dispose();
     _searchSubjectsCtrl.dispose();
     for (final row in _enrollmentRows) 
     {
@@ -475,7 +473,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     _tipoCorsoCtrl.text           = _tipoCorsoCtrl.text.trim();
     _ibanCtrl.text                = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
     _studiScolasticiCtrl.text     = _studiScolasticiCtrl.text.trim();
-    _studiUniversitariCtrl.text   = _studiUniversitariCtrl.text.trim();
 
     bool                isValid             = true;
     bool                showFutureYearError = false;
@@ -705,7 +702,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       teacherData = 
       {
         "school_education":     _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
-        "university_education": _studiUniversitariCtrl.text.isNotEmpty ? _studiUniversitariCtrl.text.trim() : null,
+        // Un minore non può per definizione avere un percorso universitario: campo non richiesto in questo wizard.
+        "university_education": null,
         "competences":          _subjectToggles.entries
             .where((e) => e.value)
             .map((e) => 
@@ -1126,18 +1124,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               hint:       'Es. Liceo Classico', 
               errorText:  _formErrors['studiScolastici'],
               onChanged:  (_) => setState(() => _formErrors.remove('studiScolastici')),
-            ),
-          ),
-          const SizedBox(height: 16),
-          WizardFormInputRow
-          (
-            label:       'Studi universitari',
-            inputWidget: WizardAnimatedTextField
-            (
-              controller: _studiUniversitariCtrl, 
-              hint:       'Es. Laurea in Informatica', 
-              errorText:  _formErrors['studiUniversitari'],
-              onChanged:  (_) => setState(() => _formErrors.remove('studiUniversitari')),
             ),
           ),
         ]

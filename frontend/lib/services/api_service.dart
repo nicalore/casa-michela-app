@@ -355,6 +355,19 @@ ApiService._internal()
     }
   }
 
+  //SpecularaAdUploadProfileImage_StessoEndpointStessoPatternDiErrore
+  Future<void> deleteProfileImage() async
+  {
+    try
+    {
+      await _dio.delete('/auth/profile-image');
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la rimozione dell\'immagine.');
+    }
+  }
+
   Future<List<SchoolItem>> getSchools() async
   {
     final response = await _dio.get('/schools/');

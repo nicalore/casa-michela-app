@@ -116,6 +116,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         final index = _ministrySubjects.indexWhere((s) => s.id == id);
         if (index != -1) _ministrySubjects[index] = updated;
       });
+      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
+      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale modificata con successo!', isError: false);
       return true;
     }
     catch (e)
@@ -131,6 +133,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     {
       await _apiService.deleteMinistrySubject(item.id);
       setState(() { _ministrySubjects.removeWhere((s) => s.id == item.id); });
+      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
+      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale eliminata con successo!', isError: false);
     }
     catch (e)
     {

@@ -66,6 +66,15 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
           _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch
               .toString();
           _isLoading = false;
+
+          // Guardia generale: se il refresh dei dati fa sparire la tab
+          // attualmente selezionata (qualsiasi condizione in _currentTabs
+          // non sia più soddisfatta), si torna alla prima tab invece di
+          // lasciare l'IndexedStack puntato su un indice non più esistente
+          // tra i children visibili.
+          if (_selectedTab >= _currentTabs.length) {
+            _selectedTab = 0;
+          }
         });
       }
     } catch (e) {
@@ -76,6 +85,18 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
         });
       }
     }
+  }
+
+  // Chiamato da PersonParentsTab subito dopo la rimozione delle
+  // responsabilità genitoriali. In quel caso la tab "Genitori" sparisce
+  // sempre (persona maggiorenne + zero genitori associati), quindi il
+  // redirect alla tab "Informazioni personali" è esplicito e immediato,
+  // invece di affidarsi solo alla guardia generica di _fetchPersonData.
+  void _onParentalResponsibilityRemoved() {
+    setState(() {
+      _selectedTab = 0;
+    });
+    _fetchPersonData();
   }
 
   bool get _isRevoked {
@@ -153,7 +174,13 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
         _person!.parents != null && _person!.parents!.isNotEmpty;
 
     if (isMinor || hasParents) {
-      views.add(PersonParentsTab(person: _person!, onUpdate: _fetchPersonData));
+      views.add(
+        PersonParentsTab(
+          person: _person!,
+          onUpdate: _fetchPersonData,
+          onResponsibilityRemoved: _onParentalResponsibilityRemoved,
+        ),
+      );
     }
 
     if (roles.contains('GENITORE')) {

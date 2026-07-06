@@ -109,6 +109,8 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
         final index = _subjects.indexWhere((s) => s.id == id);
         if (index != -1) _subjects[index] = updated;
       });
+      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
+      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna modificata con successo!', isError: false);
       return true;
     }
     catch (e)
@@ -124,6 +126,8 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
     {
       await _apiService.deleteAssociationSubject(item.id);
       setState(() { _subjects.removeWhere((s) => s.id == item.id); });
+      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
+      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna eliminata con successo!', isError: false);
     }
     catch (e)
     {
