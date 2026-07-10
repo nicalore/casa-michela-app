@@ -63,8 +63,10 @@ class School(Base):
     )
 
     # Ora solo attributo: opzionale, senza vincolo di unicità né controlli di formato.
+    # Lunghezza generosa (100) perché alcuni istituti hanno più di un codice
+    # ufficiale (es. plessi/sedi con livelli scolastici diversi).
     mechanographic_code: Mapped[str | None] = mapped_column(
-        String(20),
+        String(100),
         nullable=True,
     )
 

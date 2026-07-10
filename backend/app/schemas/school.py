@@ -17,8 +17,8 @@ class SchoolBase(BaseModel):
     province: str = Field(..., min_length=2, max_length=2, description="Provincia (es. VI)")
     mechanographic_code: str | None = Field(
         default=None,
-        max_length=20,
-        description="Codice meccanografico (opzionale)",
+        max_length=100,
+        description="Codice meccanografico (opzionale, anche multiplo per istituti con più sedi/livelli)",
     )
 
     @field_validator("mechanographic_code")
