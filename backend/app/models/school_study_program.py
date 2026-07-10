@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     ForeignKey,
     Integer,
-    String,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -14,7 +13,6 @@ from sqlalchemy.orm import (
 )
 
 from app.db.base import Base
-from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.school import School
@@ -24,12 +22,6 @@ if TYPE_CHECKING:
 
 class SchoolStudyProgram(Base):
     __tablename__ = "school_study_programs"
-
-    __table_args__ = (
-        *no_surrounding_whitespace_constraints(
-            "school_mechanographic_code",
-        ),
-    )
 
     study_program_id: Mapped[int] = mapped_column(
         Integer,
@@ -41,12 +33,12 @@ class SchoolStudyProgram(Base):
         primary_key=True,
     )
 
-    school_mechanographic_code: Mapped[str] = mapped_column(
-        String(20), 
+    # Riferimento alla chiave surrogata della scuola (niente onupdate: id immutabile).
+    school_id: Mapped[int] = mapped_column(
+        Integer,
         ForeignKey(
-            "schools.mechanographic_code",
+            "schools.id",
             ondelete="CASCADE",
-            onupdate="CASCADE",
         ),
         primary_key=True,
     )

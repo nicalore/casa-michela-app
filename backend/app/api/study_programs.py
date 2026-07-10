@@ -27,7 +27,7 @@ async def get_study_programs(db: DbSession):
     stmt = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).order_by(StudyProgram.created_at.desc())
-    
+
     result = await db.execute(stmt)
     return result.scalars().unique().all()
 
@@ -38,7 +38,7 @@ async def create_study_program(payload: StudyProgramCreate, db: DbSession):
         raise HTTPException(status_code=400, detail="Seleziona almeno una materia ministeriale.")
 
     stmt = select(StudyProgram).where(
-        StudyProgram.name.ilike(payload.name), 
+        StudyProgram.name.ilike(payload.name),
         StudyProgram.level == payload.level
     )
     if (await db.execute(stmt)).scalars().first():
@@ -50,7 +50,7 @@ async def create_study_program(payload: StudyProgramCreate, db: DbSession):
         subjects = (await db.execute(stmt_subj)).scalars().all()
         if len(subjects) != len(payload.ministry_subject_ids):
             raise HTTPException(status_code=400, detail="Alcune materie ministeriali selezionate non esistono.")
-        
+
         if any(subj.level != payload.level for subj in subjects):
             raise HTTPException(status_code=400, detail="Tutte le materie ministeriali devono avere lo stesso livello del percorso.")
 
@@ -62,19 +62,19 @@ async def create_study_program(payload: StudyProgramCreate, db: DbSession):
         max_year=payload.max_year,
         ministry_subjects=list(subjects)
     )
-    
+
     db.add(new_program)
-    
+
     try:
         await db.commit()
     except IntegrityError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Dati non validi (es. intervallo anni).") from e
-    
+
     stmt_reload = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).where(StudyProgram.id == new_program.id)
-    
+
     return (await db.execute(stmt_reload)).scalars().first()
 
 
@@ -88,13 +88,13 @@ async def update_study_program(program_id: int, payload: StudyProgramUpdate, db:
         .options(selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects))
         .where(StudyProgram.id == program_id)
     )).scalars().first()
-    
+
     if not program:
         raise HTTPException(status_code=404, detail="Indirizzo di studio non trovato.")
 
     if program.name.lower() != payload.name.lower() or program.level != payload.level:
         stmt_conflict = select(StudyProgram).where(
-            StudyProgram.name.ilike(payload.name), 
+            StudyProgram.name.ilike(payload.name),
             StudyProgram.level == payload.level
         )
         if (await db.execute(stmt_conflict)).scalars().first():
@@ -122,11 +122,11 @@ async def update_study_program(program_id: int, payload: StudyProgramUpdate, db:
     except IntegrityError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Dati non validi o anni non coerenti per il livello selezionato.") from e
-    
+
     stmt_reload = select(StudyProgram).options(
         selectinload(StudyProgram.ministry_subjects).selectinload(MinistrySubject.association_subjects)
     ).where(StudyProgram.id == program_id)
-    
+
     return (await db.execute(stmt_reload)).scalars().first()
 
 
@@ -140,20 +140,20 @@ async def delete_study_program(program_id: int, db: DbSession):
     stmt_students = select(SchoolEnrollment.id).where(SchoolEnrollment.study_program_id == program_id).limit(1)
     if (await db.execute(stmt_students)).scalars().first():
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Impossibile eliminare il percorso di studi: è frequentato (o lo è stato) da uno o più studenti."
         )
 
-    # 2. Controllo scuole rimaste senza percorsi
-    subq_schools = select(SchoolStudyProgram.school_mechanographic_code).where(
+    # 2. Controllo scuole rimaste senza percorsi (ora su school_id)
+    subq_schools = select(SchoolStudyProgram.school_id).where(
         SchoolStudyProgram.study_program_id == program_id
     )
-    stmt_schools = select(SchoolStudyProgram.school_mechanographic_code).where(
-        SchoolStudyProgram.school_mechanographic_code.in_(subq_schools)
-    ).group_by(SchoolStudyProgram.school_mechanographic_code).having(
+    stmt_schools = select(SchoolStudyProgram.school_id).where(
+        SchoolStudyProgram.school_id.in_(subq_schools)
+    ).group_by(SchoolStudyProgram.school_id).having(
         func.count(SchoolStudyProgram.study_program_id) == 1
     )
-    
+
     if (await db.execute(stmt_schools)).scalars().first():
         raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi: una o più scuole rimarrebbero senza percorsi.")
 
@@ -166,7 +166,7 @@ async def delete_study_program(program_id: int, db: DbSession):
     ).group_by(TeachingCompetence.teacher_tax_code).having(
         func.count(TeachingCompetence.study_program_id) == 1
     )
-    
+
     if (await db.execute(stmt_teachers)).scalars().first():
         raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi: uno o più docenti rimarrebbero senza competenze associate.")
 
@@ -176,5 +176,5 @@ async def delete_study_program(program_id: int, db: DbSession):
     except IntegrityError as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail="Impossibile eliminare il percorso di studi in quanto protetto da vincoli referenziali.") from e
-    
+
     return {"detail": "Indirizzo di studio eliminato."}

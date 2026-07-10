@@ -925,7 +925,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       {
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-        if (_tipoCollaborazione == 'FSC (Ex PCT0)') collType = 'PCTO';
+        if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
 
         staffData = 
         {
@@ -982,7 +982,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           "school_enrollments": _schoolRows.map((r) => 
           {
             "start_year":                 int.parse(r.yearCtrl.text.trim()),
-            "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+            "school_id":                  r.selectedSchool!.id,
             "study_program_id":           r.selectedProgram!.id,
             "school_class":               r.selectedGrade!,
           }).toList(),
@@ -2549,7 +2549,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 const SizedBox(height: 8),
                 Text
                 (
-                  'Seleziona i genitori o tutori legali del minore (min 1, max 2).\nSe il genitore non è presente a sistema, puoi registrarlo ora.',
+                  'Seleziona i genitori o tutori legali del minore (almeno 1, massimo 2).\nSe il genitore non è presente nell\'elenco, puoi registrarlo ora.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans
                   (
@@ -2703,7 +2703,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 const SizedBox(height: 8),
                 Text
                 (
-                  'Seleziona i minori di cui questa persona è genitore o tutore legale.\nSe il minore non è presente a sistema, puoi registrarlo ora.',
+                  'Seleziona i minori di cui questa persona è genitore o tutore legale.\nSe il minore non è presente nell\'elenco, puoi registrarlo ora.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans
                   (
@@ -3091,7 +3091,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           inputWidget: WizardAnimatedOverlayDropdown
           (
             value:     _tipoCollaborazione,
-            items:     const ['Volontario', 'Retribuito', 'FSC (Ex PCT0)'],
+            items:     const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
             hint:      'Seleziona',
             errorText: _formErrors['tipoCollaborazione'],
             onChanged: (val) => setState(() 

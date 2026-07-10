@@ -141,7 +141,7 @@ class _SchoolCardState extends State<SchoolCard>
               const SizedBox(height: 4),
               Text
               (
-                widget.school.city, 
+                '${widget.school.city} (${widget.school.province})', 
                 maxLines: 1, 
                 overflow: TextOverflow.ellipsis,
                 style:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
@@ -302,7 +302,8 @@ class _SchoolDetailsDialogContent extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final bool isPrivate = school.mechanographicCode.startsWith('PRIV-');
+    //CodiceOraOpzionale_SeAssenteSiMostraUnPlaceholderNeutro
+    final bool hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
     
     return Dialog
     (
@@ -310,7 +311,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       elevation:       0,
       child: Container
       (
-        width:       500, 
+        width:       600, 
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
         decoration:  BoxDecoration
         (
@@ -373,18 +374,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: 
                     [
-                      _buildFieldLabel('Codice Meccanografico'),
-                      Text
-                      (
-                        isPrivate ? 'Generato automaticamente (${school.mechanographicCode})' : school.mechanographicCode, 
-                        style: GoogleFonts.plusJakartaSans
-                        (
-                          fontSize:   20, 
-                          fontWeight: FontWeight.w600, 
-                          color:      isPrivate ? const Color(0xFF8A8A8A) : Colors.black, 
-                          fontStyle:  isPrivate ? FontStyle.italic : FontStyle.normal,
-                        ),
-                      ),
+                      //GerarchiaAggiornata_IlNomeApreIDettagli_IlCodiceScendeInFondoComeDatoSecondario
                       _buildFieldLabel('Nome'),
                       Text
                       (
@@ -448,6 +438,18 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                           ),
                         ],
                       ),
+                      _buildFieldLabel('Codice Meccanografico'),
+                      Text
+                      (
+                        hasCode ? school.mechanographicCode! : 'Non presente', 
+                        style: GoogleFonts.plusJakartaSans
+                        (
+                          fontSize:   20, 
+                          fontWeight: FontWeight.w600, 
+                          color:      hasCode ? Colors.black : const Color(0xFF8A8A8A), 
+                          fontStyle:  hasCode ? FontStyle.normal : FontStyle.italic,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Percorsi di Studio Attivi'),
                       if (school.studyPrograms.isEmpty) 
@@ -498,11 +500,11 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                       (
                         child: AnimatedActionButton
                         (
-                          text:       'MODIFICA', 
-                          icon:       Icons.edit_outlined, 
-                          baseColor:  const Color(0xFF003C82), 
-                          hoverColor: const Color(0xFF004D99), 
-                          onPressed:  onEditRequested,
+                          text:       'ELIMINA', 
+                          icon:       Icons.delete_outline_rounded, 
+                          baseColor:  const Color(0xFFE53935), 
+                          hoverColor: const Color(0xFFEF5350), 
+                          onPressed:  () => _showDeleteConfirmation(context),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -510,11 +512,11 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                       (
                         child: AnimatedActionButton
                         (
-                          text:       'ELIMINA', 
-                          icon:       Icons.delete_outline_rounded, 
-                          baseColor:  const Color(0xFFE53935), 
-                          hoverColor: const Color(0xFFEF5350), 
-                          onPressed:  () => _showDeleteConfirmation(context),
+                          text:       'MODIFICA', 
+                          icon:       Icons.edit_outlined, 
+                          baseColor:  const Color(0xFF003C82), 
+                          hoverColor: const Color(0xFF004D99), 
+                          onPressed:  onEditRequested,
                         ),
                       ),
                     ],

@@ -565,29 +565,38 @@ async def get_student_education_distribution(
     query = query.join(
         SchoolEnrollment, Student.tax_code == SchoolEnrollment.student_tax_code
     )
-    
+
     if distribution_type == "school":
         query = query.join(
-            SchoolStudyProgram, 
-            and_(SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id, SchoolEnrollment.school_mechanographic_code == SchoolStudyProgram.school_mechanographic_code)
+            SchoolStudyProgram,
+            and_(
+                SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id,
+                SchoolEnrollment.school_id == SchoolStudyProgram.school_id,
+            )
         ).join(
-            School, SchoolStudyProgram.school_mechanographic_code == School.mechanographic_code
+            School, SchoolStudyProgram.school_id == School.id
         )
         query = query.add_columns(School.name.label("label")).group_by(School.name)
-        
+
     elif distribution_type == "program":
         query = query.join(
-            SchoolStudyProgram, 
-            and_(SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id, SchoolEnrollment.school_mechanographic_code == SchoolStudyProgram.school_mechanographic_code)
+            SchoolStudyProgram,
+            and_(
+                SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id,
+                SchoolEnrollment.school_id == SchoolStudyProgram.school_id,
+            )
         ).join(
             StudyProgram, SchoolStudyProgram.study_program_id == StudyProgram.id
         )
         query = query.add_columns(StudyProgram.name.label("label")).group_by(StudyProgram.name)
-        
+
     elif distribution_type == "level":
         query = query.join(
-            SchoolStudyProgram, 
-            and_(SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id, SchoolEnrollment.school_mechanographic_code == SchoolStudyProgram.school_mechanographic_code)
+            SchoolStudyProgram,
+            and_(
+                SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id,
+                SchoolEnrollment.school_id == SchoolStudyProgram.school_id,
+            )
         ).join(
             StudyProgram, SchoolStudyProgram.study_program_id == StudyProgram.id
         )
@@ -597,21 +606,21 @@ async def get_student_education_distribution(
     result = await db.execute(query)
 
     def _format_level(val: str) -> str:
-        if val == "PRIMARY_SCHOOL": 
+        if val == "PRIMARY_SCHOOL":
             return "Scuola primaria"
-        if val == "MIDDLE_SCHOOL": 
+        if val == "MIDDLE_SCHOOL":
             return "Scuola secondaria di I grado"
-        if val == "HIGH_SCHOOL": 
+        if val == "HIGH_SCHOOL":
             return "Scuola secondaria di II grado"
         return val
 
     items = []
-    
+
     for r in result.all():
         lbl = _format_level(r.label) if distribution_type == "level" else r.label
         items.append(
             EducationDistributionItem(
-                label=lbl, 
+                label=lbl,
                 count=r.student_count
             )
         )

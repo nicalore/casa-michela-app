@@ -18,7 +18,7 @@ class WizardGeneralData(BaseModel):
     residence_city:          str
     residence_province:      str  = Field(..., max_length=2)
     postal_code:             str  = Field(..., max_length=5)
-    email:                   str  
+    email:                   str
     phone:                   str
 
 
@@ -61,10 +61,10 @@ class WizardCourseParticipantData(BaseModel):
 
 
 class WizardSchoolEnrollmentData(BaseModel):
-    start_year:                 int
-    school_mechanographic_code: str
-    study_program_id:           int
-    school_class:               str
+    start_year:       int
+    school_id:        int
+    study_program_id: int
+    school_class:     str
 
 
 class WizardStudentData(BaseModel):

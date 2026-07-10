@@ -7,12 +7,26 @@ import '../models/study_program_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../widgets/study_program_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
-import '../../../services/api_service.dart';
 import '../../../shared/widgets/shared_components.dart';
 
 class StudyProgramsTab extends StatefulWidget
 {
-  const StudyProgramsTab({super.key});
+  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
+  final List<StudyProgramItem> studyPrograms;
+  //SoloLettura_ServeAllaCardEAlWizardPerAssociareLeMaterieMinisteriali_ProprietarioReaeEMinistrySubjectsTab
+  final List<MinistrySubjectItem> ministrySubjects;
+  final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
+  final void Function(StudyProgramItem item) onDelete;
+
+  const StudyProgramsTab({
+    super.key,
+    required this.studyPrograms,
+    required this.ministrySubjects,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<StudyProgramsTab> createState() => _StudyProgramsTabState();
@@ -20,57 +34,16 @@ class StudyProgramsTab extends StatefulWidget
 
 class _StudyProgramsTabState extends State<StudyProgramsTab>
 {
-  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
   String _sortBy = 'date_desc';
 
   bool _newProgramHover = false;
-  bool _isLoading = true;
-
-  List<StudyProgramItem> _programs = [];
-  List<MinistrySubjectItem> _availableMinistrySubjects = [];
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async
-  {
-    try
-    {
-      final results = await Future.wait([
-        _apiService.getStudyPrograms(),
-        _apiService.getMinistrySubjects(),
-      ]);
-
-      if (mounted)
-      {
-        setState(()
-        {
-          _programs = results[0] as List<StudyProgramItem>;
-          _availableMinistrySubjects = results[1] as List<MinistrySubjectItem>;
-          _isLoading = false;
-        });
-      }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
-      }
-    }
-  }
 
   List<StudyProgramItem> get _filteredPrograms
   {
-    var result = _programs.where((program)
+    var result = widget.studyPrograms.where((program)
     {
       final query = _searchText.toLowerCase();
       return program.name.toLowerCase().contains(query);
@@ -86,56 +59,6 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     });
 
     return result;
-  }
-
-  Future<bool> _executeCreate(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
-  {
-    try
-    {
-      final created = await _apiService.createStudyProgram(name: name, level: level, minYear: minYear, maxYear: maxYear, description: description, ministrySubjectIds: subjectIds);
-      setState(() { _programs.add(created); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso creato con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  Future<bool> _executeEdit(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
-  {
-    try
-    {
-      final updated = await _apiService.updateStudyProgram(id: id, name: name, level: level, minYear: minYear, maxYear: maxYear, description: description, ministrySubjectIds: subjectIds);
-      setState(()
-      {
-        final index = _programs.indexWhere((p) => p.id == id);
-        if (index != -1) _programs[index] = updated;
-      });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso modificato con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  void _executeDelete(StudyProgramItem item) async
-  {
-    try
-    {
-      await _apiService.deleteStudyProgram(item.id);
-      setState(() { _programs.removeWhere((p) => p.id == item.id); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso eliminato con successo!', isError: false);
-    }
-    catch (e)
-    {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
-    }
   }
 
   void _showWizard({StudyProgramItem? program, VoidCallback? onCancelEdit})
@@ -154,12 +77,13 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
               child: _StudyProgramWizardDialog(
                 existingProgram: program,
-                availableMinistrySubjects: _availableMinistrySubjects,
+                //LettaSempreDaWidget.ministrySubjects_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
+                availableMinistrySubjects: widget.ministrySubjects,
                 onCancelEdit: onCancelEdit,
                 onSave: (name, level, minYear, maxYear, description, subjectIds, onError) async
                 {
-                  if (program == null) return await _executeCreate(name, level, minYear, maxYear, description, subjectIds, onError);
-                  else return await _executeEdit(program.id, name, level, minYear, maxYear, description, subjectIds, onError);
+                  if (program == null) return await widget.onCreate(name, level, minYear, maxYear, description, subjectIds, onError);
+                  else return await widget.onEdit(program.id, name, level, minYear, maxYear, description, subjectIds, onError);
                 },
               ),
             ),
@@ -202,18 +126,16 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         const SizedBox(height: 16),
         //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SingleChildScrollView(
-                  child: Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                      children: _filteredPrograms.map((program) {
-                        return StudyProgramCard(program: program, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel), onDelete: () => _executeDelete(program));
-                      }).toList(),
-                    ),
-                  ),
-                ),
+          child: SingleChildScrollView(
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                children: _filteredPrograms.map((program) {
+                  return StudyProgramCard(program: program, availableMinistrySubjects: widget.ministrySubjects, onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel), onDelete: () => widget.onDelete(program));
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ],
     );

@@ -7,7 +7,6 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
-    String,
     UniqueConstraint,
     event,
 )
@@ -42,11 +41,16 @@ class SchoolEnrollment(Base):
             "grade > 0",
             name="positive_grade",
         ),
+        # FK composita verso la tabella ponte, ora su school_id.
+        # Nome esplicito per rendere deterministica la migrazione.
         ForeignKeyConstraint(
-            ["study_program_id", "school_mechanographic_code"],
-            ["school_study_programs.study_program_id", "school_study_programs.school_mechanographic_code"],
+            ["study_program_id", "school_id"],
+            [
+                "school_study_programs.study_program_id",
+                "school_study_programs.school_id",
+            ],
             ondelete="RESTRICT",
-            onupdate="CASCADE",
+            name="school_enrollments_ssp_fkey",
         ),
     )
 
@@ -69,7 +73,7 @@ class SchoolEnrollment(Base):
         ForeignKey(
             "students.tax_code",
             ondelete="CASCADE",
-            onupdate="CASCADE",
+            onupdate="CASCADE",  # tax_code è chiave naturale mutabile: qui l'onupdate serve
         ),
         nullable=False,
         index=True,
@@ -80,8 +84,8 @@ class SchoolEnrollment(Base):
         nullable=False,
     )
 
-    school_mechanographic_code: Mapped[str] = mapped_column(
-        String(20),
+    school_id: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
     )
 
@@ -109,9 +113,10 @@ def _validate_school_enrollments(
         ssp = obj.school_study_program
 
         if ssp is None:
+            # L'ordine della tupla segue l'ordine delle colonne PK del mapper.
             ssp = session.get(
                 SchoolStudyProgram,
-                (obj.study_program_id, obj.school_mechanographic_code),
+                (obj.study_program_id, obj.school_id),
             )
 
         if ssp is None or ssp.study_program is None:

@@ -6,12 +6,26 @@ import '../models/ministry_subject_item.dart';
 import '../models/association_subject_item.dart';
 import '../widgets/ministry_subject_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
-import '../../../services/api_service.dart';
 import '../../../shared/widgets/shared_components.dart';
 
 class MinistrySubjectsTab extends StatefulWidget
 {
-  const MinistrySubjectsTab({super.key});
+  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
+  final List<MinistrySubjectItem> ministrySubjects;
+  //SoloLettura_ServeAlWizardPerAssociareLeDisciplineInterne_ProprietarioReaeEAssociationSubjectsTab
+  final List<AssociationSubjectItem> associationSubjects;
+  final Future<bool> Function(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) onEdit;
+  final void Function(MinistrySubjectItem item) onDelete;
+
+  const MinistrySubjectsTab({
+    super.key,
+    required this.ministrySubjects,
+    required this.associationSubjects,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<MinistrySubjectsTab> createState() => _MinistrySubjectsTabState();
@@ -19,7 +33,6 @@ class MinistrySubjectsTab extends StatefulWidget
 
 class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
 {
-  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
@@ -27,50 +40,10 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
   String? _filterArea;
 
   bool _newSubjectHover = false;
-  bool _isLoading = true;
-
-  List<MinistrySubjectItem> _ministrySubjects = [];
-  List<AssociationSubjectItem> _availableAssociationSubjects = [];
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async
-  {
-    try
-    {
-      final results = await Future.wait([
-        _apiService.getMinistrySubjects(),
-        _apiService.getAssociationSubjects(),
-      ]);
-
-      if (mounted)
-      {
-        setState(()
-        {
-          _ministrySubjects = results[0] as List<MinistrySubjectItem>;
-          _availableAssociationSubjects = results[1] as List<AssociationSubjectItem>;
-          _isLoading = false;
-        });
-      }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
-      }
-    }
-  }
 
   List<MinistrySubjectItem> get _filteredSubjects
   {
-    var result = _ministrySubjects.where((subject)
+    var result = widget.ministrySubjects.where((subject)
     {
       final query = _searchText.toLowerCase();
       final matchesSearch = subject.name.toLowerCase().contains(query);
@@ -90,58 +63,6 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     return result;
   }
 
-  Future<bool> _executeCreate(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
-  {
-    try
-    {
-      final created = await _apiService.createMinistrySubject(name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
-      setState(() { _ministrySubjects.add(created); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale creata con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  Future<bool> _executeEdit(int id, String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
-  {
-    try
-    {
-      final updated = await _apiService.updateMinistrySubject(id: id, name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
-      setState(()
-      {
-        final index = _ministrySubjects.indexWhere((s) => s.id == id);
-        if (index != -1) _ministrySubjects[index] = updated;
-      });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale modificata con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  void _executeDelete(MinistrySubjectItem item) async
-  {
-    try
-    {
-      await _apiService.deleteMinistrySubject(item.id);
-      setState(() { _ministrySubjects.removeWhere((s) => s.id == item.id); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale eliminata con successo!', isError: false);
-    }
-    catch (e)
-    {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
-    }
-  }
-
   void _showWizard({MinistrySubjectItem? subject, VoidCallback? onCancelEdit})
   {
     showGeneralDialog(
@@ -158,12 +79,13 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
               child: _MinistrySubjectWizardDialog(
                 existingSubject: subject,
-                availableAssociationSubjects: _availableAssociationSubjects,
+                //LettaSempreDaWidget.associationSubjects_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
+                availableAssociationSubjects: widget.associationSubjects,
                 onCancelEdit: onCancelEdit,
                 onSave: (name, level, areas, description, associationIds, onError) async
                 {
-                  if (subject == null) return await _executeCreate(name, level, areas, description, associationIds, onError);
-                  else return await _executeEdit(subject.id, name, level, areas, description, associationIds, onError);
+                  if (subject == null) return await widget.onCreate(name, level, areas, description, associationIds, onError);
+                  else return await widget.onEdit(subject.id, name, level, areas, description, associationIds, onError);
                 },
               ),
             ),
@@ -209,18 +131,16 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         const SizedBox(height: 16),
         //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SingleChildScrollView(
-                  child: Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                      children: _filteredSubjects.map((subject) {
-                        return MinistrySubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => _executeDelete(subject));
-                      }).toList(),
-                    ),
-                  ),
-                ),
+          child: SingleChildScrollView(
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                children: _filteredSubjects.map((subject) {
+                  return MinistrySubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => widget.onDelete(subject));
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ],
     );

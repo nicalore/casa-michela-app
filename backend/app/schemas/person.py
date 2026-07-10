@@ -17,8 +17,10 @@ class MembershipResponse(BaseModel):
 class SchoolEnrollmentResponse(BaseModel):
     start_year: int
     grade: int
+    school_id: int
     school_name: str
-    school_mechanographic_code: str
+    # Solo visualizzazione: la scuola potrebbe non avere un codice.
+    school_mechanographic_code: Optional[str] = None
     study_program_name: str
     study_program_id: int
     education_level: str
@@ -119,7 +121,7 @@ class CourseParticipantUpdateData(BaseModel):
 
 class StudentUpdateData(BaseModel):
     authorized_early_exit: bool
-    school_mechanographic_code: str
+    school_id: int
     study_program_id: int
     school_class: str
     expected_updated_at: Optional[datetime] = None
@@ -169,7 +171,7 @@ class RevokeMembershipPayload(BaseModel):
 
 class SchoolEnrollmentUpdateItem(BaseModel):
     start_year: int
-    school_mechanographic_code: str
+    school_id: int
     study_program_id: int
     grade: int
 
@@ -209,7 +211,7 @@ class PersonResponse(BaseModel):
     roles: List[str]
     created_at: datetime
     profile_image_url: Optional[str] = None
-    
+
     gender: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -220,7 +222,7 @@ class PersonResponse(BaseModel):
     residence_street_number: Optional[str] = None
     residence_province: Optional[str] = None
     postal_code: Optional[str] = None
-    
+
     city: Optional[str] = None
     birth_date: Optional[date] = None
     children_count: Optional[int] = None

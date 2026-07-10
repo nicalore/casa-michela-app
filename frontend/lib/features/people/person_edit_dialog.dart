@@ -219,7 +219,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               final sorted = List<SchoolEnrollmentItem>.from(enrollments)..sort((a, b) => b.startYear.compareTo(a.startYear));
               for (var e in sorted) 
               {
-                final school  = _allSchools.where((s) => s.mechanographicCode == e.schoolMechanographicCode).firstOrNull;
+                final school  = _allSchools.where((s) => s.id == e.schoolId).firstOrNull;
                 final program = _allPrograms.where((p) => p.id == e.studyProgramId).firstOrNull;
                 
                 String? gradeString;
@@ -242,7 +242,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             {
               SchoolItem?       matchedSchool;
               StudyProgramItem? matchedProgram;
-              try { matchedSchool = _allSchools.firstWhere((s) => s.name == widget.person.schoolName); } catch (_) {}
+              //IlNomeDaSoloNonEPiuUnIdentificatoreAffidabile_OraCheLOmonimiaTraCittaDiverseEAmmessa
+              //QuestoFallbackNonHaAccessoAllaCittaDiSchoolName(SoloStringaDenormalizzata)_QuindiSePiuScuoleCondividonoIlNome
+              //NonIndoviniamo_LasciamoIlCampoVuotoESceltaManualeAllUtente_MeglioDiUnMatchSilenziosoPotenzialmenteSbagliato
+              final schoolNameMatches = _allSchools.where((s) => s.name == widget.person.schoolName).toList();
+              if (schoolNameMatches.length == 1) matchedSchool = schoolNameMatches.first;
               try { matchedProgram = _allPrograms.firstWhere((p) => p.name == widget.person.studyProgram); } catch (_) {}
 
               _schoolRows.add(WizardSchoolRowData
@@ -396,7 +400,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     if (widget.person.collaborationType == 'Volontario' || widget.person.collaborationType == 'VOLUNTEER') _tipoCollaborazione = 'Volontario';
     if (widget.person.collaborationType == 'Retribuito' || widget.person.collaborationType == 'PAID') _tipoCollaborazione = 'Retribuito';
-    if (widget.person.collaborationType == 'PCTO' || widget.person.collaborationType == 'FSC (Ex PCT0)') _tipoCollaborazione = 'FSC (Ex PCT0)';
+    if (widget.person.collaborationType == 'PCTO' || widget.person.collaborationType == 'FSL (Ex PCT0)') _tipoCollaborazione = 'FSL (Ex PCT0)';
 
     if (widget.person.adminRole != null) 
     {
@@ -1089,7 +1093,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       {
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-        if (_tipoCollaborazione == 'FSC (Ex PCT0)') collType = 'PCTO';
+        if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
 
         staffData = 
         {
@@ -1145,7 +1149,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         studentData = 
         {
           "authorized_early_exit":      _isMinor ? (_uscitaAnticipata == 'Sì') : true,
-          "school_mechanographic_code": _schoolRows.isNotEmpty ? _schoolRows.first.selectedSchool!.mechanographicCode : '',
+          "school_id":                  _schoolRows.isNotEmpty ? _schoolRows.first.selectedSchool!.id : 0,
           "study_program_id":           _schoolRows.isNotEmpty ? _schoolRows.first.selectedProgram!.id : 0,
           "school_class":               _schoolRows.isNotEmpty ? _schoolRows.first.selectedGrade! : '',
           if (widget.person.studentUpdatedAt != null)
@@ -1203,7 +1207,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           payloadEnrollments.add(
           {
             "start_year":                 int.parse(r.yearCtrl.text.trim()),
-            "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+            "school_id":                  r.selectedSchool!.id,
             "study_program_id":           r.selectedProgram!.id,
             "grade":                      _romanToNumeric(r.selectedGrade!),
           });
@@ -2235,7 +2239,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           leadingIcon: const WizardStaticAvatar(icon: Icons.cake_rounded),
           children: 
           [
-            WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', enabled: true, errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
+            WizardFormInputRow(label: 'Data di nascita', inputWidget: WizardAnimatedTextField(controller: _dataNascitaCtrl, hint: 'gg/mm/aaaa', enabled: false, errorText: _formErrors['dataNascita'], onChanged: (_) => setState(() => _formErrors.remove('dataNascita')))),
             const SizedBox(height: 16),
             WizardFormInputRow(label: 'Città di nascita', inputWidget: WizardAnimatedTextField(controller: _cittaNascitaCtrl, hint: 'Es. Thiene', enabled: false, errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')))),
             const SizedBox(height: 16),
@@ -2629,7 +2633,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           inputWidget: WizardAnimatedOverlayDropdown
           (
             value:     _tipoCollaborazione,
-            items:     const ['Volontario', 'Retribuito', 'FSC (Ex PCT0)'],
+            items:     const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
             hint:      'Seleziona',
             errorText: _formErrors['tipoCollaborazione'],
             onChanged: (val) => setState(() 

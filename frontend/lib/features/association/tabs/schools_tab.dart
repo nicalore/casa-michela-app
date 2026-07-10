@@ -7,12 +7,29 @@ import '../models/study_program_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../widgets/school_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
-import '../../../services/api_service.dart';
 import '../../../shared/widgets/shared_components.dart';
 
 class SchoolsTab extends StatefulWidget 
 {
-  const SchoolsTab({super.key});
+  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
+  final List<SchoolItem> schools;
+  //SoloLettura_ServeAllaCardEAlWizardPerAssociareIPercorsiDiStudio_ProprietarioReaeEStudyProgramsTab
+  final List<StudyProgramItem> studyPrograms;
+  //SoloLettura_ServeSoloAllaCard(NonAlWizard)_ProprietarioReaeEMinistrySubjectsTab
+  final List<MinistrySubjectItem> ministrySubjects;
+  final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onEdit;
+  final void Function(SchoolItem item) onDelete;
+
+  const SchoolsTab({
+    super.key,
+    required this.schools,
+    required this.studyPrograms,
+    required this.ministrySubjects,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<SchoolsTab> createState() => _SchoolsTabState();
@@ -20,64 +37,20 @@ class SchoolsTab extends StatefulWidget
 
 class _SchoolsTabState extends State<SchoolsTab> 
 {
-  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
   String _sortBy = 'date_desc';
   
   bool _newSchoolHover = false;
-  bool _isLoading = true;
-
-  List<SchoolItem> _schools = [];
-  List<StudyProgramItem> _availableStudyPrograms = [];
-  List<MinistrySubjectItem> _availableMinistrySubjects = [];
-
-  @override
-  void initState() 
-  {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async 
-  {
-    try 
-    {
-      final results = await Future.wait([
-        _apiService.getSchools(),
-        _apiService.getStudyPrograms(),
-        _apiService.getMinistrySubjects(),
-      ]);
-
-      if (mounted) 
-      {
-        setState(() 
-        {
-          _schools = results[0] as List<SchoolItem>;
-          _availableStudyPrograms = results[1] as List<StudyProgramItem>;
-          _availableMinistrySubjects = results[2] as List<MinistrySubjectItem>;
-          _isLoading = false;
-        });
-      }
-    } 
-    catch (e) 
-    {
-      if (mounted) 
-      {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
-      }
-    }
-  }
 
   List<SchoolItem> get _filteredSchools 
   {
-    var result = _schools.where((school) 
+    var result = widget.schools.where((school) 
     {
       final query = _searchText.toLowerCase();
       return school.name.toLowerCase().contains(query) ||
-          school.mechanographicCode.toLowerCase().contains(query) ||
+          (school.mechanographicCode ?? '').toLowerCase().contains(query) ||
           school.city.toLowerCase().contains(query) ||
           school.province.toLowerCase().contains(query);
     }).toList();
@@ -92,58 +65,6 @@ class _SchoolsTabState extends State<SchoolsTab>
     });
 
     return result;
-  }
-
-  Future<bool> _executeCreate(bool isPrivate, String code, String name, String city, String prov, List<int> programIds, Function(String) onError) async 
-  {
-    try 
-    {
-      final createdSchool = await _apiService.createSchool(isPrivate: isPrivate, code: code, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() { _schools.add(createdSchool); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola creata con successo!', isError: false);
-      return true;
-    } 
-    catch (e) 
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  Future<bool> _executeEdit(String oldCode, bool isPrivate, String newCode, String name, String city, String prov, List<int> programIds, Function(String) onError) async 
-  {
-    try 
-    {
-      final updatedSchool = await _apiService.updateSchool(oldCode: oldCode, isPrivate: isPrivate, newCode: newCode, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() 
-      {
-        final index = _schools.indexWhere((s) => s.mechanographicCode == oldCode);
-        if (index != -1) _schools[index] = updatedSchool;
-      });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola modificata con successo!', isError: false);
-      return true;
-    } 
-    catch (e) 
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  void _executeDelete(SchoolItem item) async 
-  {
-    try 
-    {
-      await _apiService.deleteSchool(item.mechanographicCode);
-      setState(() { _schools.removeWhere((s) => s.mechanographicCode == item.mechanographicCode); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola eliminata con successo!', isError: false);
-    } 
-    catch (e) 
-    {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
-    }
   }
 
   void _showWizard({SchoolItem? school, VoidCallback? onCancelEdit}) 
@@ -162,12 +83,13 @@ class _SchoolsTabState extends State<SchoolsTab>
               scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
               child: _SchoolWizardDialog(
                 existingSchool: school,
-                availableStudyPrograms: _availableStudyPrograms,
+                //LettaSempreDaWidget.studyPrograms_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
+                availableStudyPrograms: widget.studyPrograms,
                 onCancelEdit: onCancelEdit,
-                onSave: (isPrivate, code, name, city, prov, programIds, onError) async 
+                onSave: (code, name, city, prov, programIds, onError) async 
                 {
-                  if (school == null) return await _executeCreate(isPrivate, code, name, city, prov, programIds, onError);
-                  else return await _executeEdit(school.mechanographicCode, isPrivate, code, name, city, prov, programIds, onError);
+                  if (school == null) return await widget.onCreate(code, name, city, prov, programIds, onError);
+                  else return await widget.onEdit(school.id, code, name, city, prov, programIds, onError);
                 },
               ),
             ),
@@ -177,7 +99,6 @@ class _SchoolsTabState extends State<SchoolsTab>
     );
   }
 
-  @override
   @override
   Widget build(BuildContext context) 
   {
@@ -211,18 +132,16 @@ class _SchoolsTabState extends State<SchoolsTab>
         const SizedBox(height: 16),
         //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SingleChildScrollView(
-                  child: Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                      children: _filteredSchools.map((school) {
-                        return SchoolCard(school: school, availableStudyPrograms: _availableStudyPrograms, availableMinistrySubjects: _availableMinistrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => _executeDelete(school));
-                      }).toList(),
-                    ),
-                  ),
-                ),
+          child: SingleChildScrollView(
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                children: _filteredSchools.map((school) {
+                  return SchoolCard(school: school, availableStudyPrograms: widget.studyPrograms, availableMinistrySubjects: widget.ministrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => widget.onDelete(school));
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -234,7 +153,7 @@ class _SchoolWizardDialog extends StatefulWidget
   final SchoolItem? existingSchool;
   final List<StudyProgramItem> availableStudyPrograms;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(bool isPrivate, String code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
+  final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
   
   const _SchoolWizardDialog({
     this.existingSchool, required this.availableStudyPrograms, this.onCancelEdit, required this.onSave,
@@ -250,7 +169,6 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   final PageController _pageController = PageController();
   bool _isSaving = false;
 
-  bool _isPrivate = false;
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
@@ -265,8 +183,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     super.initState();
     if (widget.existingSchool != null)
     {
-      _isPrivate = widget.existingSchool!.mechanographicCode.startsWith('PRIV-');
-      if (!_isPrivate) _codeController.text = widget.existingSchool!.mechanographicCode;
+      _codeController.text = widget.existingSchool!.mechanographicCode ?? '';
       _nameController.text = widget.existingSchool!.name;
       _cityController.text = widget.existingSchool!.city;
       _provController.text = widget.existingSchool!.province;
@@ -289,7 +206,6 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   void _resetForm()
   {
     setState(() {
-      _isPrivate = false;
       _codeController.clear();
       _nameController.clear();
       _cityController.clear();
@@ -305,19 +221,13 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   {
     if (_currentStep == 0)
     {
-      final code = _codeController.text.trim().toUpperCase();
       final name = _nameController.text.trim();
       final city = _cityController.text.trim();
       final prov = _provController.text.trim().toUpperCase();
 
       if (name.isEmpty || city.isEmpty) { CustomSnackBar.show(context: context, message: 'Compila tutti i campi richiesti.', isError: true); return; }
       if (prov.length != 2) { CustomSnackBar.show(context: context, message: 'La provincia deve essere esattamente di 2 lettere.', isError: true); return; }
-      if (!_isPrivate) 
-      { 
-        if (code.isEmpty) { CustomSnackBar.show(context: context, message: 'Inserisci il codice meccanografico.', isError: true); return; }
-        if (code.length != 10) { CustomSnackBar.show(context: context, message: 'Il codice meccanografico deve essere di 10 caratteri.', isError: true); return; }
-        if (!code.startsWith(prov)) { CustomSnackBar.show(context: context, message: 'Le prime due lettere del codice devono corrispondere alla provincia ($prov).', isError: true); return; }
-      }
+      //IlCodiceMeccanograficoEOpzionaleESenzaVincoliDiFormato_NessunControllo
       setState(() => _currentStep++);
       _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
@@ -326,9 +236,11 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       if (_selectedPrograms.isEmpty) { CustomSnackBar.show(context: context, message: 'Associa almeno un percorso di studio alla scuola.', isError: true); return; }
 
       setState(() => _isSaving = true);
-      final code = _isPrivate ? "" : _codeController.text.trim().toUpperCase();
+      //CampoVuoto=NessunCodice_ViaggiaComeNullFinoAlDb
+      final rawCode = _codeController.text.trim().toUpperCase();
+      final String? code = rawCode.isEmpty ? null : rawCode;
       
-      bool success = await widget.onSave(_isPrivate, code, _nameController.text.trim(), _cityController.text.trim(), _provController.text.trim().toUpperCase(), _selectedPrograms, (errorMsg) {
+      bool success = await widget.onSave(code, _nameController.text.trim(), _cityController.text.trim(), _provController.text.trim().toUpperCase(), _selectedPrograms, (errorMsg) {
         if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true);
       });
 
@@ -400,16 +312,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Switch(value: _isPrivate, activeColor: const Color(0xFF003C82), splashRadius: 0.0, hoverColor: Colors.transparent, focusColor: Colors.transparent, onChanged: (v) => setState(() { _isPrivate = v; if (v) _codeController.clear(); })),
-                const SizedBox(width: 8),
-                Text('Scuola Privata', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _buildFieldLabel('Codice Meccanografico'),
-            TextField(controller: _codeController, enabled: !_isPrivate, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: _isPrivate ? const Color(0xFF8A8A8A) : Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: _isPrivate ? 'Non richiesto' : 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            //GerarchiaCampiAggiornata_IlNomeApreIlFormComeNuovaIdentitaDellaScuola
+            //NomeECittaFormanoIlVincoloDiUnicita_PercioStannoVisivamenteVicini
             _buildFieldLabel('Nome'),
             TextField(controller: _nameController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Statale F. Corradini', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
             Row(
@@ -419,6 +323,9 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                 Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Provincia'), TextField(controller: _provController, textCapitalization: TextCapitalization.characters, maxLength: 2, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(counterText: "", hintText: 'Es. VI', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
               ],
             ),
+            //IlCodiceChiudeIlFormComeDettaglioSecondarioFacoltativo_NonEPiuLaChiaveDiNulla
+            _buildFieldLabel('Codice Meccanografico (opzionale)'),
+            TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
           ],
         ),
       ),
