@@ -373,6 +373,7 @@ ApiService._internal()
     final response = await _dio.get('/schools/');
 
     return (response.data as List).map((e) => SchoolItem(
+      id:                 e['id'],
       mechanographicCode: e['mechanographic_code'],
       name:               e['name'],
       city:               e['city'],
@@ -388,15 +389,15 @@ ApiService._internal()
     )).toList();
   }
 
-  Future<SchoolItem> createSchool({required bool isPrivate, required String code, required String name, required String city, required String province, required List<int> studyProgramIds}) async
+  Future<SchoolItem> createSchool({String? code, required String name, required String city, required String province, required List<int> studyProgramIds}) async
   {
     try
     {
       final response = await _dio.post(
         '/schools/',
         data: {
-          'is_private':          isPrivate,
-          'mechanographic_code': code,
+          //NullSeAssente_IlBackendNormalizzaComunqueStringaVuotaANull
+          'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name':                name,
           'city':                city,
           'province':            province,
@@ -405,6 +406,7 @@ ApiService._internal()
       );
 
       return SchoolItem(
+        id:                 response.data['id'],
         mechanographicCode: response.data['mechanographic_code'],
         name:               response.data['name'],
         city:               response.data['city'],
@@ -425,15 +427,15 @@ ApiService._internal()
     }
   }
 
-  Future<SchoolItem> updateSchool({required String oldCode, required bool isPrivate, required String newCode, required String name, required String city, required String province, required List<int> studyProgramIds}) async
+  Future<SchoolItem> updateSchool({required int id, String? code, required String name, required String city, required String province, required List<int> studyProgramIds}) async
   {
     try
     {
       final response = await _dio.put(
-        '/schools/$oldCode',
+        '/schools/$id',
         data: {
-          'is_private':          isPrivate,
-          'mechanographic_code': newCode,
+          //NullSeAssente_IlBackendNormalizzaComunqueStringaVuotaANull
+          'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name':                name,
           'city':                city,
           'province':            province,
@@ -442,6 +444,7 @@ ApiService._internal()
       );
 
       return SchoolItem(
+        id:                 response.data['id'],
         mechanographicCode: response.data['mechanographic_code'],
         name:               response.data['name'],
         city:               response.data['city'],
@@ -462,11 +465,11 @@ ApiService._internal()
     }
   }
 
-  Future<void> deleteSchool(String code) async
+  Future<void> deleteSchool(int id) async
   {
     try
     {
-      await _dio.delete('/schools/$code');
+      await _dio.delete('/schools/$id');
     }
     on DioException catch (e)
     {

@@ -235,8 +235,9 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                         school_enrollments_list.append(SchoolEnrollmentResponse(
                             start_year=e.start_year,
                             grade=e.grade,
+                            school_id=ssp.school_id,
                             school_name=ssp.school.name,
-                            school_mechanographic_code=ssp.school_mechanographic_code,
+                            school_mechanographic_code=ssp.school.mechanographic_code,
                             study_program_name=ssp.study_program.name,
                             study_program_id=ssp.study_program_id,
                             education_level=_translate_education_level(ssp.study_program.level) or ""
@@ -583,7 +584,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                     .values(
                         grade=numeric_grade,
                         study_program_id=s_data.study_program_id,
-                        school_mechanographic_code=s_data.school_mechanographic_code
+                        school_id=s_data.school_id
                     )
                 )
             else:
@@ -592,7 +593,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                     start_year=start_year,
                     grade=numeric_grade,
                     study_program_id=s_data.study_program_id,
-                    school_mechanographic_code=s_data.school_mechanographic_code
+                    school_id=s_data.school_id
                 ))
         else:
             await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
@@ -821,7 +822,7 @@ async def update_person_school_enrollments(tax_code: str, payload: PersonSchoolE
             start_year=e_data.start_year,
             grade=e_data.grade,
             study_program_id=e_data.study_program_id,
-            school_mechanographic_code=e_data.school_mechanographic_code
+            school_id=e_data.school_id
         )
         db.add(new_e)
         

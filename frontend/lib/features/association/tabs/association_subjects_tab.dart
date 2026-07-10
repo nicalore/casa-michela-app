@@ -5,12 +5,23 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/association_subject_item.dart';
 import '../widgets/association_subject_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
-import '../../../services/api_service.dart';
 import '../../../shared/widgets/shared_components.dart';
 
 class AssociationSubjectsTab extends StatefulWidget
 {
-  const AssociationSubjectsTab({super.key});
+  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
+  final List<AssociationSubjectItem> associationSubjects;
+  final Future<bool> Function(String name, String area, String description, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String name, String area, String description, Function(String) onError) onEdit;
+  final void Function(AssociationSubjectItem item) onDelete;
+
+  const AssociationSubjectsTab({
+    super.key,
+    required this.associationSubjects,
+    required this.onCreate,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<AssociationSubjectsTab> createState() => _AssociationSubjectsTabState();
@@ -18,7 +29,6 @@ class AssociationSubjectsTab extends StatefulWidget
 
 class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
 {
-  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
@@ -26,44 +36,10 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
   String? _filterArea;
 
   bool _newSubjectHover = false;
-  bool _isLoading = true;
-
-  List<AssociationSubjectItem> _subjects = [];
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _loadSubjects();
-  }
-
-  Future<void> _loadSubjects() async
-  {
-    try
-    {
-      final data = await _apiService.getAssociationSubjects();
-      if (mounted)
-      {
-        setState(()
-        {
-          _subjects = data;
-          _isLoading = false;
-        });
-      }
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare le materie dal server.', isError: true);
-      }
-    }
-  }
 
   List<AssociationSubjectItem> get _filteredSubjects
   {
-    var result = _subjects.where((subject)
+    var result = widget.associationSubjects.where((subject)
     {
       final query = _searchText.toLowerCase();
       final matchesSearch = subject.name.toLowerCase().contains(query);
@@ -81,58 +57,6 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
     });
 
     return result;
-  }
-
-  Future<bool> _executeCreate(String name, String area, String description, Function(String) onError) async
-  {
-    try
-    {
-      final created = await _apiService.createAssociationSubject(name, area, description);
-      setState(() { _subjects.add(created); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna creata con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  Future<bool> _executeEdit(int id, String name, String area, String description, Function(String) onError) async
-  {
-    try
-    {
-      final updated = await _apiService.updateAssociationSubject(id, name, area, description);
-      setState(()
-      {
-        final index = _subjects.indexWhere((s) => s.id == id);
-        if (index != -1) _subjects[index] = updated;
-      });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna modificata con successo!', isError: false);
-      return true;
-    }
-    catch (e)
-    {
-      onError(e.toString().replaceAll('Exception: ', ''));
-      return false;
-    }
-  }
-
-  void _executeDelete(AssociationSubjectItem item) async
-  {
-    try
-    {
-      await _apiService.deleteAssociationSubject(item.id);
-      setState(() { _subjects.removeWhere((s) => s.id == item.id); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna eliminata con successo!', isError: false);
-    }
-    catch (e)
-    {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
-    }
   }
 
   void _showWizard({AssociationSubjectItem? subject, VoidCallback? onCancelEdit})
@@ -154,8 +78,8 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
                 onCancelEdit: onCancelEdit,
                 onSave: (name, area, description, onError) async
                 {
-                  if (subject == null) return await _executeCreate(name, area, description, onError);
-                  else return await _executeEdit(subject.id, name, area, description, onError);
+                  if (subject == null) return await widget.onCreate(name, area, description, onError);
+                  else return await widget.onEdit(subject.id, name, area, description, onError);
                 },
               ),
             ),
@@ -201,18 +125,16 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
         const SizedBox(height: 16),
         //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
         Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
-              : SingleChildScrollView(
-                  child: Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                      children: _filteredSubjects.map((subject) {
-                        return AssociationSubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => _executeDelete(subject));
-                      }).toList(),
-                    ),
-                  ),
-                ),
+          child: SingleChildScrollView(
+            child: Center(
+              child: Wrap(
+                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
+                children: _filteredSubjects.map((subject) {
+                  return AssociationSubjectCard(subject: subject, onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel), onDelete: () => widget.onDelete(subject));
+                }).toList(),
+              ),
+            ),
+          ),
         ),
       ],
     );

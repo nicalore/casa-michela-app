@@ -2,8 +2,9 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SchoolOption(BaseModel):
-    mechanographic_code: str
+    id: int
     name: str
+    mechanographic_code: str | None = None  # mantenuto per la visualizzazione
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -19,7 +20,7 @@ class StudyProgramOption(BaseModel):
 
 
 class SchoolStudyProgramBase(BaseModel):
-    school_mechanographic_code: str
+    school_id: int
     study_program_id: int
 
 

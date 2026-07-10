@@ -20,7 +20,7 @@ from app.schemas.person_wizard import PersonWizardPayload
 async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPayload) -> Person:
     # Verifica esistenza
     existing_person = await db.get(Person, payload.general_data.tax_code)
-    
+
     if existing_person:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -44,7 +44,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
         email=payload.general_data.email,
         phone=payload.general_data.phone,
     )
-    
+
     db.add(person)
 
     roles = payload.roles
@@ -54,7 +54,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
         db.add(parent)
 
     needs_member = any(r in roles for r in ["ASSOCIATO", "STUDENTE", "CORSISTA", "DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
-    
+
     if needs_member:
         member = Member(tax_code=person.tax_code)
         db.add(member)
@@ -88,7 +88,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
                     grade=numeric_grade,
                     student_tax_code=person.tax_code,
                     study_program_id=enrollment_data.study_program_id,
-                    school_mechanographic_code=enrollment_data.school_mechanographic_code
+                    school_id=enrollment_data.school_id
                 )
                 db.add(school_enrollment)
 
@@ -101,7 +101,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
             db.add(corsista)
 
         needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
-        
+
         if needs_staff and payload.staff_data:
             # Conversione esplicita per staff
             staff = Staff(
@@ -120,7 +120,7 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
                     other_role=payload.admin_data.other_role if role_val == AdministratorRoleEnum.OTHER else None
                 )
                 db.add(admin)
-            
+
             if "PSICOLOGO" in roles:
                 psicologo = Psychologist(tax_code=person.tax_code)
                 db.add(psicologo)
@@ -158,5 +158,5 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
 
     await db.commit()
     await db.refresh(person)
-    
+
     return person

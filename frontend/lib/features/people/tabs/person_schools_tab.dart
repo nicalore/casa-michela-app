@@ -472,7 +472,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
 
       for (var e in enrollments) {
         final school = _allSchools
-            .where((s) => s.mechanographicCode == e.schoolMechanographicCode)
+            .where((s) => s.id == e.schoolId)
             .firstOrNull;
         final program = _allPrograms
             .where((p) => p.id == e.studyProgramId)
@@ -600,7 +600,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
       if (!hasErrors) {
         payloadEnrollments.add({
           "start_year": int.parse(r.yearCtrl.text),
-          "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+          "school_id": r.selectedSchool!.id,
           "study_program_id": r.selectedProgram!.id,
           "grade": _romanToNumeric(r.selectedGrade!),
         });

@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Integer,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import (
@@ -27,22 +29,16 @@ class School(Base):
     __tablename__ = "schools"
 
     __table_args__ = (
+        # La coppia (nome, città) identifica univocamente la scuola:
+        # ammette omonimie in comuni diversi, blocca il doppione esatto.
+        UniqueConstraint(
+            "name",
+            "city",
+            name="uq_school_name_city",
+        ),
         CheckConstraint(
             "province ~ '^[A-Z]{2}$'",
             name="school_province_format",
-        ),
-        # Must be 10 characters long if it does not start with PRIV-
-        CheckConstraint(
-            "mechanographic_code LIKE 'PRIV-%' OR length(mechanographic_code) = 10",
-            name="school_code_length",
-        ),
-        # First two letters must match the province if it does not start with PRIV-
-        CheckConstraint(
-            """
-            mechanographic_code LIKE 'PRIV-%' OR
-            upper(substr(mechanographic_code, 1, 2)) = upper(province)
-            """,
-            name="school_code_province_consistency",
         ),
         CheckConstraint(
             "length(trim(name)) > 0",
@@ -52,6 +48,7 @@ class School(Base):
             "length(trim(city)) > 0",
             name="school_city_not_blank",
         ),
+        # Il check no-whitespace su mechanographic_code è NULL-safe.
         *no_surrounding_whitespace_constraints(
             "mechanographic_code",
             "name",
@@ -60,9 +57,15 @@ class School(Base):
         ),
     )
 
-    mechanographic_code: Mapped[str] = mapped_column(
-        String(20),
+    id: Mapped[int] = mapped_column(
+        Integer,
         primary_key=True,
+    )
+
+    # Ora solo attributo: opzionale, senza vincolo di unicità né controlli di formato.
+    mechanographic_code: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
     )
 
     name: Mapped[str] = mapped_column(
@@ -95,6 +98,6 @@ class School(Base):
     # Relazione "viewonly" per permettere a Pydantic di estrarre comodamente la lista
     study_programs: Mapped[list[StudyProgram]] = relationship(
         "StudyProgram",
-        secondary="school_study_programs", # Nome esatto della tabella ponte
-        viewonly=True
+        secondary="school_study_programs",
+        viewonly=True,
     )

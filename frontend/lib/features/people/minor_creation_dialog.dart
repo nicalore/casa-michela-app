@@ -691,7 +691,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     {
       String collType = 'VOLUNTEER';
       if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-      if (_tipoCollaborazione == 'FSC (Ex PCT0)') collType = 'PCTO';
+      if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
 
       staffData = 
       {
@@ -732,7 +732,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
         "school_enrollments": _schoolRows.map((r) => 
        {
          "start_year":                 int.parse(r.yearCtrl.text.trim()),
-          "school_mechanographic_code": r.selectedSchool!.mechanographicCode,
+          "school_id":                  r.selectedSchool!.id,
           "study_program_id":           r.selectedProgram!.id,
           "school_class":               r.selectedGrade!,
         }).toList(),
@@ -1096,7 +1096,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
             inputWidget: WizardAnimatedOverlayDropdown
             (
               value:     _tipoCollaborazione,
-              items:     const ['Volontario', 'Retribuito', 'FSC (Ex PCT0)'],
+              items:     const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
               hint:      'Seleziona',
               errorText: _formErrors['tipoCollaborazione'],
               onChanged: (val) => setState(() 
