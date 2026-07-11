@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/casa_michela_loader.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
 
@@ -175,7 +174,7 @@ class _ProfileTabState extends State<ProfileTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child:   CasaMichelaLoader(),
+          child:   CircularProgressIndicator(color: Color(0xFF003C82)),
         ),
       );
     }

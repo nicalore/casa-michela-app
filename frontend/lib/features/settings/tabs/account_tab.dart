@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/casa_michela_loader.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
@@ -85,7 +84,7 @@ class _AccountTabState extends State<AccountTab> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child: CasaMichelaLoader(),
+          child: CircularProgressIndicator(color: Color(0xFF003C82)),
         ),
       );
     }
