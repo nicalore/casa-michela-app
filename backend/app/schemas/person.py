@@ -44,6 +44,11 @@ class ParentInfoResponse(BaseModel):
     postal_code: Optional[str] = None
     city: Optional[str] = None
     birth_date: Optional[date] = None
+    # Riferite alla relazione ParentalResponsibility tra questo genitore
+    # e la persona per cui la lista viene costruita, non al genitore in
+    # generale.
+    authorized_pickup: bool = True
+    pickup_restriction_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,6 +72,10 @@ class ChildInfoResponse(BaseModel):
     school_name: Optional[str] = None
     school_class: Optional[str] = None
     study_program: Optional[str] = None
+    # Riferite alla relazione ParentalResponsibility tra il genitore per cui
+    # la lista viene costruita e questo figlio, non al figlio in generale.
+    authorized_pickup: bool = True
+    pickup_restriction_reason: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -119,17 +128,40 @@ class CourseParticipantUpdateData(BaseModel):
     course_type: str
 
 
-class StudentUpdateData(BaseModel):
-    authorized_early_exit: bool
+class SchoolEnrollmentUpdateItem(BaseModel):
+    start_year: int
     school_id: int
     study_program_id: int
-    school_class: str
+    grade: int
+
+
+class StudentUpdateData(BaseModel):
+    authorized_early_exit: bool
+    # Storico scolastico completo (non più una singola riga "anno corrente").
+    # update_person sostituisce in blocco tutte le SchoolEnrollment dello
+    # studente con questa lista, con la stessa semantica dell'endpoint
+    # dedicato PUT /{tax_code}/school-enrollments: un'unica fonte di verità
+    # per la scrittura degli anni scolastici, evitando che le due rotte
+    # scrivano lo stesso aggregato con logiche diverse (RNF-IAM-REL-07).
+    school_enrollments: List[SchoolEnrollmentUpdateItem]
     expected_updated_at: Optional[datetime] = None
 
 
+class ParentalRelationshipInput(BaseModel):
+    """
+    Elemento di una lista di relazioni genitoriali (minors_tax_codes o
+    parents_tax_codes). authorized_pickup indica se la controparte è
+    autorizzata al ritiro anticipato in questa specifica relazione, non
+    una proprietà del Genitore o dello Studente presi singolarmente.
+    """
+    tax_code: str
+    authorized_pickup: bool = True
+    pickup_restriction_reason: Optional[str] = None
+
+
 class RelationshipsUpdate(BaseModel):
-    minors_tax_codes: List[str] = []
-    parents_tax_codes: List[str] = []
+    minors_tax_codes: List[ParentalRelationshipInput] = []
+    parents_tax_codes: List[ParentalRelationshipInput] = []
 
 
 class MembershipUpdateItem(BaseModel):
@@ -169,13 +201,6 @@ class RevokeMembershipPayload(BaseModel):
     expected_updated_at: Optional[datetime] = None
 
 
-class SchoolEnrollmentUpdateItem(BaseModel):
-    start_year: int
-    school_id: int
-    study_program_id: int
-    grade: int
-
-
 class PersonSchoolEnrollmentsUpdate(BaseModel):
     enrollments: List[SchoolEnrollmentUpdateItem]
     # Timestamp letto da PersonResponse.student_updated_at, usato dal
@@ -185,6 +210,8 @@ class PersonSchoolEnrollmentsUpdate(BaseModel):
 
 class ParentUpdatePayload(BaseModel):
     parent_tax_code: str
+    authorized_pickup: bool = True
+    pickup_restriction_reason: Optional[str] = None
 
 
 class TeacherSubjectResponse(BaseModel):

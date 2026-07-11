@@ -98,7 +98,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   String?                     _tipoCollaborazione;
   final TextEditingController _studiScolasticiCtrl     = TextEditingController();
 
-  String? _uscitaAnticipata;
+  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  bool _uscitaAnticipata = false;
 
   final TextEditingController _searchSubjectsCtrl         = TextEditingController();
   String                      _searchSubjectsText         = '';
@@ -574,8 +575,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     
     if (isStudente) 
     {
-      if (_uscitaAnticipata == null) addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
-      
       if (_schoolRows.isEmpty)
       {
         addError('schoolGeneral', 'Aggiungi almeno un anno scolastico', currentMappedIndex);
@@ -728,7 +727,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
    {
       studentData = 
       {
-        "authorized_early_exit": _uscitaAnticipata == 'Sì',
+        "authorized_early_exit": _uscitaAnticipata,
         "school_enrollments": _schoolRows.map((r) => 
        {
          "start_year":                 int.parse(r.yearCtrl.text.trim()),
@@ -1178,17 +1177,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
           WizardFormInputRow
           (
             label:       'Uscita anticipata',
-            inputWidget: WizardAnimatedOverlayDropdown
+            inputWidget: Align
             (
-              value:     _uscitaAnticipata,
-              items:     const ['Sì', 'No'],
-              hint:      'Seleziona',
-              errorText: _formErrors['uscitaAnticipata'],
-              onChanged: (val) => setState(() 
-              { 
-                _uscitaAnticipata = val; 
-                _formErrors.remove('uscitaAnticipata'); 
-              }),
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _uscitaAnticipata,
+                onChanged: (val) => setState(() => _uscitaAnticipata = val),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2754,7 +2750,7 @@ class _WizardSchoolFieldRow extends StatelessWidget
               (
                 value:      gradeValue,
                 items:      gradeOptions,
-                hint:       'Classe',
+                hint:       '',
                 enabled:    gradeEnabled,
                 errorText:  gradeError,
                 onChanged:  onGradeSelected,

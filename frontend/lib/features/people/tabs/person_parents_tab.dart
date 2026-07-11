@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
-import '../../../core/config/api_config.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/snackbar.dart';
-import '../../../core/utils/role_label_mapper.dart';
 import '../models/parent_item.dart';
+import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
 import '../person_wizard_components.dart';
 
@@ -33,10 +32,17 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
   int _selectedParentIndex = 0;
 
   void _openParentSelectionDialog() async {
-    final Set<String> currentParents =
-        widget.person.parents?.map((p) => p.fiscalCode).toSet() ?? {};
+    final Map<String, ParentalRelationshipDraft> currentParents = {
+      for (final p in widget.person.parents ?? <ParentItem>[])
+        p.fiscalCode: ParentalRelationshipDraft(
+          taxCode: p.fiscalCode,
+          authorizedPickup: p.authorizedPickup,
+          restrictionReason: p.pickupRestrictionReason,
+        ),
+    };
 
-    final Set<String>? newParents = await showGeneralDialog<Set<String>>(
+    final Map<String, ParentalRelationshipDraft>? newParents =
+        await showGeneralDialog<Map<String, ParentalRelationshipDraft>>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'SelectParent',
@@ -58,7 +64,8 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
               ),
               child: _ParentSelectionDialog(
                 childTaxCode: widget.person.fiscalCode,
-                initialSelectedParents: currentParents,
+                childName: '${widget.person.firstName} ${widget.person.lastName}',
+                initialSelected: currentParents,
               ),
             ),
           ),
@@ -67,20 +74,45 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
     );
 
     if (newParents != null && mounted) {
-      final added = newParents.difference(currentParents);
-      final removed = currentParents.difference(newParents);
+      final addedCodes =
+          newParents.keys.toSet().difference(currentParents.keys.toSet());
+      final removedCodes =
+          currentParents.keys.toSet().difference(newParents.keys.toSet());
+      final changedCodes = newParents.keys.where((code) {
+        if (addedCodes.contains(code)) return false;
+        final oldDraft = currentParents[code]!;
+        final newDraft = newParents[code]!;
+        return oldDraft.authorizedPickup != newDraft.authorizedPickup ||
+            oldDraft.restrictionReason != newDraft.restrictionReason;
+      }).toSet();
 
-      if (added.isEmpty && removed.isEmpty) {
+      if (addedCodes.isEmpty && removedCodes.isEmpty && changedCodes.isEmpty) {
         return;
       }
 
       try {
         //ProcessRemovalsFirstToPreventLocks
-        for (var c in removed) {
+        for (var c in removedCodes) {
           await ApiService().removeParent(widget.person.fiscalCode, c);
         }
-        for (var c in added) {
-          await ApiService().addParent(widget.person.fiscalCode, c);
+        for (var c in addedCodes) {
+          final draft = newParents[c]!;
+          await ApiService().addParent(
+            widget.person.fiscalCode,
+            c,
+            authorizedPickup: draft.authorizedPickup,
+            pickupRestrictionReason: draft.restrictionReason,
+          );
+        }
+        for (var c in changedCodes) {
+          final draft = newParents[c]!;
+          await ApiService().updateParent(
+            widget.person.fiscalCode,
+            c,
+            c,
+            authorizedPickup: draft.authorizedPickup,
+            pickupRestrictionReason: draft.restrictionReason,
+          );
         }
 
         CustomSnackBar.show(
@@ -356,6 +388,11 @@ class _PersonParentsTabState extends State<PersonParentsTab> {
                     null,
                   ],
                 ),
+              ),
+              const SizedBox(height: 24),
+              _AuthorizationSectionCard(
+                authorized: currentParent.authorizedPickup,
+                restrictionReason: currentParent.pickupRestrictionReason,
               ),
               const SizedBox(height: 48),
               Center(
@@ -670,13 +707,82 @@ class _InfoRowData {
   const _InfoRowData(this.label, this.value);
 }
 
+//CardALargheazzaPiena_MostraSeQuestoGenitoreEAutorizzatoAlRitiroDelloStudenteCorrente
+class _AuthorizationSectionCard extends StatelessWidget {
+  final bool authorized;
+  final String? restrictionReason;
+
+  const _AuthorizationSectionCard({
+    required this.authorized,
+    required this.restrictionReason,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const _StaticAvatar(icon: Icons.how_to_reg_outlined),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Text(
+                  'Autorizzazione al ritiro',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF003C82),
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.0),
+            child: Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+          ),
+          _ParentInfoRow(
+            label: 'Autorizzato',
+            value: authorized ? 'Sì' : 'No',
+          ),
+          if (!authorized) ...[
+            const SizedBox(height: 16),
+            _ParentInfoRow(
+              label: 'Motivo',
+              value: (restrictionReason?.isNotEmpty ?? false)
+                  ? restrictionReason!
+                  : '-',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ParentSelectionDialog extends StatefulWidget {
   final String childTaxCode;
-  final Set<String> initialSelectedParents;
+  final String childName;
+  final Map<String, ParentalRelationshipDraft> initialSelected;
 
   const _ParentSelectionDialog({
     required this.childTaxCode,
-    required this.initialSelectedParents,
+    required this.childName,
+    required this.initialSelected,
   });
 
   @override
@@ -686,7 +792,7 @@ class _ParentSelectionDialog extends StatefulWidget {
 class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
   bool _isLoading = true;
   List<PersonItem> _allAdults = [];
-  late Set<String> _selectedCodes;
+  late Map<String, ParentalRelationshipDraft> _selected;
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchText = '';
@@ -695,7 +801,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedCodes = Set.from(widget.initialSelectedParents);
+    _selected = Map.from(widget.initialSelected);
     _fetchAdults();
   }
 
@@ -725,6 +831,30 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _onCardTap(PersonItem adult) async {
+    final bool alreadySelected = _selected.containsKey(adult.fiscalCode);
+    if (!alreadySelected && _selected.length >= 2) {
+      CustomSnackBar.show(
+        context: context,
+        message: 'Massimo 2 genitori selezionabili.',
+        isError: true,
+      );
+      return;
+    }
+
+    final draft = await showAuthorizedPickupDialog(
+      context,
+      personTaxCode: adult.fiscalCode,
+      parentName: '${adult.firstName} ${adult.lastName}',
+      childName: widget.childName,
+      existing: _selected[adult.fiscalCode],
+    );
+
+    if (draft != null && mounted) {
+      setState(() => _selected[adult.fiscalCode] = draft);
     }
   }
 
@@ -912,25 +1042,15 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
                                                   runSpacing: 16,
                                                   alignment: WrapAlignment.start,
                                                   children: validAdults.map((adult) {
-                                                    final bool isSelected = _selectedCodes.contains(adult.fiscalCode);
-                                                    return _LocalSelectablePersonCard(
+                                                    final bool isSelected = _selected.containsKey(adult.fiscalCode);
+                                                    return WizardSelectablePersonCard(
                                                       person: adult,
                                                       isSelected: isSelected,
-                                                      onTap: () => setState(() {
-                                                        if (isSelected) {
-                                                          _selectedCodes.remove(adult.fiscalCode);
-                                                        } else {
-                                                          if (_selectedCodes.length >= 2) {
-                                                            CustomSnackBar.show(
-                                                              context: context,
-                                                              message: 'Massimo 2 genitori selezionabili.',
-                                                              isError: true,
-                                                            );
-                                                            return;
-                                                          }
-                                                          _selectedCodes.add(adult.fiscalCode);
-                                                        }
-                                                      }),
+                                                      onTap: () => _onCardTap(adult),
+                                                      onEdit: isSelected ? () => _onCardTap(adult) : null,
+                                                      onRemove: isSelected
+                                                          ? () => setState(() => _selected.remove(adult.fiscalCode))
+                                                          : null,
                                                     );
                                                   }).toList(),
                                                 ),
@@ -957,7 +1077,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
                         confirmColor: const Color(0xFF003C82),
                         confirmHoverColor: const Color(0xFF004D99),
                         confirmOnPressed: () {
-                          if (_selectedCodes.isEmpty) {
+                          if (_selected.isEmpty) {
                             CustomSnackBar.show(
                               context: context,
                               message: 'Seleziona almeno un genitore per procedere.',
@@ -965,7 +1085,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog> {
                             );
                             return;
                           }
-                          Navigator.of(context).pop(_selectedCodes);
+                          Navigator.of(context).pop(_selected);
                         },
                       ),
                     ),
@@ -1496,273 +1616,6 @@ class _LocalFilterMenuItemState extends State<_LocalFilterMenuItem> {
   }
 }
 
-class _LocalSelectablePersonCard extends StatefulWidget {
-  final PersonItem person;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _LocalSelectablePersonCard({
-    required this.person,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  State<_LocalSelectablePersonCard> createState() =>
-      _LocalSelectablePersonCardState();
-}
-
-class _LocalSelectablePersonCardState
-    extends State<_LocalSelectablePersonCard> {
-  bool _isHovering = false;
-
-  Widget _buildAvatar() {
-    final String initials =
-        '${widget.person.firstName[0]}${widget.person.lastName[0]}'
-            .toUpperCase();
-
-    final Widget fallbackWidget = Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-        ),
-      ),
-    );
-
-    String? imageUrl = widget.person.profileImageUrl?.trim();
-    if (imageUrl != null && imageUrl.startsWith('/')) {
-      imageUrl = ApiConfig.buildUrl(imageUrl);
-    }
-
-    final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
-
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF003C82), width: 2.5),
-      ),
-      child: ClipOval(
-        child: hasImage
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return fallbackWidget;
-                },
-              )
-            : fallbackWidget,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final List<String> processedRoles = RoleLabelMapper.processRoles(
-      widget.person.roles,
-    );
-    final String fullName =
-        '${widget.person.firstName} ${widget.person.lastName}';
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 420,
-          constraints: const BoxConstraints(minHeight: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: widget.isSelected ? const Color(0xFFE8F0FA) : Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
-                  : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildAvatar(),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardOverflowTooltipText(
-                      text: fullName,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _LocalRoleChipsRow(roles: processedRoles),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Mostra i chip dei ruoli su una singola riga. Se non entrano tutti nello
-/// spazio disponibile, tronca la lista e sostituisce quelli in eccesso con
-/// un chip "+N" che, al passaggio del mouse, mostra i ruoli nascosti.
-class _LocalRoleChipsRow extends StatelessWidget {
-  final List<String> roles;
-
-  const _LocalRoleChipsRow({required this.roles});
-
-  static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
-  static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
-  static const double _chipSpacing = 6;
-
-  double _measureChipWidth(String text, TextStyle style) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
-    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (roles.isEmpty) return const SizedBox.shrink();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final chipStyle = GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF64748B),
-        );
-        final extraStyle = GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-        );
-
-        int visibleCount = roles.length;
-        while (visibleCount > 1) {
-          double totalWidth = 0;
-          for (int i = 0; i < visibleCount; i++) {
-            totalWidth += _measureChipWidth(roles[i], chipStyle);
-            if (i > 0) totalWidth += _chipSpacing;
-          }
-
-          final int remaining = roles.length - visibleCount;
-          if (remaining > 0) {
-            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
-          }
-
-          if (totalWidth <= constraints.maxWidth) break;
-          visibleCount--;
-        }
-
-        final int extraCount = roles.length - visibleCount;
-        final List<String> hiddenRoles = roles.sublist(visibleCount);
-
-        final List<Widget> chips = [];
-        for (int i = 0; i < visibleCount; i++) {
-          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
-          chips.add(_LocalRoleChip(label: roles[i], style: chipStyle));
-        }
-        if (extraCount > 0) {
-          chips.add(const SizedBox(width: _chipSpacing));
-          chips.add(_LocalRoleChip(
-            label: '+$extraCount',
-            style: extraStyle,
-            hiddenRoles: hiddenRoles,
-          ));
-        }
-
-        return Row(mainAxisSize: MainAxisSize.min, children: chips);
-      },
-    );
-  }
-}
-
-class _LocalRoleChip extends StatelessWidget {
-  final String label;
-  final TextStyle style;
-  final List<String>? hiddenRoles;
-
-  const _LocalRoleChip({required this.label, required this.style, this.hiddenRoles});
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E5EC)),
-      ),
-      child: Text(label, style: style),
-    );
-
-    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
-
-    return Tooltip(
-      waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
-      richMessage: TextSpan(
-        children: [
-          TextSpan(
-            text: 'Altri ruoli:\n',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              color: const Color(0xFF94A3B8),
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-          TextSpan(
-            text: hiddenRoles!.join('\n'),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-      child: chip,
-    );
-  }
-}
-
 //DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
 class _ResponsiveSearchFilterRow extends StatelessWidget {
   final Widget searchBar;
@@ -1805,60 +1658,6 @@ class _ResponsiveSearchFilterRow extends StatelessWidget {
         }
 
         return Row(children: rowChildren);
-      },
-    );
-  }
-}
-
-class _CardOverflowTooltipText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-  final int maxLines;
-
-  const _CardOverflowTooltipText({
-    required this.text,
-    required this.style,
-    this.maxLines = 2,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-          maxLines: maxLines,
-        )..layout(maxWidth: constraints.maxWidth);
-
-        final Widget textWidget = Text(
-          text,
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        );
-
-        if (!painter.didExceedMaxLines) return textWidget;
-
-        return Tooltip(
-          message: text,
-          waitDuration: const Duration(milliseconds: 600),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF334155), width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-            ],
-          ),
-          child: textWidget,
-        );
       },
     );
   }

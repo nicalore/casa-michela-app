@@ -15,6 +15,10 @@ class ParentItem
   final String? zipCode;
   final String? city;
   final DateTime? birthDate;
+  //RiferitiAllaRelazioneParentalResponsibilityTraQuestoGenitoreELaPersonaPerCuiLaListaVieneCostruita
+  //NonAlGenitoreInGenerale
+  final bool     authorizedPickup;
+  final String?  pickupRestrictionReason;
 
   const ParentItem({
     required this.fiscalCode,
@@ -32,6 +36,8 @@ class ParentItem
     this.zipCode,
     this.city,
     this.birthDate,
+    this.authorizedPickup = true,
+    this.pickupRestrictionReason,
   });
 
   factory ParentItem.fromJson(Map<String, dynamic> json) 
@@ -52,6 +58,8 @@ class ParentItem
       zipCode:       json['postal_code'],
       city:          json['city'],
       birthDate:     json['birth_date'] != null ? DateTime.parse(json['birth_date']) : null,
+      authorizedPickup:        json['authorized_pickup'] ?? true,
+      pickupRestrictionReason: json['pickup_restriction_reason'],
     );
   }
 }

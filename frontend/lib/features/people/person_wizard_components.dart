@@ -13,6 +13,7 @@ import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
 import './models/person_item.dart';
 import '../../../shared/widgets/snackbar.dart';
+import './models/parental_relationship_draft.dart';
 
 class WizardEnrollmentRowData {
   final TextEditingController yearCtrl;
@@ -2657,12 +2658,18 @@ class WizardSelectablePersonCard extends StatefulWidget {
   final PersonItem person;
   final bool isSelected;
   final VoidCallback onTap;
+  //SeSelezionataEConAlmenoUnaDelleDueCallback_MostraLeIconeMatita/CestinoInveceDiEssereTappabileDirettamente
+  //StessoPatternDiWizardSubjectGridCard_SeEntrambeAssentiIlComportamentoRestaIdenticoADiPrima
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
 
   const WizardSelectablePersonCard({
     super.key,
     required this.person,
     required this.isSelected,
     required this.onTap,
+    this.onEdit,
+    this.onRemove,
   });
 
   @override
@@ -2726,6 +2733,8 @@ class _WizardSelectablePersonCardState
     );
     final String fullName =
         '${widget.person.firstName} ${widget.person.lastName}';
+    final bool showActionIcons =
+        widget.isSelected && (widget.onEdit != null || widget.onRemove != null);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2740,7 +2749,7 @@ class _WizardSelectablePersonCardState
         });
       },
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: showActionIcons ? null : widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -2784,6 +2793,55 @@ class _WizardSelectablePersonCardState
                   ],
                 ),
               ),
+              if (showActionIcons) ...[
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.onEdit != null)
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: widget.onEdit,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.edit_rounded,
+                              size: 18,
+                              color: Color(0xFF003C82),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (widget.onEdit != null && widget.onRemove != null)
+                      const SizedBox(height: 6),
+                    if (widget.onRemove != null)
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: widget.onRemove,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.backspace_rounded,
+                              size: 18,
+                              color: Color(0xFFE53935),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -2803,11 +2861,17 @@ class _WizardRoleChipsRow extends StatelessWidget {
   static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
   static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
   static const double _chipSpacing = 6;
+  //MargineDiSicurezzaControEventualiScartiDiArrotondamentoSubpixel_MeglioMostrareUnChipInMenoCheAndareInOverflow
+  static const double _safetyMargin = 6;
 
-  double _measureChipWidth(String text, TextStyle style) {
+  //IlTextPainterOfflineNonApplicaAutomaticamenteIlTextScalerAmbientale(AccessibilitàSistema/Browser)
+  //CheInveceIlWidgetTextRealeApplicaSempre_SenzaPassarloEsplicitamenteLaMisuraRisultaSottostimata
+  //EQuestoCausaOverflowDiPochiPixelQuandoLoScaleFactorNonEEsattamente1.0
+  double _measureChipWidth(String text, TextStyle style, TextScaler textScaler) {
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
+      textScaler: textScaler,
       maxLines: 1,
     )..layout();
     return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
@@ -2816,6 +2880,8 @@ class _WizardRoleChipsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (roles.isEmpty) return const SizedBox.shrink();
+
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2834,16 +2900,16 @@ class _WizardRoleChipsRow extends StatelessWidget {
         while (visibleCount > 1) {
           double totalWidth = 0;
           for (int i = 0; i < visibleCount; i++) {
-            totalWidth += _measureChipWidth(roles[i], chipStyle);
+            totalWidth += _measureChipWidth(roles[i], chipStyle, textScaler);
             if (i > 0) totalWidth += _chipSpacing;
           }
 
           final int remaining = roles.length - visibleCount;
           if (remaining > 0) {
-            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle);
+            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle, textScaler);
           }
 
-          if (totalWidth <= constraints.maxWidth) break;
+          if (totalWidth + _safetyMargin <= constraints.maxWidth) break;
           visibleCount--;
         }
 
@@ -3013,6 +3079,351 @@ class _CardOverflowTooltipTextState extends State<_CardOverflowTooltipText> {
         ],
       ),
       child: textWidget,
+    );
+  }
+}
+
+//SwitchSì/NoRiutilizzabile_UsatoSiaNelDialogAutorizzazioneAlRitiroSiaAlPostoDelDropdownUscitaAnticipata
+//IlThumbBiancoScorreOrizzontalmenteConAnimazione_true=Sì(sinistra)_false=No(destra)
+class WizardYesNoSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final double width;
+  final double height;
+
+  const WizardYesNoSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.width = 240,
+    this.height = 54,
+  });
+
+  Widget _buildLabel({
+    required String text,
+    required IconData icon,
+    required bool active,
+  }) {
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: active ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: active ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const double pad = 4;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        child: Container(
+          width: width,
+          height: height,
+          padding: const EdgeInsets.all(pad),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(height / 2),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double thumbWidth = constraints.maxWidth / 2;
+              final double thumbHeight = constraints.maxHeight;
+
+              return Stack(
+                children: [
+                  //ThumbBiancoScorrevole_AllineatoSinistra(Sì)ODestra(No)ConAnimazione
+                  AnimatedAlign(
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    alignment: value ? Alignment.centerLeft : Alignment.centerRight,
+                    child: Container(
+                      width: thumbWidth,
+                      height: thumbHeight,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular((height - pad * 2) / 2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1F000000),
+                            offset: Offset(0, 2),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  //Positioned.fillDaAllaRowTuttaL'AltezzaDelloStack_AltrimentiPrenderebbeSoloL'AltezzaIntrinsecaESiIncollerebbeInAlto
+                  Positioned.fill(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildLabel(
+                            text: 'Sì',
+                            icon: Icons.check_circle_outline,
+                            active: value,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildLabel(
+                            text: 'No',
+                            icon: Icons.block_rounded,
+                            active: !value,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Future<ParentalRelationshipDraft?> showAuthorizedPickupDialog(
+  BuildContext context, {
+  required String personTaxCode,
+  required String parentName,
+  required String childName,
+  ParentalRelationshipDraft? existing,
+}) {
+  return showGeneralDialog<ParentalRelationshipDraft?>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'AuthorizedPickup',
+    barrierColor: Colors.black.withValues(alpha: .15),
+    transitionDuration: const Duration(milliseconds: 240),
+    pageBuilder: (animation, secondaryAnimation, child) =>
+        const SizedBox.shrink(),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final blurValue = animation.value * 8.0;
+      return BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
+        child: FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeIn,
+            ),
+            child: _AuthorizedPickupDialog(
+              personTaxCode: personTaxCode,
+              parentName: parentName,
+              childName: childName,
+              existing: existing,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _AuthorizedPickupDialog extends StatefulWidget {
+  final String personTaxCode;
+  final String parentName;
+  final String childName;
+  final ParentalRelationshipDraft? existing;
+
+  const _AuthorizedPickupDialog({
+    required this.personTaxCode,
+    required this.parentName,
+    required this.childName,
+    this.existing,
+  });
+
+  @override
+  State<_AuthorizedPickupDialog> createState() =>
+      _AuthorizedPickupDialogState();
+}
+
+class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
+  late bool _authorized;
+  late final TextEditingController _reasonCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _authorized = widget.existing?.authorizedPickup ?? true;
+    _reasonCtrl = TextEditingController(
+      text: widget.existing?.restrictionReason ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  //IlMotivoEFacoltativoAncheQuandoNonAutorizzato_NessunaValidazioneBloccante
+  void _confirm() {
+    final String reason = _reasonCtrl.text.trim();
+
+    Navigator.of(context).pop(
+      ParentalRelationshipDraft(
+        taxCode: widget.personTaxCode,
+        authorizedPickup: _authorized,
+        restrictionReason: (_authorized || reason.isEmpty) ? null : reason,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        //DialogPiuLargo_LasciaSpazioAiDueBottoniSullaStessaRigaSenzaMaiImpilarli
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 560),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 20, right: 16, left: 32),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Autorizzazione al ritiro',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF003C82),
+                      ),
+                    ),
+                  ),
+                  WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
+                ],
+              ),
+            ),
+            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${widget.parentName} ha l\'autorizzazione a ritirare ${widget.childName} in caso di uscita anticipata?',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF2A2A2A),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  //SwitchCentratoConThumbScorrevole
+                  Center(
+                    child: WizardYesNoSwitch(
+                      value: _authorized,
+                      onChanged: (val) => setState(() => _authorized = val),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  //SpazioSempreRiservato(SizedBoxAAltezzaFissa)_SoloL'OpacitaCambia
+                  //IlDialogNonSiRidimensionaMaiEGliElementiSottoNonSiSpostanoQuandoIlCampoComparisce/Scompare
+                  //LabelSoprraECampoAPienaLarghezzaSotto_NonPiuWizardFormInputRowCheRiservava140pxAllaLabelAccorciandoIlTextbox
+                  AnimatedOpacity(
+                    opacity: _authorized ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    child: IgnorePointer(
+                      ignoring: _authorized,
+                      child: SizedBox(
+                        height: 82,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'Motivo',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF7A7A7A),
+                                ),
+                              ),
+                            ),
+                            WizardAnimatedTextField(
+                              controller: _reasonCtrl,
+                              hint: '',
+                              onChanged: (_) {},
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              //ConfermaEAnnullaSempreSullaStessaRiga_IlDialogEOraAbbastanzaLargoDaOspitarliSenzaImpilare
+              child: Row(
+                children: [
+                  Expanded(
+                    child: WizardAnimatedActionButton(
+                      text: 'ANNULLA',
+                      icon: Icons.close_rounded,
+                      baseColor: const Color(0xFFE53935),
+                      hoverColor: const Color(0xFFEF5350),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: WizardAnimatedActionButton(
+                      text: 'CONFERMA',
+                      icon: Icons.check_circle_outline,
+                      baseColor: const Color(0xFF003C82),
+                      hoverColor: const Color(0xFF004D99),
+                      onPressed: _confirm,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

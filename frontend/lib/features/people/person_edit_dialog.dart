@@ -10,6 +10,7 @@ import '../association/models/association_subject_item.dart';
 import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
 import 'models/person_item.dart';
+import 'models/parental_relationship_draft.dart';
 import 'models/school_enrollment_item.dart';
 import 'person_wizard_components.dart';
 
@@ -115,21 +116,22 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  String?                _uscitaAnticipata;
+  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  bool                   _uscitaAnticipata = false;
   List<SchoolItem>       _allSchools  = [];
   List<StudyProgramItem> _allPrograms = [];
 
   final TextEditingController _searchParentsCtrl  = TextEditingController();
   String                      _searchParentsText  = '';
   String                      _sortParentsBy      = 'surname_asc';
-  final Set<String>           _selectedParents    = {};
+  final Map<String, ParentalRelationshipDraft> _selectedParents = {};
   List<PersonItem>            _allAdults          = [];
 
   final TextEditingController _searchMinorsCtrl = TextEditingController();
   String                      _searchMinorsText = '';
   String                      _sortMinorsBy     = 'surname_asc';
   String?                     _filterMinorsRole;
-  final Set<String>           _selectedMinors   = {};
+  final Map<String, ParentalRelationshipDraft> _selectedMinors = {};
   List<PersonItem>            _allMinors        = [];
 
   List<AssociationSubjectItem> _allSubjects                 = [];
@@ -420,14 +422,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (widget.person.earlyExit != null) 
     {
-      _uscitaAnticipata = widget.person.earlyExit! ? 'Sì' : 'No';
+      _uscitaAnticipata = widget.person.earlyExit!;
     }
 
     if (widget.person.parents != null) 
     {
       for (var parent in widget.person.parents!) 
       {
-        _selectedParents.add(parent.fiscalCode);
+        _selectedParents[parent.fiscalCode] = ParentalRelationshipDraft
+        (
+          taxCode:           parent.fiscalCode,
+          authorizedPickup:  parent.authorizedPickup,
+          restrictionReason: parent.pickupRestrictionReason,
+        );
       }
     }
 
@@ -435,7 +442,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     {
       for (var child in widget.person.children!) 
       {
-        _selectedMinors.add(child.fiscalCode);
+        _selectedMinors[child.fiscalCode] = ParentalRelationshipDraft
+        (
+          taxCode:           child.fiscalCode,
+          authorizedPickup:  child.authorizedPickup,
+          restrictionReason: child.pickupRestrictionReason,
+        );
       }
     }
 
@@ -940,10 +952,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     if (activeRoles.contains('STUDENTE'))
     {
-      if (_isMinor && _uscitaAnticipata == null) 
-      {
-        addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
-      }
       if (_schoolRows.isEmpty) 
       {
         addError('schoolGeneral', 'Aggiungi almeno un anno scolastico', currentMappedIndex);
@@ -1146,12 +1154,18 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
       if (finalRoles.contains('STUDENTE')) 
       {
+        //StoricoScolasticoCompletoInclusoNelloStessoPayload_NonPiuUnaChiamataSeparataAUpdatePersonSchoolEnrollments
+        //IlBackendOraSostituisceLeIscrizioniInBloccoNellaStessaTransazioneDiUpdatePerson_UnSoloControlloDiConcorrenza
         studentData = 
         {
-          "authorized_early_exit":      _isMinor ? (_uscitaAnticipata == 'Sì') : true,
-          "school_id":                  _schoolRows.isNotEmpty ? _schoolRows.first.selectedSchool!.id : 0,
-          "study_program_id":           _schoolRows.isNotEmpty ? _schoolRows.first.selectedProgram!.id : 0,
-          "school_class":               _schoolRows.isNotEmpty ? _schoolRows.first.selectedGrade! : '',
+          "authorized_early_exit": _isMinor ? _uscitaAnticipata : true,
+          "school_enrollments": _schoolRows.map((r) => 
+          {
+            "start_year":        int.parse(r.yearCtrl.text.trim()),
+            "school_id":         r.selectedSchool!.id,
+            "study_program_id":  r.selectedProgram!.id,
+            "grade":             _romanToNumeric(r.selectedGrade!),
+          }).toList(),
           if (widget.person.studentUpdatedAt != null)
             "expected_updated_at": widget.person.studentUpdatedAt!.toIso8601String(),
         };
@@ -1186,8 +1200,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         "student_data":            studentData,
         "relationships": 
         {
-          "minors_tax_codes":  _selectedMinors.toList(),
-          "parents_tax_codes": _selectedParents.toList(),
+          "minors_tax_codes":  _selectedMinors.values.map((d) => d.toJson()).toList(),
+          "parents_tax_codes": _selectedParents.values.map((d) => d.toJson()).toList(),
         }
       };
 
@@ -1197,27 +1211,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         payload,
         imageBytes: _fotoProfilo,
       );
-
-      //UpdateAllSchoolEnrollments
-      if (finalRoles.contains('STUDENTE') && _schoolRows.isNotEmpty)
-      {
-        List<Map<String, dynamic>> payloadEnrollments = [];
-        for (var r in _schoolRows)
-        {
-          payloadEnrollments.add(
-          {
-            "start_year":                 int.parse(r.yearCtrl.text.trim()),
-            "school_id":                  r.selectedSchool!.id,
-            "study_program_id":           r.selectedProgram!.id,
-            "grade":                      _romanToNumeric(r.selectedGrade!),
-          });
-        }
-        await ApiService().updatePersonSchoolEnrollments(
-          newFiscalCode,
-          payloadEnrollments,
-          widget.person.studentUpdatedAt,
-        );
-      }
 
       if (mounted) 
       {
@@ -1545,7 +1538,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           {
             for (final child in widget.person.children!) 
             {
-              if (!_selectedMinors.contains(child.fiscalCode)) 
+              if (!_selectedMinors.containsKey(child.fiscalCode)) 
               {
                 final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
                 if (minorIterable.isNotEmpty) 
@@ -1570,7 +1563,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             }
           }
 
-          for (final minorId in _selectedMinors) 
+          for (final minorId in _selectedMinors.keys) 
           {
             final minorIterable = _allMinors.where((m) => m.fiscalCode == minorId);
             if (minorIterable.isNotEmpty) 
@@ -2773,17 +2766,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           WizardFormInputRow
           (
             label:       'Uscita anticipata',
-            inputWidget: WizardAnimatedOverlayDropdown
+            inputWidget: Align
             (
-              value:     _uscitaAnticipata,
-              items:     const ['Sì', 'No'],
-              hint:      'Seleziona',
-              errorText: _formErrors['uscitaAnticipata'],
-              onChanged: (val) => setState(() 
-              {
-                _uscitaAnticipata = val;
-                _formErrors.remove('uscitaAnticipata');
-              }),
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _uscitaAnticipata,
+                onChanged: (val) => setState(() => _uscitaAnticipata = val),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -2926,6 +2916,48 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     );
   }
 
+  //TapSuCardNonSelezionata_ModalitaCreazione_TapSull'IconaMatita_ModalitaModifica_RestituisceNullSeAnnullato
+  void _onParentCardTap(PersonItem adult) async
+  {
+    final bool alreadySelected = _selectedParents.containsKey(adult.fiscalCode);
+    if (!alreadySelected && _selectedParents.length >= 2)
+    {
+      CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
+      return;
+    }
+
+    final draft = await showAuthorizedPickupDialog
+    (
+      context,
+      personTaxCode: adult.fiscalCode,
+      parentName:    '${adult.firstName} ${adult.lastName}',
+      childName:     '${widget.person.firstName} ${widget.person.lastName}',
+      existing:      _selectedParents[adult.fiscalCode],
+    );
+
+    if (draft != null && mounted)
+    {
+      setState(() => _selectedParents[adult.fiscalCode] = draft);
+    }
+  }
+
+  void _onMinorCardTap(PersonItem minor) async
+  {
+    final draft = await showAuthorizedPickupDialog
+    (
+      context,
+      personTaxCode: minor.fiscalCode,
+      parentName:    '${widget.person.firstName} ${widget.person.lastName}',
+      childName:     '${minor.firstName} ${minor.lastName}',
+      existing:      _selectedMinors[minor.fiscalCode],
+    );
+
+    if (draft != null && mounted)
+    {
+      setState(() => _selectedMinors[minor.fiscalCode] = draft);
+    }
+  }
+
   Widget _buildStep5Parents()
   {
     final validAdults = _filteredAdults;
@@ -3039,28 +3071,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           children:   validAdults.map((adult) 
                           {
                             final adultId    = adult.fiscalCode;
-                            final isSelected = _selectedParents.contains(adultId);
+                            final isSelected = _selectedParents.containsKey(adultId);
                             
                             return WizardSelectablePersonCard
                             (
                               person:     adult,
                               isSelected: isSelected,
-                              onTap:      () => setState(() 
-                              {
-                                if (isSelected) 
-                                {
-                                  _selectedParents.remove(adultId);
-                                } 
-                                else 
-                                {
-                                  if (_selectedParents.length >= 2)
-                                  {
-                                    CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
-                                    return;
-                                  }
-                                  _selectedParents.add(adultId);
-                                }
-                              }),
+                              onTap:      () => _onParentCardTap(adult),
+                              onEdit:     isSelected ? () => _onParentCardTap(adult) : null,
+                              onRemove:   isSelected ? () => setState(() => _selectedParents.remove(adultId)) : null,
                             );
                           }).toList(),
                         ),
@@ -3204,23 +3223,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           children:   validMinors.map((minor) 
                           {
                             final minorId    = minor.fiscalCode;
-                            final isSelected = _selectedMinors.contains(minorId);
+                            final isSelected = _selectedMinors.containsKey(minorId);
                             
                             return WizardSelectablePersonCard
                             (
                               person:     minor,
                               isSelected: isSelected,
-                              onTap:      () => setState(() 
-                              {
-                                if (isSelected) 
-                                {
-                                  _selectedMinors.remove(minorId);
-                                } 
-                                else 
-                                {
-                                  _selectedMinors.add(minorId);
-                                }
-                              }),
+                              onTap:      () => _onMinorCardTap(minor),
+                              onEdit:     isSelected ? () => _onMinorCardTap(minor) : null,
+                              onRemove:   isSelected ? () => setState(() => _selectedMinors.remove(minorId)) : null,
                             );
                           }).toList(),
                         ),

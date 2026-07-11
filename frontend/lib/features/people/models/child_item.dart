@@ -18,6 +18,9 @@ class ChildItem
   final String? schoolName;
   final String? schoolClass;
   final String? studyProgram;
+  //RiferitiAllaRelazioneParentalResponsibilityTraIlGenitoreCorrenteEQuestoFiglio_NonAlFiglioInGenerale
+  final bool     authorizedPickup;
+  final String?  pickupRestrictionReason;
 
   const ChildItem({
     required this.fiscalCode,
@@ -38,6 +41,8 @@ class ChildItem
     this.schoolName,
     this.schoolClass,
     this.studyProgram,
+    this.authorizedPickup = true,
+    this.pickupRestrictionReason,
   });
 
   factory ChildItem.fromJson(Map<String, dynamic> json) 
@@ -61,6 +66,8 @@ class ChildItem
       schoolName:    json['school_name'],
       schoolClass:   json['school_class'],
       studyProgram:  json['study_program'],
+      authorizedPickup:        json['authorized_pickup'] ?? true,
+      pickupRestrictionReason: json['pickup_restriction_reason'],
     );
   }
 }

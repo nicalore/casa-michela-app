@@ -1069,11 +1069,11 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildFieldLabel('Collaboratore attivo'),
-                      _FormOverlayDropdown(
-                        value: _isActiveCollaborator ? 'Sì' : 'No',
-                        options: const ['Sì', 'No'],
-                        onSelected: (val) => setState(
-                          () => _isActiveCollaborator = (val == 'Sì'),
+                      Center(
+                        child: WizardYesNoSwitch(
+                          value: _isActiveCollaborator,
+                          onChanged: (val) =>
+                              setState(() => _isActiveCollaborator = val),
                         ),
                       ),
                       const SizedBox(height: 32),

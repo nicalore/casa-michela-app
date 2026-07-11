@@ -841,11 +841,23 @@ ApiService._internal()
   }
 }
 
-  Future<void> addParent(String childTaxCode, String parentTaxCode) async
+  Future<void> addParent(
+    String childTaxCode,
+    String parentTaxCode, {
+    bool authorizedPickup = true,
+    String? pickupRestrictionReason,
+  }) async
   {
     try
     {
-      await _dio.post('/people/$childTaxCode/parents', data: {'parent_tax_code': parentTaxCode});
+      await _dio.post(
+        '/people/$childTaxCode/parents',
+        data: {
+          'parent_tax_code': parentTaxCode,
+          'authorized_pickup': authorizedPickup,
+          'pickup_restriction_reason': authorizedPickup ? null : pickupRestrictionReason,
+        },
+      );
     }
     on DioException catch (e)
     {
@@ -853,11 +865,24 @@ ApiService._internal()
     }
   }
 
-  Future<void> updateParent(String childTaxCode, String oldParentTaxCode, String newParentTaxCode) async
+  Future<void> updateParent(
+    String childTaxCode,
+    String oldParentTaxCode,
+    String newParentTaxCode, {
+    bool authorizedPickup = true,
+    String? pickupRestrictionReason,
+  }) async
   {
     try
     {
-      await _dio.put('/people/$childTaxCode/parents/$oldParentTaxCode', data: {'parent_tax_code': newParentTaxCode});
+      await _dio.put(
+        '/people/$childTaxCode/parents/$oldParentTaxCode',
+        data: {
+          'parent_tax_code': newParentTaxCode,
+          'authorized_pickup': authorizedPickup,
+          'pickup_restriction_reason': authorizedPickup ? null : pickupRestrictionReason,
+        },
+      );
     }
     on DioException catch (e)
     {

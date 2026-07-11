@@ -142,17 +142,25 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
                         )
                         db.add(competence)
 
-    for minor_code in payload.relationships.minors_tax_codes:
+    for minor in payload.relationships.minors_tax_codes:
         rel = ParentalResponsibility(
             parent_tax_code=person.tax_code,
-            child_tax_code=minor_code
+            child_tax_code=minor.tax_code,
+            authorized_pickup=minor.authorized_pickup,
+            pickup_restriction_reason=(
+                minor.pickup_restriction_reason if not minor.authorized_pickup else None
+            ),
         )
         db.add(rel)
 
-    for parent_code in payload.relationships.parents_tax_codes:
+    for parent_item in payload.relationships.parents_tax_codes:
         rel = ParentalResponsibility(
-            parent_tax_code=parent_code,
-            child_tax_code=person.tax_code
+            parent_tax_code=parent_item.tax_code,
+            child_tax_code=person.tax_code,
+            authorized_pickup=parent_item.authorized_pickup,
+            pickup_restriction_reason=(
+                parent_item.pickup_restriction_reason if not parent_item.authorized_pickup else None
+            ),
         )
         db.add(rel)
 

@@ -166,7 +166,9 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                     birth_date=child_person.birth_date,
                     school_name=c_school_name,
                     school_class=c_school_class,
-                    study_program=c_study_program
+                    study_program=c_study_program,
+                    authorized_pickup=rel.authorized_pickup,
+                    pickup_restriction_reason=rel.pickup_restriction_reason
                 ))
         
     if p.parental_relationships:
@@ -188,7 +190,9 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                     residence_province=parent_person.residence_province,
                     postal_code=parent_person.postal_code,
                     city=parent_person.residence_city,
-                    birth_date=parent_person.birth_date
+                    birth_date=parent_person.birth_date,
+                    authorized_pickup=rel.authorized_pickup,
+                    pickup_restriction_reason=rel.pickup_restriction_reason
                 ))
         
     member = p.member_profile
@@ -502,14 +506,28 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
     if payload.relationships is not None:
         # Aggiungo figli SOLO SE io sono effettivamente un genitore
         if "GENITORE" in roles:
-            for minor_code in payload.relationships.minors_tax_codes:
-                if minor_code != person.tax_code:
-                    db.add(ParentalResponsibility(parent_tax_code=person.tax_code, child_tax_code=minor_code))
+            for minor in payload.relationships.minors_tax_codes:
+                if minor.tax_code != person.tax_code:
+                    db.add(ParentalResponsibility(
+                        parent_tax_code=person.tax_code,
+                        child_tax_code=minor.tax_code,
+                        authorized_pickup=minor.authorized_pickup,
+                        pickup_restriction_reason=(
+                            minor.pickup_restriction_reason if not minor.authorized_pickup else None
+                        ),
+                    ))
         
         # L'anagrafica che stiamo modificando può SEMPRE avere dei genitori
-        for p_code in payload.relationships.parents_tax_codes:
-            if p_code != person.tax_code:
-                db.add(ParentalResponsibility(parent_tax_code=p_code, child_tax_code=person.tax_code))
+        for parent_item in payload.relationships.parents_tax_codes:
+            if parent_item.tax_code != person.tax_code:
+                db.add(ParentalResponsibility(
+                    parent_tax_code=parent_item.tax_code,
+                    child_tax_code=person.tax_code,
+                    authorized_pickup=parent_item.authorized_pickup,
+                    pickup_restriction_reason=(
+                        parent_item.pickup_restriction_reason if not parent_item.authorized_pickup else None
+                    ),
+                ))
         
         await db.flush()
 
@@ -551,6 +569,20 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
         # Profilo Studente
         if "STUDENTE" in roles and payload.student_data:
             s_data = payload.student_data
+
+            if not s_data.school_enrollments:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Impossibile salvare lo storico scolastico vuoto. È necessaria almeno un'iscrizione."
+                )
+
+            years = [e.start_year for e in s_data.school_enrollments]
+            if len(years) != len(set(years)):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Non è possibile registrare più di un'iscrizione scolastica per lo stesso anno."
+                )
+
             current_student = await db.scalar(select(Student).where(Student.tax_code == person.tax_code))
 
             if current_student is not None:
@@ -569,31 +601,19 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                 db.add(Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit))
                 await db.flush()
 
-            today = date.today()
-            start_year = today.year - 1 if today.month < 9 else today.year
-            grade_map  = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
-            numeric_grade = grade_map.get(s_data.school_class, 1)
+            # StoricoScolasticoSostituitoInBlocco_StessaSemanticaDiUpdatePersonSchoolEnrollments
+            # NonPiuUnUpsertDellaSolaRigaDell'AnnoCorrente_UnicaFonteDiVeritàPerLaScritturaDegliAnniScolastici
+            # Così ilFrontendPuòInviareAnagraficaEStoricoScolasticoInUnaSolaChiamataAtomicaConUnSoloControlloDiConcorrenza
+            await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
+            await db.flush()
 
-            enrollments = (await db.execute(select(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))).scalars().all()
-            latest_enrollment = max(enrollments, key=lambda e: e.start_year) if enrollments else None
-
-            if latest_enrollment and latest_enrollment.start_year == start_year:
-                await db.execute(
-                    update(SchoolEnrollment)
-                    .where(SchoolEnrollment.id == latest_enrollment.id)
-                    .values(
-                        grade=numeric_grade,
-                        study_program_id=s_data.study_program_id,
-                        school_id=s_data.school_id
-                    )
-                )
-            else:
+            for e_data in s_data.school_enrollments:
                 db.add(SchoolEnrollment(
                     student_tax_code=person.tax_code,
-                    start_year=start_year,
-                    grade=numeric_grade,
-                    study_program_id=s_data.study_program_id,
-                    school_id=s_data.school_id
+                    start_year=e_data.start_year,
+                    grade=e_data.grade,
+                    study_program_id=e_data.study_program_id,
+                    school_id=e_data.school_id,
                 ))
         else:
             await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
@@ -866,7 +886,14 @@ async def add_parental_responsibility(tax_code: str, payload: ParentUpdatePayloa
     if len((await db.execute(stmt_count)).scalars().all()) >= 2:
         raise HTTPException(status_code=400, detail="Numero massimo di genitori (2) già raggiunto.")
         
-    db.add(ParentalResponsibility(parent_tax_code=payload.parent_tax_code.upper(), child_tax_code=tax_code.upper()))
+    db.add(ParentalResponsibility(
+        parent_tax_code=payload.parent_tax_code.upper(),
+        child_tax_code=tax_code.upper(),
+        authorized_pickup=payload.authorized_pickup,
+        pickup_restriction_reason=(
+            payload.pickup_restriction_reason if not payload.authorized_pickup else None
+        ),
+    ))
     
     try:
         await db.commit()
@@ -886,10 +913,24 @@ async def update_parental_responsibility(tax_code: str, old_parent_tax_code: str
     rel = (await db.execute(stmt)).scalar_one_or_none()
     if not rel:
         raise HTTPException(status_code=404, detail="Associazione genitoriale non trovata.")
-        
+
+    new_reason = payload.pickup_restriction_reason if not payload.authorized_pickup else None
+
+    # Stesso genitore: aggiorniamo solo l'autorizzazione al ritiro, senza
+    # cancellare e ricreare la riga.
     if payload.parent_tax_code.upper() == old_parent_tax_code.upper():
-        return {"message": "Nessuna modifica effettuata"}
-        
+        rel.authorized_pickup = payload.authorized_pickup
+        rel.pickup_restriction_reason = new_reason
+
+        try:
+            await db.commit()
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return {"message": "Autorizzazione al ritiro aggiornata con successo"}
+
+    # Genitore diverso: sostituzione dell'associazione.
     stmt_new_parent = (
         select(Person)
         .options(joinedload(Person.parent_profile))
@@ -908,7 +949,12 @@ async def update_parental_responsibility(tax_code: str, old_parent_tax_code: str
         raise HTTPException(status_code=400, detail="Il nuovo genitore è già associato a questa persona.")
         
     await db.delete(rel)
-    db.add(ParentalResponsibility(parent_tax_code=payload.parent_tax_code.upper(), child_tax_code=tax_code.upper()))
+    db.add(ParentalResponsibility(
+        parent_tax_code=payload.parent_tax_code.upper(),
+        child_tax_code=tax_code.upper(),
+        authorized_pickup=payload.authorized_pickup,
+        pickup_restriction_reason=new_reason,
+    ))
     
     try:
         await db.commit()

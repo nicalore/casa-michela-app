@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     ForeignKey,
+    String,
 )
 from sqlalchemy.orm import (
     Mapped,
@@ -13,6 +15,7 @@ from sqlalchemy.orm import (
 )
 
 from app.db.base import Base
+from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.parent import Parent
@@ -26,6 +29,20 @@ class ParentalResponsibility(Base):
         CheckConstraint(
             "parent_tax_code <> child_tax_code",
             name="parent_child_different",
+        ),
+        CheckConstraint(
+            """
+            pickup_restriction_reason IS NULL
+            OR length(trim(pickup_restriction_reason)) > 0
+            """,
+            name="pickup_restriction_reason_not_blank",
+        ),
+        CheckConstraint(
+            "authorized_pickup = false OR pickup_restriction_reason IS NULL",
+            name="pickup_restriction_reason_requires_not_authorized",
+        ),
+        *no_surrounding_whitespace_constraints(
+            "pickup_restriction_reason",
         ),
     )
 
@@ -43,6 +60,18 @@ class ParentalResponsibility(Base):
             ondelete="CASCADE",
         ),
         primary_key=True,
+    )
+
+    authorized_pickup: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
+    pickup_restriction_reason: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
     )
 
     parent: Mapped[Parent] = relationship(

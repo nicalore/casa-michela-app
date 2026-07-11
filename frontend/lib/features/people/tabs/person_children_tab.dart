@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/snackbar.dart';
 import '../models/child_item.dart';
+import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
 import '../person_wizard_components.dart';
 
@@ -346,6 +347,12 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+              _AuthorizationSectionCard
+              (
+                authorized:        child.authorizedPickup,
+                restrictionReason: child.pickupRestrictionReason,
+              ),
               const SizedBox(height: 48),
               Center
               (
@@ -664,6 +671,97 @@ class _InfoRowData
   const _InfoRowData(this.label, this.value);
 }
 
+//CardALarghezzaPiena_MostraSeIlGenitoreCorrenteEAutorizzatoAlRitiroDiQuestoFiglio
+class _AuthorizationSectionCard extends StatelessWidget
+{
+  final bool    authorized;
+  final String? restrictionReason;
+
+  const _AuthorizationSectionCard
+  ({
+    required this.authorized,
+    required this.restrictionReason,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container
+    (
+      padding:    const EdgeInsets.all(32),
+      decoration: BoxDecoration
+      (
+        color:        Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow:    const 
+        [
+          BoxShadow
+          (
+            color:      Color(0x0A000000),
+            offset:     Offset(0, 4),
+            blurRadius: 16,
+          ),
+        ],
+      ),
+      child: Column
+      (
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize:       MainAxisSize.min,
+        children: 
+        [
+          Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: 
+            [
+              const _StaticAvatar(icon: Icons.how_to_reg_outlined),
+              const SizedBox(width: 24),
+              Expanded
+              (
+                child: Text
+                (
+                  'Autorizzazione al ritiro',
+                  style: GoogleFonts.plusJakartaSans
+                  (
+                    fontSize:   26,
+                    fontWeight: FontWeight.w700,
+                    color:      const Color(0xFF003C82),
+                    height:     1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Padding
+          (
+            padding: EdgeInsets.symmetric(vertical: 24.0),
+            child:   Divider
+            (
+              height:    1,
+              thickness: 1,
+              color:     Color(0xFFF1F5F9),
+            ),
+          ),
+          _ChildInfoRow
+          (
+            label: 'Autorizzato',
+            value: authorized ? 'Sì' : 'No',
+          ),
+          if (!authorized) ...
+          [
+            const SizedBox(height: 16),
+            _ChildInfoRow
+            (
+              label: 'Motivo',
+              value: (restrictionReason?.isNotEmpty ?? false) ? restrictionReason! : '-',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class ChildrenEditDialog extends StatefulWidget 
 {
   final PersonItem person;
@@ -680,10 +778,10 @@ class ChildrenEditDialog extends StatefulWidget
 
 class _ChildrenEditDialogState extends State<ChildrenEditDialog> 
 {
-  bool                        _isLoadingData    = true;
-  bool                        _isSubmitting     = false;
-  List<PersonItem>            _allMinors        = [];
-  final Set<String>           _selectedMinors   = {};
+  bool                                          _isLoadingData    = true;
+  bool                                          _isSubmitting     = false;
+  List<PersonItem>                              _allMinors        = [];
+  final Map<String, ParentalRelationshipDraft>  _selectedMinors   = {};
 
   final TextEditingController _searchMinorsCtrl = TextEditingController();
   String                      _searchMinorsText = '';
@@ -711,7 +809,12 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     {
       for (var child in widget.person.children!) 
       {
-        _selectedMinors.add(child.fiscalCode);
+        _selectedMinors[child.fiscalCode] = ParentalRelationshipDraft
+        (
+          taxCode:           child.fiscalCode,
+          authorizedPickup:  child.authorizedPickup,
+          restrictionReason: child.pickupRestrictionReason,
+        );
       }
     }
   }
@@ -746,6 +849,26 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
           _isLoadingData = false;
         });
       }
+    }
+  }
+
+  void _onCardTap(PersonItem minor) async 
+  {
+    final draft = await showAuthorizedPickupDialog
+    (
+      context,
+      personTaxCode: minor.fiscalCode,
+      parentName:    '${widget.person.firstName} ${widget.person.lastName}',
+      childName:     '${minor.firstName} ${minor.lastName}',
+      existing:      _selectedMinors[minor.fiscalCode],
+    );
+
+    if (draft != null && mounted) 
+    {
+      setState(() 
+      {
+        _selectedMinors[minor.fiscalCode] = draft;
+      });
     }
   }
 
@@ -800,7 +923,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       bool hasAdultWarning = false;
       for (final child in widget.person.children!) 
       {
-        if (!_selectedMinors.contains(child.fiscalCode)) 
+        if (!_selectedMinors.containsKey(child.fiscalCode)) 
         {
           final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
           if (minorIterable.isNotEmpty) 
@@ -842,7 +965,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     }
 
     //MaxParentsValidation
-    for (final minorId in _selectedMinors) 
+    for (final minorId in _selectedMinors.keys) 
     {
       final minorIterable = _allMinors.where((m) => m.fiscalCode == minorId);
       if (minorIterable.isNotEmpty) 
@@ -893,8 +1016,13 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
         "roles":         widget.person.roles,
         "relationships": 
         {
-          "minors_tax_codes":  _selectedMinors.toList(),
-          "parents_tax_codes": widget.person.parents?.map((p) => p.fiscalCode).toList() ?? [],
+          "minors_tax_codes":  _selectedMinors.values.map((d) => d.toJson()).toList(),
+          "parents_tax_codes": (widget.person.parents ?? []).map((p) => ParentalRelationshipDraft
+          (
+            taxCode:           p.fiscalCode,
+            authorizedPickup:  p.authorizedPickup,
+            restrictionReason: p.pickupRestrictionReason,
+          ).toJson()).toList(),
         }
       };
 
@@ -1170,26 +1298,17 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
                                           children:   validMinors.map((minor) 
                                           {
                                             final minorId    = minor.fiscalCode;
-                                            final isSelected = _selectedMinors.contains(minorId);
+                                            final isSelected = _selectedMinors.containsKey(minorId);
                                             
                                             return WizardSelectablePersonCard
                                             (
                                               person:     minor,
                                               isSelected: isSelected,
-                                              onTap:      () 
-                                              {
-                                                setState(() 
-                                                {
-                                                  if (isSelected) 
-                                                  {
-                                                    _selectedMinors.remove(minorId);
-                                                  } 
-                                                  else 
-                                                  {
-                                                    _selectedMinors.add(minorId);
-                                                  }
-                                                });
-                                              },
+                                              onTap:      () => _onCardTap(minor),
+                                              onEdit:     isSelected ? () => _onCardTap(minor) : null,
+                                              onRemove:   isSelected 
+                                                  ? () => setState(() => _selectedMinors.remove(minorId)) 
+                                                  : null,
                                             );
                                           }).toList(),
                                         ),

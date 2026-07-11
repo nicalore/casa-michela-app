@@ -13,6 +13,7 @@ import '../association/models/association_subject_item.dart';
 import '../association/models/study_program_item.dart';
 import '../association/models/school_item.dart';
 import './models/person_item.dart';
+import './models/parental_relationship_draft.dart';
 
 import './person_wizard_components.dart';
 import './minor_creation_dialog.dart';
@@ -111,20 +112,21 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  String?          _uscitaAnticipata;
+  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  bool             _uscitaAnticipata = false;
   List<SchoolItem> _allSchools = [];
 
   final TextEditingController _searchParentsCtrl  = TextEditingController();
   String                      _searchParentsText  = '';
   String                      _sortParentsBy      = 'surname_asc';
-  final Set<String>           _selectedParents    = {};
+  final Map<String, ParentalRelationshipDraft> _selectedParents = {};
   List<PersonItem>            _allAdults          = [];
 
   final TextEditingController _searchMinorsCtrl = TextEditingController();
   String                      _searchMinorsText = '';
   String                      _sortMinorsBy     = 'surname_asc';
   String?                     _filterMinorsRole;
-  final Set<String>           _selectedMinors   = {};
+  final Map<String, ParentalRelationshipDraft> _selectedMinors = {};
   final Set<String>           _lockedMinors     = {};
   List<PersonItem>            _allMinors        = [];
 
@@ -785,10 +787,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     
     if (isStudente)
     {
-      if (_isMinor && _uscitaAnticipata == null)
-      {
-        addError('uscitaAnticipata', 'Campo obbligatorio', currentMappedIndex);
-      }
       if (_schoolRows.isEmpty)
       {
         addError('schoolGeneral', 'Aggiungi almeno un anno scolastico', currentMappedIndex);
@@ -978,7 +976,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       {
         studentData = 
         {
-          "authorized_early_exit": _isMinor ? (_uscitaAnticipata == 'Sì') : true,
+          "authorized_early_exit": _isMinor ? _uscitaAnticipata : true,
           "school_enrollments": _schoolRows.map((r) => 
           {
             "start_year":                 int.parse(r.yearCtrl.text.trim()),
@@ -1018,8 +1016,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         "student_data":            studentData,
         "relationships": 
         {
-          "minors_tax_codes":  _selectedMinors.toList(),
-          "parents_tax_codes": _selectedParents.toList(),
+          "minors_tax_codes":  _selectedMinors.values.map((d) => d.toJson()).toList(),
+          "parents_tax_codes": _selectedParents.values.map((d) => d.toJson()).toList(),
         }
       };
 
@@ -1103,10 +1101,22 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       final newMinor = newMinorData['person'] as PersonItem;
       _pendingPersonsToCreate.add(newMinorData);
+
+      final draft = await showAuthorizedPickupDialog
+      (
+        context,
+        personTaxCode: newMinor.fiscalCode,
+        parentName:    '${_nomeCtrl.text.trim()} ${_cognomeCtrl.text.trim()}',
+        childName:     '${newMinor.firstName} ${newMinor.lastName}',
+      );
+
+      if (!mounted) return;
+
       setState(() 
       {
         _allMinors.add(newMinor);
-        _selectedMinors.add(newMinor.fiscalCode);
+        //SeIlDialogVieneAnnullato_DefaultAAutorizzatoTrue_IlMinoreRestaComunqueSelezionatoEBloccato
+        _selectedMinors[newMinor.fiscalCode] = draft ?? ParentalRelationshipDraft(taxCode: newMinor.fiscalCode);
         _lockedMinors.add(newMinor.fiscalCode);
       });
       if (mounted)
@@ -1149,18 +1159,75 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       final newParent = newParentData['person'] as PersonItem;
       _pendingPersonsToCreate.add(newParentData);
+
+      ParentalRelationshipDraft? draft;
+      if (_selectedParents.length < 2)
+      {
+        draft = await showAuthorizedPickupDialog
+        (
+          context,
+          personTaxCode: newParent.fiscalCode,
+          parentName:    '${newParent.firstName} ${newParent.lastName}',
+          childName:     '${_nomeCtrl.text.trim()} ${_cognomeCtrl.text.trim()}',
+        );
+      }
+
+      if (!mounted) return;
+
       setState(() 
       {
         _allAdults.add(newParent);
         if (_selectedParents.length < 2)
         {
-          _selectedParents.add(newParent.fiscalCode);
+          _selectedParents[newParent.fiscalCode] = draft ?? ParentalRelationshipDraft(taxCode: newParent.fiscalCode);
         }
       });
       if (mounted)
       {
         CustomSnackBar.show(context: context, message: 'Genitore creato e selezionato con successo!', isError: false);
       }
+    }
+  }
+
+  //AggiuntoDopo_CreateNewParent_PrimaDi_ActiveStep4Cards
+  void _onParentCardTap(PersonItem adult) async
+  {
+    final bool alreadySelected = _selectedParents.containsKey(adult.fiscalCode);
+    if (!alreadySelected && _selectedParents.length >= 2)
+    {
+      CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
+      return;
+    }
+
+    final draft = await showAuthorizedPickupDialog
+    (
+      context,
+      personTaxCode: adult.fiscalCode,
+      parentName:    '${adult.firstName} ${adult.lastName}',
+      childName:     '${_nomeCtrl.text.trim()} ${_cognomeCtrl.text.trim()}',
+      existing:      _selectedParents[adult.fiscalCode],
+    );
+
+    if (draft != null && mounted)
+    {
+      setState(() => _selectedParents[adult.fiscalCode] = draft);
+    }
+  }
+
+  void _onMinorCardTap(PersonItem minor) async
+  {
+    final draft = await showAuthorizedPickupDialog
+    (
+      context,
+      personTaxCode: minor.fiscalCode,
+      parentName:    '${_nomeCtrl.text.trim()} ${_cognomeCtrl.text.trim()}',
+      childName:     '${minor.firstName} ${minor.lastName}',
+      existing:      _selectedMinors[minor.fiscalCode],
+    );
+
+    if (draft != null && mounted)
+    {
+      setState(() => _selectedMinors[minor.fiscalCode] = draft);
     }
   }
 
@@ -1388,7 +1455,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     if (_currentStep == 6)
     {
-      for (final minorId in _selectedMinors) 
+      for (final minorId in _selectedMinors.keys) 
       {
         final minorIterable = _allMinors.where((m) => m.fiscalCode == minorId);
         if (minorIterable.isNotEmpty) 
@@ -2549,7 +2616,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 const SizedBox(height: 8),
                 Text
                 (
-                  'Seleziona i genitori o tutori legali del minore (almeno 1, massimo 2).\nSe il genitore non è presente nell\'elenco, puoi registrarlo ora.',
+                  'Seleziona i genitori o i tutori legali del minore (almeno uno, massimo due).\nSe il genitore non è presente nell\'elenco, puoi registrarlo ora.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans
                   (
@@ -2634,28 +2701,15 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                           children:   validAdults.map((adult) 
                           {
                             final adultId    = adult.fiscalCode;
-                            final isSelected = _selectedParents.contains(adultId);
+                            final isSelected = _selectedParents.containsKey(adultId);
                             
                             return WizardSelectablePersonCard
                             (
                               person:     adult,
                               isSelected: isSelected,
-                              onTap:      () => setState(() 
-                              {
-                                if (isSelected) 
-                                {
-                                  _selectedParents.remove(adultId);
-                                } 
-                                else 
-                                {
-                                  if (_selectedParents.length >= 2)
-                                  {
-                                    CustomSnackBar.show(context: context, message: 'Massimo 2 genitori selezionabili.', isError: true);
-                                    return;
-                                  }
-                                  _selectedParents.add(adultId);
-                                }
-                              }),
+                              onTap:      () => _onParentCardTap(adult),
+                              onEdit:     isSelected ? () => _onParentCardTap(adult) : null,
+                              onRemove:   isSelected ? () => setState(() => _selectedParents.remove(adultId)) : null,
                             );
                           }).toList(),
                         ),
@@ -2805,29 +2859,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                           children:   validMinors.map((minor) 
                           {
                             final minorId    = minor.fiscalCode;
-                            final isSelected = _selectedMinors.contains(minorId);
+                            final isSelected = _selectedMinors.containsKey(minorId);
+                            final isLocked   = _lockedMinors.contains(minorId);
                             
                             return WizardSelectablePersonCard
                             (
                               person:     minor,
                               isSelected: isSelected,
-                              onTap:      () => setState(() 
-                              {
-                                if (_lockedMinors.contains(minorId))
-                                {
-                                  CustomSnackBar.show(context: context, message: 'Impossibile deselezionare un minore creato qui.', isError: true);
-                                  return;
-                                }
-
-                                if (isSelected) 
-                                {
-                                  _selectedMinors.remove(minorId);
-                                } 
-                                else 
-                                {
-                                  _selectedMinors.add(minorId);
-                                }
-                              }),
+                              onTap:      () => _onMinorCardTap(minor),
+                              //IMinoriBloccatiRestanoModificabiliViaMatita_MaNonRimovibili_NessunaIconaCestino
+                              onEdit:     isSelected ? () => _onMinorCardTap(minor) : null,
+                              onRemove:   (isSelected && !isLocked) ? () => setState(() => _selectedMinors.remove(minorId)) : null,
                             );
                           }).toList(),
                         ),
@@ -3095,9 +3137,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             hint:      'Seleziona',
             errorText: _formErrors['tipoCollaborazione'],
             onChanged: (val) => setState(() 
-            {
-              _tipoCollaborazione = val;
-              _formErrors.remove('tipoCollaborazione');
+            { 
+              _tipoCollaborazione = val; 
+              _formErrors.remove('tipoCollaborazione'); 
             }),
           ),
         ),
@@ -3123,9 +3165,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             hint:      'Seleziona',
             errorText: _formErrors['ruoloAmministratore'],
             onChanged: (val) => setState(() 
-            {
-              _ruoloAmministratore = val;
-              _formErrors.remove('ruoloAmministratore');
+            { 
+              _ruoloAmministratore = val; 
+              _formErrors.remove('ruoloAmministratore'); 
             }),
           ),
         ),
@@ -3231,17 +3273,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           WizardFormInputRow
           (
             label:       'Uscita anticipata',
-            inputWidget: WizardAnimatedOverlayDropdown
+            inputWidget: Align
             (
-              value:     _uscitaAnticipata,
-              items:     const ['Sì', 'No'],
-              hint:      'Seleziona',
-              errorText: _formErrors['uscitaAnticipata'],
-              onChanged: (val) => setState(() 
-              {
-                _uscitaAnticipata = val;
-                _formErrors.remove('uscitaAnticipata');
-              }),
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _uscitaAnticipata,
+                onChanged: (val) => setState(() => _uscitaAnticipata = val),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -3267,13 +3306,13 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   {
                     programNames.add(p.name);
                   }
-                  
+
                   if (r.selectedProgram != null && p.name == r.selectedProgram!.name)
                   {
                     final globalProgram = _allPrograms.firstWhere((gp) => gp.id == r.selectedProgram!.id);
-                    
+
                     const romanGrades = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'};
-                    for (int i = globalProgram.minYear; i <= globalProgram.maxYear; i++) 
+                    for (int i = globalProgram.minYear; i <= globalProgram.maxYear; i++)
                     {
                       if (romanGrades.containsKey(i) && !gradeOptions.contains(romanGrades[i]!))
                       {
@@ -3429,9 +3468,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             hint:      'Seleziona',
             errorText: _formErrors['sesso'],
             onChanged: (val) => setState(() 
-            {
-              _sesso = val;
-              _formErrors.remove('sesso');
+            { 
+              _sesso = val; 
+              _formErrors.remove('sesso'); 
             }),
           ),
         ),
@@ -3581,7 +3620,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           (
             controller:   _emailCtrl, 
             hint:         'Es. mario.rossi@email.com', 
-            keyboardType: TextInputType.emailAddress,
+            keyboardType: TextInputType.emailAddress, 
             errorText:    _formErrors['email'],
             onChanged:    (_) => setState(() => _formErrors.remove('email')),
           ),
@@ -3594,7 +3633,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           (
             controller:   _telefonoCtrl, 
             hint:         'Es. 3331234567', 
-            keyboardType: TextInputType.phone,
+            keyboardType: TextInputType.phone, 
             errorText:    _formErrors['telefono'],
             onChanged:    (_) => setState(() => _formErrors.remove('telefono')),
           ),
@@ -3850,8 +3889,8 @@ class _WizardEnrollmentFieldRow extends StatelessWidget
             Expanded(flex: 2, child: yearField),
             const SizedBox(width: 16),
             Expanded(flex: 3, child: dateField),
-            //RicalibratoDopoAverAggiuntoLetichettaSuOgniRiga_Prima_top:6_EraCalibratoSenzaEtichetta
-            //LetichettaAggiungeCirca27pxSopraIlCampo_+5PerCentrareIlBottone40pxSulCampo50px
+            //RicalibratoRispettoAllOriginale_top:6EraCalibratoQuandoLetichettaCompariva
+            //SoloSullaPrimaRiga_QuiCompareSempre_QuindiIlCampoSiSpostaInBassoDiCirca27px
             onRemove != null
                 ? Padding
                   (

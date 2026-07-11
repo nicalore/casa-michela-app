@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.person import ParentalRelationshipInput
+
 
 class WizardGeneralData(BaseModel):
     first_name:              str  = Field(..., min_length=1)
@@ -10,7 +12,7 @@ class WizardGeneralData(BaseModel):
     tax_code:                str  = Field(..., min_length=16, max_length=16)
     gender:                  str
     birth_date:              date
-    birth_city:              str
+    birth_city:               str
     birth_province:          str  = Field(..., max_length=2)
     residence_type:          str
     residence_address:       str
@@ -73,8 +75,8 @@ class WizardStudentData(BaseModel):
 
 
 class WizardRelationships(BaseModel):
-    minors_tax_codes:  List[str] = Field(default_factory=list)
-    parents_tax_codes: List[str] = Field(default_factory=list)
+    minors_tax_codes:  List[ParentalRelationshipInput] = Field(default_factory=list)
+    parents_tax_codes: List[ParentalRelationshipInput] = Field(default_factory=list)
 
 
 class PersonWizardPayload(BaseModel):
