@@ -41,18 +41,28 @@ class _SchoolsTabState extends State<SchoolsTab>
 
   String _searchText = '';
   String _sortBy = 'date_desc';
+  String? _filterCity;
   
   bool _newSchoolHover = false;
+
+  //OpzioniGenerateDinamicamenteDalleScuoleEffettivamentePresenti_NonEUnEnumFisso
+  List<_FilterOption<String>> get _cityOptions
+  {
+    final cities = widget.schools.map((s) => s.city).toSet().toList();
+    cities.sort();
+    return cities.map((city) => _FilterOption(value: city, label: city)).toList();
+  }
 
   List<SchoolItem> get _filteredSchools 
   {
     var result = widget.schools.where((school) 
     {
       final query = _searchText.toLowerCase();
-      return school.name.toLowerCase().contains(query) ||
-          (school.mechanographicCode ?? '').toLowerCase().contains(query) ||
-          school.city.toLowerCase().contains(query) ||
-          school.province.toLowerCase().contains(query);
+      //RicercaRistrettaANomeECodiceMeccanografico_CittaEProvinciaNonPiuInclusi_CEIlFiltroDedicato
+      final matchesSearch = school.name.toLowerCase().contains(query) ||
+          (school.mechanographicCode ?? '').toLowerCase().contains(query);
+      final matchesCity = _filterCity == null || school.city == _filterCity;
+      return matchesSearch && matchesCity;
     }).toList();
 
     result.sort((a, b) 
@@ -107,7 +117,7 @@ class _SchoolsTabState extends State<SchoolsTab>
       children: [
         Row(
           children: [
-            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca scuola...')),
+            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca per nome o codice meccanografico...')),
             const SizedBox(width: 24),
             MouseRegion(
               cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _newSchoolHover = true), onExit: (_) => setState(() => _newSchoolHover = false),
@@ -123,9 +133,12 @@ class _SchoolsTabState extends State<SchoolsTab>
           ],
         ),
         const SizedBox(height: 32),
-        _CustomFilterMenu<String>(
-          hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {},
-          options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')], 
+        Wrap(
+          spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Tutte le città', icon: Icons.location_city_outlined, value: _filterCity, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterCity = val), onClear: () => setState(() => _filterCity = null), options: _cityOptions),
+          ],
         ),
         const SizedBox(height: 16),
         Text(_filteredSchools.length == 1 ? '1 scuola trovata' : '${_filteredSchools.length} scuole trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),

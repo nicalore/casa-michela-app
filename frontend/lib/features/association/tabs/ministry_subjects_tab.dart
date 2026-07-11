@@ -38,6 +38,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
   String _searchText = '';
   String _sortBy = 'date_desc';
   String? _filterArea;
+  String? _filterLevel;
 
   bool _newSubjectHover = false;
 
@@ -48,7 +49,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       final query = _searchText.toLowerCase();
       final matchesSearch = subject.name.toLowerCase().contains(query);
       final matchesArea = _filterArea == null || subject.areas.contains(_filterArea);
-      return matchesSearch && matchesArea;
+      final matchesLevel = _filterLevel == null || subject.level == _filterLevel;
+      return matchesSearch && matchesArea && matchesLevel;
     }).toList();
 
     result.sort((a, b)
@@ -123,6 +125,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
           spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Tutti i livelli', icon: Icons.school_outlined, value: _filterLevel, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterLevel = val), onClear: () => setState(() => _filterLevel = null), options: [_FilterOption(value: 'PRIMARY_SCHOOL', label: 'Scuola Primaria'), _FilterOption(value: 'MIDDLE_SCHOOL', label: 'Secondaria di I Grado'), _FilterOption(value: 'HIGH_SCHOOL', label: 'Secondaria di II Grado')]),
             _CustomFilterMenu<String>(hint: 'Tutte le aree', icon: Icons.category_outlined, value: _filterArea, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterArea = val), onClear: () => setState(() => _filterArea = null), options: [_FilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), _FilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), _FilterOption(value: 'SCIENCES', label: 'Area Scientifica')]),
           ],
         ),

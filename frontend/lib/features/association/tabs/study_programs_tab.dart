@@ -38,6 +38,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
 
   String _searchText = '';
   String _sortBy = 'date_desc';
+  String? _filterLevel;
 
   bool _newProgramHover = false;
 
@@ -46,7 +47,9 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     var result = widget.studyPrograms.where((program)
     {
       final query = _searchText.toLowerCase();
-      return program.name.toLowerCase().contains(query);
+      final matchesSearch = program.name.toLowerCase().contains(query);
+      final matchesLevel = _filterLevel == null || program.level == _filterLevel;
+      return matchesSearch && matchesLevel;
     }).toList();
 
     result.sort((a, b)
@@ -117,9 +120,12 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           ],
         ),
         const SizedBox(height: 32),
-        _CustomFilterMenu<String>(
-          hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {},
-          options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')], 
+        Wrap(
+          spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Tutti i livelli', icon: Icons.school_outlined, value: _filterLevel, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterLevel = val), onClear: () => setState(() => _filterLevel = null), options: [_FilterOption(value: 'PRIMARY_SCHOOL', label: 'Scuola Primaria'), _FilterOption(value: 'MIDDLE_SCHOOL', label: 'Secondaria di I Grado'), _FilterOption(value: 'HIGH_SCHOOL', label: 'Secondaria di II Grado')]),
+          ],
         ),
         const SizedBox(height: 16),
         Text(_filteredPrograms.length == 1 ? '1 percorso trovato' : '${_filteredPrograms.length} percorsi trovati', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
