@@ -17,6 +17,7 @@ class PersonItem
   final String?      email;
   final String?      phoneNumber;
   final String?      birthCity;
+  final String?      birthNation;
   final String?      birthProvince;
   final String?      residenceType;
   final String?      address;
@@ -38,6 +39,17 @@ class PersonItem
   final List<String> taughtSubjects;
   final String?      courseType;
   final bool?        isMedicalCertificateValid;
+
+  final String?      certificationType;
+  final String?      certificationOtherDetail;
+  final bool?        mandatoryPsychMeetingsAcknowledged;
+
+  final String?      paymentMethod;
+  final String?      paymentMethodOther;
+  final String?      emergencyContactName;
+  final String?      emergencyContactPhone;
+  final String?      allergiesNotes;
+  final String?      medicationsNotes;
   
   final String?      iban;
   final String?      adminRole;
@@ -70,6 +82,7 @@ class PersonItem
     this.email,
     this.phoneNumber,
     this.birthCity,
+    this.birthNation,
     this.birthProvince,
     this.residenceType,
     this.address,
@@ -90,6 +103,15 @@ class PersonItem
     this.taughtSubjects = const [],
     this.courseType,
     this.isMedicalCertificateValid,
+    this.certificationType,
+    this.certificationOtherDetail,
+    this.mandatoryPsychMeetingsAcknowledged,
+    this.paymentMethod,
+    this.paymentMethodOther,
+    this.emergencyContactName,
+    this.emergencyContactPhone,
+    this.allergiesNotes,
+    this.medicationsNotes,
     this.memberUpdatedAt,
     this.studentUpdatedAt,
     this.teacherUpdatedAt,
@@ -119,6 +141,7 @@ class PersonItem
       email:                     json['email'],
       phoneNumber:               json['phone'],
       birthCity:                 json['birth_city'],
+      birthNation:               json['birth_nation'],
       birthProvince:             json['birth_province'],
       residenceType:             json['residence_type'],
       address:                   json['residence_address'],
@@ -139,6 +162,15 @@ class PersonItem
       taughtSubjects:            (json['taught_subjects'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       courseType:                json['course_type'],
       isMedicalCertificateValid: json['is_medical_certificate_valid'],
+      certificationType:         json['certification_type'],
+      certificationOtherDetail:  json['certification_other_detail'],
+      mandatoryPsychMeetingsAcknowledged: json['mandatory_psych_meetings_acknowledged'],
+      paymentMethod:             json['payment_method'],
+      paymentMethodOther:        json['payment_method_other'],
+      emergencyContactName:      json['emergency_contact_name'],
+      emergencyContactPhone:     json['emergency_contact_phone'],
+      allergiesNotes:            json['allergies_notes'],
+      medicationsNotes:          json['medications_notes'],
       memberUpdatedAt:           json['member_updated_at'] != null ? DateTime.parse(json['member_updated_at']) : null,
       studentUpdatedAt:          json['student_updated_at'] != null ? DateTime.parse(json['student_updated_at']) : null,
       teacherUpdatedAt:          json['teacher_updated_at'] != null ? DateTime.parse(json['teacher_updated_at']) : null,

@@ -9,6 +9,7 @@ from app.models.ministry_subject import MinistrySubject
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import Person
+from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.refresh_token import RefreshToken
 from app.models.school import School
@@ -33,6 +34,7 @@ __all__ = [
     "Parent",
     "ParentalResponsibility",
     "Person",
+    "PsychologicalSupport",
     "Psychologist",
     "RefreshToken",
     "School",

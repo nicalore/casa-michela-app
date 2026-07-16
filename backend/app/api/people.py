@@ -13,17 +13,18 @@ from app.schemas.person_wizard import PersonWizardPayload
 from app.services.person_wizard_service import create_person_from_wizard
 
 from ..models.administrator import Administrator, AdministratorRoleEnum
-from ..models.course_participant import CourseParticipant
-from ..models.member import Member
+from ..models.course_participant import CourseParticipant, CourseTypeEnum
+from ..models.member import Member, PaymentMethodEnum
 from ..models.membership import Membership, MembershipRevocationEnum
 from ..models.parent import Parent
 from ..models.parental_responsibility import ParentalResponsibility
 from ..models.person import GenderEnum, Person
+from ..models.psychological_support import PsychologicalSupport
 from ..models.psychologist import Psychologist
 from ..models.school_enrollment import SchoolEnrollment
 from ..models.school_study_program import SchoolStudyProgram
 from ..models.staff import CollaborationTypeEnum, Staff
-from ..models.student import Student
+from ..models.student import CertificationTypeEnum, Student
 from ..models.teacher import Teacher
 from ..models.teaching_competence import TeachingCompetence
 from ..schemas.person import (
@@ -122,6 +123,24 @@ def _map_person_to_response(p: Person) -> PersonResponse:
     university_education           = None
     medical_certificate_expiration = None
 
+    certification_type                    = None
+    certification_other_detail            = None
+    mandatory_psych_meetings_acknowledged = None
+
+    payment_method                   = None
+    payment_method_other             = None
+    statute_acknowledged             = None
+    regulation_acknowledged          = None
+    video_surveillance_acknowledged  = None
+    special_category_data_consent    = None
+    newsletter_consent               = None
+    consents_signed_at               = None
+    emergency_contact_name           = None
+    emergency_contact_phone          = None
+    allergies_notes                  = None
+    medications_notes                = None
+    psychological_support_start_date = None
+
     # Timestamp dei tre aggregati soggetti a controllo di concorrenza
     # ottimistica (RNF-IAM-REL-07). Restano None se la persona non possiede
     # il relativo profilo.
@@ -156,6 +175,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                     email=child_person.email,
                     phone=child_person.phone,
                     birth_city=child_person.birth_city,
+                    birth_nation=child_person.birth_nation,
                     birth_province=child_person.birth_province,
                     residence_type=child_person.residence_type,
                     residence_address=child_person.residence_address,
@@ -183,6 +203,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
                     email=parent_person.email,
                     phone=parent_person.phone,
                     birth_city=parent_person.birth_city,
+                    birth_nation=parent_person.birth_nation,
                     birth_province=parent_person.birth_province,
                     residence_type=parent_person.residence_type,
                     residence_address=parent_person.residence_address,
@@ -201,7 +222,23 @@ def _map_person_to_response(p: Person) -> PersonResponse:
         roles.append('Associato')
         is_active_collab = member.collaborating_active
         member_updated_at = member.updated_at
-        
+
+        payment_method                  = member.payment_method
+        payment_method_other            = member.payment_method_other
+        statute_acknowledged            = member.statute_acknowledged
+        regulation_acknowledged         = member.regulation_acknowledged
+        video_surveillance_acknowledged = member.video_surveillance_acknowledged
+        special_category_data_consent   = member.special_category_data_consent
+        newsletter_consent              = member.newsletter_consent
+        consents_signed_at              = member.consents_signed_at
+        emergency_contact_name          = member.emergency_contact_name
+        emergency_contact_phone         = member.emergency_contact_phone
+        allergies_notes                 = member.allergies_notes
+        medications_notes               = member.medications_notes
+
+        if member.psychological_support_profile is not None:
+            psychological_support_start_date = member.psychological_support_profile.start_date
+
         if member.memberships:
             first_membership = min(member.memberships, key=lambda m: m.year)
             enrollment_year  = str(first_membership.year)
@@ -231,7 +268,11 @@ def _map_person_to_response(p: Person) -> PersonResponse:
             student    = member.student_profile
             early_exit = student.authorized_early_exit
             student_updated_at = student.updated_at
-            
+
+            certification_type                    = student.certification_type
+            certification_other_detail            = student.certification_other_detail
+            mandatory_psych_meetings_acknowledged  = student.mandatory_psych_meetings_acknowledged
+
             if student.school_enrollments:
                 for e in student.school_enrollments:
                     ssp = e.school_study_program
@@ -313,6 +354,7 @@ def _map_person_to_response(p: Person) -> PersonResponse:
         email=p.email,
         phone=p.phone,
         birth_city=p.birth_city,
+        birth_nation=p.birth_nation,
         birth_province=p.birth_province,
         residence_type=p.residence_type,
         residence_address=p.residence_address,
@@ -346,7 +388,23 @@ def _map_person_to_response(p: Person) -> PersonResponse:
         admin_other_role=admin_other_role,
         school_education=school_education,
         university_education=university_education,
-        medical_certificate_expiration=medical_certificate_expiration
+        medical_certificate_expiration=medical_certificate_expiration,
+        certification_type=certification_type,
+        certification_other_detail=certification_other_detail,
+        mandatory_psych_meetings_acknowledged=mandatory_psych_meetings_acknowledged,
+        payment_method=payment_method,
+        payment_method_other=payment_method_other,
+        statute_acknowledged=statute_acknowledged,
+        regulation_acknowledged=regulation_acknowledged,
+        video_surveillance_acknowledged=video_surveillance_acknowledged,
+        special_category_data_consent=special_category_data_consent,
+        newsletter_consent=newsletter_consent,
+        consents_signed_at=consents_signed_at,
+        emergency_contact_name=emergency_contact_name,
+        emergency_contact_phone=emergency_contact_phone,
+        allergies_notes=allergies_notes,
+        medications_notes=medications_notes,
+        psychological_support_start_date=psychological_support_start_date,
     )
 
 
@@ -383,6 +441,7 @@ async def get_people(db: DbSession):
                 .joinedload(Teacher.teaching_competences)
                 .joinedload(TeachingCompetence.study_program),
             joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.psychologist_profile),
+            joinedload(Person.member_profile).joinedload(Member.psychological_support_profile),
         )
     )
     
@@ -425,6 +484,7 @@ async def get_person(tax_code: str, db: DbSession):
                 .joinedload(Teacher.teaching_competences)
                 .joinedload(TeachingCompetence.study_program),
             joinedload(Person.member_profile).joinedload(Member.staff_profile).joinedload(Staff.psychologist_profile),
+            joinedload(Person.member_profile).joinedload(Member.psychological_support_profile),
         )
         .where(Person.tax_code == tax_code.upper())
     )
@@ -464,6 +524,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             gender=GenderEnum(data.gender),
             birth_date=data.birth_date,
             birth_city=data.birth_city,
+            birth_nation=data.birth_nation,
             birth_province=data.birth_province,
             residence_type=data.residence_type,
             residence_address=data.residence_address,
@@ -478,6 +539,12 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
     await db.flush()
 
     roles = [r.upper() for r in payload.roles]
+
+    if "PSICOLOGO" in roles and payload.psychological_support_data is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
+        )
 
     # 1. Rimuoviamo tutte le vecchie dipendenze ParentalResponsibility prima di toccare i profili Genitore/Studente
     if payload.relationships is not None:
@@ -544,13 +611,53 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             current_member = await db.scalar(select(Member).where(Member.tax_code == person.tax_code))
             _assert_not_stale(current_member, payload.member_data.expected_updated_at, entity_label="Le iscrizioni")
 
+            member_data = payload.member_data
+            # Campi assenti dal payload (mai inviati da questo particolare
+            # chiamante) restano invariati a DB, invece di essere azzerati:
+            # vedi il commento sul modello PersonMembershipsUpdate.
+            provided_fields = member_data.model_fields_set
+
+            update_values: dict = {
+                "collaborating_active": member_data.collaborating_active,
+                "updated_at": datetime.now(timezone.utc),
+            }
+
+            if "payment_method" in provided_fields or "payment_method_other" in provided_fields:
+                payment_method_val = (
+                    PaymentMethodEnum(member_data.payment_method) if member_data.payment_method else None
+                )
+                update_values["payment_method"] = payment_method_val
+                update_values["payment_method_other"] = (
+                    member_data.payment_method_other
+                    if payment_method_val == PaymentMethodEnum.OTHER
+                    else None
+                )
+
+            if "statute_acknowledged" in provided_fields:
+                update_values["statute_acknowledged"] = member_data.statute_acknowledged
+            if "regulation_acknowledged" in provided_fields:
+                update_values["regulation_acknowledged"] = member_data.regulation_acknowledged
+            if "video_surveillance_acknowledged" in provided_fields:
+                update_values["video_surveillance_acknowledged"] = member_data.video_surveillance_acknowledged
+            if "special_category_data_consent" in provided_fields:
+                update_values["special_category_data_consent"] = member_data.special_category_data_consent
+            if "newsletter_consent" in provided_fields:
+                update_values["newsletter_consent"] = member_data.newsletter_consent
+            if "consents_signed_at" in provided_fields:
+                update_values["consents_signed_at"] = member_data.consents_signed_at
+            if "emergency_contact_name" in provided_fields:
+                update_values["emergency_contact_name"] = member_data.emergency_contact_name
+            if "emergency_contact_phone" in provided_fields:
+                update_values["emergency_contact_phone"] = member_data.emergency_contact_phone
+            if "allergies_notes" in provided_fields:
+                update_values["allergies_notes"] = member_data.allergies_notes
+            if "medications_notes" in provided_fields:
+                update_values["medications_notes"] = member_data.medications_notes
+
             await db.execute(
                 update(Member)
                 .where(Member.tax_code == person.tax_code)
-                .values(
-                    collaborating_active=payload.member_data.collaborating_active,
-                    updated_at=datetime.now(timezone.utc),
-                )
+                .values(**update_values)
             )
             await db.execute(delete(Membership).where(Membership.member_tax_code == person.tax_code))
             await db.flush()
@@ -585,6 +692,15 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
 
             current_student = await db.scalar(select(Student).where(Student.tax_code == person.tax_code))
 
+            certification_type_val = (
+                CertificationTypeEnum(s_data.certification_type) if s_data.certification_type else None
+            )
+            certification_other_detail_val = (
+                s_data.certification_other_detail
+                if certification_type_val == CertificationTypeEnum.OTHER
+                else None
+            )
+
             if current_student is not None:
                 # Il controllo va fatto PRIMA di scrivere qualunque campo,
                 # altrimenti scriviamo dati parziali anche in caso di conflitto.
@@ -594,11 +710,20 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                     .where(Student.tax_code == person.tax_code)
                     .values(
                         authorized_early_exit=s_data.authorized_early_exit,
+                        certification_type=certification_type_val,
+                        certification_other_detail=certification_other_detail_val,
+                        mandatory_psych_meetings_acknowledged=s_data.mandatory_psych_meetings_acknowledged,
                         updated_at=datetime.now(timezone.utc),
                     )
                 )
             else:
-                db.add(Student(tax_code=person.tax_code, authorized_early_exit=s_data.authorized_early_exit))
+                db.add(Student(
+                    tax_code=person.tax_code,
+                    authorized_early_exit=s_data.authorized_early_exit,
+                    certification_type=certification_type_val,
+                    certification_other_detail=certification_other_detail_val,
+                    mandatory_psych_meetings_acknowledged=s_data.mandatory_psych_meetings_acknowledged,
+                ))
                 await db.flush()
 
             # StoricoScolasticoSostituitoInBlocco_StessaSemanticaDiUpdatePersonSchoolEnrollments
@@ -627,7 +752,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                 db.add(CourseParticipant(
                     tax_code=person.tax_code,
                     medical_certificate_expiration=cp_data.medical_certificate_expiration,
-                    course_type=cp_data.course_type
+                    course_type=CourseTypeEnum(cp_data.course_type)
                 ))
             else:
                 await db.execute(
@@ -635,11 +760,32 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                     .where(CourseParticipant.tax_code == person.tax_code)
                     .values(
                         medical_certificate_expiration=cp_data.medical_certificate_expiration,
-                        course_type=cp_data.course_type
+                        course_type=CourseTypeEnum(cp_data.course_type)
                     )
                 )
         else:
             await db.execute(delete(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code))
+
+        # Profilo Sostegno Psicologico
+        # Nessun ruolo dedicato in "roles": il servizio è disponibile a
+        # qualunque Associato. Il guard clause a inizio funzione garantisce
+        # che non possa coesistere con il ruolo PSICOLOGO in questo stesso payload.
+        if payload.psychological_support_data:
+            ps_data = payload.psychological_support_data
+            ps_exists = await db.scalar(select(PsychologicalSupport).where(PsychologicalSupport.tax_code == person.tax_code))
+            if not ps_exists:
+                db.add(PsychologicalSupport(
+                    tax_code=person.tax_code,
+                    start_date=ps_data.start_date,
+                ))
+            else:
+                await db.execute(
+                    update(PsychologicalSupport)
+                    .where(PsychologicalSupport.tax_code == person.tax_code)
+                    .values(start_date=ps_data.start_date)
+                )
+        else:
+            await db.execute(delete(PsychologicalSupport).where(PsychologicalSupport.tax_code == person.tax_code))
 
         # Profili Staff
         needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
@@ -749,6 +895,7 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
         await db.execute(delete(SchoolEnrollment).where(SchoolEnrollment.student_tax_code == person.tax_code))
         await db.execute(delete(Student).where(Student.tax_code == person.tax_code))
         await db.execute(delete(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code))
+        await db.execute(delete(PsychologicalSupport).where(PsychologicalSupport.tax_code == person.tax_code))
         await db.execute(delete(Administrator).where(Administrator.tax_code == person.tax_code))
         await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
         await db.execute(delete(Teacher).where(Teacher.tax_code == person.tax_code))

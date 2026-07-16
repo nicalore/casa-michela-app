@@ -89,6 +89,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final TextEditingController _dataNascitaCtrl      = TextEditingController();
   final TextEditingController _cittaNascitaCtrl     = TextEditingController();
   final TextEditingController _provNascitaCtrl      = TextEditingController();
+  final TextEditingController _nazioneNascitaCtrl    = TextEditingController();
   final TextEditingController _tipoViaCtrl          = TextEditingController();
   final TextEditingController _indirizzoNomeCtrl    = TextEditingController();
   final TextEditingController _civicoCtrl           = TextEditingController();
@@ -104,13 +105,39 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   final List<WizardSchoolRowData>     _schoolRows     = [];
 
   final TextEditingController _scadenzaCertificatoCtrl      = TextEditingController();
-  final TextEditingController _tipoCorsoCtrl                = TextEditingController();
+  String?                     _tipoCorso;
   final TextEditingController _ibanCtrl                     = TextEditingController();
   String?                     _tipoCollaborazione;
   String?                     _ruoloAmministratore;
   final TextEditingController _altroRuoloAmministratoreCtrl = TextEditingController();
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
+
+  String?                     _modalitaPagamento;
+  final TextEditingController _altraModalitaPagamentoCtrl = TextEditingController();
+
+  bool                         _aderisceSostegnoPsicologico = false;
+  final TextEditingController  _dataInizioSostegnoPsicologicoCtrl = TextEditingController
+  (
+    text: '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
+  );
+
+  final TextEditingController _contattoEmergenzaNomeCtrl     = TextEditingController();
+  final TextEditingController _contattoEmergenzaTelefonoCtrl = TextEditingController();
+  final TextEditingController _allergieCtrl                  = TextEditingController();
+  final TextEditingController _farmaciCtrl                   = TextEditingController();
+
+  String?                     _tipoCertificazione = 'No';
+  final TextEditingController _altraCertificazioneCtrl        = TextEditingController();
+  //DefaultNo_LaPresaVisioneVaConfermataEsplicitamente_CoerenteConServerDefaultFalse
+  bool                         _presaVisioneIncontriPsicologa = false;
+
+  //Sezione9DelModulo_TutteObbligatorieTranneLaNewsletter_ValidatoAncheLatoBackend
+  bool _statutoAccettato          = false;
+  bool _regolamentoAccettato      = false;
+  bool _videosorveglianzaPresaVisione = false;
+  bool _consensoDatiParticolari   = false;
+  bool _consensoNewsletter        = false;
 
   //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
   bool             _uscitaAnticipata = false;
@@ -447,6 +474,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _dataNascitaCtrl.dispose();
     _cittaNascitaCtrl.dispose();
     _provNascitaCtrl.dispose();
+    _nazioneNascitaCtrl.dispose();
     _tipoViaCtrl.dispose();
     _indirizzoNomeCtrl.dispose();
     _civicoCtrl.dispose();
@@ -456,11 +484,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
     _scadenzaCertificatoCtrl.dispose();
-    _tipoCorsoCtrl.dispose();
     _ibanCtrl.dispose();
     _altroRuoloAmministratoreCtrl.dispose();
     _studiScolasticiCtrl.dispose();
     _studiUniversitariCtrl.dispose();
+    _altraModalitaPagamentoCtrl.dispose();
+    _dataInizioSostegnoPsicologicoCtrl.dispose();
+    _contattoEmergenzaNomeCtrl.dispose();
+    _contattoEmergenzaTelefonoCtrl.dispose();
+    _allergieCtrl.dispose();
+    _farmaciCtrl.dispose();
+    _altraCertificazioneCtrl.dispose();
     _searchSubjectsCtrl.dispose();
     _searchMinorsCtrl.dispose();
     _searchParentsCtrl.dispose();
@@ -497,6 +531,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       _dataNascitaCtrl.text    = _dataNascitaCtrl.text.trim();
       _cittaNascitaCtrl.text   = _cittaNascitaCtrl.text.trim();
       _provNascitaCtrl.text    = _provNascitaCtrl.text.trim().toUpperCase();
+      _nazioneNascitaCtrl.text = _nazioneNascitaCtrl.text.trim();
       _tipoViaCtrl.text        = _tipoViaCtrl.text.trim();
       _indirizzoNomeCtrl.text  = _indirizzoNomeCtrl.text.trim();
       _civicoCtrl.text         = _civicoCtrl.text.trim();
@@ -596,6 +631,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
 
+    if (_nazioneNascitaCtrl.text.isEmpty) addError('nazioneNascita', 'Campo obbligatorio', 1);
+
     if (_tipoViaCtrl.text.isEmpty) addError('tipoVia', 'Campo obbligatorio', 2);
     if (_indirizzoNomeCtrl.text.isEmpty) addError('indirizzoNome', 'Campo obbligatorio', 2);
     if (_civicoCtrl.text.isEmpty) addError('civico', 'Campo obbligatorio', 2);
@@ -657,12 +694,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool _validateDatiSpecifici()
   {
-    _scadenzaCertificatoCtrl.text      = _scadenzaCertificatoCtrl.text.trim();
-    _tipoCorsoCtrl.text                = _tipoCorsoCtrl.text.trim();
-    _ibanCtrl.text                     = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
-    _altroRuoloAmministratoreCtrl.text = _altroRuoloAmministratoreCtrl.text.trim();
-    _studiScolasticiCtrl.text          = _studiScolasticiCtrl.text.trim();
-    _studiUniversitariCtrl.text        = _studiUniversitariCtrl.text.trim();
+    _scadenzaCertificatoCtrl.text          = _scadenzaCertificatoCtrl.text.trim();
+    _ibanCtrl.text                         = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
+    _altroRuoloAmministratoreCtrl.text     = _altroRuoloAmministratoreCtrl.text.trim();
+    _studiScolasticiCtrl.text              = _studiScolasticiCtrl.text.trim();
+    _studiUniversitariCtrl.text            = _studiUniversitariCtrl.text.trim();
+    _altraModalitaPagamentoCtrl.text       = _altraModalitaPagamentoCtrl.text.trim();
+    _dataInizioSostegnoPsicologicoCtrl.text = _dataInizioSostegnoPsicologicoCtrl.text.trim();
+    _contattoEmergenzaNomeCtrl.text        = _contattoEmergenzaNomeCtrl.text.trim();
+    _contattoEmergenzaTelefonoCtrl.text    = _contattoEmergenzaTelefonoCtrl.text.replaceAll(' ', '');
+    _allergieCtrl.text                     = _allergieCtrl.text.trim();
+    _farmaciCtrl.text                      = _farmaciCtrl.text.trim();
+    _altraCertificazioneCtrl.text          = _altraCertificazioneCtrl.text.trim();
 
     bool                isValid             = true;
     bool                showFutureYearError = false;
@@ -685,6 +728,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     final bool isAmministratore      = activeRoles.contains('AMMINISTRATORE');
     final bool isCorsista            = activeRoles.contains('CORSISTA');
     final bool isStudente            = activeRoles.contains('STUDENTE');
+    final bool showsSostegnoPsicologico = !isOnlyGenitoreNotAssociato && !activeRoles.contains('PSICOLOGO');
 
     int currentMappedIndex = 0;
 
@@ -736,6 +780,31 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       currentMappedIndex++;
     }
 
+    if (isStudente || isCorsista)
+    {
+      if (_modalitaPagamento == 'Altro' && _altraModalitaPagamentoCtrl.text.isEmpty)
+      {
+        addError('altraModalitaPagamento', 'Specificare la modalità', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
+    if (showsSostegnoPsicologico)
+    {
+      if (_aderisceSostegnoPsicologico)
+      {
+        if (_dataInizioSostegnoPsicologicoCtrl.text.isEmpty)
+        {
+          addError('dataInizioSostegnoPsicologico', 'Campo obbligatorio', currentMappedIndex);
+        }
+        else if (!_isValidDate(_dataInizioSostegnoPsicologicoCtrl.text))
+        {
+          addError('dataInizioSostegnoPsicologico', 'Formato data non valido', currentMappedIndex);
+        }
+      }
+      currentMappedIndex++;
+    }
+
     if (isStaff)
     {
       if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
@@ -778,13 +847,27 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         addError('scadenzaCertificato', 'Formato data non valido', currentMappedIndex);
       }
       
-      if (_tipoCorsoCtrl.text.isEmpty)
+      if (_tipoCorso == null)
       {
         addError('tipoCorso', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
     
+    if (isStudente)
+    {
+      //DettagliStudente_UscitaAnticipataNonHaValidazione_ECertificazioneSottostante
+      if (_tipoCertificazione == 'Altro' && _altraCertificazioneCtrl.text.isEmpty)
+      {
+        addError('altraCertificazione', 'Specificare il tipo', currentMappedIndex);
+      }
+      if (_tipoCertificazione != 'No' && !_presaVisioneIncontriPsicologa)
+      {
+        addError('presaVisioneIncontri', 'Presa visione obbligatoria', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
     if (isStudente)
     {
       if (_schoolRows.isEmpty)
@@ -826,6 +909,38 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
+    //SpostataInFondo_SubitoPrimaDeiConsensi_SuRichiestaCommittente
+    if (_isMinor)
+    {
+      //TuttiICampiSonoFacoltativi_NessunaValidazioneRichiesta_CoerenteConSezione10DelModuloCartaceo
+      currentMappedIndex++;
+    }
+
+    if (!isOnlyGenitoreNotAssociato)
+    {
+      if (!_statutoAccettato)
+      {
+        addError('statutoAccettato', 'Presa visione obbligatoria', currentMappedIndex);
+      }
+      if (!_regolamentoAccettato)
+      {
+        addError('regolamentoAccettato', 'Accettazione obbligatoria', currentMappedIndex);
+      }
+      if (!_videosorveglianzaPresaVisione)
+      {
+        addError('videosorveglianzaPresaVisione', 'Presa visione obbligatoria', currentMappedIndex);
+      }
+      if (!_consensoDatiParticolari)
+      {
+        addError('consensoDatiParticolari', 'Consenso obbligatorio', currentMappedIndex);
+      }
+      if (!_consensoNewsletter)
+      {
+        addError('consensoNewsletter', 'Consenso obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -900,12 +1015,31 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         }
       }
 
+      //IlProfiloAssociatoOraPortaAncheConsensi_PagamentoESicurezzaMinore_NonSoloLeIscrizioni
+      //QuindiVaCostruitoOgniVoltaCheEsisteUnMember_NonSoloQuandoCiSonoIscrizioni
       Map<String, dynamic>? memberData;
-      if (!isOnlyGenitoreNotAssociato && membershipsData.isNotEmpty) 
+      if (!isOnlyGenitoreNotAssociato) 
       {
+        String? paymentMethod;
+        if (_modalitaPagamento == 'Contanti') paymentMethod = 'CASH';
+        if (_modalitaPagamento == 'Bonifico bancario') paymentMethod = 'BANK_TRANSFER';
+        if (_modalitaPagamento == 'Altro') paymentMethod = 'OTHER';
+
         memberData = 
         {
-          "memberships": membershipsData
+          "memberships":                       membershipsData,
+          "payment_method":                    paymentMethod,
+          "payment_method_other":              paymentMethod == 'OTHER' ? _altraModalitaPagamentoCtrl.text.trim() : null,
+          "statute_acknowledged":              _statutoAccettato,
+          "regulation_acknowledged":           _regolamentoAccettato,
+          "video_surveillance_acknowledged":   _videosorveglianzaPresaVisione,
+          "special_category_data_consent":     _consensoDatiParticolari,
+          "newsletter_consent":                _consensoNewsletter,
+          "consents_signed_at":                DateTime.now().toIso8601String().split('T').first,
+          "emergency_contact_name":            _contattoEmergenzaNomeCtrl.text.isNotEmpty ? _contattoEmergenzaNomeCtrl.text.trim() : null,
+          "emergency_contact_phone":           _contattoEmergenzaTelefonoCtrl.text.isNotEmpty ? _contattoEmergenzaTelefonoCtrl.text.trim() : null,
+          "allergies_notes":                   _allergieCtrl.text.isNotEmpty ? _allergieCtrl.text.trim() : null,
+          "medications_notes":                 _farmaciCtrl.text.isNotEmpty ? _farmaciCtrl.text.trim() : null,
         };
       }
 
@@ -913,6 +1047,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       Map<String, dynamic>? adminData;
       Map<String, dynamic>? teacherData;
       Map<String, dynamic>? courseParticipantData;
+      Map<String, dynamic>? psychologicalSupportData;
       Map<String, dynamic>? studentData;
 
       final isStaff = finalRoles.contains('AMMINISTRATORE') || 
@@ -965,18 +1100,40 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
       if (finalRoles.contains('CORSISTA')) 
       {
+        String? courseType;
+        if (_tipoCorso == 'Yoga') courseType = 'YOGA';
+        if (_tipoCorso == 'Pilates') courseType = 'PILATES';
+
         courseParticipantData = 
         {
           "medical_certificate_expiration": _scadenzaCertificatoCtrl.text.isNotEmpty ? _scadenzaCertificatoCtrl.text.trim().split('/').reversed.join('-') : null,
-          "course_type":                    _tipoCorsoCtrl.text.trim(),
+          "course_type":                    courseType,
+        };
+      }
+
+      //DisponibileAChiunqueSiaAssociato_TranneGliPsicologiStessi_CoerenteConLaCardVisibileNelWizard
+      if (!isOnlyGenitoreNotAssociato && !finalRoles.contains('PSICOLOGO') && _aderisceSostegnoPsicologico) 
+      {
+        psychologicalSupportData = 
+        {
+          "start_date": _dataInizioSostegnoPsicologicoCtrl.text.trim().split('/').reversed.join('-'),
         };
       }
 
       if (finalRoles.contains('STUDENTE')) 
       {
+        String? certificationType;
+        if (_tipoCertificazione == 'DSA') certificationType = 'DSA';
+        if (_tipoCertificazione == 'BES') certificationType = 'BES';
+        if (_tipoCertificazione == 'ADHD') certificationType = 'ADHD';
+        if (_tipoCertificazione == 'Altro') certificationType = 'OTHER';
+
         studentData = 
         {
-          "authorized_early_exit": _isMinor ? _uscitaAnticipata : true,
+          "authorized_early_exit":                  _isMinor ? _uscitaAnticipata : true,
+          "certification_type":                     certificationType,
+          "certification_other_detail":             certificationType == 'OTHER' ? _altraCertificazioneCtrl.text.trim() : null,
+          "mandatory_psych_meetings_acknowledged":  certificationType != null ? _presaVisioneIncontriPsicologa : false,
           "school_enrollments": _schoolRows.map((r) => 
           {
             "start_year":                 int.parse(r.yearCtrl.text.trim()),
@@ -997,6 +1154,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           "gender":                  _sesso,
           "birth_date":              _dataNascitaCtrl.text.isNotEmpty ? _dataNascitaCtrl.text.trim().split('/').reversed.join('-') : null,
           "birth_city":              _cittaNascitaCtrl.text.trim(),
+          "birth_nation":            _nazioneNascitaCtrl.text.trim(),
           "birth_province":          _provNascitaCtrl.text.trim().toUpperCase(),
           "residence_type":          _tipoViaCtrl.text.trim(),
           "residence_address":       _indirizzoNomeCtrl.text.trim(),
@@ -1007,13 +1165,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           "email":                   _emailCtrl.text.trim(),
           "phone":                   _telefonoCtrl.text.replaceAll(' ', ''),
         },
-        "roles":                   finalRoles,
-        "member_data":             memberData,
-        "staff_data":              staffData,
-        "admin_data":              adminData,
-        "teacher_data":            teacherData,
-        "course_participant_data": courseParticipantData,
-        "student_data":            studentData,
+        "roles":                       finalRoles,
+        "member_data":                 memberData,
+        "staff_data":                  staffData,
+        "admin_data":                  adminData,
+        "teacher_data":                teacherData,
+        "course_participant_data":     courseParticipantData,
+        "psychological_support_data":  psychologicalSupportData,
+        "student_data":                studentData,
         "relationships": 
         {
           "minors_tax_codes":  _selectedMinors.values.map((d) => d.toJson()).toList(),
@@ -1241,7 +1400,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       cards.add(_buildFormCardIscrizione());
     }
-    
+
+    if (activeRoles.contains('STUDENTE') || activeRoles.contains('CORSISTA'))
+    {
+      cards.add(_buildFormCardModalitaPagamento());
+    }
+
+    //ChiunqueSiaAssociatoPuoAderire_TranneGliPsicologiStessi
+    if (!isOnlyGenitoreNotAssociato && !activeRoles.contains('PSICOLOGO'))
+    {
+      cards.add(_buildFormCardSostegnoPsicologico());
+    }
+
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
@@ -1269,6 +1439,19 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     if (activeRoles.contains('STUDENTE'))
     {
       cards.add(_buildFormCardStudente());
+      cards.add(_buildFormCardIscrizioniScolastiche());
+    }
+
+    //SpostataInFondo_SubitoPrimaDeiConsensi_SuRichiestaCommittente
+    if (_isMinor)
+    {
+      cards.add(_buildFormCardSicurezzaMinore());
+    }
+
+    //SempreUltima_RispecchiaLeDichiarazioniInFondoAlModuloCartaceo
+    if (!isOnlyGenitoreNotAssociato)
+    {
+      cards.add(_buildFormCardConsensi());
     }
     
     return cards;
@@ -2381,10 +2564,13 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                       onTap:      () => setState(() { _card1MovingForward = false; _currentFormCardIndex--; }),
                     ),
                     const SizedBox(width: 32),
-                    ConstrainedBox
+                    Flexible
                     (
-                      constraints: const BoxConstraints(maxWidth: 1000),
-                      child:       desktopAnimatedCard,
+                      child: ConstrainedBox
+                      (
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child:       desktopAnimatedCard,
+                      ),
                     ),
                     const SizedBox(width: 32),
                     WizardCarouselArrowButton
@@ -3107,6 +3293,275 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     );
   }
 
+  Widget _buildFormCardModalitaPagamento()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Modalità di Pagamento',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.payments_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Modalità di pagamento',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _modalitaPagamento,
+            items:     const ['Contanti', 'Bonifico bancario', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['modalitaPagamento'],
+            onChanged: (val) => setState(() 
+            { 
+              _modalitaPagamento = val; 
+              _formErrors.remove('modalitaPagamento'); 
+            }),
+          ),
+        ),
+        if (_modalitaPagamento == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Specifica modalità',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller: _altraModalitaPagamentoCtrl, 
+              hint:       'Inserisci la modalità', 
+              errorText:  _formErrors['altraModalitaPagamento'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altraModalitaPagamento')),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFormCardSostegnoPsicologico()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Sostegno Psicologico',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.psychology_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Aderisce al servizio',
+          inputWidget: Align
+          (
+            alignment: Alignment.centerLeft,
+            child: WizardYesNoSwitch
+            (
+              value:     _aderisceSostegnoPsicologico,
+              onChanged: (val) => setState(() => _aderisceSostegnoPsicologico = val),
+            ),
+          ),
+        ),
+        if (_aderisceSostegnoPsicologico) ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Data di inizio',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller:      _dataInizioSostegnoPsicologicoCtrl,
+              hint:            'gg/mm/aaaa',
+              keyboardType:    TextInputType.number,
+              inputFormatters: [WizardDateInputFormatter()],
+              errorText:       _formErrors['dataInizioSostegnoPsicologico'],
+              onChanged:       (_) => setState(() => _formErrors.remove('dataInizioSostegnoPsicologico')),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFormCardSicurezzaMinore()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Sicurezza del Minore',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.health_and_safety_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Contatto emergenza',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _contattoEmergenzaNomeCtrl, 
+            hint:       'Nome e cognome', 
+            errorText:  _formErrors['contattoEmergenzaNome'],
+            onChanged:  (_) => setState(() => _formErrors.remove('contattoEmergenzaNome')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Telefono emergenza',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller:   _contattoEmergenzaTelefonoCtrl, 
+            hint:         'Es. 3331234567', 
+            keyboardType: TextInputType.phone,
+            errorText:    _formErrors['contattoEmergenzaTelefono'],
+            onChanged:    (_) => setState(() => _formErrors.remove('contattoEmergenzaTelefono')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Allergie / intolleranze',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _allergieCtrl, 
+            hint:       'Es. Polline, lattosio', 
+            errorText:  _formErrors['allergie'],
+            onChanged:  (_) => setState(() => _formErrors.remove('allergie')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Farmaci / note',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _farmaciCtrl, 
+            hint:       'Es. Ventolin al bisogno', 
+            errorText:  _formErrors['farmaci'],
+            onChanged:  (_) => setState(() => _formErrors.remove('farmaci')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardConsensi()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Dichiarazioni e Consensi',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.fact_check_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Statuto',
+          inputWidget: Padding
+          (
+            padding: const EdgeInsets.only(left: 16),
+            child: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _statutoAccettato,
+                isError:   _formErrors['statutoAccettato'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _statutoAccettato = val;
+                  _formErrors.remove('statutoAccettato');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Regolamento',
+          inputWidget: Padding
+          (
+            padding: const EdgeInsets.only(left: 16),
+            child: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _regolamentoAccettato,
+                isError:   _formErrors['regolamentoAccettato'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _regolamentoAccettato = val;
+                  _formErrors.remove('regolamentoAccettato');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Videosorveglianza',
+          inputWidget: Padding
+          (
+            padding: const EdgeInsets.only(left: 16),
+            child: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _videosorveglianzaPresaVisione,
+                isError:   _formErrors['videosorveglianzaPresaVisione'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _videosorveglianzaPresaVisione = val;
+                  _formErrors.remove('videosorveglianzaPresaVisione');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Dati particolari',
+          inputWidget: Padding
+          (
+            padding: const EdgeInsets.only(left: 16),
+            child: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _consensoDatiParticolari,
+                isError:   _formErrors['consensoDatiParticolari'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _consensoDatiParticolari = val;
+                  _formErrors.remove('consensoDatiParticolari');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Notiziari periodici',
+          inputWidget: Padding
+          (
+            padding: const EdgeInsets.only(left: 16),
+            child: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _consensoNewsletter,
+                isError:   _formErrors['consensoNewsletter'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _consensoNewsletter = val;
+                  _formErrors.remove('consensoNewsletter');
+                }),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildFormCardStaff()
   {
     return WizardFormSectionCard
@@ -3249,12 +3704,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         WizardFormInputRow
         (
           label:       'Tipo corso',
-          inputWidget: WizardAnimatedTextField
+          inputWidget: WizardAnimatedOverlayDropdown
           (
-            controller: _tipoCorsoCtrl, 
-            hint:       'Es. Pilates', 
-            errorText:  _formErrors['tipoCorso'],
-            onChanged:  (_) => setState(() => _formErrors.remove('tipoCorso')),
+            value:     _tipoCorso,
+            items:     const ['Yoga', 'Pilates'],
+            hint:      'Seleziona',
+            errorText: _formErrors['tipoCorso'],
+            onChanged: (val) => setState(() 
+            { 
+              _tipoCorso = val; 
+              _formErrors.remove('tipoCorso'); 
+            }),
           ),
         ),
       ],
@@ -3285,6 +3745,70 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           ),
           const SizedBox(height: 16),
         ],
+        WizardFormInputRow
+        (
+          label:       'Certificazione',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _tipoCertificazione,
+            items:     const ['No', 'DSA', 'BES', 'ADHD', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['tipoCertificazione'],
+            onChanged: (val) => setState(() 
+            { 
+              _tipoCertificazione = val; 
+              _formErrors.remove('tipoCertificazione'); 
+              _formErrors.remove('presaVisioneIncontri');
+            }),
+          ),
+        ),
+        if (_tipoCertificazione == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Specifica',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller: _altraCertificazioneCtrl, 
+              hint:       'Inserisci il tipo', 
+              errorText:  _formErrors['altraCertificazione'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altraCertificazione')),
+            ),
+          ),
+        ],
+        if (_tipoCertificazione != 'No') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Presa visione incontri',
+            inputWidget: Align
+            (
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch
+              (
+                value:     _presaVisioneIncontriPsicologa,
+                isError:   _formErrors['presaVisioneIncontri'] != null,
+                onChanged: (val) => setState(() 
+                {
+                  _presaVisioneIncontriPsicologa = val;
+                  _formErrors.remove('presaVisioneIncontri');
+                }),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFormCardIscrizioniScolastiche()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Iscrizioni Scolastiche',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
+      children: 
+      [
         ...List.generate(_schoolRows.length, (index)
         {
           final r = _schoolRows[index];
@@ -3535,11 +4059,23 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             onChanged:  (_) => setState(() => _formErrors.remove('provNascita')),
           ),
         ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Nazione di nascita',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _nazioneNascitaCtrl, 
+            hint:       'Es. Italia',
+            errorText:  _formErrors['nazioneNascita'],
+            onChanged:  (_) => setState(() => _formErrors.remove('nazioneNascita')),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildFormCardResidenza() 
+  Widget _buildFormCardResidenza()
   {
     return WizardFormSectionCard
     (

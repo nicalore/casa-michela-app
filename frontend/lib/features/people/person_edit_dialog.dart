@@ -94,6 +94,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _dataNascitaCtrl     = TextEditingController();
   final TextEditingController _cittaNascitaCtrl    = TextEditingController();
   final TextEditingController _provNascitaCtrl     = TextEditingController();
+  final TextEditingController _nazioneNascitaCtrl  = TextEditingController();
   final TextEditingController _tipoViaCtrl         = TextEditingController();
   final TextEditingController _indirizzoNomeCtrl   = TextEditingController();
   final TextEditingController _civicoCtrl          = TextEditingController();
@@ -120,6 +121,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   bool                   _uscitaAnticipata = false;
   List<SchoolItem>       _allSchools  = [];
   List<StudyProgramItem> _allPrograms = [];
+
+  String?                     _modalitaPagamento;
+  final TextEditingController _altraModalitaPagamentoCtrl = TextEditingController();
+
+  //NonEsposta_InvariataRispettoAlValoreCaricato_NessunaCardConsensiInQuestoDialog
+  String?                     _tipoCertificazione = 'No';
+  final TextEditingController _altraCertificazioneCtrl = TextEditingController();
+  bool?                       _mandatoryPsychMeetingsAcknowledgedExisting;
+
+  final TextEditingController _contattoEmergenzaNomeCtrl     = TextEditingController();
+  final TextEditingController _contattoEmergenzaTelefonoCtrl = TextEditingController();
+  final TextEditingController _allergieCtrl                  = TextEditingController();
+  final TextEditingController _farmaciCtrl                   = TextEditingController();
 
   final TextEditingController _searchParentsCtrl  = TextEditingController();
   String                      _searchParentsText  = '';
@@ -159,6 +173,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     _dataNascitaCtrl.dispose();
     _cittaNascitaCtrl.dispose();
     _provNascitaCtrl.dispose();
+    _nazioneNascitaCtrl.dispose();
     _tipoViaCtrl.dispose();
     _indirizzoNomeCtrl.dispose();
     _civicoCtrl.dispose();
@@ -173,6 +188,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     _altroRuoloAmministratoreCtrl.dispose();
     _studiScolasticiCtrl.dispose();
     _studiUniversitariCtrl.dispose();
+    _altraModalitaPagamentoCtrl.dispose();
+    _altraCertificazioneCtrl.dispose();
+    _contattoEmergenzaNomeCtrl.dispose();
+    _contattoEmergenzaTelefonoCtrl.dispose();
+    _allergieCtrl.dispose();
+    _farmaciCtrl.dispose();
     _searchSubjectsCtrl.dispose();
     _searchMinorsCtrl.dispose();
     _searchParentsCtrl.dispose();
@@ -288,6 +309,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     _cittaNascitaCtrl.text   = widget.person.birthCity ?? '';
     _provNascitaCtrl.text    = widget.person.birthProvince ?? '';
+    _nazioneNascitaCtrl.text = widget.person.birthNation ?? '';
     
     _tipoViaCtrl.text        = widget.person.residenceType ?? '';
     _indirizzoNomeCtrl.text  = widget.person.address ?? '';
@@ -424,6 +446,30 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     {
       _uscitaAnticipata = widget.person.earlyExit!;
     }
+
+    if (widget.person.paymentMethod == 'CASH') _modalitaPagamento = 'Contanti';
+    if (widget.person.paymentMethod == 'BANK_TRANSFER') _modalitaPagamento = 'Bonifico bancario';
+    if (widget.person.paymentMethod == 'OTHER') 
+    {
+      _modalitaPagamento = 'Altro';
+      _altraModalitaPagamentoCtrl.text = widget.person.paymentMethodOther ?? '';
+    }
+
+    if (widget.person.certificationType == 'DSA') _tipoCertificazione = 'DSA';
+    if (widget.person.certificationType == 'BES') _tipoCertificazione = 'BES';
+    if (widget.person.certificationType == 'ADHD') _tipoCertificazione = 'ADHD';
+    if (widget.person.certificationType == 'OTHER') 
+    {
+      _tipoCertificazione = 'Altro';
+      _altraCertificazioneCtrl.text = widget.person.certificationOtherDetail ?? '';
+    }
+    //RimaneComEra_NonEditabileDaQuestoDialog_RinviataInvariataAlSalvataggio
+    _mandatoryPsychMeetingsAcknowledgedExisting = widget.person.mandatoryPsychMeetingsAcknowledged;
+
+    _contattoEmergenzaNomeCtrl.text     = widget.person.emergencyContactName ?? '';
+    _contattoEmergenzaTelefonoCtrl.text = widget.person.emergencyContactPhone ?? '';
+    _allergieCtrl.text                  = widget.person.allergiesNotes ?? '';
+    _farmaciCtrl.text                   = widget.person.medicationsNotes ?? '';
 
     if (widget.person.parents != null) 
     {
@@ -674,6 +720,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       cards.add(_buildFormCardIscrizione());
     }
 
+    if (!isOnlyGenitoreNotAssociato && (activeRoles.contains('STUDENTE') || activeRoles.contains('CORSISTA')))
+    {
+      cards.add(_buildFormCardModalitaPagamento());
+    }
+
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
@@ -682,7 +733,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (activeRoles.contains('AMMINISTRATORE')) cards.add(_buildFormCardAmministratore());
     if (activeRoles.contains('DOCENTE')) cards.add(_buildFormCardDocente());
     if (activeRoles.contains('CORSISTA')) cards.add(_buildFormCardCorsista());
-    if (activeRoles.contains('STUDENTE')) cards.add(_buildFormCardStudente());
+    if (activeRoles.contains('STUDENTE')) 
+    {
+      cards.add(_buildFormCardStudente());
+      cards.add(_buildFormCardIscrizioniScolastiche());
+    }
+
+    if (!isOnlyGenitoreNotAssociato && _isMinor)
+    {
+      cards.add(_buildFormCardSicurezzaMinore());
+    }
     
     return cards;
   }
@@ -828,6 +888,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       _altroRuoloAmministratoreCtrl.text = _altroRuoloAmministratoreCtrl.text.trim();
       _studiScolasticiCtrl.text          = _studiScolasticiCtrl.text.trim();
       _studiUniversitariCtrl.text        = _studiUniversitariCtrl.text.trim();
+      _altraModalitaPagamentoCtrl.text   = _altraModalitaPagamentoCtrl.text.trim();
+      _altraCertificazioneCtrl.text      = _altraCertificazioneCtrl.text.trim();
+      _contattoEmergenzaNomeCtrl.text    = _contattoEmergenzaNomeCtrl.text.trim();
+      _contattoEmergenzaTelefonoCtrl.text = _contattoEmergenzaTelefonoCtrl.text.replaceAll(' ', '');
+      _allergieCtrl.text                 = _allergieCtrl.text.trim();
+      _farmaciCtrl.text                  = _farmaciCtrl.text.trim();
     });
 
     bool                isValid             = true;
@@ -850,6 +916,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
+    final bool isStudente = activeRoles.contains('STUDENTE');
+    final bool isCorsista = activeRoles.contains('CORSISTA');
     
     int currentMappedIndex = 0;
 
@@ -901,6 +969,15 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++;
     }
 
+    if (!isOnlyGenitoreNotAssociato && (isStudente || isCorsista))
+    {
+      if (_modalitaPagamento == 'Altro' && _altraModalitaPagamentoCtrl.text.isEmpty)
+      {
+        addError('altraModalitaPagamento', 'Specificare la modalità', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
     if (isStaff)
     {
       if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
@@ -932,7 +1009,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++; 
     }
 
-    if (activeRoles.contains('CORSISTA'))
+    if (isCorsista)
     {
       if (_scadenzaCertificatoCtrl.text.isEmpty)
       {
@@ -950,8 +1027,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++;
     }
     
-    if (activeRoles.contains('STUDENTE'))
+    if (isStudente)
     {
+      if (_tipoCertificazione == 'Altro' && _altraCertificazioneCtrl.text.isEmpty)
+      {
+        addError('altraCertificazione', 'Specificare il tipo', currentMappedIndex);
+      }
+      currentMappedIndex++;
+
       if (_schoolRows.isEmpty) 
       {
         addError('schoolGeneral', 'Aggiungi almeno un anno scolastico', currentMappedIndex);
@@ -992,6 +1075,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
       }
+      currentMappedIndex++;
+    }
+
+    if (!isOnlyGenitoreNotAssociato && _isMinor)
+    {
+      //TuttiICampiSonoFacoltativi_NessunaValidazioneRichiesta_CoerenteConSezione10DelModuloCartaceo
       currentMappedIndex++;
     }
 
@@ -1075,13 +1164,27 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         }
       }
 
+      //QuestoDialogNonHaUnaCardConsensi_QuindiQueiCampiVengonoOmessiDelTutto
+      //DalPayload(NonInviatiComeNull)_IlBackendLiLasciaInvariatiSeAssentiDalJson
+      //VediPersonMembershipsUpdate_NonUnSemplice`??`_ServeOmettereLaChiaveDelTutto
       Map<String, dynamic>? memberData;
       if (!isOnlyGenitoreNotAssociato && membershipsData.isNotEmpty) 
       {
+        String? paymentMethodVal;
+        if (_modalitaPagamento == 'Contanti') paymentMethodVal = 'CASH';
+        if (_modalitaPagamento == 'Bonifico bancario') paymentMethodVal = 'BANK_TRANSFER';
+        if (_modalitaPagamento == 'Altro') paymentMethodVal = 'OTHER';
+
         memberData = 
         {
           "collaborating_active": _involvementType == 0,
           "memberships":          membershipsData,
+          "payment_method":       paymentMethodVal,
+          "payment_method_other": paymentMethodVal == 'OTHER' ? _altraModalitaPagamentoCtrl.text.trim() : null,
+          "emergency_contact_name":  _isMinor && _contattoEmergenzaNomeCtrl.text.isNotEmpty ? _contattoEmergenzaNomeCtrl.text.trim() : null,
+          "emergency_contact_phone": _isMinor && _contattoEmergenzaTelefonoCtrl.text.isNotEmpty ? _contattoEmergenzaTelefonoCtrl.text.trim() : null,
+          "allergies_notes":         _isMinor && _allergieCtrl.text.isNotEmpty ? _allergieCtrl.text.trim() : null,
+          "medications_notes":       _isMinor && _farmaciCtrl.text.isNotEmpty ? _farmaciCtrl.text.trim() : null,
           if (widget.person.memberUpdatedAt != null)
             "expected_updated_at": widget.person.memberUpdatedAt!.toIso8601String(),
         };
@@ -1154,11 +1257,21 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
       if (finalRoles.contains('STUDENTE')) 
       {
+        String? certificationTypeVal;
+        if (_tipoCertificazione == 'DSA') certificationTypeVal = 'DSA';
+        if (_tipoCertificazione == 'BES') certificationTypeVal = 'BES';
+        if (_tipoCertificazione == 'ADHD') certificationTypeVal = 'ADHD';
+        if (_tipoCertificazione == 'Altro') certificationTypeVal = 'OTHER';
+
         //StoricoScolasticoCompletoInclusoNelloStessoPayload_NonPiuUnaChiamataSeparataAUpdatePersonSchoolEnrollments
         //IlBackendOraSostituisceLeIscrizioniInBloccoNellaStessaTransazioneDiUpdatePerson_UnSoloControlloDiConcorrenza
         studentData = 
         {
           "authorized_early_exit": _isMinor ? _uscitaAnticipata : true,
+          "certification_type":         certificationTypeVal,
+          "certification_other_detail": certificationTypeVal == 'OTHER' ? _altraCertificazioneCtrl.text.trim() : null,
+          //NonModificabileDaQuestoDialog_RinviatoInvariatoCosiComEraGiaACaricamento
+          "mandatory_psych_meetings_acknowledged": _mandatoryPsychMeetingsAcknowledgedExisting ?? false,
           "school_enrollments": _schoolRows.map((r) => 
           {
             "start_year":        int.parse(r.yearCtrl.text.trim()),
@@ -1182,6 +1295,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           "birth_date":              _toIsoDate(_dataNascitaCtrl.text.trim()),
           "birth_city":              _cittaNascitaCtrl.text.trim(),
           "birth_province":          _provNascitaCtrl.text.trim().toUpperCase(),
+          "birth_nation":            _nazioneNascitaCtrl.text.trim(),
           "residence_type":          _tipoViaCtrl.text.trim(),
           "residence_address":       _indirizzoNomeCtrl.text.trim(),
           "residence_street_number": _civicoCtrl.text.trim(),
@@ -2194,7 +2308,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           [
             Text
             (
-              'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
+              'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita, nazione di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
               style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B), height: 1.5),
             ),
             const SizedBox(height: 32),
@@ -2237,6 +2351,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             WizardFormInputRow(label: 'Città di nascita', inputWidget: WizardAnimatedTextField(controller: _cittaNascitaCtrl, hint: 'Es. Thiene', enabled: false, errorText: _formErrors['cittaNascita'], onChanged: (_) => setState(() => _formErrors.remove('cittaNascita')))),
             const SizedBox(height: 16),
             WizardFormInputRow(label: 'Provincia', inputWidget: WizardAnimatedTextField(controller: _provNascitaCtrl, hint: 'Es. VI', enabled: false, errorText: _formErrors['provNascita'], onChanged: (_) => setState(() => _formErrors.remove('provNascita')))),
+            const SizedBox(height: 16),
+            WizardFormInputRow(label: 'Nazione di nascita', inputWidget: WizardAnimatedTextField(controller: _nazioneNascitaCtrl, hint: 'Es. Italia', enabled: false, errorText: _formErrors['nazioneNascita'], onChanged: (_) => setState(() => _formErrors.remove('nazioneNascita')))),
           ],
         );
         break;
@@ -2600,6 +2716,48 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     );
   }
 
+  Widget _buildFormCardModalitaPagamento()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Modalità di Pagamento',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.payments_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Modalità di pagamento',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _modalitaPagamento,
+            items:     const ['Contanti', 'Bonifico bancario', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['modalitaPagamento'],
+            onChanged: (val) => setState(() 
+            { 
+              _modalitaPagamento = val; 
+              _formErrors.remove('modalitaPagamento'); 
+            }),
+          ),
+        ),
+        if (_modalitaPagamento == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Specifica modalità',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller: _altraModalitaPagamentoCtrl, 
+              hint:       'Inserisci la modalità', 
+              errorText:  _formErrors['altraModalitaPagamento'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altraModalitaPagamento')),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildFormCardStaff()
   {
     return WizardFormSectionCard
@@ -2778,6 +2936,48 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           ),
           const SizedBox(height: 16),
         ],
+        WizardFormInputRow
+        (
+          label:       'Certificazione',
+          inputWidget: WizardAnimatedOverlayDropdown
+          (
+            value:     _tipoCertificazione,
+            items:     const ['No', 'DSA', 'BES', 'ADHD', 'Altro'],
+            hint:      'Seleziona',
+            errorText: _formErrors['tipoCertificazione'],
+            onChanged: (val) => setState(() 
+            { 
+              _tipoCertificazione = val; 
+              _formErrors.remove('tipoCertificazione'); 
+            }),
+          ),
+        ),
+        if (_tipoCertificazione == 'Altro') ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow
+          (
+            label:       'Specifica',
+            inputWidget: WizardAnimatedTextField
+            (
+              controller: _altraCertificazioneCtrl, 
+              hint:       'Inserisci il tipo', 
+              errorText:  _formErrors['altraCertificazione'],
+              onChanged:  (_) => setState(() => _formErrors.remove('altraCertificazione')),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFormCardIscrizioniScolastiche()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Iscrizioni Scolastiche',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.school_outlined),
+      children: 
+      [
         ...List.generate(_schoolRows.length, (index)
         {
           final r = _schoolRows[index];
@@ -2910,6 +3110,66 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                 _schoolRows.add(WizardSchoolRowData(yearCtrl: TextEditingController(text: (lastYear - 1).toString())));
               });
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardSicurezzaMinore()
+  {
+    return WizardFormSectionCard
+    (
+      title:       'Sicurezza del Minore',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.health_and_safety_outlined),
+      children: 
+      [
+        WizardFormInputRow
+        (
+          label:       'Contatto emergenza',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _contattoEmergenzaNomeCtrl, 
+            hint:       'Nome e cognome', 
+            errorText:  _formErrors['contattoEmergenzaNome'],
+            onChanged:  (_) => setState(() => _formErrors.remove('contattoEmergenzaNome')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Telefono emergenza',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller:   _contattoEmergenzaTelefonoCtrl, 
+            hint:         'Es. 3331234567', 
+            keyboardType: TextInputType.phone,
+            errorText:    _formErrors['contattoEmergenzaTelefono'],
+            onChanged:    (_) => setState(() => _formErrors.remove('contattoEmergenzaTelefono')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Allergie / intolleranze',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _allergieCtrl, 
+            hint:       'Es. Polline, lattosio', 
+            errorText:  _formErrors['allergie'],
+            onChanged:  (_) => setState(() => _formErrors.remove('allergie')),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow
+        (
+          label:       'Farmaci / note',
+          inputWidget: WizardAnimatedTextField
+          (
+            controller: _farmaciCtrl, 
+            hint:       'Es. Ventolin al bisogno', 
+            errorText:  _formErrors['farmaci'],
+            onChanged:  (_) => setState(() => _formErrors.remove('farmaci')),
           ),
         ),
       ],
@@ -3594,7 +3854,8 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                           'Codice fiscale', 
                           'Data di nascita', 
                           'Città di nascita', 
-                          'Provincia'
+                          'Provincia',
+                          'Nazione di nascita'
                         ].map((field) 
                         {
                           return _ErrorFieldChip

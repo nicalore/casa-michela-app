@@ -3090,6 +3090,7 @@ class WizardYesNoSwitch extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final double width;
   final double height;
+  final bool isError;
 
   const WizardYesNoSwitch({
     super.key,
@@ -3097,6 +3098,7 @@ class WizardYesNoSwitch extends StatelessWidget {
     required this.onChanged,
     this.width = 240,
     this.height = 54,
+    this.isError = false,
   });
 
   Widget _buildLabel({
@@ -3144,6 +3146,8 @@ class WizardYesNoSwitch extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(height / 2),
+            //StessoRossoDiErroreUsatoDaWizardAnimatedTextField_CoerenzaVisiva
+            border: isError ? Border.all(color: const Color(0xFFE53935), width: 1.5) : null,
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {

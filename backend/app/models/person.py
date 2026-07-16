@@ -132,6 +132,10 @@ class Person(Base):
             name="birth_city_not_blank",
         ),
         CheckConstraint(
+            "length(trim(birth_nation)) > 0",
+            name="birth_nation_not_blank",
+        ),
+        CheckConstraint(
             "length(trim(residence_type)) > 0",
             name="residence_type_not_blank",
         ),
@@ -166,6 +170,7 @@ class Person(Base):
             "first_name",
             "last_name",
             "birth_city",
+            "birth_nation",
             "birth_province",
             "email",
             "phone",
@@ -208,6 +213,11 @@ class Person(Base):
     )
 
     birth_city: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    birth_nation: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
     )

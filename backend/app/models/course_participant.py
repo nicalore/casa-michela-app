@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
-    String,
 )
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import (
     Mapped,
     mapped_column,
@@ -16,10 +17,14 @@ from sqlalchemy.orm import (
 )
 
 from app.db.base import Base
-from app.models.constraints import no_surrounding_whitespace_constraints
 
 if TYPE_CHECKING:
     from app.models.member import Member
+
+
+class CourseTypeEnum(StrEnum):
+    YOGA = "YOGA"
+    PILATES = "PILATES"
 
 
 class CourseParticipant(Base):
@@ -29,13 +34,6 @@ class CourseParticipant(Base):
         CheckConstraint(
             "medical_certificate_expiration > DATE '1900-01-01'",
             name="medical_certificate_expiration_min",
-        ),
-        CheckConstraint(
-            "length(trim(course_type)) > 0",
-            name="course_type_not_blank",
-        ),
-        *no_surrounding_whitespace_constraints(
-            "course_type",
         ),
     )
 
@@ -52,8 +50,11 @@ class CourseParticipant(Base):
         nullable=False,
     )
 
-    course_type: Mapped[str] = mapped_column(
-        String(100),
+    course_type: Mapped[CourseTypeEnum] = mapped_column(
+        SqlEnum(
+            CourseTypeEnum,
+            name="course_type_enum",
+        ),
         nullable=False,
     )
 

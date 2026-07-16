@@ -34,6 +34,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   final TextEditingController _dataNascitaCtrl = TextEditingController();
   final TextEditingController _cittaNascitaCtrl = TextEditingController();
   final TextEditingController _provNascitaCtrl = TextEditingController();
+  final TextEditingController _nazioneNascitaCtrl = TextEditingController();
   final TextEditingController _tipoViaCtrl = TextEditingController();
   final TextEditingController _indirizzoNomeCtrl = TextEditingController();
   final TextEditingController _civicoCtrl = TextEditingController();
@@ -43,6 +44,21 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _telefonoCtrl = TextEditingController();
   final List<WizardEnrollmentRowData> _enrollmentRows = [];
+
+  int _currentStep2CardIndex = 0;
+  bool _card2MovingForward = true;
+
+  bool _aderisceSostegnoPsicologico = false;
+  final TextEditingController _dataInizioSostegnoPsicologicoCtrl = TextEditingController(
+    text:
+        '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
+  );
+
+  bool _statutoAccettato = false;
+  bool _regolamentoAccettato = false;
+  bool _videosorveglianzaPresaVisione = false;
+  bool _consensoDatiParticolari = false;
+  bool _consensoNewsletter = false;
 
   @override
   void initState() {
@@ -67,6 +83,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     _dataNascitaCtrl.dispose();
     _cittaNascitaCtrl.dispose();
     _provNascitaCtrl.dispose();
+    _nazioneNascitaCtrl.dispose();
     _tipoViaCtrl.dispose();
     _indirizzoNomeCtrl.dispose();
     _civicoCtrl.dispose();
@@ -75,6 +92,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     _capCtrl.dispose();
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
+    _dataInizioSostegnoPsicologicoCtrl.dispose();
     for (final row in _enrollmentRows) {
       row.yearCtrl.dispose();
       row.dateCtrl.dispose();
@@ -254,6 +272,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       _dataNascitaCtrl.text = _dataNascitaCtrl.text.trim();
       _cittaNascitaCtrl.text = _cittaNascitaCtrl.text.trim();
       _provNascitaCtrl.text = _provNascitaCtrl.text.trim().toUpperCase();
+      _nazioneNascitaCtrl.text = _nazioneNascitaCtrl.text.trim();
       _tipoViaCtrl.text = _tipoViaCtrl.text.trim();
       _indirizzoNomeCtrl.text = _indirizzoNomeCtrl.text.trim();
       _civicoCtrl.text = _civicoCtrl.text.trim();
@@ -330,6 +349,9 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     } else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provNascitaCtrl.text)) {
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
+
+    if (_nazioneNascitaCtrl.text.isEmpty)
+      addError('nazioneNascita', 'Campo obbligatorio', 1);
 
     if (_tipoViaCtrl.text.isEmpty) addError('tipoVia', 'Campo obbligatorio', 2);
     if (_indirizzoNomeCtrl.text.isEmpty)
@@ -423,12 +445,25 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   }
 
   bool _validateIscrizioni() {
+    _dataInizioSostegnoPsicologicoCtrl.text =
+        _dataInizioSostegnoPsicologicoCtrl.text.trim();
+
     bool isValid = true;
+    int? firstInvalidCard;
     Map<String, String> newErrors = Map.from(_formErrors);
 
-    if (_enrollmentRows.isEmpty) {
-      newErrors['enrollmentGeneral'] = 'Aggiungi almeno un\'iscrizione';
+    void addError(String field, String message, int targetCardLogicIndex) {
+      newErrors[field] = message;
       isValid = false;
+      if (firstInvalidCard == null || targetCardLogicIndex < firstInvalidCard!) {
+        firstInvalidCard = targetCardLogicIndex;
+      }
+    }
+
+    int currentMappedIndex = 0;
+
+    if (_enrollmentRows.isEmpty) {
+      addError('enrollmentGeneral', 'Aggiungi almeno un\'iscrizione', currentMappedIndex);
     }
 
     for (int i = 0; i < _enrollmentRows.length; i++) {
@@ -436,46 +471,74 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       bool yearValid = false;
 
       if (row.yearCtrl.text.trim().isEmpty) {
-        newErrors['enrollmentYear_$i'] = 'Campo obbligatorio';
-        isValid = false;
+        addError('enrollmentYear_$i', 'Campo obbligatorio', currentMappedIndex);
       } else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) {
-        newErrors['enrollmentYear_$i'] = 'Anno non valido';
-        isValid = false;
+        addError('enrollmentYear_$i', 'Anno non valido', currentMappedIndex);
       } else {
         int parsedYear = int.parse(row.yearCtrl.text.trim());
         if (parsedYear > DateTime.now().year) {
-          newErrors['enrollmentYear_$i'] = 'Anno non futuro';
-          isValid = false;
+          addError('enrollmentYear_$i', 'Anno non futuro', currentMappedIndex);
         } else {
           yearValid = true;
         }
       }
 
       if (row.dateCtrl.text.trim().isEmpty) {
-        newErrors['enrollmentDate_$i'] = 'Campo obbligatorio';
-        isValid = false;
+        addError('enrollmentDate_$i', 'Campo obbligatorio', currentMappedIndex);
       } else if (yearValid &&
           !_isValidDayMonthYear(
             row.dateCtrl.text.trim(),
             row.yearCtrl.text.trim(),
           )) {
-        newErrors['enrollmentDate_$i'] = 'Data non valida';
-        isValid = false;
+        addError('enrollmentDate_$i', 'Data non valida', currentMappedIndex);
       } else if (!yearValid &&
           !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim())) {
-        newErrors['enrollmentDate_$i'] = 'Formato gg/mm';
-        isValid = false;
+        addError('enrollmentDate_$i', 'Formato gg/mm', currentMappedIndex);
       }
+    }
+    currentMappedIndex++;
+
+    //DisponibileSoloSeIlGenitoreSiAssociaAllAssociazione_StessaConizioneDellaCard
+    if (_genitoreIsAssociato) {
+      if (_aderisceSostegnoPsicologico) {
+        if (_dataInizioSostegnoPsicologicoCtrl.text.isEmpty) {
+          addError('dataInizioSostegnoPsicologico', 'Campo obbligatorio', currentMappedIndex);
+        } else if (!_isValidDate(_dataInizioSostegnoPsicologicoCtrl.text)) {
+          addError('dataInizioSostegnoPsicologico', 'Formato data non valido', currentMappedIndex);
+        }
+      }
+      currentMappedIndex++;
+
+      if (!_statutoAccettato) {
+        addError('statutoAccettato', 'Presa visione obbligatoria', currentMappedIndex);
+      }
+      if (!_regolamentoAccettato) {
+        addError('regolamentoAccettato', 'Accettazione obbligatoria', currentMappedIndex);
+      }
+      if (!_videosorveglianzaPresaVisione) {
+        addError('videosorveglianzaPresaVisione', 'Presa visione obbligatoria', currentMappedIndex);
+      }
+      if (!_consensoDatiParticolari) {
+        addError('consensoDatiParticolari', 'Consenso obbligatorio', currentMappedIndex);
+      }
+      if (!_consensoNewsletter) {
+        addError('consensoNewsletter', 'Consenso obbligatorio', currentMappedIndex);
+      }
+      currentMappedIndex++;
     }
 
     setState(() {
       _formErrors = newErrors;
+      if (!isValid && firstInvalidCard != null) {
+        _card2MovingForward = firstInvalidCard! >= _currentStep2CardIndex;
+        _currentStep2CardIndex = firstInvalidCard!;
+      }
     });
 
     if (!isValid) {
       CustomSnackBar.show(
         context: context,
-        message: 'Ci sono errori nelle iscrizioni inserite.',
+        message: 'Ci sono errori nelle informazioni associative.',
         isError: true,
       );
     }
@@ -489,6 +552,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     try {
       final List<String> finalRoles = ['GENITORE'];
       Map<String, dynamic>? memberData;
+      Map<String, dynamic>? psychologicalSupportData;
 
       if (_genitoreIsAssociato) {
         finalRoles.add('ASSOCIATO');
@@ -507,8 +571,27 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           });
         }
 
-        if (membershipsData.isNotEmpty) {
-          memberData = {"memberships": membershipsData};
+        //ChiunqueSiaAssociatoPortaConsensiEPuoAderireAlSostegnoPsicologico_NonSoloIRuoliSpecifici
+        memberData = {
+          "memberships": membershipsData,
+          "payment_method": null,
+          "payment_method_other": null,
+          "statute_acknowledged": _statutoAccettato,
+          "regulation_acknowledged": _regolamentoAccettato,
+          "video_surveillance_acknowledged": _videosorveglianzaPresaVisione,
+          "special_category_data_consent": _consensoDatiParticolari,
+          "newsletter_consent": _consensoNewsletter,
+          "consents_signed_at": DateTime.now().toIso8601String().split('T').first,
+          "emergency_contact_name": null,
+          "emergency_contact_phone": null,
+          "allergies_notes": null,
+          "medications_notes": null,
+        };
+
+        if (_aderisceSostegnoPsicologico) {
+          psychologicalSupportData = {
+            "start_date": _dataInizioSostegnoPsicologicoCtrl.text.trim().split('/').reversed.join('-'),
+          };
         }
       }
 
@@ -520,6 +603,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           "gender": _sesso,
           "birth_date": _toIsoDate(_dataNascitaCtrl.text.trim()),
           "birth_city": _cittaNascitaCtrl.text.trim(),
+          "birth_nation": _nazioneNascitaCtrl.text.trim(),
           "birth_province": _provNascitaCtrl.text.trim().toUpperCase(),
           "residence_type": _tipoViaCtrl.text.trim(),
           "residence_address": _indirizzoNomeCtrl.text.trim(),
@@ -532,6 +616,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         },
         "roles": finalRoles,
         "member_data": memberData,
+        "psychological_support_data": psychologicalSupportData,
         "relationships": {"minors_tax_codes": [], "parents_tax_codes": []},
       };
 
@@ -592,6 +677,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         setState(() {
           _movingForward = true;
           _currentStep = 2;
+          _currentStep2CardIndex = 0;
+          _card2MovingForward = true;
         });
       } else {
         _submitForm();
@@ -781,6 +868,17 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
             onChanged: (_) => setState(() => _formErrors.remove('provNascita')),
           ),
         ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label: 'Nazione di nascita',
+          inputWidget: WizardAnimatedTextField(
+            controller: _nazioneNascitaCtrl,
+            hint: 'Es. Italia',
+            errorText: _formErrors['nazioneNascita'],
+            onChanged: (_) =>
+                setState(() => _formErrors.remove('nazioneNascita')),
+          ),
+        ),
       ],
     );
   }
@@ -879,7 +977,225 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
+  List<Widget> get _activeStep2Cards {
+    final List<Widget> cards = [];
+
+    cards.add(_buildFormCardIscrizione());
+
+    //EntrambeDisponibiliSoloSeIlGenitoreSiAssocia_StessaLogicaDiPersonWizardPage
+    if (_genitoreIsAssociato) {
+      cards.add(_buildFormCardSostegnoPsicologico());
+      cards.add(_buildFormCardConsensi());
+    }
+
+    return cards;
+  }
+
+  Widget _buildFormCardIscrizione() {
+    return WizardFormSectionCard(
+      title: 'Iscrizioni',
+      leadingIcon: const WizardStaticAvatar(
+        icon: Icons.assignment_ind_outlined,
+      ),
+      children: [
+        //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
+        ...List.generate(_enrollmentRows.length, (index) {
+          final row = _enrollmentRows[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _WizardEnrollmentFieldRow(
+              yearCtrl: row.yearCtrl,
+              dateCtrl: row.dateCtrl,
+              yearError: _formErrors['enrollmentYear_$index'],
+              dateError: _formErrors['enrollmentDate_$index'],
+              onYearChanged: (_) => setState(
+                () => _formErrors.remove('enrollmentYear_$index'),
+              ),
+              onDateChanged: (_) => setState(
+                () => _formErrors.remove('enrollmentDate_$index'),
+              ),
+              onRemove: index > 0
+                  ? () {
+                      setState(() {
+                        _enrollmentRows[index].yearCtrl.dispose();
+                        _enrollmentRows[index].dateCtrl.dispose();
+                        _enrollmentRows.removeAt(index);
+                        _formErrors.remove('enrollmentYear_$index');
+                        _formErrors.remove('enrollmentDate_$index');
+                      });
+                    }
+                  : null,
+            ),
+          );
+        }),
+        Align(
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton(
+            text: 'Aggiungi iscrizione',
+            icon: Icons.add_rounded,
+            onTap: () {
+              int lastYear = DateTime.now().year;
+              if (_enrollmentRows.isNotEmpty) {
+                lastYear =
+                    int.tryParse(_enrollmentRows.last.yearCtrl.text) ??
+                    lastYear;
+              }
+              setState(() {
+                _enrollmentRows.add(
+                  WizardEnrollmentRowData(
+                    yearCtrl: TextEditingController(
+                      text: (lastYear - 1).toString(),
+                    ),
+                    dateCtrl: TextEditingController(),
+                  ),
+                );
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCardSostegnoPsicologico() {
+    return WizardFormSectionCard(
+      title: 'Sostegno Psicologico',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.psychology_outlined),
+      children: [
+        WizardFormInputRow(
+          label: 'Aderisce al servizio',
+          inputWidget: Align(
+            alignment: Alignment.centerLeft,
+            child: WizardYesNoSwitch(
+              value: _aderisceSostegnoPsicologico,
+              onChanged: (val) =>
+                  setState(() => _aderisceSostegnoPsicologico = val),
+            ),
+          ),
+        ),
+        if (_aderisceSostegnoPsicologico) ...[
+          const SizedBox(height: 16),
+          WizardFormInputRow(
+            label: 'Data di inizio',
+            inputWidget: WizardAnimatedTextField(
+              controller: _dataInizioSostegnoPsicologicoCtrl,
+              hint: 'gg/mm/aaaa',
+              keyboardType: TextInputType.number,
+              inputFormatters: [WizardDateInputFormatter()],
+              errorText: _formErrors['dataInizioSostegnoPsicologico'],
+              onChanged: (_) => setState(
+                () => _formErrors.remove('dataInizioSostegnoPsicologico'),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFormCardConsensi() {
+    return WizardFormSectionCard(
+      title: 'Dichiarazioni e Consensi',
+      leadingIcon: const WizardStaticAvatar(icon: Icons.fact_check_outlined),
+      children: [
+        WizardFormInputRow(
+          label: 'Statuto',
+          inputWidget: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch(
+                value: _statutoAccettato,
+                isError: _formErrors['statutoAccettato'] != null,
+                onChanged: (val) => setState(() {
+                  _statutoAccettato = val;
+                  _formErrors.remove('statutoAccettato');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label: 'Regolamento',
+          inputWidget: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch(
+                value: _regolamentoAccettato,
+                isError: _formErrors['regolamentoAccettato'] != null,
+                onChanged: (val) => setState(() {
+                  _regolamentoAccettato = val;
+                  _formErrors.remove('regolamentoAccettato');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label: 'Videosorveglianza',
+          inputWidget: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch(
+                value: _videosorveglianzaPresaVisione,
+                isError: _formErrors['videosorveglianzaPresaVisione'] != null,
+                onChanged: (val) => setState(() {
+                  _videosorveglianzaPresaVisione = val;
+                  _formErrors.remove('videosorveglianzaPresaVisione');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label: 'Dati particolari',
+          inputWidget: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch(
+                value: _consensoDatiParticolari,
+                isError: _formErrors['consensoDatiParticolari'] != null,
+                onChanged: (val) => setState(() {
+                  _consensoDatiParticolari = val;
+                  _formErrors.remove('consensoDatiParticolari');
+                }),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        WizardFormInputRow(
+          label: 'Notiziari periodici',
+          inputWidget: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WizardYesNoSwitch(
+                value: _consensoNewsletter,
+                isError: _formErrors['consensoNewsletter'] != null,
+                onChanged: (val) => setState(() {
+                  _consensoNewsletter = val;
+                  _formErrors.remove('consensoNewsletter');
+                }),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStep2Iscrizioni() {
+    final cards = _activeStep2Cards;
+    final Widget currentCardStep2 =
+        cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink();
+
     return SizedBox(
       key: const ValueKey('step2_p'),
       width: double.infinity,
@@ -914,77 +1230,160 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: WizardFormSectionCard(
-                    title: 'Iscrizioni',
-                    leadingIcon: const WizardStaticAvatar(
-                      icon: Icons.assignment_ind_outlined,
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isCompact = constraints.maxWidth < 900;
+
+                final Widget desktopAnimatedCards = AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.center,
                     children: [
-                      //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-                      ...List.generate(_enrollmentRows.length, (index) {
-                        final row = _enrollmentRows[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _WizardEnrollmentFieldRow(
-                            yearCtrl: row.yearCtrl,
-                            dateCtrl: row.dateCtrl,
-                            yearError: _formErrors['enrollmentYear_$index'],
-                            dateError: _formErrors['enrollmentDate_$index'],
-                            onYearChanged: (_) => setState(
-                              () => _formErrors.remove('enrollmentYear_$index'),
-                            ),
-                            onDateChanged: (_) => setState(
-                              () => _formErrors.remove('enrollmentDate_$index'),
-                            ),
-                            onRemove: index > 0
-                                ? () {
-                                    setState(() {
-                                      _enrollmentRows[index].yearCtrl.dispose();
-                                      _enrollmentRows[index].dateCtrl.dispose();
-                                      _enrollmentRows.removeAt(index);
-                                      _formErrors.remove('enrollmentYear_$index');
-                                      _formErrors.remove('enrollmentDate_$index');
-                                    });
-                                  }
-                                : null,
-                          ),
-                        );
-                      }),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: WizardTextLinkButton(
-                          text: 'Aggiungi iscrizione',
-                          icon: Icons.add_rounded,
-                          onTap: () {
-                            int lastYear = DateTime.now().year;
-                            if (_enrollmentRows.isNotEmpty) {
-                              lastYear =
-                                  int.tryParse(
-                                    _enrollmentRows.last.yearCtrl.text,
-                                  ) ??
-                                  lastYear;
-                            }
-                            setState(() {
-                              _enrollmentRows.add(
-                                WizardEnrollmentRowData(
-                                  yearCtrl: TextEditingController(
-                                    text: (lastYear - 1).toString(),
-                                  ),
-                                  dateCtrl: TextEditingController(),
-                                ),
-                              );
-                            });
-                          },
-                        ),
-                      ),
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
                     ],
                   ),
-                ),
-              ),
+                  transitionBuilder: (child, animation) {
+                    final isEntering =
+                        (child.key as ValueKey<int>).value ==
+                        _currentStep2CardIndex;
+                    Offset beginOffset = _card2MovingForward
+                        ? (isEntering
+                              ? const Offset(0.05, 0)
+                              : const Offset(-0.05, 0))
+                        : (isEntering
+                              ? const Offset(-0.05, 0)
+                              : const Offset(0.05, 0));
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: beginOffset,
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_currentStep2CardIndex),
+                    child: currentCardStep2,
+                  ),
+                );
+
+                final Widget compactAnimatedCards = AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    alignment: Alignment.topCenter,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  transitionBuilder: (child, animation) {
+                    final isEntering =
+                        (child.key as ValueKey<int>).value ==
+                        _currentStep2CardIndex;
+                    Offset beginOffset = _card2MovingForward
+                        ? (isEntering
+                              ? const Offset(0.05, 0)
+                              : const Offset(-0.05, 0))
+                        : (isEntering
+                              ? const Offset(-0.05, 0)
+                              : const Offset(0.05, 0));
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: beginOffset,
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_currentStep2CardIndex),
+                    //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      child: SingleChildScrollView(child: currentCardStep2),
+                    ),
+                  ),
+                );
+
+                return isCompact
+                    ? Column(
+                        children: [
+                          //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                          Expanded(
+                            child: SizedBox(
+                              width: constraints.maxWidth,
+                              child: compactAnimatedCards,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              WizardCarouselArrowButton(
+                                icon: Icons.chevron_left_rounded,
+                                isDisabled: _currentStep2CardIndex == 0,
+                                onTap: () => setState(() {
+                                  _card2MovingForward = false;
+                                  _currentStep2CardIndex--;
+                                }),
+                              ),
+                              const SizedBox(width: 24),
+                              WizardCarouselArrowButton(
+                                icon: Icons.chevron_right_rounded,
+                                isDisabled:
+                                    _currentStep2CardIndex >= cards.length - 1,
+                                onTap: () => setState(() {
+                                  _card2MovingForward = true;
+                                  _currentStep2CardIndex++;
+                                }),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          WizardCarouselArrowButton(
+                            icon: Icons.chevron_left_rounded,
+                            isDisabled: _currentStep2CardIndex == 0,
+                            onTap: () => setState(() {
+                              _card2MovingForward = false;
+                              _currentStep2CardIndex--;
+                            }),
+                          ),
+                          const SizedBox(width: 32),
+                          Flexible(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 800),
+                              child: desktopAnimatedCards,
+                            ),
+                          ),
+                          const SizedBox(width: 32),
+                          WizardCarouselArrowButton(
+                            icon: Icons.chevron_right_rounded,
+                            isDisabled:
+                                _currentStep2CardIndex >= cards.length - 1,
+                            onTap: () => setState(() {
+                              _card2MovingForward = true;
+                              _currentStep2CardIndex++;
+                            }),
+                          ),
+                        ],
+                      );
+              },
             ),
           ),
         ],
@@ -1343,12 +1742,14 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                       }),
                                                     ),
                                                     const SizedBox(width: 32),
-                                                    ConstrainedBox(
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                            maxWidth: 800,
-                                                          ),
-                                                      child: desktopAnimatedCard,
+                                                    Flexible(
+                                                      child: ConstrainedBox(
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                              maxWidth: 800,
+                                                            ),
+                                                        child: desktopAnimatedCard,
+                                                      ),
                                                     ),
                                                     const SizedBox(width: 32),
                                                     WizardCarouselArrowButton(

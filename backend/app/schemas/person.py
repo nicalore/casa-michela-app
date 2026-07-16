@@ -36,6 +36,7 @@ class ParentInfoResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     birth_city: Optional[str] = None
+    birth_nation: Optional[str] = None
     birth_province: Optional[str] = None
     residence_type: Optional[str] = None
     residence_address: Optional[str] = None
@@ -61,6 +62,7 @@ class ChildInfoResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     birth_city: Optional[str] = None
+    birth_nation: Optional[str] = None
     birth_province: Optional[str] = None
     residence_type: Optional[str] = None
     residence_address: Optional[str] = None
@@ -87,6 +89,7 @@ class GeneralDataUpdate(BaseModel):
     gender: str
     birth_date: date
     birth_city: str
+    birth_nation: str
     birth_province: str
     residence_type: str
     residence_address: str
@@ -128,6 +131,14 @@ class CourseParticipantUpdateData(BaseModel):
     course_type: str
 
 
+class PsychologicalSupportUpdateData(BaseModel):
+    """
+    Nessun expected_updated_at: come CourseParticipant, questa tabella
+    non ha ancora un proprio controllo di concorrenza ottimistica.
+    """
+    start_date: date
+
+
 class SchoolEnrollmentUpdateItem(BaseModel):
     start_year: int
     school_id: int
@@ -137,6 +148,9 @@ class SchoolEnrollmentUpdateItem(BaseModel):
 
 class StudentUpdateData(BaseModel):
     authorized_early_exit: bool
+    certification_type: Optional[str] = None
+    certification_other_detail: Optional[str] = None
+    mandatory_psych_meetings_acknowledged: bool
     # Storico scolastico completo (non più una singola riga "anno corrente").
     # update_person sostituisce in blocco tutte le SchoolEnrollment dello
     # studente con questa lista, con la stessa semantica dell'endpoint
@@ -175,11 +189,34 @@ class MembershipUpdateItem(BaseModel):
 class PersonMembershipsUpdate(BaseModel):
     collaborating_active: bool
     memberships: List[MembershipUpdateItem]
+    # Da qui in giù: tutti opzionali con semantica "campo assente dal JSON
+    # = non toccare il valore attuale a DB", non "assente = azzera".
+    # Necessario perché questo stesso schema è condiviso da due chiamanti
+    # con scope diversi: update_person_memberships (tab iscrizioni, non
+    # tocca mai questi campi) e update_person (dialog di modifica
+    # completo, che li tocca solo se ha una card dedicata per quel campo
+    # — es. nessuna card Consensi nel dialog di modifica). Il backend
+    # distingue "assente" da "presente ma null" via model_fields_set,
+    # non un semplice controllo `is None`.
+    payment_method: Optional[str] = None
+    payment_method_other: Optional[str] = None
+    statute_acknowledged: Optional[bool] = None
+    regulation_acknowledged: Optional[bool] = None
+    video_surveillance_acknowledged: Optional[bool] = None
+    special_category_data_consent: Optional[bool] = None
+    newsletter_consent: Optional[bool] = None
+    consents_signed_at: Optional[date] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    allergies_notes: Optional[str] = None
+    medications_notes: Optional[str] = None
     # Timestamp letto dal client al momento del caricamento della persona
     # (PersonResponse.member_updated_at). Usato per il controllo di
     # concorrenza ottimistica in update_person_memberships e nel ramo
     # membership di update_person. Opzionale per non rompere eventuali
-    # chiamate esistenti che non lo mandano ancora.
+    # chiamate esistenti che non lo mandano ancora. Copre l'intero
+    # aggregato Member, quindi anche i nuovi campi sopra (pagamento,
+    # consensi, sicurezza minore).
     expected_updated_at: Optional[datetime] = None
 
 
@@ -191,6 +228,7 @@ class PersonUpdatePayload(BaseModel):
     admin_data: Optional[AdminUpdateData] = None
     teacher_data: Optional[TeacherUpdateData] = None
     course_participant_data: Optional[CourseParticipantUpdateData] = None
+    psychological_support_data: Optional[PsychologicalSupportUpdateData] = None
     student_data: Optional[StudentUpdateData] = None
     relationships: Optional[RelationshipsUpdate] = None
 
@@ -243,6 +281,7 @@ class PersonResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     birth_city: Optional[str] = None
+    birth_nation: Optional[str] = None
     birth_province: Optional[str] = None
     residence_type: Optional[str] = None
     residence_address: Optional[str] = None
@@ -264,6 +303,25 @@ class PersonResponse(BaseModel):
     taught_subjects: List[str] = []
     course_type: Optional[str] = None
     is_medical_certificate_valid: Optional[bool] = None
+
+    certification_type: Optional[str] = None
+    certification_other_detail: Optional[str] = None
+    mandatory_psych_meetings_acknowledged: Optional[bool] = None
+
+    payment_method: Optional[str] = None
+    payment_method_other: Optional[str] = None
+    statute_acknowledged: Optional[bool] = None
+    regulation_acknowledged: Optional[bool] = None
+    video_surveillance_acknowledged: Optional[bool] = None
+    special_category_data_consent: Optional[bool] = None
+    newsletter_consent: Optional[bool] = None
+    consents_signed_at: Optional[date] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    allergies_notes: Optional[str] = None
+    medications_notes: Optional[str] = None
+    # None = non aderisce al servizio di sostegno psicologico.
+    psychological_support_start_date: Optional[date] = None
 
     iban: Optional[str] = None
     admin_role: Optional[str] = None

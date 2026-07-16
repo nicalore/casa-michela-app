@@ -51,6 +51,53 @@ class PersonInfoTab extends StatelessWidget
     return role;
   }
 
+  //StessoPatternDi_getAdminRoleText_MostraDirettamenteIlTestoLiberoSeAltro_SenzaLaParola"Altro"
+  String _getPaymentMethodText(PersonItem person)
+  {
+    final method = person.paymentMethod;
+
+    if (method == null)
+    {
+      return '-';
+    }
+
+    if (method == 'OTHER')
+    {
+      return person.paymentMethodOther?.isNotEmpty == true ? person.paymentMethodOther! : '-';
+    }
+
+    if (method == 'CASH')
+    {
+      return 'Contanti';
+    }
+
+    if (method == 'BANK_TRANSFER')
+    {
+      return 'Bonifico bancario';
+    }
+
+    return method;
+  }
+
+  //RestituisceNullSeNessunaCertificazioneDichiarata_CosiLaRigaPuoEssereOmessaDelTutto
+  //SeAltro_MostraDirettamenteIlContenutoDelTextbox_SenzaLaParola"Altro"
+  String? _getCertificationText(PersonItem person)
+  {
+    final type = person.certificationType;
+
+    if (type == null)
+    {
+      return null;
+    }
+
+    if (type == 'OTHER')
+    {
+      return person.certificationOtherDetail?.isNotEmpty == true ? person.certificationOtherDetail! : '-';
+    }
+
+    return type;
+  }
+
   bool _isAdult(DateTime? birthDate)
   {
     if (birthDate == null) 
@@ -80,6 +127,11 @@ class PersonInfoTab extends StatelessWidget
     final String dataNascita    = person.birthDate != null ? DateFormat('dd/MM/yyyy').format(person.birthDate!) : '-';
     final String cittaNascita   = person.birthCity ?? '-';
     final String provNascita    = person.birthProvince ?? '-';
+
+    //NatoAllEstero_ConvenzioneProvinciaEE_MostraLaNazioneAlPostoDellaProvincia
+    final bool   isBirthAbroad        = person.birthProvince == 'EE';
+    final String birthLocationLabel   = isBirthAbroad ? 'Nazione' : 'Provincia';
+    final String birthLocationValue   = isBirthAbroad ? (person.birthNation ?? '-') : provNascita;
     
     final String tipoVia        = person.residenceType?.trim() ?? '';
     final String nomeVia        = person.address?.trim() ?? '';
@@ -92,6 +144,8 @@ class PersonInfoTab extends StatelessWidget
     final Set<String> roles       = person.roles.map((r) => r.toUpperCase()).toSet();
     final bool        isStaff     = roles.contains('AMMINISTRATORE') || roles.contains('DOCENTE') || roles.contains('PSICOLOGO');
     final bool        maggiorenne = _isAdult(person.birthDate);
+
+    final String? certificationText = _getCertificationText(person);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(
@@ -141,7 +195,7 @@ class PersonInfoTab extends StatelessWidget
                   rows: [
                     _InfoRowData('Data di nascita',  dataNascita),
                     _InfoRowData('Città di nascita', cittaNascita),
-                    _InfoRowData('Provincia',        provNascita),
+                    _InfoRowData(birthLocationLabel,  birthLocationValue),
                   ],
                 ),
                 second: _InfoSectionCard(
@@ -155,6 +209,21 @@ class PersonInfoTab extends StatelessWidget
                   ],
                 ),
               ),
+
+              if (roles.contains('STUDENTE') || roles.contains('CORSISTA')) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: _InfoSectionCard(
+                    title:       'Modalità di Pagamento',
+                    labelWidth:  205,
+                    leadingIcon: const _StaticAvatar(icon: Icons.payments_outlined),
+                    rows: [
+                      _InfoRowData('Modalità', _getPaymentMethodText(person)),
+                    ],
+                  ),
+                ),
+              ],
               
               if (isStaff) ...[
                 const SizedBox(height: 24),
@@ -223,6 +292,13 @@ class PersonInfoTab extends StatelessWidget
                             ? 'Autorizzata' 
                             : (person.earlyExit == null ? '-' : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata')),
                       ),
+                      //RigaOmessaDelTutto_NonSoloMascherataAUnTrattino_SeNessunaCertificazioneEDichiarata
+                      if (certificationText != null)
+                        _InfoRowData(
+                          'Certificazione',
+                          certificationText,
+                          isSensitive: true,
+                        ),
                     ],
                   ),
                 ),
@@ -239,6 +315,24 @@ class PersonInfoTab extends StatelessWidget
                     rows: [
                       _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
                       _InfoRowData('Scadenza cert. medico', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (!maggiorenne) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: _InfoSectionCard(
+                    title:       'Sicurezza del Minore',
+                    labelWidth:  205,
+                    leadingIcon: const _StaticAvatar(icon: Icons.health_and_safety_outlined),
+                    rows: [
+                      _InfoRowData('Contatto emergenza',      person.emergencyContactName?.isNotEmpty == true ? person.emergencyContactName! : '-'),
+                      _InfoRowData('Telefono emergenza',      person.emergencyContactPhone?.isNotEmpty == true ? person.emergencyContactPhone! : '-'),
+                      _InfoRowData('Allergie / intolleranze', person.allergiesNotes?.isNotEmpty == true ? person.allergiesNotes! : '-'),
+                      _InfoRowData('Farmaci / note',          person.medicationsNotes?.isNotEmpty == true ? person.medicationsNotes! : '-'),
                     ],
                   ),
                 ),
