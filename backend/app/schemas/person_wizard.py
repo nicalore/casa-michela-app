@@ -127,7 +127,7 @@ class WizardStudentData(BaseModel):
             raise ValueError(
                 "In presenza di una certificazione (DSA/BES/ADHD/Altro) è "
                 "necessario prendere atto dei 2 incontri obbligatori con "
-                "la psicologa."
+                "lo psicologo."
             )
 
         return self

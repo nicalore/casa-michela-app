@@ -326,9 +326,9 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                   (
                     children: 
                     [
-                      Expanded(child: AnimatedActionButton(text: 'MODIFICA', icon: Icons.edit_outlined, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: onEditRequested)),
-                      const SizedBox(width: 16),
                       Expanded(child: AnimatedActionButton(text: 'ELIMINA', icon: Icons.delete_outline_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () => _showDeleteConfirmation(context))),
+                      const SizedBox(width: 16),
+                      Expanded(child: AnimatedActionButton(text: 'MODIFICA', icon: Icons.edit_outlined, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: onEditRequested)),
                     ],
                   ),
                 ),

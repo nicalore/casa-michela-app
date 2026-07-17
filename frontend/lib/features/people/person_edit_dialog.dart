@@ -425,6 +425,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (widget.person.collaborationType == 'Volontario' || widget.person.collaborationType == 'VOLUNTEER') _tipoCollaborazione = 'Volontario';
     if (widget.person.collaborationType == 'Retribuito' || widget.person.collaborationType == 'PAID') _tipoCollaborazione = 'Retribuito';
     if (widget.person.collaborationType == 'PCTO' || widget.person.collaborationType == 'FSL (Ex PCT0)') _tipoCollaborazione = 'FSL (Ex PCT0)';
+    if (widget.person.collaborationType == 'Non pagato' || widget.person.collaborationType == 'UNPAID') _tipoCollaborazione = 'Non pagato';
 
     if (widget.person.adminRole != null) 
     {
@@ -571,6 +572,29 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
     
     return age < 18;
+  }
+
+  //PresidenteVicepresidenteTesoriere_NonPossonoEssereRetribuiti_PolicyAssociazione
+  bool get _collaborazioneForzataNonPagata
+  {
+    return _selectedRoles.contains('AMMINISTRATORE') &&
+        (_ruoloAmministratore == 'Presidente' ||
+         _ruoloAmministratore == 'Vicepresidente' ||
+         _ruoloAmministratore == 'Tesoriere');
+  }
+
+  //SincronizzaIlCampoCollaborazioneConIlRuoloAmministrativo_ChiamataSiaInBuildCheInValidate
+  //MutazioneDirettaSenzaSetState_NonCausaRebuildLoop_VieneLettaSubitoDopoNelloStessoRebuild
+  void _syncCollaborazioneConRuoloAmministrativo()
+  {
+    if (_collaborazioneForzataNonPagata)
+    {
+      _tipoCollaborazione = 'Non pagato';
+    }
+    else if (_tipoCollaborazione == 'Non pagato')
+    {
+      _tipoCollaborazione = null;
+    }
   }
 
   int _getCurrentSchoolYearStart() 
@@ -725,11 +749,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       cards.add(_buildFormCardModalitaPagamento());
     }
 
-    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
-                         activeRoles.contains('DOCENTE') || 
-                         activeRoles.contains('PSICOLOGO');
-                         
-    if (isStaff) cards.add(_buildFormCardStaff());
     if (activeRoles.contains('AMMINISTRATORE')) cards.add(_buildFormCardAmministratore());
     if (activeRoles.contains('DOCENTE')) cards.add(_buildFormCardDocente());
     if (activeRoles.contains('CORSISTA')) cards.add(_buildFormCardCorsista());
@@ -738,6 +757,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       cards.add(_buildFormCardStudente());
       cards.add(_buildFormCardIscrizioniScolastiche());
     }
+
+    //SpostataInFondo_SubitoPrimaDiSicurezzaMinore_SuRichiestaCommittente
+    //DeveStareDopoDettagliAmministratore_CosiIlRuoloEGiaNotoQuandoSiCalcolaLaCollaborazioneForzata
+    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
+                         activeRoles.contains('DOCENTE') || 
+                         activeRoles.contains('PSICOLOGO');
+                         
+    if (isStaff) cards.add(_buildFormCardStaff());
 
     if (!isOnlyGenitoreNotAssociato && _isMinor)
     {
@@ -894,6 +921,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       _contattoEmergenzaTelefonoCtrl.text = _contattoEmergenzaTelefonoCtrl.text.replaceAll(' ', '');
       _allergieCtrl.text                 = _allergieCtrl.text.trim();
       _farmaciCtrl.text                  = _farmaciCtrl.text.trim();
+      _syncCollaborazioneConRuoloAmministrativo();
     });
 
     bool                isValid             = true;
@@ -974,19 +1002,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       if (_modalitaPagamento == 'Altro' && _altraModalitaPagamentoCtrl.text.isEmpty)
       {
         addError('altraModalitaPagamento', 'Specificare la modalità', currentMappedIndex);
-      }
-      currentMappedIndex++;
-    }
-
-    if (isStaff)
-    {
-      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
-      {
-        addError('iban', 'Formato IBAN italiano non valido', currentMappedIndex);
-      }
-      if (_tipoCollaborazione == null)
-      {
-        addError('tipoCollaborazione', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -1074,6 +1089,21 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
+    //SpostataInFondo_SubitoPrimaDiSicurezzaMinore_SuRichiestaCommittente
+    //DeveStareDopoDettagliAmministratore_StessoMotivoDiActiveStep4Cards
+    if (isStaff)
+    {
+      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
+      {
+        addError('iban', 'Formato IBAN italiano non valido', currentMappedIndex);
+      }
+      if (_tipoCollaborazione == null)
+      {
+        addError('tipoCollaborazione', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -1205,6 +1235,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
         if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
+        if (_tipoCollaborazione == 'Non pagato') collType = 'UNPAID';
 
         staffData = 
         {
@@ -2760,6 +2791,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   Widget _buildFormCardStaff()
   {
+    //SincronizzazioneDerivata_VediCommentoSuSyncCollaborazioneConRuoloAmministrativo
+    _syncCollaborazioneConRuoloAmministrativo();
+
     return WizardFormSectionCard
     (
       title:       'Dati Amministrativi',
@@ -2780,6 +2814,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         const SizedBox(height: 16),
         WizardFormInputRow
         (
+          //PresidenteVicepresidenteTesoriere_NonSelezionabileManualmente_SoloValoreForzato
           label:       'Collaborazione',
           inputWidget: WizardAnimatedOverlayDropdown
           (
@@ -2787,6 +2822,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             items:     const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
             hint:      'Seleziona',
             errorText: _formErrors['tipoCollaborazione'],
+            enabled:   !_collaborazioneForzataNonPagata,
             onChanged: (val) => setState(() 
             {
               _tipoCollaborazione = val;

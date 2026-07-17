@@ -16,6 +16,7 @@ from app.models.student import CertificationTypeEnum, Student
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person_wizard import PersonWizardPayload
+from app.services.role_service import RoleService
 
 
 async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPayload) -> Person:
@@ -161,6 +162,11 @@ async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPaylo
             if "AMMINISTRATORE" in roles and payload.admin_data:
                 # Conversione esplicita per ruolo admin
                 role_val = AdministratorRoleEnum(payload.admin_data.role)
+
+                RoleService.assert_collaboration_type_consistent_with_admin_role(
+                    role_val, staff.collaboration_type
+                )
+
                 admin = Administrator(
                     tax_code=person.tax_code,
                     role=role_val,

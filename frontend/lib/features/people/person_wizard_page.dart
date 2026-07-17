@@ -245,6 +245,29 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     return age < 18;
   }
 
+  //PresidenteVicepresidenteTesoriere_NonPossonoEssereRetribuiti_PolicyAssociazione
+  bool get _collaborazioneForzataNonPagata
+  {
+    return _selectedRoles.contains('AMMINISTRATORE') &&
+        (_ruoloAmministratore == 'Presidente' ||
+         _ruoloAmministratore == 'Vicepresidente' ||
+         _ruoloAmministratore == 'Tesoriere');
+  }
+
+  //SincronizzaIlCampoCollaborazioneConIlRuoloAmministrativo_ChiamataSiaInBuildCheInValidate
+  //MutazioneDirettaSenzaSetState_NonCausaRebuildLoop_VieneLettaSubitoDopoNelloStessoRebuild
+  void _syncCollaborazioneConRuoloAmministrativo()
+  {
+    if (_collaborazioneForzataNonPagata)
+    {
+      _tipoCollaborazione = 'Non pagato';
+    }
+    else if (_tipoCollaborazione == 'Non pagato')
+    {
+      _tipoCollaborazione = null;
+    }
+  }
+
   int _getCurrentSchoolYearStart() 
   {
     final now = DateTime.now();
@@ -707,6 +730,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     _farmaciCtrl.text                      = _farmaciCtrl.text.trim();
     _altraCertificazioneCtrl.text          = _altraCertificazioneCtrl.text.trim();
 
+    _syncCollaborazioneConRuoloAmministrativo();
+
     bool                isValid             = true;
     bool                showFutureYearError = false;
     int?                firstInvalidCard;
@@ -805,19 +830,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       currentMappedIndex++;
     }
 
-    if (isStaff)
-    {
-      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
-      {
-        addError('iban', 'Formato IBAN italiano non valido', currentMappedIndex);
-      }
-      if (_tipoCollaborazione == null)
-      {
-        addError('tipoCollaborazione', 'Campo obbligatorio', currentMappedIndex);
-      }
-      currentMappedIndex++;
-    }
-
     if (isAmministratore)
     {
       if (_ruoloAmministratore == null)
@@ -909,6 +921,21 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
         if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+      }
+      currentMappedIndex++;
+    }
+
+    //SpostataInFondo_SubitoPrimaDiSicurezzaMinoreEConsensi_SuRichiestaCommittente
+    //DeveStareDopoDettagliAmministratore_StessoMotivoDiActiveStep4Cards
+    if (isStaff)
+    {
+      if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
+      {
+        addError('iban', 'Formato IBAN italiano non valido', currentMappedIndex);
+      }
+      if (_tipoCollaborazione == null)
+      {
+        addError('tipoCollaborazione', 'Campo obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
@@ -1059,6 +1086,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         String collType = 'VOLUNTEER';
         if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
         if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
+        if (_tipoCollaborazione == 'Non pagato') collType = 'UNPAID';
 
         staffData = 
         {
@@ -1412,15 +1440,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       cards.add(_buildFormCardSostegnoPsicologico());
     }
 
-    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
-                         activeRoles.contains('DOCENTE') || 
-                         activeRoles.contains('PSICOLOGO');
-                         
-    if (isStaff)
-    {
-      cards.add(_buildFormCardStaff());
-    }
-    
     if (activeRoles.contains('AMMINISTRATORE'))
     {
       cards.add(_buildFormCardAmministratore());
@@ -1440,6 +1459,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       cards.add(_buildFormCardStudente());
       cards.add(_buildFormCardIscrizioniScolastiche());
+    }
+
+    //SpostataInFondo_SubitoPrimaDiSicurezzaMinoreEConsensi_SuRichiestaCommittente
+    //DeveStareDopoDettagliAmministratore_CosiIlRuoloEGiaNotoQuandoSiCalcolaLaCollaborazioneForzata
+    final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
+                         activeRoles.contains('DOCENTE') || 
+                         activeRoles.contains('PSICOLOGO');
+                         
+    if (isStaff)
+    {
+      cards.add(_buildFormCardStaff());
     }
 
     //SpostataInFondo_SubitoPrimaDeiConsensi_SuRichiestaCommittente
@@ -3564,6 +3594,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   Widget _buildFormCardStaff()
   {
+    //SincronizzazioneDerivata_VediCommentoSuSyncCollaborazioneConRuoloAmministrativo
+    _syncCollaborazioneConRuoloAmministrativo();
+
     return WizardFormSectionCard
     (
       title:       'Dati Amministrativi',
@@ -3584,6 +3617,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         const SizedBox(height: 16),
         WizardFormInputRow
         (
+          //PresidenteVicepresidenteTesoriere_NonSelezionabileManualmente_SoloValoreForzato
           label:       'Collaborazione',
           inputWidget: WizardAnimatedOverlayDropdown
           (
@@ -3591,6 +3625,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             items:     const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
             hint:      'Seleziona',
             errorText: _formErrors['tipoCollaborazione'],
+            enabled:   !_collaborazioneForzataNonPagata,
             onChanged: (val) => setState(() 
             { 
               _tipoCollaborazione = val; 

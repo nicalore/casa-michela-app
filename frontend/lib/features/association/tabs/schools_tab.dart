@@ -53,6 +53,20 @@ class _SchoolsTabState extends State<SchoolsTab>
     return cities.map((city) => _FilterOption(value: city, label: city)).toList();
   }
 
+  //SuggerimentiPerAutocompletamento_UnaVoceUnicaPerCoppiaCittaProvincia_GestisceOmonimieInProvinceDiverse
+  List<_CityProvinceOption> get _citySuggestions
+  {
+    final Map<String, _CityProvinceOption> unique = {};
+    for (final school in widget.schools)
+    {
+      final key = '${school.city.toLowerCase()}|${school.province.toUpperCase()}';
+      unique[key] = _CityProvinceOption(city: school.city, province: school.province);
+    }
+    final result = unique.values.toList();
+    result.sort((a, b) => a.city.compareTo(b.city));
+    return result;
+  }
+
   List<SchoolItem> get _filteredSchools 
   {
     var result = widget.schools.where((school) 
@@ -95,6 +109,8 @@ class _SchoolsTabState extends State<SchoolsTab>
                 existingSchool: school,
                 //LettaSempreDaWidget.studyPrograms_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
                 availableStudyPrograms: widget.studyPrograms,
+                //StessaLogica_DerivataDaWidget.schools_RicalcolataAOgniAperturaDelWizard
+                citySuggestions: _citySuggestions,
                 onCancelEdit: onCancelEdit,
                 onSave: (code, name, city, prov, programIds, onError) async 
                 {
@@ -165,11 +181,13 @@ class _SchoolWizardDialog extends StatefulWidget
 {
   final SchoolItem? existingSchool;
   final List<StudyProgramItem> availableStudyPrograms;
+  //CoppieCittaProvinciaGiaPresentiNelDb_PerLautocompletamentoDelCampoCitta
+  final List<_CityProvinceOption> citySuggestions;
   final VoidCallback? onCancelEdit;
   final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
   
   const _SchoolWizardDialog({
-    this.existingSchool, required this.availableStudyPrograms, this.onCancelEdit, required this.onSave,
+    this.existingSchool, required this.availableStudyPrograms, required this.citySuggestions, this.onCancelEdit, required this.onSave,
   });
 
   @override
@@ -188,6 +206,16 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   final TextEditingController _provController = TextEditingController();
   final TextEditingController _programSearchCtrl = TextEditingController();
 
+  //FocusNodeDedicatoAlCampoCitta_RichiestoDaRawAutocompleteQuandoSiPassaUnTextEditingControllerEsterno
+  final FocusNode _cityFocusNode = FocusNode();
+  //FocusNodeDedicatoAlCodiceMeccanografico_PerSpostareIlFocusQuiDopoLaSelezioneDellaCittaViaAutocompletamento
+  final FocusNode _codeFocusNode = FocusNode();
+
+  //TracciaLultimaCittaConfermataViaAutocompletamento(SelezioneOInvio)
+  //SeIlTestoDelCampoCittaCoincideConQuestoValore_NonMostriamoPiuSuggerimenti_AncheRientrandoConIlFocus
+  //TornaAdAggiornarsiSoloQuandoLutenteModificaEffettivamenteIlTesto(AggiungeORimuoveCaratteri)
+  String? _lastConfirmedCity;
+
   List<int> _selectedPrograms = [];
 
   @override
@@ -201,6 +229,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       _cityController.text = widget.existingSchool!.city;
       _provController.text = widget.existingSchool!.province;
       _selectedPrograms = widget.existingSchool!.studyPrograms.map((p) => p.id).toList();
+      //InModificaLaCittaEGiaDefinitiva_NessunSuggerimentoAllaPrimaApertura(ComeSeFosseGiaStataConfermata)
+      _lastConfirmedCity = widget.existingSchool!.city;
     }
   }
 
@@ -212,6 +242,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     _cityController.dispose();
     _provController.dispose();
     _programSearchCtrl.dispose();
+    _cityFocusNode.dispose();
+    _codeFocusNode.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -225,6 +257,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       _provController.clear();
       _programSearchCtrl.clear();
       _selectedPrograms.clear();
+      _lastConfirmedCity = null;
       _currentStep = 0;
       _pageController.jumpToPage(0);
     });
@@ -275,6 +308,99 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   }
 
   Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 4, top: 16), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 14)));
+
+  //CampoCittaConSuggerimentiDaScuoleGiaPresenti_FrecceSuGiuEInvioGestitiInternamenteDaRawAutocomplete_NoiCiLimitiamoAColorareLopzioneEvidenziataEAScrollareVersoDiEssa
+  Widget _buildCityAutocomplete()
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        return RawAutocomplete<_CityProvinceOption>(
+          textEditingController: _cityController,
+          focusNode: _cityFocusNode,
+          displayStringForOption: (option) => option.city,
+          optionsBuilder: (textEditingValue)
+          {
+            final currentText = textEditingValue.text.trim();
+            if (currentText.isEmpty) return const Iterable<_CityProvinceOption>.empty();
+            //SopprimeISuggerimentiSeIlTestoENonModificatoRispettoAllUltimaSelezioneConfermata
+            //UtileQuandoLoStessoTestoVieneRicalcolatoDaOptionsBuilder(NonCopreIlCasoDelSoloRientroDelFocus_VediOptionsViewBuilderPiuSotto)
+            if (_lastConfirmedCity != null && currentText == _lastConfirmedCity)
+            {
+              return const Iterable<_CityProvinceOption>.empty();
+            }
+            //RicercaContains_NonSoloPrefisso_TrovaAncheCittaComposte(Es."SanBonifacio"ScrivendoSolo"bonif")
+            final query = currentText.toLowerCase();
+            return widget.citySuggestions.where((option) => option.city.toLowerCase().contains(query)).take(8);
+          },
+          onSelected: (option)
+          {
+            //IlCampoCittaVieneGiaCompilatoDaRawAutocomplete_QuiCompletiamoSoloLaProvincia_CheRestaComunqueEditabileAMano
+            //MemorizziamoLaCittaAppenaConfermata_PerSopprimereISuggerimentiSeSiRientraNelCampoSenzaModificarla
+            setState(() {
+              _provController.text = option.province;
+              _lastConfirmedCity   = option.city;
+            });
+            //SpostaIlFocusSulCodiceMeccanografico_CursoreInFondoAlTestoSePresente
+            //PostFrameCallback_NecessarioPercheRawAutocompleteCompletaLaSuaLogicaInternaDiChiusuraDopoOnSelected
+            WidgetsBinding.instance.addPostFrameCallback((_)
+            {
+              if (!mounted) return;
+              _codeFocusNode.requestFocus();
+              _codeController.selection = TextSelection.collapsed(offset: _codeController.text.length);
+            });
+          },
+          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted)
+          {
+            return TextField(
+              controller: controller,
+              focusNode: focusNode,
+              //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
+              onSubmitted: (_) => onFieldSubmitted(),
+              textCapitalization: TextCapitalization.words,
+              style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                hintText: 'Es. Thiene',
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500),
+                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options)
+          {
+            //FIXCRUCIALE_RawAutocompleteNonRicalcolaLaListaOpzioniAlSoloRientroDelFocus(SoloAlCambioDelTesto)
+            //Al_selectInterno,ilFrameworkNONAggiornaLaCache"_options":restaConLaQueryPreSelezioneEVieneRimostrataAlRientroDelFocus
+            //(ComportamentoDocumentatoInFlutter/Flutter#167712)_QuindiLaSoppressioneVaFattaQuiLeggendoIlTestoLiveDelController_
+            //NonFidandociDiOptionsPassatoDaRawAutocomplete_CheInQuestoCasoPuoEssereStantio
+            final currentText = _cityController.text.trim();
+            if (_lastConfirmedCity != null && currentText == _lastConfirmedCity)
+            {
+              return const SizedBox.shrink();
+            }
+
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                shadowColor: const Color(0x33000000),
+                //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: _CityOptionsListView(options: options.toList(), onSelected: onSelected),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) 
@@ -330,15 +456,16 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             _buildFieldLabel('Nome'),
             TextField(controller: _nameController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Statale F. Corradini', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Città'), TextField(controller: _cityController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Thiene', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
+                Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Città'), _buildCityAutocomplete()])),
                 const SizedBox(width: 16),
                 Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Provincia'), TextField(controller: _provController, textCapitalization: TextCapitalization.characters, maxLength: 2, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(counterText: "", hintText: 'Es. VI', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
               ],
             ),
             //IlCodiceChiudeIlFormComeDettaglioSecondarioFacoltativo_NonEPiuLaChiaveDiNulla
             _buildFieldLabel('Codice Meccanografico (opzionale)'),
-            TextField(controller: _codeController, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            TextField(controller: _codeController, focusNode: _codeFocusNode, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
           ],
         ),
       ),
@@ -414,6 +541,159 @@ class _ResponsiveDialogButtonsRow extends StatelessWidget
           ],
         );
       },
+    );
+  }
+}
+
+//CoppiaCittaProvinciaUsataComeOpzioneDiAutocompletamento
+class _CityProvinceOption
+{
+  final String city;
+  final String province;
+
+  const _CityProvinceOption({required this.city, required this.province});
+}
+
+//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
+//AffinchIlCalcoloDelloScrollPerRaggiungereLelementoEvidenziatoSiaPreciso
+const double _cityOptionItemHeight = 44.0;
+
+//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
+class _CityOptionsListView extends StatefulWidget
+{
+  final List<_CityProvinceOption> options;
+  final AutocompleteOnSelected<_CityProvinceOption> onSelected;
+
+  const _CityOptionsListView({required this.options, required this.onSelected});
+
+  @override
+  State<_CityOptionsListView> createState() => _CityOptionsListViewState();
+}
+
+class _CityOptionsListViewState extends State<_CityOptionsListView>
+{
+  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  static const double _verticalPadding = 8;
+
+  final ScrollController _scrollController = ScrollController();
+  int? _lastHighlightedIndex;
+
+  @override
+  void dispose()
+  {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  void _ensureHighlightedVisible(int index)
+  {
+    if (!_scrollController.hasClients) return;
+
+    final itemTop = _verticalPadding + (index * _cityOptionItemHeight);
+    final itemBottom = itemTop + _cityOptionItemHeight;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final visibleTop = _scrollController.offset;
+    final visibleBottom = visibleTop + viewportHeight;
+
+    double? target;
+    if (itemTop < visibleTop)
+    {
+      target = itemTop;
+    }
+    else if (itemBottom > visibleBottom)
+    {
+      target = itemBottom - viewportHeight;
+    }
+
+    if (target != null)
+    {
+      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(clamped);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    final highlightedIndex = AutocompleteHighlightedOption.of(context);
+
+    if (_lastHighlightedIndex != highlightedIndex)
+    {
+      _lastHighlightedIndex = highlightedIndex;
+      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+      });
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
+      shrinkWrap: true,
+      itemExtent: _cityOptionItemHeight,
+      itemCount: widget.options.length,
+      itemBuilder: (context, index)
+      {
+        final option = widget.options[index];
+        return _CityOptionTile(option: option, isHighlighted: index == highlightedIndex, onTap: () => widget.onSelected(option));
+      },
+    );
+  }
+}
+
+//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)
+class _CityOptionTile extends StatefulWidget
+{
+  final _CityProvinceOption option;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+
+  const _CityOptionTile({required this.option, required this.isHighlighted, required this.onTap});
+
+  @override
+  State<_CityOptionTile> createState() => _CityOptionTileState();
+}
+
+class _CityOptionTileState extends State<_CityOptionTile>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    //StessoLinguaggioVisivoDi_FilterMenuItem_PerCoerenzaConIlDesignSystem
+    final bool active = widget.isHighlighted || _hover;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          //AltezzaFissa_CoerenteConItemExtentDelListView_LallineamentoVerticaleDelContenutoEDelegatoAlCrossAxisAlignmentCenterDiRow(Default)
+          height: _cityOptionItemHeight,
+          color: active ? const Color(0xFFF5F8FC) : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: active ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 10),
+              Expanded(child: Text(widget.option.city, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82)))),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(8)),
+                child: Text(widget.option.province, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

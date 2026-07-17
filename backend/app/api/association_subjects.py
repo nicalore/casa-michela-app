@@ -30,7 +30,7 @@ async def get_subjects(db: DbSession):
 async def create_subject(payload: AssociationSubjectCreate, db: DbSession):
     stmt = select(AssociationSubject).where(AssociationSubject.name.ilike(payload.name))
     if (await db.execute(stmt)).scalars().first():
-        raise HTTPException(status_code=400, detail=f'Esiste già la materia "{payload.name}"')
+        raise HTTPException(status_code=400, detail=f'Esiste già la disciplina "{payload.name}"')
 
     new_subject = AssociationSubject(**payload.model_dump())
     db.add(new_subject)
@@ -46,7 +46,7 @@ async def update_subject(subject_id: int, payload: AssociationSubjectUpdate, db:
     if subject.name.lower() != payload.name.lower():
         conflict = (await db.execute(select(AssociationSubject).where(AssociationSubject.name.ilike(payload.name)))).scalars().first()
         if conflict:
-            raise HTTPException(status_code=400, detail=f'Esiste già la materia "{payload.name}"')
+            raise HTTPException(status_code=400, detail=f'Esiste già la disciplina "{payload.name}"')
 
     subject.name = payload.name
     subject.area = payload.area

@@ -11,6 +11,7 @@ from sqlalchemy.orm import joinedload
 from app.core.config import settings
 from app.schemas.person_wizard import PersonWizardPayload
 from app.services.person_wizard_service import create_person_from_wizard
+from app.services.role_service import RoleService
 
 from ..models.administrator import Administrator, AdministratorRoleEnum
 from ..models.course_participant import CourseParticipant, CourseTypeEnum
@@ -57,6 +58,8 @@ def _translate_collaboration_type(collab_type: str | None) -> str | None:
         return "Retribuito"
     if collab_type == "PCTO":
         return "PCTO"
+    if collab_type == "UNPAID":
+        return "Non pagato"
     return collab_type
 
 
@@ -812,7 +815,11 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             if "AMMINISTRATORE" in roles and payload.admin_data:
                 ad_data = payload.admin_data
                 role_enum = AdministratorRoleEnum(ad_data.role)
-                
+
+                RoleService.assert_collaboration_type_consistent_with_admin_role(
+                    role_enum, collab_enum
+                )
+
                 admin_exists = await db.scalar(select(Administrator).where(Administrator.tax_code == person.tax_code))
                 if not admin_exists:
                     db.add(Administrator(

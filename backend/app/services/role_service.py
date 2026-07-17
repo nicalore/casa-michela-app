@@ -1,7 +1,19 @@
+from fastapi import HTTPException, status
+
+from app.models.administrator import AdministratorRoleEnum
 from app.models.person import Person
+from app.models.staff import CollaborationTypeEnum
 
 
 class RoleService:
+    # Ruoli amministrativi che, per policy dell'Associazione, non possono
+    # essere retribuiti né su base volontaria/PCTO: solo "Non pagato".
+    ADMIN_ROLES_REQUIRING_UNPAID = {
+        AdministratorRoleEnum.PRESIDENT,
+        AdministratorRoleEnum.VICE_PRESIDENT,
+        AdministratorRoleEnum.TREASURER,
+    }
+
     @staticmethod
     def get_available_roles(
         person: Person,
@@ -37,3 +49,20 @@ class RoleService:
             roles.append("PSYCHOLOGIST")
 
         return roles
+
+    @staticmethod
+    def assert_collaboration_type_consistent_with_admin_role(
+        role: AdministratorRoleEnum,
+        collaboration_type: CollaborationTypeEnum,
+    ) -> None:
+        if (
+            role in RoleService.ADMIN_ROLES_REQUIRING_UNPAID
+            and collaboration_type != CollaborationTypeEnum.UNPAID
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Presidente, Vicepresidente e Tesoriere devono avere "
+                    "tipo di collaborazione 'Non pagato'."
+                ),
+            )
