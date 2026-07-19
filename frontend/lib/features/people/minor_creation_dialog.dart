@@ -1759,7 +1759,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
           inputWidget: WizardAnimatedTextField
           (
             controller: _farmaciCtrl, 
-            hint:       'Es. Ventolin al bisogno', 
+            hint:       'Es. Ventolin', 
             errorText:  _formErrors['farmaci'],
             onChanged:  (_) => setState(() => _formErrors.remove('farmaci')),
           ),

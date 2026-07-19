@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Annotated, Any, Final
 
 from fastapi import (
     APIRouter,
@@ -7,10 +8,12 @@ from fastapi import (
     UploadFile,
     status,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.current_account import CurrentAccount, CurrentAccountAllowPendingReset
 from app.api.dependencies import DbSession
 from app.core.password_policy import PasswordPolicyError
+from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.repositories.account_repository import AccountRepository
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
@@ -35,11 +38,48 @@ router = APIRouter(
     tags=["Authentication"],
 )
 
+_ALLOWED_IMAGE_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    }
+)
+
+_INVALID_CREDENTIALS_ERROR: Final[str] = "Nome utente o password non validi"
+_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
+_ACCOUNT_LOCKED_ERROR: Final[str] = (
+    "Account temporaneamente bloccato fino al {locked_until}"
+)
+_INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
+_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+_CURRENT_PASSWORD_ERROR: Final[str] = "La password attuale non è corretta"
+_PASSWORD_REUSE_ERROR: Final[str] = (
+    "La nuova password non può coincidere con quella attuale."
+)
+_INVALID_IMAGE_TYPE_ERROR: Final[str] = "Sono ammesse solo immagini JPEG, PNG e WEBP"
+_MISSING_FILENAME_ERROR: Final[str] = "Nome del file mancante"
+_NO_PROFILE_IMAGE_ERROR: Final[str] = "Nessuna immagine del profilo da rimuovere"
+_INVALID_RESET_TOKEN_ERROR: Final[str] = (
+    "Token di reimpostazione non valido o scaduto"
+)
+
+_PASSWORD_RESET_REQUESTED_MESSAGE: Final[str] = (
+    "Se l'indirizzo email esiste, è stato inviato un link di recupero."
+)
+_PASSWORD_RESET_DONE_MESSAGE: Final[str] = "Password reimpostata correttamente."
+
+
+def _build_auth_service(db: AsyncSession) -> AuthService:
+    return AuthService(
+        AccountRepository(db),
+        RefreshTokenRepository(db),
+    )
+
+
 @router.post("/login", response_model=LoginResponse)
 async def login(request: LoginRequest, db: DbSession) -> LoginResponse:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+    auth_service = _build_auth_service(db)
 
     try:
         result = await auth_service.authenticate(
@@ -57,25 +97,23 @@ async def login(request: LoginRequest, db: DbSession) -> LoginResponse:
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password",
+            detail=_INVALID_CREDENTIALS_ERROR,
         ) from None
     except AccountDisabledError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account disabled",
+            detail=_ACCOUNT_DISABLED_ERROR,
         ) from None
     except AccountLockedError as err:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=f"Account temporarily locked until {err.locked_until}",
+            detail=_ACCOUNT_LOCKED_ERROR.format(locked_until=err.locked_until),
         ) from None
 
 
 @router.post("/refresh", response_model=LoginResponse)
 async def refresh(request: RefreshRequest, db: DbSession) -> LoginResponse:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+    auth_service = _build_auth_service(db)
 
     try:
         result = await auth_service.refresh(request.refresh_token)
@@ -89,44 +127,41 @@ async def refresh(request: RefreshRequest, db: DbSession) -> LoginResponse:
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
+            detail=_INVALID_REFRESH_TOKEN_ERROR,
         ) from None
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: LogoutRequest, db: DbSession) -> None:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+    auth_service = _build_auth_service(db)
 
     try:
         await auth_service.logout(request.refresh_token)
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
+            detail=_INVALID_REFRESH_TOKEN_ERROR,
         ) from None
 
 
 @router.get("/me")
-async def me(current_account: CurrentAccount, db: DbSession):
+async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
     identity_repository = IdentityRepository(db)
     account = await identity_repository.get_account_identity(current_account.tax_code)
 
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Account not found",
+            detail=_ACCOUNT_NOT_FOUND_ERROR,
         )
 
     person = account.person
     roles = RoleService.get_available_roles(person)
 
-    active_role = (
-        "ADMIN" if "ADMIN" in roles else (roles[0] if roles else None)
-    )
+    active_role = "ADMIN" if "ADMIN" in roles else (roles[0] if roles else None)
 
-    address_part = f"{person.residence_type} {person.residence_address}".strip()
+    has_address = bool(person.residence_type and person.residence_address)
+    address = f"{person.residence_type} {person.residence_address}".strip()
 
     return {
         "tax_code": account.tax_code,
@@ -134,7 +169,7 @@ async def me(current_account: CurrentAccount, db: DbSession):
         "first_name": person.first_name,
         "last_name": person.last_name,
         "full_name": f"{person.first_name} {person.last_name}",
-        "profile_image_url": account.person.profile_image_url if account.person else None,
+        "profile_image_url": person.profile_image_url,
         "available_roles": roles,
         "active_role": active_role,
         "status": account.status,
@@ -145,7 +180,7 @@ async def me(current_account: CurrentAccount, db: DbSession):
         "birth_date": person.birth_date.isoformat() if person.birth_date else None,
         "birth_city": person.birth_city,
         "birth_province": person.birth_province,
-        "address": address_part if (person.residence_type and person.residence_address) else None,
+        "address": address if has_address else None,
         "address_number": person.residence_street_number,
         "city": person.residence_city,
         "province": person.residence_province,
@@ -157,52 +192,47 @@ async def me(current_account: CurrentAccount, db: DbSession):
 async def upload_profile_image(
     current_account: CurrentAccount,
     db: DbSession,
-    file: UploadFile = File(...),  # noqa: B008
-):
-    allowed_types = {"image/jpeg", "image/png", "image/webp"}
-
-    if file.content_type not in allowed_types:
+    file: Annotated[UploadFile, File()],
+) -> dict[str, str]:
+    if file.content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only JPEG, PNG and WEBP images are allowed",
+            detail=_INVALID_IMAGE_TYPE_ERROR,
         )
 
     if file.filename is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing filename",
+            detail=_MISSING_FILENAME_ERROR,
         )
 
-    uploads_dir = Path("uploads/profile-images")
-    uploads_dir.mkdir(parents=True, exist_ok=True)
+    PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Se esiste già una foto precedente, va rimossa dal disco prima di
-    # scrivere quella nuova: il nome file include l'estensione
-    # (es. CLRNCL97P19L840L.jpg), quindi caricare un formato diverso da
-    # quello attuale produce un file nuovo senza mai liberare il vecchio.
-    # Stessa identica logica di delete_profile_image, applicata qui prima
-    # della scrittura invece che al posto di essa.
+    # The stored filename carries the extension, so uploading a different
+    # format writes a new file instead of overwriting: the previous one must
+    # be removed explicitly or it stays on disk forever.
     previous_url = current_account.person.profile_image_url
 
     if previous_url is not None:
-        previous_path = uploads_dir / Path(previous_url).name
+        previous_path = PROFILE_IMAGES_DIR / Path(previous_url).name
 
         if previous_path.exists():
             previous_path.unlink()
 
     extension = Path(file.filename).suffix.lower()
     filename = f"{current_account.tax_code}{extension}"
-    destination = uploads_dir / filename
+    destination = PROFILE_IMAGES_DIR / filename
 
     content = await file.read()
 
-    with open(destination, "wb") as output:
+    with destination.open("wb") as output:
         output.write(content)
 
-    profile_image_url = f"/uploads/profile-images/{filename}"
+    profile_image_url = f"{PROFILE_IMAGES_URL_PREFIX}/{filename}"
     current_account.person.profile_image_url = profile_image_url
 
     await db.commit()
+
     return {"profile_image_url": profile_image_url}
 
 
@@ -217,11 +247,10 @@ async def delete_profile_image(
     if profile_image_url is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No profile image to remove",
+            detail=_NO_PROFILE_IMAGE_ERROR,
         )
 
-    filename = Path(profile_image_url).name
-    file_path = Path("uploads/profile-images") / filename
+    file_path = PROFILE_IMAGES_DIR / Path(profile_image_url).name
 
     if file_path.exists():
         file_path.unlink()
@@ -237,9 +266,7 @@ async def change_password(
     current_account: CurrentAccountAllowPendingReset,
     db: DbSession,
 ) -> None:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+    auth_service = _build_auth_service(db)
 
     try:
         await auth_service.change_password(
@@ -251,12 +278,12 @@ async def change_password(
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La password attuale non è corretta",
+            detail=_CURRENT_PASSWORD_ERROR,
         ) from None
     except PasswordReuseError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La nuova password non può coincidere con quella attuale.",
+            detail=_PASSWORD_REUSE_ERROR,
         ) from None
     except PasswordPolicyError as err:
         raise HTTPException(
@@ -266,7 +293,7 @@ async def change_password(
     except InvalidRefreshTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
+            detail=_INVALID_REFRESH_TOKEN_ERROR,
         ) from None
 
 
@@ -274,24 +301,20 @@ async def change_password(
 async def request_password_reset(
     request: PasswordResetRequest,
     db: DbSession,
-) -> dict:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+) -> dict[str, str]:
+    auth_service = _build_auth_service(db)
 
     await auth_service.request_password_reset(username=request.username)
 
-    return {"message": "If the email exists, a recovery link has been sent."}
+    return {"message": _PASSWORD_RESET_REQUESTED_MESSAGE}
 
 
 @router.post("/reset-password")
 async def reset_password(
     request: PasswordResetConfirm,
     db: DbSession,
-) -> dict:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+) -> dict[str, str]:
+    auth_service = _build_auth_service(db)
 
     try:
         await auth_service.reset_password(
@@ -309,23 +332,19 @@ async def reset_password(
             detail=str(err),
         ) from None
 
-    return {"message": "Password successfully reset."}
+    return {"message": _PASSWORD_RESET_DONE_MESSAGE}
+
 
 @router.get("/validate-reset-token")
-async def validate_reset_token(
-    token: str,
-    db: DbSession,
-) -> dict:
-    account_repository = AccountRepository(db)
-    refresh_token_repository = RefreshTokenRepository(db)
-    auth_service = AuthService(account_repository, refresh_token_repository)
+async def validate_reset_token(token: str, db: DbSession) -> dict[str, bool]:
+    auth_service = _build_auth_service(db)
 
     try:
         await auth_service.validate_reset_token(token=token)
     except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token",
+            detail=_INVALID_RESET_TOKEN_ERROR,
         ) from None
 
     return {"valid": True}

@@ -2,21 +2,21 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SchoolOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
-    mechanographic_code: str | None = None  # mantenuto per la visualizzazione
-
-    model_config = ConfigDict(from_attributes=True)
+    mechanographic_code: str | None = None
 
 
 class StudyProgramOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     level: str
     min_year: int
     max_year: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class SchoolStudyProgramBase(BaseModel):
@@ -29,7 +29,7 @@ class SchoolStudyProgramCreate(SchoolStudyProgramBase):
 
 
 class SchoolStudyProgramResponse(SchoolStudyProgramBase):
+    model_config = ConfigDict(from_attributes=True)
+
     school: SchoolOption
     study_program: StudyProgramOption
-
-    model_config = ConfigDict(from_attributes=True)

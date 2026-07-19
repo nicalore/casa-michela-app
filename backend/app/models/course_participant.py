@@ -10,11 +10,7 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -38,23 +34,14 @@ class CourseParticipant(Base):
     )
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "members.tax_code",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("members.tax_code", ondelete="CASCADE"),
         primary_key=True,
     )
 
-    medical_certificate_expiration: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-    )
+    medical_certificate_expiration: Mapped[date] = mapped_column(Date, nullable=False)
 
     course_type: Mapped[CourseTypeEnum] = mapped_column(
-        SqlEnum(
-            CourseTypeEnum,
-            name="course_type_enum",
-        ),
+        SqlEnum(CourseTypeEnum, name="course_type_enum"),
         nullable=False,
     )
 

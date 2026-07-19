@@ -6,11 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
 )
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -25,21 +21,13 @@ class SchoolStudyProgram(Base):
 
     study_program_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey(
-            "study_programs.id",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("study_programs.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 
-    # Riferimento alla chiave surrogata della scuola (niente onupdate: id immutabile).
     school_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey(
-            "schools.id",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("schools.id", ondelete="CASCADE"),
         primary_key=True,
     )
 
@@ -47,9 +35,7 @@ class SchoolStudyProgram(Base):
         back_populates="school_study_programs",
     )
 
-    school: Mapped[School] = relationship(
-        back_populates="school_study_programs",
-    )
+    school: Mapped[School] = relationship(back_populates="school_study_programs")
 
     school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
         back_populates="school_study_program",

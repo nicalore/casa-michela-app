@@ -1,21 +1,25 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+import string
+from datetime import date
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from sqlalchemy import (
     CheckConstraint,
     Date,
-    DateTime,
     String,
-    func,
 )
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base
-from app.models.constraints import no_surrounding_whitespace_constraints
+from app.models.constraints import (
+    no_surrounding_whitespace_constraints,
+    not_blank_constraints,
+    not_blank_when_present_constraints,
+)
+from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.account import Account
@@ -29,7 +33,11 @@ class GenderEnum(StrEnum):
     F = "F"
 
 
-_TAX_CODE_ODD_POSITION_VALUES = {
+_TAX_CODE_LENGTH: Final[int] = 16
+
+_TAX_CODE_CHECK_CHARACTERS: Final[str] = string.ascii_uppercase
+
+_TAX_CODE_ODD_POSITION_VALUES: Final[dict[str, int]] = {
     "0": 1, "1": 0, "2": 5, "3": 7, "4": 9,
     "5": 13, "6": 15, "7": 17, "8": 19, "9": 21,
     "A": 1, "B": 0, "C": 5, "D": 7, "E": 9,
@@ -40,59 +48,53 @@ _TAX_CODE_ODD_POSITION_VALUES = {
     "Z": 23,
 }
 
-_TAX_CODE_EVEN_POSITION_VALUES = {
-    **{str(value): value for value in range(10)},
-    **{chr(ord("A") + value): value for value in range(26)},
+_TAX_CODE_EVEN_POSITION_VALUES: Final[dict[str, int]] = {
+    **{str(digit): digit for digit in range(10)},
+    **{letter: index for index, letter in enumerate(string.ascii_uppercase)},
 }
 
-_TAX_CODE_CHECK_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_INVALID_TAX_CODE_ERROR: Final[str] = (
+    "Il codice fiscale ha un carattere di controllo non valido"
+)
 
 
 def _has_valid_tax_code_check_character(tax_code: str) -> bool:
-    if len(tax_code) != 16:
+    if len(tax_code) != _TAX_CODE_LENGTH:
         return False
 
     try:
+        # Positions are 1-based in the official algorithm: even indexes here
+        # are odd positions there, hence the swapped lookup tables.
         total = sum(
             (
                 _TAX_CODE_ODD_POSITION_VALUES[character]
                 if index % 2 == 0
                 else _TAX_CODE_EVEN_POSITION_VALUES[character]
             )
-            for index, character in enumerate(tax_code[:15])
+            for index, character in enumerate(tax_code[:-1])
         )
     except KeyError:
         return False
 
-    return tax_code[-1] == _TAX_CODE_CHECK_CHARACTERS[total % 26]
+    return tax_code[-1] == _TAX_CODE_CHECK_CHARACTERS[
+        total % len(_TAX_CODE_CHECK_CHARACTERS)
+    ]
 
 
-class Person(Base):
+class Person(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "people"
 
     __table_args__ = (
-        CheckConstraint(
-            "length(tax_code) = 16",
-            name="tax_code_length",
-        ),
-        CheckConstraint(
-            "tax_code = upper(tax_code)",
-            name="tax_code_uppercase",
-        ),
+        CheckConstraint("length(tax_code) = 16", name="tax_code_length"),
+        CheckConstraint("tax_code = upper(tax_code)", name="tax_code_uppercase"),
         CheckConstraint(
             "tax_code ~ "
             "'^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST]"
             "[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$'",
             name="tax_code_format",
         ),
-        CheckConstraint(
-            "birth_date >= DATE '1900-01-01'",
-            name="birth_date_min",
-        ),
-        CheckConstraint(
-            "birth_province ~ '^[A-Z]{2}$'",
-            name="birth_province_format",
-        ),
+        CheckConstraint("birth_date >= DATE '1900-01-01'", name="birth_date_min"),
+        CheckConstraint("birth_province ~ '^[A-Z]{2}$'", name="birth_province_format"),
         CheckConstraint(
             "residence_province ~ '^[A-Z]{2}$'",
             name="residence_province_format",
@@ -105,66 +107,29 @@ class Person(Base):
             "residence_province = upper(residence_province)",
             name="residence_province_uppercase",
         ),
-        CheckConstraint(
-            "postal_code ~ '^[0-9]{5}$'",
-            name="postal_code_format",
-        ),
+        CheckConstraint("postal_code ~ '^[0-9]{5}$'", name="postal_code_format"),
         CheckConstraint(
             "email ~ "
             "'^[A-Za-z0-9.!#$%&''*+/=?^_`{|}~-]+@[A-Za-z0-9-]+"
             "(\\.[A-Za-z0-9-]+)+$'",
             name="email_format",
         ),
+        CheckConstraint("phone ~ '^\\+?[0-9]+$'", name="phone_format"),
         CheckConstraint(
-            "phone ~ '^\\+?[0-9]+$'",
-            name="phone_format",
-        ),
-        CheckConstraint(
-            "length(trim(first_name)) > 0",
-            name="first_name_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(last_name)) > 0",
-            name="last_name_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(birth_city)) > 0",
-            name="birth_city_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(birth_nation)) > 0",
-            name="birth_nation_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(residence_type)) > 0",
-            name="residence_type_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(residence_address)) > 0",
-            name="residence_address_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(residence_street_number)) > 0",
-            name="residence_street_number_not_blank",
-        ),
-        CheckConstraint(
-            "length(trim(residence_city)) > 0",
-            name="residence_city_not_blank",
-        ),
-        CheckConstraint(
-            """
-            profile_image_url IS NULL
-            OR length(trim(profile_image_url)) > 0
-            """,
-            name="profile_image_url_not_blank",
-        ),
-        CheckConstraint(
-            """
-            profile_image_url IS NULL
-            OR profile_image_url ~ '^https?://'
-            """,
+            "profile_image_url IS NULL OR profile_image_url ~ '^https?://'",
             name="profile_image_url_format",
         ),
+        *not_blank_constraints(
+            "first_name",
+            "last_name",
+            "birth_city",
+            "birth_nation",
+            "residence_type",
+            "residence_address",
+            "residence_street_number",
+            "residence_city",
+        ),
+        *not_blank_when_present_constraints("profile_image_url"),
         *no_surrounding_whitespace_constraints(
             "tax_code",
             "first_name",
@@ -184,107 +149,42 @@ class Person(Base):
         ),
     )
 
-    tax_code: Mapped[str] = mapped_column(
-        String(16),
-        primary_key=True,
-    )
+    tax_code: Mapped[str] = mapped_column(String(_TAX_CODE_LENGTH), primary_key=True)
 
-    first_name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    last_name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
     gender: Mapped[GenderEnum] = mapped_column(
-        SqlEnum(
-            GenderEnum,
-            name="gender_enum",
-        ),
+        SqlEnum(GenderEnum, name="gender_enum"),
         nullable=False,
     )
 
-    birth_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-    )
+    birth_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    birth_city: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    birth_city: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    birth_nation: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    birth_nation: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    birth_province: Mapped[str] = mapped_column(
-        String(2),
-        nullable=False,
-    )
+    birth_province: Mapped[str] = mapped_column(String(2), nullable=False)
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-        index=True,
-    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 
-    phone: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
+    phone: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    residence_type: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    residence_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    residence_address: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-    )
+    residence_address: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    residence_street_number: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-    )
+    residence_street_number: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    residence_city: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
+    residence_city: Mapped[str] = mapped_column(String(100), nullable=False)
 
-    residence_province: Mapped[str] = mapped_column(
-        String(2),
-        nullable=False,
-    )
+    residence_province: Mapped[str] = mapped_column(String(2), nullable=False)
 
-    postal_code: Mapped[str] = mapped_column(
-        String(5),
-        nullable=False,
-    )
+    postal_code: Mapped[str] = mapped_column(String(5), nullable=False)
 
-    profile_image_url: Mapped[str | None] = mapped_column(
-        String(2048),
-        nullable=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
+    profile_image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
 
     account: Mapped[Account | None] = relationship(
         back_populates="person",
@@ -309,8 +209,6 @@ class Person(Base):
     @validates("tax_code")
     def validate_tax_code(self, _key: str, tax_code: str) -> str:
         if not _has_valid_tax_code_check_character(tax_code):
-            raise ValueError(
-                "Tax code has an invalid check character"
-            )
+            raise ValueError(_INVALID_TAX_CODE_ERROR)
 
         return tax_code

@@ -1,9 +1,13 @@
+import asyncio
 from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+# Imported for its side effect only: it registers every model on
+# Base.metadata. Without it autogenerate compares against an empty schema and
+# produces a migration that drops every table.
 import app.models  # noqa: F401
 from alembic import context
 from app.core.config import settings
@@ -11,6 +15,8 @@ from app.db.base import Base
 
 config = context.config
 
+# ConfigParser interpolates "%", so any percent sign in the URL (typically in
+# the password) has to be doubled before being stored in the config.
 config.set_main_option(
     "sqlalchemy.url",
     settings.async_database_url.replace("%", "%%"),
@@ -22,7 +28,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
@@ -36,7 +42,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def do_run_migrations(connection: Connection):
+def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -47,7 +53,7 @@ def do_run_migrations(connection: Connection):
         context.run_migrations()
 
 
-async def run_async_migrations():
+async def run_async_migrations() -> None:
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -60,9 +66,7 @@ async def run_async_migrations():
     await connectable.dispose()
 
 
-def run_migrations_online():
-    import asyncio
-
+def run_migrations_online() -> None:
     asyncio.run(run_async_migrations())
 
 

@@ -25,7 +25,6 @@ class AccountRepository:
         )
 
     async def get_by_email(self, email: str) -> Account | None:
-        #JoinWithPersonToFilterByEmail
         return await self.session.scalar(
             select(Account)
             .join(Account.person)

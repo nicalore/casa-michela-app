@@ -1,46 +1,26 @@
 import re
+from typing import Final
+
+_MIN_LENGTH: Final[int] = 12
+
+_LENGTH_ERROR: Final[str] = f"La password deve contenere almeno {_MIN_LENGTH} caratteri"
+
+_CHARACTER_RULES: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
+    (re.compile(r"[a-z]"), "La password deve contenere una lettera minuscola"),
+    (re.compile(r"[A-Z]"), "La password deve contenere una lettera maiuscola"),
+    (re.compile(r"\d"), "La password deve contenere un numero"),
+    (re.compile(r"[^A-Za-z0-9]"), "La password deve contenere un carattere speciale"),
+)
 
 
 class PasswordPolicyError(ValueError):
     pass
 
 
-def validate_password(
-    password: str,
-) -> None:
-    if len(password) < 12:
-        raise PasswordPolicyError(
-            "Password must be at least 12 characters long"
-        )
+def validate_password(password: str) -> None:
+    if len(password) < _MIN_LENGTH:
+        raise PasswordPolicyError(_LENGTH_ERROR)
 
-    if not re.search(
-        r"[a-z]",
-        password,
-    ):
-        raise PasswordPolicyError(
-            "Password must contain a lowercase letter"
-        )
-
-    if not re.search(
-        r"[A-Z]",
-        password,
-    ):
-        raise PasswordPolicyError(
-            "Password must contain an uppercase letter"
-        )
-
-    if not re.search(
-        r"\d",
-        password,
-    ):
-        raise PasswordPolicyError(
-            "Password must contain a digit"
-        )
-
-    if not re.search(
-        r"[^A-Za-z0-9]",
-        password,
-    ):
-        raise PasswordPolicyError(
-            "Password must contain a special character"
-        )
+    for pattern, message in _CHARACTER_RULES:
+        if not pattern.search(password):
+            raise PasswordPolicyError(message)

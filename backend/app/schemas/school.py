@@ -4,11 +4,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SchoolStudyProgramOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     level: str
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class SchoolBase(BaseModel):
@@ -18,18 +18,23 @@ class SchoolBase(BaseModel):
     mechanographic_code: str | None = Field(
         default=None,
         max_length=100,
-        description="Codice meccanografico (opzionale, anche multiplo per istituti con più sedi/livelli)",
+        description=(
+            "Codice meccanografico (opzionale, anche multiplo per istituti "
+            "con più sedi/livelli)"
+        ),
     )
 
     @field_validator("mechanographic_code")
     @classmethod
     def _normalize_code(cls, value: str | None) -> str | None:
-        # Normalizza a maiuscolo e converte stringa vuota in NULL,
-        # così "nessun codice" è sempre None e non ci sono '' sparsi in tabella.
+        # An empty string must become NULL, so that "no code" has a single
+        # representation instead of a mix of '' and NULL in the table.
         if value is None:
             return None
-        value = value.strip().upper()
-        return value or None
+
+        normalized = value.strip().upper()
+
+        return normalized or None
 
 
 class SchoolCreate(SchoolBase):
@@ -41,8 +46,8 @@ class SchoolUpdate(SchoolBase):
 
 
 class SchoolResponse(SchoolBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     study_programs: list[SchoolStudyProgramOption] = Field(default_factory=list)
-
-    model_config = ConfigDict(from_attributes=True)

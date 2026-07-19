@@ -1,11 +1,13 @@
-from typing import Annotated
+from collections.abc import Sequence
+from typing import Final
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_db
+from app.api.dependencies import DbSession
+from app.api.queries import select_parents_left_without_children
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.teaching_competence import TeachingCompetence
@@ -17,36 +19,82 @@ from app.schemas.association_subject import (
 
 router = APIRouter(prefix="/association-subjects", tags=["association-subjects"])
 
-DbSession = Annotated[AsyncSession, Depends(get_db)]
+_SUBJECT_NOT_FOUND_ERROR: Final[str] = "Materia non trovata."
+_DUPLICATE_SUBJECT_ERROR: Final[str] = 'Esiste già la disciplina "{name}"'
+_UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+_ORPHAN_MINISTRY_SUBJECT_ERROR: Final[str] = (
+    "Impossibile eliminare: una materia ministeriale rimarrebbe senza "
+    "discipline interne collegate."
+)
+_ORPHAN_TEACHER_ERROR: Final[str] = (
+    "Impossibile eliminare: un docente rimarrebbe senza competenze."
+)
+_DELETE_CONSTRAINT_ERROR: Final[str] = (
+    "Impossibile eliminare la materia in quanto protetta da vincoli referenziali."
+)
+_DELETE_SUCCESS_DETAIL: Final[str] = "Materia eliminata"
+
+
+async def _get_subject_or_404(db: AsyncSession, subject_id: int) -> AssociationSubject:
+    result = await db.execute(
+        select(AssociationSubject).where(AssociationSubject.id == subject_id)
+    )
+    subject = result.scalars().first()
+
+    if subject is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_SUBJECT_NOT_FOUND_ERROR,
+        )
+
+    return subject
+
+
+async def _assert_name_available(db: AsyncSession, name: str) -> None:
+    result = await db.execute(
+        select(AssociationSubject).where(AssociationSubject.name.ilike(name))
+    )
+
+    if result.scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_DUPLICATE_SUBJECT_ERROR.format(name=name),
+        )
+
 
 @router.get("/", response_model=list[AssociationSubjectResponse])
-async def get_subjects(db: DbSession):
+async def get_subjects(db: DbSession) -> Sequence[AssociationSubject]:
     result = await db.execute(
         select(AssociationSubject).order_by(AssociationSubject.created_at.desc())
     )
+
     return result.scalars().all()
 
+
 @router.post("/", response_model=AssociationSubjectResponse)
-async def create_subject(payload: AssociationSubjectCreate, db: DbSession):
-    stmt = select(AssociationSubject).where(AssociationSubject.name.ilike(payload.name))
-    if (await db.execute(stmt)).scalars().first():
-        raise HTTPException(status_code=400, detail=f'Esiste già la disciplina "{payload.name}"')
+async def create_subject(
+    payload: AssociationSubjectCreate,
+    db: DbSession,
+) -> AssociationSubject:
+    await _assert_name_available(db, payload.name)
 
     new_subject = AssociationSubject(**payload.model_dump())
     db.add(new_subject)
     await db.commit()
+
     return new_subject
 
+
 @router.put("/{subject_id}", response_model=AssociationSubjectResponse)
-async def update_subject(subject_id: int, payload: AssociationSubjectUpdate, db: DbSession):
-    subject = (await db.execute(select(AssociationSubject).where(AssociationSubject.id == subject_id))).scalars().first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Materia non trovata.")
+async def update_subject(
+    subject_id: int,
+    payload: AssociationSubjectUpdate,
+    db: DbSession,
+) -> AssociationSubject:
+    subject = await _get_subject_or_404(db, subject_id)
 
     if subject.name.lower() != payload.name.lower():
-        conflict = (await db.execute(select(AssociationSubject).where(AssociationSubject.name.ilike(payload.name)))).scalars().first()
-        if conflict:
-            raise HTTPException(status_code=400, detail=f'Esiste già la disciplina "{payload.name}"')
+        await _assert_name_available(db, payload.name)
 
     subject.name = payload.name
     subject.area = payload.area
@@ -54,49 +102,56 @@ async def update_subject(subject_id: int, payload: AssociationSubjectUpdate, db:
 
     try:
         await db.commit()
-    except IntegrityError as e:
+    except IntegrityError as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Errore durante l'aggiornamento.") from e
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UPDATE_ERROR,
+        ) from err
+
     return subject
 
+
 @router.delete("/{subject_id}")
-async def delete_subject(subject_id: int, db: DbSession):
-    subject = (await db.execute(select(AssociationSubject).where(AssociationSubject.id == subject_id))).scalars().first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Materia non trovata.")
+async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
+    subject = await _get_subject_or_404(db, subject_id)
 
-    # Controllo materie ministeriali rimaste senza discipline interne
-    subq_min = select(MinistryAssociationSubject.ministry_subject_id).where(
-        MinistryAssociationSubject.association_subject_id == subject_id
+    orphan_ministry_subjects = await db.execute(
+        select_parents_left_without_children(
+            MinistryAssociationSubject.ministry_subject_id,
+            MinistryAssociationSubject.association_subject_id,
+            subject_id,
+        )
     )
-    stmt_min = select(MinistryAssociationSubject.ministry_subject_id).where(
-        MinistryAssociationSubject.ministry_subject_id.in_(subq_min)
-    ).group_by(MinistryAssociationSubject.ministry_subject_id).having(
-        func.count(MinistryAssociationSubject.association_subject_id) == 1
-    )
-    
-    if (await db.execute(stmt_min)).scalars().first():
-        raise HTTPException(status_code=400, detail="Impossibile eliminare: una materia ministeriale rimarrebbe senza discipline interne collegate.")
 
-    # Controllo docenti rimasti senza competenze
-    subq_teachers = select(TeachingCompetence.teacher_tax_code).where(
-        TeachingCompetence.association_subject_id == subject_id
+    if orphan_ministry_subjects.scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ORPHAN_MINISTRY_SUBJECT_ERROR,
+        )
+
+    orphan_teachers = await db.execute(
+        select_parents_left_without_children(
+            TeachingCompetence.teacher_tax_code,
+            TeachingCompetence.association_subject_id,
+            subject_id,
+        )
     )
-    stmt_teachers = select(TeachingCompetence.teacher_tax_code).where(
-        TeachingCompetence.teacher_tax_code.in_(subq_teachers)
-    ).group_by(TeachingCompetence.teacher_tax_code).having(
-        func.count(TeachingCompetence.association_subject_id) == 1
-    )
-    
-    if (await db.execute(stmt_teachers)).scalars().first():
-        raise HTTPException(status_code=400, detail="Impossibile eliminare: un docente rimarrebbe senza competenze.")
+
+    if orphan_teachers.scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ORPHAN_TEACHER_ERROR,
+        )
 
     try:
         await db.delete(subject)
         await db.commit()
-    except IntegrityError as e:
+    except IntegrityError as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Impossibile eliminare la materia in quanto protetta da vincoli referenziali.") from e
-    
-    return {"detail": "Materia eliminata"}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_DELETE_CONSTRAINT_ERROR,
+        ) from err
+
+    return {"detail": _DELETE_SUCCESS_DETAIL}

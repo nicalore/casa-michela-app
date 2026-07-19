@@ -13,20 +13,10 @@ if TYPE_CHECKING:
 
 
 class Parent(Base):
-    """
-    Parent profile.
-
-    A Parent is a Person that can hold parental
-    responsibilities over one or more members.
-    """
-
     __tablename__ = "parents"
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "people.tax_code",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("people.tax_code", ondelete="CASCADE"),
         primary_key=True,
     )
 

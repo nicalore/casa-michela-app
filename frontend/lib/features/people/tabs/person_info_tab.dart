@@ -314,7 +314,7 @@ class PersonInfoTab extends StatelessWidget
                     leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
                     rows: [
                       _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
-                      _InfoRowData('Scadenza cert. medico', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
+                      _InfoRowData('Scadenza certificato', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
                     ],
                   ),
                 ),

@@ -1,14 +1,17 @@
-from typing import Annotated
+from collections.abc import Sequence
+from typing import Final
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.dependencies import get_db
+from app.api.dependencies import DbSession
+from app.api.queries import select_parents_left_without_children
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.study_program import EducationLevelEnum
 from app.models.study_program_subject import StudyProgramSubject
 from app.schemas.ministry_subject import (
     MinistrySubjectCreate,
@@ -18,87 +21,162 @@ from app.schemas.ministry_subject import (
 
 router = APIRouter(prefix="/ministry-subjects", tags=["ministry-subjects"])
 
-DbSession = Annotated[AsyncSession, Depends(get_db)]
+_SUBJECT_NOT_FOUND_ERROR: Final[str] = "Materia non trovata."
+_NO_ASSOCIATION_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una disciplina interna."
+_MISSING_ASSOCIATION_SUBJECTS_ERROR: Final[str] = (
+    "Alcune discipline interne selezionate non esistono."
+)
+_DUPLICATE_SUBJECT_ERROR: Final[str] = (
+    'Esiste già la materia "{name}" per questo livello.'
+)
+_CREATE_ERROR: Final[str] = "Errore durante la creazione della disciplina."
+_UPDATE_ERROR: Final[str] = "Errore durante la modifica."
+_ORPHAN_STUDY_PROGRAM_ERROR: Final[str] = (
+    "Impossibile eliminare: un percorso di studi rimarrebbe senza materie "
+    "ministeriali associate."
+)
+_DELETE_CONSTRAINT_ERROR: Final[str] = (
+    "Impossibile eliminare la materia perché associata ad altri dati."
+)
+_DELETE_SUCCESS_DETAIL: Final[str] = "Materia eliminata"
+
+
+async def _get_subject_or_404(
+    db: AsyncSession,
+    subject_id: int,
+    *,
+    load_associations: bool = False,
+) -> MinistrySubject:
+    stmt = select(MinistrySubject).where(MinistrySubject.id == subject_id)
+
+    if load_associations:
+        stmt = stmt.options(selectinload(MinistrySubject.association_subjects))
+
+    subject = (await db.execute(stmt)).scalars().first()
+
+    if subject is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_SUBJECT_NOT_FOUND_ERROR,
+        )
+
+    return subject
+
+
+async def _assert_name_available(
+    db: AsyncSession,
+    name: str,
+    level: EducationLevelEnum,
+) -> None:
+    stmt = select(MinistrySubject).where(
+        MinistrySubject.name.ilike(name),
+        MinistrySubject.level == level,
+    )
+
+    if (await db.execute(stmt)).scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_DUPLICATE_SUBJECT_ERROR.format(name=name),
+        )
+
+
+async def _load_association_subjects(
+    db: AsyncSession,
+    association_subject_ids: list[int],
+) -> Sequence[AssociationSubject]:
+    stmt = select(AssociationSubject).where(
+        AssociationSubject.id.in_(association_subject_ids)
+    )
+    associations = (await db.execute(stmt)).scalars().all()
+
+    if len(associations) != len(association_subject_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_MISSING_ASSOCIATION_SUBJECTS_ERROR,
+        )
+
+    return associations
+
 
 @router.get("/", response_model=list[MinistrySubjectResponse])
-async def get_ministry_subjects(db: DbSession):
-    stmt = select(MinistrySubject).options(
-        selectinload(MinistrySubject.association_subjects)
-    ).order_by(MinistrySubject.created_at.desc())
+async def get_ministry_subjects(db: DbSession) -> Sequence[MinistrySubject]:
+    stmt = (
+        select(MinistrySubject)
+        .options(selectinload(MinistrySubject.association_subjects))
+        .order_by(MinistrySubject.created_at.desc())
+    )
     result = await db.execute(stmt)
+
     return result.scalars().all()
 
 
 @router.post("/", response_model=MinistrySubjectResponse)
-async def create_ministry_subject(payload: MinistrySubjectCreate, db: DbSession):
+async def create_ministry_subject(
+    payload: MinistrySubjectCreate,
+    db: DbSession,
+) -> MinistrySubject | None:
     if not payload.association_subject_ids:
-        raise HTTPException(status_code=400, detail="Seleziona almeno una disciplina interna.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_ASSOCIATION_SUBJECTS_ERROR,
+        )
 
-    stmt = select(MinistrySubject).where(
-        MinistrySubject.name.ilike(payload.name), 
-        MinistrySubject.level == payload.level
+    await _assert_name_available(db, payload.name, payload.level)
+
+    associations = await _load_association_subjects(
+        db,
+        payload.association_subject_ids,
     )
-    if (await db.execute(stmt)).scalars().first():
-        raise HTTPException(status_code=400, detail=f'Esiste già la materia "{payload.name}" per questo livello.')
-
-    associations = []
-    if payload.association_subject_ids:
-        stmt_assoc = select(AssociationSubject).where(AssociationSubject.id.in_(payload.association_subject_ids))
-        associations = (await db.execute(stmt_assoc)).scalars().all()
-        if len(associations) != len(payload.association_subject_ids):
-            raise HTTPException(status_code=400, detail="Alcune discipline interne selezionate non esistono.")
 
     new_subject = MinistrySubject(
         name=payload.name,
         level=payload.level,
         area=payload.area,
         description=payload.description,
-        association_subjects=list(associations)
+        association_subjects=list(associations),
     )
-    
+
     db.add(new_subject)
-    
+
     try:
         await db.commit()
-    except IntegrityError as e:
+    except IntegrityError as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Errore durante la creazione della disciplina.") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_CREATE_ERROR,
+        ) from err
 
-    stmt_reload = select(MinistrySubject).options(
-        selectinload(MinistrySubject.association_subjects)
-    ).where(MinistrySubject.id == new_subject.id)
-    
+    stmt_reload = (
+        select(MinistrySubject)
+        .options(selectinload(MinistrySubject.association_subjects))
+        .where(MinistrySubject.id == new_subject.id)
+    )
+
     return (await db.execute(stmt_reload)).scalars().first()
 
 
 @router.put("/{subject_id}", response_model=MinistrySubjectResponse)
-async def update_ministry_subject(subject_id: int, payload: MinistrySubjectUpdate, db: DbSession):
+async def update_ministry_subject(
+    subject_id: int,
+    payload: MinistrySubjectUpdate,
+    db: DbSession,
+) -> MinistrySubject:
     if not payload.association_subject_ids:
-        raise HTTPException(status_code=400, detail="Seleziona almeno una disciplina interna.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_ASSOCIATION_SUBJECTS_ERROR,
+        )
 
-    subject = (await db.execute(
-        select(MinistrySubject)
-        .options(selectinload(MinistrySubject.association_subjects))
-        .where(MinistrySubject.id == subject_id)
-    )).scalars().first()
-    
-    if not subject:
-        raise HTTPException(status_code=404, detail="Materia non trovata.")
+    subject = await _get_subject_or_404(db, subject_id, load_associations=True)
 
     if subject.name.lower() != payload.name.lower() or subject.level != payload.level:
-        conflict_stmt = select(MinistrySubject).where(
-            MinistrySubject.name.ilike(payload.name), 
-            MinistrySubject.level == payload.level
-        )
-        if (await db.execute(conflict_stmt)).scalars().first():
-            raise HTTPException(status_code=400, detail=f'Esiste già la materia "{payload.name}" per questo livello.')
+        await _assert_name_available(db, payload.name, payload.level)
 
-    associations = []
-    if payload.association_subject_ids:
-        stmt_assoc = select(AssociationSubject).where(AssociationSubject.id.in_(payload.association_subject_ids))
-        associations = (await db.execute(stmt_assoc)).scalars().all()
-        if len(associations) != len(payload.association_subject_ids):
-            raise HTTPException(status_code=400, detail="Alcune discipline interne selezionate non esistono.")
+    associations = await _load_association_subjects(
+        db,
+        payload.association_subject_ids,
+    )
 
     subject.name = payload.name
     subject.level = payload.level
@@ -108,37 +186,42 @@ async def update_ministry_subject(subject_id: int, payload: MinistrySubjectUpdat
 
     try:
         await db.commit()
-    except IntegrityError as e:
+    except IntegrityError as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Errore durante la modifica.") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UPDATE_ERROR,
+        ) from err
 
     return subject
 
 
 @router.delete("/{subject_id}")
-async def delete_ministry_subject(subject_id: int, db: DbSession):
-    subject = (await db.execute(select(MinistrySubject).where(MinistrySubject.id == subject_id))).scalars().first()
-    if not subject:
-        raise HTTPException(status_code=404, detail="Materia non trovata.")
+async def delete_ministry_subject(subject_id: int, db: DbSession) -> dict[str, str]:
+    subject = await _get_subject_or_404(db, subject_id)
 
-    # Controllo percorsi di studi rimasti senza materie ministeriali
-    subq_prog = select(StudyProgramSubject.study_program_id).where(
-        StudyProgramSubject.ministry_subject_id == subject_id
+    orphan_study_programs = await db.execute(
+        select_parents_left_without_children(
+            StudyProgramSubject.study_program_id,
+            StudyProgramSubject.ministry_subject_id,
+            subject_id,
+        )
     )
-    stmt_prog = select(StudyProgramSubject.study_program_id).where(
-        StudyProgramSubject.study_program_id.in_(subq_prog)
-    ).group_by(StudyProgramSubject.study_program_id).having(
-        func.count(StudyProgramSubject.ministry_subject_id) == 1
-    )
-    
-    if (await db.execute(stmt_prog)).scalars().first():
-        raise HTTPException(status_code=400, detail="Impossibile eliminare: un percorso di studi rimarrebbe senza materie ministeriali associate.")
-        
+
+    if orphan_study_programs.scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ORPHAN_STUDY_PROGRAM_ERROR,
+        )
+
     try:
         await db.delete(subject)
         await db.commit()
-    except IntegrityError as e:
+    except IntegrityError as err:
         await db.rollback()
-        raise HTTPException(status_code=400, detail="Impossibile eliminare la materia perché associata ad altri dati.") from e
-        
-    return {"detail": "Materia eliminata"}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_DELETE_CONSTRAINT_ERROR,
+        ) from err
+
+    return {"detail": _DELETE_SUCCESS_DETAIL}

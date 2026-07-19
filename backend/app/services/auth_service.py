@@ -1,4 +1,6 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
+from typing import Any, Final
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -23,7 +25,7 @@ from app.core.security import (
     hash_refresh_token,
     verify_password_async,
 )
-from app.models.account import AccountStatusEnum
+from app.models.account import Account, AccountStatusEnum
 from app.models.refresh_token import RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
@@ -31,7 +33,78 @@ from app.services.auth_result import AuthResult
 
 resend.api_key = settings.resend_api_key
 
-_LOCAL_TIMEZONE = ZoneInfo("Europe/Rome")
+_LOCAL_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
+
+_RESET_TOKEN_TYPE: Final[str] = "reset"
+_RESET_TOKEN_LIFETIME: Final[timedelta] = timedelta(hours=1)
+_PASSWORD_RESET_MIN_DURATION_SECONDS: Final[float] = 2.0
+
+_INVALID_CREDENTIALS_ERROR: Final[str] = "Nome utente o password non validi"
+_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
+_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+_ACCOUNT_LOCKED_ERROR: Final[str] = "Account bloccato fino al {locked_until}"
+_CURRENT_PASSWORD_ERROR: Final[str] = "La password attuale non è corretta"
+_PASSWORD_REUSE_ERROR: Final[str] = (
+    "La nuova password deve essere diversa da quella attuale"
+)
+_INVALID_TOKEN_TYPE_ERROR: Final[str] = "Tipo di token non valido"
+_INVALID_TOKEN_PAYLOAD_ERROR: Final[str] = "Contenuto del token non valido"
+_INVALID_RESET_TOKEN_ERROR: Final[str] = (
+    "Token di reimpostazione non valido o scaduto"
+)
+_EXPIRED_RESET_LINK_ERROR: Final[str] = (
+    "Il link di reimpostazione della password non è più valido. "
+    "Effettua una nuova richiesta."
+)
+_EMAIL_SEND_ERROR: Final[str] = "Errore nell'invio dell'email via Resend: {error}"
+
+_EMAIL_SENDER: Final[str] = "Associazione Casa Michela <supporto@app.casamichela.it>"
+_EMAIL_REPLY_TO: Final[str] = "nicolo.calore@casamichela.it"
+_EMAIL_LOGO_URL: Final[str] = (
+    "https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/"
+    "logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100"
+)
+
+_EMAIL_TEMPLATE: Final[str] = """
+<div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <img src="{logo_url}" alt="Associazione Casa Michela" style="width: 120px; height: auto;" />
+        <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p>
+    </div>
+    <h2 style="color: #003C82;"> {heading} </h2>
+    <p>Ciao,</p>
+    {body}
+    <p>A presto,<br>
+    <strong>Associazione Casa Michela</strong></p>
+</div>
+"""
+
+_ACCOUNT_LOCKED_EMAIL_BODY: Final[str] = """
+    <p>Per proteggere il tuo account, abbiamo temporaneamente bloccato l'accesso a seguito di ripetuti tentativi di autenticazione non riusciti.</p>
+    <p>Potrai effettuare nuovamente l'accesso a partire dal seguente momento:</p>
+    <div style="text-align: center; margin: 30px 0;">
+        <strong>{unlock_time}</strong>
+    </div>
+    <p>Se sei stato tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
+    <p>Se invece ritieni che qualcuno abbia tentato di accedere al tuo account, ti invitiamo a rispondere a questa email o a contattare l'Associazione il prima possibile.</p>
+"""
+
+_PASSWORD_CHANGED_EMAIL_BODY: Final[str] = """
+    <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p>
+    <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
+"""
+
+_PASSWORD_RESET_EMAIL_BODY: Final[str] = """
+    <p>Hai richiesto di reimpostare la password del tuo account.</p>
+    <p>Per procedere, clicca sul pulsante qui sotto:</p>
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a>
+    </div>
+    <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p>
+    <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
+    <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
+    <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
+"""
 
 
 class AuthenticationError(Exception):
@@ -53,7 +126,7 @@ class PasswordReuseError(Exception):
 class AccountLockedError(Exception):
     def __init__(self, locked_until: datetime) -> None:
         self.locked_until = locked_until
-        super().__init__(f"Account locked until {locked_until}")
+        super().__init__(_ACCOUNT_LOCKED_ERROR.format(locked_until=locked_until))
 
 
 class AuthService:
@@ -65,7 +138,69 @@ class AuthService:
         self.account_repository = account_repository
         self.refresh_token_repository = refresh_token_repository
 
-    async def _create_session(self, account, now: datetime) -> AuthResult:
+    def _send_email(
+        self,
+        recipient: str,
+        subject: str,
+        heading: str,
+        body: str,
+    ) -> None:
+        try:
+            resend.Emails.send(
+                {
+                    "from": _EMAIL_SENDER,
+                    "to": recipient,
+                    "reply_to": _EMAIL_REPLY_TO,
+                    "subject": subject,
+                    "html": _EMAIL_TEMPLATE.format(
+                        logo_url=_EMAIL_LOGO_URL,
+                        heading=heading,
+                        body=body,
+                    ),
+                }
+            )
+        except Exception as error:
+            print(_EMAIL_SEND_ERROR.format(error=error))
+
+    def _send_account_locked_email(
+        self,
+        account: Account,
+        locked_until: datetime,
+    ) -> None:
+        if not (account.person and account.person.email):
+            return
+
+        unlock_time = locked_until.astimezone(_LOCAL_TIMEZONE).strftime(
+            "%d/%m/%Y alle ore %H:%M"
+        )
+
+        self._send_email(
+            recipient=account.person.email,
+            subject="Account temporaneamente bloccato - Associazione Casa Michela",
+            heading="Account Temporaneamente Bloccato",
+            body=_ACCOUNT_LOCKED_EMAIL_BODY.format(unlock_time=unlock_time),
+        )
+
+    def _send_password_changed_email(self, account: Account) -> None:
+        if not (account.person and account.person.email):
+            return
+
+        self._send_email(
+            recipient=account.person.email,
+            subject="Conferma Modifica Password - Associazione Casa Michela",
+            heading="Password Modificata",
+            body=_PASSWORD_CHANGED_EMAIL_BODY,
+        )
+
+    def _send_password_reset_email(self, account: Account, reset_link: str) -> None:
+        self._send_email(
+            recipient=account.person.email,
+            subject="Recupero Password - Associazione Casa Michela",
+            heading="Recupero Password",
+            body=_PASSWORD_RESET_EMAIL_BODY.format(reset_link=reset_link),
+        )
+
+    async def _create_session(self, account: Account, now: datetime) -> AuthResult:
         access_token = create_access_token(
             subject=account.tax_code,
             username=account.username,
@@ -95,130 +230,11 @@ class AuthService:
             password_reset_required=account.password_reset_required,
         )
 
-    def _send_account_locked_email(self, account, locked_until: datetime) -> None:
-        if not (account.person and account.person.email):
-            return
-
-        local_unlock_time = locked_until.astimezone(_LOCAL_TIMEZONE)
-        formatted_unlock_time = local_unlock_time.strftime("%d/%m/%Y alle ore %H:%M")
-
-        try:
-            resend.Emails.send(
-                {
-                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
-                    "to": account.person.email,
-                    "reply_to": "nicolo.calore@casamichela.it",
-                    "subject": "Account temporaneamente bloccato - Associazione Casa Michela",
-                    "html": f"""
-                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-                        <div style="text-align: center; margin-bottom: 30px;"> 
-                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
-                        </div> 
-                        <h2 style="color: #003C82;"> Account Temporaneamente Bloccato </h2>
-                        <p>Ciao,</p> 
-                        <p>Per proteggere il tuo account, abbiamo temporaneamente bloccato l'accesso a seguito di ripetuti tentativi di autenticazione non riusciti.</p> 
-                        <p>Potrai effettuare nuovamente l'accesso a partire dal seguente momento:</p>
-                        <div style="text-align: center; margin: 30px 0;"> 
-                            <strong>{formatted_unlock_time}</strong> 
-                        </div> 
-                        <p>Se sei stato tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
-                        <p>Se invece ritieni che qualcuno abbia tentato di accedere al tuo account, ti invitiamo a rispondere a questa email o a contattare l'Associazione il prima possibile.</p>
-                        <p>A presto,<br> 
-                        <strong>Associazione Casa Michela</strong></p> 
-                    </div>
-                    """,        
-                }
-            )
-        except Exception as e:
-            # LogErrorSilently
-            print(f"Error sending email via Resend: {e}")
-
-    def _send_password_changed_email(self, account) -> None:
-        if not (account.person and account.person.email):
-            return
-
-        try:
-            resend.Emails.send(
-                {
-                    "from": "Associazione Casa Michela <supporto@app.casamichela.it>",
-                    "to": account.person.email,
-                    "reply_to": "nicolo.calore@casamichela.it",
-                    "subject": "Conferma Modifica Password - Associazione Casa Michela",
-                    "html": """
-                    <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-                        <div style="text-align: center; margin-bottom: 30px;"> 
-                            <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-                            <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
-                        </div> 
-                        <h2 style="color: #003C82;"> Password Modificata </h2>
-                        <p>Ciao,</p> 
-                        <p>Ti confermiamo che la password del tuo account è stata modificata con successo.</p> 
-                        <p>Se non hai effettuato tu l'operazione, rispondi a questa email o contatta direttamente l'Associazione.</p>
-                        <p>A presto,<br> 
-                        <strong>Associazione Casa Michela</strong></p> 
-                    </div>
-                    """,
-                }
-            )
-        except Exception as e:
-            # LogErrorSilently
-            print(f"Error sending email via Resend: {e}")
-
-    async def authenticate(self, username: str, password: str) -> AuthResult:
-        account = await self.account_repository.get_by_username(username)
-
-        if account is None:
-            raise AuthenticationError("Invalid username or password")
-
-        now = datetime.now(UTC)
-
-        current_lock = account.locked_until
-        if current_lock is not None and now <= current_lock:
-            raise AccountLockedError(current_lock)
-
-        if account.last_failed_login_attempt is not None:
-            elapsed = now - account.last_failed_login_attempt
-            if elapsed >= timedelta(minutes=settings.failed_login_reset_minutes):
-                account.failed_login_attempts = 0
-
-        # Delegata a thread separato (asyncio.to_thread): l'hashing
-        # Argon2 è CPU-bound e bloccherebbe l'event loop, serializzando
-        # login concorrenti (vedi RNF-IAMPERF-03).
-        if not await verify_password_async(password, account.password_hash):
-            account.failed_login_attempts += 1
-            account.last_failed_login_attempt = now
-
-            new_lock: datetime | None = None
-            if account.failed_login_attempts >= settings.max_failed_login_attempts:
-                new_lock = now + timedelta(minutes=settings.account_lock_minutes)
-                account.locked_until = new_lock
-
-            await self.account_repository.save(account)
-            await self.account_repository.commit()
-
-            # RaiseLockoutImmediately
-            if new_lock is not None:
-                self._send_account_locked_email(account, new_lock)
-                raise AccountLockedError(new_lock)
-
-            raise AuthenticationError("Invalid username or password")
-
-        if account.status != AccountStatusEnum.ACTIVE:
-            raise AccountDisabledError("Account disabled")
-
-        account.failed_login_attempts = 0
-        account.last_failed_login_attempt = None
-        account.locked_until = None
-        account.last_login = now
-
-        await self.account_repository.save(account)
-        result = await self._create_session(account, now)
-        await self.account_repository.commit()
-
-        return result
-
-    async def refresh(self, refresh_token: str) -> AuthResult:
+    async def _load_valid_refresh_token(
+        self,
+        refresh_token: str,
+        now: datetime | None = None,
+    ) -> tuple[dict[str, Any], RefreshToken]:
         try:
             payload = decode_refresh_token(refresh_token)
         except (ValueError, InvalidTokenError) as err:
@@ -236,13 +252,110 @@ class AuthService:
         if stored_token.token_type != TokenTypeEnum.REFRESH:
             raise InvalidRefreshTokenError()
 
-        now = datetime.now(UTC)
-        if now >= stored_token.expires_at:
+        # Expiry is checked only when a reference time is given: logout and
+        # password change must keep working with an expired but valid token.
+        if now is not None and now >= stored_token.expires_at:
             raise InvalidRefreshTokenError()
 
-        expected_hash = hash_refresh_token(refresh_token)
-        if expected_hash != stored_token.token_hash:
+        if hash_refresh_token(refresh_token) != stored_token.token_hash:
             raise InvalidRefreshTokenError()
+
+        return payload, stored_token
+
+    async def _load_valid_reset_token(
+        self,
+        token: str,
+        invalid_token_error: str,
+    ) -> tuple[str, RefreshToken]:
+        try:
+            payload = jwt_decode(
+                token,
+                settings.jwt_access_secret,
+                algorithms=[settings.jwt_algorithm],
+            )
+        except InvalidTokenError as err:
+            raise AuthenticationError(invalid_token_error) from err
+
+        if payload.get("type") != _RESET_TOKEN_TYPE:
+            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR)
+
+        tax_code = payload.get("sub")
+        if not isinstance(tax_code, str):
+            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR)
+
+        token_id = payload.get("jti")
+        if not isinstance(token_id, str):
+            raise AuthenticationError(_INVALID_TOKEN_PAYLOAD_ERROR)
+
+        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
+
+        if stored_token is None or stored_token.revoked_at is not None:
+            raise AuthenticationError(invalid_token_error)
+
+        if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
+            raise AuthenticationError(_INVALID_TOKEN_TYPE_ERROR)
+
+        if hash_refresh_token(token) != stored_token.token_hash:
+            raise AuthenticationError(invalid_token_error)
+
+        return tax_code, stored_token
+
+    async def authenticate(self, username: str, password: str) -> AuthResult:
+        account = await self.account_repository.get_by_username(username)
+
+        if account is None:
+            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR)
+
+        now = datetime.now(UTC)
+
+        current_lock = account.locked_until
+        if current_lock is not None and now <= current_lock:
+            raise AccountLockedError(current_lock)
+
+        if account.last_failed_login_attempt is not None:
+            elapsed = now - account.last_failed_login_attempt
+            if elapsed >= timedelta(minutes=settings.failed_login_reset_minutes):
+                account.failed_login_attempts = 0
+
+        if not await verify_password_async(password, account.password_hash):
+            account.failed_login_attempts += 1
+            account.last_failed_login_attempt = now
+
+            new_lock: datetime | None = None
+            if account.failed_login_attempts >= settings.max_failed_login_attempts:
+                new_lock = now + timedelta(minutes=settings.account_lock_minutes)
+                account.locked_until = new_lock
+
+            await self.account_repository.save(account)
+            await self.account_repository.commit()
+
+            if new_lock is not None:
+                self._send_account_locked_email(account, new_lock)
+                raise AccountLockedError(new_lock)
+
+            raise AuthenticationError(_INVALID_CREDENTIALS_ERROR)
+
+        if account.status != AccountStatusEnum.ACTIVE:
+            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
+
+        account.failed_login_attempts = 0
+        account.last_failed_login_attempt = None
+        account.locked_until = None
+        account.last_login = now
+
+        await self.account_repository.save(account)
+        result = await self._create_session(account, now)
+        await self.account_repository.commit()
+
+        return result
+
+    async def refresh(self, refresh_token: str) -> AuthResult:
+        now = datetime.now(UTC)
+
+        payload, stored_token = await self._load_valid_refresh_token(
+            refresh_token,
+            now,
+        )
 
         tax_code = payload.get("sub")
         if not isinstance(tax_code, str):
@@ -259,85 +372,42 @@ class AuthService:
         return result
 
     async def logout(self, refresh_token: str) -> None:
-        try:
-            payload = decode_refresh_token(refresh_token)
-        except (ValueError, InvalidTokenError) as err:
-            raise InvalidRefreshTokenError() from err
-
-        token_id = payload.get("jti")
-        if not isinstance(token_id, str):
-            raise InvalidRefreshTokenError()
-
-        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
-
-        if stored_token is None or stored_token.revoked_at is not None:
-            raise InvalidRefreshTokenError()
-
-        if stored_token.token_type != TokenTypeEnum.REFRESH:
-            raise InvalidRefreshTokenError()
-
-        expected_hash = hash_refresh_token(refresh_token)
-        if expected_hash != stored_token.token_hash:
-            raise InvalidRefreshTokenError()
+        _, stored_token = await self._load_valid_refresh_token(refresh_token)
 
         await self.refresh_token_repository.revoke(stored_token)
         await self.account_repository.commit()
 
     async def change_password(
         self,
-        account,
+        account: Account,
         current_password: str,
         new_password: str,
         refresh_token: str,
     ) -> None:
-        # Entrambe le verifiche delegate a thread separato: prima
-        # bloccavano sequenzialmente l'event loop una dopo l'altra.
         if not await verify_password_async(current_password, account.password_hash):
-            raise AuthenticationError("Current password is incorrect")
+            raise AuthenticationError(_CURRENT_PASSWORD_ERROR)
 
         if await verify_password_async(new_password, account.password_hash):
-            raise PasswordReuseError("New password must differ from the current one")
+            raise PasswordReuseError(_PASSWORD_REUSE_ERROR)
 
         validate_password(new_password)
 
-        try:
-            payload = decode_refresh_token(refresh_token)
-        except (ValueError, InvalidTokenError) as err:
-            raise InvalidRefreshTokenError() from err
-
-        token_id = payload.get("jti")
-        if not isinstance(token_id, str):
-            raise InvalidRefreshTokenError()
-
-        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
-
-        if stored_token is None or stored_token.revoked_at is not None:
-            raise InvalidRefreshTokenError()
-
-        if stored_token.token_type != TokenTypeEnum.REFRESH:
-            raise InvalidRefreshTokenError()
-
-        expected_hash = hash_refresh_token(refresh_token)
-        if expected_hash != stored_token.token_hash:
-            raise InvalidRefreshTokenError()
+        _, stored_token = await self._load_valid_refresh_token(refresh_token)
 
         account.password_hash = await hash_password_async(new_password)
         account.password_reset_required = False
 
         await self.account_repository.save(account)
-        # Revoca tutti i token (REFRESH e PASSWORD_RESET) tranne la sessione corrente
         await self.refresh_token_repository.revoke_all_for_account_except(
             account_tax_code=account.tax_code,
-            token_id=token_id,
+            token_id=stored_token.token_id,
         )
         await self.account_repository.commit()
 
         self._send_password_changed_email(account)
 
     async def request_password_reset(self, username: str) -> None:
-        import asyncio
-        start    = asyncio.get_event_loop().time()
-        min_time = 2.0
+        started_at = asyncio.get_running_loop().time()
 
         try:
             account = await self.account_repository.get_by_username(username)
@@ -348,16 +418,15 @@ class AuthService:
             if account.person is None or not account.person.email:
                 return
 
-            expires        = timedelta(hours=1)
-            now            = datetime.now(UTC)
+            now = datetime.now(UTC)
             reset_token_id = str(uuid4())
 
             reset_token = jwt_encode(
                 {
-                    "sub":  account.tax_code,
-                    "type": "reset",
-                    "jti":  reset_token_id,
-                    "exp":  now + expires,
+                    "sub": account.tax_code,
+                    "type": _RESET_TOKEN_TYPE,
+                    "jti": reset_token_id,
+                    "exp": now + _RESET_TOKEN_LIFETIME,
                 },
                 settings.jwt_access_secret,
                 algorithm=settings.jwt_algorithm,
@@ -367,7 +436,7 @@ class AuthService:
                 account_tax_code=account.tax_code,
                 token_id=reset_token_id,
                 token_hash=hash_refresh_token(reset_token),
-                expires_at=now + expires,
+                expires_at=now + _RESET_TOKEN_LIFETIME,
                 token_type=TokenTypeEnum.PASSWORD_RESET,
             )
 
@@ -376,85 +445,31 @@ class AuthService:
 
             reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
 
-            try:
-                resend.Emails.send(
-                    {
-                        "from":     "Associazione Casa Michela <supporto@app.casamichela.it>",
-                        "to":       account.person.email,
-                        "reply_to": "nicolo.calore@casamichela.it",
-                        "subject":  "Recupero Password - Associazione Casa Michela",
-                        "html":     f"""
-                        <div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;"> 
-                            <div style="text-align: center; margin-bottom: 30px;"> 
-                                <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" /> 
-                                <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p> 
-                            </div> 
-                            <h2 style="color: #003C82;"> Recupero Password </h2>
-                            <p>Ciao,</p> 
-                            <p>Hai richiesto di reimpostare la password del tuo account.</p> 
-                            <p>Per procedere, clicca sul pulsante qui sotto:</p>
-                            <div style="text-align: center; margin: 30px 0;"> 
-                                <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a> 
-                            </div> 
-                            <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p> 
-                            <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
-                            <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
-                            <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
-                            <p>A presto,<br> 
-                            <strong>Associazione Casa Michela</strong></p> 
-                        </div>
-                        """,
-                    }
-                )
-            except Exception as e:
-                # LogErrorSilently
-                print(f"Error sending email via Resend: {e}")
+            self._send_password_reset_email(account, reset_link)
 
         finally:
-            elapsed   = asyncio.get_event_loop().time() - start
-            remaining = min_time - elapsed
+            # Constant minimum duration: without it, the response time would
+            # reveal whether an account exists for the given username.
+            elapsed = asyncio.get_running_loop().time() - started_at
+            remaining = _PASSWORD_RESET_MIN_DURATION_SECONDS - elapsed
+
             if remaining > 0:
                 await asyncio.sleep(remaining)
 
     async def reset_password(self, token: str, new_password: str) -> None:
-        try:
-            payload = jwt_decode(
-                token,
-                settings.jwt_access_secret,
-                algorithms=[settings.jwt_algorithm],
-            )
-        except InvalidTokenError as err:
-            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.") from err
-
-        if payload.get("type") != "reset":
-            raise AuthenticationError("Invalid token type")
-
-        tax_code = payload.get("sub")
-        if not isinstance(tax_code, str):
-            raise AuthenticationError("Invalid token payload")
-
-        token_id = payload.get("jti")
-        if not isinstance(token_id, str):
-            raise AuthenticationError("Invalid token payload")
-
-        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
-
-        if stored_token is None or stored_token.revoked_at is not None:
-            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.")
-
-        if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
-            raise AuthenticationError("Invalid token type")
-
-        if hash_refresh_token(token) != stored_token.token_hash:
-            raise AuthenticationError("Il link di reimpostazione della password non è più valido. Effettua una nuova richiesta.")
+        tax_code, stored_token = await self._load_valid_reset_token(
+            token,
+            _EXPIRED_RESET_LINK_ERROR,
+        )
 
         account = await self.account_repository.get_by_tax_code(tax_code)
         if account is None:
-            raise AuthenticationError("Account not found")
+            raise AuthenticationError(_ACCOUNT_NOT_FOUND_ERROR)
 
         validate_password(new_password)
 
-        # Consuma il token prima di modificare la password
+        # The token is consumed before the password is written, so that a
+        # failure halfway through cannot leave it usable a second time.
         await self.refresh_token_repository.revoke(stored_token)
 
         account.password_hash = await hash_password_async(new_password)
@@ -469,33 +484,4 @@ class AuthService:
         self._send_password_changed_email(account)
 
     async def validate_reset_token(self, token: str) -> None:
-        try:
-            payload = jwt_decode(
-                token,
-                settings.jwt_access_secret,
-                algorithms=[settings.jwt_algorithm],
-            )
-        except InvalidTokenError as err:
-            raise AuthenticationError("Invalid or expired reset token") from err
-
-        if payload.get("type") != "reset":
-            raise AuthenticationError("Invalid token type")
-
-        tax_code = payload.get("sub")
-        if not isinstance(tax_code, str):
-            raise AuthenticationError("Invalid token payload")
-
-        token_id = payload.get("jti")
-        if not isinstance(token_id, str):
-            raise AuthenticationError("Invalid token payload")
-
-        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
-
-        if stored_token is None or stored_token.revoked_at is not None:
-            raise AuthenticationError("Invalid or expired reset token")
-
-        if stored_token.token_type != TokenTypeEnum.PASSWORD_RESET:
-            raise AuthenticationError("Invalid token type")
-
-        if hash_refresh_token(token) != stored_token.token_hash:
-            raise AuthenticationError("Invalid or expired reset token")
+        await self._load_valid_reset_token(token, _INVALID_RESET_TOKEN_ERROR)

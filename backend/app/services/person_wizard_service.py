@@ -1,6 +1,9 @@
+from typing import Final
+
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.labels import GRADE_BY_ROMAN_NUMERAL
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course_participant import CourseParticipant, CourseTypeEnum
 from app.models.member import Member, PaymentMethodEnum
@@ -18,204 +21,280 @@ from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person_wizard import PersonWizardPayload
 from app.services.role_service import RoleService
 
+_ROLE_PARENT: Final[str] = "GENITORE"
+_ROLE_MEMBER: Final[str] = "ASSOCIATO"
+_ROLE_STUDENT: Final[str] = "STUDENTE"
+_ROLE_COURSE_PARTICIPANT: Final[str] = "CORSISTA"
+_ROLE_TEACHER: Final[str] = "DOCENTE"
+_ROLE_ADMIN: Final[str] = "AMMINISTRATORE"
+_ROLE_PSYCHOLOGIST: Final[str] = "PSICOLOGO"
 
-async def create_person_from_wizard(db: AsyncSession, payload: PersonWizardPayload) -> Person:
-    # Verifica esistenza
+_MEMBER_ROLES: Final[frozenset[str]] = frozenset(
+    {
+        _ROLE_MEMBER,
+        _ROLE_STUDENT,
+        _ROLE_COURSE_PARTICIPANT,
+        _ROLE_TEACHER,
+        _ROLE_ADMIN,
+        _ROLE_PSYCHOLOGIST,
+    }
+)
+
+_STAFF_ROLES: Final[frozenset[str]] = frozenset(
+    {
+        _ROLE_TEACHER,
+        _ROLE_ADMIN,
+        _ROLE_PSYCHOLOGIST,
+    }
+)
+
+_PERSON_ALREADY_EXISTS_ERROR: Final[str] = (
+    "Una persona con questo codice fiscale è già presente nel sistema."
+)
+
+_PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
+    "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
+)
+
+_DEFAULT_GRADE: Final[int] = 1
+
+
+async def create_person_from_wizard(
+    db: AsyncSession,
+    payload: PersonWizardPayload,
+) -> Person:
     existing_person = await db.get(Person, payload.general_data.tax_code)
 
     if existing_person:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Una persona con questo codice fiscale è già presente nel sistema."
+            detail=_PERSON_ALREADY_EXISTS_ERROR,
         )
 
     roles = payload.roles
 
-    if "PSICOLOGO" in roles and payload.psychological_support_data is not None:
+    if _ROLE_PSYCHOLOGIST in roles and payload.psychological_support_data is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
+            detail=_PSYCHOLOGIST_SUPPORT_ERROR,
         )
 
+    general_data = payload.general_data
+
     person = Person(
-        tax_code=payload.general_data.tax_code,
-        first_name=payload.general_data.first_name,
-        last_name=payload.general_data.last_name,
-        gender=payload.general_data.gender,
-        birth_date=payload.general_data.birth_date,
-        birth_city=payload.general_data.birth_city,
-        birth_nation=payload.general_data.birth_nation,
-        birth_province=payload.general_data.birth_province,
-        residence_type=payload.general_data.residence_type,
-        residence_address=payload.general_data.residence_address,
-        residence_street_number=payload.general_data.residence_street_number,
-        residence_city=payload.general_data.residence_city,
-        residence_province=payload.general_data.residence_province,
-        postal_code=payload.general_data.postal_code,
-        email=payload.general_data.email,
-        phone=payload.general_data.phone,
+        tax_code=general_data.tax_code,
+        first_name=general_data.first_name,
+        last_name=general_data.last_name,
+        gender=general_data.gender,
+        birth_date=general_data.birth_date,
+        birth_city=general_data.birth_city,
+        birth_nation=general_data.birth_nation,
+        birth_province=general_data.birth_province,
+        residence_type=general_data.residence_type,
+        residence_address=general_data.residence_address,
+        residence_street_number=general_data.residence_street_number,
+        residence_city=general_data.residence_city,
+        residence_province=general_data.residence_province,
+        postal_code=general_data.postal_code,
+        email=general_data.email,
+        phone=general_data.phone,
     )
 
     db.add(person)
 
-    if "GENITORE" in roles:
-        parent = Parent(tax_code=person.tax_code)
-        db.add(parent)
+    if _ROLE_PARENT in roles:
+        db.add(Parent(tax_code=person.tax_code))
 
-    needs_member = any(r in roles for r in ["ASSOCIATO", "STUDENTE", "CORSISTA", "DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
+    needs_member = any(role in roles for role in _MEMBER_ROLES)
 
     if needs_member:
         member = Member(tax_code=person.tax_code)
         db.add(member)
 
         if payload.member_data:
-            md = payload.member_data
-            payment_method_val = (
-                PaymentMethodEnum(md.payment_method) if md.payment_method else None
+            member_data = payload.member_data
+            payment_method = (
+                PaymentMethodEnum(member_data.payment_method)
+                if member_data.payment_method
+                else None
             )
 
-            member.payment_method = payment_method_val
+            member.payment_method = payment_method
             member.payment_method_other = (
-                md.payment_method_other if payment_method_val == PaymentMethodEnum.OTHER else None
+                member_data.payment_method_other
+                if payment_method == PaymentMethodEnum.OTHER
+                else None
             )
-            member.statute_acknowledged = md.statute_acknowledged
-            member.regulation_acknowledged = md.regulation_acknowledged
-            member.video_surveillance_acknowledged = md.video_surveillance_acknowledged
-            member.special_category_data_consent = md.special_category_data_consent
-            member.newsletter_consent = md.newsletter_consent
-            member.consents_signed_at = md.consents_signed_at
-            member.emergency_contact_name = md.emergency_contact_name
-            member.emergency_contact_phone = md.emergency_contact_phone
-            member.allergies_notes = md.allergies_notes
-            member.medications_notes = md.medications_notes
+            member.statute_acknowledged = member_data.statute_acknowledged
+            member.regulation_acknowledged = member_data.regulation_acknowledged
+            member.video_surveillance_acknowledged = (
+                member_data.video_surveillance_acknowledged
+            )
+            member.special_category_data_consent = (
+                member_data.special_category_data_consent
+            )
+            member.newsletter_consent = member_data.newsletter_consent
+            member.consents_signed_at = member_data.consents_signed_at
+            member.emergency_contact_name = member_data.emergency_contact_name
+            member.emergency_contact_phone = member_data.emergency_contact_phone
+            member.allergies_notes = member_data.allergies_notes
+            member.medications_notes = member_data.medications_notes
 
-            for membership_data in md.memberships:
-                membership = Membership(
-                    member_tax_code=person.tax_code,
-                    year=membership_data.year,
-                    start_date=membership_data.start_date,
-                    end_date=membership_data.end_date,
-                    renewal_period_days=membership_data.renewal_period_days,
-                    revocation=membership_data.revocation,
+            for membership_data in member_data.memberships:
+                db.add(
+                    Membership(
+                        member_tax_code=person.tax_code,
+                        year=membership_data.year,
+                        start_date=membership_data.start_date,
+                        end_date=membership_data.end_date,
+                        renewal_period_days=membership_data.renewal_period_days,
+                        revocation=membership_data.revocation,
+                    )
                 )
-                db.add(membership)
 
-        if "STUDENTE" in roles and payload.student_data:
-            s_data = payload.student_data
-            certification_type_val = (
-                CertificationTypeEnum(s_data.certification_type) if s_data.certification_type else None
+        if _ROLE_STUDENT in roles and payload.student_data:
+            student_data = payload.student_data
+            certification_type = (
+                CertificationTypeEnum(student_data.certification_type)
+                if student_data.certification_type
+                else None
             )
 
-            student = Student(
-                tax_code=person.tax_code,
-                authorized_early_exit=s_data.authorized_early_exit,
-                certification_type=certification_type_val,
-                certification_other_detail=(
-                    s_data.certification_other_detail
-                    if certification_type_val == CertificationTypeEnum.OTHER
-                    else None
-                ),
-                mandatory_psych_meetings_acknowledged=s_data.mandatory_psych_meetings_acknowledged,
-            )
-            db.add(student)
-
-            grade_map = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5}
-
-            for enrollment_data in s_data.school_enrollments:
-                numeric_grade = grade_map.get(enrollment_data.school_class, 1)
-
-                school_enrollment = SchoolEnrollment(
-                    start_year=enrollment_data.start_year,
-                    grade=numeric_grade,
-                    student_tax_code=person.tax_code,
-                    study_program_id=enrollment_data.study_program_id,
-                    school_id=enrollment_data.school_id
+            db.add(
+                Student(
+                    tax_code=person.tax_code,
+                    authorized_early_exit=student_data.authorized_early_exit,
+                    certification_type=certification_type,
+                    certification_other_detail=(
+                        student_data.certification_other_detail
+                        if certification_type == CertificationTypeEnum.OTHER
+                        else None
+                    ),
+                    mandatory_psych_meetings_acknowledged=(
+                        student_data.mandatory_psych_meetings_acknowledged
+                    ),
                 )
-                db.add(school_enrollment)
-
-        if "CORSISTA" in roles and payload.course_participant_data:
-            corsista = CourseParticipant(
-                tax_code=person.tax_code,
-                medical_certificate_expiration=payload.course_participant_data.medical_certificate_expiration,
-                course_type=CourseTypeEnum(payload.course_participant_data.course_type)
             )
-            db.add(corsista)
+
+            for enrollment_data in student_data.school_enrollments:
+                db.add(
+                    SchoolEnrollment(
+                        start_year=enrollment_data.start_year,
+                        grade=GRADE_BY_ROMAN_NUMERAL.get(
+                            enrollment_data.school_class,
+                            _DEFAULT_GRADE,
+                        ),
+                        student_tax_code=person.tax_code,
+                        study_program_id=enrollment_data.study_program_id,
+                        school_id=enrollment_data.school_id,
+                    )
+                )
+
+        if _ROLE_COURSE_PARTICIPANT in roles and payload.course_participant_data:
+            course_participant_data = payload.course_participant_data
+
+            db.add(
+                CourseParticipant(
+                    tax_code=person.tax_code,
+                    medical_certificate_expiration=(
+                        course_participant_data.medical_certificate_expiration
+                    ),
+                    course_type=CourseTypeEnum(course_participant_data.course_type),
+                )
+            )
 
         if payload.psychological_support_data:
-            support = PsychologicalSupport(
-                tax_code=person.tax_code,
-                start_date=payload.psychological_support_data.start_date,
+            db.add(
+                PsychologicalSupport(
+                    tax_code=person.tax_code,
+                    start_date=payload.psychological_support_data.start_date,
+                )
             )
-            db.add(support)
 
-        needs_staff = any(r in roles for r in ["DOCENTE", "AMMINISTRATORE", "PSICOLOGO"])
+        needs_staff = any(role in roles for role in _STAFF_ROLES)
 
         if needs_staff and payload.staff_data:
-            # Conversione esplicita per staff
+            staff_data = payload.staff_data
+
             staff = Staff(
                 tax_code=person.tax_code,
-                collaboration_type=CollaborationTypeEnum(payload.staff_data.collaboration_type),
-                iban=payload.staff_data.iban if payload.staff_data.iban else None
+                collaboration_type=CollaborationTypeEnum(
+                    staff_data.collaboration_type
+                ),
+                iban=staff_data.iban or None,
             )
             db.add(staff)
 
-            if "AMMINISTRATORE" in roles and payload.admin_data:
-                # Conversione esplicita per ruolo admin
-                role_val = AdministratorRoleEnum(payload.admin_data.role)
+            if _ROLE_ADMIN in roles and payload.admin_data:
+                admin_role = AdministratorRoleEnum(payload.admin_data.role)
 
                 RoleService.assert_collaboration_type_consistent_with_admin_role(
-                    role_val, staff.collaboration_type
+                    admin_role, staff.collaboration_type
                 )
 
-                admin = Administrator(
-                    tax_code=person.tax_code,
-                    role=role_val,
-                    other_role=payload.admin_data.other_role if role_val == AdministratorRoleEnum.OTHER else None
+                db.add(
+                    Administrator(
+                        tax_code=person.tax_code,
+                        role=admin_role,
+                        other_role=(
+                            payload.admin_data.other_role
+                            if admin_role == AdministratorRoleEnum.OTHER
+                            else None
+                        ),
+                    )
                 )
-                db.add(admin)
 
-            if "PSICOLOGO" in roles:
-                psicologo = Psychologist(tax_code=person.tax_code)
-                db.add(psicologo)
+            if _ROLE_PSYCHOLOGIST in roles:
+                db.add(Psychologist(tax_code=person.tax_code))
 
-            if "DOCENTE" in roles and payload.teacher_data:
-                teacher = Teacher(
-                    tax_code=person.tax_code,
-                    school_education=payload.teacher_data.school_education,
-                    university_education=payload.teacher_data.university_education
+            if _ROLE_TEACHER in roles and payload.teacher_data:
+                teacher_data = payload.teacher_data
+
+                db.add(
+                    Teacher(
+                        tax_code=person.tax_code,
+                        school_education=teacher_data.school_education,
+                        university_education=teacher_data.university_education,
+                    )
                 )
-                db.add(teacher)
 
-                for comp in payload.teacher_data.competences:
-                    for prog_id in comp.study_program_ids:
-                        competence = TeachingCompetence(
-                            teacher_tax_code=person.tax_code,
-                            association_subject_id=comp.subject_id,
-                            study_program_id=prog_id
+                for competence_data in teacher_data.competences:
+                    for study_program_id in competence_data.study_program_ids:
+                        db.add(
+                            TeachingCompetence(
+                                teacher_tax_code=person.tax_code,
+                                association_subject_id=competence_data.subject_id,
+                                study_program_id=study_program_id,
+                            )
                         )
-                        db.add(competence)
 
     for minor in payload.relationships.minors_tax_codes:
-        rel = ParentalResponsibility(
-            parent_tax_code=person.tax_code,
-            child_tax_code=minor.tax_code,
-            authorized_pickup=minor.authorized_pickup,
-            pickup_restriction_reason=(
-                minor.pickup_restriction_reason if not minor.authorized_pickup else None
-            ),
+        db.add(
+            ParentalResponsibility(
+                parent_tax_code=person.tax_code,
+                child_tax_code=minor.tax_code,
+                authorized_pickup=minor.authorized_pickup,
+                pickup_restriction_reason=(
+                    minor.pickup_restriction_reason
+                    if not minor.authorized_pickup
+                    else None
+                ),
+            )
         )
-        db.add(rel)
 
     for parent_item in payload.relationships.parents_tax_codes:
-        rel = ParentalResponsibility(
-            parent_tax_code=parent_item.tax_code,
-            child_tax_code=person.tax_code,
-            authorized_pickup=parent_item.authorized_pickup,
-            pickup_restriction_reason=(
-                parent_item.pickup_restriction_reason if not parent_item.authorized_pickup else None
-            ),
+        db.add(
+            ParentalResponsibility(
+                parent_tax_code=parent_item.tax_code,
+                child_tax_code=person.tax_code,
+                authorized_pickup=parent_item.authorized_pickup,
+                pickup_restriction_reason=(
+                    parent_item.pickup_restriction_reason
+                    if not parent_item.authorized_pickup
+                    else None
+                ),
+            )
         )
-        db.add(rel)
 
     await db.commit()
     await db.refresh(person)

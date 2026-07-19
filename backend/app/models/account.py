@@ -10,13 +10,16 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     String,
-    func,
 )
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.constraints import no_surrounding_whitespace_constraints
+from app.models.constraints import (
+    no_surrounding_whitespace_constraints,
+    not_blank_constraints,
+)
+from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.person import Person
@@ -28,7 +31,7 @@ class AccountStatusEnum(StrEnum):
     DISABLED = "DISABLED"
 
 
-class Account(Base):
+class Account(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "accounts"
 
     __table_args__ = (
@@ -37,34 +40,22 @@ class Account(Base):
             name="failed_login_attempts_non_negative",
         ),
         CheckConstraint(
-            """
-            locked_until IS NULL
-            OR last_failed_login_attempt IS NULL
-            OR locked_until >= last_failed_login_attempt
-            """,
+            "locked_until IS NULL "
+            "OR last_failed_login_attempt IS NULL "
+            "OR locked_until >= last_failed_login_attempt",
             name="locked_until_after_failed_attempt",
         ),
         CheckConstraint(
-            """
-            last_login IS NULL
-            OR last_login >= created_at
-            """,
+            "last_login IS NULL OR last_login >= created_at",
             name="last_login_after_creation",
         ),
         CheckConstraint(
-            "length(trim(username)) > 0",
-            name="username_not_blank",
-        ),
-        CheckConstraint(
-            """
-            last_login IS NOT NULL
-            OR password_reset_required = TRUE
-            """,
+            "last_login IS NOT NULL OR password_reset_required = TRUE",
             name="first_login_requires_password_reset",
         ),
-        CheckConstraint(
-            "length(trim(password_hash)) > 0",
-            name="password_hash_not_blank",
+        *not_blank_constraints(
+            "username",
+            "password_hash",
         ),
         *no_surrounding_whitespace_constraints(
             "tax_code",
@@ -74,10 +65,7 @@ class Account(Base):
     )
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "people.tax_code",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("people.tax_code", ondelete="CASCADE"),
         primary_key=True,
     )
 
@@ -89,17 +77,11 @@ class Account(Base):
     )
 
     status: Mapped[AccountStatusEnum] = mapped_column(
-        SqlEnum(
-            AccountStatusEnum,
-            name="account_status_enum",
-        ),
+        SqlEnum(AccountStatusEnum, name="account_status_enum"),
         nullable=False,
     )
 
-    password_hash: Mapped[str] = mapped_column(
-        String(512),
-        nullable=False,
-    )
+    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
 
     failed_login_attempts: Mapped[int] = mapped_column(
         nullable=False,
@@ -127,19 +109,6 @@ class Account(Base):
         nullable=False,
         default=False,
         server_default="false",
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
     )
 
     person: Mapped[Person] = relationship(

@@ -3203,7 +3203,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           inputWidget: WizardAnimatedTextField
           (
             controller: _farmaciCtrl, 
-            hint:       'Es. Ventolin al bisogno', 
+            hint:       'Es. Ventolin', 
             errorText:  _formErrors['farmaci'],
             onChanged:  (_) => setState(() => _formErrors.remove('farmaci')),
           ),

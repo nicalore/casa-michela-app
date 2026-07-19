@@ -7,8 +7,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from app.db.session import engine 
+
+from app.db.session import engine
 from app.models.person import Person
+
 
 async def delete_person_data(tax_code: str):
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -21,7 +23,7 @@ async def delete_person_data(tax_code: str):
             print(f"\nError: No person found with tax code '{tax_code}'.")
             return
 
-        print(f"\nPERSON FOUND:")
+        print("\nPERSON FOUND:")
         print(f"Name: {person.first_name} {person.last_name}")
         print(f"Tax Code: {person.tax_code}")
         
@@ -49,7 +51,7 @@ async def delete_person_data(tax_code: str):
             
         except Exception as e:
             await db.rollback()
-            print(f"\nError: A critical error occurred during deletion:")
+            print("\nError: A critical error occurred during deletion:")
             print(str(e))
 
 def main():

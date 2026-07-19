@@ -1,93 +1,57 @@
-from typing import Annotated
+from typing import Annotated, Final
 
-from fastapi import (
-    Depends,
-    HTTPException,
-    status,
-)
-from fastapi.security import (
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.dependencies import DbSession
-from app.core.security import (
-    decode_access_token,
-)
+from app.core.security import decode_access_token
 from app.models.account import Account
-from app.repositories.account_repository import (
-    AccountRepository,
-)
+from app.repositories.account_repository import AccountRepository
 
 bearer_scheme = HTTPBearer()
 
+_INVALID_ACCESS_TOKEN_ERROR: Final[str] = "Token di accesso non valido"
+_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+
+_PASSWORD_RESET_REQUIRED_CODE: Final[str] = "PASSWORD_RESET_REQUIRED"
+
 
 async def get_current_account(
-    credentials: Annotated[
-        HTTPAuthorizationCredentials,
-        Depends(bearer_scheme),
-    ],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: DbSession,
 ) -> Account:
-    token = credentials.credentials
-
     try:
-        payload = decode_access_token(
-            token
-        )
+        payload = decode_access_token(credentials.credentials)
 
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid access token",
+            detail=_INVALID_ACCESS_TOKEN_ERROR,
         ) from None
 
-    repository = AccountRepository(
-        db,
-    )
-
-    account = (
-        await repository.get_by_tax_code(
-            payload["sub"]
-        )
-    )
+    repository = AccountRepository(db)
+    account = await repository.get_by_tax_code(payload["sub"])
 
     if account is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account not found",
+            detail=_ACCOUNT_NOT_FOUND_ERROR,
         )
 
     return account
 
 
 async def get_current_active_account(
-    account: Annotated[
-        Account,
-        Depends(get_current_account),
-    ],
+    account: Annotated[Account, Depends(get_current_account)],
 ) -> Account:
     if account.password_reset_required:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="PASSWORD_RESET_REQUIRED",
+            detail=_PASSWORD_RESET_REQUIRED_CODE,
         )
 
     return account
 
+CurrentAccount = Annotated[Account, Depends(get_current_active_account)]
 
-# Da usare per la quasi totalità degli endpoint dell'area riservata.
-# Blocca con 403 chiunque abbia il reset password obbligatorio pendente,
-# a prescindere dalla validità del token (RF-IAM-012).
-CurrentAccount = Annotated[
-    Account,
-    Depends(get_current_active_account),
-]
-
-# Da usare SOLO per gli endpoint che devono restare accessibili anche con
-# reset password pendente: l'endpoint di cambio password stesso, e
-# logout. Non usarla per nient'altro.
-CurrentAccountAllowPendingReset = Annotated[
-    Account,
-    Depends(get_current_account),
-]
+CurrentAccountAllowPendingReset = Annotated[Account, Depends(get_current_account)]

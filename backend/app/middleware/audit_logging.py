@@ -1,8 +1,9 @@
 import json
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
+from typing import Any, Final
 from zoneinfo import ZoneInfo
 
 import jwt
@@ -11,177 +12,206 @@ from fastapi import Request, Response
 from app.db.session import AsyncSessionLocal
 from app.repositories.account_repository import AccountRepository
 
-LOG_FILE_TEMPLATE = os.getenv("AUDIT_LOG_PATH", "./logs/audit_{date}.log")
-LOG_DIR           = os.path.dirname(LOG_FILE_TEMPLATE)
+LOG_FILE_TEMPLATE: Final[str] = os.getenv("AUDIT_LOG_PATH", "./logs/audit_{date}.log")
+LOG_DIR: Final[str] = os.path.dirname(LOG_FILE_TEMPLATE)
 
-if LOG_DIR and not os.path.exists(LOG_DIR):
+_ROME_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
+
+_ANONYMOUS_USER: Final[str] = "anonymous"
+
+_ACCOUNT_LOCKED_STATUS: Final[int] = 423
+
+_BODY_METHODS: Final[frozenset[str]] = frozenset({"POST", "PUT", "PATCH"})
+_UPDATE_METHODS: Final[frozenset[str]] = frozenset({"PUT", "PATCH"})
+
+_ENTITY_TYPES: Final[dict[str, str]] = {
+    "/subjects": "Subject",
+    "/schools": "School",
+    "/study-programs": "Study program",
+    "/teaching-offerings": "Teaching offering",
+    "/association-subjects": "Association subject",
+    "/ministry-subjects": "Ministry subject",
+}
+
+if LOG_DIR:
     os.makedirs(LOG_DIR, exist_ok=True)
 
+
 class DateRotatingFileHandler(logging.FileHandler):
-    def __init__(self, filename_template, *args, **kwargs):
+    def __init__(self, filename_template: str, *args: Any, **kwargs: Any) -> None:
         self.filename_template = filename_template
         super().__init__(self._get_filename(), *args, **kwargs)
 
-    def _get_filename(self):
-        date_str = datetime.now(ZoneInfo("Europe/Rome")).strftime("%Y-%m-%d")
-        return self.filename_template.format(date=date_str)
+    def _get_filename(self) -> str:
+        date = datetime.now(_ROME_TIMEZONE).strftime("%Y-%m-%d")
+        return self.filename_template.format(date=date)
 
-    def emit(self, record):
-        new_filename = self._get_filename()
-        if self.baseFilename != os.path.abspath(new_filename):
+    def emit(self, record: logging.LogRecord) -> None:
+        new_filename = os.path.abspath(self._get_filename())
+
+        if self.baseFilename != new_filename:
             self.close()
-            self.baseFilename = os.path.abspath(new_filename)
+            self.baseFilename = new_filename
             self.stream = self._open()
+
         super().emit(record)
+
 
 logger = logging.getLogger("audit")
 logger.setLevel(logging.INFO)
 
 file_handler = DateRotatingFileHandler(LOG_FILE_TEMPLATE, encoding="utf-8")
-formatter    = logging.Formatter("%(message)s")
-file_handler.setFormatter(formatter)
+file_handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(file_handler)
 
-def log_audit_operation(user_id: str, operation_type: str, status: str, target: str = "") -> None:
-    timestamp   = datetime.now(ZoneInfo("Europe/Rome")).isoformat(timespec="milliseconds")
-    log_message = f"{timestamp}\t{user_id}\t{operation_type}\t{status}\t{target}"
-    
-    logger.info(log_message)
 
-async def _resolve_tax_code_from_db(username: str | None = None, email: str | None = None) -> str:
+def log_audit_operation(
+    user_id: str,
+    operation_type: str,
+    status: str,
+    target: str = "",
+) -> None:
+    timestamp = datetime.now(_ROME_TIMEZONE).isoformat(timespec="milliseconds")
+    message = f"{timestamp}\t{user_id}\t{operation_type}\t{status}\t{target}"
+
+    logger.info(message)
+
+
+def _decode_unverified(token: str) -> dict[str, Any]:
+    # The signature is deliberately not verified: the payload is only used to
+    # label audit entries, never to grant access.
+    return jwt.decode(token, options={"verify_signature": False})
+
+
+def _extract_response_field(body: bytes, field: str) -> str:
+    try:
+        return str(json.loads(body).get(field, ""))
+
+    except Exception:
+        return ""
+
+
+async def _resolve_tax_code_from_db(
+    username: str | None = None,
+    email: str | None = None,
+) -> str:
+    fallback = username or email or _ANONYMOUS_USER
+
     try:
         async with AsyncSessionLocal() as session:
-            repo = AccountRepository(session)
-            
+            repository = AccountRepository(session)
+
             if username:
-                account = await repo.get_by_username(username)
+                account = await repository.get_by_username(username)
             elif email:
-                account = await repo.get_by_email(email)
+                account = await repository.get_by_email(email)
             else:
                 account = None
-                
-            return account.tax_code if account else (username or email or "anonymous")
-            
+
+            return account.tax_code if account else fallback
+
     except Exception:
-        return username or email or "anonymous"
+        return fallback
+
 
 async def extract_user_id(request: Request) -> str:
-    user_id     = "anonymous"
-    auth_header = request.headers.get("Authorization")
-    
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+    authorization = request.headers.get("Authorization")
+
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+
         try:
-            payload = jwt.decode(
-                token, 
-                options=
-                {
-                    "verify_signature": False
-                }
-            )
-            return str(payload.get("sub", "anonymous"))
+            return str(_decode_unverified(token).get("sub", _ANONYMOUS_USER))
+
         except Exception:
             pass
 
+    user_id = _ANONYMOUS_USER
+
     try:
-        body_bytes = await request.body()
-        
-        if body_bytes:
-            async def receive():
-                return \
-                {
-                    "type": "http.request",
-                    "body": body_bytes
-                }
-            
+        body = await request.body()
+
+        if body:
+            # Reading the body consumes the ASGI stream: re-inject it so that
+            # the downstream handlers can still read the request payload.
+            async def receive() -> dict[str, Any]:
+                return {"type": "http.request", "body": body}
+
             request._receive = receive
-            payload          = json.loads(body_bytes)
-            path             = request.url.path
+
+            payload = json.loads(body)
+            path = request.url.path
 
             if "/auth/login" in path:
                 username = payload.get("username")
+
                 if username:
                     user_id = await _resolve_tax_code_from_db(username=username)
-                    
-            elif "/auth/logout" in path:
+
+            elif "/auth/logout" in path or "/auth/change-password" in path:
                 refresh_token = payload.get("refresh_token")
+
                 if refresh_token:
-                    rt_payload = jwt.decode(
-                        refresh_token, 
-                        options=
-                        {
-                            "verify_signature": False
-                        }
+                    user_id = _decode_unverified(refresh_token).get(
+                        "sub",
+                        _ANONYMOUS_USER,
                     )
-                    user_id    = rt_payload.get("sub", "anonymous")
-                    
-            elif "/auth/change-password" in path:
-                refresh_token = payload.get("refresh_token")
-                if refresh_token:
-                    rt_payload = jwt.decode(
-                        refresh_token, 
-                        options=
-                        {
-                            "verify_signature": False
-                        }
-                    )
-                    user_id    = rt_payload.get("sub", "anonymous")
-                    
+
             elif "/auth/request-password-reset" in path:
                 email = payload.get("email")
+
                 if email:
                     user_id = await _resolve_tax_code_from_db(email=email)
-                    
+
             elif "/auth/reset-password" in path:
                 reset_token = payload.get("token")
+
                 if reset_token:
-                    tk_payload = jwt.decode(
-                        reset_token, 
-                        options=
-                        {
-                            "verify_signature": False
-                        }
+                    user_id = _decode_unverified(reset_token).get(
+                        "sub",
+                        _ANONYMOUS_USER,
                     )
-                    user_id    = tk_payload.get("sub", "anonymous")
-                    
+
     except Exception:
         pass
-            
+
     return str(user_id)
+
 
 async def audit_logging_middleware(request: Request, call_next: Callable) -> Response:
     if request.method == "OPTIONS":
         return await call_next(request)
 
     user_id = await extract_user_id(request)
-
     response = await call_next(request)
-    
-    path           = request.url.path
-    operation_type = None
-    target         = ""
-    status         = "Success" if response.status_code < 400 else "Failure"
-    
+
+    path = request.url.path
+    operation_type: str | None = None
+    target = ""
+    status = "Success" if response.status_code < 400 else "Failure"
     response_body = b""
-    if status == "Success" and request.method in ["POST", "PUT", "PATCH"]:
-        resp_body = [section async for section in response.body_iterator]
-        response_body = b"".join(resp_body)
-        response      = Response(
+
+    # The streaming body can be consumed only once: buffer it and rebuild the
+    # response, otherwise the client would receive an empty payload.
+    if status == "Success" and request.method in _BODY_METHODS:
+        response_body = b"".join([section async for section in response.body_iterator])
+        response = Response(
             content=response_body,
             status_code=response.status_code,
             headers=dict(response.headers),
-            media_type=response.media_type
+            media_type=response.media_type,
         )
-    
+
     if "/auth/login" in path:
         operation_type = "Authentication"
-        if response.status_code == 423:
+
+        if response.status_code == _ACCOUNT_LOCKED_STATUS:
             log_audit_operation(user_id, "Account Lockout", "System", target)
             status = "Failure"
-            
+
     elif "/auth/logout" in path:
         operation_type = "Logout"
-        
+
     elif "/auth/change-password" in path:
         operation_type = "Password Change"
 
@@ -190,59 +220,48 @@ async def audit_logging_middleware(request: Request, call_next: Callable) -> Res
 
     elif "/auth/reset-password" in path:
         operation_type = "Password Reset"
-        
+
     elif "/people" in path:
         if request.method == "POST":
             operation_type = "Person creation"
+
             if status == "Success":
-                try:
-                    data   = json.loads(response_body)
-                    target = data.get("tax_code", "")
-                except Exception:
-                    pass
-        elif request.method in ["PUT", "PATCH"]:
+                target = _extract_response_field(response_body, "tax_code")
+
+        elif request.method in _UPDATE_METHODS:
             operation_type = "Person modification"
-            parts          = path.split("/")
+            parts = path.split("/")
+
             if len(parts) > 2:
                 target = parts[2]
-                
-    elif any(entity in path for entity in ["/subjects", "/schools", "/study-programs", "/teaching-offerings", "/association-subjects", "/ministry-subjects"]):
-        entity_map = \
-        {
-            "/subjects":             "Subject",
-            "/schools":              "School",
-            "/study-programs":       "Study program",
-            "/teaching-offerings":   "Teaching offering",
-            "/association-subjects": "Association subject",
-            "/ministry-subjects":    "Ministry subject"
-        }
-        
-        entity_type = next((val for key, val in entity_map.items() if key in path), None)
-        
+
+    else:
+        entity_type = next(
+            (name for prefix, name in _ENTITY_TYPES.items() if prefix in path),
+            None,
+        )
+
         if entity_type:
             if request.method == "POST":
                 operation_type = f"{entity_type} creation"
+
                 if status == "Success":
-                    try:
-                        data   = json.loads(response_body)
-                        target = data.get("id", "")
-                    except Exception:
-                        pass
-            elif request.method in ["PUT", "PATCH"]:
+                    target = _extract_response_field(response_body, "id")
+
+            elif request.method in _UPDATE_METHODS:
                 operation_type = f"{entity_type} modification"
-                parts          = path.split("/")
-                target         = parts[-1]
+                target = path.split("/")[-1]
+
             elif request.method == "DELETE":
                 operation_type = f"{entity_type} elimination"
-                parts          = path.split("/")
-                target         = parts[-1]
+                target = path.split("/")[-1]
 
     if operation_type:
         log_audit_operation(
             user_id=user_id,
             operation_type=operation_type,
             status=status,
-            target=str(target)
+            target=str(target),
         )
 
     return response

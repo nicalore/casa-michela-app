@@ -3,11 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -21,29 +17,17 @@ class TeachingCompetence(Base):
     __tablename__ = "teaching_competences"
 
     teacher_tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "teachers.tax_code",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("teachers.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 
     association_subject_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "association_subjects.id",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("association_subjects.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 
     study_program_id: Mapped[int] = mapped_column(
-        ForeignKey(
-            "study_programs.id",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("study_programs.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

@@ -13,14 +13,6 @@ if TYPE_CHECKING:
 
 
 class PsychologicalSupport(Base):
-    """
-    Member's adhesion to the psychological counseling service.
-
-    Intentionally minimal for now (adhesion flag + start date, no rate
-    selection): full session scheduling and tariff selection will be
-    added with the future calendar module.
-    """
-
     __tablename__ = "psychological_supports"
 
     __table_args__ = (
@@ -31,17 +23,11 @@ class PsychologicalSupport(Base):
     )
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "members.tax_code",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("members.tax_code", ondelete="CASCADE"),
         primary_key=True,
     )
 
-    start_date: Mapped[date] = mapped_column(
-        Date,
-        nullable=False,
-    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     member: Mapped[Member] = relationship(
         back_populates="psychological_support_profile",

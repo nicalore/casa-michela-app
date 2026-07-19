@@ -6,11 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
 )
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -24,21 +20,13 @@ class MinistryAssociationSubject(Base):
 
     ministry_subject_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey(
-            "ministry_subjects.id",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("ministry_subjects.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 
     association_subject_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey(
-            "association_subjects.id",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
-        ),
+        ForeignKey("association_subjects.id", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

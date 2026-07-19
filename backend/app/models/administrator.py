@@ -11,14 +11,13 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy.orm import (
-    Mapped,
-    mapped_column,
-    relationship,
-)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.constraints import no_surrounding_whitespace_constraints
+from app.models.constraints import (
+    no_surrounding_whitespace_constraints,
+    not_blank_when_present_constraints,
+)
 
 if TYPE_CHECKING:
     from app.models.staff import Staff
@@ -36,78 +35,45 @@ class Administrator(Base):
 
     __table_args__ = (
         CheckConstraint(
-            """
-            (
-                role = 'OTHER'
-                AND other_role IS NOT NULL
-            )
-            OR
-            (
-                role <> 'OTHER'
-                AND other_role IS NULL
-            )
-            """,
+            "(role = 'OTHER' AND other_role IS NOT NULL) "
+            "OR (role <> 'OTHER' AND other_role IS NULL)",
             name="other_role_consistency",
-        ),
-        CheckConstraint(
-            """
-            other_role IS NULL
-            OR length(trim(other_role)) > 0
-            """,
-            name="other_role_not_blank",
         ),
         Index(
             "uq_administrator_president",
             "role",
             unique=True,
-            postgresql_where=text(
-                "role = 'PRESIDENT'"
-            ),
+            postgresql_where=text("role = 'PRESIDENT'"),
         ),
         Index(
             "uq_administrator_vice_president",
             "role",
             unique=True,
-            postgresql_where=text(
-                "role = 'VICE_PRESIDENT'"
-            ),
+            postgresql_where=text("role = 'VICE_PRESIDENT'"),
         ),
         Index(
             "uq_administrator_treasurer",
             "role",
             unique=True,
-            postgresql_where=text(
-                "role = 'TREASURER'"
-            ),
+            postgresql_where=text("role = 'TREASURER'"),
         ),
-        *no_surrounding_whitespace_constraints(
-            "other_role",
-        ),
+        *not_blank_when_present_constraints("other_role"),
+        *no_surrounding_whitespace_constraints("other_role"),
     )
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey(
-            "staff.tax_code",
-            ondelete="CASCADE",
-        ),
+        ForeignKey("staff.tax_code", ondelete="CASCADE"),
         primary_key=True,
     )
 
     role: Mapped[AdministratorRoleEnum] = mapped_column(
-        SqlEnum(
-            AdministratorRoleEnum,
-            name="administrator_role_enum",
-        ),
+        SqlEnum(AdministratorRoleEnum, name="administrator_role_enum"),
         nullable=False,
     )
 
-    other_role: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
+    other_role: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     staff_member: Mapped[Staff] = relationship(
         back_populates="administrator_profile",
         uselist=False,
     )
-    
