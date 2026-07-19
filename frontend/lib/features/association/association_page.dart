@@ -472,6 +472,7 @@ class _AssociationPageState extends State<AssociationPage>
             ? StudyProgramsTab(
                 studyPrograms: _studyPrograms,
                 ministrySubjects: _ministrySubjects,
+                associationSubjects: _associationSubjects,
                 onCreate: _executeCreateStudyProgram,
                 onEdit: _executeEditStudyProgram,
                 onDelete: _executeDeleteStudyProgram,

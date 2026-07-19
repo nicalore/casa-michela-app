@@ -19,7 +19,7 @@ class PeopleSearchTab extends StatefulWidget
   static void clearSavedState() 
   {
     _PeopleSearchTabState._savedSearchText  = '';
-    _PeopleSearchTabState._savedSortBy      = 'surname_asc';
+    _PeopleSearchTabState._savedSortBy      = 'name_asc';
     _PeopleSearchTabState._savedFilterState = const PeopleFilterState();
   }
 
@@ -30,7 +30,7 @@ class PeopleSearchTab extends StatefulWidget
 class _PeopleSearchTabState extends State<PeopleSearchTab> 
 {
   static String            _savedSearchText  = '';
-  static String            _savedSortBy      = 'surname_asc';
+  static String            _savedSortBy      = 'name_asc';
   static PeopleFilterState _savedFilterState = const PeopleFilterState();
 
   final ApiService            _apiService       = ApiService();
@@ -479,10 +479,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
               },
               onClear: () {}, 
               options: [
-                _FilterOption(value: 'surname_asc',  label: 'Cognome (A-Z)'), 
-                _FilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
                 _FilterOption(value: 'name_asc',     label: 'Nome (A-Z)'), 
                 _FilterOption(value: 'name_desc',    label: 'Nome (Z-A)'), 
+                _FilterOption(value: 'surname_asc',  label: 'Cognome (A-Z)'), 
+                _FilterOption(value: 'surname_desc', label: 'Cognome (Z-A)'), 
                 _FilterOption(value: 'date_desc',    label: 'Più recente'), 
                 _FilterOption(value: 'date_asc',     label: 'Meno recente'),
               ],

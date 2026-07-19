@@ -11,6 +11,7 @@ import '../../shared/widgets/app_custom_tab_bar.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../services/api_service.dart';
 
+import '../auth/models/me_response.dart';
 import 'models/person_item.dart';
 import 'models/membership_item.dart';
 import 'person_edit_dialog.dart';
@@ -39,6 +40,7 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
   bool _isLoading = true;
   String? _errorMessage;
   PersonItem? _person;
+  MeResponse? _currentUser;
 
   late String _currentFiscalCode;
   late String _cacheBustTimestamp;
@@ -49,6 +51,35 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
     _currentFiscalCode = widget.fiscalCode;
     _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
     _fetchPersonData();
+    _fetchCurrentUser();
+  }
+
+  // Recupera l'account attualmente loggato per confrontare il suo tax_code
+  // con il fiscal_code della persona visualizzata (vedi _isOwnProfile).
+  // Fallimento silenzioso: se la chiamata fallisce, _currentUser resta null
+  // e _isOwnProfile resta false, cioè si torna al comportamento precedente
+  // a questa modifica (bottone visibile). Non è un dato la cui assenza deve
+  // bloccare il caricamento della pagina.
+  Future<void> _fetchCurrentUser() async {
+    try {
+      final me = await ApiService().me();
+      if (mounted) {
+        setState(() {
+          _currentUser = me;
+        });
+      }
+    } catch (_) {}
+  }
+
+  // True se l'account loggato è la persona visualizzata in questa pagina.
+  // Usato per nascondere azioni che un account non deve poter compiere su
+  // se stesso (es. REVOCA ISCRIZIONE).
+  bool get _isOwnProfile {
+    if (_currentUser == null || _person == null) {
+      return false;
+    }
+    return _currentUser!.taxCode.toUpperCase() ==
+        _person!.fiscalCode.toUpperCase();
   }
 
   Future<void> _fetchPersonData() async {
@@ -161,7 +192,11 @@ class _PersonDetailPageState extends State<PersonDetailPage> {
 
     if (roles.contains('ASSOCIATO')) {
       views.add(
-        PersonMembershipsTab(person: _person!, onUpdate: _fetchPersonData),
+        PersonMembershipsTab(
+          person: _person!,
+          onUpdate: _fetchPersonData,
+          isOwnProfile: _isOwnProfile,
+        ),
       );
     }
 

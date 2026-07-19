@@ -15,10 +15,17 @@ class PersonMembershipsTab extends StatelessWidget {
   final PersonItem person;
   final VoidCallback onUpdate;
 
+  // True se l'account loggato è la persona visualizzata: in tal caso il
+  // bottone REVOCA ISCRIZIONE non deve comparire (resta solo MODIFICA
+  // ISCRIZIONI). Default false per non rompere eventuali altri punti di
+  // istanziazione di questo widget.
+  final bool isOwnProfile;
+
   const PersonMembershipsTab({
     super.key,
     required this.person,
     required this.onUpdate,
+    this.isOwnProfile = false,
   });
 
   void _showEditDialog(BuildContext context) {
@@ -175,18 +182,30 @@ class PersonMembershipsTab extends StatelessWidget {
           if (!isRevoked && latest != null) ...[
             const SizedBox(height: 40),
             Center(
-              child: _ResponsiveActionButtonsRow(
-                primaryText: 'MODIFICA ISCRIZIONI',
-                primaryIcon: Icons.edit_rounded,
-                primaryColor: const Color(0xFF003C82),
-                primaryHoverColor: const Color(0xFF004D99),
-                primaryOnPressed: () => _showEditDialog(context),
-                secondaryText: 'REVOCA ISCRIZIONE',
-                secondaryIcon: Icons.gavel_rounded,
-                secondaryColor: const Color(0xFFE53935),
-                secondaryHoverColor: const Color(0xFFEF5350),
-                secondaryOnPressed: () => _showRevokeDialog(context),
-              ),
+              //UnAccountNonPuoRevocareLaPropriaIscrizione
+              child: isOwnProfile
+                  ? SizedBox(
+                      width: 240,
+                      child: AnimatedActionButton(
+                        text: 'MODIFICA ISCRIZIONI',
+                        icon: Icons.edit_rounded,
+                        baseColor: const Color(0xFF003C82),
+                        hoverColor: const Color(0xFF004D99),
+                        onPressed: () => _showEditDialog(context),
+                      ),
+                    )
+                  : _ResponsiveActionButtonsRow(
+                      primaryText: 'MODIFICA ISCRIZIONI',
+                      primaryIcon: Icons.edit_rounded,
+                      primaryColor: const Color(0xFF003C82),
+                      primaryHoverColor: const Color(0xFF004D99),
+                      primaryOnPressed: () => _showEditDialog(context),
+                      secondaryText: 'REVOCA ISCRIZIONE',
+                      secondaryIcon: Icons.gavel_rounded,
+                      secondaryColor: const Color(0xFFE53935),
+                      secondaryHoverColor: const Color(0xFFEF5350),
+                      secondaryOnPressed: () => _showRevokeDialog(context),
+                    ),
             ),
           ],
         ],

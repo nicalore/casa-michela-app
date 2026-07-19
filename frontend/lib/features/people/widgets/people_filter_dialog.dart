@@ -98,7 +98,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   void _addSubject(String subject) 
   {
     String s = subject.trim();
-    if (s.isEmpty || _currentState.taughtSubjects.contains(s)) return;
+    //AccettaSoloDisciplineRealmenteEsistenti_LaUiOraPassaSoloOpzioniDaWidget.availableSubjects_QuestoEUnaDifesaInProfondita
+    if (s.isEmpty || !widget.availableSubjects.contains(s) || _currentState.taughtSubjects.contains(s)) return;
 
     setState(() 
     {
@@ -838,7 +839,13 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         if (widget.onSubmitted != null) 
         {
           widget.onSubmitted!(selection);
-          Future.microtask(() => widget.controller.clear());
+          //SvuotaIlCampoERiportaIlCursoreVisibileSubito_clear()DaSoloLasciaLaSelectionACollapsed(-1)ChePerFlutterVuolDireNessunCursoreDisegnato
+          Future.microtask(() 
+          {
+            widget.controller.clear();
+            widget.controller.selection = const TextSelection.collapsed(offset: 0);
+            _focusNode.requestFocus();
+          });
         } 
         else 
         {
@@ -871,13 +878,9 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                     setState(() {});
                     widget.onChanged(val);
                   },
-                  onSubmitted: (val) 
-                  {
-                    if (widget.onSubmitted != null) 
-                    {
-                      widget.onSubmitted!(val);
-                    }
-                  },
+                  //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
+                  //NonPassaPiuIlTestoLiberoDelCampo_SoloUnOpzioneRealmenteEsistenteInWidget.optionsPuoEssereConfermata
+                  onSubmitted: (_) => onFieldSubmitted(),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize:   15,
                     fontWeight: FontWeight.w600,
@@ -938,6 +941,11 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
   }
 }
 
+//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
+const double _autocompleteOptionItemHeight = 44.0;
+
+//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
+//StessoPatternDi_CityOptionsListView(schools_tab.dart)_QuiGenericoSuStringheInveceCheSuCoppieCittaProvincia
 class _AutocompleteOptionsList extends StatefulWidget 
 {
   final Iterable<String>               options;
@@ -954,7 +962,11 @@ class _AutocompleteOptionsList extends StatefulWidget
 
 class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList> 
 {
+  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  static const double _verticalPadding = 8;
+
   final ScrollController _scrollController = ScrollController();
+  int? _lastHighlightedIndex;
 
   @override
   void dispose() 
@@ -963,9 +975,50 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
     super.dispose();
   }
 
+  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  void _ensureHighlightedVisible(int index)
+  {
+    if (!_scrollController.hasClients) return;
+
+    final itemTop        = _verticalPadding + (index * _autocompleteOptionItemHeight);
+    final itemBottom      = itemTop + _autocompleteOptionItemHeight;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final visibleTop      = _scrollController.offset;
+    final visibleBottom   = visibleTop + viewportHeight;
+
+    double? target;
+    if (itemTop < visibleTop)
+    {
+      target = itemTop;
+    }
+    else if (itemBottom > visibleBottom)
+    {
+      target = itemBottom - viewportHeight;
+    }
+
+    if (target != null)
+    {
+      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(clamped);
+    }
+  }
+
   @override
   Widget build(BuildContext context) 
   {
+    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    final highlightedIndex = AutocompleteHighlightedOption.of(context);
+
+    if (_lastHighlightedIndex != highlightedIndex)
+    {
+      _lastHighlightedIndex = highlightedIndex;
+      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+      });
+    }
+
     return Align(
       alignment: Alignment.topLeft,
       child: Material(
@@ -974,6 +1027,8 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
           width:       436,
           margin:      const EdgeInsets.only(top: 8),
           constraints: const BoxConstraints(maxHeight: 200),
+          //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color:        Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -995,20 +1050,86 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
               thumbColor:      const Color(0xFFB3B3B3),
               child: ListView.builder(
                 controller:  _scrollController,
-                padding:     const EdgeInsets.symmetric(vertical: 8),
+                padding:     const EdgeInsets.symmetric(vertical: _verticalPadding),
                 shrinkWrap:  true,
+                itemExtent:  _autocompleteOptionItemHeight,
                 itemCount:   widget.options.length,
                 itemBuilder: (BuildContext context, int index) 
                 {
                   final String option = widget.options.elementAt(index);
-                  return _DialogDropdownItem(
-                    text:       option,
-                    isSelected: false,
-                    onTap:      () => widget.onSelected(option),
+                  return _AutocompleteOptionTile(
+                    text:          option,
+                    isHighlighted: index == highlightedIndex,
+                    onTap:         () => widget.onSelected(option),
                   );
                 },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)_StessoLinguaggioVisivoDi_CityOptionTile
+class _AutocompleteOptionTile extends StatefulWidget 
+{
+  final String       text;
+  final bool         isHighlighted;
+  final VoidCallback onTap;
+
+  const _AutocompleteOptionTile({
+    required this.text,
+    required this.isHighlighted,
+    required this.onTap,
+  });
+
+  @override
+  State<_AutocompleteOptionTile> createState() => _AutocompleteOptionTileState();
+}
+
+class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile> 
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) 
+  {
+    final bool active = widget.isHighlighted || _hover;
+
+    return MouseRegion(
+      cursor:  SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit:  (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width:   double.infinity,
+          height:  _autocompleteOptionItemHeight,
+          color:   active ? const Color(0xFFF5F8FC) : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration:   const Duration(milliseconds: 150),
+                width:      2,
+                height:     active ? 16 : 0,
+                decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.text,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize:   14,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color:      const Color(0xFF003C82),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/study_program_item.dart';
 import '../models/ministry_subject_item.dart';
+import '../models/association_subject_item.dart';
 import '../widgets/study_program_card.dart';
 import '../../../shared/widgets/snackbar.dart'; 
 import '../../../shared/widgets/shared_components.dart';
@@ -15,6 +16,8 @@ class StudyProgramsTab extends StatefulWidget
   final List<StudyProgramItem> studyPrograms;
   //SoloLettura_ServeAllaCardEAlWizardPerAssociareLeMaterieMinisteriali_ProprietarioReaeEMinistrySubjectsTab
   final List<MinistrySubjectItem> ministrySubjects;
+  //SoloLettura_ServeAlFiltroPerDisciplina_ProprietarioReaeEAssociationSubjectsTab
+  final List<AssociationSubjectItem> associationSubjects;
   final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
   final Future<bool> Function(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
   final void Function(StudyProgramItem item) onDelete;
@@ -23,6 +26,7 @@ class StudyProgramsTab extends StatefulWidget
     super.key,
     required this.studyPrograms,
     required this.ministrySubjects,
+    required this.associationSubjects,
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
@@ -37,8 +41,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
-  String _sortBy = 'date_desc';
+  String _sortBy = 'name_asc';
   String? _filterLevel;
+  //FiltriMultiSelezione_UnPercorsoPassaSeContieneAlmenoUnoDegliIdSelezionati_OrTraLoroStessi_AndConGliAltriFiltri
+  Set<int> _selectedMinistrySubjectIds = {};
+  Set<int> _selectedAssociationSubjectIds = {};
 
   bool _newProgramHover = false;
 
@@ -49,7 +56,15 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
       final query = _searchText.toLowerCase();
       final matchesSearch = program.name.toLowerCase().contains(query);
       final matchesLevel = _filterLevel == null || program.level == _filterLevel;
-      return matchesSearch && matchesLevel;
+
+      final matchesMinistrySubjects = _selectedMinistrySubjectIds.isEmpty ||
+          program.ministrySubjects.any((ms) => _selectedMinistrySubjectIds.contains(ms.id));
+
+      //LaDisciplinaNonHaUnaRelazioneDirettaConIlPercorso_SiRaggiungeAttraversoLeMaterieMinisterialiDelPercorso
+      final matchesAssociationSubjects = _selectedAssociationSubjectIds.isEmpty ||
+          program.ministrySubjects.any((ms) => ms.associationSubjects.any((as) => _selectedAssociationSubjectIds.contains(as.id)));
+
+      return matchesSearch && matchesLevel && matchesMinistrySubjects && matchesAssociationSubjects;
     }).toList();
 
     result.sort((a, b)
@@ -96,6 +111,64 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     );
   }
 
+  void _showMinistrySubjectFilterDialog()
+  {
+    final options = widget.ministrySubjects.map((m) => _SubjectOption(id: m.id, name: m.name, subtitle: _levelShortLabel(m.level))).toList();
+    _showSubjectFilterDialog(
+      title: 'Filtra per materia ministeriale',
+      hint: 'Cerca materia ministeriale...',
+      options: options,
+      initialSelectedIds: _selectedMinistrySubjectIds,
+      onApply: (ids) => setState(() => _selectedMinistrySubjectIds = ids),
+    );
+  }
+
+  void _showAssociationSubjectFilterDialog()
+  {
+    final options = widget.associationSubjects.map((a) => _SubjectOption(id: a.id, name: a.name)).toList();
+    _showSubjectFilterDialog(
+      title: 'Filtra per disciplina interna',
+      hint: 'Cerca disciplina...',
+      options: options,
+      initialSelectedIds: _selectedAssociationSubjectIds,
+      onApply: (ids) => setState(() => _selectedAssociationSubjectIds = ids),
+    );
+  }
+
+  void _showSubjectFilterDialog({
+    required String title,
+    required String hint,
+    required List<_SubjectOption> options,
+    required Set<int> initialSelectedIds,
+    required ValueChanged<Set<int>> onApply,
+  })
+  {
+    showGeneralDialog(
+      context: context, barrierDismissible: true, barrierLabel: 'SubjectFilterDialog', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child)
+      {
+        final blurValue = animation.value * 8.0;
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
+          child: FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
+              child: _SubjectFilterDialog(
+                title: title,
+                hint: hint,
+                options: options,
+                initialSelectedIds: initialSelectedIds,
+                onApply: onApply,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -123,8 +196,10 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         Wrap(
           spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), _FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente')]),
             _CustomFilterMenu<String>(hint: 'Tutti i livelli', icon: Icons.school_outlined, value: _filterLevel, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterLevel = val), onClear: () => setState(() => _filterLevel = null), options: [_FilterOption(value: 'PRIMARY_SCHOOL', label: 'Scuola Primaria'), _FilterOption(value: 'MIDDLE_SCHOOL', label: 'Secondaria di I Grado'), _FilterOption(value: 'HIGH_SCHOOL', label: 'Secondaria di II Grado')]),
+            _FilterChipButton(icon: Icons.auto_stories_outlined, label: 'Discipline interne', count: _selectedAssociationSubjectIds.length, onTap: _showAssociationSubjectFilterDialog, onClear: () => setState(() => _selectedAssociationSubjectIds = {})),
+            _FilterChipButton(icon: Icons.menu_book_outlined, label: 'Materie ministeriali', count: _selectedMinistrySubjectIds.length, onTap: _showMinistrySubjectFilterDialog, onClear: () => setState(() => _selectedMinistrySubjectIds = {})),
           ],
         ),
         const SizedBox(height: 16),
@@ -520,3 +595,516 @@ class _FilterOverlayContent<T> extends StatefulWidget { final T? currentValue; f
 class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>> { bool _expanded = false; @override void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _expanded = true); }); } Future<void> hide() async { if (mounted) setState(() => _expanded = false); await Future.delayed(const Duration(milliseconds: 180)); } @override Widget build(BuildContext context) { return Material(color: Colors.transparent, child: Container(width: widget.menuWidth, constraints: const BoxConstraints(maxHeight: 350), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)]), child: AnimatedSize(duration: const Duration(milliseconds: 180), curve: Curves.easeOut, alignment: Alignment.topCenter, child: _expanded ? Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: widget.options.map((option) { return _FilterMenuItem(text: option.label, isSelected: widget.currentValue == option.value, onTap: () => widget.onSelected(option.value)); }).toList()))) : SizedBox(width: widget.menuWidth, height: 0)))); } }
 class _FilterMenuItem extends StatefulWidget { final String text; final bool isSelected; final VoidCallback onTap; const _FilterMenuItem({required this.text, required this.isSelected, required this.onTap}); @override State<_FilterMenuItem> createState() => _FilterMenuItemState(); }
 class _FilterMenuItemState extends State<_FilterMenuItem> { bool _hover = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _hover = true), onExit: (_) => setState(() => _hover = false), child: GestureDetector(onTap: widget.onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), color: Colors.transparent, child: Row(children: [AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: (_hover || widget.isSelected) ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))), const SizedBox(width: 10), Expanded(child: Text(widget.text, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82))))])))); } }
+//------------------------------------------------------------------
+//FiltroMultiSelezionePerMaterieMinisterialiEDiscipline_ChipCheApreUnDialogConAutocompletamento
+//------------------------------------------------------------------
+
+String _levelShortLabel(String level)
+{
+  switch (level)
+  {
+    case 'PRIMARY_SCHOOL': return 'Primaria';
+    case 'MIDDLE_SCHOOL': return 'Sec. I Grado';
+    case 'HIGH_SCHOOL': return 'Sec. II Grado';
+    default: return level;
+  }
+}
+
+//OpzioneGenericaIdPiuNome_UsataSiaPerLeMaterieMinisterialiCheLeDiscipline_SubtitleOpzionaleServeSoloADisambiguareOmonimiTraLivelli
+class _SubjectOption
+{
+  final int id;
+  final String name;
+  final String? subtitle;
+
+  const _SubjectOption({required this.id, required this.name, this.subtitle});
+}
+
+class _FilterChipButton extends StatefulWidget
+{
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  const _FilterChipButton({required this.icon, required this.label, required this.count, required this.onTap, required this.onClear});
+
+  @override
+  State<_FilterChipButton> createState() => _FilterChipButtonState();
+}
+
+class _FilterChipButtonState extends State<_FilterChipButton>
+{
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool isActive = widget.count > 0;
+    final String displayText = isActive ? '${widget.label} (${widget.count})' : widget.label;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200), height: 42, padding: EdgeInsets.only(left: 16, right: isActive ? 12 : 16),
+          decoration: BoxDecoration(
+            color: _isHovered || isActive ? const Color(0xFFF5F8FC) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _isHovered || isActive ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.5),
+            boxShadow: const [BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8)],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: const Color(0xFF003C82), size: 18),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(displayText, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: isActive ? const Color(0xFF003C82) : const Color(0xFF8A8A8A))),
+              ),
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: widget.onClear,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: .1), shape: BoxShape.circle),
+                    child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubjectFilterDialog extends StatefulWidget
+{
+  final String title;
+  final String hint;
+  final List<_SubjectOption> options;
+  final Set<int> initialSelectedIds;
+  final ValueChanged<Set<int>> onApply;
+
+  const _SubjectFilterDialog({
+    required this.title,
+    required this.hint,
+    required this.options,
+    required this.initialSelectedIds,
+    required this.onApply,
+  });
+
+  @override
+  State<_SubjectFilterDialog> createState() => _SubjectFilterDialogState();
+}
+
+class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
+{
+  late Set<int> _selectedIds;
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _selectedIds = Set<int>.from(widget.initialSelectedIds);
+  }
+
+  @override
+  void dispose()
+  {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<_SubjectOption> get _selectedOptions
+  {
+    final selected = widget.options.where((o) => _selectedIds.contains(o.id)).toList();
+    selected.sort((a, b) => a.name.compareTo(b.name));
+    return selected;
+  }
+
+  //OpzioniProposteInAutocomplete_EscludeQuelleGiaSelezionatePerNonMostrarleDueVolte
+  List<_SubjectOption> get _availableOptions => widget.options.where((o) => !_selectedIds.contains(o.id)).toList();
+
+  void _addOption(_SubjectOption option)
+  {
+    setState(() => _selectedIds.add(option.id));
+  }
+
+  void _removeOption(int id)
+  {
+    setState(() => _selectedIds.remove(id));
+  }
+
+  void _reset()
+  {
+    setState(() {
+      _selectedIds.clear();
+      _searchCtrl.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Dialog(
+      backgroundColor: Colors.transparent, elevation: 0,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 560),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: Text(widget.title, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
+                  FadeHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () => Navigator.of(context).pop()),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SubjectAutocompleteField(controller: _searchCtrl, hint: widget.hint, options: _availableOptions, onSelected: _addOption),
+                    const SizedBox(height: 16),
+                    if (_selectedOptions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Nessuna selezione.', style: GoogleFonts.plusJakartaSans(fontSize: 14, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic)),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8, runSpacing: 8,
+                        children: _selectedOptions.map((o) => _DeletableChip(label: o.name, onDelete: () => _removeOption(o.id))).toList(),
+                      ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: _ResponsiveDialogButtonsRow(
+                secondaryButton: AnimatedActionButton(text: 'AZZERA', icon: Icons.refresh_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: _reset),
+                primaryButton: AnimatedActionButton(
+                  text: 'APPLICA FILTRO', icon: Icons.check_circle_outline, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99),
+                  onPressed: () { widget.onApply(_selectedIds); Navigator.of(context).pop(); },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+//CampoDiRicercaConAutocompletamento_AdattatoDaPeopleFilterDialogPerLavorareSuIdInveceCheSuStringheSemplici
+//(NecessarioPerchéINomiDelleMaterieMinisterialiPossonoRipetersiTraLivelliDiversi_uq_level_ministry_subject_name)
+class _SubjectAutocompleteField extends StatefulWidget
+{
+  final TextEditingController controller;
+  final String hint;
+  final List<_SubjectOption> options;
+  final ValueChanged<_SubjectOption> onSelected;
+
+  const _SubjectAutocompleteField({
+    required this.controller,
+    required this.hint,
+    required this.options,
+    required this.onSelected,
+  });
+
+  @override
+  State<_SubjectAutocompleteField> createState() => _SubjectAutocompleteFieldState();
+}
+
+class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
+{
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose()
+  {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return RawAutocomplete<_SubjectOption>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      displayStringForOption: (option) => option.name,
+      optionsBuilder: (TextEditingValue textEditingValue)
+      {
+        if (textEditingValue.text.isEmpty) return const Iterable<_SubjectOption>.empty();
+        final query = textEditingValue.text.toLowerCase();
+        return widget.options.where((o) => o.name.toLowerCase().contains(query));
+      },
+      onSelected: (option)
+      {
+        widget.onSelected(option);
+        //SvuotaIlCampoERiportaIlCursoreVisibileSubito_clear()DaSoloLasciaLaSelectionACollapsed(-1)ChePerFlutterVuolDireNessunCursoreDisegnato
+        Future.microtask(() 
+        {
+          widget.controller.clear();
+          widget.controller.selection = const TextSelection.collapsed(offset: 0);
+          _focusNode.requestFocus();
+        });
+      },
+      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
+      {
+        return Container(
+          height: 50, padding: const EdgeInsets.only(left: 16, right: 8),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE0E5EC), width: 1.5)),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: textEditingController,
+                  focusNode: focusNode,
+                  onChanged: (_) => setState(() {}),
+                  //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
+                  onSubmitted: (_) => onFieldSubmitted(),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+                  decoration: InputDecoration(
+                    hintText: widget.hint,
+                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, color: const Color(0xFFB3B3B3)),
+                    border: InputBorder.none, isCollapsed: true,
+                  ),
+                ),
+              ),
+              if (textEditingController.text.isNotEmpty)
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () { textEditingController.clear(); setState(() {}); },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) => _SubjectAutocompleteOptionsList(options: options, onSelected: onSelected),
+    );
+  }
+}
+
+//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
+const double _subjectOptionItemHeight = 44.0;
+
+//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
+//StessoPatternDi_CityOptionsListView(schools_tab.dart)
+class _SubjectAutocompleteOptionsList extends StatefulWidget
+{
+  final Iterable<_SubjectOption> options;
+  final AutocompleteOnSelected<_SubjectOption> onSelected;
+
+  const _SubjectAutocompleteOptionsList({required this.options, required this.onSelected});
+
+  @override
+  State<_SubjectAutocompleteOptionsList> createState() => _SubjectAutocompleteOptionsListState();
+}
+
+class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOptionsList>
+{
+  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  static const double _verticalPadding = 8;
+
+  final ScrollController _scrollController = ScrollController();
+  int? _lastHighlightedIndex;
+
+  @override
+  void dispose()
+  {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  void _ensureHighlightedVisible(int index)
+  {
+    if (!_scrollController.hasClients) return;
+
+    final itemTop = _verticalPadding + (index * _subjectOptionItemHeight);
+    final itemBottom = itemTop + _subjectOptionItemHeight;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final visibleTop = _scrollController.offset;
+    final visibleBottom = visibleTop + viewportHeight;
+
+    double? target;
+    if (itemTop < visibleTop)
+    {
+      target = itemTop;
+    }
+    else if (itemBottom > visibleBottom)
+    {
+      target = itemBottom - viewportHeight;
+    }
+
+    if (target != null)
+    {
+      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(clamped);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    final highlightedIndex = AutocompleteHighlightedOption.of(context);
+
+    if (_lastHighlightedIndex != highlightedIndex)
+    {
+      _lastHighlightedIndex = highlightedIndex;
+      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+      });
+    }
+
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 436, margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 200),
+          //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)]),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: RawScrollbar(
+              controller: _scrollController, thumbVisibility: true, thickness: 6, radius: const Radius.circular(10), thumbColor: const Color(0xFFB3B3B3),
+              child: ListView.builder(
+                controller: _scrollController, padding: const EdgeInsets.symmetric(vertical: _verticalPadding), shrinkWrap: true,
+                itemExtent: _subjectOptionItemHeight,
+                itemCount: widget.options.length,
+                itemBuilder: (context, index)
+                {
+                  final option = widget.options.elementAt(index);
+                  return _SubjectAutocompleteItem(option: option, isHighlighted: index == highlightedIndex, onTap: () => widget.onSelected(option));
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)_StessoLinguaggioVisivoDi_CityOptionTile
+class _SubjectAutocompleteItem extends StatefulWidget
+{
+  final _SubjectOption option;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+
+  const _SubjectAutocompleteItem({required this.option, required this.isHighlighted, required this.onTap});
+
+  @override
+  State<_SubjectAutocompleteItem> createState() => _SubjectAutocompleteItemState();
+}
+
+class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool active = widget.isHighlighted || _hover;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _hover = true), onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity, height: _subjectOptionItemHeight, color: active ? const Color(0xFFF5F8FC) : Colors.transparent, padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: active ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 10),
+              Expanded(child: Text(widget.option.name, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82)))),
+              if (widget.option.subtitle != null) ...[
+                const SizedBox(width: 8),
+                Text(widget.option.subtitle!, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A))),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+//DuplicataDaPeopleFilterDialog_LeClassiPrivateNonSiPossonoCondividereTraFileDart
+class _DeletableChip extends StatefulWidget
+{
+  final String label;
+  final VoidCallback onDelete;
+
+  const _DeletableChip({required this.label, required this.onDelete});
+
+  @override
+  State<_DeletableChip> createState() => _DeletableChipState();
+}
+
+class _DeletableChipState extends State<_DeletableChip>
+{
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150), padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
+        decoration: BoxDecoration(color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(100), border: Border.all(color: const Color(0xFFE0E5EC), width: 1.0)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(widget.label, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+            const SizedBox(width: 8),
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: widget.onDelete,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: 0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

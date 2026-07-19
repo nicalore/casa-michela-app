@@ -63,6 +63,23 @@ def _translate_collaboration_type(collab_type: str | None) -> str | None:
     return collab_type
 
 
+def _admin_role_uniqueness_error_detail(error_msg: str) -> str | None:
+    """
+    Traduce in messaggio utente l'eventuale violazione dei vincoli di
+    unicità su Presidente/Vicepresidente/Tesoriere (uq_administrator_*
+    in administrator.py). Restituisce None se l'errore non riguarda
+    questi vincoli, cosi il chiamante puo' proseguire con la gestione
+    generica degli altri IntegrityError.
+    """
+    if "uq_administrator_president" in error_msg:
+        return "Esiste già un Presidente configurato all'interno del sistema."
+    if "uq_administrator_vice_president" in error_msg:
+        return "Esiste già un Vice Presidente configurato all'interno del sistema."
+    if "uq_administrator_treasurer" in error_msg:
+        return "Esiste già un Tesoriere configurato all'interno del sistema."
+    return None
+
+
 def _translate_education_level(level: str | None) -> str | None:
     if not level:
         return None
@@ -843,7 +860,18 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
             if "DOCENTE" in roles and payload.teacher_data:
                 te_data = payload.teacher_data
                 teacher_exists = await db.scalar(select(Teacher).where(Teacher.tax_code == person.tax_code))
-                
+
+                if teacher_exists is not None:
+                    # Il controllo va fatto PRIMA di scrivere qualunque campo (stesso
+                    # pattern usato per Member/Student). Teacher.updated_at ha
+                    # onupdate=func.now() a livello di colonna: QUALSIASI UPDATE sulla
+                    # riga teachers lo fa scattare, anche uno che non lo tocca
+                    # esplicitamente. Per questo il controllo copre anche il caso in
+                    # cui vengono modificati solo school_education/university_education
+                    # (competences None), non solo le discipline.
+                    entity_label = "Le discipline insegnate" if te_data.competences is not None else "I dati del docente"
+                    _assert_not_stale(teacher_exists, te_data.expected_updated_at, entity_label=entity_label)
+
                 if not teacher_exists:
                     db.add(Teacher(
                         tax_code=person.tax_code,
@@ -857,19 +885,12 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
                         .where(Teacher.tax_code == person.tax_code)
                         .values(
                             school_education=te_data.school_education,
-                            university_education=te_data.university_education
+                            university_education=te_data.university_education,
+                            updated_at=datetime.now(timezone.utc),
                         )
                     )
-                
-                if te_data.competences is not None:
-                    current_teacher = await db.scalar(select(Teacher).where(Teacher.tax_code == person.tax_code))
-                    _assert_not_stale(current_teacher, te_data.expected_updated_at, entity_label="Le discipline insegnate")
 
-                    await db.execute(
-                        update(Teacher)
-                        .where(Teacher.tax_code == person.tax_code)
-                        .values(updated_at=datetime.now(timezone.utc))
-                    )
+                if te_data.competences is not None:
                     await db.execute(delete(TeachingCompetence).where(TeachingCompetence.teacher_tax_code == person.tax_code))
                     await db.flush()
                     for comp_data in te_data.competences:
@@ -916,22 +937,13 @@ async def update_person(tax_code: str, payload: PersonUpdatePayload, db: DbSessi
     except IntegrityError as e:
         await db.rollback()
         error_msg = str(e).lower()
-        if "uq_administrator_president" in error_msg:
+        admin_uniqueness_detail = _admin_role_uniqueness_error_detail(error_msg)
+        if admin_uniqueness_detail:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Esiste già un Presidente configurato all'interno del sistema."
+                detail=admin_uniqueness_detail
             )
-        if "uq_administrator_vice_president" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Esiste già un Vice Presidente configurato all'interno del sistema."
-            )
-        if "uq_administrator_treasurer" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Esiste già un Tesoriere configurato all'interno del sistema."
-            )
-            
+
         if "unique constraint" in error_msg or "duplicate key" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, 
@@ -1201,6 +1213,26 @@ async def wizard_create_person(payload: PersonWizardPayload, db: DbSession):
     except HTTPException as http_exc:
         await db.rollback()
         raise http_exc from None
+    except IntegrityError as e:
+        await db.rollback()
+        error_msg = str(e).lower()
+        admin_uniqueness_detail = _admin_role_uniqueness_error_detail(error_msg)
+        if admin_uniqueness_detail:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=admin_uniqueness_detail
+            )
+
+        if "unique constraint" in error_msg or "duplicate key" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="L'email o il numero di telefono risultano già associati a un'altra anagrafica nel sistema."
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Errore di validazione dei vincoli del database."
+        )
     except Exception as e:
         await db.rollback()
         raise HTTPException(

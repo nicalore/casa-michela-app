@@ -32,7 +32,7 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
-  String _sortBy = 'date_desc';
+  String _sortBy = 'name_asc';
   String? _filterArea;
 
   bool _newSubjectHover = false;
@@ -116,7 +116,7 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
         Wrap(
           spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), _FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente')]),
             _CustomFilterMenu<String>(hint: 'Tutte le aree', icon: Icons.category_outlined, value: _filterArea, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterArea = val), onClear: () => setState(() => _filterArea = null), options: [_FilterOption(value: 'HUMANITIES', label: 'Area Umanistica'), _FilterOption(value: 'LINGUISTICS', label: 'Area Linguistica'), _FilterOption(value: 'SCIENCES', label: 'Area Scientifica')]),
           ],
         ),

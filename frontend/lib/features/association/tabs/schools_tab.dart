@@ -40,7 +40,7 @@ class _SchoolsTabState extends State<SchoolsTab>
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
-  String _sortBy = 'date_desc';
+  String _sortBy = 'name_asc';
   String? _filterCity;
   
   bool _newSchoolHover = false;
@@ -152,7 +152,7 @@ class _SchoolsTabState extends State<SchoolsTab>
         Wrap(
           spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente'), _FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)')]),
+            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), _FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente')]),
             _CustomFilterMenu<String>(hint: 'Tutte le città', icon: Icons.location_city_outlined, value: _filterCity, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterCity = val), onClear: () => setState(() => _filterCity = null), options: _cityOptions),
           ],
         ),
