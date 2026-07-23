@@ -1,16 +1,18 @@
-import 'dart:ui';
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_message.dart';
 import '../association/models/association_subject_item.dart';
 import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
-import 'models/person_item.dart';
 import 'models/parental_relationship_draft.dart';
+import 'models/person_item.dart';
 import 'models/school_enrollment_item.dart';
 import 'person_wizard_components.dart';
 
@@ -117,7 +119,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   final TextEditingController _studiScolasticiCtrl          = TextEditingController();
   final TextEditingController _studiUniversitariCtrl        = TextEditingController();
 
-  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  // Defaults to false: a minor is picked up by a parent unless stated otherwise, matching the server default.
   bool                   _uscitaAnticipata = false;
   List<SchoolItem>       _allSchools  = [];
   List<StudyProgramItem> _allPrograms = [];
@@ -125,7 +127,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   String?                     _modalitaPagamento;
   final TextEditingController _altraModalitaPagamentoCtrl = TextEditingController();
 
-  //NonEsposta_InvariataRispettoAlValoreCaricato_NessunaCardConsensiInQuestoDialog
+  // Not exposed here (this dialog has no consent card); kept unchanged from the loaded value.
   String?                     _tipoCertificazione = 'No';
   final TextEditingController _altraCertificazioneCtrl = TextEditingController();
   bool?                       _mandatoryPsychMeetingsAcknowledgedExisting;
@@ -233,7 +235,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           _allMinors = allPeople.where((p) => ((p.age != null && p.age! < 18) || (widget.person.children?.any((c) => c.fiscalCode == p.fiscalCode) ?? false)) && p.fiscalCode != widget.person.fiscalCode).toList();
           _allAdults = allPeople.where((p) => (p.age == null || p.age! >= 18) && p.roles.any((r) => r.toUpperCase() == 'GENITORE') && p.fiscalCode != widget.person.fiscalCode).toList();
           
-          //LoadSchoolEnrollments
           if (_schoolRows.isEmpty && widget.person.roles.any((r) => r.toUpperCase() == 'STUDENTE'))
           {
             final enrollments = widget.person.schoolEnrollments ?? [];
@@ -265,9 +266,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             {
               SchoolItem?       matchedSchool;
               StudyProgramItem? matchedProgram;
-              //IlNomeDaSoloNonEPiuUnIdentificatoreAffidabile_OraCheLOmonimiaTraCittaDiverseEAmmessa
-              //QuestoFallbackNonHaAccessoAllaCittaDiSchoolName(SoloStringaDenormalizzata)_QuindiSePiuScuoleCondividonoIlNome
-              //NonIndoviniamo_LasciamoIlCampoVuotoESceltaManualeAllUtente_MeglioDiUnMatchSilenziosoPotenzialmenteSbagliato
+              // The name alone is no longer a reliable identifier now that same-name schools in different cities are allowed.
+              // This fallback only has the denormalized schoolName string (no city), so when several schools share a name
+              // we don't guess: we leave the field empty for manual selection rather than risk a silent wrong match.
               final schoolNameMatches = _allSchools.where((s) => s.name == widget.person.schoolName).toList();
               if (schoolNameMatches.length == 1) matchedSchool = schoolNameMatches.first;
               try { matchedProgram = _allPrograms.firstWhere((p) => p.name == widget.person.studyProgram); } catch (_) {}
@@ -430,10 +431,19 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     if (widget.person.adminRole != null) 
     {
       final role = widget.person.adminRole!;
-      if (role == 'PRESIDENT' || role == 'Presidente') _ruoloAmministratore = 'Presidente';
-      else if (role == 'VICE_PRESIDENT' || role == 'Vice Presidente') _ruoloAmministratore = 'Vicepresidente';
-      else if (role == 'TREASURER' || role == 'Tesoriere') _ruoloAmministratore = 'Tesoriere';
-      else 
+      if (role == 'PRESIDENT' || role == 'Presidente')
+      {
+        _ruoloAmministratore = 'Presidente';
+      }
+      else if (role == 'VICE_PRESIDENT' || role == 'Vice Presidente')
+      {
+        _ruoloAmministratore = 'Vicepresidente';
+      }
+      else if (role == 'TREASURER' || role == 'Tesoriere')
+      {
+        _ruoloAmministratore = 'Tesoriere';
+      }
+      else
       {
         _ruoloAmministratore = 'Altro';
         _altroRuoloAmministratoreCtrl.text = widget.person.adminOtherRole ?? role;
@@ -464,7 +474,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       _tipoCertificazione = 'Altro';
       _altraCertificazioneCtrl.text = widget.person.certificationOtherDetail ?? '';
     }
-    //RimaneComEra_NonEditabileDaQuestoDialog_RinviataInvariataAlSalvataggio
+    // Not editable from this dialog; kept as loaded and sent back unchanged on save.
     _mandatoryPsychMeetingsAcknowledgedExisting = widget.person.mandatoryPsychMeetingsAcknowledged;
 
     _contattoEmergenzaNomeCtrl.text     = widget.person.emergencyContactName ?? '';
@@ -574,7 +584,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return age < 18;
   }
 
-  //PresidenteVicepresidenteTesoriere_NonPossonoEssereRetribuiti_PolicyAssociazione
+  // President, vice-president and treasurer cannot be paid (association policy).
   bool get _collaborazioneForzataNonPagata
   {
     return _selectedRoles.contains('AMMINISTRATORE') &&
@@ -583,8 +593,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
          _ruoloAmministratore == 'Tesoriere');
   }
 
-  //SincronizzaIlCampoCollaborazioneConIlRuoloAmministrativo_ChiamataSiaInBuildCheInValidate
-  //MutazioneDirettaSenzaSetState_NonCausaRebuildLoop_VieneLettaSubitoDopoNelloStessoRebuild
+  // Keeps the collaboration field in sync with the administrative role; called from both build and validation.
+  // Mutates directly without setState: no rebuild loop, since it is read right after within the same rebuild.
   void _syncCollaborazioneConRuoloAmministrativo()
   {
     if (_collaborazioneForzataNonPagata)
@@ -758,8 +768,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       cards.add(_buildFormCardIscrizioniScolastiche());
     }
 
-    //SpostataInFondo_SubitoPrimaDiSicurezzaMinore_SuRichiestaCommittente
-    //DeveStareDopoDettagliAmministratore_CosiIlRuoloEGiaNotoQuandoSiCalcolaLaCollaborazioneForzata
+    // Moved to the end, just before minor safety, at the client's request.
+    // Must come after the admin details so the role is known when the forced collaboration is computed.
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
@@ -788,7 +798,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (wasGenitore && !isGenitore && widget.person.children != null) 
     {
-      //CheckOrphanStatus
+      // Block the change if it would leave a child with no parents.
       for (final child in widget.person.children!) 
       {
         final minorIterable = _allMinors.where((m) => m.fiscalCode == child.fiscalCode);
@@ -1093,8 +1103,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       currentMappedIndex++;
     }
 
-    //SpostataInFondo_SubitoPrimaDiSicurezzaMinore_SuRichiestaCommittente
-    //DeveStareDopoDettagliAmministratore_StessoMotivoDiActiveStep4Cards
+    // Moved to the end, just before minor safety, at the client's request.
+    // Must come after the admin details, same reason as in _activeStep4Cards.
     if (isStaff)
     {
       if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
@@ -1110,7 +1120,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (!isOnlyGenitoreNotAssociato && _isMinor)
     {
-      //TuttiICampiSonoFacoltativi_NessunaValidazioneRichiesta_CoerenteConSezione10DelModuloCartaceo
+      // All fields optional, no validation needed (matches section 10 of the paper form).
       currentMappedIndex++;
     }
 
@@ -1194,9 +1204,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         }
       }
 
-      //QuestoDialogNonHaUnaCardConsensi_QuindiQueiCampiVengonoOmessiDelTutto
-      //DalPayload(NonInviatiComeNull)_IlBackendLiLasciaInvariatiSeAssentiDalJson
-      //VediPersonMembershipsUpdate_NonUnSemplice`??`_ServeOmettereLaChiaveDelTutto
+      // This dialog has no consent card, so those fields are omitted from the payload entirely
+      // (not sent as null): the backend leaves them unchanged when the key is absent from the JSON.
+      // See PersonMembershipsUpdate: not a simple `??`, the key must be dropped entirely.
       Map<String, dynamic>? memberData;
       if (!isOnlyGenitoreNotAssociato && membershipsData.isNotEmpty) 
       {
@@ -1294,14 +1304,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         if (_tipoCertificazione == 'ADHD') certificationTypeVal = 'ADHD';
         if (_tipoCertificazione == 'Altro') certificationTypeVal = 'OTHER';
 
-        //StoricoScolasticoCompletoInclusoNelloStessoPayload_NonPiuUnaChiamataSeparataAUpdatePersonSchoolEnrollments
-        //IlBackendOraSostituisceLeIscrizioniInBloccoNellaStessaTransazioneDiUpdatePerson_UnSoloControlloDiConcorrenza
+        // Full school history goes in the same payload, no longer a separate updatePersonSchoolEnrollments call:
+        // the backend replaces enrollments in bulk within the updatePerson transaction, a single concurrency check.
         studentData = 
         {
           "authorized_early_exit": _isMinor ? _uscitaAnticipata : true,
           "certification_type":         certificationTypeVal,
           "certification_other_detail": certificationTypeVal == 'OTHER' ? _altraCertificazioneCtrl.text.trim() : null,
-          //NonModificabileDaQuestoDialog_RinviatoInvariatoCosiComEraGiaACaricamento
+          // Not editable from this dialog; sent back unchanged from load time.
           "mandatory_psych_meetings_acknowledged": _mandatoryPsychMeetingsAcknowledgedExisting ?? false,
           "school_enrollments": _schoolRows.map((r) => 
           {
@@ -1375,7 +1385,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         CustomSnackBar.show
         (
           context: context, 
-          message: e.toString().replaceAll('Exception: ', ''), 
+          message: readableApiError(e), 
           isError: true,
         );
       }
@@ -1470,7 +1480,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             style: GoogleFonts.plusJakartaSans
             (
               fontWeight: FontWeight.w700, 
-              color:      const Color(0xFF003C82),
+              color:      AppTheme.primary,
             ),
           ),
           content: Text
@@ -1485,7 +1495,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               style: ButtonStyle
               (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
-                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFF8A8A8A)),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => AppTheme.mutedText),
               ),
               onPressed: () => Navigator.pop(confirmContext), 
               child:     Text
@@ -1499,7 +1509,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               style: ButtonStyle
               (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
-                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFFE53935)),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => AppTheme.danger),
               ),
               onPressed: () 
               {
@@ -1907,7 +1917,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
         decoration: BoxDecoration
         (
-          color:        const Color(0xFFF4F7F9),
+          color:        AppTheme.pageBackground,
           borderRadius: BorderRadius.circular(40),
           boxShadow:    const 
           [
@@ -1989,14 +1999,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                           (
                             fontSize:   26, 
                             fontWeight: FontWeight.w700, 
-                            color:      const Color(0xFF003C82),
+                            color:      AppTheme.primary,
                           ),
                         ),
                         WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
                     ),
                   ),
-                  const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
+                  const Divider(height: 32, thickness: 1, color: AppTheme.slate200),
                   Expanded
                   (
                     child: Padding
@@ -2007,7 +2017,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                         duration:       const Duration(milliseconds: 300),
                         switchInCurve:  Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
-                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                         transitionBuilder: (child, animation) 
                         {
                           final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_e';
@@ -2034,16 +2044,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   Padding
                   (
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothFixedWidthButtonsSideBySide
-                    child: _ResponsiveWizardBottomBar
+                    // Stacks vertically when the dialog is too narrow for both fixed-width buttons side by side.
+                    child: WizardResponsiveBottomBar
                     (
                       secondaryButton: _currentStep == 0
                           ? WizardAnimatedActionButton
                             (
                               text:       'ANNULLA', 
                               icon:       Icons.close_rounded, 
-                              baseColor:  const Color(0xFFE53935), 
-                              hoverColor: const Color(0xFFEF5350), 
+                              baseColor:  AppTheme.danger, 
+                              hoverColor: AppTheme.dangerHover, 
                               onPressed:  _showCancelConfirmation,
                             )
                           : WizardOutlinedActionButton
@@ -2056,8 +2066,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                       (
                         text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'SALVA MODIFICHE' : 'AVANTI'), 
                         icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-                        baseColor:  const Color(0xFF003C82), 
-                        hoverColor: const Color(0xFF004D99), 
+                        baseColor:  AppTheme.primary, 
+                        hoverColor: AppTheme.primaryHover, 
                         onPressed:  _isSubmitting ? () {} : _onNext,
                       ),
                     ),
@@ -2097,7 +2107,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2109,7 +2119,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2181,7 +2191,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2193,7 +2203,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2266,7 +2276,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2278,7 +2288,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2340,7 +2350,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             Text
             (
               'Per motivi di sicurezza e per garantire la coerenza dei dati, le informazioni personali principali (nome, cognome, sesso, codice fiscale, data di nascita, città di nascita, provincia di nascita, nazione di nascita) non possono essere modificate manualmente.\n\nSe hai riscontrato un errore, puoi richiederne la correzione utilizzando il pulsante qui sotto.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B), height: 1.5),
+              style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500, height: 1.5),
             ),
             const SizedBox(height: 32),
             WizardOutlinedActionButton(text: 'SEGNALA ERRORE ANAGRAFICA', icon: Icons.report_problem_outlined, onPressed: _openReportDialog),
@@ -2397,8 +2407,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             WizardFormInputRow
             (
               label:       'Indirizzo',
-              //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-              inputWidget: _WizardAddressFieldsRow
+              // Same responsive rule as PersonWizardPage: stacks below the threshold.
+              inputWidget: WizardAddressFieldsRow
               (
                 tipoViaCtrl:      _tipoViaCtrl,
                 tipoViaError:     _formErrors['tipoVia'],
@@ -2451,9 +2461,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             (
               children: 
               [
-                Text('Informazioni personali', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                Text('Informazioni personali', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                 const SizedBox(height: 8),
-                Text('Modifica i dati anagrafici e di contatto.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                Text('Modifica i dati anagrafici e di contatto.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
               ],
             ),
           ),
@@ -2471,7 +2481,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   duration:       const Duration(milliseconds: 300),
                   switchInCurve:  Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                   transitionBuilder: (child, animation) 
                   {
                     final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
@@ -2486,7 +2496,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   duration:       const Duration(milliseconds: 300),
                   switchInCurve:  Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, ?currentChild]),
                   transitionBuilder: (child, animation) 
                   {
                     final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
@@ -2496,7 +2506,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   child: KeyedSubtree
                   (
                     key:   ValueKey(_currentFormCardIndex),
-                    //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                    // No fixed height anymore: takes whatever height the outer Expanded gives it.
                     child: SizedBox
                     (
                       width:  constraints.maxWidth,
@@ -2510,7 +2520,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                       (
                         children: 
                         [
-                          //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                          // Expanded gives the card exactly the residual height, no fragile fixed constant.
                           Expanded
                           (
                             child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCard),
@@ -2555,7 +2565,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     
     if (_isLoadingData) 
     {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
 
     final Widget currentCardStep4 = cards.isNotEmpty ? cards[_currentStep4CardIndex] : const SizedBox.shrink();
@@ -2576,9 +2586,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             (
               children: 
               [
-                Text('Informazioni associative', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                Text('Informazioni associative', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                 const SizedBox(height: 8),
-                Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
               ],
             ),
           ),
@@ -2596,7 +2606,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   duration:           const Duration(milliseconds: 300),
                   switchInCurve:      Curves.easeOutCubic,
                   switchOutCurve:     Curves.easeInCubic,
-                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                   transitionBuilder:  (child, animation) 
                   {
                     final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
@@ -2611,7 +2621,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   duration:           const Duration(milliseconds: 300),
                   switchInCurve:      Curves.easeOutCubic,
                   switchOutCurve:     Curves.easeInCubic,
-                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                  layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, ?currentChild]),
                   transitionBuilder:  (child, animation) 
                   {
                     final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
@@ -2621,7 +2631,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   child: KeyedSubtree
                   (
                     key:   ValueKey(_currentStep4CardIndex),
-                    //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                    // No fixed height anymore: takes whatever height the outer Expanded gives it.
                     child: SizedBox
                     (
                       width:  constraints.maxWidth,
@@ -2635,7 +2645,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                       (
                         children: 
                         [
-                          //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                          // Expanded gives the card exactly the residual height, no fragile fixed constant.
                           Expanded
                           (
                             child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCards),
@@ -2682,14 +2692,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: 
       [
-        //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
+        // Same responsive rule as PersonWizardPage: stacks below the threshold.
         ...List.generate(_enrollmentRows.length, (index) 
         {
           final row = _enrollmentRows[index];
           return Padding
           (
             padding: const EdgeInsets.only(bottom: 16),
-            child: _WizardEnrollmentFieldRow
+            child: WizardEnrollmentFieldRow
             (
               yearCtrl:      row.yearCtrl,
               dateCtrl:      row.dateCtrl,
@@ -2791,7 +2801,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   Widget _buildFormCardStaff()
   {
-    //SincronizzazioneDerivata_VediCommentoSuSyncCollaborazioneConRuoloAmministrativo
+    // Derived sync; see the note on _syncCollaborazioneConRuoloAmministrativo.
     _syncCollaborazioneConRuoloAmministrativo();
 
     return WizardFormSectionCard
@@ -2814,7 +2824,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         const SizedBox(height: 16),
         WizardFormInputRow
         (
-          //PresidenteVicepresidenteTesoriere_NonSelezionabileManualmente_SoloValoreForzato
+          // President, vice-president and treasurer are not manually selectable, only the forced value applies.
           label:       'Collaborazione',
           inputWidget: WizardAnimatedOverlayDropdown
           (
@@ -3067,8 +3077,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
           }
 
-          //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-          return _WizardSchoolFieldRow
+          // Same responsive rule as PersonWizardPage: stacks below the threshold.
+          return WizardSchoolFieldRow
           (
             yearCtrl:         r.yearCtrl,
             yearError:        _formErrors['schoolYear_$index'],
@@ -3212,7 +3222,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     );
   }
 
-  //TapSuCardNonSelezionata_ModalitaCreazione_TapSull'IconaMatita_ModalitaModifica_RestituisceNullSeAnnullato
+  // Tapping an unselected card creates; tapping the pencil edits. Returns null if cancelled.
   void _onParentCardTap(PersonItem adult) async
   {
     final bool alreadySelected = _selectedParents.containsKey(adult.fiscalCode);
@@ -3282,7 +3292,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3294,7 +3304,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -3307,9 +3317,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room, stacks only below the threshold rather than always splitting.
+              // Fixes a bug where the previous version always broke the row, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 500,
                 searchBar: WizardAnimatedSearchBar
@@ -3347,7 +3357,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -3417,7 +3427,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3429,7 +3439,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -3442,9 +3452,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room, stacks only below the threshold rather than always splitting.
+              // Fixes a bug where the previous version always broke the row, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 700,
                 searchBar: WizardAnimatedSearchBar
@@ -3499,7 +3509,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -3569,7 +3579,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3581,7 +3591,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -3594,9 +3604,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1140),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room, stacks only below the threshold rather than always splitting.
+              // Fixes a bug where the previous version always broke the row, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 650,
                 searchBar: WizardAnimatedSearchBar
@@ -3648,7 +3658,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -3776,7 +3786,7 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
     {
       if (mounted) 
       {
-        CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
     } 
     finally 
@@ -3801,7 +3811,7 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
         text, 
         style: GoogleFonts.plusJakartaSans
         (
-          color:      const Color(0xFF003C82), 
+          color:      AppTheme.primary, 
           fontWeight: FontWeight.w700, 
           fontSize:   16,
         ),
@@ -3818,23 +3828,15 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
       elevation:       0,
       child: Container
       (
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre540
-        //SenzaQuestoIlBreakpointSullaRigaDeiBottoniQuiSottoNonScatterebbeMai
+        // Responsive width: fills the available space but never past 540.
+        // Without it, the breakpoint on the button row below would never fire.
         width:       double.infinity,
         constraints: BoxConstraints(maxWidth: 540, maxHeight: MediaQuery.of(context).size.height * 0.85),
         decoration: BoxDecoration
         (
-          color:        Colors.white, 
-          borderRadius: BorderRadius.circular(30), 
-          boxShadow: const 
-          [
-            BoxShadow
-            (
-              color:      Color(0x1A000000), 
-              offset:     Offset(0, 8), 
-              blurRadius: 24,
-            )
-          ],
+          color:        Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow:    AppTheme.dialogShadow,
         ),
         child: Column
         (
@@ -3856,14 +3858,14 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
                     (
                       fontSize:   22, 
                       fontWeight: FontWeight.w700, 
-                      color:      const Color(0xFF003C82),
+                      color:      AppTheme.primary,
                     ),
                   ),
                   WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                 ],
               ),
             ),
-            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
             Flexible
             (
               child: SingleChildScrollView
@@ -3942,24 +3944,24 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
             Padding
             (
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 24),
-              //StacksVerticallyWhenTheDialogIsTooNarrowForBothButtonsSideBySide
-              //ModalitaAffiancataRestaComEra(Expanded50/50)_SoloLoStackingUsaLarghezzaFissa
+              // Stacks vertically when the dialog is too narrow for both buttons side by side.
+              // The side-by-side layout stays as is (Expanded 50/50); only the stacked one uses a fixed width.
               child: _ResponsiveReportDialogButtonsRow
               (
                 secondaryButton: WizardAnimatedActionButton
                 (
                   text:       'ANNULLA', 
                   icon:       Icons.cancel_outlined, 
-                  baseColor:  const Color(0xFFE53935), 
-                  hoverColor: const Color(0xFFEF5350), 
+                  baseColor:  AppTheme.danger, 
+                  hoverColor: AppTheme.dangerHover, 
                   onPressed:  () => Navigator.of(context).pop()
                 ),
                 primaryButton: WizardAnimatedActionButton
                 (
                   text:       _isSaving ? 'INVIO IN CORSO...' : 'INVIA SEGNALAZIONE', 
                   icon:       Icons.send_rounded, 
-                  baseColor:  const Color(0xFF003C82), 
-                  hoverColor: const Color(0xFF004D99),
+                  baseColor:  AppTheme.primary, 
+                  hoverColor: AppTheme.primaryHover,
                   onPressed:  _isSaving ? () {} : _sendReport,
                 ),
               ),
@@ -3971,19 +3973,17 @@ class _ReportErrorDialogState extends State<_ReportErrorDialog>
   }
 }
 
-//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra(50/50)_SoloLoStackingUsaLarghezzaFissa
-//StessoCriterioGiaUsatoInAssociationSubjectsTab
+// Only decides side-by-side vs stacked; the side-by-side layout stays 50/50, only stacking uses a fixed width.
+// Same rule already used in AssociationSubjectsTab.
 class _ResponsiveReportDialogButtonsRow extends StatelessWidget
 {
   final Widget secondaryButton;
   final Widget primaryButton;
-  final double breakpoint;
 
   const _ResponsiveReportDialogButtonsRow
   ({
     required this.secondaryButton,
     required this.primaryButton,
-    this.breakpoint = 460,
   });
 
   static const double _kStackedButtonWidth = 240;
@@ -3995,7 +3995,7 @@ class _ResponsiveReportDialogButtonsRow extends StatelessWidget
     (
       builder: (context, constraints)
       {
-        final bool isCompact = constraints.maxWidth < breakpoint;
+        final bool isCompact = constraints.maxWidth < 460;
 
         if (isCompact)
         {
@@ -4063,11 +4063,11 @@ class _ErrorFieldChipState extends State<_ErrorFieldChip>
           padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 10), 
           decoration: BoxDecoration
           (
-            color:        widget.isSelected ? const Color(0xFF003C82) : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white), 
+            color:        widget.isSelected ? AppTheme.primary : (_isHovered ? AppTheme.surfaceHover : Colors.white), 
             borderRadius: BorderRadius.circular(100), 
             border:       Border.all
             (
-              color: widget.isSelected ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), 
+              color: widget.isSelected ? AppTheme.primary : AppTheme.border, 
               width: 1.0,
             ),
           ), 
@@ -4078,7 +4078,7 @@ class _ErrorFieldChipState extends State<_ErrorFieldChip>
             (
               fontSize:   14, 
               fontWeight: FontWeight.w600, 
-              color:      widget.isSelected ? Colors.white : const Color(0xFF003C82),
+              color:      widget.isSelected ? Colors.white : AppTheme.primary,
             ), 
             child: Text(widget.label),
           ),
@@ -4086,580 +4086,4 @@ class _ErrorFieldChipState extends State<_ErrorFieldChip>
       ),
     ); 
   } 
-}
-
-//DecideRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
-//StessoCriterioDiPersonWizardPage_ConLarghezzaFissa230CoerenteConQuestoDialog
-class _ResponsiveWizardBottomBar extends StatelessWidget
-{
-  final Widget secondaryButton;
-  final Widget primaryButton;
-
-  const _ResponsiveWizardBottomBar
-  ({
-    required this.secondaryButton,
-    required this.primaryButton,
-  });
-
-  static const double _kButtonWidth = 230;
-  static const double _kSpacing = 24;
-  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              SizedBox(width: _kButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row
-        (
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: 
-          [
-            SizedBox(width: _kButtonWidth, child: secondaryButton),
-            const SizedBox(width: _kSpacing),
-            SizedBox(width: _kButtonWidth, child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDiPersonWizardPage
-class _WizardAddressFieldsRow extends StatelessWidget
-{
-  final TextEditingController tipoViaCtrl;
-  final String?               tipoViaError;
-  final ValueChanged<String>  onTipoViaChanged;
-
-  final TextEditingController nomeCtrl;
-  final String?               nomeError;
-  final ValueChanged<String>  onNomeChanged;
-
-  final TextEditingController civicoCtrl;
-  final String?               civicoError;
-  final ValueChanged<String>  onCivicoChanged;
-
-  const _WizardAddressFieldsRow
-  ({
-    required this.tipoViaCtrl,
-    required this.tipoViaError,
-    required this.onTipoViaChanged,
-    required this.nomeCtrl,
-    required this.nomeError,
-    required this.onNomeChanged,
-    required this.civicoCtrl,
-    required this.civicoError,
-    required this.onCivicoChanged,
-  });
-
-  static const double _kBreakpoint = 420;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 6),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   13, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget tipoViaField = WizardAnimatedTextField
-        (
-          controller: tipoViaCtrl, 
-          hint:       'Via/Strada/...',
-          errorText:  tipoViaError,
-          onChanged:  onTipoViaChanged,
-        );
-
-        final Widget nomeField = WizardAnimatedTextField
-        (
-          controller: nomeCtrl, 
-          hint:       'Nome',
-          errorText:  nomeError,
-          onChanged:  onNomeChanged,
-        );
-
-        final Widget civicoField = WizardAnimatedTextField
-        (
-          controller: civicoCtrl, 
-          hint:       'N°',
-          errorText:  civicoError,
-          onChanged:  onCivicoChanged,
-        );
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Via / Piazza'),
-              tipoViaField,
-              const SizedBox(height: 16),
-              _buildLabel('Nome via'),
-              nomeField,
-              const SizedBox(height: 16),
-              _buildLabel('Numero civico'),
-              civicoField,
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 3, child: tipoViaField),
-            const SizedBox(width: 8),
-            Expanded(flex: 5, child: nomeField),
-            const SizedBox(width: 8),
-            Expanded(flex: 2, child: civicoField),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDiPersonWizardPage
-class _WizardEnrollmentFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-  final String?               yearError;
-  final String?               dateError;
-  final ValueChanged<String>  onYearChanged;
-  final ValueChanged<String>  onDateChanged;
-  final VoidCallback?         onRemove;
-
-  const _WizardEnrollmentFieldRow
-  ({
-    required this.yearCtrl,
-    required this.dateCtrl,
-    required this.yearError,
-    required this.dateError,
-    required this.onYearChanged,
-    required this.onDateChanged,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 360;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   14, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget yearField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Anno'),
-            WizardAnimatedTextField
-            (
-              controller:   yearCtrl, 
-              hint:         'Es. 2024', 
-              keyboardType: TextInputType.number,
-              errorText:    yearError,
-              onChanged:    onYearChanged,
-            ),
-          ],
-        );
-
-        final Widget dateField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Data inizio'),
-            WizardAnimatedTextField
-            (
-              controller:      dateCtrl, 
-              hint:            'gg/mm', 
-              keyboardType:    TextInputType.number,
-              inputFormatters: [WizardDayMonthInputFormatter()],
-              errorText:       dateError,
-              onChanged:       onDateChanged,
-            ),
-          ],
-        );
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              yearField,
-              const SizedBox(height: 16),
-              onRemove == null
-                  ? dateField
-                  : Row
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: 
-                      [
-                        Expanded(child: dateField),
-                        const SizedBox(width: 8),
-                        WizardRemoveRowButton(onTap: onRemove!),
-                      ],
-                    ),
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 2, child: yearField),
-            const SizedBox(width: 16),
-            Expanded(flex: 3, child: dateField),
-            onRemove != null
-                ? Padding
-                  (
-                    padding: const EdgeInsets.only(top: 32, left: 8),
-                    child:   WizardRemoveRowButton(onTap: onRemove!),
-                  )
-                : const SizedBox(width: 48),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareIQuattroCampi_StessoCriterioDiPersonWizardPage
-class _WizardSchoolFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final String?                yearError;
-  final ValueChanged<String>   onYearChanged;
-
-  final String?                 schoolValue;
-  final List<String>            schoolOptions;
-  final String?                 schoolError;
-  final ValueChanged<String>    onSchoolSelected;
-
-  final String?                 programValue;
-  final List<String>            programOptions;
-  final bool                    programEnabled;
-  final String?                 programError;
-  final ValueChanged<String>    onProgramSelected;
-
-  final String?                 gradeValue;
-  final List<String>            gradeOptions;
-  final bool                    gradeEnabled;
-  final String?                 gradeError;
-  final ValueChanged<String>    onGradeSelected;
-
-  final VoidCallback?           onRemove;
-
-  const _WizardSchoolFieldRow
-  ({
-    required this.yearCtrl,
-    required this.yearError,
-    required this.onYearChanged,
-    required this.schoolValue,
-    required this.schoolOptions,
-    required this.schoolError,
-    required this.onSchoolSelected,
-    required this.programValue,
-    required this.programOptions,
-    required this.programEnabled,
-    required this.programError,
-    required this.onProgramSelected,
-    required this.gradeValue,
-    required this.gradeOptions,
-    required this.gradeEnabled,
-    required this.gradeError,
-    required this.onGradeSelected,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 700;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   12, 
-          fontWeight: FontWeight.w700, 
-          color:      const Color(0xFF64748B),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container
-    (
-      margin:     const EdgeInsets.only(bottom: 16),
-      padding:    const EdgeInsets.all(20),
-      decoration: BoxDecoration
-      (
-        borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: const Color(0xFFE2E8F0)),
-        color:        const Color(0xFFF8FAFC),
-      ),
-      child: LayoutBuilder
-      (
-        builder: (context, constraints)
-        {
-          final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-          final Widget yearField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Anno inizio'),
-              WizardAnimatedTextField
-              (
-                controller:   yearCtrl,
-                hint:         'Es. 2024',
-                errorText:    yearError,
-                keyboardType: TextInputType.number,
-                onChanged:    onYearChanged,
-              ),
-            ],
-          );
-
-          final Widget schoolField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Scuola'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      schoolValue,
-                items:      schoolOptions,
-                hint:       'Scuola',
-                errorText:  schoolError,
-                onChanged:  onSchoolSelected,
-              ),
-            ],
-          );
-
-          final Widget programField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Percorso'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      programValue,
-                items:      programOptions,
-                hint:       'Percorso',
-                enabled:    programEnabled,
-                errorText:  programError,
-                onChanged:  onProgramSelected,
-              ),
-            ],
-          );
-
-          final Widget gradeField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Classe'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      gradeValue,
-                items:      gradeOptions,
-                hint:       'Classe',
-                enabled:    gradeEnabled,
-                errorText:  gradeError,
-                onChanged:  onGradeSelected,
-              ),
-            ],
-          );
-
-          if (isCompact)
-          {
-            return Column
-            (
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
-              [
-                yearField,
-                const SizedBox(height: 16),
-                schoolField,
-                const SizedBox(height: 16),
-                programField,
-                const SizedBox(height: 16),
-                onRemove == null
-                    ? gradeField
-                    : Row
-                      (
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: 
-                        [
-                          Expanded(child: gradeField),
-                          const SizedBox(width: 8),
-                          WizardRemoveRowButton(onTap: onRemove!),
-                        ],
-                      ),
-              ],
-            );
-          }
-
-          return Row
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              Expanded(flex: 2, child: yearField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: schoolField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: programField),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: gradeField),
-              onRemove != null
-                  ? Padding
-                    (
-                      padding: const EdgeInsets.only(top: 28, left: 16),
-                      child:   WizardRemoveRowButton(onTap: onRemove!),
-                    )
-                  : const SizedBox(width: 48),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-
-//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
-class _ResponsiveSearchFilterRow extends StatelessWidget
-{
-  final Widget searchBar;
-  final List<Widget> filterWidgets;
-  final double breakpoint;
-  final double spacing;
-
-  const _ResponsiveSearchFilterRow
-  ({
-    required this.searchBar,
-    required this.filterWidgets,
-    this.breakpoint = 700,
-    this.spacing = 12,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < breakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
-              searchBar,
-              SizedBox(height: spacing),
-              Wrap
-              (
-                spacing:    spacing,
-                runSpacing: spacing,
-                children:   filterWidgets,
-              ),
-            ],
-          );
-        }
-
-        final List<Widget> rowChildren = [Expanded(child: searchBar)];
-        for (final w in filterWidgets)
-        {
-          rowChildren.add(SizedBox(width: spacing));
-          rowChildren.add(w);
-        }
-
-        return Row(children: rowChildren);
-      },
-    );
-  }
 }

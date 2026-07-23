@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+
+const Color _comingSoonColor = Color(0xA6003C82);
+
 class DashboardPlaceholderCard extends StatelessWidget
 {
+  static const double _titleTop = 25;
+
   final String title;
   final double width;
   final double height;
@@ -23,20 +29,14 @@ class DashboardPlaceholderCard extends StatelessWidget
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(40),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            offset: Offset(0, 4),
-            blurRadius: 16,
-            spreadRadius: 0,
-          ),
-        ],
+        boxShadow: AppTheme.cardShadow,
       ),
+      // The title is pinned near the top while the placeholder label stays
+      // centred on the whole card, which a Column could not do.
       child: Stack(
         children: [
-          //TitleSection
           Positioned(
-            top: 25,
+            top: _titleTop,
             left: 0,
             right: 0,
             child: Center(
@@ -45,20 +45,18 @@ class DashboardPlaceholderCard extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 25,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF003C82),
+                  color: AppTheme.primary,
                 ),
               ),
             ),
           ),
-
-          //WIPLabel
           Center(
             child: Text(
               'In arrivo...',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 30,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xA6003C82),
+                color: _comingSoonColor,
               ),
             ),
           ),

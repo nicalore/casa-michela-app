@@ -12,7 +12,6 @@ class LoginResponse
     required this.passwordResetRequired,
   });
 
-  //ConstructFromJson
   factory LoginResponse.fromJson(Map<String, dynamic> json)
   {
     return LoginResponse(

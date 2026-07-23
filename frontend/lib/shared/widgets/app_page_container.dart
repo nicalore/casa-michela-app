@@ -1,20 +1,21 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+typedef PageContentBuilder = Widget Function(
+  BuildContext context,
+  double width,
+  double height,
+);
+
 class AppPageContainer extends StatefulWidget
 {
-  final Widget Function
-  (
-    BuildContext context,
-    double width,
-    double height,
-  ) builder;
-
+  final PageContentBuilder builder;
   final double minWidth;
   final double minHeight;
 
-  const AppPageContainer
-  ({
+  const AppPageContainer({
     super.key,
     required this.builder,
     required this.minWidth,
@@ -32,70 +33,55 @@ class _AppPageContainerState extends State<AppPageContainer>
   @override
   void dispose()
   {
-    //ReleaseResources
     _verticalController.dispose();
-
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context)
+  // Native builds take the viewport as it is: the minimum size below exists to
+  // keep the desktop layout intact in a small browser window, and imposing it
+  // on a phone would only clip the interface.
+  Widget _buildNativeLayout()
   {
-    if (!kIsWeb)
-    {
-      //NativeMobileLayout
-      return LayoutBuilder
-      (
-        builder: (BuildContext context, BoxConstraints constraints)
-        {
-          return widget.builder
-          (
-            context,
-            constraints.maxWidth,
-            constraints.maxHeight,
-          );
-        },
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) => widget.builder(
+        context,
+        constraints.maxWidth,
+        constraints.maxHeight,
+      ),
+    );
+  }
 
-    //WebBrowserLayout
-    return LayoutBuilder
-    (
-      builder: (BuildContext context, BoxConstraints constraints)
+  Widget _buildWebLayout()
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
       {
-        final double width = constraints.maxWidth < widget.minWidth
-            ? widget.minWidth
-            : constraints.maxWidth;
+        final width = math.max(constraints.maxWidth, widget.minWidth);
+        final height = math.max(constraints.maxHeight, widget.minHeight);
 
-        final double height = constraints.maxHeight < widget.minHeight
-            ? widget.minHeight
-            : constraints.maxHeight;
-
-        return Scrollbar
-        (
+        return Scrollbar(
           controller: _verticalController,
           thumbVisibility: true,
           trackVisibility: true,
-          child: SingleChildScrollView
-          (
+          child: SingleChildScrollView(
             controller: _verticalController,
-            child: ConstrainedBox
-            (
-              constraints: BoxConstraints
-              (
-                minWidth: width,
-                minHeight: height,
-              ),
-              child: widget.builder
-              (
-                context,
-                width,
-                height,
-              ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: width, minHeight: height),
+              child: widget.builder(context, width, height),
             ),
           ),
         );
       },
     );
+  }
+
+  // kIsWeb is true in every browser, phones included, so this is not a
+  // desktop-versus-mobile switch: on the web build the scrollable branch always
+  // wins, and index.html scales it down for touch devices through its virtual
+  // viewport. The native branch is reached only by the Android and iOS builds.
+  @override
+  Widget build(BuildContext context)
+  {
+    return kIsWeb ? _buildWebLayout() : _buildNativeLayout();
   }
 }

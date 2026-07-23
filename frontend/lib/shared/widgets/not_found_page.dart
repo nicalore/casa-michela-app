@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_theme.dart';
 import 'app_primary_button.dart';
+
+const String _fontFamily = 'Plus Jakarta Sans';
 
 class NotFoundPage extends StatelessWidget
 {
@@ -32,16 +35,16 @@ class NotFoundPage extends StatelessWidget
                 const Text(
                   'Errore 404',
                   style: TextStyle(
-                    fontFamily: 'Plus Jakarta Sans',
+                    fontFamily: _fontFamily,
                     fontSize: 44,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF003C82),
+                    color: AppTheme.primary,
                     height: 1.0,
                   ),
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'L\'indirizzo che hai digitato non corrisponde a nessuna pagina disponibile.',
+                  "L'indirizzo che hai digitato non corrisponde a nessuna pagina disponibile.",
                   textAlign: TextAlign.center,
                   softWrap: false,
                   overflow: TextOverflow.visible,

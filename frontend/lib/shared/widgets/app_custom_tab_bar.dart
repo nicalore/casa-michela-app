@@ -1,9 +1,41 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:flutter/foundation.dart';
+import '../../core/theme/app_theme.dart';
 
-class AppCustomTabBar extends StatefulWidget {
+const Color _idleTabText = Color(0xFF6B7A8A);
+const Color _indicatorColor = Color(0xFF12A0D7);
+const Color _baselineColor = Color(0x22003C82);
+const Color _arrowHoverBackground = Color(0x0A003C82);
+
+const double _barHeight = 54;
+const double _arrowWidth = 48;
+const double _tabFontSize = 18;
+const double _indicatorHeight = 3;
+const double _baselineHeight = 2;
+
+// Horizontal breathing room added to the measured text width to obtain the
+// clickable width of a tab.
+const double _tabHorizontalPadding = 44;
+
+// Tabs are always measured at their bold weight, which is the widest state:
+// otherwise selecting a tab would make it grow and shift its neighbours.
+const FontWeight _measurementFontWeight = FontWeight.w700;
+
+const int _measurementAttempts = 8;
+const Duration _measurementRetryDelay = Duration(milliseconds: 200);
+
+// Differences below this threshold are sub pixel noise and must not trigger a
+// relayout, or the widget would keep rebuilding itself.
+const double _widthTolerance = 0.5;
+
+// Keeps the invisible measuring row far outside any viewport, so it can be laid
+// out by Flutter without ever being seen.
+const double _offscreenLeft = -100000;
+
+class AppCustomTabBar extends StatefulWidget
+{
   final List<String> tabs;
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
@@ -21,140 +53,219 @@ class AppCustomTabBar extends StatefulWidget {
   State<AppCustomTabBar> createState() => _AppCustomTabBarState();
 }
 
-class _AppCustomTabBarState extends State<AppCustomTabBar> {
-  int _currentPage = 0;
-  List<List<int>> _pages = [];
-  List<double> _pageOffsets = [];
-  List<double> _tabWidths = [];
-  double _totalTabsWidth = 0;
+class _AppCustomTabBarState extends State<AppCustomTabBar>
+{
+  final List<List<int>> _pages = [];
+  final List<double> _pageOffsets = [];
 
+  List<double> _tabWidths = [];
   List<GlobalKey> _measureKeys = [];
+
+  double _totalTabsWidth = 0;
+  int _currentPage = 0;
   bool _measurementScheduled = false;
 
+  double get _arrowsTotalWidth => _arrowWidth * 2;
+
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    _measureKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    _measureKeys = _buildMeasureKeys();
     _updateLayout(widget.maxWidth, _estimateWidths(widget.tabs));
     _scheduleMeasurement();
   }
 
   @override
-  void didUpdateWidget(AppCustomTabBar oldWidget) {
+  void didUpdateWidget(AppCustomTabBar oldWidget)
+  {
     super.didUpdateWidget(oldWidget);
-    final bool tabsChanged = !listEquals(oldWidget.tabs, widget.tabs);
-    final bool needsLayout = oldWidget.maxWidth != widget.maxWidth || tabsChanged;
-    final bool needsPageUpdate = oldWidget.selectedIndex != widget.selectedIndex;
 
-    if (tabsChanged) {
-      _measureKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    final tabsChanged = !listEquals(oldWidget.tabs, widget.tabs);
+    final needsLayout = oldWidget.maxWidth != widget.maxWidth || tabsChanged;
+    final needsPageUpdate = oldWidget.selectedIndex != widget.selectedIndex;
+
+    if (tabsChanged)
+    {
+      _measureKeys = _buildMeasureKeys();
     }
 
-    if (needsLayout) {
-      // Se i tab non sono cambiati, riparti dalle larghezze già misurate
-      // (evita un frame "sballato" ad ogni resize). Altrimenti stima
-      // provvisoriamente in attesa della prima misura reale.
-      final List<double> startingWidths =
-          (!tabsChanged && _tabWidths.length == widget.tabs.length)
-              ? _tabWidths
-              : _estimateWidths(widget.tabs);
+    if (needsLayout)
+    {
+      // When the labels are unchanged the already measured widths are reused,
+      // so a resize does not flash a frame laid out on rough estimates.
+      final startingWidths = (!tabsChanged && _tabWidths.length == widget.tabs.length)
+          ? _tabWidths
+          : _estimateWidths(widget.tabs);
+
       _updateLayout(widget.maxWidth, startingWidths);
       _scheduleMeasurement();
-    } else if (needsPageUpdate) {
-      final int newPage = _pages.indexWhere((p) => p.contains(widget.selectedIndex));
-      if (newPage != -1 && newPage != _currentPage) {
+
+      return;
+    }
+
+    if (needsPageUpdate)
+    {
+      final newPage = _pages.indexWhere((page) => page.contains(widget.selectedIndex));
+
+      if (newPage != -1 && newPage != _currentPage)
+      {
         _currentPage = newPage;
       }
     }
   }
 
-  // Stima grezza usata SOLO per il primissimo frame, prima che la misura
-  // reale sia disponibile: serve solo a evitare una tab bar a larghezza
-  // zero per un istante. Verrà quasi certamente corretta subito dopo.
-  List<double> _estimateWidths(List<String> tabs) {
-    final style = GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700);
-    return tabs.map((tab) {
-      final tp = TextPainter(
+  List<GlobalKey> _buildMeasureKeys() => List.generate(widget.tabs.length, (_) => GlobalKey());
+
+  TextStyle get _measurementStyle => GoogleFonts.plusJakartaSans(
+        fontSize: _tabFontSize,
+        fontWeight: _measurementFontWeight,
+      );
+
+  // Rough estimate used only for the very first frame, before a real
+  // measurement exists: it just avoids a zero width tab bar for an instant and
+  // is almost always corrected right after.
+  List<double> _estimateWidths(List<String> tabs)
+  {
+    final style = _measurementStyle;
+
+    return tabs.map((tab)
+    {
+      final painter = TextPainter(
         text: TextSpan(text: tab, style: style),
         textDirection: TextDirection.ltr,
       )..layout();
-      return tp.size.width + 44;
+
+      return painter.size.width + _tabHorizontalPadding;
     }).toList();
   }
 
-  // Dopo ogni frame, legge la larghezza VERA di ogni tab dalla riga ombra.
-  // Se differisce da quella assunta finora, ricalcola pagine e frecce.
-  // Riprova per un certo numero di round (con piccola pausa tra uno e
-  // l'altro) per assorbire un eventuale caricamento tardivo del font,
-  // qualunque sia il motivo del ritardo.
-  void _scheduleMeasurement({int attemptsLeft = 8}) {
-    if (_measurementScheduled) return;
-    _measurementScheduled = true;
+  // Reads the real width of every label from the invisible measuring row.
+  // Returns null while the render objects are not laid out yet.
+  List<double>? _readMeasuredWidths()
+  {
+    final measured = <double>[];
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _measurementScheduled = false;
-      if (!mounted) return;
+    for (final key in _measureKeys)
+    {
+      final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
 
-      final List<double> measured = [];
-      for (final key in _measureKeys) {
-        final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-        if (renderBox == null || !renderBox.hasSize) {
-          if (attemptsLeft > 0) _scheduleMeasurement(attemptsLeft: attemptsLeft - 1);
-          return;
-        }
-        measured.add(renderBox.size.width + 44);
+      if (renderBox == null || !renderBox.hasSize)
+      {
+        return null;
       }
 
-      if (measured.length != _tabWidths.length) {
-        if (attemptsLeft > 0) _scheduleMeasurement(attemptsLeft: attemptsLeft - 1);
+      measured.add(renderBox.size.width + _tabHorizontalPadding);
+    }
+
+    return measured;
+  }
+
+  bool _widthsDiffer(List<double> measured)
+  {
+    for (var i = 0; i < measured.length; i++)
+    {
+      if ((measured[i] - _tabWidths[i]).abs() > _widthTolerance)
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void _scheduleMeasurement({int attemptsLeft = _measurementAttempts})
+  {
+    if (_measurementScheduled)
+    {
+      return;
+    }
+
+    _measurementScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      _measurementScheduled = false;
+
+      if (!mounted)
+      {
         return;
       }
 
-      bool changed = false;
-      for (int i = 0; i < measured.length; i++) {
-        if ((measured[i] - _tabWidths[i]).abs() > 0.5) {
-          changed = true;
-          break;
+      final measured = _readMeasuredWidths();
+
+      // Either not laid out yet, or out of sync with the widths currently in
+      // use: retry on the next frame instead of committing a wrong layout.
+      if (measured == null || measured.length != _tabWidths.length)
+      {
+        if (attemptsLeft > 0)
+        {
+          _scheduleMeasurement(attemptsLeft: attemptsLeft - 1);
         }
+
+        return;
       }
 
-      if (changed) {
-        setState(() {
-          _updateLayout(widget.maxWidth, measured);
-        });
+      if (_widthsDiffer(measured))
+      {
+        setState(() => _updateLayout(widget.maxWidth, measured));
       }
 
-      if (attemptsLeft > 0) {
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) _scheduleMeasurement(attemptsLeft: attemptsLeft - 1);
+      // Polling continues for a few rounds even after a successful
+      // measurement, to absorb a late font swap that changes the text metrics.
+      if (attemptsLeft > 0)
+      {
+        Future.delayed(_measurementRetryDelay, ()
+        {
+          if (mounted)
+          {
+            _scheduleMeasurement(attemptsLeft: attemptsLeft - 1);
+          }
         });
       }
     });
   }
 
-  void _updateLayout(double maxWidth, List<double> tabWidths) {
+  // Splits the tabs into pages that fit the available width. A page break is
+  // introduced as soon as the next tab would overflow, and the offset of each
+  // page is the cumulative width of the pages before it.
+  void _updateLayout(double maxWidth, List<double> tabWidths)
+  {
     _tabWidths = tabWidths;
-    _totalTabsWidth = _tabWidths.fold(0.0, (a, b) => a + b);
+    _totalTabsWidth = _tabWidths.fold(0.0, (sum, width) => sum + width);
     _pages.clear();
     _pageOffsets.clear();
 
-    if (_totalTabsWidth <= maxWidth) {
-      _pages.add(List.generate(widget.tabs.length, (i) => i));
+    if (_totalTabsWidth <= maxWidth)
+    {
+      _pages.add(List.generate(widget.tabs.length, (index) => index));
       _pageOffsets.add(0.0);
-    } else {
-      final availableWidthForTabs = (maxWidth - 96).clamp(1.0, double.infinity);
-      List<int> currentPage = [];
-      double currentWidth = 0;
-      double currentOffset = 0;
+    }
+    else
+    {
+      // Paging means the arrows are shown, and they eat into the width left
+      // for the tabs themselves.
+      final availableWidthForTabs =
+          (maxWidth - _arrowsTotalWidth).clamp(1.0, double.infinity);
 
-      for (int i = 0; i < widget.tabs.length; i++) {
-        if (currentPage.isEmpty) {
+      var currentPage = <int>[];
+      var currentWidth = 0.0;
+      var currentOffset = 0.0;
+
+      for (var i = 0; i < widget.tabs.length; i++)
+      {
+        if (currentPage.isEmpty)
+        {
           currentPage.add(i);
           currentWidth = _tabWidths[i];
-        } else if (currentWidth + _tabWidths[i] <= availableWidthForTabs) {
+        }
+        else if (currentWidth + _tabWidths[i] <= availableWidthForTabs)
+        {
           currentPage.add(i);
           currentWidth += _tabWidths[i];
-        } else {
+        }
+        else
+        {
           _pages.add(currentPage);
           _pageOffsets.add(currentOffset);
           currentOffset += currentWidth;
@@ -162,77 +273,80 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
           currentWidth = _tabWidths[i];
         }
       }
-      if (currentPage.isNotEmpty) {
+
+      if (currentPage.isNotEmpty)
+      {
         _pages.add(currentPage);
         _pageOffsets.add(currentOffset);
       }
     }
 
-    final int validPage = _pages.indexWhere((p) => p.contains(widget.selectedIndex));
+    final validPage = _pages.indexWhere((page) => page.contains(widget.selectedIndex));
     _currentPage = validPage != -1 ? validPage : 0;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Rete di sicurezza: se per qualche motivo le chiavi non sono ancora
-    // allineate al numero di tab correnti, rigenerale e pianifica subito
-    // una misura, invece di rischiare un mismatch di lunghezza in build().
-    if (_measureKeys.length != widget.tabs.length) {
-      _measureKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _scheduleMeasurement();
-      });
+  double get _indicatorLeft
+  {
+    var left = 0.0;
+
+    for (var i = 0; i < widget.selectedIndex && i < _tabWidths.length; i++)
+    {
+      left += _tabWidths[i];
     }
 
-    final bool needsArrows = _pages.length > 1;
-    double indicatorLeft = 0;
-    double indicatorWidth = 0;
+    return left;
+  }
 
-    for (int i = 0; i < widget.selectedIndex && i < _tabWidths.length; i++) {
-      indicatorLeft += _tabWidths[i];
+  double get _indicatorWidth
+  {
+    if (widget.selectedIndex < 0 || widget.selectedIndex >= _tabWidths.length)
+    {
+      return 0;
     }
-    if (widget.selectedIndex >= 0 && widget.selectedIndex < _tabWidths.length) {
-      indicatorWidth = _tabWidths[widget.selectedIndex];
-    }
 
-    final allTabsWidgets = List.generate(widget.tabs.length, (tabIndex) {
-      final title = widget.tabs[tabIndex];
-      final isSelected = tabIndex == widget.selectedIndex;
-      final double tabWidth = tabIndex < _tabWidths.length ? _tabWidths[tabIndex] : 0;
+    return _tabWidths[widget.selectedIndex];
+  }
 
-      return MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => widget.onTabSelected(tabIndex),
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: tabWidth,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOut,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? const Color(0xFF003C82) : const Color(0xFF6B7A8A),
-                  ),
-                  child: Text(title, overflow: TextOverflow.visible),
+  Widget _buildTab(int tabIndex)
+  {
+    final isSelected = tabIndex == widget.selectedIndex;
+    final tabWidth = tabIndex < _tabWidths.length ? _tabWidths[tabIndex] : 0.0;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => widget.onTabSelected(tabIndex),
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: tabWidth,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: _tabFontSize,
+                  fontWeight: isSelected ? _measurementFontWeight : FontWeight.w500,
+                  color: isSelected ? AppTheme.primary : _idleTabText,
                 ),
+                child: Text(widget.tabs[tabIndex], overflow: TextOverflow.visible),
               ),
             ),
           ),
         ),
-      );
-    });
+      ),
+    );
+  }
 
-    // Riga "ombra": stesso testo, stesso font/peso usato per la misura,
-    // ma invisibile (opacity 0) e posizionata fuori dall'area visibile.
-    // Serve solo a far sì che Flutter la disegni davvero, cosicché
-    // possiamo leggerne la vera dimensione dal RenderBox dopo il frame.
-    final Widget shadowRow = Positioned(
-      left: -100000,
+  // Invisible twin of the tab row: same text and same font as the measurement
+  // style, but transparent and pushed off screen. It exists only so that
+  // Flutter actually lays it out, letting the real size be read from its
+  // RenderBox after the frame.
+  Widget _buildMeasuringRow()
+  {
+    return Positioned(
+      left: _offscreenLeft,
       top: 0,
       child: ExcludeSemantics(
         child: IgnorePointer(
@@ -241,12 +355,17 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: List.generate(widget.tabs.length, (i) {
-                if (i >= _measureKeys.length) return const SizedBox.shrink();
+              children: List.generate(widget.tabs.length, (i)
+              {
+                if (i >= _measureKeys.length)
+                {
+                  return const SizedBox.shrink();
+                }
+
                 return Text(
                   widget.tabs[i],
                   key: _measureKeys[i],
-                  style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700),
+                  style: _measurementStyle,
                 );
               }),
             ),
@@ -254,18 +373,40 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    // Safety net: if the keys are somehow out of sync with the current tabs,
+    // regenerate them and schedule a measurement rather than risking a length
+    // mismatch while building.
+    if (_measureKeys.length != widget.tabs.length)
+    {
+      _measureKeys = _buildMeasureKeys();
+
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          _scheduleMeasurement();
+        }
+      });
+    }
+
+    final needsArrows = _pages.length > 1;
 
     return SizedBox(
       width: widget.maxWidth,
-      height: 54,
+      height: _barHeight,
       child: Stack(
         alignment: Alignment.bottomLeft,
         children: [
-          shadowRow,
+          _buildMeasuringRow(),
           Container(
-            height: 2,
+            height: _baselineHeight,
             width: double.infinity,
-            color: const Color(0x22003C82),
+            color: _baselineColor,
           ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -273,13 +414,11 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
               if (needsArrows)
                 _AppCustomArrowButton(
                   icon: Icons.chevron_left_rounded,
-                  onPressed: _currentPage > 0
-                      ? () => setState(() => _currentPage--)
-                      : null,
+                  onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
                 ),
               Expanded(
                 child: SizedBox(
-                  height: 54,
+                  height: _barHeight,
                   child: ClipRect(
                     child: Stack(
                       children: [
@@ -299,19 +438,17 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
                                 alignment: Alignment.centerLeft,
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children: allTabsWidgets,
+                                  children: List.generate(widget.tabs.length, _buildTab),
                                 ),
                               ),
                               AnimatedPositioned(
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeOutCubic,
-                                left: indicatorLeft,
+                                left: _indicatorLeft,
                                 bottom: 0,
-                                width: indicatorWidth,
-                                height: 3,
-                                child: Container(
-                                  color: const Color(0xFF12A0D7),
-                                ),
+                                width: _indicatorWidth,
+                                height: _indicatorHeight,
+                                child: Container(color: _indicatorColor),
                               ),
                             ],
                           ),
@@ -336,7 +473,8 @@ class _AppCustomTabBarState extends State<AppCustomTabBar> {
   }
 }
 
-class _AppCustomArrowButton extends StatefulWidget {
+class _AppCustomArrowButton extends StatefulWidget
+{
   final IconData icon;
   final VoidCallback? onPressed;
 
@@ -346,22 +484,24 @@ class _AppCustomArrowButton extends StatefulWidget {
   State<_AppCustomArrowButton> createState() => _AppCustomArrowButtonState();
 }
 
-class _AppCustomArrowButtonState extends State<_AppCustomArrowButton> {
+class _AppCustomArrowButtonState extends State<_AppCustomArrowButton>
+{
   bool _isHovered = false;
   bool _isPressed = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final isDisabled = widget.onPressed == null;
+  bool get _isDisabled => widget.onPressed == null;
 
+  @override
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
-      onEnter: (_) => !isDisabled ? setState(() => _isHovered = true) : null,
-      onExit: (_) => !isDisabled ? setState(() => _isHovered = false) : null,
-      cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      onEnter: _isDisabled ? null : (_) => setState(() => _isHovered = true),
+      onExit: _isDisabled ? null : (_) => setState(() => _isHovered = false),
+      cursor: _isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: GestureDetector(
-        onTapDown: (_) => !isDisabled ? setState(() => _isPressed = true) : null,
-        onTapUp: (_) => !isDisabled ? setState(() => _isPressed = false) : null,
-        onTapCancel: () => !isDisabled ? setState(() => _isPressed = false) : null,
+        onTapDown: _isDisabled ? null : (_) => setState(() => _isPressed = true),
+        onTapUp: _isDisabled ? null : (_) => setState(() => _isPressed = false),
+        onTapCancel: _isDisabled ? null : () => setState(() => _isPressed = false),
         onTap: widget.onPressed,
         behavior: HitTestBehavior.opaque,
         child: AnimatedScale(
@@ -370,15 +510,17 @@ class _AppCustomArrowButtonState extends State<_AppCustomArrowButton> {
           curve: Curves.easeOut,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 48,
-            height: 54,
+            width: _arrowWidth,
+            height: _barHeight,
             decoration: BoxDecoration(
-              color: _isHovered && !isDisabled ? const Color(0x0A003C82) : Colors.transparent,
+              color: _isHovered && !_isDisabled ? _arrowHoverBackground : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               widget.icon,
-              color: isDisabled ? const Color(0xFF6B7A8A).withValues(alpha: 0.4) : const Color(0xFF003C82),
+              color: _isDisabled
+                  ? _idleTabText.withValues(alpha: 0.4)
+                  : AppTheme.primary,
             ),
           ),
         ),

@@ -3,22 +3,30 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
-import '../../shared/widgets/app_page_container.dart';
-import '../../shared/widgets/app_custom_tab_bar.dart';
-import '../../shared/widgets/snackbar.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
-
+import '../../shared/widgets/app_custom_tab_bar.dart';
+import '../../shared/widgets/app_page_container.dart';
+import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_watermark.dart';
+import '../../shared/widgets/pill_tab_bar.dart';
+import '../../shared/widgets/snackbar.dart';
+import 'models/association_subject_item.dart';
+import 'models/ministry_subject_item.dart';
 import 'models/school_item.dart';
 import 'models/study_program_item.dart';
-import 'models/ministry_subject_item.dart';
-import 'models/association_subject_item.dart';
-
-import 'tabs/schools_tab.dart';
-import 'tabs/study_programs_tab.dart';
 import 'tabs/association_subjects_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
+import 'tabs/schools_tab.dart';
+import 'tabs/study_programs_tab.dart';
 
-class AssociationPage extends StatefulWidget 
+const int _schoolsContentIndex = 0;
+const int _associationSubjectsContentIndex = 1;
+const int _ministrySubjectsContentIndex = 2;
+const int _studyProgramsContentIndex = 3;
+
+class AssociationPage extends StatefulWidget
 {
   const AssociationPage({super.key});
 
@@ -26,15 +34,15 @@ class AssociationPage extends StatefulWidget
   State<AssociationPage> createState() => _AssociationPageState();
 }
 
-class _AssociationPageState extends State<AssociationPage> 
+class _AssociationPageState extends State<AssociationPage>
 {
   final ApiService _apiService = ApiService();
 
   int _mainSelectedTab = 0;
   int _didatticaSelectedTab = 0;
 
-  //TieneTracciaDiQualiTabSonoStatiAperti_UnaVoltaVisitatoRestaMontatoNellIndexedStack
-  //VieneAzzeratoSoloQuandoAssociationPageVieneDistruttaDaGoRouter_UscendoDallaPagina
+  // Records which tabs have been opened: once visited a tab stays mounted in
+  // the IndexedStack. Reset only when GoRouter destroys this page.
   final Set<int> _visitedTabs = {};
 
   final List<String> _mainTabs = ['Scuole', 'Didattica'];
@@ -45,8 +53,9 @@ class _AssociationPageState extends State<AssociationPage>
     'Percorsi di studio',
   ];
 
-  //FonteUnicaDiVeritaPerLeEntitaCondiviseTraITab_CaricataUnaSolaVoltaAllAperturaDellaPagina
-  //RisolveIlDisallineamentoDeiTabCongelatiNellIndexedStack_OgniSetStateQuiPropagaAiFigliTramiteDidUpdateWidget
+  // Single source of truth for the entities shared across tabs, loaded once
+  // when the page opens. Every setState here propagates to the frozen tabs in
+  // the IndexedStack through their didUpdateWidget.
   bool _isLoading = true;
   List<SchoolItem> _schools = [];
   List<StudyProgramItem> _studyPrograms = [];
@@ -72,45 +81,53 @@ class _AssociationPageState extends State<AssociationPage>
         _apiService.getAssociationSubjects(),
       ]);
 
-      if (mounted)
+      if (!mounted)
       {
-        setState(()
-        {
-          _schools = results[0] as List<SchoolItem>;
-          _studyPrograms = results[1] as List<StudyProgramItem>;
-          _ministrySubjects = results[2] as List<MinistrySubjectItem>;
-          _associationSubjects = results[3] as List<AssociationSubjectItem>;
-          _isLoading = false;
-        });
+        return;
       }
+
+      setState(()
+      {
+        _schools = results[0] as List<SchoolItem>;
+        _studyPrograms = results[1] as List<StudyProgramItem>;
+        _ministrySubjects = results[2] as List<MinistrySubjectItem>;
+        _associationSubjects = results[3] as List<AssociationSubjectItem>;
+        _isLoading = false;
+      });
     }
     catch (e)
     {
-      if (mounted)
+      if (!mounted)
       {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
+        return;
       }
+
+      setState(() => _isLoading = false);
+      CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
     }
   }
 
-  // -----------------------------------------------------------------------
-  // RifetchMiratoDelLivelloDipendente
-  // -----------------------------------------------------------------------
-  //OgniEntitaIncorporaUnaCopiaDenormalizzataDellEntitaSottostante(EsMinistrySubjectItem.associationSubjects)
-  //RicevutaDalBackendAlMomentoDelFetch_QuestaCopiaNonVieneAggiornataDaUnaModificaOEliminazioneASeStante
-  //QuindiDopoUnEditODeleteRifacciamoIlFetchDelLivelloSuperioreCosiLaCopiaAnnidataTornaFresca
+  // Every entity embeds a denormalized copy of the entity below it (for
+  // example MinistrySubjectItem.associationSubjects), received from the backend
+  // at fetch time. That copy is not updated by a standalone edit or delete, so
+  // after such an operation the level above is refetched to make the nested
+  // copy fresh again. These refresh failures are swallowed on purpose: the
+  // primary operation already succeeded and must not be reported as failed.
 
   Future<void> _refreshMinistrySubjects() async
   {
     try
     {
       final refreshed = await _apiService.getMinistrySubjects();
-      if (mounted) setState(() { _ministrySubjects = refreshed; });
+
+      if (mounted)
+      {
+        setState(() => _ministrySubjects = refreshed);
+      }
     }
     catch (e)
     {
-      //LOperazionePrimariaEGiaAndataABuonFine_NonBlocchiamoLUtentePerUnFallimentoDelSoloRefresh
+      // Intentionally ignored, see the note above.
     }
   }
 
@@ -119,11 +136,15 @@ class _AssociationPageState extends State<AssociationPage>
     try
     {
       final refreshed = await _apiService.getStudyPrograms();
-      if (mounted) setState(() { _studyPrograms = refreshed; });
+
+      if (mounted)
+      {
+        setState(() => _studyPrograms = refreshed);
+      }
     }
     catch (e)
     {
-      //LOperazionePrimariaEGiaAndataABuonFine_NonBlocchiamoLUtentePerUnFallimentoDelSoloRefresh
+      // Intentionally ignored, see the note above.
     }
   }
 
@@ -132,30 +153,39 @@ class _AssociationPageState extends State<AssociationPage>
     try
     {
       final refreshed = await _apiService.getSchools();
-      if (mounted) setState(() { _schools = refreshed; });
+
+      if (mounted)
+      {
+        setState(() => _schools = refreshed);
+      }
     }
     catch (e)
     {
-      //LOperazionePrimariaEGiaAndataABuonFine_NonBlocchiamoLUtentePerUnFallimentoDelSoloRefresh
+      // Intentionally ignored, see the note above.
     }
   }
 
-  // -----------------------------------------------------------------------
-  // DisciplineInterne (AssociationSubject)
-  // -----------------------------------------------------------------------
+  // --- Discipline interne (AssociationSubject) ---------------------------
 
   Future<bool> _executeCreateAssociationSubject(String name, String area, String description, Function(String) onError) async
   {
     try
     {
       final created = await _apiService.createAssociationSubject(name, area, description);
-      setState(() { _associationSubjects = [..._associationSubjects, created]; });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna creata con successo!', isError: false);
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _associationSubjects = [..._associationSubjects, created]);
+      CustomSnackBar.show(context: context, message: 'Disciplina interna creata con successo!', isError: false);
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
@@ -165,53 +195,76 @@ class _AssociationPageState extends State<AssociationPage>
     try
     {
       final updated = await _apiService.updateAssociationSubject(id, name, area, description);
-      setState(() { _associationSubjects = _associationSubjects.map((s) => s.id == id ? updated : s).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna modificata con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniMinistrySubjectItem_AltrimentiRestaConIlNomeVecchio
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _associationSubjects = _associationSubjects.map((s) => s.id == id ? updated : s).toList());
+      CustomSnackBar.show(context: context, message: 'Disciplina interna modificata con successo!', isError: false);
       await _refreshMinistrySubjects();
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
 
-  void _executeDeleteAssociationSubject(AssociationSubjectItem item) async
+  Future<void> _executeDeleteAssociationSubject(AssociationSubjectItem item) async
   {
     try
     {
       await _apiService.deleteAssociationSubject(item.id);
-      setState(() { _associationSubjects = _associationSubjects.where((s) => s.id != item.id).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Disciplina interna eliminata con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniMinistrySubjectItem_AltrimentiContinuaAComparireComeAssociata
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(() => _associationSubjects = _associationSubjects.where((s) => s.id != item.id).toList());
+      CustomSnackBar.show(context: context, message: 'Disciplina interna eliminata con successo!', isError: false);
       await _refreshMinistrySubjects();
     }
     catch (e)
     {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
     }
   }
 
-  // -----------------------------------------------------------------------
-  // MaterieMinisteriali (MinistrySubject)
-  // -----------------------------------------------------------------------
+  // --- Materie ministeriali (MinistrySubject) ----------------------------
 
   Future<bool> _executeCreateMinistrySubject(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
   {
     try
     {
-      final created = await _apiService.createMinistrySubject(name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
-      setState(() { _ministrySubjects = [..._ministrySubjects, created]; });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale creata con successo!', isError: false);
+      final created = await _apiService.createMinistrySubject(
+        name: name,
+        level: level,
+        areas: areas,
+        description: description,
+        associationSubjectIds: associationIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _ministrySubjects = [..._ministrySubjects, created]);
+      CustomSnackBar.show(context: context, message: 'Materia ministeriale creata con successo!', isError: false);
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
@@ -220,54 +273,85 @@ class _AssociationPageState extends State<AssociationPage>
   {
     try
     {
-      final updated = await _apiService.updateMinistrySubject(id: id, name: name, level: level, areas: areas, description: description, associationSubjectIds: associationIds);
-      setState(() { _ministrySubjects = _ministrySubjects.map((s) => s.id == id ? updated : s).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale modificata con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniStudyProgramItem_AltrimentiRestaConIlNomeVecchio
+      final updated = await _apiService.updateMinistrySubject(
+        id: id,
+        name: name,
+        level: level,
+        areas: areas,
+        description: description,
+        associationSubjectIds: associationIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _ministrySubjects = _ministrySubjects.map((s) => s.id == id ? updated : s).toList());
+      CustomSnackBar.show(context: context, message: 'Materia ministeriale modificata con successo!', isError: false);
       await _refreshStudyPrograms();
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
 
-  void _executeDeleteMinistrySubject(MinistrySubjectItem item) async
+  Future<void> _executeDeleteMinistrySubject(MinistrySubjectItem item) async
   {
     try
     {
       await _apiService.deleteMinistrySubject(item.id);
-      setState(() { _ministrySubjects = _ministrySubjects.where((s) => s.id != item.id).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Materia ministeriale eliminata con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniStudyProgramItem_AltrimentiContinuaAComparireComeAssociata
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(() => _ministrySubjects = _ministrySubjects.where((s) => s.id != item.id).toList());
+      CustomSnackBar.show(context: context, message: 'Materia ministeriale eliminata con successo!', isError: false);
       await _refreshStudyPrograms();
     }
     catch (e)
     {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
     }
   }
 
-  // -----------------------------------------------------------------------
-  // PercorsiDiStudio (StudyProgram)
-  // -----------------------------------------------------------------------
+  // --- Percorsi di studio (StudyProgram) ---------------------------------
 
   Future<bool> _executeCreateStudyProgram(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
   {
     try
     {
-      final created = await _apiService.createStudyProgram(name: name, level: level, minYear: minYear, maxYear: maxYear, description: description, ministrySubjectIds: subjectIds);
-      setState(() { _studyPrograms = [..._studyPrograms, created]; });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso creato con successo!', isError: false);
+      final created = await _apiService.createStudyProgram(
+        name: name,
+        level: level,
+        minYear: minYear,
+        maxYear: maxYear,
+        description: description,
+        ministrySubjectIds: subjectIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _studyPrograms = [..._studyPrograms, created]);
+      CustomSnackBar.show(context: context, message: 'Percorso creato con successo!', isError: false);
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
@@ -276,52 +360,87 @@ class _AssociationPageState extends State<AssociationPage>
   {
     try
     {
-      final updated = await _apiService.updateStudyProgram(id: id, name: name, level: level, minYear: minYear, maxYear: maxYear, description: description, ministrySubjectIds: subjectIds);
-      setState(() { _studyPrograms = _studyPrograms.map((p) => p.id == id ? updated : p).toList(); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso modificato con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniSchoolItem_AltrimentiRestaConIlNomeVecchio
+      final updated = await _apiService.updateStudyProgram(
+        id: id,
+        name: name,
+        level: level,
+        minYear: minYear,
+        maxYear: maxYear,
+        description: description,
+        ministrySubjectIds: subjectIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _studyPrograms = _studyPrograms.map((p) => p.id == id ? updated : p).toList());
+      CustomSnackBar.show(context: context, message: 'Percorso modificato con successo!', isError: false);
       await _refreshSchools();
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
 
-  void _executeDeleteStudyProgram(StudyProgramItem item) async
+  Future<void> _executeDeleteStudyProgram(StudyProgramItem item) async
   {
     try
     {
       await _apiService.deleteStudyProgram(item.id);
-      setState(() { _studyPrograms = _studyPrograms.where((p) => p.id != item.id).toList(); });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Percorso eliminato con successo!', isError: false);
-      //InvalidaLaCopiaAnnidataDentroOgniSchoolItem_AltrimentiContinuaAComparireComeAssociato
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(() => _studyPrograms = _studyPrograms.where((p) => p.id != item.id).toList());
+      CustomSnackBar.show(context: context, message: 'Percorso eliminato con successo!', isError: false);
       await _refreshSchools();
     }
     catch (e)
     {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Scuole (School)
-  // -----------------------------------------------------------------------
+  // --- Scuole (School) ---------------------------------------------------
+  // The school sits at the top of the denormalization chain, so its edit and
+  // delete do not trigger any cascade refresh.
 
   Future<bool> _executeCreateSchool(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) async
   {
     try
     {
-      final createdSchool = await _apiService.createSchool(code: code, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() { _schools = [..._schools, createdSchool]; });
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola creata con successo!', isError: false);
+      final created = await _apiService.createSchool(
+        code: code,
+        name: name,
+        city: city,
+        province: prov,
+        studyProgramIds: programIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _schools = [..._schools, created]);
+      CustomSnackBar.show(context: context, message: 'Scuola creata con successo!', isError: false);
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
@@ -330,118 +449,83 @@ class _AssociationPageState extends State<AssociationPage>
   {
     try
     {
-      final updatedSchool = await _apiService.updateSchool(id: id, code: code, name: name, city: city, province: prov, studyProgramIds: programIds);
-      setState(() { _schools = _schools.map((s) => s.id == id ? updatedSchool : s).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuModifica_PrimaCEraSoloSuCreazione
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola modificata con successo!', isError: false);
+      final updated = await _apiService.updateSchool(
+        id: id,
+        code: code,
+        name: name,
+        city: city,
+        province: prov,
+        studyProgramIds: programIds,
+      );
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _schools = _schools.map((s) => s.id == id ? updated : s).toList());
+      CustomSnackBar.show(context: context, message: 'Scuola modificata con successo!', isError: false);
+
       return true;
     }
     catch (e)
     {
-      onError(e.toString().replaceAll('Exception: ', ''));
+      onError(readableApiError(e));
       return false;
     }
   }
 
-  void _executeDeleteSchool(SchoolItem item) async
+  Future<void> _executeDeleteSchool(SchoolItem item) async
   {
     try
     {
       await _apiService.deleteSchool(item.id);
-      setState(() { _schools = _schools.where((s) => s.id != item.id).toList(); });
-      //SnackBarDiSuccessoAggiuntoAncheSuCancellazione_PrimaCEraSoloLerroreInCatch
-      if (mounted) CustomSnackBar.show(context: context, message: 'Scuola eliminata con successo!', isError: false);
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(() => _schools = _schools.where((s) => s.id != item.id).toList());
+      CustomSnackBar.show(context: context, message: 'Scuola eliminata con successo!', isError: false);
     }
     catch (e)
     {
-      if (mounted) CustomSnackBar.show(context: context, message: e.toString().replaceAll('Exception: ', ''), isError: true);
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
     }
   }
 
-  //MappaLaCoppia(mainTab,didatticaTab)SuUnIndiceUnicoPerLIndexedStack
-  //0=Scuole_1=DisciplineInterne_2=MaterieMinisteriali_3=PercorsiDiStudio
+  // Maps the (mainTab, didatticaTab) pair onto a single IndexedStack index.
   int _computeContentIndex()
   {
-    if (_mainSelectedTab == 0) return 0;
+    if (_mainSelectedTab == 0)
+    {
+      return _schoolsContentIndex;
+    }
+
     return 1 + _didatticaSelectedTab;
   }
 
-  //StacksToNewLineInsteadOfOverflowing_WasAPlainRowBeforeWithNoWrapAndNoScroll
-  Widget _buildSubNavigation() 
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: List.generate(_didatticaTabs.length, (index) 
-        {
-          final isSelected = _didatticaSelectedTab == index;
-
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () 
-              {
-                setState(() 
-                {
-                  _didatticaSelectedTab = index;
-                  _visitedTabs.add(_computeContentIndex());
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF003C82) : Colors.white,
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF003C82)
-                        : const Color(0xFFE2E8F0),
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : const Color(0xFF64748B),
-                  ),
-                  child: Text(_didatticaTabs[index]),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  //IndexedStack_TieneVivoLoStatoDeiTabGiaVisitati_IlPlaceholderVieneSostituitoSoloAllaPrimaVisita
-  //DopoDiCheIlTabRestaMontatoENonSiRicaricaPiuFinoAllaChiusuraDellIntoraPagina
-  //IDatiCondivisiOraArrivanoDallAltoTramiteWidgetProperty_UnSetStateQuiPropagaAiTabGiaMontatiTramiteDidUpdateWidget
-  //SenzaDisposeERicreazioneDelLoroStatoInterno(ScrollFiltriRicerca)
-  Widget _buildTabContent() 
+  // IndexedStack keeps the state of already visited tabs alive: the
+  // placeholder is replaced only on first visit, after which the tab stays
+  // mounted and does not reload until the whole page is closed. Shared data
+  // arrives from above through the widget properties, so a setState here
+  // propagates to the mounted tabs through their didUpdateWidget, without
+  // disposing and recreating their internal state (scroll, filters, search).
+  Widget _buildTabContent()
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)));
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
 
     return IndexedStack(
       index: _computeContentIndex(),
       children: [
-        _visitedTabs.contains(0)
+        _visitedTabs.contains(_schoolsContentIndex)
             ? SchoolsTab(
                 schools: _schools,
                 studyPrograms: _studyPrograms,
@@ -451,7 +535,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteSchool,
               )
             : const SizedBox.shrink(),
-        _visitedTabs.contains(1)
+        _visitedTabs.contains(_associationSubjectsContentIndex)
             ? AssociationSubjectsTab(
                 associationSubjects: _associationSubjects,
                 onCreate: _executeCreateAssociationSubject,
@@ -459,7 +543,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteAssociationSubject,
               )
             : const SizedBox.shrink(),
-        _visitedTabs.contains(2)
+        _visitedTabs.contains(_ministrySubjectsContentIndex)
             ? MinistrySubjectsTab(
                 ministrySubjects: _ministrySubjects,
                 associationSubjects: _associationSubjects,
@@ -468,7 +552,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteMinistrySubject,
               )
             : const SizedBox.shrink(),
-        _visitedTabs.contains(3)
+        _visitedTabs.contains(_studyProgramsContentIndex)
             ? StudyProgramsTab(
                 studyPrograms: _studyPrograms,
                 ministrySubjects: _ministrySubjects,
@@ -482,167 +566,95 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
+  Widget _buildHeaderPill({required Widget child, double? width, EdgeInsets? padding})
+  {
+    return Container(
+      width: width,
+      height: 54,
+      padding: padding,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.all(Radius.circular(40)),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildHeader(BuildContext context)
+  {
+    return Row(
+      children: [
+        Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(40),
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: WidgetStateProperty.all(Colors.transparent),
+            onTap: () => context.go('/dashboard'),
+            child: _buildHeaderPill(
+              width: 88,
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppTheme.primary,
+                size: 26,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        _buildHeaderPill(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Center(
+            child: Text(
+              'Associazione',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 30,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.primary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return Scaffold(
       body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
-        builder: (context, width, height) 
+        builder: (context, width, height)
         {
           final viewportWidth = MediaQuery.of(context).size.width;
 
           return Container(
             width: width,
             height: height,
-            color: const Color(0xFFF4F7F9),
+            color: AppTheme.pageBackground,
             child: Stack(
               children: [
-                Positioned(
-                  right: -800,
-                  top: -800,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 1600,
-                      height: 1600,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Color(0x4D003C82),
-                            Color(0x22003C82),
-                            Color(0x00003C82),
-                          ],
-                          stops: [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: -800,
-                  bottom: -800,
-                  child: IgnorePointer(
-                    child: Container(
-                      width: 1600,
-                      height: 1600,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Color(0x4D003C82),
-                            Color(0x22003C82),
-                            Color(0x00003C82),
-                          ],
-                          stops: [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (viewportWidth > 1024)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Center(
-                        child: Opacity(
-                          opacity: 0.04,
-                          child: Image.asset(
-                            'assets/images/house_watermark.png',
-                            width: 800,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                const CornerGlow(corner: GlowCorner.topRight),
+                const CornerGlow(corner: GlowCorner.bottomLeft),
+                const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 24,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Material(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(40),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(40),
-                                splashFactory: NoSplash.splashFactory,
-                                overlayColor: WidgetStateProperty.all(
-                                  Colors.transparent,
-                                ),
-                                onTap: () 
-                                {
-                                  context.go('/dashboard');
-                                },
-                                child: Container(
-                                  width: 88,
-                                  height: 54,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(40),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Color(0x0A000000),
-                                        offset: Offset(0, 4),
-                                        blurRadius: 16,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_back_ios_new_rounded,
-                                    color: Color(0xFF003C82),
-                                    size: 26,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Container(
-                              height: 54,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                              ),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(40),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Color(0x0A000000),
-                                    offset: Offset(0, 4),
-                                    blurRadius: 16,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Associazione',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF003C82),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        _buildHeader(context),
                         const SizedBox(height: 16),
                         AppCustomTabBar(
                           tabs: _mainTabs,
                           selectedIndex: _mainSelectedTab,
-                          onTabSelected: (index) 
+                          onTabSelected: (index)
                           {
-                            setState(() 
+                            setState(()
                             {
                               _mainSelectedTab = index;
                               _visitedTabs.add(_computeContentIndex());
@@ -651,11 +663,18 @@ class _AssociationPageState extends State<AssociationPage>
                           maxWidth: viewportWidth - 80,
                         ),
                         _mainSelectedTab == 1
-                            ? _buildSubNavigation()
+                            ? PillTabBar(
+                                labels: _didatticaTabs,
+                                selectedIndex: _didatticaSelectedTab,
+                                padding: const EdgeInsets.only(top: 16.0, bottom: 24.0),
+                                onSelected: (index) => setState(()
+                                {
+                                  _didatticaSelectedTab = index;
+                                  _visitedTabs.add(_computeContentIndex());
+                                }),
+                              )
                             : const SizedBox(height: 24, width: double.infinity),
-                        Expanded(
-                          child: _buildTabContent(),
-                        ),
+                        Expanded(child: _buildTabContent()),
                       ],
                     ),
                   ),

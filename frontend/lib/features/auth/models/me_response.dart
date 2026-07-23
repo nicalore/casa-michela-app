@@ -47,7 +47,6 @@ class MeResponse
     this.zipCode,
   });
 
-  //ConstructFromJson
   factory MeResponse.fromJson(Map<String, dynamic> json)
   {
     return MeResponse(

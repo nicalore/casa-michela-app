@@ -1,22 +1,31 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/snackbar.dart';
+import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
 import '../models/study_program_item.dart';
-import '../models/ministry_subject_item.dart';
 import '../widgets/school_card.dart';
-import '../../../shared/widgets/snackbar.dart'; 
-import '../../../shared/widgets/shared_components.dart';
 
-class SchoolsTab extends StatefulWidget 
+// Shared between the ListView itemExtent and the height of a single tile:
+// the two must match exactly or the scroll math below lands on the wrong row.
+const double _cityOptionItemHeight = 44.0;
+
+class SchoolsTab extends StatefulWidget
 {
-  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
   final List<SchoolItem> schools;
-  //SoloLettura_ServeAllaCardEAlWizardPerAssociareIPercorsiDiStudio_ProprietarioReaeEStudyProgramsTab
+
+  // Read only: needed by the card and by the wizard to link study programs,
+  // but owned by StudyProgramsTab.
   final List<StudyProgramItem> studyPrograms;
-  //SoloLettura_ServeSoloAllaCard(NonAlWizard)_ProprietarioReaeEMinistrySubjectsTab
+
+  // Read only and used by the card alone, not by the wizard.
   final List<MinistrySubjectItem> ministrySubjects;
+
   final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onCreate;
   final Future<bool> Function(int id, String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onEdit;
   final void Function(SchoolItem item) onDelete;
@@ -35,114 +44,140 @@ class SchoolsTab extends StatefulWidget
   State<SchoolsTab> createState() => _SchoolsTabState();
 }
 
-class _SchoolsTabState extends State<SchoolsTab> 
+class _SchoolsTabState extends State<SchoolsTab>
 {
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
-  String _sortBy = 'name_asc';
+  SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterCity;
-  
   bool _newSchoolHover = false;
 
-  //OpzioniGenerateDinamicamenteDalleScuoleEffettivamentePresenti_NonEUnEnumFisso
-  List<_FilterOption<String>> get _cityOptions
+  // Built from the schools actually stored, not from a fixed enum.
+  List<FilterOption<String>> get _cityOptions
   {
-    final cities = widget.schools.map((s) => s.city).toSet().toList();
+    final cities = widget.schools.map((school) => school.city).toSet().toList();
     cities.sort();
-    return cities.map((city) => _FilterOption(value: city, label: city)).toList();
+
+    return cities.map((city) => FilterOption(value: city, label: city)).toList();
   }
 
-  //SuggerimentiPerAutocompletamento_UnaVoceUnicaPerCoppiaCittaProvincia_GestisceOmonimieInProvinceDiverse
+  // One entry per city and province pair, so that homonymous towns in
+  // different provinces stay distinguishable.
   List<_CityProvinceOption> get _citySuggestions
   {
-    final Map<String, _CityProvinceOption> unique = {};
+    final unique = <String, _CityProvinceOption>{};
+
     for (final school in widget.schools)
     {
       final key = '${school.city.toLowerCase()}|${school.province.toUpperCase()}';
       unique[key] = _CityProvinceOption(city: school.city, province: school.province);
     }
+
     final result = unique.values.toList();
     result.sort((a, b) => a.city.compareTo(b.city));
+
     return result;
   }
 
-  List<SchoolItem> get _filteredSchools 
+  List<SchoolItem> get _filteredSchools
   {
-    var result = widget.schools.where((school) 
+    final query = _searchText.toLowerCase();
+
+    final result = widget.schools.where((school)
     {
-      final query = _searchText.toLowerCase();
-      //RicercaRistrettaANomeECodiceMeccanografico_CittaEProvinciaNonPiuInclusi_CEIlFiltroDedicato
+      // City and province are deliberately excluded: they have their own filter.
       final matchesSearch = school.name.toLowerCase().contains(query) ||
           (school.mechanographicCode ?? '').toLowerCase().contains(query);
       final matchesCity = _filterCity == null || school.city == _filterCity;
+
       return matchesSearch && matchesCity;
     }).toList();
 
-    result.sort((a, b) 
+    result.sort((a, b) => switch (_sortBy)
     {
-      if (_sortBy == 'name_asc') return a.name.compareTo(b.name);
-      if (_sortBy == 'name_desc') return b.name.compareTo(a.name);
-      if (_sortBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
-      if (_sortBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
-      return 0;
+      SortCriterion.nameAsc => a.name.compareTo(b.name),
+      SortCriterion.nameDesc => b.name.compareTo(a.name),
+      SortCriterion.dateAsc => a.createdAt.compareTo(b.createdAt),
+      SortCriterion.dateDesc => b.createdAt.compareTo(a.createdAt),
     });
 
     return result;
   }
 
-  void _showWizard({SchoolItem? school, VoidCallback? onCancelEdit}) 
+  void _showWizard({SchoolItem? school, VoidCallback? onCancelEdit})
   {
-    showGeneralDialog(
-      context: context, barrierDismissible: true, barrierLabel: 'SchoolWizard', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) 
-      {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _SchoolWizardDialog(
-                existingSchool: school,
-                //LettaSempreDaWidget.studyPrograms_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
-                availableStudyPrograms: widget.studyPrograms,
-                //StessaLogica_DerivataDaWidget.schools_RicalcolataAOgniAperturaDelWizard
-                citySuggestions: _citySuggestions,
-                onCancelEdit: onCancelEdit,
-                onSave: (code, name, city, prov, programIds, onError) async 
-                {
-                  if (school == null) return await widget.onCreate(code, name, city, prov, programIds, onError);
-                  else return await widget.onEdit(school.id, code, name, city, prov, programIds, onError);
-                },
-              ),
-            ),
-          ),
-        );
-      },
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'SchoolWizard',
+      builder: (context) => _SchoolWizardDialog(
+        existingSchool: school,
+        // Both lists are read here, so they are recomputed from the current
+        // widget state every time the wizard is opened.
+        availableStudyPrograms: widget.studyPrograms,
+        citySuggestions: _citySuggestions,
+        onCancelEdit: onCancelEdit,
+        onSave: (code, name, city, prov, programIds, onError) async
+        {
+          if (school == null)
+          {
+            return await widget.onCreate(code, name, city, prov, programIds, onError);
+          }
+
+          return await widget.onEdit(school.id, code, name, city, prov, programIds, onError);
+        },
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
+    final schools = _filteredSchools;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca per nome o codice meccanografico...')),
+            Expanded(
+              child: AnimatedSearchBar(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchText = value),
+                hintText: 'Cerca per nome o codice meccanografico...',
+              ),
+            ),
             const SizedBox(width: 24),
             MouseRegion(
-              cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _newSchoolHover = true), onExit: (_) => setState(() => _newSchoolHover = false),
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _newSchoolHover = true),
+              onExit: (_) => setState(() => _newSchoolHover = false),
               child: GestureDetector(
                 onTap: () => _showWizard(),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180), curve: Curves.easeOut, height: 50, padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), border: Border.all(color: _newSchoolHover ? const Color(0xFF003C82) : Colors.transparent, width: 2), boxShadow: const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)]),
-                  child: Center(child: Text('Nuova scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(
+                      color: _newSchoolHover ? AppTheme.primary : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Nuova scuola',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -150,23 +185,61 @@ class _SchoolsTabState extends State<SchoolsTab>
         ),
         const SizedBox(height: 32),
         Wrap(
-          spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), _FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente')]),
-            _CustomFilterMenu<String>(hint: 'Tutte le città', icon: Icons.location_city_outlined, value: _filterCity, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterCity = val), onClear: () => setState(() => _filterCity = null), options: _cityOptions),
+            CustomFilterMenu<SortCriterion>(
+              hint: 'Ordina per',
+              icon: Icons.sort_rounded,
+              value: _sortBy,
+              menuWidth: 180,
+              showClearIcon: false,
+              onChanged: (value) => setState(() => _sortBy = value),
+              onClear: () {},
+              options: SortCriterion.values
+                  .map((sort) => FilterOption(value: sort, label: sort.label))
+                  .toList(),
+            ),
+            CustomFilterMenu<String>(
+              hint: 'Tutte le città',
+              icon: Icons.location_city_outlined,
+              value: _filterCity,
+              menuWidth: 200,
+              showClearIcon: true,
+              onChanged: (value) => setState(() => _filterCity = value),
+              onClear: () => setState(() => _filterCity = null),
+              options: _cityOptions,
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        Text(_filteredSchools.length == 1 ? '1 scuola trovata' : '${_filteredSchools.length} scuole trovate', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+        Text(
+          schools.length == 1 ? '1 scuola trovata' : '${schools.length} scuole trovate',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.primary,
+          ),
+        ),
         const SizedBox(height: 16),
-        //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
+        // Only the card area scrolls, so header and filters stay pinned.
         Expanded(
           child: SingleChildScrollView(
             child: Center(
               child: Wrap(
-                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                children: _filteredSchools.map((school) {
-                  return SchoolCard(school: school, availableStudyPrograms: widget.studyPrograms, availableMinistrySubjects: widget.ministrySubjects, onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel), onDelete: () => widget.onDelete(school));
+                alignment: WrapAlignment.center,
+                spacing: 20,
+                runSpacing: 20,
+                children: schools.map((school)
+                {
+                  return SchoolCard(
+                    school: school,
+                    availableStudyPrograms: widget.studyPrograms,
+                    availableMinistrySubjects: widget.ministrySubjects,
+                    onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel),
+                    onDelete: () => widget.onDelete(school),
+                  );
                 }).toList(),
               ),
             ),
@@ -177,71 +250,84 @@ class _SchoolsTabState extends State<SchoolsTab>
   }
 }
 
-class _SchoolWizardDialog extends StatefulWidget 
+class _SchoolWizardDialog extends StatefulWidget
 {
   final SchoolItem? existingSchool;
   final List<StudyProgramItem> availableStudyPrograms;
-  //CoppieCittaProvinciaGiaPresentiNelDb_PerLautocompletamentoDelCampoCitta
   final List<_CityProvinceOption> citySuggestions;
   final VoidCallback? onCancelEdit;
   final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
-  
+
   const _SchoolWizardDialog({
-    this.existingSchool, required this.availableStudyPrograms, required this.citySuggestions, this.onCancelEdit, required this.onSave,
+    this.existingSchool,
+    required this.availableStudyPrograms,
+    required this.citySuggestions,
+    this.onCancelEdit,
+    required this.onSave,
   });
 
   @override
   State<_SchoolWizardDialog> createState() => _SchoolWizardDialogState();
 }
 
-class _SchoolWizardDialogState extends State<_SchoolWizardDialog> 
+class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 {
-  int _currentStep = 0;
-  final PageController _pageController = PageController();
-  bool _isSaving = false;
+  static const Duration _stepTransition = Duration(milliseconds: 300);
+  static const int _provinceLength = 2;
+  static const int _maxCitySuggestions = 8;
 
+  final PageController _pageController = PageController();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _provController = TextEditingController();
-  final TextEditingController _programSearchCtrl = TextEditingController();
+  final TextEditingController _programSearchController = TextEditingController();
 
-  //FocusNodeDedicatoAlCampoCitta_RichiestoDaRawAutocompleteQuandoSiPassaUnTextEditingControllerEsterno
+  // RawAutocomplete requires an explicit FocusNode when an external
+  // TextEditingController is supplied.
   final FocusNode _cityFocusNode = FocusNode();
-  //FocusNodeDedicatoAlCodiceMeccanografico_PerSpostareIlFocusQuiDopoLaSelezioneDellaCittaViaAutocompletamento
   final FocusNode _codeFocusNode = FocusNode();
 
-  //TracciaLultimaCittaConfermataViaAutocompletamento(SelezioneOInvio)
-  //SeIlTestoDelCampoCittaCoincideConQuestoValore_NonMostriamoPiuSuggerimenti_AncheRientrandoConIlFocus
-  //TornaAdAggiornarsiSoloQuandoLutenteModificaEffettivamenteIlTesto(AggiungeORimuoveCaratteri)
+  // Last city confirmed through the autocomplete, by selection or by Enter.
+  // While the field text still equals this value no suggestion is shown, even
+  // when the focus comes back; it is reset as soon as the user edits the text.
   String? _lastConfirmedCity;
 
+  int _currentStep = 0;
+  bool _isSaving = false;
   List<int> _selectedPrograms = [];
 
+  bool get _isEditing => widget.existingSchool != null;
+
   @override
-  void initState() 
+  void initState()
   {
     super.initState();
-    if (widget.existingSchool != null)
+
+    final school = widget.existingSchool;
+
+    if (school != null)
     {
-      _codeController.text = widget.existingSchool!.mechanographicCode ?? '';
-      _nameController.text = widget.existingSchool!.name;
-      _cityController.text = widget.existingSchool!.city;
-      _provController.text = widget.existingSchool!.province;
-      _selectedPrograms = widget.existingSchool!.studyPrograms.map((p) => p.id).toList();
-      //InModificaLaCittaEGiaDefinitiva_NessunSuggerimentoAllaPrimaApertura(ComeSeFosseGiaStataConfermata)
-      _lastConfirmedCity = widget.existingSchool!.city;
+      _codeController.text = school.mechanographicCode ?? '';
+      _nameController.text = school.name;
+      _cityController.text = school.city;
+      _provController.text = school.province;
+      _selectedPrograms = school.studyPrograms.map((program) => program.id).toList();
+
+      // While editing the city is already definitive, so it starts out as if
+      // it had just been confirmed.
+      _lastConfirmedCity = school.city;
     }
   }
 
   @override
-  void dispose() 
+  void dispose()
   {
     _codeController.dispose();
     _nameController.dispose();
     _cityController.dispose();
     _provController.dispose();
-    _programSearchCtrl.dispose();
+    _programSearchController.dispose();
     _cityFocusNode.dispose();
     _codeFocusNode.dispose();
     _pageController.dispose();
@@ -250,12 +336,13 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 
   void _resetForm()
   {
-    setState(() {
+    setState(()
+    {
       _codeController.clear();
       _nameController.clear();
       _cityController.clear();
       _provController.clear();
-      _programSearchCtrl.clear();
+      _programSearchController.clear();
       _selectedPrograms.clear();
       _lastConfirmedCity = null;
       _currentStep = 0;
@@ -263,53 +350,148 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     });
   }
 
-  void _nextStep() async
+  void _closeDialog()
+  {
+    Navigator.of(context).pop();
+
+    if (_isEditing)
+    {
+      widget.onCancelEdit?.call();
+    }
+  }
+
+  bool _validateFirstStep()
+  {
+    final name = _nameController.text.trim();
+    final city = _cityController.text.trim();
+    final province = _provController.text.trim().toUpperCase();
+
+    if (name.isEmpty || city.isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: 'Compila tutti i campi richiesti.', isError: true);
+      return false;
+    }
+
+    if (province.length != _provinceLength)
+    {
+      CustomSnackBar.show(context: context, message: 'La provincia deve essere esattamente di 2 lettere.', isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _nextStep() async
   {
     if (_currentStep == 0)
     {
-      final name = _nameController.text.trim();
-      final city = _cityController.text.trim();
-      final prov = _provController.text.trim().toUpperCase();
+      if (!_validateFirstStep())
+      {
+        return;
+      }
 
-      if (name.isEmpty || city.isEmpty) { CustomSnackBar.show(context: context, message: 'Compila tutti i campi richiesti.', isError: true); return; }
-      if (prov.length != 2) { CustomSnackBar.show(context: context, message: 'La provincia deve essere esattamente di 2 lettere.', isError: true); return; }
-      //IlCodiceMeccanograficoEOpzionaleESenzaVincoliDiFormato_NessunControllo
       setState(() => _currentStep++);
-      _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
+
+      return;
+    }
+
+    if (_selectedPrograms.isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: 'Associa almeno un percorso di studio alla scuola.', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    // An empty field means no code, and travels as null all the way to the DB.
+    final rawCode = _codeController.text.trim().toUpperCase();
+
+    final success = await widget.onSave(
+      rawCode.isEmpty ? null : rawCode,
+      _nameController.text.trim(),
+      _cityController.text.trim(),
+      _provController.text.trim().toUpperCase(),
+      _selectedPrograms,
+      (errorMessage)
+      {
+        if (mounted)
+        {
+          CustomSnackBar.show(context: context, message: errorMessage, isError: true);
+        }
+      },
+    );
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(() => _isSaving = false);
+
+    if (!success)
+    {
+      return;
+    }
+
+    if (_isEditing)
+    {
+      Navigator.of(context).pop();
     }
     else
     {
-      if (_selectedPrograms.isEmpty) { CustomSnackBar.show(context: context, message: 'Associa almeno un percorso di studio alla scuola.', isError: true); return; }
-
-      setState(() => _isSaving = true);
-      //CampoVuoto=NessunCodice_ViaggiaComeNullFinoAlDb
-      final rawCode = _codeController.text.trim().toUpperCase();
-      final String? code = rawCode.isEmpty ? null : rawCode;
-      
-      bool success = await widget.onSave(code, _nameController.text.trim(), _cityController.text.trim(), _provController.text.trim().toUpperCase(), _selectedPrograms, (errorMsg) {
-        if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true);
-      });
-
-      if (mounted) setState(() => _isSaving = false);
-      if (success) {
-        if (widget.existingSchool != null) Navigator.of(context).pop();
-        else _resetForm();
-      }
+      _resetForm();
     }
   }
 
-  void _prevStep() 
+  void _prevStep()
   {
-    if (_currentStep > 0) 
+    if (_currentStep <= 0)
     {
-      setState(() => _currentStep--);
-      _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      return;
     }
+
+    setState(() => _currentStep--);
+    _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
   }
 
-  Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 4, top: 16), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 14)));
+  Widget _buildFieldLabel(String text)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4, top: 16),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
 
-  //CampoCittaConSuggerimentiDaScuoleGiaPresenti_FrecceSuGiuEInvioGestitiInternamenteDaRawAutocomplete_NoiCiLimitiamoAColorareLopzioneEvidenziataEAScrollareVersoDiEssa
+  InputDecoration _buildFieldDecoration(String hintText, {String? counterText})
+  {
+    return InputDecoration(
+      hintText: hintText,
+      counterText: counterText,
+      hintStyle: GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        color: AppTheme.hint,
+        fontWeight: FontWeight.w500,
+      ),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: AppTheme.primary, width: 2),
+      ),
+    );
+  }
+
+  TextStyle get _fieldTextStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        color: Colors.black,
+        fontWeight: FontWeight.w600,
+      );
+
   Widget _buildCityAutocomplete()
   {
     return LayoutBuilder(
@@ -322,30 +504,41 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
           optionsBuilder: (textEditingValue)
           {
             final currentText = textEditingValue.text.trim();
-            if (currentText.isEmpty) return const Iterable<_CityProvinceOption>.empty();
-            //SopprimeISuggerimentiSeIlTestoENonModificatoRispettoAllUltimaSelezioneConfermata
-            //UtileQuandoLoStessoTestoVieneRicalcolatoDaOptionsBuilder(NonCopreIlCasoDelSoloRientroDelFocus_VediOptionsViewBuilderPiuSotto)
+
+            if (currentText.isEmpty)
+            {
+              return const Iterable<_CityProvinceOption>.empty();
+            }
+
             if (_lastConfirmedCity != null && currentText == _lastConfirmedCity)
             {
               return const Iterable<_CityProvinceOption>.empty();
             }
-            //RicercaContains_NonSoloPrefisso_TrovaAncheCittaComposte(Es."SanBonifacio"ScrivendoSolo"bonif")
+
+            // Contains, not prefix: "bonif" has to find "San Bonifacio" too.
             final query = currentText.toLowerCase();
-            return widget.citySuggestions.where((option) => option.city.toLowerCase().contains(query)).take(8);
+
+            return widget.citySuggestions
+                .where((option) => option.city.toLowerCase().contains(query))
+                .take(_maxCitySuggestions);
           },
           onSelected: (option)
           {
-            //IlCampoCittaVieneGiaCompilatoDaRawAutocomplete_QuiCompletiamoSoloLaProvincia_CheRestaComunqueEditabileAMano
-            //MemorizziamoLaCittaAppenaConfermata_PerSopprimereISuggerimentiSeSiRientraNelCampoSenzaModificarla
-            setState(() {
+            setState(()
+            {
               _provController.text = option.province;
-              _lastConfirmedCity   = option.city;
+              _lastConfirmedCity = option.city;
             });
-            //SpostaIlFocusSulCodiceMeccanografico_CursoreInFondoAlTestoSePresente
-            //PostFrameCallback_NecessarioPercheRawAutocompleteCompletaLaSuaLogicaInternaDiChiusuraDopoOnSelected
+
+            // Deferred to the next frame because RawAutocomplete completes its
+            // own closing logic after onSelected returns.
             WidgetsBinding.instance.addPostFrameCallback((_)
             {
-              if (!mounted) return;
+              if (!mounted)
+              {
+                return;
+              }
+
               _codeFocusNode.requestFocus();
               _codeController.selection = TextSelection.collapsed(offset: _codeController.text.length);
             });
@@ -355,24 +548,21 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             return TextField(
               controller: controller,
               focusNode: focusNode,
-              //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
               onSubmitted: (_) => onFieldSubmitted(),
               textCapitalization: TextCapitalization.words,
-              style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                hintText: 'Es. Thiene',
-                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500),
-                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)),
-              ),
+              style: _fieldTextStyle,
+              decoration: _buildFieldDecoration('Es. Thiene'),
             );
           },
           optionsViewBuilder: (context, onSelected, options)
           {
-            //FIXCRUCIALE_RawAutocompleteNonRicalcolaLaListaOpzioniAlSoloRientroDelFocus(SoloAlCambioDelTesto)
-            //Al_selectInterno,ilFrameworkNONAggiornaLaCache"_options":restaConLaQueryPreSelezioneEVieneRimostrataAlRientroDelFocus
-            //(ComportamentoDocumentatoInFlutter/Flutter#167712)_QuindiLaSoppressioneVaFattaQuiLeggendoIlTestoLiveDelController_
-            //NonFidandociDiOptionsPassatoDaRawAutocomplete_CheInQuestoCasoPuoEssereStantio
+            // RawAutocomplete recomputes the option list only when the text
+            // changes, not when the focus comes back, and its internal cache
+            // keeps the pre-selection query (flutter/flutter#167712). The
+            // suppression therefore has to read the live controller text here
+            // instead of trusting the options passed in, which may be stale.
             final currentText = _cityController.text.trim();
+
             if (_lastConfirmedCity != null && currentText == _lastConfirmedCity)
             {
               return const SizedBox.shrink();
@@ -385,13 +575,16 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                 borderRadius: BorderRadius.circular(16),
                 color: Colors.white,
                 shadowColor: const Color(0x33000000),
-                //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+                // Keeps the highlighted row from painting over the rounded corners.
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
                   width: constraints.maxWidth,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 240),
-                    child: _CityOptionsListView(options: options.toList(), onSelected: onSelected),
+                    child: _CityOptionsListView(
+                      options: options.toList(),
+                      onSelected: onSelected,
+                    ),
                   ),
                 ),
               ),
@@ -402,48 +595,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     );
   }
 
-  @override
-  Widget build(BuildContext context) 
-  {
-    bool isEditing = widget.existingSchool != null;
-    return Dialog(
-      backgroundColor: Colors.transparent, elevation: 0,
-      child: Container(
-        width: double.infinity,
-        height: 550,
-        constraints: const BoxConstraints(maxWidth: 600),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(isEditing ? 'Modifica Scuola (${_currentStep + 1}/2)' : 'Nuova Scuola (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-                  StaticHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
-                ],
-              ),
-            ),
-            Expanded(child: PageView(controller: _pageController, physics: const NeverScrollableScrollPhysics(), children: [_buildStep1(), _buildStep2()])),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              //IndietroSiComportaComeAnnulla_PartecipaAlloStackingPerCoerenza_ComeRichiesto
-              child: _ResponsiveDialogButtonsRow(
-                secondaryButton: _currentStep > 0
-                    ? _OutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _prevStep)
-                    : AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
-                //IconaSempreLaSpuntaPerLazioneDiSalvataggio_NonPiuIlDischetto_RichiestaEsplicita
-                primaryButton: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'), icon: _currentStep == 1 ? Icons.check_circle_outline : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep1() 
+  Widget _buildStep1()
   {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -451,101 +603,205 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            //GerarchiaCampiAggiornata_IlNomeApreIlFormComeNuovaIdentitaDellaScuola
-            //NomeECittaFormanoIlVincoloDiUnicita_PercioStannoVisivamenteVicini
+            // Name and city form the uniqueness constraint, hence they sit
+            // next to each other; the code closes the form as an optional
+            // detail.
             _buildFieldLabel('Nome'),
-            TextField(controller: _nameController, textCapitalization: TextCapitalization.words, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Statale F. Corradini', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+              style: _fieldTextStyle,
+              decoration: _buildFieldDecoration('Es. Liceo Statale F. Corradini'),
+            ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Città'), _buildCityAutocomplete()])),
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Città'),
+                      _buildCityAutocomplete(),
+                    ],
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(flex: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Provincia'), TextField(controller: _provController, textCapitalization: TextCapitalization.characters, maxLength: 2, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(counterText: "", hintText: 'Es. VI', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2))))])),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Provincia'),
+                      TextField(
+                        controller: _provController,
+                        textCapitalization: TextCapitalization.characters,
+                        maxLength: _provinceLength,
+                        style: _fieldTextStyle,
+                        decoration: _buildFieldDecoration('Es. VI', counterText: ''),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-            //IlCodiceChiudeIlFormComeDettaglioSecondarioFacoltativo_NonEPiuLaChiaveDiNulla
             _buildFieldLabel('Codice Meccanografico (opzionale)'),
-            TextField(controller: _codeController, focusNode: _codeFocusNode, textCapitalization: TextCapitalization.characters, style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. VIPC02000P', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            TextField(
+              controller: _codeController,
+              focusNode: _codeFocusNode,
+              textCapitalization: TextCapitalization.characters,
+              style: _fieldTextStyle,
+              decoration: _buildFieldDecoration('Es. VIPC02000P'),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStep2() 
+  Widget _buildStep2()
   {
-    final query = _programSearchCtrl.text.toLowerCase();
-    final filteredPrograms = widget.availableStudyPrograms.where((p) => p.name.toLowerCase().contains(query)).toList();
+    final query = _programSearchController.text.toLowerCase();
+
+    final availablePrograms = widget.availableStudyPrograms
+        .where((program) => program.name.toLowerCase().contains(query))
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Seleziona i percorsi di studio attivi in questa scuola', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
+          Text(
+            'Seleziona i percorsi di studio attivi in questa scuola',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 12),
-          AnimatedSearchBar(controller: _programSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca percorso di studio...'),
+          AnimatedSearchBar(
+            controller: _programSearchController,
+            onChanged: (_) => setState(() {}),
+            hintText: 'Cerca percorso di studio...',
+          ),
           const SizedBox(height: 16),
-          Expanded(child: SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredPrograms.map((p) => CustomChip(label: p.name, isSelected: _selectedPrograms.contains(p.id), onSelected: (v) => setState(() { if (v) { _selectedPrograms.add(p.id); } else { _selectedPrograms.remove(p.id); } }))).toList()))),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: availablePrograms.map((program)
+                {
+                  return CustomChip(
+                    label: program.name,
+                    isSelected: _selectedPrograms.contains(program.id),
+                    onSelected: (selected) => setState(()
+                    {
+                      if (selected)
+                      {
+                        _selectedPrograms.add(program.id);
+                      }
+                      else
+                      {
+                        _selectedPrograms.remove(program.id);
+                      }
+                    }),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final isLastStep = _currentStep == 1;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        width: double.infinity,
+        height: 550,
+        constraints: const BoxConstraints(maxWidth: 600),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: AppTheme.dialogShadow,
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _isEditing
+                        ? 'Modifica Scuola (${_currentStep + 1}/2)'
+                        : 'Nuova Scuola (${_currentStep + 1}/2)',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  StaticHoverIconButton(
+                    icon: Icons.close,
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
+                    onTap: _closeDialog,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [_buildStep1(), _buildStep2()],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: ResponsiveDialogButtonsRow(
+                secondaryButton: _currentStep > 0
+                    ? OutlinedActionButton(
+                        text: 'INDIETRO',
+                        icon: Icons.arrow_back_rounded,
+                        onPressed: _prevStep,
+                      )
+                    : AnimatedActionButton(
+                        text: 'ANNULLA',
+                        icon: Icons.cancel_outlined,
+                        baseColor: AppTheme.danger,
+                        hoverColor: AppTheme.dangerHover,
+                        onPressed: _closeDialog,
+                      ),
+                primaryButton: AnimatedActionButton(
+                  text: _isSaving
+                      ? 'SALVATAGGIO...'
+                      : (isLastStep ? (_isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'),
+                  icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
+                  baseColor: AppTheme.primary,
+                  hoverColor: AppTheme.primaryHover,
+                  onPressed: _isSaving ? () {} : _nextStep,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra_SoloLoStackingUsaLarghezzaFissa
-class _ResponsiveDialogButtonsRow extends StatelessWidget
-{
-  final Widget secondaryButton;
-  final Widget primaryButton;
-  final double breakpoint;
-
-  const _ResponsiveDialogButtonsRow
-  ({
-    required this.secondaryButton,
-    required this.primaryButton,
-    this.breakpoint = 460,
-  });
-
-  static const double _kStackedButtonWidth = 240;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < breakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              SizedBox(width: _kStackedButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kStackedButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row
-        (
-          children: 
-          [
-            Expanded(child: secondaryButton),
-            const SizedBox(width: 16),
-            Expanded(child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//CoppiaCittaProvinciaUsataComeOpzioneDiAutocompletamento
 class _CityProvinceOption
 {
   final String city;
@@ -554,11 +810,6 @@ class _CityProvinceOption
   const _CityProvinceOption({required this.city, required this.province});
 }
 
-//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
-//AffinchIlCalcoloDelloScrollPerRaggiungereLelementoEvidenziatoSiaPreciso
-const double _cityOptionItemHeight = 44.0;
-
-//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
 class _CityOptionsListView extends StatefulWidget
 {
   final List<_CityProvinceOption> options;
@@ -572,10 +823,12 @@ class _CityOptionsListView extends StatefulWidget
 
 class _CityOptionsListViewState extends State<_CityOptionsListView>
 {
-  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  // Vertical padding of the ListView, on one side: it is the offset before the
+  // first item in the scroll computation below.
   static const double _verticalPadding = 8;
 
   final ScrollController _scrollController = ScrollController();
+
   int? _lastHighlightedIndex;
 
   @override
@@ -585,10 +838,14 @@ class _CityOptionsListViewState extends State<_CityOptionsListView>
     super.dispose();
   }
 
-  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  // Scrolls by the minimum needed to reveal the arrow-highlighted option,
+  // rather than always centring it.
   void _ensureHighlightedVisible(int index)
   {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients)
+    {
+      return;
+    }
 
     final itemTop = _verticalPadding + (index * _cityOptionItemHeight);
     final itemBottom = itemTop + _cityOptionItemHeight;
@@ -597,6 +854,7 @@ class _CityOptionsListViewState extends State<_CityOptionsListView>
     final visibleBottom = visibleTop + viewportHeight;
 
     double? target;
+
     if (itemTop < visibleTop)
     {
       target = itemTop;
@@ -606,26 +864,33 @@ class _CityOptionsListViewState extends State<_CityOptionsListView>
       target = itemBottom - viewportHeight;
     }
 
-    if (target != null)
+    if (target == null)
     {
-      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.jumpTo(clamped);
+      return;
     }
+
+    _scrollController.jumpTo(target.clamp(0.0, _scrollController.position.maxScrollExtent));
   }
 
   @override
   Widget build(BuildContext context)
   {
-    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    // Reading it here is what creates the reactive dependency on the notifier,
+    // so this widget rebuilds on every arrow key press.
     final highlightedIndex = AutocompleteHighlightedOption.of(context);
 
     if (_lastHighlightedIndex != highlightedIndex)
     {
       _lastHighlightedIndex = highlightedIndex;
-      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+
+      // Deferred: the scrollable must already be laid out to expose
+      // viewportDimension and maxScrollExtent.
       WidgetsBinding.instance.addPostFrameCallback((_)
       {
-        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+        if (mounted)
+        {
+          _ensureHighlightedVisible(highlightedIndex);
+        }
       });
     }
 
@@ -638,20 +903,28 @@ class _CityOptionsListViewState extends State<_CityOptionsListView>
       itemBuilder: (context, index)
       {
         final option = widget.options[index];
-        return _CityOptionTile(option: option, isHighlighted: index == highlightedIndex, onTap: () => widget.onSelected(option));
+
+        return _CityOptionTile(
+          option: option,
+          isHighlighted: index == highlightedIndex,
+          onTap: () => widget.onSelected(option),
+        );
       },
     );
   }
 }
 
-//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)
 class _CityOptionTile extends StatefulWidget
 {
   final _CityProvinceOption option;
   final bool isHighlighted;
   final VoidCallback onTap;
 
-  const _CityOptionTile({required this.option, required this.isHighlighted, required this.onTap});
+  const _CityOptionTile({
+    required this.option,
+    required this.isHighlighted,
+    required this.onTap,
+  });
 
   @override
   State<_CityOptionTile> createState() => _CityOptionTileState();
@@ -664,8 +937,7 @@ class _CityOptionTileState extends State<_CityOptionTile>
   @override
   Widget build(BuildContext context)
   {
-    //StessoLinguaggioVisivoDi_FilterMenuItem_PerCoerenzaConIlDesignSystem
-    final bool active = widget.isHighlighted || _hover;
+    final isActive = widget.isHighlighted || _hover;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -675,20 +947,47 @@ class _CityOptionTileState extends State<_CityOptionTile>
         onTap: widget.onTap,
         child: Container(
           width: double.infinity,
-          //AltezzaFissa_CoerenteConItemExtentDelListView_LallineamentoVerticaleDelContenutoEDelegatoAlCrossAxisAlignmentCenterDiRow(Default)
           height: _cityOptionItemHeight,
-          color: active ? const Color(0xFFF5F8FC) : Colors.transparent,
+          color: isActive ? AppTheme.surfaceHover : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: active ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 2,
+                height: isActive ? 16 : 0,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: Text(widget.option.city, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82)))),
+              Expanded(
+                child: Text(
+                  widget.option.city,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(8)),
-                child: Text(widget.option.province, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                decoration: BoxDecoration(
+                  color: AppTheme.iconHover,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  widget.option.province,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primary,
+                  ),
+                ),
               ),
             ],
           ),
@@ -697,15 +996,3 @@ class _CityOptionTileState extends State<_CityOptionTile>
     );
   }
 }
-
-class CustomChip extends StatefulWidget { final String label; final bool isSelected; final ValueChanged<bool> onSelected; const CustomChip({required this.label, required this.isSelected, required this.onSelected, super.key}); @override State<CustomChip> createState() => _CustomChipState(); }
-class _CustomChipState extends State<CustomChip> { bool _isHovered = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTap: () => widget.onSelected(!widget.isSelected), child: AnimatedContainer(duration: const Duration(milliseconds: 150), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: widget.isSelected ? const Color(0xFF003C82) : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white), borderRadius: BorderRadius.circular(100), border: Border.all(color: widget.isSelected ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.0)), child: AnimatedDefaultTextStyle(duration: const Duration(milliseconds: 150), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: widget.isSelected ? Colors.white : const Color(0xFF003C82)), child: Text(widget.label))))); } }
-class _OutlinedActionButton extends StatefulWidget { final String text; final IconData icon; final VoidCallback onPressed; const _OutlinedActionButton({required this.text, required this.icon, required this.onPressed}); @override State<_OutlinedActionButton> createState() => _OutlinedActionButtonState(); }
-class _OutlinedActionButtonState extends State<_OutlinedActionButton> { bool _isHovered = false; bool _isPressed = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTapDown: (_) => setState(() => _isPressed = true), onTapUp: (_) { setState(() => _isPressed = false); widget.onPressed(); }, onTapCancel: () => setState(() => _isPressed = false), child: AnimatedScale(scale: _isPressed ? 0.95 : 1.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOutQuint, child: AnimatedContainer(duration: const Duration(milliseconds: 250), curve: Curves.easeOutQuint, height: 56, decoration: BoxDecoration(color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF003C82), width: 1.5)), alignment: Alignment.center, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(widget.icon, color: const Color(0xFF003C82), size: 20), const SizedBox(width: 8), Text(widget.text, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), letterSpacing: 1.2))]))))); } }
-class _FilterOption<T> { final T value; final String label; _FilterOption({required this.value, required this.label}); }
-class _CustomFilterMenu<T> extends StatefulWidget { final String hint; final IconData icon; final T? value; final List<_FilterOption<T>> options; final ValueChanged<T> onChanged; final VoidCallback onClear; final double menuWidth; final bool showClearIcon; const _CustomFilterMenu({required this.hint, required this.icon, required this.value, required this.options, required this.onChanged, required this.onClear, required this.menuWidth, required this.showClearIcon}); @override State<_CustomFilterMenu<T>> createState() => _CustomFilterMenuState<T>(); }
-class _CustomFilterMenuState<T> extends State<_CustomFilterMenu<T>> { final GlobalKey _buttonKey = GlobalKey(); OverlayEntry? _overlayEntry; final GlobalKey<_FilterOverlayContentState> _menuKey = GlobalKey(); bool _isHovered = false; void _toggleMenu() { if (_overlayEntry != null) { _closeMenu(); return; } final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox; final size = renderBox.size; final offset = renderBox.localToGlobal(Offset.zero); _overlayEntry = OverlayEntry(builder: (context) => Stack(children: [Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _closeMenu, child: Container())), Positioned(top: offset.dy + size.height + 8, left: offset.dx, child: _FilterOverlayContent<T>(key: _menuKey, currentValue: widget.value, options: widget.options, menuWidth: widget.menuWidth, onSelected: (val) { widget.onChanged(val); _closeMenu(); }))] )); Overlay.of(context).insert(_overlayEntry!); } void _closeMenu() async { if (_overlayEntry != null) { await _menuKey.currentState?.hide(); _overlayEntry?.remove(); _overlayEntry = null; } } @override Widget build(BuildContext context) { final bool isActive = widget.value != null; String displayText = widget.hint; if (isActive) { final selectedOption = widget.options.firstWhere((o) => o.value == widget.value, orElse: () => _FilterOption(value: widget.value!, label: '')); displayText = selectedOption.label; } return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTap: _toggleMenu, child: AnimatedContainer(key: _buttonKey, duration: const Duration(milliseconds: 200), height: 42, padding: EdgeInsets.only(left: 16, right: (isActive && widget.showClearIcon) ? 12 : 16), decoration: BoxDecoration(color: _isHovered || isActive ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _isHovered || isActive ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.5), boxShadow: const [BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8)]), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(widget.icon, color: const Color(0xFF003C82), size: 18), const SizedBox(width: 8), ConstrainedBox(constraints: const BoxConstraints(maxWidth: 160), child: Text(displayText, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: isActive ? const Color(0xFF003C82) : const Color(0xFF8A8A8A)))), if (isActive && widget.showClearIcon) ...[const SizedBox(width: 8), GestureDetector(onTap: () { widget.onClear(); if (_overlayEntry != null) _closeMenu(); }, child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: .1), shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935))))]] )))); } }
-class _FilterOverlayContent<T> extends StatefulWidget { final T? currentValue; final List<_FilterOption<T>> options; final ValueChanged<T> onSelected; final double menuWidth; const _FilterOverlayContent({super.key, required this.currentValue, required this.options, required this.onSelected, required this.menuWidth}); @override State<_FilterOverlayContent<T>> createState() => _FilterOverlayContentState<T>(); }
-class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>> { bool _expanded = false; @override void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _expanded = true); }); } Future<void> hide() async { if (mounted) setState(() => _expanded = false); await Future.delayed(const Duration(milliseconds: 180)); } @override Widget build(BuildContext context) { return Material(color: Colors.transparent, child: Container(width: widget.menuWidth, constraints: const BoxConstraints(maxHeight: 350), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)]), child: AnimatedSize(duration: const Duration(milliseconds: 180), curve: Curves.easeOut, alignment: Alignment.topCenter, child: _expanded ? Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: widget.options.map((option) { return _FilterMenuItem(text: option.label, isSelected: widget.currentValue == option.value, onTap: () => widget.onSelected(option.value)); }).toList()))) : SizedBox(width: widget.menuWidth, height: 0)))); } }
-class _FilterMenuItem extends StatefulWidget { final String text; final bool isSelected; final VoidCallback onTap; const _FilterMenuItem({required this.text, required this.isSelected, required this.onTap}); @override State<_FilterMenuItem> createState() => _FilterMenuItemState(); }
-class _FilterMenuItemState extends State<_FilterMenuItem> { bool _hover = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _hover = true), onExit: (_) => setState(() => _hover = false), child: GestureDetector(onTap: widget.onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), color: Colors.transparent, child: Row(children: [AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: (_hover || widget.isSelected) ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))), const SizedBox(width: 10), Expanded(child: Text(widget.text, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82))))])))); } }

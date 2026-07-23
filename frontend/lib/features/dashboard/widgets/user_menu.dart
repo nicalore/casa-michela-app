@@ -2,29 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const double _leadingSpace = 14;
+import '../../../core/theme/app_theme.dart';
 
-//Returns the specific icon based on the user's role
-IconData _getRoleIcon(String role)
-{
-  switch (role.toUpperCase())
-  {
-    case 'DOCENTE':
-      return Icons.school_outlined;
-    case 'STUDENTE':
-      return Icons.menu_book_outlined;
-    case 'AMMINISTRATORE':
-      return Icons.computer_outlined;
-    case 'PSICOLOGO':
-      return Icons.psychology_outlined;
-    case 'CORSISTA':
-      return Icons.self_improvement_rounded;
-    case 'GENITORE':
-      return Icons.family_restroom_outlined;
-    default:
-      return Icons.badge_outlined;
-  }
-}
+const Color _logoutColor = Color(0xFFC62828);
+
+const double _menuWidth = 210;
+const double _leadingSpace = 14;
+const double _iconSize = 18;
+const double _iconTextGap = 10;
+const double _itemRadius = 10;
+const double _hoverBarHeight = 20;
+
+const EdgeInsets _itemPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+
+// Keyed by the Italian labels produced by RoleLabelMapper, not by the backend
+// role codes: renaming a label there silently falls back to the default icon.
+const Map<String, IconData> _roleIcons = <String, IconData>{
+  'AMMINISTRATORE': Icons.computer_outlined,
+  'DOCENTE': Icons.school_outlined,
+  'PSICOLOGO': Icons.psychology_outlined,
+  'STUDENTE': Icons.menu_book_outlined,
+  'CORSISTA': Icons.self_improvement_rounded,
+  'GENITORE': Icons.family_restroom_outlined,
+};
+
+IconData _roleIcon(String role) => _roleIcons[role.toUpperCase()] ?? Icons.badge_outlined;
 
 class UserMenu extends StatefulWidget
 {
@@ -55,17 +57,11 @@ class _UserMenuState extends State<UserMenu>
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 210,
+        width: _menuWidth,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -74,32 +70,20 @@ class _UserMenuState extends State<UserMenu>
               activeRole: widget.activeRole,
               availableRoles: widget.availableRoles,
               expanded: _rolesExpanded,
-              onToggle: ()
-              {
-                if (widget.availableRoles.length > 1)
-                {
-                  setState(()
-                  {
-                    _rolesExpanded = !_rolesExpanded;
-                  });
-                }
-              },
+              onToggle: () => setState(() => _rolesExpanded = !_rolesExpanded),
               onRoleSelected: widget.onRoleSelected,
             ),
             const Divider(height: 1),
             _HoverMenuItem(
               icon: Icons.settings_outlined,
               text: 'Impostazioni',
-              color: const Color(0xFF003C82),
-              onTap: ()
-              {
-                context.go('/settings');
-              },
+              color: AppTheme.primary,
+              onTap: () => context.go('/settings'),
             ),
             _HoverMenuItem(
               icon: Icons.logout_rounded,
               text: 'Logout',
-              color: const Color(0xFFC62828),
+              color: _logoutColor,
               onTap: widget.onLogout,
             ),
           ],
@@ -128,6 +112,8 @@ class _RoleSection extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    // With a single role there is nothing to switch to, so the header is inert
+    // and the chevron is hidden.
     final canExpand = availableRoles.length > 1;
 
     return Column(
@@ -135,24 +121,21 @@ class _RoleSection extends StatelessWidget
       children: [
         InkWell(
           onTap: canExpand ? onToggle : null,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(_itemRadius),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
+            padding: _itemPadding,
             child: Row(
               children: [
                 const SizedBox(width: _leadingSpace),
                 SizedBox(
-                  width: 18,
+                  width: _iconSize,
                   child: Icon(
-                    _getRoleIcon(activeRole),
-                    size: 18,
-                    color: const Color(0xFF003C82),
+                    _roleIcon(activeRole),
+                    size: _iconSize,
+                    color: AppTheme.primary,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: _iconTextGap),
                 Expanded(
                   child: Text(
                     activeRole,
@@ -161,7 +144,7 @@ class _RoleSection extends StatelessWidget
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
                 ),
@@ -171,7 +154,7 @@ class _RoleSection extends StatelessWidget
                     duration: const Duration(milliseconds: 200),
                     child: const Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
               ],
@@ -181,33 +164,28 @@ class _RoleSection extends StatelessWidget
         AnimatedSize(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          child: expanded
-              ? Column(
-                  children: availableRoles
-                      .where((role) => role != activeRole)
-                      .map((role)
-                      {
-                        return _HoverMenuItem(
-                          icon: _getRoleIcon(role),
-                          text: role,
-                          color: const Color(0xFF003C82),
-                          onTap: ()
-                          {
-                            onRoleSelected(role);
-                          },
-                        );
-                      })
-                      .toList(),
-                )
-              : const SizedBox.shrink(),
+          child: expanded ? _buildAlternativeRoles() : const SizedBox.shrink(),
         ),
       ],
     );
   }
+
+  Widget _buildAlternativeRoles()
+  {
+    return Column(
+      children: availableRoles
+          .where((role) => role != activeRole)
+          .map((role) => _HoverMenuItem(
+                icon: _roleIcon(role),
+                text: role,
+                color: AppTheme.primary,
+                onTap: () => onRoleSelected(role),
+              ))
+          .toList(),
+    );
+  }
 }
 
-// Voce di menù con hover: mostra una barretta laterale animata senza
-// spostare icona e testo (nessuno shift orizzontale durante l'hover).
 class _HoverMenuItem extends StatefulWidget
 {
   final IconData icon;
@@ -235,39 +213,24 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
   {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_)
-      {
-        setState(()
-        {
-          _hover = true;
-        });
-      },
-      onExit: (_)
-      {
-        setState(()
-        {
-          _hover = false;
-        });
-      },
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(_itemRadius),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          padding: _itemPadding,
+          // The hover bar sits in a Stack under the Row rather than inside it,
+          // so growing it does not shift icon and text sideways.
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.centerLeft,
             children: [
-              // Barretta di hover: posizionata sotto la Row, non ne
-              // influenza la larghezza né la posizione degli elementi.
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 width: 2,
-                height: _hover ? 20 : 0,
+                height: _hover ? _hoverBarHeight : 0,
                 decoration: BoxDecoration(
                   color: widget.color,
                   borderRadius: BorderRadius.circular(2),
@@ -277,14 +240,10 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
                 children: [
                   const SizedBox(width: _leadingSpace),
                   SizedBox(
-                    width: 18,
-                    child: Icon(
-                      widget.icon,
-                      size: 18,
-                      color: widget.color,
-                    ),
+                    width: _iconSize,
+                    child: Icon(widget.icon, size: _iconSize, color: widget.color),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: _iconTextGap),
                   Text(
                     widget.text,
                     maxLines: 1,

@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 
-class SplashPage extends StatelessWidget 
+import '../../core/theme/app_theme.dart';
+
+class SplashPage extends StatelessWidget
 {
+  static const double _indicatorSize = 48;
+
   const SplashPage({super.key});
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return const Scaffold(
-      backgroundColor: Color(0xFFF4F7F9),
+      backgroundColor: AppTheme.pageBackground,
       body: Center(
         child: SizedBox(
-          width: 48,
-          height: 48,
-          child: CircularProgressIndicator(
-            color: Color(0xFF003C82),
-          ),
+          width: _indicatorSize,
+          height: _indicatorSize,
+          child: CircularProgressIndicator(color: AppTheme.primary),
         ),
       ),
     );

@@ -6,28 +6,16 @@ import 'widgets/dashboard_layout.dart';
 
 class DashboardPage extends StatelessWidget
 {
-  const DashboardPage
-  ({
-    super.key,
-  });
+  const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context)
   {
-    return Scaffold
-    (
-      body: AppPageContainer
-      (
+    return Scaffold(
+      body: AppPageContainer(
         minWidth: AppDimensions.minDashboardWidth,
         minHeight: AppDimensions.minDashboardHeight,
-        builder: (BuildContext context, double width, double height)
-        {
-          return DashboardLayout
-          (
-            width: width,
-            height: height,
-          );
-        },
+        builder: (context, width, height) => DashboardLayout(width: width, height: height),
       ),
     );
   }

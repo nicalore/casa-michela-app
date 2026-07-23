@@ -1,54 +1,47 @@
-class RoleLabelMapper {
-  static String toLabel(String role) {
-    switch (role) {
-      case 'ADMIN':
-      case 'Amministratore':
-        return 'Amministratore';
+abstract final class RoleLabelMapper
+{
+  static const String memberLabel = 'Associato';
 
-      case 'TEACHER':
-      case 'Docente':
-        return 'Docente';
+  static const Map<String, String> _labelsByRoleCode = <String, String>{
+    'ADMIN': 'Amministratore',
+    'TEACHER': 'Docente',
+    'PSYCHOLOGIST': 'Psicologo',
+    'STUDENT': 'Studente',
+    'PARENT': 'Genitore',
+    'COURSE_PARTICIPANT': 'Corsista',
+    'MEMBER': memberLabel,
+  };
 
-      case 'PSYCHOLOGIST':
-      case 'Psicologo':
-        return 'Psicologo';
+  // Roles whose holders are members by definition, so showing "Associato"
+  // next to them would be redundant. "Genitore" is deliberately excluded,
+  // because a parent is not necessarily a member of the association.
+  static const Set<String> _memberSubclassLabels = <String>{
+    'Amministratore',
+    'Docente',
+    'Psicologo',
+    'Studente',
+    'Corsista',
+  };
 
-      case 'STUDENT':
-      case 'Studente':
-        return 'Studente';
+  // Unknown values are returned unchanged, which keeps the conversion
+  // idempotent over already translated labels.
+  static String toLabel(String role) => _labelsByRoleCode[role] ?? role;
 
-      case 'PARENT':
-      case 'Genitore':
-        return 'Genitore';
-
-      case 'COURSE_PARTICIPANT':
-      case 'Corsista':
-        return 'Corsista';
-
-      case 'MEMBER':
-      case 'Associato':
-      case 'Associato':
-        return 'Associato';
-
-      default:
-        return role;
-    }
+  // True when the person is a plain member: filtering by "Associato" is meant to
+  // find exactly these, not everyone who also happens to be a member.
+  static bool hasOnlyMemberRole(List<String> labels)
+  {
+    return labels.contains(memberLabel) && !labels.any(_memberSubclassLabels.contains);
   }
 
-  static List<String> processRoles(List<String> rawRoles) {
-    List<String> roles = rawRoles.map((r) => toLabel(r)).toList();
+  static List<String> processRoles(List<String> rawRoles)
+  {
+    final roles = rawRoles.map(toLabel).toList();
 
-    final subclasses = [
-      'Amministratore',
-      'Docente',
-      'Psicologo',
-      'Studente',
-      'Corsista',
-    ];
-
-    if (roles.contains('Associato') &&
-        roles.any((r) => subclasses.contains(r))) {
-      roles.remove('Associato');
+    if (roles.contains(memberLabel) &&
+        roles.any(_memberSubclassLabels.contains))
+    {
+      roles.remove(memberLabel);
     }
 
     return roles;

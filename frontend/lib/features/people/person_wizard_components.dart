@@ -1,28 +1,32 @@
-import 'dart:typed_data';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/utils/role_label_mapper.dart';
 import '../../../core/config/api_config.dart';
+import '../../../core/utils/role_label_mapper.dart';
+import '../../../shared/widgets/snackbar.dart';
+import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/overflow_tooltip_text.dart';
 import '../association/models/association_subject_item.dart';
 import '../association/models/school_item.dart';
 import '../association/models/study_program_item.dart';
-import './models/person_item.dart';
-import '../../../shared/widgets/snackbar.dart';
 import './models/parental_relationship_draft.dart';
+import './models/person_item.dart';
+import 'widgets/role_chips_row.dart';
 
-class WizardEnrollmentRowData {
+class WizardEnrollmentRowData
+{
   final TextEditingController yearCtrl;
   final TextEditingController dateCtrl;
 
   WizardEnrollmentRowData({required this.yearCtrl, required this.dateCtrl});
 }
 
-class WizardSchoolRowData {
+class WizardSchoolRowData
+{
   TextEditingController yearCtrl;
   SchoolItem? selectedSchool;
   StudyProgramItem? selectedProgram;
@@ -36,7 +40,8 @@ class WizardSchoolRowData {
   });
 }
 
-class WizardAnimatedActionButton extends StatefulWidget {
+class WizardAnimatedActionButton extends StatefulWidget
+{
   final String text;
   final IconData icon;
   final Color baseColor;
@@ -58,38 +63,50 @@ class WizardAnimatedActionButton extends StatefulWidget {
 }
 
 class _WizardAnimatedActionButtonState
-    extends State<WizardAnimatedActionButton> {
+    extends State<WizardAnimatedActionButton>
+{
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
       child: GestureDetector(
-        onTapDown: (_) {
-          setState(() {
+        onTapDown: (_)
+        {
+          setState(()
+          {
             _isPressed = true;
           });
         },
-        onTapUp: (_) {
-          setState(() {
+        onTapUp: (_)
+        {
+          setState(()
+          {
             _isPressed = false;
           });
           widget.onPressed();
         },
-        onTapCancel: () {
-          setState(() {
+        onTapCancel: ()
+        {
+          setState(()
+          {
             _isPressed = false;
           });
         },
@@ -141,7 +158,8 @@ class _WizardAnimatedActionButtonState
   }
 }
 
-class WizardOutlinedActionButton extends StatefulWidget {
+class WizardOutlinedActionButton extends StatefulWidget
+{
   final String text;
   final IconData icon;
   final VoidCallback onPressed;
@@ -159,38 +177,50 @@ class WizardOutlinedActionButton extends StatefulWidget {
 }
 
 class _WizardOutlinedActionButtonState
-    extends State<WizardOutlinedActionButton> {
+    extends State<WizardOutlinedActionButton>
+{
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
       child: GestureDetector(
-        onTapDown: (_) {
-          setState(() {
+        onTapDown: (_)
+        {
+          setState(()
+          {
             _isPressed = true;
           });
         },
-        onTapUp: (_) {
-          setState(() {
+        onTapUp: (_)
+        {
+          setState(()
+          {
             _isPressed = false;
           });
           widget.onPressed();
         },
-        onTapCancel: () {
-          setState(() {
+        onTapCancel: ()
+        {
+          setState(()
+          {
             _isPressed = false;
           });
         },
@@ -203,15 +233,15 @@ class _WizardOutlinedActionButtonState
             curve: Curves.easeOutQuint,
             height: 56,
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white,
+              color: _isHovered ? AppTheme.surfaceHover : Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF003C82), width: 1.5),
+              border: Border.all(color: AppTheme.primary, width: 1.5),
             ),
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(widget.icon, color: const Color(0xFF003C82), size: 20),
+                Icon(widget.icon, color: AppTheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -220,7 +250,7 @@ class _WizardOutlinedActionButtonState
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -234,7 +264,8 @@ class _WizardOutlinedActionButtonState
   }
 }
 
-class WizardAnimatedTextField extends StatefulWidget {
+class WizardAnimatedTextField extends StatefulWidget
+{
   final TextEditingController controller;
   final String hint;
   final String? errorText;
@@ -259,36 +290,42 @@ class WizardAnimatedTextField extends StatefulWidget {
       _WizardAnimatedTextFieldState();
 }
 
-class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField> {
+class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField>
+{
   final FocusNode _focusNode = FocusNode();
   bool _isFocused = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    _focusNode.addListener(() {
-      setState(() {
+    _focusNode.addListener(()
+    {
+      setState(()
+      {
         _isFocused = _focusNode.hasFocus;
       });
     });
   }
 
   @override
-  void dispose() {
+  void dispose()
+  {
     _focusNode.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     final bool hasError = widget.errorText != null;
     final Color borderColor = !widget.enabled
         ? const Color(0xFFCBD5E1)
         : (hasError
-              ? const Color(0xFFE53935)
+              ? AppTheme.danger
               : (_isFocused
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFFE2E8F0)));
+                    ? AppTheme.primary
+                    : AppTheme.slate200));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,13 +353,13 @@ class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField> {
                   enabled: widget.enabled,
                   inputFormatters: widget.inputFormatters,
                   keyboardType: widget.keyboardType,
-                  cursorColor: const Color(0xFF003C82),
+                  cursorColor: AppTheme.primary,
                   onChanged: widget.onChanged,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: !widget.enabled
-                        ? const Color(0xFF94A3B8)
+                        ? AppTheme.slate400
                         : const Color(0xFF2A2A2A),
                   ),
                   decoration: InputDecoration(
@@ -331,7 +368,7 @@ class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField> {
                     hintStyle: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFFB3B3B3),
+                      color: AppTheme.hint,
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.only(
@@ -352,12 +389,12 @@ class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField> {
                       fontWeight: FontWeight.w600,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE53935),
+                      color: AppTheme.danger,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.error_outline_rounded,
-                      color: Color(0xFFE53935),
+                      color: AppTheme.danger,
                       size: 22,
                     ),
                   ),
@@ -370,7 +407,8 @@ class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField> {
   }
 }
 
-class WizardAnimatedOverlayDropdown extends StatefulWidget {
+class WizardAnimatedOverlayDropdown extends StatefulWidget
+{
   final String? value;
   final List<String> items;
   final String hint;
@@ -394,20 +432,24 @@ class WizardAnimatedOverlayDropdown extends StatefulWidget {
 }
 
 class _WizardAnimatedOverlayDropdownState
-    extends State<WizardAnimatedOverlayDropdown> {
+    extends State<WizardAnimatedOverlayDropdown>
+{
   final GlobalKey _buttonKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   final GlobalKey<_WizardOverlayDropdownContentState> _menuKey = GlobalKey();
 
   bool _isFocused = false;
 
-  void _toggleMenu() {
-    if (_overlayEntry != null) {
+  void _toggleMenu()
+  {
+    if (_overlayEntry != null)
+    {
       _closeMenu();
       return;
     }
 
-    setState(() {
+    setState(()
+    {
       _isFocused = true;
     });
 
@@ -434,7 +476,8 @@ class _WizardAnimatedOverlayDropdownState
               key: _menuKey,
               currentValue: widget.value,
               items: widget.items,
-              onSelected: (val) {
+              onSelected: (val)
+              {
                 widget.onChanged(val);
                 _closeMenu();
               },
@@ -446,13 +489,17 @@ class _WizardAnimatedOverlayDropdownState
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  void _closeMenu() async {
-    if (_overlayEntry != null) {
+  void _closeMenu() async
+  {
+    if (_overlayEntry != null)
+    {
       await _menuKey.currentState?.hide();
       _overlayEntry?.remove();
       _overlayEntry = null;
-      if (mounted) {
-        setState(() {
+      if (mounted)
+      {
+        setState(()
+        {
           _isFocused = false;
         });
       }
@@ -460,16 +507,17 @@ class _WizardAnimatedOverlayDropdownState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     final bool hasValue = widget.value != null;
     final bool hasError = widget.errorText != null;
     final Color borderColor = !widget.enabled
-        ? const Color(0xFFE2E8F0)
+        ? AppTheme.slate200
         : (hasError
-              ? const Color(0xFFE53935)
+              ? AppTheme.danger
               : (_isFocused
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFFE2E8F0)));
+                    ? AppTheme.primary
+                    : AppTheme.slate200));
 
     return MouseRegion(
       cursor: widget.enabled
@@ -501,10 +549,10 @@ class _WizardAnimatedOverlayDropdownState
                     fontSize: 16,
                     fontWeight: hasValue ? FontWeight.w600 : FontWeight.w500,
                     color: !widget.enabled
-                        ? const Color(0xFF94A3B8)
+                        ? AppTheme.slate400
                         : (hasValue
                               ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFB3B3B3)),
+                              : AppTheme.hint),
                   ),
                 ),
               ),
@@ -517,12 +565,12 @@ class _WizardAnimatedOverlayDropdownState
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE53935),
+                    color: AppTheme.danger,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.error_outline_rounded,
-                    color: Color(0xFFE53935),
+                    color: AppTheme.danger,
                     size: 22,
                   ),
                 ),
@@ -531,8 +579,8 @@ class _WizardAnimatedOverlayDropdownState
               Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: _isFocused
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFF8A8A8A),
+                    ? AppTheme.primary
+                    : AppTheme.mutedText,
               ),
             ],
           ),
@@ -542,16 +590,19 @@ class _WizardAnimatedOverlayDropdownState
   }
 }
 
-class _DropdownOverflowTooltipText extends StatelessWidget {
+class _DropdownOverflowTooltipText extends StatelessWidget
+{
   final String text;
   final TextStyle style;
 
   const _DropdownOverflowTooltipText({required this.text, required this.style});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, constraints)
+      {
         final painter = TextPainter(
           text: TextSpan(text: text, style: style),
           textDirection: TextDirection.ltr,
@@ -565,7 +616,10 @@ class _DropdownOverflowTooltipText extends StatelessWidget {
           style: style,
         );
 
-        if (!painter.didExceedMaxLines) return textWidget;
+        if (!painter.didExceedMaxLines)
+        {
+          return textWidget;
+        }
 
         return Tooltip(
           message: text,
@@ -577,9 +631,9 @@ class _DropdownOverflowTooltipText extends StatelessWidget {
             color: Colors.white,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: .98),
+            color: AppTheme.slate800.withValues(alpha: .98),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF334155), width: 1.5),
+            border: Border.all(color: AppTheme.slate700, width: 1.5),
             boxShadow: const [
               BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
             ],
@@ -591,7 +645,8 @@ class _DropdownOverflowTooltipText extends StatelessWidget {
   }
 }
 
-class _WizardOverlayDropdownContent extends StatefulWidget {
+class _WizardOverlayDropdownContent extends StatefulWidget
+{
   final String? currentValue;
   final List<String> items;
   final ValueChanged<String> onSelected;
@@ -609,24 +664,32 @@ class _WizardOverlayDropdownContent extends StatefulWidget {
 }
 
 class _WizardOverlayDropdownContentState
-    extends State<_WizardOverlayDropdownContent> {
+    extends State<_WizardOverlayDropdownContent>
+{
   bool _expanded = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        setState(()
+        {
           _expanded = true;
         });
       }
     });
   }
 
-  Future<void> hide() async {
-    if (mounted) {
-      setState(() {
+  Future<void> hide() async
+  {
+    if (mounted)
+    {
+      setState(()
+      {
         _expanded = false;
       });
     }
@@ -634,7 +697,8 @@ class _WizardOverlayDropdownContentState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -642,13 +706,7 @@ class _WizardOverlayDropdownContentState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
           duration: const Duration(milliseconds: 180),
@@ -661,7 +719,8 @@ class _WizardOverlayDropdownContentState
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: widget.items.map((item) {
+                      children: widget.items.map((item)
+                      {
                         return WizardDropdownMenuItem(
                           text: item,
                           isSelected: widget.currentValue == item,
@@ -678,7 +737,8 @@ class _WizardOverlayDropdownContentState
   }
 }
 
-class WizardDropdownMenuItem extends StatefulWidget {
+class WizardDropdownMenuItem extends StatefulWidget
+{
   final String text;
   final bool isSelected;
   final VoidCallback onTap;
@@ -694,20 +754,26 @@ class WizardDropdownMenuItem extends StatefulWidget {
   State<WizardDropdownMenuItem> createState() => _WizardDropdownMenuItemState();
 }
 
-class _WizardDropdownMenuItemState extends State<WizardDropdownMenuItem> {
+class _WizardDropdownMenuItemState extends State<WizardDropdownMenuItem>
+{
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _hover = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _hover = false;
         });
       },
@@ -724,7 +790,7 @@ class _WizardDropdownMenuItemState extends State<WizardDropdownMenuItem> {
                 width: 2,
                 height: (_hover || widget.isSelected) ? 16 : 0,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF003C82),
+                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -737,7 +803,7 @@ class _WizardDropdownMenuItemState extends State<WizardDropdownMenuItem> {
                     fontWeight: widget.isSelected
                         ? FontWeight.w700
                         : FontWeight.w500,
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
@@ -749,25 +815,32 @@ class _WizardDropdownMenuItemState extends State<WizardDropdownMenuItem> {
   }
 }
 
-class WizardDateInputFormatter extends TextInputFormatter {
+class WizardDateInputFormatter extends TextInputFormatter
+{
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
-  ) {
-    if (oldValue.text.length >= newValue.text.length) {
+  )
+  {
+    if (oldValue.text.length >= newValue.text.length)
+    {
       return newValue;
     }
 
     String text = newValue.text;
 
-    if (text.length == 2 && !text.contains('/')) {
+    if (text.length == 2 && !text.contains('/'))
+    {
       text += '/';
-    } else if (text.length == 5 && text.indexOf('/', 3) == -1) {
+    }
+    else if (text.length == 5 && text.indexOf('/', 3) == -1)
+    {
       text += '/';
     }
 
-    if (text.length > 10) {
+    if (text.length > 10)
+    {
       return oldValue;
     }
 
@@ -778,23 +851,28 @@ class WizardDateInputFormatter extends TextInputFormatter {
   }
 }
 
-class WizardDayMonthInputFormatter extends TextInputFormatter {
+class WizardDayMonthInputFormatter extends TextInputFormatter
+{
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
-  ) {
-    if (oldValue.text.length >= newValue.text.length) {
+  )
+  {
+    if (oldValue.text.length >= newValue.text.length)
+    {
       return newValue;
     }
 
     String text = newValue.text;
 
-    if (text.length == 2 && !text.contains('/')) {
+    if (text.length == 2 && !text.contains('/'))
+    {
       text += '/';
     }
 
-    if (text.length > 5) {
+    if (text.length > 5)
+    {
       return oldValue;
     }
 
@@ -805,7 +883,8 @@ class WizardDayMonthInputFormatter extends TextInputFormatter {
   }
 }
 
-class WizardFormSectionCard extends StatelessWidget {
+class WizardFormSectionCard extends StatelessWidget
+{
   final String title;
   final Widget leadingIcon;
   final List<Widget> children;
@@ -820,7 +899,8 @@ class WizardFormSectionCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Container(
       padding: EdgeInsets.all(isCompact ? 24 : 32),
       decoration: BoxDecoration(
@@ -852,7 +932,7 @@ class WizardFormSectionCard extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                         height: 1.1,
                       ),
                     ),
@@ -874,7 +954,7 @@ class WizardFormSectionCard extends StatelessWidget {
                       ? Icon(
                           (leadingIcon as WizardStaticAvatar).icon,
                           size: 20,
-                          color: const Color(0xFF003C82),
+                          color: AppTheme.primary,
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -885,7 +965,7 @@ class WizardFormSectionCard extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
                 ),
@@ -913,7 +993,8 @@ class WizardFormSectionCard extends StatelessWidget {
   }
 }
 
-class WizardFormInputRow extends StatelessWidget {
+class WizardFormInputRow extends StatelessWidget
+{
   final String label;
   final Widget inputWidget;
 
@@ -924,7 +1005,8 @@ class WizardFormInputRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -948,13 +1030,15 @@ class WizardFormInputRow extends StatelessWidget {
   }
 }
 
-class WizardStaticAvatar extends StatelessWidget {
+class WizardStaticAvatar extends StatelessWidget
+{
   final IconData icon;
 
   const WizardStaticAvatar({super.key, required this.icon});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Container(
       width: 90,
       height: 90,
@@ -962,12 +1046,13 @@ class WizardStaticAvatar extends StatelessWidget {
         color: Color(0xFFE8EEF7),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 44, color: const Color(0xFF003C82)),
+      child: Icon(icon, size: 44, color: AppTheme.primary),
     );
   }
 }
 
-class WizardProfilePhotoUploader extends StatefulWidget {
+class WizardProfilePhotoUploader extends StatefulWidget
+{
   final Uint8List? imageBytes;
   final String? initialImageUrl;
   final ValueChanged<Uint8List?> onImagePicked;
@@ -985,7 +1070,8 @@ class WizardProfilePhotoUploader extends StatefulWidget {
 }
 
 class _WizardProfilePhotoUploaderState
-    extends State<WizardProfilePhotoUploader> {
+    extends State<WizardProfilePhotoUploader>
+{
   final ImagePicker _picker = ImagePicker();
   bool _isHoveringUpload = false;
   bool _isHoveringTrash = false;
@@ -993,28 +1079,36 @@ class _WizardProfilePhotoUploaderState
   late String _cacheBustTimestamp;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-  Future<void> _pickImage() async {
-    try {
+  Future<void> _pickImage() async
+  {
+    try
+    {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
-      if (image == null) {
+      if (image == null)
+      {
         return;
       }
 
       final Uint8List bytes = await image.readAsBytes();
 
-      setState(() {
+      setState(()
+      {
         _isDeleted = false;
       });
 
       widget.onImagePicked(bytes);
-    } catch (e) {
-      if (mounted) {
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
           message: 'Errore durante la selezione dell\'immagine.',
@@ -1024,8 +1118,10 @@ class _WizardProfilePhotoUploaderState
     }
   }
 
-  void _removeImage() {
-    setState(() {
+  void _removeImage()
+  {
+    setState(()
+    {
       _isDeleted = true;
     });
 
@@ -1033,17 +1129,22 @@ class _WizardProfilePhotoUploaderState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     ImageProvider? imageProvider;
 
-    if (widget.imageBytes != null) {
+    if (widget.imageBytes != null)
+    {
       imageProvider = MemoryImage(widget.imageBytes!);
-    } else if (!_isDeleted &&
+    }
+    else if (!_isDeleted &&
         widget.initialImageUrl != null &&
-        widget.initialImageUrl!.isNotEmpty) {
+        widget.initialImageUrl!.isNotEmpty)
+    {
       String url = widget.initialImageUrl!;
 
-      if (url.startsWith('/')) {
+      if (url.startsWith('/'))
+      {
         url = url = '${ApiConfig.buildUrl(url)}?v=$_cacheBustTimestamp';
       }
 
@@ -1066,15 +1167,15 @@ class _WizardProfilePhotoUploaderState
           ? const Icon(
               Icons.person_outline,
               size: 48,
-              color: Color(0xFF003C82),
+              color: AppTheme.primary,
             )
           : null,
     );
 
-    //SafetyNetPerLoCasoEstremo_LaRigaHaUnaLarghezzaMinimaIntrinseca(~155px)_ChePuoSuperare
-    //LoSpazioDisponibileAncheNelRamoImpilato_LoScrollOrizzontaleTagliavaIlBottoneSenzaAlcunIndizioVisivo
-    //FittedBoxScalaL'InteroBottoneComeBloccoUnico_RestaSempreCompletamenteVisibileECliccabile
-    //StessoCriterioGiaUsatoPeiNumeriDelleStatistiche_UnBottoneNonPuoAndareACapoInModoSensato
+    // The buttons row has a minimum intrinsic width (~155px) that can exceed the
+    // available space even when stacked, and horizontal scroll would clip it with
+    // no visual cue. FittedBox scales the whole row as one block so it stays fully
+    // visible and clickable.
     final Widget buttonsRow = FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -1085,13 +1186,17 @@ class _WizardProfilePhotoUploaderState
         children: [
           MouseRegion(
             cursor: SystemMouseCursors.click,
-            onEnter: (_) {
-              setState(() {
+            onEnter: (_)
+            {
+              setState(()
+              {
                 _isHoveringUpload = true;
               });
             },
-            onExit: (_) {
-              setState(() {
+            onExit: (_)
+            {
+              setState(()
+              {
                 _isHoveringUpload = false;
               });
             },
@@ -1103,11 +1208,11 @@ class _WizardProfilePhotoUploaderState
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: _isHoveringUpload
-                      ? const Color(0xFFF5F8FC)
+                      ? AppTheme.surfaceHover
                       : Colors.white,
                   borderRadius: BorderRadius.circular(100),
                   border: Border.all(
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                     width: 1.5,
                   ),
                 ),
@@ -1117,7 +1222,7 @@ class _WizardProfilePhotoUploaderState
                     const Icon(
                       Icons.upload_rounded,
                       size: 20,
-                      color: Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -1125,7 +1230,7 @@ class _WizardProfilePhotoUploaderState
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                       ),
                     ),
                   ],
@@ -1137,13 +1242,17 @@ class _WizardProfilePhotoUploaderState
             const SizedBox(width: 12),
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                setState(() {
+              onEnter: (_)
+              {
+                setState(()
+                {
                   _isHoveringTrash = true;
                 });
               },
-              onExit: (_) {
-                setState(() {
+              onExit: (_)
+              {
+                setState(()
+                {
                   _isHoveringTrash = false;
                 });
               },
@@ -1155,14 +1264,14 @@ class _WizardProfilePhotoUploaderState
                   height: 48,
                   decoration: BoxDecoration(
                     color: _isHoveringTrash
-                        ? const Color(0xFFE53935).withValues(alpha: 0.15)
-                        : const Color(0xFFE53935).withValues(alpha: 0.1),
+                        ? AppTheme.danger.withValues(alpha: 0.15)
+                        : AppTheme.danger.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.delete_outline_rounded,
                     size: 22,
-                    color: Color(0xFFE53935),
+                    color: AppTheme.danger,
                   ),
                 ),
               ),
@@ -1173,14 +1282,16 @@ class _WizardProfilePhotoUploaderState
       ),
     );
 
-    //RowNeeded110(avatar)+24(spacing)+~150to190(buttons)=~290to325px_ButNeverGotThatMuch
-    //FromTheFormLabelledRowAboveIt_HenceTheHorizontalOverflowSeenOnNarrowScreens
-    //StacksVerticallyBelowTheThreshold_InsteadOfLettingTheButtonsRowOverflowToTheRight
+    // The row wants avatar (110) + spacing (24) + buttons (~150-190) of width,
+    // which the labelled form row above rarely grants, so on narrow screens it
+    // stacks vertically instead of overflowing to the right.
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, constraints)
+      {
         final bool isCompact = constraints.maxWidth < 320;
 
-        if (isCompact) {
+        if (isCompact)
+        {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1203,20 +1314,22 @@ class _WizardProfilePhotoUploaderState
   }
 }
 
-class WizardDisabledDropdownPlaceholder extends StatelessWidget {
+class WizardDisabledDropdownPlaceholder extends StatelessWidget
+{
   final String hint;
 
   const WizardDisabledDropdownPlaceholder({super.key, required this.hint});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+        border: Border.all(color: AppTheme.slate200, width: 1.5),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1239,7 +1352,8 @@ class WizardDisabledDropdownPlaceholder extends StatelessWidget {
   }
 }
 
-class WizardSelectionCard extends StatefulWidget {
+class WizardSelectionCard extends StatefulWidget
+{
   final String title;
   final String subtitle;
   final IconData icon;
@@ -1263,20 +1377,26 @@ class WizardSelectionCard extends StatefulWidget {
   State<WizardSelectionCard> createState() => _WizardSelectionCardState();
 }
 
-class _WizardSelectionCardState extends State<WizardSelectionCard> {
+class _WizardSelectionCardState extends State<WizardSelectionCard>
+{
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _hover = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _hover = false;
         });
       },
@@ -1302,7 +1422,7 @@ class _WizardSelectionCardState extends State<WizardSelectionCard> {
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: (_hover || widget.isSelected)
-                  ? const Color(0xFF003C82)
+                  ? AppTheme.primary
                   : Colors.transparent,
               width: 2,
             ),
@@ -1319,7 +1439,7 @@ class _WizardSelectionCardState extends State<WizardSelectionCard> {
               Icon(
                 widget.icon,
                 size: widget.isCompact ? 32 : 42,
-                color: const Color(0xFF003C82),
+                color: AppTheme.primary,
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1332,7 +1452,7 @@ class _WizardSelectionCardState extends State<WizardSelectionCard> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: widget.isCompact ? 18 : 20,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                       ),
                     ),
                     if (widget.subtitle.isNotEmpty) ...[
@@ -1341,7 +1461,7 @@ class _WizardSelectionCardState extends State<WizardSelectionCard> {
                         widget.subtitle,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: widget.isCompact ? 13 : 15,
-                          color: const Color(0xFF64748B),
+                          color: AppTheme.slate500,
                           height: 1.3,
                         ),
                       ),
@@ -1357,7 +1477,8 @@ class _WizardSelectionCardState extends State<WizardSelectionCard> {
   }
 }
 
-class WizardCarouselArrowButton extends StatefulWidget {
+class WizardCarouselArrowButton extends StatefulWidget
+{
   final IconData icon;
   final bool isDisabled;
   final VoidCallback onTap;
@@ -1374,22 +1495,28 @@ class WizardCarouselArrowButton extends StatefulWidget {
       _WizardCarouselArrowButtonState();
 }
 
-class _WizardCarouselArrowButtonState extends State<WizardCarouselArrowButton> {
+class _WizardCarouselArrowButtonState extends State<WizardCarouselArrowButton>
+{
   bool _isHovered = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: widget.isDisabled
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
@@ -1402,24 +1529,18 @@ class _WizardCarouselArrowButtonState extends State<WizardCarouselArrowButton> {
           decoration: BoxDecoration(
             color: widget.isDisabled
                 ? const Color(0xFFF1F5F9)
-                : (_isHovered ? const Color(0xFF003C82) : Colors.white),
+                : (_isHovered ? AppTheme.primary : Colors.white),
             shape: BoxShape.circle,
             boxShadow: widget.isDisabled
                 ? null
-                : const [
-                    BoxShadow(
-                      color: Color(0x0A000000),
-                      offset: Offset(0, 4),
-                      blurRadius: 16,
-                    ),
-                  ],
+                : AppTheme.cardShadow,
           ),
           child: Icon(
             widget.icon,
             size: 32,
             color: widget.isDisabled
-                ? const Color(0xFFB3B3B3)
-                : (_isHovered ? Colors.white : const Color(0xFF003C82)),
+                ? AppTheme.hint
+                : (_isHovered ? Colors.white : AppTheme.primary),
           ),
         ),
       ),
@@ -1427,7 +1548,8 @@ class _WizardCarouselArrowButtonState extends State<WizardCarouselArrowButton> {
   }
 }
 
-class WizardAnimatedSearchBar extends StatefulWidget {
+class WizardAnimatedSearchBar extends StatefulWidget
+{
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final String hintText;
@@ -1444,28 +1566,34 @@ class WizardAnimatedSearchBar extends StatefulWidget {
       _WizardAnimatedSearchBarState();
 }
 
-class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar> {
+class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar>
+{
   final FocusNode _focusNode = FocusNode();
   bool _isFocused = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    _focusNode.addListener(() {
-      setState(() {
+    _focusNode.addListener(()
+    {
+      setState(()
+      {
         _isFocused = _focusNode.hasFocus;
       });
     });
   }
 
   @override
-  void dispose() {
+  void dispose()
+  {
     _focusNode.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutQuint,
@@ -1475,7 +1603,7 @@ class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar> {
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
           color: _isFocused
-              ? const Color(0xFF003C82).withValues(alpha: 0.3)
+              ? AppTheme.primary.withValues(alpha: 0.3)
               : Colors.transparent,
           width: 1.5,
         ),
@@ -1494,18 +1622,18 @@ class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar> {
         focusNode: _focusNode,
         onChanged: widget.onChanged,
         textAlignVertical: TextAlignVertical.center,
-        cursorColor: const Color(0xFF003C82),
+        cursorColor: AppTheme.primary,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF003C82),
+          color: AppTheme.primary,
         ),
         decoration: InputDecoration(
           hintText: widget.hintText,
           hintStyle: GoogleFonts.plusJakartaSans(
             fontSize: 16,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFFB3B3B3),
+            color: AppTheme.hint,
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.only(left: 28, bottom: 2),
@@ -1513,8 +1641,8 @@ class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar> {
             Icons.search,
             size: 24,
             color: _isFocused
-                ? const Color(0xFF003C82)
-                : const Color(0xFFB3B3B3),
+                ? AppTheme.primary
+                : AppTheme.hint,
           ),
           suffixIconConstraints: const BoxConstraints(
             minWidth: 64,
@@ -1526,14 +1654,16 @@ class _WizardAnimatedSearchBarState extends State<WizardAnimatedSearchBar> {
   }
 }
 
-class WizardFilterOption<T> {
+class WizardFilterOption<T>
+{
   final T value;
   final String label;
 
   WizardFilterOption({required this.value, required this.label});
 }
 
-class WizardFilterMenu<T> extends StatefulWidget {
+class WizardFilterMenu<T> extends StatefulWidget
+{
   final String hint;
   final IconData icon;
   final T? value;
@@ -1559,14 +1689,17 @@ class WizardFilterMenu<T> extends StatefulWidget {
   State<WizardFilterMenu<T>> createState() => _WizardFilterMenuState<T>();
 }
 
-class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
+class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>>
+{
   final GlobalKey _buttonKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   final GlobalKey<_WizardFilterOverlayContentState> _menuKey = GlobalKey();
   bool _isHovered = false;
 
-  void _toggleMenu() {
-    if (_overlayEntry != null) {
+  void _toggleMenu()
+  {
+    if (_overlayEntry != null)
+    {
       _closeMenu();
       return;
     }
@@ -1594,7 +1727,8 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
               currentValue: widget.value,
               options: widget.options,
               menuWidth: widget.menuWidth,
-              onSelected: (val) {
+              onSelected: (val)
+              {
                 widget.onChanged(val);
                 _closeMenu();
               },
@@ -1606,8 +1740,10 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  void _closeMenu() async {
-    if (_overlayEntry != null) {
+  void _closeMenu() async
+  {
+    if (_overlayEntry != null)
+    {
       await _menuKey.currentState?.hide();
       _overlayEntry?.remove();
       _overlayEntry = null;
@@ -1615,27 +1751,31 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     final bool isActive = widget.value != null;
     String displayText = widget.hint;
 
-    if (isActive) {
-      final WizardFilterOption<T> selectedOption = widget.options.firstWhere(
-        (o) => o.value == widget.value,
-        orElse: () => WizardFilterOption(value: widget.value!, label: ''),
-      );
-      displayText = selectedOption.label;
+    if (isActive)
+    {
+      final Iterable<WizardFilterOption<T>> matches =
+          widget.options.where((o) => o.value == widget.value);
+      displayText = matches.isEmpty ? '' : matches.first.label;
     }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
@@ -1651,27 +1791,21 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
           ),
           decoration: BoxDecoration(
             color: _isHovered || isActive
-                ? const Color(0xFFF5F8FC)
+                ? AppTheme.surfaceHover
                 : Colors.white,
             borderRadius: BorderRadius.circular(100),
             border: Border.all(
               color: _isHovered || isActive
-                  ? const Color(0xFF003C82)
+                  ? AppTheme.primary
                   : Colors.transparent,
               width: 1.5,
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
-              ),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, color: const Color(0xFF003C82), size: 18),
+              Icon(widget.icon, color: AppTheme.primary, size: 18),
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 160),
@@ -1682,30 +1816,32 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: isActive
-                        ? const Color(0xFF003C82)
-                        : const Color(0xFF8A8A8A),
+                        ? AppTheme.primary
+                        : AppTheme.mutedText,
                   ),
                 ),
               ),
               if (isActive && widget.showClearIcon) ...[
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () {
+                  onTap: ()
+                  {
                     widget.onClear();
-                    if (_overlayEntry != null) {
+                    if (_overlayEntry != null)
+                    {
                       _closeMenu();
                     }
                   },
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE53935).withValues(alpha: .1),
+                      color: AppTheme.danger.withValues(alpha: .1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.close_rounded,
                       size: 16,
-                      color: Color(0xFFE53935),
+                      color: AppTheme.danger,
                     ),
                   ),
                 ),
@@ -1718,7 +1854,8 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>> {
   }
 }
 
-class _WizardFilterOverlayContent<T> extends StatefulWidget {
+class _WizardFilterOverlayContent<T> extends StatefulWidget
+{
   final T? currentValue;
   final List<WizardFilterOption<T>> options;
   final ValueChanged<T> onSelected;
@@ -1738,24 +1875,32 @@ class _WizardFilterOverlayContent<T> extends StatefulWidget {
 }
 
 class _WizardFilterOverlayContentState<T>
-    extends State<_WizardFilterOverlayContent<T>> {
+    extends State<_WizardFilterOverlayContent<T>>
+{
   bool _expanded = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        setState(()
+        {
           _expanded = true;
         });
       }
     });
   }
 
-  Future<void> hide() async {
-    if (mounted) {
-      setState(() {
+  Future<void> hide() async
+  {
+    if (mounted)
+    {
+      setState(()
+      {
         _expanded = false;
       });
     }
@@ -1763,7 +1908,8 @@ class _WizardFilterOverlayContentState<T>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -1772,13 +1918,7 @@ class _WizardFilterOverlayContentState<T>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
           duration: const Duration(milliseconds: 180),
@@ -1791,7 +1931,8 @@ class _WizardFilterOverlayContentState<T>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: widget.options.map((option) {
+                      children: widget.options.map((option)
+                      {
                         return WizardFilterMenuItem(
                           text: option.label,
                           isSelected: widget.currentValue == option.value,
@@ -1808,7 +1949,8 @@ class _WizardFilterOverlayContentState<T>
   }
 }
 
-class WizardFilterMenuItem extends StatefulWidget {
+class WizardFilterMenuItem extends StatefulWidget
+{
   final String text;
   final bool isSelected;
   final VoidCallback onTap;
@@ -1824,20 +1966,26 @@ class WizardFilterMenuItem extends StatefulWidget {
   State<WizardFilterMenuItem> createState() => _WizardFilterMenuItemState();
 }
 
-class _WizardFilterMenuItemState extends State<WizardFilterMenuItem> {
+class _WizardFilterMenuItemState extends State<WizardFilterMenuItem>
+{
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _hover = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _hover = false;
         });
       },
@@ -1854,7 +2002,7 @@ class _WizardFilterMenuItemState extends State<WizardFilterMenuItem> {
                 width: 2,
                 height: (_hover || widget.isSelected) ? 16 : 0,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF003C82),
+                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1868,7 +2016,7 @@ class _WizardFilterMenuItemState extends State<WizardFilterMenuItem> {
                     fontWeight: widget.isSelected
                         ? FontWeight.w700
                         : FontWeight.w500,
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
@@ -1880,7 +2028,8 @@ class _WizardFilterMenuItemState extends State<WizardFilterMenuItem> {
   }
 }
 
-class WizardSubjectGridCard extends StatefulWidget {
+class WizardSubjectGridCard extends StatefulWidget
+{
   final AssociationSubjectItem subject;
   final bool isSelected;
   final int selectedCount;
@@ -1900,22 +2049,28 @@ class WizardSubjectGridCard extends StatefulWidget {
   State<WizardSubjectGridCard> createState() => _WizardSubjectGridCardState();
 }
 
-class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
+class _WizardSubjectGridCardState extends State<WizardSubjectGridCard>
+{
   bool _isHovering = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: widget.isSelected
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovering = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovering = false;
         });
       },
@@ -1933,13 +2088,11 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
-                  : const Color(0xFFE2E8F0),
+                  ? AppTheme.primary
+                  : AppTheme.slate200,
               width: 2,
             ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
             children: [
@@ -1947,8 +2100,8 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
                 Icons.subject_rounded,
                 size: 32,
                 color: widget.isSelected
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFFB3B3B3),
+                    ? AppTheme.primary
+                    : AppTheme.hint,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1956,13 +2109,13 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CardOverflowTooltipText(
+                    OverflowTooltipText(
                       text: widget.subject.name,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: widget.isSelected
-                            ? const Color(0xFF003C82)
+                            ? AppTheme.primary
                             : const Color(0xFF2A2A2A),
                         height: 1.15,
                       ),
@@ -1978,8 +2131,8 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: widget.isSelected
-                            ? const Color(0xFF003C82)
-                            : const Color(0xFF8A8A8A),
+                            ? AppTheme.primary
+                            : AppTheme.mutedText,
                       ),
                     ),
                   ],
@@ -2004,7 +2157,7 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
                           child: const Icon(
                             Icons.edit_rounded,
                             size: 18,
-                            color: Color(0xFF003C82),
+                            color: AppTheme.primary,
                           ),
                         ),
                       ),
@@ -2023,7 +2176,7 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
                           child: const Icon(
                             Icons.backspace_rounded,
                             size: 18,
-                            color: Color(0xFFE53935),
+                            color: AppTheme.danger,
                           ),
                         ),
                       ),
@@ -2039,7 +2192,8 @@ class _WizardSubjectGridCardState extends State<WizardSubjectGridCard> {
   }
 }
 
-class WizardProgramsSelectionDialog extends StatefulWidget {
+class WizardProgramsSelectionDialog extends StatefulWidget
+{
   final AssociationSubjectItem subject;
   final List<StudyProgramItem> programs;
   final Set<int> initialSelected;
@@ -2061,38 +2215,46 @@ class WizardProgramsSelectionDialog extends StatefulWidget {
 }
 
 class _WizardProgramsSelectionDialogState
-    extends State<WizardProgramsSelectionDialog> {
+    extends State<WizardProgramsSelectionDialog>
+{
   late Set<int> _selected;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     _selected = Set.from(widget.initialSelected);
-    if (_selected.isEmpty) {
+    if (_selected.isEmpty)
+    {
       _selected = Set.from(widget.programs.map((p) => p.id));
     }
   }
 
-  void _selectAll() {
-    setState(() {
+  void _selectAll()
+  {
+    setState(()
+    {
       _selected = Set.from(widget.programs.map((p) => p.id));
     });
   }
 
-  void _deselectAll() {
-    setState(() {
+  void _deselectAll()
+  {
+    setState(()
+    {
       _selected.clear();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre600
-        //SenzaQuestoIlBreakpointSullaRigaDeiBottoniQuiSottoNonScatterebbeMai
+        // Responsive width: fills the available space but never past 600. Without
+        // it the breakpoint on the buttons row below would never trigger.
         width: double.infinity,
         constraints: BoxConstraints(
           maxWidth: 600,
@@ -2101,13 +2263,7 @@ class _WizardProgramsSelectionDialogState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2125,7 +2281,7 @@ class _WizardProgramsSelectionDialogState
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                       ),
                     ),
                   ),
@@ -2135,11 +2291,11 @@ class _WizardProgramsSelectionDialogState
                 ],
               ),
             ),
-            const Divider(height: 16, thickness: 1, color: Color(0xFFF0F0F0)),
+            const Divider(height: 16, thickness: 1, color: AppTheme.divider),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
-              //WrapInsteadOfRow_SameSafetyNetUsedElsewhereForHeaderActionRows
-              //InvisibleWhenBothLabelsFitOnOneLine_WrapsBelowInsteadOfOverflowingWhenTheyDont
+              // Wrap instead of Row: invisible when both labels fit on one line,
+              // wraps below instead of overflowing when they do not.
               child: Wrap(
                 alignment: WrapAlignment.end,
                 spacing: 24,
@@ -2163,16 +2319,22 @@ class _WizardProgramsSelectionDialogState
                 child: Wrap(
                   spacing: 12,
                   runSpacing: 12,
-                  children: widget.programs.map((prog) {
+                  children: widget.programs.map((prog)
+                  {
                     final bool isProgSelected = _selected.contains(prog.id);
                     return _WizardDisciplineChip(
                       label: prog.name,
                       isSelected: isProgSelected,
-                      onSelected: (val) {
-                        setState(() {
-                          if (val) {
+                      onSelected: (val)
+                      {
+                        setState(()
+                        {
+                          if (val)
+                          {
                             _selected.add(prog.id);
-                          } else {
+                          }
+                          else
+                          {
                             _selected.remove(prog.id);
                           }
                         });
@@ -2189,15 +2351,16 @@ class _WizardProgramsSelectionDialogState
                 bottom: 32,
                 top: 16,
               ),
-              //StacksVerticallyWhenTheDialogIsTooNarrowForBothButtonsSideBySide
-              //FixedWidthInBothBranches_NeverStretchesToFillTheAvailableSpace
+              // Stacks vertically when the dialog is too narrow for both buttons
+              // side by side; fixed width in both branches, never stretches.
               child: _ResponsiveWizardDialogButtonsRow(
                 secondaryButton: WizardAnimatedActionButton(
                   text: 'ANNULLA',
                   icon: Icons.close_rounded,
-                  baseColor: const Color(0xFFE53935),
-                  hoverColor: const Color(0xFFEF5350),
-                  onPressed: () {
+                  baseColor: AppTheme.danger,
+                  hoverColor: AppTheme.dangerHover,
+                  onPressed: ()
+                  {
                     widget.onCancel();
                     Navigator.of(context).pop();
                   },
@@ -2205,9 +2368,10 @@ class _WizardProgramsSelectionDialogState
                 primaryButton: WizardAnimatedActionButton(
                   text: 'CONFERMA',
                   icon: Icons.check_circle_outline,
-                  baseColor: const Color(0xFF003C82),
-                  hoverColor: const Color(0xFF004D99),
-                  onPressed: () {
+                  baseColor: AppTheme.primary,
+                  hoverColor: AppTheme.primaryHover,
+                  onPressed: ()
+                  {
                     widget.onSave(_selected);
                     Navigator.of(context).pop();
                   },
@@ -2221,9 +2385,11 @@ class _WizardProgramsSelectionDialogState
   }
 }
 
-//DecidesRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
-//SameCriterionUsedForThePersonWizardsMainBottomBar_ConfermaSempreSopra_AnnullaSempreSotto
-class _ResponsiveWizardDialogButtonsRow extends StatelessWidget {
+// Chooses row vs column from the actual available width and never lets the buttons
+// stretch to fill it. Same criterion as the person wizard's main bottom bar:
+// Conferma always on top, Annulla always below.
+class _ResponsiveWizardDialogButtonsRow extends StatelessWidget
+{
   final Widget secondaryButton;
   final Widget primaryButton;
 
@@ -2237,12 +2403,15 @@ class _ResponsiveWizardDialogButtonsRow extends StatelessWidget {
   static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (context, constraints)
+      {
         final bool isCompact = constraints.maxWidth < _kBreakpoint;
 
-        if (isCompact) {
+        if (isCompact)
+        {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -2266,7 +2435,8 @@ class _ResponsiveWizardDialogButtonsRow extends StatelessWidget {
   }
 }
 
-class _WizardDisciplineChip extends StatefulWidget {
+class _WizardDisciplineChip extends StatefulWidget
+{
   final String label;
   final bool isSelected;
   final ValueChanged<bool> onSelected;
@@ -2281,20 +2451,26 @@ class _WizardDisciplineChip extends StatefulWidget {
   State<_WizardDisciplineChip> createState() => _WizardDisciplineChipState();
 }
 
-class _WizardDisciplineChipState extends State<_WizardDisciplineChip> {
+class _WizardDisciplineChipState extends State<_WizardDisciplineChip>
+{
   bool _isHovered = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
@@ -2305,13 +2481,13 @@ class _WizardDisciplineChipState extends State<_WizardDisciplineChip> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? const Color(0xFF003C82)
-                : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white),
+                ? AppTheme.primary
+                : (_isHovered ? AppTheme.surfaceHover : Colors.white),
             borderRadius: BorderRadius.circular(100),
             border: Border.all(
               color: widget.isSelected
-                  ? const Color(0xFF003C82)
-                  : const Color(0xFFE0E5EC),
+                  ? AppTheme.primary
+                  : AppTheme.border,
               width: 1.0,
             ),
           ),
@@ -2320,7 +2496,7 @@ class _WizardDisciplineChipState extends State<_WizardDisciplineChip> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: widget.isSelected ? Colors.white : const Color(0xFF003C82),
+              color: widget.isSelected ? Colors.white : AppTheme.primary,
             ),
             child: Text(widget.label),
           ),
@@ -2330,7 +2506,8 @@ class _WizardDisciplineChipState extends State<_WizardDisciplineChip> {
   }
 }
 
-class WizardHoverCloseButton extends StatefulWidget {
+class WizardHoverCloseButton extends StatefulWidget
+{
   final VoidCallback onTap;
 
   const WizardHoverCloseButton({super.key, required this.onTap});
@@ -2339,20 +2516,26 @@ class WizardHoverCloseButton extends StatefulWidget {
   State<WizardHoverCloseButton> createState() => _WizardHoverCloseButtonState();
 }
 
-class _WizardHoverCloseButtonState extends State<WizardHoverCloseButton> {
+class _WizardHoverCloseButtonState extends State<WizardHoverCloseButton>
+{
   bool _isHovered = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
@@ -2363,18 +2546,19 @@ class _WizardHoverCloseButtonState extends State<WizardHoverCloseButton> {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: _isHovered
-                ? const Color(0xFFE3F2FD)
-                : const Color(0xFFE3F2FD).withValues(alpha: 0.0),
+                ? AppTheme.iconHover
+                : AppTheme.iconHover.withValues(alpha: 0.0),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.close, color: Color(0xFF003C82), size: 24),
+          child: const Icon(Icons.close, color: AppTheme.primary, size: 24),
         ),
       ),
     );
   }
 }
 
-class WizardTextLinkButton extends StatefulWidget {
+class WizardTextLinkButton extends StatefulWidget
+{
   final String text;
   final IconData? icon;
   final VoidCallback onTap;
@@ -2390,20 +2574,26 @@ class WizardTextLinkButton extends StatefulWidget {
   State<WizardTextLinkButton> createState() => WizardTextLinkButtonState();
 }
 
-class WizardTextLinkButtonState extends State<WizardTextLinkButton> {
+class WizardTextLinkButtonState extends State<WizardTextLinkButton>
+{
   bool _isHovered = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
@@ -2421,7 +2611,7 @@ class WizardTextLinkButtonState extends State<WizardTextLinkButton> {
                   fontWeight: FontWeight.w700,
                   color: _isHovered
                       ? const Color(0xFF002244)
-                      : const Color(0xFF003C82),
+                      : AppTheme.primary,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2429,13 +2619,14 @@ class WizardTextLinkButtonState extends State<WizardTextLinkButton> {
                     if (widget.icon != null) ...[
                       TweenAnimationBuilder<Color?>(
                         tween: ColorTween(
-                          begin: const Color(0xFF003C82),
+                          begin: AppTheme.primary,
                           end: _isHovered
                               ? const Color(0xFF002244)
-                              : const Color(0xFF003C82),
+                              : AppTheme.primary,
                         ),
                         duration: const Duration(milliseconds: 200),
-                        builder: (context, color, child) {
+                        builder: (context, color, child)
+                        {
                           return Icon(widget.icon, size: 20, color: color);
                         },
                       ),
@@ -2451,7 +2642,8 @@ class WizardTextLinkButtonState extends State<WizardTextLinkButton> {
               right: 0,
               bottom: 0,
               child: LayoutBuilder(
-                builder: (context, constraints) {
+                builder: (context, constraints)
+                {
                   return Align(
                     alignment: Alignment.centerLeft,
                     child: AnimatedContainer(
@@ -2475,7 +2667,8 @@ class WizardTextLinkButtonState extends State<WizardTextLinkButton> {
   }
 }
 
-class WizardRemoveRowButton extends StatefulWidget {
+class WizardRemoveRowButton extends StatefulWidget
+{
   final VoidCallback onTap;
 
   const WizardRemoveRowButton({super.key, required this.onTap});
@@ -2484,11 +2677,13 @@ class WizardRemoveRowButton extends StatefulWidget {
   State<WizardRemoveRowButton> createState() => _WizardRemoveRowButtonState();
 }
 
-class _WizardRemoveRowButtonState extends State<WizardRemoveRowButton> {
+class _WizardRemoveRowButtonState extends State<WizardRemoveRowButton>
+{
   bool _isHovering = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
@@ -2501,14 +2696,14 @@ class _WizardRemoveRowButtonState extends State<WizardRemoveRowButton> {
           height: 40,
           decoration: BoxDecoration(
             color: _isHovering
-                ? const Color(0xFFE53935).withValues(alpha: 0.15)
+                ? AppTheme.danger.withValues(alpha: 0.15)
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: const Icon(
             Icons.remove_circle_outline,
             size: 24,
-            color: Color(0xFFE53935),
+            color: AppTheme.danger,
           ),
         ),
       ),
@@ -2516,13 +2711,15 @@ class _WizardRemoveRowButtonState extends State<WizardRemoveRowButton> {
   }
 }
 
-class WizardHeaderBackButton extends StatelessWidget {
+class WizardHeaderBackButton extends StatelessWidget
+{
   final VoidCallback onTap;
 
   const WizardHeaderBackButton({super.key, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -2533,17 +2730,11 @@ class WizardHeaderBackButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(40),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
-              ),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF003C82),
+            color: AppTheme.primary,
             size: 26,
           ),
         ),
@@ -2552,7 +2743,8 @@ class WizardHeaderBackButton extends StatelessWidget {
   }
 }
 
-class WizardMiniActionPillButton extends StatefulWidget {
+class WizardMiniActionPillButton extends StatefulWidget
+{
   final String text;
   final IconData icon;
   final VoidCallback onTap;
@@ -2570,38 +2762,50 @@ class WizardMiniActionPillButton extends StatefulWidget {
 }
 
 class _WizardMiniActionPillButtonState
-    extends State<WizardMiniActionPillButton> {
+    extends State<WizardMiniActionPillButton>
+{
   bool _isHovered = false;
   bool _isPressed = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovered = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovered = false;
         });
       },
       child: GestureDetector(
-        onTapDown: (_) {
-          setState(() {
+        onTapDown: (_)
+        {
+          setState(()
+          {
             _isPressed = true;
           });
         },
-        onTapUp: (_) {
-          setState(() {
+        onTapUp: (_)
+        {
+          setState(()
+          {
             _isPressed = false;
           });
           widget.onTap();
         },
-        onTapCancel: () {
-          setState(() {
+        onTapCancel: ()
+        {
+          setState(()
+          {
             _isPressed = false;
           });
         },
@@ -2613,26 +2817,20 @@ class _WizardMiniActionPillButtonState
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white,
+              color: _isHovered ? AppTheme.surfaceHover : Colors.white,
               borderRadius: BorderRadius.circular(100),
               border: Border.all(
                 color: _isHovered
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFFE0E5EC),
+                    ? AppTheme.primary
+                    : AppTheme.border,
                 width: 1.5,
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  offset: Offset(0, 4),
-                  blurRadius: 16,
-                ),
-              ],
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(widget.icon, color: const Color(0xFF003C82), size: 18),
+                Icon(widget.icon, color: AppTheme.primary, size: 18),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -2641,7 +2839,7 @@ class _WizardMiniActionPillButtonState
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
                 ),
@@ -2654,12 +2852,14 @@ class _WizardMiniActionPillButtonState
   }
 }
 
-class WizardSelectablePersonCard extends StatefulWidget {
+class WizardSelectablePersonCard extends StatefulWidget
+{
   final PersonItem person;
   final bool isSelected;
   final VoidCallback onTap;
-  //SeSelezionataEConAlmenoUnaDelleDueCallback_MostraLeIconeMatita/CestinoInveceDiEssereTappabileDirettamente
-  //StessoPatternDiWizardSubjectGridCard_SeEntrambeAssentiIlComportamentoRestaIdenticoADiPrima
+  // When selected and given at least one callback, shows the edit/delete icons
+  // instead of being directly tappable (same pattern as WizardSubjectGridCard).
+  // With both absent the behaviour is unchanged.
   final VoidCallback? onEdit;
   final VoidCallback? onRemove;
 
@@ -2678,10 +2878,12 @@ class WizardSelectablePersonCard extends StatefulWidget {
 }
 
 class _WizardSelectablePersonCardState
-    extends State<WizardSelectablePersonCard> {
+    extends State<WizardSelectablePersonCard>
+{
   bool _isHovering = false;
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar()
+  {
     final String initials =
         '${widget.person.firstName[0]}${widget.person.lastName[0]}'
             .toUpperCase();
@@ -2692,13 +2894,14 @@ class _WizardSelectablePersonCardState
         style: GoogleFonts.plusJakartaSans(
           fontSize: 26,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
+          color: AppTheme.slate500,
         ),
       ),
     );
 
     String? imageUrl = widget.person.profileImageUrl?.trim();
-    if (imageUrl != null && imageUrl.startsWith('/')) {
+    if (imageUrl != null && imageUrl.startsWith('/'))
+    {
       imageUrl = ApiConfig.buildUrl(imageUrl);
     }
 
@@ -2708,16 +2911,17 @@ class _WizardSelectablePersonCardState
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
+        color: AppTheme.slate200,
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF003C82), width: 2.5),
+        border: Border.all(color: AppTheme.primary, width: 2.5),
       ),
       child: ClipOval(
         child: hasImage
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
+                errorBuilder: (context, error, stackTrace)
+                {
                   return fallbackWidget;
                 },
               )
@@ -2727,7 +2931,8 @@ class _WizardSelectablePersonCardState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     final List<String> processedRoles = RoleLabelMapper.processRoles(
       widget.person.roles,
     );
@@ -2738,13 +2943,17 @@ class _WizardSelectablePersonCardState
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        setState(() {
+      onEnter: (_)
+      {
+        setState(()
+        {
           _isHovering = true;
         });
       },
-      onExit: (_) {
-        setState(() {
+      onExit: (_)
+      {
+        setState(()
+        {
           _isHovering = false;
         });
       },
@@ -2761,13 +2970,11 @@ class _WizardSelectablePersonCardState
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: (_isHovering || widget.isSelected)
-                  ? const Color(0xFF003C82)
+                  ? AppTheme.primary
                   : Colors.transparent,
               width: 2,
             ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2779,17 +2986,21 @@ class _WizardSelectablePersonCardState
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CardOverflowTooltipText(
+                    OverflowTooltipText(
                       text: fullName,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                         height: 1.1,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _WizardRoleChipsRow(roles: processedRoles),
+                    RoleChipsRow(
+                      roles: processedRoles,
+                      safetyMargin: 6,
+                      applyTextScaler: true,
+                    ),
                   ],
                 ),
               ),
@@ -2813,7 +3024,7 @@ class _WizardSelectablePersonCardState
                             child: const Icon(
                               Icons.edit_rounded,
                               size: 18,
-                              color: Color(0xFF003C82),
+                              color: AppTheme.primary,
                             ),
                           ),
                         ),
@@ -2834,7 +3045,7 @@ class _WizardSelectablePersonCardState
                             child: const Icon(
                               Icons.backspace_rounded,
                               size: 18,
-                              color: Color(0xFFE53935),
+                              color: AppTheme.danger,
                             ),
                           ),
                         ),
@@ -2850,242 +3061,11 @@ class _WizardSelectablePersonCardState
   }
 }
 
-/// Mostra i chip dei ruoli su una singola riga. Se non entrano tutti nello
-/// spazio disponibile, tronca la lista e sostituisce quelli in eccesso con
-/// un chip "+N" che, al passaggio del mouse, mostra i ruoli nascosti.
-class _WizardRoleChipsRow extends StatelessWidget {
-  final List<String> roles;
-
-  const _WizardRoleChipsRow({required this.roles});
-
-  static const double _chipHorizontalPadding = 20; // 10 sinistra + 10 destra
-  static const double _chipBorderAllowance = 2;    // 1px di bordo per lato
-  static const double _chipSpacing = 6;
-  //MargineDiSicurezzaControEventualiScartiDiArrotondamentoSubpixel_MeglioMostrareUnChipInMenoCheAndareInOverflow
-  static const double _safetyMargin = 6;
-
-  //IlTextPainterOfflineNonApplicaAutomaticamenteIlTextScalerAmbientale(AccessibilitàSistema/Browser)
-  //CheInveceIlWidgetTextRealeApplicaSempre_SenzaPassarloEsplicitamenteLaMisuraRisultaSottostimata
-  //EQuestoCausaOverflowDiPochiPixelQuandoLoScaleFactorNonEEsattamente1.0
-  double _measureChipWidth(String text, TextStyle style, TextScaler textScaler) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-      maxLines: 1,
-    )..layout();
-    return painter.width + _chipHorizontalPadding + _chipBorderAllowance;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (roles.isEmpty) return const SizedBox.shrink();
-
-    final TextScaler textScaler = MediaQuery.textScalerOf(context);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final chipStyle = GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF64748B),
-        );
-        final extraStyle = GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-        );
-
-        int visibleCount = roles.length;
-        while (visibleCount > 1) {
-          double totalWidth = 0;
-          for (int i = 0; i < visibleCount; i++) {
-            totalWidth += _measureChipWidth(roles[i], chipStyle, textScaler);
-            if (i > 0) totalWidth += _chipSpacing;
-          }
-
-          final int remaining = roles.length - visibleCount;
-          if (remaining > 0) {
-            totalWidth += _chipSpacing + _measureChipWidth('+$remaining', extraStyle, textScaler);
-          }
-
-          if (totalWidth + _safetyMargin <= constraints.maxWidth) break;
-          visibleCount--;
-        }
-
-        final int extraCount = roles.length - visibleCount;
-        final List<String> hiddenRoles = roles.sublist(visibleCount);
-
-        final List<Widget> chips = [];
-        for (int i = 0; i < visibleCount; i++) {
-          if (i > 0) chips.add(const SizedBox(width: _chipSpacing));
-          chips.add(_WizardRoleChip(label: roles[i], style: chipStyle));
-        }
-        if (extraCount > 0) {
-          chips.add(const SizedBox(width: _chipSpacing));
-          chips.add(_WizardRoleChip(
-            label: '+$extraCount',
-            style: extraStyle,
-            hiddenRoles: hiddenRoles,
-          ));
-        }
-
-        return Row(mainAxisSize: MainAxisSize.min, children: chips);
-      },
-    );
-  }
-}
-
-class _WizardRoleChip extends StatelessWidget {
-  final String label;
-  final TextStyle style;
-  final List<String>? hiddenRoles;
-
-  const _WizardRoleChip({required this.label, required this.style, this.hiddenRoles});
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E5EC)),
-      ),
-      child: Text(label, style: style),
-    );
-
-    if (hiddenRoles == null || hiddenRoles!.isEmpty) return chip;
-
-    return Tooltip(
-      waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
-      richMessage: TextSpan(
-        children: [
-          TextSpan(
-            text: 'Altri ruoli:\n',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              color: const Color(0xFF94A3B8),
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-          TextSpan(
-            text: hiddenRoles!.join('\n'),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-      child: chip,
-    );
-  }
-}
-
-class _CardOverflowTooltipText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-  final int maxLines;
-
-  const _CardOverflowTooltipText({
-    required this.text,
-    required this.style,
-    this.maxLines = 2,
-  });
-
-  @override
-  State<_CardOverflowTooltipText> createState() =>
-      _CardOverflowTooltipTextState();
-}
-
-class _CardOverflowTooltipTextState extends State<_CardOverflowTooltipText> {
-  final GlobalKey _textKey = GlobalKey();
-  bool _isOverflowing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    PaintingBinding.instance.systemFonts.addListener(_scheduleOverflowCheck);
-    _scheduleOverflowCheck();
-  }
-
-  @override
-  void didUpdateWidget(covariant _CardOverflowTooltipText oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.text != widget.text || oldWidget.style != widget.style) {
-      _scheduleOverflowCheck();
-    }
-  }
-
-  @override
-  void dispose() {
-    PaintingBinding.instance.systemFonts.removeListener(_scheduleOverflowCheck);
-    super.dispose();
-  }
-
-  void _scheduleOverflowCheck() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = _textKey.currentContext?.findRenderObject();
-      if (renderObject is RenderParagraph) {
-        final bool overflowing = renderObject.didExceedMaxLines;
-        if (overflowing != _isOverflowing) {
-          setState(() => _isOverflowing = overflowing);
-        }
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget textWidget = Text(
-      widget.text,
-      key: _textKey,
-      maxLines: widget.maxLines,
-      overflow: TextOverflow.ellipsis,
-      style: widget.style,
-    );
-
-    if (!_isOverflowing) return textWidget;
-
-    return Tooltip(
-      message: widget.text,
-      waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle: GoogleFonts.plusJakartaSans(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.white,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
-      child: textWidget,
-    );
-  }
-}
-
-//SwitchSì/NoRiutilizzabile_UsatoSiaNelDialogAutorizzazioneAlRitiroSiaAlPostoDelDropdownUscitaAnticipata
-//IlThumbBiancoScorreOrizzontalmenteConAnimazione_true=Sì(sinistra)_false=No(destra)
-class WizardYesNoSwitch extends StatelessWidget {
+// Reusable yes/no switch, used both in the pickup authorization dialog and in
+// place of the early-exit dropdown. The white thumb slides horizontally:
+// true = Yes (left), false = No (right).
+class WizardYesNoSwitch extends StatelessWidget
+{
   final bool value;
   final ValueChanged<bool> onChanged;
   final double width;
@@ -3105,7 +3085,8 @@ class WizardYesNoSwitch extends StatelessWidget {
     required String text,
     required IconData icon,
     required bool active,
-  }) {
+  })
+  {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3115,7 +3096,7 @@ class WizardYesNoSwitch extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: active ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
+            color: active ? AppTheme.primary : AppTheme.slate400,
           ),
           const SizedBox(width: 8),
           Text(
@@ -3123,7 +3104,7 @@ class WizardYesNoSwitch extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 17,
               fontWeight: FontWeight.w700,
-              color: active ? const Color(0xFF003C82) : const Color(0xFF94A3B8),
+              color: active ? AppTheme.primary : AppTheme.slate400,
             ),
           ),
         ],
@@ -3132,7 +3113,8 @@ class WizardYesNoSwitch extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     const double pad = 4;
 
     return MouseRegion(
@@ -3146,17 +3128,17 @@ class WizardYesNoSwitch extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(height / 2),
-            //StessoRossoDiErroreUsatoDaWizardAnimatedTextField_CoerenzaVisiva
-            border: isError ? Border.all(color: const Color(0xFFE53935), width: 1.5) : null,
+            // Same error red as WizardAnimatedTextField, for visual consistency.
+            border: isError ? Border.all(color: AppTheme.danger, width: 1.5) : null,
           ),
           child: LayoutBuilder(
-            builder: (context, constraints) {
+            builder: (context, constraints)
+            {
               final double thumbWidth = constraints.maxWidth / 2;
               final double thumbHeight = constraints.maxHeight;
 
               return Stack(
                 children: [
-                  //ThumbBiancoScorrevole_AllineatoSinistra(Sì)ODestra(No)ConAnimazione
                   AnimatedAlign(
                     duration: const Duration(milliseconds: 240),
                     curve: Curves.easeOutCubic,
@@ -3177,7 +3159,8 @@ class WizardYesNoSwitch extends StatelessWidget {
                       ),
                     ),
                   ),
-                  //Positioned.fillDaAllaRowTuttaL'AltezzaDelloStack_AltrimentiPrenderebbeSoloL'AltezzaIntrinsecaESiIncollerebbeInAlto
+                  // Positioned.fill gives the Row the Stack's full height; otherwise
+                  // it would only take its intrinsic height and stick to the top.
                   Positioned.fill(
                     child: Row(
                       children: [
@@ -3214,7 +3197,8 @@ Future<ParentalRelationshipDraft?> showAuthorizedPickupDialog(
   required String parentName,
   required String childName,
   ParentalRelationshipDraft? existing,
-}) {
+})
+{
   return showGeneralDialog<ParentalRelationshipDraft?>(
     context: context,
     barrierDismissible: true,
@@ -3223,7 +3207,8 @@ Future<ParentalRelationshipDraft?> showAuthorizedPickupDialog(
     transitionDuration: const Duration(milliseconds: 240),
     pageBuilder: (animation, secondaryAnimation, child) =>
         const SizedBox.shrink(),
-    transitionBuilder: (context, animation, secondaryAnimation, child) {
+    transitionBuilder: (context, animation, secondaryAnimation, child)
+    {
       final blurValue = animation.value * 8.0;
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
@@ -3248,7 +3233,8 @@ Future<ParentalRelationshipDraft?> showAuthorizedPickupDialog(
   );
 }
 
-class _AuthorizedPickupDialog extends StatefulWidget {
+class _AuthorizedPickupDialog extends StatefulWidget
+{
   final String personTaxCode;
   final String parentName;
   final String childName;
@@ -3266,12 +3252,14 @@ class _AuthorizedPickupDialog extends StatefulWidget {
       _AuthorizedPickupDialogState();
 }
 
-class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
+class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
+{
   late bool _authorized;
   late final TextEditingController _reasonCtrl;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     _authorized = widget.existing?.authorizedPickup ?? true;
     _reasonCtrl = TextEditingController(
@@ -3280,13 +3268,16 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
   }
 
   @override
-  void dispose() {
+  void dispose()
+  {
     _reasonCtrl.dispose();
     super.dispose();
   }
 
-  //IlMotivoEFacoltativoAncheQuandoNonAutorizzato_NessunaValidazioneBloccante
-  void _confirm() {
+  // The reason stays optional even when pickup is not authorized: no blocking
+  // validation.
+  void _confirm()
+  {
     final String reason = _reasonCtrl.text.trim();
 
     Navigator.of(context).pop(
@@ -3299,20 +3290,19 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        //DialogPiuLargo_LasciaSpazioAiDueBottoniSullaStessaRigaSenzaMaiImpilarli
+        // Wider dialog: leaves room for the two buttons on one row without stacking.
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 560),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3328,7 +3318,7 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF003C82),
+                        color: AppTheme.primary,
                       ),
                     ),
                   ),
@@ -3336,7 +3326,7 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
                 ],
               ),
             ),
-            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
@@ -3352,7 +3342,6 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  //SwitchCentratoConThumbScorrevole
                   Center(
                     child: WizardYesNoSwitch(
                       value: _authorized,
@@ -3360,9 +3349,11 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  //SpazioSempreRiservato(SizedBoxAAltezzaFissa)_SoloL'OpacitaCambia
-                  //IlDialogNonSiRidimensionaMaiEGliElementiSottoNonSiSpostanoQuandoIlCampoComparisce/Scompare
-                  //LabelSoprraECampoAPienaLarghezzaSotto_NonPiuWizardFormInputRowCheRiservava140pxAllaLabelAccorciandoIlTextbox
+                  // The space is always reserved (fixed-height SizedBox) and only
+                  // the opacity changes, so the dialog never resizes and the widgets
+                  // below stay put as the field appears or disappears. Label above,
+                  // full-width field below, rather than WizardFormInputRow which
+                  // reserved 140px for the label and shortened the textbox.
                   AnimatedOpacity(
                     opacity: _authorized ? 0.0 : 1.0,
                     duration: const Duration(milliseconds: 220),
@@ -3400,15 +3391,16 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
             ),
             Padding(
               padding: const EdgeInsets.all(32),
-              //ConfermaEAnnullaSempreSullaStessaRiga_IlDialogEOraAbbastanzaLargoDaOspitarliSenzaImpilare
+              // Conferma and Annulla always share one row: the dialog is now wide
+              // enough to fit them without stacking.
               child: Row(
                 children: [
                   Expanded(
                     child: WizardAnimatedActionButton(
                       text: 'ANNULLA',
                       icon: Icons.close_rounded,
-                      baseColor: const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
+                      baseColor: AppTheme.danger,
+                      hoverColor: AppTheme.dangerHover,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -3417,8 +3409,8 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
                     child: WizardAnimatedActionButton(
                       text: 'CONFERMA',
                       icon: Icons.check_circle_outline,
-                      baseColor: const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
+                      baseColor: AppTheme.primary,
+                      hoverColor: AppTheme.primaryHover,
                       onPressed: _confirm,
                     ),
                   ),
@@ -3427,6 +3419,587 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Chooses whether to lay the year and start date side by side or stacked, like MembershipEditRow in PersonMembershipsTab.
+// When stacked, the remove button moves next to the last field.
+class WizardEnrollmentFieldRow extends StatelessWidget
+{
+  final TextEditingController yearCtrl;
+  final TextEditingController dateCtrl;
+  final String?               yearError;
+  final String?               dateError;
+  final ValueChanged<String>  onYearChanged;
+  final ValueChanged<String>  onDateChanged;
+  final VoidCallback?         onRemove;
+
+  const WizardEnrollmentFieldRow
+  ({
+    super.key,
+    required this.yearCtrl,
+    required this.dateCtrl,
+    required this.yearError,
+    required this.dateError,
+    required this.onYearChanged,
+    required this.onDateChanged,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 360;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 8),
+      child:   Text
+      (
+        text, 
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   14, 
+          fontWeight: FontWeight.w600, 
+          color:      const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget yearField = Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            _buildLabel('Anno'),
+            WizardAnimatedTextField
+            (
+              controller:   yearCtrl, 
+              hint:         'Es. 2024', 
+              keyboardType: TextInputType.number,
+              errorText:    yearError,
+              onChanged:    onYearChanged,
+            ),
+          ],
+        );
+
+        final Widget dateField = Column
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            _buildLabel('Data inizio'),
+            WizardAnimatedTextField
+            (
+              controller:      dateCtrl, 
+              hint:            'gg/mm', 
+              keyboardType:    TextInputType.number,
+              inputFormatters: [WizardDayMonthInputFormatter()],
+              errorText:       dateError,
+              onChanged:       onDateChanged,
+            ),
+          ],
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: 
+            [
+              yearField,
+              const SizedBox(height: 16),
+              onRemove == null
+                  ? dateField
+                  : Row
+                    (
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: 
+                      [
+                        Expanded(child: dateField),
+                        const SizedBox(width: 8),
+                        WizardRemoveRowButton(onTap: onRemove!),
+                      ],
+                    ),
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: 
+          [
+            Expanded(flex: 2, child: yearField),
+            const SizedBox(width: 16),
+            Expanded(flex: 3, child: dateField),
+            // Recalibrated from the original: top:6 was tuned when the label only appeared on the first row.
+            // Here the label always appears, so the field shifts down by about 27px.
+            onRemove != null
+                ? Padding
+                  (
+                    padding: const EdgeInsets.only(top: 32, left: 8),
+                    child:   WizardRemoveRowButton(onTap: onRemove!),
+                  )
+                : const SizedBox(width: 48),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Chooses whether to place search and filters side by side or stacked, only below the threshold, not always.
+// Above the threshold: Row(Expanded(searchBar), individual filters); below: full-width search plus Wrap(filters).
+class WizardResponsiveSearchFilterRow extends StatelessWidget
+{
+  final Widget searchBar;
+  final List<Widget> filterWidgets;
+  final double breakpoint;
+
+  const WizardResponsiveSearchFilterRow
+  ({
+    super.key,
+    required this.searchBar,
+    required this.filterWidgets,
+    this.breakpoint = 700,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < breakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: 
+            [
+              searchBar,
+              SizedBox(height: 12),
+              Wrap
+              (
+                spacing:    12,
+                runSpacing: 12,
+                children:   filterWidgets,
+              ),
+            ],
+          );
+        }
+
+        final List<Widget> rowChildren = [Expanded(child: searchBar)];
+        for (final w in filterWidgets)
+        {
+          rowChildren.add(SizedBox(width: 12));
+          rowChildren.add(w);
+        }
+
+        return Row(children: rowChildren);
+      },
+    );
+  }
+}
+
+// Chooses row vs column from the available width; both buttons keep a fixed width and never stretch to fill the space.
+class WizardResponsiveBottomBar extends StatelessWidget
+{
+  final Widget secondaryButton;
+  final Widget primaryButton;
+
+  const WizardResponsiveBottomBar
+  ({
+    super.key,
+    required this.secondaryButton,
+    required this.primaryButton,
+  });
+
+  static const double _kButtonWidth = 240;
+  static const double _kSpacing = 24;
+  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        if (isCompact)
+        {
+          return Column
+          (
+            mainAxisSize: MainAxisSize.min,
+            children:
+            [
+              SizedBox(width: _kButtonWidth, child: primaryButton),
+              const SizedBox(height: 16),
+              SizedBox(width: _kButtonWidth, child: secondaryButton),
+            ],
+          );
+        }
+
+        return Row
+        (
+          mainAxisAlignment: MainAxisAlignment.center,
+          children:
+          [
+            SizedBox(width: _kButtonWidth, child: secondaryButton),
+            const SizedBox(width: _kSpacing),
+            SizedBox(width: _kButtonWidth, child: primaryButton),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Lays street type, name and number side by side, or stacks them with per-field labels when narrow.
+class WizardAddressFieldsRow extends StatelessWidget
+{
+  final TextEditingController tipoViaCtrl;
+  final String?               tipoViaError;
+  final ValueChanged<String>  onTipoViaChanged;
+
+  final TextEditingController nomeCtrl;
+  final String?               nomeError;
+  final ValueChanged<String>  onNomeChanged;
+
+  final TextEditingController civicoCtrl;
+  final String?               civicoError;
+  final ValueChanged<String>  onCivicoChanged;
+
+  const WizardAddressFieldsRow
+  ({
+    super.key,
+    required this.tipoViaCtrl,
+    required this.tipoViaError,
+    required this.onTipoViaChanged,
+    required this.nomeCtrl,
+    required this.nomeError,
+    required this.onNomeChanged,
+    required this.civicoCtrl,
+    required this.civicoError,
+    required this.onCivicoChanged,
+  });
+
+  static const double _kBreakpoint = 420;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 6),
+      child:   Text
+      (
+        text,
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   13,
+          fontWeight: FontWeight.w600,
+          color:      const Color(0xFF7A7A7A),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder
+    (
+      builder: (context, constraints)
+      {
+        final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+        final Widget tipoViaField = WizardAnimatedTextField
+        (
+          controller: tipoViaCtrl,
+          hint:       'Via/Strada/...',
+          errorText:  tipoViaError,
+          onChanged:  onTipoViaChanged,
+        );
+
+        final Widget nomeField = WizardAnimatedTextField
+        (
+          controller: nomeCtrl,
+          hint:       'Nome',
+          errorText:  nomeError,
+          onChanged:  onNomeChanged,
+        );
+
+        final Widget civicoField = WizardAnimatedTextField
+        (
+          controller: civicoCtrl,
+          hint:       'N°',
+          errorText:  civicoError,
+          onChanged:  onCivicoChanged,
+        );
+
+        if (isCompact)
+        {
+          return Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              _buildLabel('Via / Piazza'),
+              tipoViaField,
+              const SizedBox(height: 16),
+              _buildLabel('Nome via'),
+              nomeField,
+              const SizedBox(height: 16),
+              _buildLabel('Numero civico'),
+              civicoField,
+            ],
+          );
+        }
+
+        return Row
+        (
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children:
+          [
+            Expanded(flex: 3, child: tipoViaField),
+            const SizedBox(width: 8),
+            Expanded(flex: 5, child: nomeField),
+            const SizedBox(width: 8),
+            Expanded(flex: 2, child: civicoField),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Lays the four school fields side by side or stacked; the remove button follows the last field when stacked.
+class WizardSchoolFieldRow extends StatelessWidget
+{
+  final TextEditingController yearCtrl;
+  final String?                yearError;
+  final ValueChanged<String>   onYearChanged;
+
+  final String?                 schoolValue;
+  final List<String>            schoolOptions;
+  final String?                 schoolError;
+  final ValueChanged<String>    onSchoolSelected;
+
+  final String?                 programValue;
+  final List<String>            programOptions;
+  final bool                    programEnabled;
+  final String?                 programError;
+  final ValueChanged<String>    onProgramSelected;
+
+  final String?                 gradeValue;
+  final List<String>            gradeOptions;
+  final bool                    gradeEnabled;
+  final String?                 gradeError;
+  final ValueChanged<String>    onGradeSelected;
+
+  final VoidCallback?           onRemove;
+
+  const WizardSchoolFieldRow
+  ({
+    super.key,
+    required this.yearCtrl,
+    required this.yearError,
+    required this.onYearChanged,
+    required this.schoolValue,
+    required this.schoolOptions,
+    required this.schoolError,
+    required this.onSchoolSelected,
+    required this.programValue,
+    required this.programOptions,
+    required this.programEnabled,
+    required this.programError,
+    required this.onProgramSelected,
+    required this.gradeValue,
+    required this.gradeOptions,
+    required this.gradeEnabled,
+    required this.gradeError,
+    required this.onGradeSelected,
+    required this.onRemove,
+  });
+
+  static const double _kBreakpoint = 700;
+
+  Widget _buildLabel(String text)
+  {
+    return Padding
+    (
+      padding: const EdgeInsets.only(bottom: 8),
+      child:   Text
+      (
+        text,
+        style: GoogleFonts.plusJakartaSans
+        (
+          fontSize:   12,
+          fontWeight: FontWeight.w700,
+          color:      AppTheme.slate500,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container
+    (
+      margin:     const EdgeInsets.only(bottom: 16),
+      padding:    const EdgeInsets.all(20),
+      decoration: BoxDecoration
+      (
+        borderRadius: BorderRadius.circular(16),
+        border:       Border.all(color: AppTheme.slate200),
+        color:        const Color(0xFFF8FAFC),
+      ),
+      child: LayoutBuilder
+      (
+        builder: (context, constraints)
+        {
+          final bool isCompact = constraints.maxWidth < _kBreakpoint;
+
+          final Widget yearField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              _buildLabel('Anno inizio'),
+              WizardAnimatedTextField
+              (
+                controller:   yearCtrl,
+                hint:         'Es. 2024',
+                errorText:    yearError,
+                keyboardType: TextInputType.number,
+                onChanged:    onYearChanged,
+              ),
+            ],
+          );
+
+          final Widget schoolField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              _buildLabel('Scuola'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      schoolValue,
+                items:      schoolOptions,
+                hint:       'Scuola',
+                errorText:  schoolError,
+                onChanged:  onSchoolSelected,
+              ),
+            ],
+          );
+
+          final Widget programField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              _buildLabel('Percorso'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      programValue,
+                items:      programOptions,
+                hint:       'Percorso',
+                enabled:    programEnabled,
+                errorText:  programError,
+                onChanged:  onProgramSelected,
+              ),
+            ],
+          );
+
+          final Widget gradeField = Column
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              _buildLabel('Classe'),
+              WizardAnimatedOverlayDropdown
+              (
+                value:      gradeValue,
+                items:      gradeOptions,
+                hint:       '',
+                enabled:    gradeEnabled,
+                errorText:  gradeError,
+                onChanged:  onGradeSelected,
+              ),
+            ],
+          );
+
+          if (isCompact)
+          {
+            return Column
+            (
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children:
+              [
+                yearField,
+                const SizedBox(height: 16),
+                schoolField,
+                const SizedBox(height: 16),
+                programField,
+                const SizedBox(height: 16),
+                onRemove == null
+                    ? gradeField
+                    : Row
+                      (
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children:
+                        [
+                          Expanded(child: gradeField),
+                          const SizedBox(width: 8),
+                          WizardRemoveRowButton(onTap: onRemove!),
+                        ],
+                      ),
+              ],
+            );
+          }
+
+          return Row
+          (
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+            [
+              Expanded(flex: 2, child: yearField),
+              const SizedBox(width: 16),
+              Expanded(flex: 5, child: schoolField),
+              const SizedBox(width: 16),
+              Expanded(flex: 5, child: programField),
+              const SizedBox(width: 16),
+              Expanded(flex: 2, child: gradeField),
+              onRemove != null
+                  ? Padding
+                    (
+                      padding: const EdgeInsets.only(top: 28, left: 16),
+                      child:   WizardRemoveRowButton(onTap: onRemove!),
+                    )
+                  : const SizedBox(width: 48),
+            ],
+          );
+        },
       ),
     );
   }

@@ -12,11 +12,9 @@ class LiveClock extends StatefulWidget
 
 class _LiveClockState extends State<LiveClock>
 {
-  late DateTime now;
-  Timer? timer;
-
-  static const months = [
-    '',
+  // Both lists are indexed from zero, so the one-based values returned by
+  // DateTime.month and DateTime.weekday are shifted before lookup.
+  static const List<String> _months = [
     'GENNAIO',
     'FEBBRAIO',
     'MARZO',
@@ -31,7 +29,7 @@ class _LiveClockState extends State<LiveClock>
     'DICEMBRE',
   ];
 
-  static const weekdays = [
+  static const List<String> _weekdays = [
     'LUNEDÌ',
     'MARTEDÌ',
     'MERCOLEDÌ',
@@ -41,49 +39,39 @@ class _LiveClockState extends State<LiveClock>
     'DOMENICA',
   ];
 
+  late DateTime _now;
+  Timer? _timer;
+
   @override
   void initState()
   {
     super.initState();
 
-    //InitializeCurrentTime
-    now = DateTime.now();
-
-    //SetupPeriodicTimer
-    timer = Timer.periodic(
+    _now = DateTime.now();
+    _timer = Timer.periodic(
       const Duration(seconds: 1),
-      (_)
-      {
-        setState(()
-        {
-          now = DateTime.now();
-        });
-      },
+      (_) => setState(() => _now = DateTime.now()),
     );
   }
 
   @override
   void dispose()
   {
-    //ReleaseResources
-    timer?.cancel();
-    
+    _timer?.cancel();
     super.dispose();
   }
 
-  String twoDigits(int value)
-  {
-    return value.toString().padLeft(2, '0');
-  }
+  String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context)
   {
-    final weekday = weekdays[now.weekday - 1];
+    final weekday = _weekdays[_now.weekday - 1];
+    final month = _months[_now.month - 1];
+    final time = '${_twoDigits(_now.hour)}:${_twoDigits(_now.minute)}:${_twoDigits(_now.second)}';
 
     return Text(
-      '$weekday ${now.day} ${months[now.month]} ${now.year} | '
-      '${twoDigits(now.hour)}:${twoDigits(now.minute)}:${twoDigits(now.second)}',
+      '$weekday ${_now.day} $month ${_now.year} | $time',
       style: const TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.w400,

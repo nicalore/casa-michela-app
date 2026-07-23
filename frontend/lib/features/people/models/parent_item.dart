@@ -1,8 +1,10 @@
-class ParentItem 
+import '../../../core/utils/json_parsing.dart';
+
+class ParentItem
 {
-  final String  fiscalCode;
-  final String  firstName;
-  final String  lastName;
+  final String fiscalCode;
+  final String firstName;
+  final String lastName;
   final String? gender;
   final String? email;
   final String? phoneNumber;
@@ -15,10 +17,11 @@ class ParentItem
   final String? zipCode;
   final String? city;
   final DateTime? birthDate;
-  //RiferitiAllaRelazioneParentalResponsibilityTraQuestoGenitoreELaPersonaPerCuiLaListaVieneCostruita
-  //NonAlGenitoreInGenerale
-  final bool     authorizedPickup;
-  final String?  pickupRestrictionReason;
+
+  // Both describe the ParentalResponsibility relation between this parent and
+  // the person the list was built for, not the parent in general.
+  final bool authorizedPickup;
+  final String? pickupRestrictionReason;
 
   const ParentItem({
     required this.fiscalCode,
@@ -40,25 +43,25 @@ class ParentItem
     this.pickupRestrictionReason,
   });
 
-  factory ParentItem.fromJson(Map<String, dynamic> json) 
+  factory ParentItem.fromJson(Map<String, dynamic> json)
   {
     return ParentItem(
-      fiscalCode:    json['fiscal_code'] ?? '',
-      firstName:     json['first_name'] ?? '',
-      lastName:      json['last_name'] ?? '',
-      gender:        json['gender'],
-      email:         json['email'],
-      phoneNumber:   json['phone'],
-      birthCity:     json['birth_city'],
+      fiscalCode: json['fiscal_code'] ?? '',
+      firstName: json['first_name'] ?? '',
+      lastName: json['last_name'] ?? '',
+      gender: json['gender'],
+      email: json['email'],
+      phoneNumber: json['phone'],
+      birthCity: json['birth_city'],
       birthProvince: json['birth_province'],
       residenceType: json['residence_type'],
-      address:       json['residence_address'],
+      address: json['residence_address'],
       addressNumber: json['residence_street_number'],
-      province:      json['residence_province'],
-      zipCode:       json['postal_code'],
-      city:          json['city'],
-      birthDate:     json['birth_date'] != null ? DateTime.parse(json['birth_date']) : null,
-      authorizedPickup:        json['authorized_pickup'] ?? true,
+      province: json['residence_province'],
+      zipCode: json['postal_code'],
+      city: json['city'],
+      birthDate: parseDate(json['birth_date']),
+      authorizedPickup: json['authorized_pickup'] ?? true,
       pickupRestrictionReason: json['pickup_restriction_reason'],
     );
   }

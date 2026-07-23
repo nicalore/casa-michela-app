@@ -1,18 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+abstract final class ApiConfig
+{
+  static const String _developmentBaseUrl = 'http://localhost:8000';
+  static const String _productionBaseUrl = '/api';
 
-class ApiConfig {
-  const ApiConfig._();
+  static String get baseUrl =>
+      kDebugMode ? _developmentBaseUrl : _productionBaseUrl;
 
-  static String get baseUrl {
-    if (kDebugMode) {
-      return 'http://localhost:8000';
-    }
-
-    return '/api';
-  }
-
-  static String buildUrl(String path) {
-    return '$baseUrl$path';
-  }
+  static String buildUrl(String path) => '$baseUrl$path';
 }

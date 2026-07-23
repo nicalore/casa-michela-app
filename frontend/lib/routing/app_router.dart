@@ -111,12 +111,10 @@ final appRouter = GoRouter(
     final authState = apiService.authState.value;
     final path = state.uri.path;
 
-    // Il link di reimpostazione password arriva via email ed è un'azione
-    // fuori banda, autenticata dal token nell'URL e non dalla sessione
-    // del browser. Deve restare sempre raggiungibile, a prescindere da
-    // cosa sta succedendo nella sessione corrente (loggato, reset
-    // obbligatorio pendente, nessuna sessione). Per questo il controllo
-    // viene prima di qualunque logica basata su authState.
+    // The password reset link arrives by email and is an out-of-band action,
+    // authenticated by the token in the URL rather than the browser session. It
+    // must always stay reachable regardless of the current session state, so it
+    // is checked before any authState-based logic.
     if (path == '/reset-password')
     {
       return null;

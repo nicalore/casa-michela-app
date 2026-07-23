@@ -3,14 +3,17 @@ import 'dart:js_interop';
 @JS('__hideCasaMichelaSplash')
 external void _hideCasaMichelaSplash();
 
-/// Segnala a index.html che il primo frame Flutter è stato dipinto,
-/// così l'overlay bianco iniziale può sfumare con l'animazione blur
-/// definita in CSS (#splash-overlay / .splash-overlay-hidden).
-void hideInitialSplash() {
-  try {
+// Contract with index.html: calling this hook triggers the CSS blur fade of
+// #splash-overlay, and must happen once the first Flutter frame is painted.
+void hideInitialSplash()
+{
+  try
+  {
     _hideCasaMichelaSplash();
-  } catch (_) {
-    // Se la funzione JS non esiste (es. build non-web) non deve
-    // bloccare l'avvio dell'app.
+  }
+  catch (_)
+  {
+    // The hook is absent when a cached index.html predates the overlay:
+    // failing to hide it must never prevent the app from starting.
   }
 }

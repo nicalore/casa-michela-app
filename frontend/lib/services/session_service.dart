@@ -5,7 +5,6 @@ class SessionService
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
 
-  //SaveAuthenticationTokens
   static Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
@@ -17,7 +16,6 @@ class SessionService
     await prefs.setString(_refreshTokenKey, refreshToken);
   }
 
-  //RetrieveAccessToken
   static Future<String?> getAccessToken() async
   {
     final prefs = await SharedPreferences.getInstance();
@@ -25,7 +23,6 @@ class SessionService
     return prefs.getString(_accessTokenKey);
   }
 
-  //RetrieveRefreshToken
   static Future<String?> getRefreshToken() async
   {
     final prefs = await SharedPreferences.getInstance();
@@ -33,7 +30,6 @@ class SessionService
     return prefs.getString(_refreshTokenKey);
   }
 
-  //ClearSessionData
   static Future<void> clear() async
   {
     final prefs = await SharedPreferences.getInstance();

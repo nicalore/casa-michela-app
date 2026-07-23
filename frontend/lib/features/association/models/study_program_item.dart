@@ -1,6 +1,6 @@
 import 'ministry_subject_item.dart';
 
-class StudyProgramItem 
+class StudyProgramItem
 {
   final int id;
   final String name;
@@ -23,7 +23,7 @@ class StudyProgramItem
   });
 }
 
-class MinistrySubjectOption 
+class MinistrySubjectOption
 {
   final int id;
   final String name;

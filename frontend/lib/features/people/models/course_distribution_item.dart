@@ -1,11 +1,11 @@
-class CourseDistributionItem 
+class CourseDistributionItem
 {
   final String label;
-  final int    count;
+  final int count;
 
-  CourseDistributionItem({required this.label, required this.count});
+  const CourseDistributionItem({required this.label, required this.count});
 
-  factory CourseDistributionItem.fromJson(Map<String, dynamic> json) 
+  factory CourseDistributionItem.fromJson(Map<String, dynamic> json)
   {
     return CourseDistributionItem(
       label: json['label'],

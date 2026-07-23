@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
+const String _fontFamily = 'Plus Jakarta Sans';
+
 class AppPrimaryButton extends StatefulWidget
 {
   final String label;
@@ -21,8 +25,12 @@ class AppPrimaryButton extends StatefulWidget
 
 class _AppPrimaryButtonState extends State<AppPrimaryButton> with SingleTickerProviderStateMixin
 {
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
+  static const Duration _pressDuration = Duration(milliseconds: 150);
+  static const Duration _hoverDuration = Duration(milliseconds: 200);
+  static const double _pressedScale = 0.95;
+
+  late final AnimationController _scaleController;
+  late final Animation<double> _scaleAnimation;
 
   bool _isHovered = false;
 
@@ -33,10 +41,10 @@ class _AppPrimaryButtonState extends State<AppPrimaryButton> with SingleTickerPr
 
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: _pressDuration,
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: _pressedScale).animate(
       CurvedAnimation(
         parent: _scaleController,
         curve: Curves.easeInOut,
@@ -48,24 +56,13 @@ class _AppPrimaryButtonState extends State<AppPrimaryButton> with SingleTickerPr
   void dispose()
   {
     _scaleController.dispose();
-
     super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details)
-  {
-    _scaleController.forward();
   }
 
   void _onTapUp(TapUpDetails details)
   {
     _scaleController.reverse();
     widget.onPressed();
-  }
-
-  void _onTapCancel()
-  {
-    _scaleController.reverse();
   }
 
   @override
@@ -76,25 +73,24 @@ class _AppPrimaryButtonState extends State<AppPrimaryButton> with SingleTickerPr
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTapDown: _onTapDown,
+        onTapDown: (_) => _scaleController.forward(),
         onTapUp: _onTapUp,
-        onTapCancel: _onTapCancel,
+        onTapCancel: () => _scaleController.reverse(),
         child: ScaleTransition(
           scale: _scaleAnimation,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: _hoverDuration,
             curve: Curves.easeOut,
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
-              color: _isHovered ? const Color(0xFF004D99) : const Color(0xFF003C82),
+              color: _isHovered ? AppTheme.primaryHover : AppTheme.primary,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF003C82).withValues(alpha: _isHovered ? 0.4 : 0.2),
+                  color: AppTheme.primary.withValues(alpha: _isHovered ? 0.4 : 0.2),
                   offset: Offset(0, _isHovered ? 8 : 4),
                   blurRadius: _isHovered ? 16 : 8,
-                  spreadRadius: 0,
                 ),
               ],
             ),
@@ -102,7 +98,7 @@ class _AppPrimaryButtonState extends State<AppPrimaryButton> with SingleTickerPr
             child: Text(
               widget.label,
               style: const TextStyle(
-                fontFamily: 'Plus Jakarta Sans',
+                fontFamily: _fontFamily,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,

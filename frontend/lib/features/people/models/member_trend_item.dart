@@ -1,20 +1,24 @@
-class MemberTrendItem 
+class MemberTrendItem
 {
-  final int  year;
-  final int? month;
-  final int  totalMembers;
+  final int year;
 
-  MemberTrendItem({
+  // Null on the yearly aggregates, set on the monthly ones: the same endpoint
+  // returns both granularities.
+  final int? month;
+
+  final int totalMembers;
+
+  const MemberTrendItem({
     required this.year,
     this.month,
     required this.totalMembers,
   });
 
-  factory MemberTrendItem.fromJson(Map<String, dynamic> json) 
+  factory MemberTrendItem.fromJson(Map<String, dynamic> json)
   {
     return MemberTrendItem(
-      year:         json['year'],
-      month:        json['month'],
+      year: json['year'],
+      month: json['month'],
       totalMembers: json['total_members'],
     );
   }

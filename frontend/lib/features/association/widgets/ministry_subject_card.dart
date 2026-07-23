@@ -1,9 +1,15 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/ministry_subject_item.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../models/ministry_subject_item.dart';
+import '../models/subject_taxonomy.dart';
+
+const Color _levelTextColor = AppTheme.slate500;
+const Color _chipBackground = Color(0xFFF5F7FA);
 
 class MinistrySubjectCard extends StatefulWidget
 {
@@ -11,8 +17,7 @@ class MinistrySubjectCard extends StatefulWidget
   final void Function(VoidCallback onCancel) onEditRequested;
   final VoidCallback onDelete;
 
-  const MinistrySubjectCard
-  ({
+  const MinistrySubjectCard({
     super.key,
     required this.subject,
     required this.onEditRequested,
@@ -27,126 +32,89 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
 {
   bool _isHovering = false;
 
-  String _translateLevel(String level)
-  {
-    switch (level)
-    {
-      case 'PRIMARY_SCHOOL':        return 'Scuola Primaria';
-      case 'MIDDLE_SCHOOL':         return 'Scuola Secondaria di I Grado';
-      case 'HIGH_SCHOOL':           return 'Scuola Secondaria di II Grado';
-      default:                      return level;
-    }
-  }
+  String get _levelLabel => schoolLevelLabel(widget.subject.level);
 
-  String _translateArea(String area)
-  {
-    switch (area)
-    {
-      case 'HUMANITIES':  return 'Area Umanistica';
-      case 'LINGUISTICS': return 'Area Linguistica';
-      case 'SCIENCES':    return 'Area Scientifica';
-      default:            return area;
-    }
-  }
+  String get _areasLabel => widget.subject.areas.map(subjectAreaLabel).join(', ');
 
-  String _translateAreas(List<String> areas)
+  void _showDetailsDialog()
   {
-    if (areas.isEmpty) return '';
-    return areas.map(_translateArea).join(', ');
-  }
-
-  void _showDetailsDialog(BuildContext context)
-  {
-    showGeneralDialog
-    (
-      context:            context,
-      barrierDismissible: true,
-      barrierLabel:       'MinistrySubjectDetails',
-      barrierColor:       Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder:  (context, animation, secondaryAnimation, child)
-      {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter
-        (
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition
-          (
-            opacity: animation,
-            child: ScaleTransition
-            (
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _MinistrySubjectDetailsDialogContent
-              (
-                subject:         widget.subject,
-                levelItalian:    _translateLevel(widget.subject.level),
-                areaItalian:     _translateAreas(widget.subject.areas),
-                onEditRequested: ()
-                {
-                  Navigator.of(context).pop();
-                  widget.onEditRequested(() => _showDetailsDialog(context));
-                },
-                onDelete:        widget.onDelete,
-              ),
-            ),
-          ),
-        );
-      },
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'MinistrySubjectDetails',
+      builder: (dialogContext) => _MinistrySubjectDetailsDialogContent(
+        subject: widget.subject,
+        levelLabel: _levelLabel,
+        areasLabel: _areasLabel,
+        onEditRequested: ()
+        {
+          Navigator.of(dialogContext).pop();
+          // The reopen callback reuses the card state, not the dialog context
+          // that is about to become invalid.
+          widget.onEditRequested(_showDetailsDialog);
+        },
+        onDelete: widget.onDelete,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion
-    (
-      cursor:  SystemMouseCursors.click,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
-      onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector
-      (
-        onTap: () => _showDetailsDialog(context),
-        child: AnimatedContainer
-        (
-          duration:   const Duration(milliseconds: 180),
-          curve:      Curves.easeOut,
-          width:      360,
-          height:     140,
-          padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          decoration: BoxDecoration
-          (
-            color:        Colors.white,
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: _showDetailsDialog,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 360,
+          height: 140,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
-            border:       Border.all(color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, width: 2),
-            boxShadow:    const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)],
+            border: Border.all(
+              color: _isHovering ? AppTheme.primary : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: AppTheme.cardShadow,
           ),
-          child: Column
-          (
-            mainAxisAlignment:  MainAxisAlignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _CardOverflowTooltipText
-              (
-                text:  widget.subject.name,
-                style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), height: 1.15),
+            children: [
+              OverflowTooltipText(
+                text: widget.subject.name,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primary,
+                  height: 1.15,
+                ),
               ),
               const SizedBox(height: 6),
-              Text
-              (
-                _translateLevel(widget.subject.level), 
-                maxLines:   1, 
-                overflow:   TextOverflow.ellipsis,
-                style:      GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+              Text(
+                _levelLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _levelTextColor,
+                ),
               ),
               const SizedBox(height: 2),
-              Text
-              (
-                _translateAreas(widget.subject.areas), 
-                maxLines:   1, 
-                overflow:   TextOverflow.ellipsis,
-                style:      GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
+              Text(
+                _areasLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.mutedText,
+                ),
               ),
             ],
           ),
@@ -159,51 +127,66 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
 class _MinistrySubjectDetailsDialogContent extends StatelessWidget
 {
   final MinistrySubjectItem subject;
-  final String              levelItalian;
-  final String              areaItalian;
-  final VoidCallback        onEditRequested;
-  final VoidCallback        onDelete;
+  final String levelLabel;
+  final String areasLabel;
+  final VoidCallback onEditRequested;
+  final VoidCallback onDelete;
 
-  const _MinistrySubjectDetailsDialogContent
-  ({
-    required this.subject, 
-    required this.levelItalian, 
-    required this.areaItalian, 
-    required this.onEditRequested, 
+  const _MinistrySubjectDetailsDialogContent({
+    required this.subject,
+    required this.levelLabel,
+    required this.areasLabel,
+    required this.onEditRequested,
     required this.onDelete,
   });
 
   void _showDeleteConfirmation(BuildContext context)
   {
-    showDialog
-    (
+    showDialog(
       context: context,
-      builder: (BuildContext confirmContext)
+      builder: (confirmContext)
       {
-        return AlertDialog
-        (
-          backgroundColor: Colors.white, 
-          shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title:           Text('Conferma Eliminazione', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-          content:         Text('Sei sicuro di voler eliminare la materia "${subject.name}"?', style: GoogleFonts.plusJakartaSans(fontSize: 16)),
-          actions: 
-          [
-            TextButton
-            (
-              style:     ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () => Navigator.pop(confirmContext),
-              child:     Text('ANNULLA', style: GoogleFonts.plusJakartaSans(color: const Color(0xFF8A8A8A), fontWeight: FontWeight.w600)),
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Conferma Eliminazione',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primary,
             ),
-            TextButton
-            (
-              style:     ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () 
-              { 
-                Navigator.pop(confirmContext); 
-                Navigator.pop(context); 
-                onDelete(); 
+          ),
+          content: Text(
+            'Sei sicuro di voler eliminare la materia "${subject.name}"?',
+            style: GoogleFonts.plusJakartaSans(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
+              onPressed: () => Navigator.pop(confirmContext),
+              child: Text(
+                'ANNULLA',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.mutedText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
+              onPressed: ()
+              {
+                Navigator.pop(confirmContext);
+                Navigator.pop(context);
+                onDelete();
               },
-              child:     Text('ELIMINA', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFE53935), fontWeight: FontWeight.w700)),
+              child: Text(
+                'ELIMINA',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.danger,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         );
@@ -211,105 +194,161 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     );
   }
 
-  Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8, top: 20), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 16)));
+  Widget _buildFieldLabel(String text)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context)
   {
-    final bool hasDescription = subject.description != null && subject.description!.isNotEmpty;
-    return Dialog
-    (
-      backgroundColor: Colors.transparent, 
-      elevation:       0,
-      child: SelectionArea
-      (
-        child: Container
-        (
-          width:       600, 
+    final hasDescription = subject.description != null && subject.description!.isNotEmpty;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: SelectionArea(
+        child: Container(
+          width: 600,
           constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-          decoration:  BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
-          child: Column
-          (
-            mainAxisSize: MainAxisSize.min, 
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: AppTheme.dialogShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
-              Padding
-              (
+            children: [
+              Padding(
                 padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child:   Row
-                (
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: 
-                  [
-                    Text('Dettagli Materia', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-                    StaticHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () => Navigator.of(context).pop()),
+                  children: [
+                    Text(
+                      'Dettagli Materia',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    StaticHoverIconButton(
+                      icon: Icons.close,
+                      color: AppTheme.primary,
+                      hoverColor: AppTheme.iconHover,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
                   ],
                 ),
               ),
-              const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-              Flexible
-              (
-                child: SingleChildScrollView
-                (
+              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
+              Flexible(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                  child:   Column
-                  (
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
+                    children: [
                       _buildFieldLabel('Nome'),
-                      Text(subject.name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.black)),
-                      Row
-                      (
-                        children: 
-                        [
-                          Expanded
-                          (
-                            flex:  2, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Livello'), 
-                                Text(levelItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
+                      Text(
+                        subject.name,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Livello'),
+                                Text(
+                                  levelLabel,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
-                          Expanded
-                          (
-                            flex:  1, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Area'), 
-                                Text(areaItalian, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87)),
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Area'),
+                                Text(
+                                  areasLabel,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
                       _buildFieldLabel('Descrizione'),
-                      Text(hasDescription ? subject.description! : 'Nessuna descrizione fornita.', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, height: 1.4, color: hasDescription ? Colors.black87 : const Color(0xFFB3B3B3), fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic)),
+                      Text(
+                        hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                          color: hasDescription ? Colors.black87 : AppTheme.hint,
+                          fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Discipline interne associate'),
-                      if (subject.associationSubjects.isEmpty) 
-                        Text('Nessuna disciplina associata.', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))
-                      else 
-                        Wrap
-                        (
-                          spacing:    12, 
+                      if (subject.associationSubjects.isEmpty)
+                        Text(
+                          'Nessuna disciplina associata.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            color: AppTheme.mutedText,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 12,
                           runSpacing: 12,
-                          children:   subject.associationSubjects.map((assocSubj) 
+                          children: subject.associationSubjects.map((discipline)
                           {
-                            return Container
-                            (
-                              padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-                              decoration: BoxDecoration(color: const Color(0xFFF5F7FA), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE0E5EC))), 
-                              child:      Text(assocSubj.name, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black87)),
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _chipBackground,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppTheme.border),
+                              ),
+                              child: Text(
+                                discipline.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             );
                           }).toList(),
                         ),
@@ -317,18 +356,30 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
                   ),
                 ),
               ),
-              SelectionContainer.disabled
-              (
-                child: Padding
-                (
+              SelectionContainer.disabled(
+                child: Padding(
                   padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-                  child:   Row
-                  (
-                    children: 
-                    [
-                      Expanded(child: AnimatedActionButton(text: 'ELIMINA', icon: Icons.delete_outline_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () => _showDeleteConfirmation(context))),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AnimatedActionButton(
+                          text: 'ELIMINA',
+                          icon: Icons.delete_outline_rounded,
+                          baseColor: AppTheme.danger,
+                          hoverColor: AppTheme.dangerHover,
+                          onPressed: () => _showDeleteConfirmation(context),
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      Expanded(child: AnimatedActionButton(text: 'MODIFICA', icon: Icons.edit_outlined, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: onEditRequested)),
+                      Expanded(
+                        child: AnimatedActionButton(
+                          text: 'MODIFICA',
+                          icon: Icons.edit_outlined,
+                          baseColor: AppTheme.primary,
+                          hoverColor: AppTheme.primaryHover,
+                          onPressed: onEditRequested,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -337,63 +388,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Mostra il testo troncato con `ellipsis` e, solo se il testo eccede
-/// effettivamente lo spazio disponibile su `maxLines`, lo avvolge in un
-/// Tooltip che rivela il contenuto completo al passaggio del mouse.
-class _CardOverflowTooltipText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-  final int maxLines;
-
-  const _CardOverflowTooltipText({
-    required this.text,
-    required this.style,
-    this.maxLines = 2,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-          maxLines: maxLines,
-        )..layout(maxWidth: constraints.maxWidth);
-
-        final Widget textWidget = Text(
-          text,
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        );
-
-        if (!painter.didExceedMaxLines) return textWidget;
-
-        return Tooltip(
-          message: text,
-          waitDuration: const Duration(milliseconds: 600),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF334155), width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-            ],
-          ),
-          child: textWidget,
-        );
-      },
     );
   }
 }

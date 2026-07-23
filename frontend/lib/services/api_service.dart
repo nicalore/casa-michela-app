@@ -120,12 +120,10 @@ ApiService._internal()
     await SessionService.clear();
   }
 
-  // Esegue il refresh del token e aggiorna authState in base allo stato
-  // attuale dell'account (incluso il reset password obbligatorio).
-  // Usato sia dall'interceptor su 401 sia da restoreSession(), cosi'
-  // il controllo su password_reset_required avviene sempre nello stesso
-  // identico punto, a prescindere da come si arriva ad avere un token
-  // valido.
+  // Refreshes the token and updates authState from the current account state
+  // (including the mandatory password reset). Used both by the 401 interceptor
+  // and by restoreSession(), so the password_reset_required check always runs
+  // at the exact same point regardless of how a valid token was obtained.
   Future<LoginResponse> _performTokenRefresh() async
   {
     final refreshResponse = await _tokenDio.post(
@@ -229,9 +227,9 @@ ApiService._internal()
         },
       );
 
-      // La password è stata cambiata con successo: l'account non ha più
-      // il reset pendente, quindi il redirect globale del router riporta
-      // automaticamente l'utente alla dashboard.
+      // The password was changed successfully: the account no longer has a
+      // pending reset, so the global router redirect sends the user back to the
+      // dashboard automatically.
       authState.value = AuthState.authenticated;
     }
     on DioException catch (e)
@@ -355,7 +353,7 @@ ApiService._internal()
     }
   }
 
-  //SpecularaAdUploadProfileImage_StessoEndpointStessoPatternDiErrore
+  // Mirror of uploadProfileImage: same endpoint family and error pattern.
   Future<void> deleteProfileImage() async
   {
     try
@@ -396,7 +394,7 @@ ApiService._internal()
       final response = await _dio.post(
         '/schools/',
         data: {
-          //NullSeAssente_IlBackendNormalizzaComunqueStringaVuotaANull
+          // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name':                name,
           'city':                city,
@@ -434,7 +432,7 @@ ApiService._internal()
       final response = await _dio.put(
         '/schools/$id',
         data: {
-          //NullSeAssente_IlBackendNormalizzaComunqueStringaVuotaANull
+          // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name':                name,
           'city':                city,
@@ -923,8 +921,8 @@ ApiService._internal()
         '/statistics/general/members-trend',
         queryParameters: {
           'resolution': resolution,
-          if (startYear != null) 'start_year': startYear,
-          if (endYear != null) 'end_year': endYear,
+          'start_year': ?startYear,
+          'end_year': ?endYear,
         },
       );
       return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
@@ -943,8 +941,8 @@ ApiService._internal()
         '/statistics/general/collaborating-trend',
         queryParameters: {
           'resolution': resolution,
-          if (startYear != null) 'start_year': startYear,
-          if (endYear != null) 'end_year': endYear,
+          'start_year': ?startYear,
+          'end_year': ?endYear,
         },
       );
       return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
@@ -1003,8 +1001,8 @@ ApiService._internal()
         queryParameters: {
           'role': role,
           'resolution': resolution,
-          if (startYear != null) 'start_year': startYear,
-          if (endYear != null) 'end_year': endYear,
+          'start_year': ?startYear,
+          'end_year': ?endYear,
         },
       );
       return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();
@@ -1024,8 +1022,8 @@ ApiService._internal()
         queryParameters: {
           'role': role,
           'resolution': resolution,
-          if (startYear != null) 'start_year': startYear,
-          if (endYear != null) 'end_year': endYear,
+          'start_year': ?startYear,
+          'end_year': ?endYear,
         },
       );
       return (response.data as List<dynamic>).map((e) => MemberTrendItem.fromJson(e)).toList();

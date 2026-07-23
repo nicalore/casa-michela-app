@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+
+const Color _iconBackground = Color(0xFF12A0D7);
+const Color _subtitleColor = Color(0xFF464646);
+
 class DashboardModuleCard extends StatefulWidget
 {
+  // Exposed because DashboardLayout positions these cards absolutely and needs
+  // their footprint to compute the grid: the size must be declared once.
+  static const double width = 287;
+  static const double height = 200;
+
+  static const double _contentPadding = 23;
+  static const double _iconBoxSize = 48;
+
   final String title;
   final String subtitle;
   final IconData? icon;
@@ -29,107 +42,87 @@ class _DashboardModuleCardState extends State<DashboardModuleCard>
 {
   bool _hover = false;
 
+  // The asset takes precedence over the icon, and the constructor assert
+  // guarantees that at least one of the two is present.
+  Widget _buildLeadingGlyph()
+  {
+    final imageAsset = widget.imageAsset;
+
+    if (imageAsset != null)
+    {
+      return Padding(
+        padding: const EdgeInsets.all(10),
+        child: Image.asset(imageAsset, fit: BoxFit.contain),
+      );
+    }
+
+    return Icon(widget.icon!, color: Colors.white, size: 26);
+  }
+
   @override
   Widget build(BuildContext context)
   {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_)
-      {
-        setState(()
-        {
-          _hover = true;
-        });
-      },
-      onExit: (_)
-      {
-        setState(()
-        {
-          _hover = false;
-        });
-      },
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          width: 287,
-          height: 200,
+          width: DashboardModuleCard.width,
+          height: DashboardModuleCard.height,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(40),
             border: Border.all(
-              color: _hover ? const Color(0xFF003C82) : Colors.transparent,
+              color: _hover ? AppTheme.primary : Colors.transparent,
               width: 2,
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
-                spreadRadius: 0,
-              ),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Padding(
             padding: const EdgeInsets.only(
-              left: 23,
-              top: 23,
-              right: 23,
+              left: DashboardModuleCard._contentPadding,
+              top: DashboardModuleCard._contentPadding,
+              right: DashboardModuleCard._contentPadding,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                //HeaderSection
                 Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: DashboardModuleCard._iconBoxSize,
+                      height: DashboardModuleCard._iconBoxSize,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF12A0D7),
+                        color: _iconBackground,
                         borderRadius: BorderRadius.circular(40),
                       ),
-                      child: widget.imageAsset != null
-                          ? Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Image.asset(
-                                widget.imageAsset!,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          : Icon(
-                              widget.icon!,
-                              color: Colors.white,
-                              size: 26,
-                            ),
+                      child: _buildLeadingGlyph(),
                     ),
-                    
-                    const SizedBox(width: 23),
-                    
+                    const SizedBox(width: DashboardModuleCard._contentPadding),
                     Expanded(
                       child: Text(
                         widget.title,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 25,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF003C82),
+                          color: AppTheme.primary,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 42),
-                
-                //SubtitleSection
                 Text(
                   widget.subtitle,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF464646),
+                    color: _subtitleColor,
                   ),
                 ),
               ],

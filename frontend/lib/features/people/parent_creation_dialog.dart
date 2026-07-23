@@ -1,22 +1,25 @@
 import 'dart:typed_data';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/snackbar.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_message.dart';
+import '../../services/api_service.dart';
 import './models/person_item.dart';
 import 'person_wizard_components.dart';
-import '../../services/api_service.dart';
 
-class ParentCreationDialog extends StatefulWidget {
+class ParentCreationDialog extends StatefulWidget
+{
   const ParentCreationDialog({super.key});
 
   @override
   State<ParentCreationDialog> createState() => _ParentCreationDialogState();
 }
 
-class _ParentCreationDialogState extends State<ParentCreationDialog> {
+class _ParentCreationDialogState extends State<ParentCreationDialog>
+{
   int _currentStep = 0;
   bool _movingForward = true;
   bool _genitoreIsAssociato = false;
@@ -61,7 +64,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   bool _consensoNewsletter = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     final now = DateTime.now();
     _enrollmentRows.add(
@@ -76,7 +80,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   }
 
   @override
-  void dispose() {
+  void dispose()
+  {
     _nomeCtrl.dispose();
     _cognomeCtrl.dispose();
     _cfCtrl.dispose();
@@ -93,17 +98,23 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     _emailCtrl.dispose();
     _telefonoCtrl.dispose();
     _dataInizioSostegnoPsicologicoCtrl.dispose();
-    for (final row in _enrollmentRows) {
+    for (final row in _enrollmentRows)
+    {
       row.yearCtrl.dispose();
       row.dateCtrl.dispose();
     }
     super.dispose();
   }
 
-  bool _isValidDate(String dateStr) {
-    try {
+  bool _isValidDate(String dateStr)
+  {
+    try
+    {
       final parts = dateStr.split('/');
-      if (parts.length != 3) return false;
+      if (parts.length != 3)
+      {
+        return false;
+      }
 
       final day = int.parse(parts[0]);
       final month = int.parse(parts[1]);
@@ -111,15 +122,22 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       final date = DateTime(year, month, day);
 
       return date.year == year && date.month == month && date.day == day;
-    } catch (_) {
+    }
+    catch (_)
+    {
       return false;
     }
   }
 
-  bool _isValidDayMonthYear(String dm, String yearStr) {
-    try {
+  bool _isValidDayMonthYear(String dm, String yearStr)
+  {
+    try
+    {
       final parts = dm.split('/');
-      if (parts.length != 2) return false;
+      if (parts.length != 2)
+      {
+        return false;
+      }
 
       final day = int.parse(parts[0]);
       final month = int.parse(parts[1]);
@@ -127,21 +145,33 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       final date = DateTime(year, month, day);
 
       return date.year == year && date.month == month && date.day == day;
-    } catch (_) {
+    }
+    catch (_)
+    {
       return false;
     }
   }
 
-  String? _toIsoDate(String? itaDate) {
-    if (itaDate == null || itaDate.isEmpty) return null;
+  String? _toIsoDate(String? itaDate)
+  {
+    if (itaDate == null || itaDate.isEmpty)
+    {
+      return null;
+    }
     final parts = itaDate.split('/');
-    if (parts.length != 3) return null;
+    if (parts.length != 3)
+    {
+      return null;
+    }
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
-  bool _isCodiceFiscaleValid(String cf) {
+  bool _isCodiceFiscaleValid(String cf)
+  {
     if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf))
+    {
       return false;
+    }
     const oddValues = {
       '0': 1,
       '1': 0,
@@ -219,11 +249,15 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       'Z': 25,
     };
     int sum = 0;
-    for (int i = 0; i < 15; i++) {
+    for (int i = 0; i < 15; i++)
+    {
       final char = cf[i];
-      if ((i + 1) % 2 != 0) {
+      if ((i + 1) % 2 != 0)
+      {
         sum += oddValues[char]!;
-      } else {
+      }
+      else
+      {
         sum += evenValues[char]!;
       }
     }
@@ -231,13 +265,23 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     return cf[15] == checkDigit;
   }
 
-  bool _doesCfMatchData(String cf, String dateStr, String gender) {
-    if (cf.length != 16) return false;
+  bool _doesCfMatchData(String cf, String dateStr, String gender)
+  {
+    if (cf.length != 16)
+    {
+      return false;
+    }
     final parts = dateStr.split('/');
-    if (parts.length != 3) return false;
+    if (parts.length != 3)
+    {
+      return false;
+    }
 
     final year = parts[2].substring(2, 4);
-    if (cf.substring(6, 8) != year) return false;
+    if (cf.substring(6, 8) != year)
+    {
+      return false;
+    }
 
     const monthCodes = {
       '01': 'A',
@@ -253,18 +297,29 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       '11': 'S',
       '12': 'T',
     };
-    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
+    if (cf.substring(8, 9) != monthCodes[parts[1]])
+    {
+      return false;
+    }
 
     int day = int.parse(parts[0]);
-    if (gender == 'F') day += 40;
+    if (gender == 'F')
+    {
+      day += 40;
+    }
     final dayStr = day.toString().padLeft(2, '0');
-    if (cf.substring(9, 11) != dayStr) return false;
+    if (cf.substring(9, 11) != dayStr)
+    {
+      return false;
+    }
 
     return true;
   }
 
-  bool _validateDatiGenerali() {
-    setState(() {
+  bool _validateDatiGenerali()
+  {
+    setState(()
+    {
       _formErrors.clear();
       _nomeCtrl.text = _nomeCtrl.text.trim();
       _cognomeCtrl.text = _cognomeCtrl.text.trim();
@@ -287,36 +342,59 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     int? firstInvalidCard;
     Map<String, String> newErrors = {};
 
-    void addError(String field, String message, int cardIndex) {
+    void addError(String field, String message, int cardIndex)
+    {
       newErrors[field] = message;
       isValid = false;
-      if (firstInvalidCard == null || cardIndex < firstInvalidCard!) {
+      if (firstInvalidCard == null || cardIndex < firstInvalidCard!)
+      {
         firstInvalidCard = cardIndex;
       }
     }
 
-    if (_nomeCtrl.text.isEmpty) addError('nome', 'Campo obbligatorio', 0);
-    if (_cognomeCtrl.text.isEmpty) addError('cognome', 'Campo obbligatorio', 0);
-    if (_sesso == null) addError('sesso', 'Campo obbligatorio', 0);
+    if (_nomeCtrl.text.isEmpty)
+    {
+      addError('nome', 'Campo obbligatorio', 0);
+    }
+    if (_cognomeCtrl.text.isEmpty)
+    {
+      addError('cognome', 'Campo obbligatorio', 0);
+    }
+    if (_sesso == null)
+    {
+      addError('sesso', 'Campo obbligatorio', 0);
+    }
 
-    if (_cfCtrl.text.isEmpty) {
+    if (_cfCtrl.text.isEmpty)
+    {
       addError('cf', 'Campo obbligatorio', 0);
-    } else if (!_isCodiceFiscaleValid(_cfCtrl.text)) {
+    }
+    else if (!_isCodiceFiscaleValid(_cfCtrl.text))
+    {
       addError('cf', 'Codice fiscale non valido', 0);
-    } else if (_sesso != null &&
+    }
+    else if (_sesso != null &&
         _dataNascitaCtrl.text.isNotEmpty &&
-        _isValidDate(_dataNascitaCtrl.text)) {
-      if (!_doesCfMatchData(_cfCtrl.text, _dataNascitaCtrl.text, _sesso!)) {
+        _isValidDate(_dataNascitaCtrl.text))
+    {
+      if (!_doesCfMatchData(_cfCtrl.text, _dataNascitaCtrl.text, _sesso!))
+      {
         addError('cf', 'Il codice fiscale non corrisponde ai dati', 0);
       }
     }
 
-    if (_dataNascitaCtrl.text.isEmpty) {
+    if (_dataNascitaCtrl.text.isEmpty)
+    {
       addError('dataNascita', 'Campo obbligatorio', 1);
-    } else {
-      if (!_isValidDate(_dataNascitaCtrl.text)) {
+    }
+    else
+    {
+      if (!_isValidDate(_dataNascitaCtrl.text))
+      {
         addError('dataNascita', 'Formato data non valido', 1);
-      } else {
+      }
+      else
+      {
         final parts = _dataNascitaCtrl.text.split('/');
         final date = DateTime(
           int.parse(parts[2]),
@@ -326,15 +404,20 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         final now = DateTime.now();
         final minDate = DateTime(1900, 1, 1);
 
-        if (date.isBefore(minDate) || date.isAfter(now)) {
+        if (date.isBefore(minDate) || date.isAfter(now))
+        {
           addError('dataNascita', 'Data di nascita non consentita', 1);
-        } else {
+        }
+        else
+        {
           int age = now.year - date.year;
           if (now.month < date.month ||
-              (now.month == date.month && now.day < date.day)) {
+              (now.month == date.month && now.day < date.day))
+          {
             age--;
           }
-          if (age < 18) {
+          if (age < 18)
+          {
             addError('dataNascita', 'Il genitore deve avere almeno 18 anni', 1);
           }
         }
@@ -342,57 +425,89 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     }
 
     if (_cittaNascitaCtrl.text.isEmpty)
+    {
       addError('cittaNascita', 'Campo obbligatorio', 1);
+    }
 
-    if (_provNascitaCtrl.text.isEmpty) {
+    if (_provNascitaCtrl.text.isEmpty)
+    {
       addError('provNascita', 'Campo obbligatorio', 1);
-    } else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provNascitaCtrl.text)) {
+    }
+    else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provNascitaCtrl.text))
+    {
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
 
     if (_nazioneNascitaCtrl.text.isEmpty)
+    {
       addError('nazioneNascita', 'Campo obbligatorio', 1);
+    }
 
-    if (_tipoViaCtrl.text.isEmpty) addError('tipoVia', 'Campo obbligatorio', 2);
+    if (_tipoViaCtrl.text.isEmpty)
+    {
+      addError('tipoVia', 'Campo obbligatorio', 2);
+    }
     if (_indirizzoNomeCtrl.text.isEmpty)
+    {
       addError('indirizzoNome', 'Campo obbligatorio', 2);
-    if (_civicoCtrl.text.isEmpty) addError('civico', 'Campo obbligatorio', 2);
+    }
+    if (_civicoCtrl.text.isEmpty)
+    {
+      addError('civico', 'Campo obbligatorio', 2);
+    }
     if (_cittaResidenzaCtrl.text.isEmpty)
+    {
       addError('cittaResidenza', 'Campo obbligatorio', 2);
+    }
 
-    if (_provResidenzaCtrl.text.isEmpty) {
+    if (_provResidenzaCtrl.text.isEmpty)
+    {
       addError('provResidenza', 'Campo obbligatorio', 2);
-    } else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provResidenzaCtrl.text)) {
+    }
+    else if (!RegExp(r'^[A-Z]{2}$').hasMatch(_provResidenzaCtrl.text))
+    {
       addError('provResidenza', 'Inserire 2 lettere (es. VI)', 2);
     }
 
-    if (_capCtrl.text.isEmpty) {
+    if (_capCtrl.text.isEmpty)
+    {
       addError('cap', 'Campo obbligatorio', 2);
-    } else if (!RegExp(r'^\d{5}$').hasMatch(_capCtrl.text)) {
+    }
+    else if (!RegExp(r'^\d{5}$').hasMatch(_capCtrl.text))
+    {
       addError('cap', 'Deve contenere 5 numeri', 2);
     }
 
-    if (_emailCtrl.text.isEmpty) {
+    if (_emailCtrl.text.isEmpty)
+    {
       addError('email', 'Campo obbligatorio', 3);
-    } else if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(_emailCtrl.text)) {
+    }
+    else if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(_emailCtrl.text))
+    {
       addError('email', 'Formato indirizzo email non valido', 3);
     }
 
-    if (_telefonoCtrl.text.isEmpty) {
+    if (_telefonoCtrl.text.isEmpty)
+    {
       addError('telefono', 'Campo obbligatorio', 3);
-    } else if (!RegExp(r'^\d+$').hasMatch(_telefonoCtrl.text)) {
+    }
+    else if (!RegExp(r'^\d+$').hasMatch(_telefonoCtrl.text))
+    {
       addError('telefono', 'Ammessi esclusivamente numeri', 3);
     }
 
-    setState(() {
+    setState(()
+    {
       _formErrors = newErrors;
-      if (!isValid && firstInvalidCard != null) {
+      if (!isValid && firstInvalidCard != null)
+      {
         _cardMovingForward = firstInvalidCard! >= _currentFormCardIndex;
         _currentFormCardIndex = firstInvalidCard!;
       }
     });
 
-    if (!isValid) {
+    if (!isValid)
+    {
       CustomSnackBar.show(
         context: context,
         message: 'Ci sono errori nei dati inseriti. Correggi i campi.',
@@ -403,22 +518,27 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     return isValid;
   }
 
-  Future<bool> _checkCodiceFiscaleEsistente() async {
+  Future<bool> _checkCodiceFiscaleEsistente() async
+  {
     setState(() => _isCheckingCf = true);
 
-    try {
+    try
+    {
       final bool esiste = await ApiService().checkFiscalCodeExists(
         _cfCtrl.text.trim().toUpperCase(),
       );
 
-      if (esiste) {
-        setState(() {
+      if (esiste)
+      {
+        setState(()
+        {
           _formErrors['cf'] = 'Codice fiscale già presente';
           _cardMovingForward = 0 >= _currentFormCardIndex;
           _currentFormCardIndex = 0;
         });
 
-        if (mounted) {
+        if (mounted)
+        {
           CustomSnackBar.show(
             context: context,
             message: 'Esiste già una persona con questo codice fiscale.',
@@ -428,8 +548,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       }
 
       return esiste;
-    } catch (_) {
-      if (mounted) {
+    }
+    catch (_)
+    {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
           message: 'Impossibile verificare il codice fiscale. Riprova.',
@@ -437,14 +560,18 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         );
       }
       return true;
-    } finally {
-      if (mounted) {
+    }
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isCheckingCf = false);
       }
     }
   }
 
-  bool _validateIscrizioni() {
+  bool _validateIscrizioni()
+  {
     _dataInizioSostegnoPsicologicoCtrl.text =
         _dataInizioSostegnoPsicologicoCtrl.text.trim();
 
@@ -452,90 +579,120 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     int? firstInvalidCard;
     Map<String, String> newErrors = Map.from(_formErrors);
 
-    void addError(String field, String message, int targetCardLogicIndex) {
+    void addError(String field, String message, int targetCardLogicIndex)
+    {
       newErrors[field] = message;
       isValid = false;
-      if (firstInvalidCard == null || targetCardLogicIndex < firstInvalidCard!) {
+      if (firstInvalidCard == null || targetCardLogicIndex < firstInvalidCard!)
+      {
         firstInvalidCard = targetCardLogicIndex;
       }
     }
 
     int currentMappedIndex = 0;
 
-    if (_enrollmentRows.isEmpty) {
+    if (_enrollmentRows.isEmpty)
+    {
       addError('enrollmentGeneral', 'Aggiungi almeno un\'iscrizione', currentMappedIndex);
     }
 
-    for (int i = 0; i < _enrollmentRows.length; i++) {
+    for (int i = 0; i < _enrollmentRows.length; i++)
+    {
       final row = _enrollmentRows[i];
       bool yearValid = false;
 
-      if (row.yearCtrl.text.trim().isEmpty) {
+      if (row.yearCtrl.text.trim().isEmpty)
+      {
         addError('enrollmentYear_$i', 'Campo obbligatorio', currentMappedIndex);
-      } else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim())) {
+      }
+      else if (!RegExp(r'^\d{4}$').hasMatch(row.yearCtrl.text.trim()))
+      {
         addError('enrollmentYear_$i', 'Anno non valido', currentMappedIndex);
-      } else {
+      }
+      else
+      {
         int parsedYear = int.parse(row.yearCtrl.text.trim());
-        if (parsedYear > DateTime.now().year) {
+        if (parsedYear > DateTime.now().year)
+        {
           addError('enrollmentYear_$i', 'Anno non futuro', currentMappedIndex);
-        } else {
+        }
+        else
+        {
           yearValid = true;
         }
       }
 
-      if (row.dateCtrl.text.trim().isEmpty) {
+      if (row.dateCtrl.text.trim().isEmpty)
+      {
         addError('enrollmentDate_$i', 'Campo obbligatorio', currentMappedIndex);
-      } else if (yearValid &&
+      }
+      else if (yearValid &&
           !_isValidDayMonthYear(
             row.dateCtrl.text.trim(),
             row.yearCtrl.text.trim(),
-          )) {
+          ))
+      {
         addError('enrollmentDate_$i', 'Data non valida', currentMappedIndex);
-      } else if (!yearValid &&
-          !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim())) {
+      }
+      else if (!yearValid &&
+          !RegExp(r'^\d{2}/\d{2}$').hasMatch(row.dateCtrl.text.trim()))
+      {
         addError('enrollmentDate_$i', 'Formato gg/mm', currentMappedIndex);
       }
     }
     currentMappedIndex++;
 
-    //DisponibileSoloSeIlGenitoreSiAssociaAllAssociazione_StessaConizioneDellaCard
-    if (_genitoreIsAssociato) {
-      if (_aderisceSostegnoPsicologico) {
-        if (_dataInizioSostegnoPsicologicoCtrl.text.isEmpty) {
+    // The following consents apply only when the parent joins the association.
+    if (_genitoreIsAssociato)
+    {
+      if (_aderisceSostegnoPsicologico)
+      {
+        if (_dataInizioSostegnoPsicologicoCtrl.text.isEmpty)
+        {
           addError('dataInizioSostegnoPsicologico', 'Campo obbligatorio', currentMappedIndex);
-        } else if (!_isValidDate(_dataInizioSostegnoPsicologicoCtrl.text)) {
+        }
+        else if (!_isValidDate(_dataInizioSostegnoPsicologicoCtrl.text))
+        {
           addError('dataInizioSostegnoPsicologico', 'Formato data non valido', currentMappedIndex);
         }
       }
       currentMappedIndex++;
 
-      if (!_statutoAccettato) {
+      if (!_statutoAccettato)
+      {
         addError('statutoAccettato', 'Presa visione obbligatoria', currentMappedIndex);
       }
-      if (!_regolamentoAccettato) {
+      if (!_regolamentoAccettato)
+      {
         addError('regolamentoAccettato', 'Accettazione obbligatoria', currentMappedIndex);
       }
-      if (!_videosorveglianzaPresaVisione) {
+      if (!_videosorveglianzaPresaVisione)
+      {
         addError('videosorveglianzaPresaVisione', 'Presa visione obbligatoria', currentMappedIndex);
       }
-      if (!_consensoDatiParticolari) {
+      if (!_consensoDatiParticolari)
+      {
         addError('consensoDatiParticolari', 'Consenso obbligatorio', currentMappedIndex);
       }
-      if (!_consensoNewsletter) {
+      if (!_consensoNewsletter)
+      {
         addError('consensoNewsletter', 'Consenso obbligatorio', currentMappedIndex);
       }
       currentMappedIndex++;
     }
 
-    setState(() {
+    setState(()
+    {
       _formErrors = newErrors;
-      if (!isValid && firstInvalidCard != null) {
+      if (!isValid && firstInvalidCard != null)
+      {
         _card2MovingForward = firstInvalidCard! >= _currentStep2CardIndex;
         _currentStep2CardIndex = firstInvalidCard!;
       }
     });
 
-    if (!isValid) {
+    if (!isValid)
+    {
       CustomSnackBar.show(
         context: context,
         message: 'Ci sono errori nelle informazioni associative.',
@@ -546,19 +703,23 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     return isValid;
   }
 
-  Future<void> _submitForm() async {
+  Future<void> _submitForm() async
+  {
     setState(() => _isSubmitting = true);
 
-    try {
+    try
+    {
       final List<String> finalRoles = ['GENITORE'];
       Map<String, dynamic>? memberData;
       Map<String, dynamic>? psychologicalSupportData;
 
-      if (_genitoreIsAssociato) {
+      if (_genitoreIsAssociato)
+      {
         finalRoles.add('ASSOCIATO');
 
         List<Map<String, dynamic>> membershipsData = [];
-        for (final row in _enrollmentRows) {
+        for (final row in _enrollmentRows)
+        {
           final parts = row.dateCtrl.text.trim().split('/');
           final isoDate = '${row.yearCtrl.text.trim()}-${parts[1]}-${parts[0]}';
 
@@ -571,7 +732,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           });
         }
 
-        //ChiunqueSiaAssociatoPortaConsensiEPuoAderireAlSostegnoPsicologico_NonSoloIRuoliSpecifici
+        // Any member carries the consents and may opt into psychological support.
         memberData = {
           "memberships": membershipsData,
           "payment_method": null,
@@ -588,7 +749,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           "medications_notes": null,
         };
 
-        if (_aderisceSostegnoPsicologico) {
+        if (_aderisceSostegnoPsicologico)
+        {
           psychologicalSupportData = {
             "start_date": _dataInizioSostegnoPsicologicoCtrl.text.trim().split('/').reversed.join('-'),
           };
@@ -636,72 +798,103 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         birthDate: DateFormat('dd/MM/yyyy').parse(_dataNascitaCtrl.text.trim()),
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         Navigator.of(context).pop({
           'person': newParent,
           'payload': payload,
           'imageBytes': _fotoProfilo,
         });
       }
-    } catch (e) {
-      if (mounted) {
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
-          message: e.toString().replaceAll('Exception: ', ''),
+          message: readableApiError(e),
           isError: true,
         );
       }
-    } finally {
-      if (mounted) {
+    }
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isSubmitting = false);
       }
     }
   }
 
-  Future<void> _onNext() async {
-    if (_currentStep == 0) {
-      setState(() {
+  Future<void> _onNext() async
+  {
+    if (_currentStep == 0)
+    {
+      setState(()
+      {
         _movingForward = true;
         _currentStep = 1;
       });
       return;
     }
 
-    if (_currentStep == 1) {
-      if (!_validateDatiGenerali()) return;
+    if (_currentStep == 1)
+    {
+      if (!_validateDatiGenerali())
+      {
+        return;
+      }
 
       final bool cfEsistente = await _checkCodiceFiscaleEsistente();
-      if (cfEsistente) return;
+      if (cfEsistente)
+      {
+        return;
+      }
 
-      if (_genitoreIsAssociato) {
-        setState(() {
+      if (_genitoreIsAssociato)
+      {
+        setState(()
+        {
           _movingForward = true;
           _currentStep = 2;
           _currentStep2CardIndex = 0;
           _card2MovingForward = true;
         });
-      } else {
+      }
+      else
+      {
         _submitForm();
       }
       return;
     }
 
-    if (_currentStep == 2) {
-      if (!_validateIscrizioni()) return;
+    if (_currentStep == 2)
+    {
+      if (!_validateIscrizioni())
+      {
+        return;
+      }
       _submitForm();
       return;
     }
   }
 
-  void _onBack() {
+  void _onBack()
+  {
     setState(() => _movingForward = false);
     if (_currentStep == 2)
+    {
       setState(() => _currentStep = 1);
+    }
     else if (_currentStep == 1)
+    {
       setState(() => _currentStep = 0);
+    }
   }
 
-  Widget _buildStep0Association() {
+  Widget _buildStep0Association()
+  {
     return SizedBox(
       key: const ValueKey('step0_p'),
       width: double.infinity,
@@ -718,7 +911,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -728,7 +921,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
+                    color: AppTheme.slate500,
                   ),
                 ),
               ],
@@ -769,7 +962,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardIdentita() {
+  Widget _buildFormCardIdentita()
+  {
     return WizardFormSectionCard(
       isCompact: true,
       title: 'Identità',
@@ -810,7 +1004,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
             items: const ['M', 'F'],
             hint: 'Seleziona',
             errorText: _formErrors['sesso'],
-            onChanged: (val) => setState(() {
+            onChanged: (val) => setState(()
+            {
               _sesso = val;
               _formErrors.remove('sesso');
             }),
@@ -830,7 +1025,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardAnagrafica() {
+  Widget _buildFormCardAnagrafica()
+  {
     return WizardFormSectionCard(
       isCompact: true,
       title: 'Dati anagrafici',
@@ -883,7 +1079,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardResidenza() {
+  Widget _buildFormCardResidenza()
+  {
     return WizardFormSectionCard(
       isCompact: true,
       title: 'Residenza',
@@ -891,8 +1088,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
       children: [
         WizardFormInputRow(
           label: 'Indirizzo',
-          //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-          inputWidget: _WizardAddressFieldsRow(
+          // Stacks the address fields below the width breakpoint.
+          inputWidget: WizardAddressFieldsRow(
             tipoViaCtrl: _tipoViaCtrl,
             tipoViaError: _formErrors['tipoVia'],
             onTipoViaChanged: (_) =>
@@ -944,7 +1141,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardContatti() {
+  Widget _buildFormCardContatti()
+  {
     return WizardFormSectionCard(
       isCompact: true,
       title: 'Contatti',
@@ -977,13 +1175,15 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  List<Widget> get _activeStep2Cards {
+  List<Widget> get _activeStep2Cards
+  {
     final List<Widget> cards = [];
 
     cards.add(_buildFormCardIscrizione());
 
-    //EntrambeDisponibiliSoloSeIlGenitoreSiAssocia_StessaLogicaDiPersonWizardPage
-    if (_genitoreIsAssociato) {
+    // Both cards are shown only when the parent joins the association.
+    if (_genitoreIsAssociato)
+    {
       cards.add(_buildFormCardSostegnoPsicologico());
       cards.add(_buildFormCardConsensi());
     }
@@ -991,19 +1191,21 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     return cards;
   }
 
-  Widget _buildFormCardIscrizione() {
+  Widget _buildFormCardIscrizione()
+  {
     return WizardFormSectionCard(
       title: 'Iscrizioni',
       leadingIcon: const WizardStaticAvatar(
         icon: Icons.assignment_ind_outlined,
       ),
       children: [
-        //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-        ...List.generate(_enrollmentRows.length, (index) {
+        // Stacks the enrollment fields below the width breakpoint.
+        ...List.generate(_enrollmentRows.length, (index)
+        {
           final row = _enrollmentRows[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _WizardEnrollmentFieldRow(
+            child: WizardEnrollmentFieldRow(
               yearCtrl: row.yearCtrl,
               dateCtrl: row.dateCtrl,
               yearError: _formErrors['enrollmentYear_$index'],
@@ -1015,8 +1217,10 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                 () => _formErrors.remove('enrollmentDate_$index'),
               ),
               onRemove: index > 0
-                  ? () {
-                      setState(() {
+                  ? ()
+                    {
+                      setState(()
+                      {
                         _enrollmentRows[index].yearCtrl.dispose();
                         _enrollmentRows[index].dateCtrl.dispose();
                         _enrollmentRows.removeAt(index);
@@ -1033,14 +1237,17 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           child: WizardTextLinkButton(
             text: 'Aggiungi iscrizione',
             icon: Icons.add_rounded,
-            onTap: () {
+            onTap: ()
+            {
               int lastYear = DateTime.now().year;
-              if (_enrollmentRows.isNotEmpty) {
+              if (_enrollmentRows.isNotEmpty)
+              {
                 lastYear =
                     int.tryParse(_enrollmentRows.last.yearCtrl.text) ??
                     lastYear;
               }
-              setState(() {
+              setState(()
+              {
                 _enrollmentRows.add(
                   WizardEnrollmentRowData(
                     yearCtrl: TextEditingController(
@@ -1057,7 +1264,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardSostegnoPsicologico() {
+  Widget _buildFormCardSostegnoPsicologico()
+  {
     return WizardFormSectionCard(
       title: 'Sostegno Psicologico',
       leadingIcon: const WizardStaticAvatar(icon: Icons.psychology_outlined),
@@ -1093,7 +1301,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildFormCardConsensi() {
+  Widget _buildFormCardConsensi()
+  {
     return WizardFormSectionCard(
       title: 'Dichiarazioni e Consensi',
       leadingIcon: const WizardStaticAvatar(icon: Icons.fact_check_outlined),
@@ -1107,7 +1316,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
               child: WizardYesNoSwitch(
                 value: _statutoAccettato,
                 isError: _formErrors['statutoAccettato'] != null,
-                onChanged: (val) => setState(() {
+                onChanged: (val) => setState(()
+                {
                   _statutoAccettato = val;
                   _formErrors.remove('statutoAccettato');
                 }),
@@ -1125,7 +1335,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
               child: WizardYesNoSwitch(
                 value: _regolamentoAccettato,
                 isError: _formErrors['regolamentoAccettato'] != null,
-                onChanged: (val) => setState(() {
+                onChanged: (val) => setState(()
+                {
                   _regolamentoAccettato = val;
                   _formErrors.remove('regolamentoAccettato');
                 }),
@@ -1143,7 +1354,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
               child: WizardYesNoSwitch(
                 value: _videosorveglianzaPresaVisione,
                 isError: _formErrors['videosorveglianzaPresaVisione'] != null,
-                onChanged: (val) => setState(() {
+                onChanged: (val) => setState(()
+                {
                   _videosorveglianzaPresaVisione = val;
                   _formErrors.remove('videosorveglianzaPresaVisione');
                 }),
@@ -1161,7 +1373,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
               child: WizardYesNoSwitch(
                 value: _consensoDatiParticolari,
                 isError: _formErrors['consensoDatiParticolari'] != null,
-                onChanged: (val) => setState(() {
+                onChanged: (val) => setState(()
+                {
                   _consensoDatiParticolari = val;
                   _formErrors.remove('consensoDatiParticolari');
                 }),
@@ -1179,7 +1392,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
               child: WizardYesNoSwitch(
                 value: _consensoNewsletter,
                 isError: _formErrors['consensoNewsletter'] != null,
-                onChanged: (val) => setState(() {
+                onChanged: (val) => setState(()
+                {
                   _consensoNewsletter = val;
                   _formErrors.remove('consensoNewsletter');
                 }),
@@ -1191,7 +1405,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
     );
   }
 
-  Widget _buildStep2Iscrizioni() {
+  Widget _buildStep2Iscrizioni()
+  {
     final cards = _activeStep2Cards;
     final Widget currentCardStep2 =
         cards.isNotEmpty ? cards[_currentStep2CardIndex] : const SizedBox.shrink();
@@ -1212,7 +1427,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1222,7 +1437,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
+                    color: AppTheme.slate500,
                   ),
                 ),
               ],
@@ -1231,7 +1446,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           const SizedBox(height: 16),
           Expanded(
             child: LayoutBuilder(
-              builder: (context, constraints) {
+              builder: (context, constraints)
+              {
                 final bool isCompact = constraints.maxWidth < 900;
 
                 final Widget desktopAnimatedCards = AnimatedSwitcher(
@@ -1242,10 +1458,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                     alignment: Alignment.center,
                     children: [
                       ...previousChildren,
-                      if (currentChild != null) currentChild,
+                      ?currentChild,
                     ],
                   ),
-                  transitionBuilder: (child, animation) {
+                  transitionBuilder: (child, animation)
+                  {
                     final isEntering =
                         (child.key as ValueKey<int>).value ==
                         _currentStep2CardIndex;
@@ -1281,10 +1498,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                     alignment: Alignment.topCenter,
                     children: [
                       ...previousChildren,
-                      if (currentChild != null) currentChild,
+                      ?currentChild,
                     ],
                   ),
-                  transitionBuilder: (child, animation) {
+                  transitionBuilder: (child, animation)
+                  {
                     final isEntering =
                         (child.key as ValueKey<int>).value ==
                         _currentStep2CardIndex;
@@ -1308,7 +1526,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   },
                   child: KeyedSubtree(
                     key: ValueKey(_currentStep2CardIndex),
-                    //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                    // Takes whatever height the outer Expanded provides.
                     child: SizedBox(
                       width: constraints.maxWidth,
                       child: SingleChildScrollView(child: currentCardStep2),
@@ -1319,7 +1537,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                 return isCompact
                     ? Column(
                         children: [
-                          //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                          // Expanded gives the card exactly the residual height.
                           Expanded(
                             child: SizedBox(
                               width: constraints.maxWidth,
@@ -1333,7 +1551,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                               WizardCarouselArrowButton(
                                 icon: Icons.chevron_left_rounded,
                                 isDisabled: _currentStep2CardIndex == 0,
-                                onTap: () => setState(() {
+                                onTap: () => setState(()
+                                {
                                   _card2MovingForward = false;
                                   _currentStep2CardIndex--;
                                 }),
@@ -1343,7 +1562,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                 icon: Icons.chevron_right_rounded,
                                 isDisabled:
                                     _currentStep2CardIndex >= cards.length - 1,
-                                onTap: () => setState(() {
+                                onTap: () => setState(()
+                                {
                                   _card2MovingForward = true;
                                   _currentStep2CardIndex++;
                                 }),
@@ -1359,7 +1579,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                           WizardCarouselArrowButton(
                             icon: Icons.chevron_left_rounded,
                             isDisabled: _currentStep2CardIndex == 0,
-                            onTap: () => setState(() {
+                            onTap: () => setState(()
+                            {
                               _card2MovingForward = false;
                               _currentStep2CardIndex--;
                             }),
@@ -1376,7 +1597,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                             icon: Icons.chevron_right_rounded,
                             isDisabled:
                                 _currentStep2CardIndex >= cards.length - 1,
-                            onTap: () => setState(() {
+                            onTap: () => setState(()
+                            {
                               _card2MovingForward = true;
                               _currentStep2CardIndex++;
                             }),
@@ -1392,10 +1614,13 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     Widget currentCard = const SizedBox.shrink();
-    if (_currentStep == 1) {
-      switch (_currentFormCardIndex) {
+    if (_currentStep == 1)
+    {
+      switch (_currentFormCardIndex)
+      {
         case 0:
           currentCard = _buildFormCardIdentita();
           break;
@@ -1422,7 +1647,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
         height: MediaQuery.of(context).size.height * 0.85,
         constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F7F9),
+          color: AppTheme.pageBackground,
           borderRadius: BorderRadius.circular(40),
           boxShadow: const [
             BoxShadow(
@@ -1486,7 +1711,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 26,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF003C82),
+                            color: AppTheme.primary,
                           ),
                         ),
                         WizardHoverCloseButton(
@@ -1498,7 +1723,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   const Divider(
                     height: 32,
                     thickness: 1,
-                    color: Color(0xFFE2E8F0),
+                    color: AppTheme.slate200,
                   ),
                   Expanded(
                     child: Padding(
@@ -1512,10 +1737,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                               alignment: Alignment.center,
                               children: [
                                 ...previousChildren,
-                                if (currentChild != null) currentChild,
+                                ?currentChild,
                               ],
                             ),
-                        transitionBuilder: (child, animation) {
+                        transitionBuilder: (child, animation)
+                        {
                           final isEntering =
                               (child.key as ValueKey<String>).value ==
                               'step${_currentStep}_p';
@@ -1557,7 +1783,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                             style: GoogleFonts.plusJakartaSans(
                                               fontSize: 22,
                                               fontWeight: FontWeight.w700,
-                                              color: const Color(0xFF003C82),
+                                              color: AppTheme.primary,
                                             ),
                                           ),
                                           const SizedBox(height: 8),
@@ -1567,7 +1793,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                             style: GoogleFonts.plusJakartaSans(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w500,
-                                              color: const Color(0xFF64748B),
+                                              color: AppTheme.slate500,
                                             ),
                                           ),
                                         ],
@@ -1576,7 +1802,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                     const SizedBox(height: 16),
                                     Expanded(
                                       child: LayoutBuilder(
-                                        builder: (context, constraints) {
+                                        builder: (context, constraints)
+                                        {
                                           final bool isCompact =
                                               constraints.maxWidth < 900;
 
@@ -1592,11 +1819,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                       alignment: Alignment.center,
                                                       children: [
                                                         ...previousChildren,
-                                                        if (currentChild != null)
-                                                          currentChild,
+                                                        ?currentChild,
                                                       ],
                                                     ),
-                                            transitionBuilder: (child, animation) {
+                                            transitionBuilder: (child, animation)
+                                            {
                                               final isEntering =
                                                   (child.key as ValueKey<int>)
                                                       .value ==
@@ -1626,8 +1853,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                             ),
                                           );
 
-                                          //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
-                                          //ScrollsInternallyIfStillNotEnough_SameFixAppliedInPersonWizardPage
+                                          // Takes the height from the outer Expanded, scrolling internally if it still overflows.
                                           final Widget compactAnimatedCard = AnimatedSwitcher(
                                             duration: const Duration(
                                               milliseconds: 300,
@@ -1641,11 +1867,11 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           Alignment.topCenter,
                                                       children: [
                                                         ...previousChildren,
-                                                        if (currentChild != null)
-                                                          currentChild,
+                                                        ?currentChild,
                                                       ],
                                                     ),
-                                            transitionBuilder: (child, animation) {
+                                            transitionBuilder: (child, animation)
+                                            {
                                               final isEntering =
                                                   (child.key as ValueKey<int>)
                                                       .value ==
@@ -1683,7 +1909,7 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                           return isCompact
                                               ? Column(
                                                   children: [
-                                                    //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                                                    // Expanded gives the card exactly the residual height.
                                                     Expanded(
                                                       child: SizedBox(
                                                         width: constraints.maxWidth,
@@ -1701,7 +1927,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           isDisabled:
                                                               _currentFormCardIndex ==
                                                               0,
-                                                          onTap: () => setState(() {
+                                                          onTap: () => setState(()
+                                                          {
                                                             _cardMovingForward =
                                                                 false;
                                                             _currentFormCardIndex--;
@@ -1714,7 +1941,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                           isDisabled:
                                                               _currentFormCardIndex ==
                                                               3,
-                                                          onTap: () => setState(() {
+                                                          onTap: () => setState(()
+                                                          {
                                                             _cardMovingForward =
                                                                 true;
                                                             _currentFormCardIndex++;
@@ -1736,7 +1964,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                       isDisabled:
                                                           _currentFormCardIndex ==
                                                           0,
-                                                      onTap: () => setState(() {
+                                                      onTap: () => setState(()
+                                                      {
                                                         _cardMovingForward = false;
                                                         _currentFormCardIndex--;
                                                       }),
@@ -1758,7 +1987,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                                                       isDisabled:
                                                           _currentFormCardIndex ==
                                                           3,
-                                                      onTap: () => setState(() {
+                                                      onTap: () => setState(()
+                                                      {
                                                         _cardMovingForward = true;
                                                         _currentFormCardIndex++;
                                                       }),
@@ -1777,15 +2007,14 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothFixedWidthButtonsSideBySide
-                    //FixedWidthInBothBranches_NeverStretchesToFillTheAvailableSpace
-                    child: _ResponsiveWizardBottomBar(
+                    // Stacks the two fixed-width buttons when the dialog is too narrow to fit them side by side.
+                    child: WizardResponsiveBottomBar(
                       secondaryButton: _currentStep == 0
                           ? WizardAnimatedActionButton(
                               text: 'ANNULLA',
                               icon: Icons.close_rounded,
-                              baseColor: const Color(0xFFE53935),
-                              hoverColor: const Color(0xFFEF5350),
+                              baseColor: AppTheme.danger,
+                              hoverColor: AppTheme.dangerHover,
                               onPressed: () => Navigator.of(context).pop(),
                             )
                           : WizardOutlinedActionButton(
@@ -1802,8 +2031,8 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
                         icon: isLastStep
                             ? Icons.check_circle_outline
                             : Icons.arrow_forward_rounded,
-                        baseColor: const Color(0xFF003C82),
-                        hoverColor: const Color(0xFF004D99),
+                        baseColor: AppTheme.primary,
+                        hoverColor: AppTheme.primaryHover,
                         onPressed: (_isSubmitting || _isCheckingCf)
                             ? () {}
                             : _onNext,
@@ -1816,260 +2045,6 @@ class _ParentCreationDialogState extends State<ParentCreationDialog> {
           ),
         ),
       ),
-    );
-  }
-}
-
-//DecideRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
-//StessoCriterioDiPersonWizardPage_MaConLarghezzaFissa200InveceDi240_CoerenteConQuestoDialog
-class _ResponsiveWizardBottomBar extends StatelessWidget {
-  final Widget secondaryButton;
-  final Widget primaryButton;
-
-  const _ResponsiveWizardBottomBar({
-    required this.secondaryButton,
-    required this.primaryButton,
-  });
-
-  static const double _kButtonWidth = 200;
-  static const double _kSpacing = 24;
-  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        if (isCompact) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(width: _kButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(width: _kButtonWidth, child: secondaryButton),
-            const SizedBox(width: _kSpacing),
-            SizedBox(width: _kButtonWidth, child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDiPersonWizardPage
-class _WizardAddressFieldsRow extends StatelessWidget {
-  final TextEditingController tipoViaCtrl;
-  final String? tipoViaError;
-  final ValueChanged<String> onTipoViaChanged;
-
-  final TextEditingController nomeCtrl;
-  final String? nomeError;
-  final ValueChanged<String> onNomeChanged;
-
-  final TextEditingController civicoCtrl;
-  final String? civicoError;
-  final ValueChanged<String> onCivicoChanged;
-
-  const _WizardAddressFieldsRow({
-    required this.tipoViaCtrl,
-    required this.tipoViaError,
-    required this.onTipoViaChanged,
-    required this.nomeCtrl,
-    required this.nomeError,
-    required this.onNomeChanged,
-    required this.civicoCtrl,
-    required this.civicoError,
-    required this.onCivicoChanged,
-  });
-
-  static const double _kBreakpoint = 420;
-
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget tipoViaField = WizardAnimatedTextField(
-          controller: tipoViaCtrl,
-          hint: 'Via/Strada/...',
-          errorText: tipoViaError,
-          onChanged: onTipoViaChanged,
-        );
-
-        final Widget nomeField = WizardAnimatedTextField(
-          controller: nomeCtrl,
-          hint: 'Nome',
-          errorText: nomeError,
-          onChanged: onNomeChanged,
-        );
-
-        final Widget civicoField = WizardAnimatedTextField(
-          controller: civicoCtrl,
-          hint: 'N°',
-          errorText: civicoError,
-          onChanged: onCivicoChanged,
-        );
-
-        if (isCompact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              tipoViaField,
-              const SizedBox(height: 16),
-              nomeField,
-              const SizedBox(height: 16),
-              civicoField,
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 3, child: tipoViaField),
-            const SizedBox(width: 8),
-            Expanded(flex: 5, child: nomeField),
-            const SizedBox(width: 8),
-            Expanded(flex: 2, child: civicoField),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDiPersonWizardPage
-class _WizardEnrollmentFieldRow extends StatelessWidget {
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-  final String? yearError;
-  final String? dateError;
-  final ValueChanged<String> onYearChanged;
-  final ValueChanged<String> onDateChanged;
-  final VoidCallback? onRemove;
-
-  const _WizardEnrollmentFieldRow({
-    required this.yearCtrl,
-    required this.dateCtrl,
-    required this.yearError,
-    required this.dateError,
-    required this.onYearChanged,
-    required this.onDateChanged,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 360;
-
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget yearField = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel('Anno'),
-            WizardAnimatedTextField(
-              controller: yearCtrl,
-              hint: 'Es. 2024',
-              keyboardType: TextInputType.number,
-              errorText: yearError,
-              onChanged: onYearChanged,
-            ),
-          ],
-        );
-
-        final Widget dateField = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildLabel('Data inizio'),
-            WizardAnimatedTextField(
-              controller: dateCtrl,
-              hint: 'gg/mm',
-              keyboardType: TextInputType.number,
-              inputFormatters: [WizardDayMonthInputFormatter()],
-              errorText: dateError,
-              onChanged: onDateChanged,
-            ),
-          ],
-        );
-
-        if (isCompact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              yearField,
-              const SizedBox(height: 16),
-              onRemove == null
-                  ? dateField
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(child: dateField),
-                        const SizedBox(width: 8),
-                        WizardRemoveRowButton(onTap: onRemove!),
-                      ],
-                    ),
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 2, child: yearField),
-            const SizedBox(width: 16),
-            Expanded(flex: 3, child: dateField),
-            //RicalibratoRispettoAllOriginale_top:6EraCalibratoQuandoLetichettaCompariva
-            //SoloSullaPrimaRiga_QuiCompareSempre_QuindiIlCampoSiSpostaInBassoDiCirca27px
-            onRemove != null
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 32, left: 8),
-                    child: WizardRemoveRowButton(onTap: onRemove!),
-                  )
-                : const SizedBox(width: 48),
-          ],
-        );
-      },
     );
   }
 }

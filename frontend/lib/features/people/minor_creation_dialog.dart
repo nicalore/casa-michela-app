@@ -1,18 +1,16 @@
 import 'dart:ui';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/snackbar.dart';
-
-import '../association/models/association_subject_item.dart';
-import '../association/models/study_program_item.dart';
-import '../association/models/school_item.dart';
-import './models/person_item.dart';
+import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
-
+import '../association/models/association_subject_item.dart';
+import '../association/models/school_item.dart';
+import '../association/models/study_program_item.dart';
+import './models/person_item.dart';
 import 'person_wizard_components.dart';
 
 class MinorCreationDialog extends StatefulWidget 
@@ -123,7 +121,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   bool _consensoDatiParticolari       = false;
   bool _consensoNewsletter            = false;
 
-  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  // Defaults to false: the minor is collected by a parent unless stated otherwise (matches the server default).
   bool _uscitaAnticipata = false;
 
   final TextEditingController _searchSubjectsCtrl         = TextEditingController();
@@ -201,8 +199,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     try 
     {
       final parts = dateStr.split('/');
-      if (parts.length != 3) return false;
-      
+      if (parts.length != 3)
+      {
+        return false;
+      }
+
       final day   = int.parse(parts[0]);
       final month = int.parse(parts[1]);
       final year  = int.parse(parts[2]);
@@ -221,8 +222,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     try 
     {
       final parts = dm.split('/');
-      if (parts.length != 2) return false;
-      
+      if (parts.length != 2)
+      {
+        return false;
+      }
+
       final day   = int.parse(parts[0]);
       final month = int.parse(parts[1]);
       final year  = int.parse(yearStr);
@@ -238,17 +242,26 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
   String? _toIsoDate(String? itaDate) 
   {
-    if (itaDate == null || itaDate.isEmpty) return null;
+    if (itaDate == null || itaDate.isEmpty)
+    {
+      return null;
+    }
     final parts = itaDate.split('/');
-    if (parts.length != 3) return null;
+    if (parts.length != 3)
+    {
+      return null;
+    }
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
   bool _isCodiceFiscaleValid(String cf) 
   {
-    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
-    
-    const oddValues = 
+    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf))
+    {
+      return false;
+    }
+
+    const oddValues =
     {
       '0': 1, '1': 0, '2': 5, '3': 7, '4': 9, '5': 13, '6': 15, '7': 17, '8': 19, '9': 21,
       'A': 1, 'B': 0, 'C': 5, 'D': 7, 'E': 9, 'F': 13, 'G': 15, 'H': 17, 'I': 19, 'J': 21,
@@ -285,23 +298,41 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
   bool _doesCfMatchData(String cf, String dateStr, String gender) 
   {
-    if (cf.length != 16) return false;
-    
+    if (cf.length != 16)
+    {
+      return false;
+    }
+
     final parts = dateStr.split('/');
-    if (parts.length != 3) return false;
-    
+    if (parts.length != 3)
+    {
+      return false;
+    }
+
     final year = parts[2].substring(2, 4);
-    if (cf.substring(6, 8) != year) return false;
-    
+    if (cf.substring(6, 8) != year)
+    {
+      return false;
+    }
+
     const monthCodes = {'01': 'A', '02': 'B', '03': 'C', '04': 'D', '05': 'E', '06': 'H', '07': 'L', '08': 'M', '09': 'P', '10': 'R', '11': 'S', '12': 'T'};
-    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
-    
+    if (cf.substring(8, 9) != monthCodes[parts[1]])
+    {
+      return false;
+    }
+
     int day = int.parse(parts[0]);
-    if (gender == 'F') day += 40;
-    
+    if (gender == 'F')
+    {
+      day += 40;
+    }
+
     final dayStr = day.toString().padLeft(2, '0');
-    if (cf.substring(9, 11) != dayStr) return false;
-    
+    if (cf.substring(9, 11) != dayStr)
+    {
+      return false;
+    }
+
     return true;
   }
 
@@ -341,10 +372,19 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       }
     }
 
-    if (_nomeCtrl.text.isEmpty) addError('nome', 'Campo obbligatorio', 0);
-    if (_cognomeCtrl.text.isEmpty) addError('cognome', 'Campo obbligatorio', 0);
-    if (_sesso == null) addError('sesso', 'Campo obbligatorio', 0);
-    
+    if (_nomeCtrl.text.isEmpty)
+    {
+      addError('nome', 'Campo obbligatorio', 0);
+    }
+    if (_cognomeCtrl.text.isEmpty)
+    {
+      addError('cognome', 'Campo obbligatorio', 0);
+    }
+    if (_sesso == null)
+    {
+      addError('sesso', 'Campo obbligatorio', 0);
+    }
+
     if (_cfCtrl.text.isEmpty) 
     {
       addError('cf', 'Campo obbligatorio', 0);
@@ -397,7 +437,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       }
     }
     
-    if (_cittaNascitaCtrl.text.isEmpty) addError('cittaNascita', 'Campo obbligatorio', 1);
+    if (_cittaNascitaCtrl.text.isEmpty)
+    {
+      addError('cittaNascita', 'Campo obbligatorio', 1);
+    }
     
     if (_provNascitaCtrl.text.isEmpty) 
     {
@@ -408,13 +451,28 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
 
-    if (_nazioneNascitaCtrl.text.isEmpty) addError('nazioneNascita', 'Campo obbligatorio', 1);
+    if (_nazioneNascitaCtrl.text.isEmpty)
+    {
+      addError('nazioneNascita', 'Campo obbligatorio', 1);
+    }
 
-    if (_tipoViaCtrl.text.isEmpty) addError('tipoVia', 'Campo obbligatorio', 2);
-    if (_indirizzoNomeCtrl.text.isEmpty) addError('indirizzoNome', 'Campo obbligatorio', 2);
-    if (_civicoCtrl.text.isEmpty) addError('civico', 'Campo obbligatorio', 2);
-    if (_cittaResidenzaCtrl.text.isEmpty) addError('cittaResidenza', 'Campo obbligatorio', 2);
-    
+    if (_tipoViaCtrl.text.isEmpty)
+    {
+      addError('tipoVia', 'Campo obbligatorio', 2);
+    }
+    if (_indirizzoNomeCtrl.text.isEmpty)
+    {
+      addError('indirizzoNome', 'Campo obbligatorio', 2);
+    }
+    if (_civicoCtrl.text.isEmpty)
+    {
+      addError('civico', 'Campo obbligatorio', 2);
+    }
+    if (_cittaResidenzaCtrl.text.isEmpty)
+    {
+      addError('cittaResidenza', 'Campo obbligatorio', 2);
+    }
+
     if (_provResidenzaCtrl.text.isEmpty) 
     {
       addError('provResidenza', 'Campo obbligatorio', 2);
@@ -595,7 +653,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       currentMappedIndex++;
     }
 
-    //DisponibileAChiunqueSiaAssociato_QuiSempreVeroPerDefinizioneDelDialog
+    // Available to any member, which is always the case in this dialog.
     if (_aderisceSostegnoPsicologico)
     {
       if (_dataInizioSostegnoPsicologicoCtrl.text.isEmpty)
@@ -692,15 +750,24 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
           }
         }
         
-        if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
-        if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
-        if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedSchool == null)
+        {
+          addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
+        }
+        if (r.selectedProgram == null)
+        {
+          addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
+        }
+        if (r.selectedGrade == null)
+        {
+          addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+        }
       }
       currentMappedIndex++;
     }
 
-    //SempreVero_UnMinoreCreatoQuiEPerDefinizioneMinorenne_NessunControllo_IsMinor_Necessario
-    //TuttiICampiSonoFacoltativi_NessunaValidazioneRichiesta_CoerenteConSezione10DelModuloCartaceo
+    // Always true: a minor created here is underage by definition, so no isMinor check is needed.
+    // All fields are optional, no validation required (matches section 10 of the paper form).
     currentMappedIndex++;
 
     if (!_statutoAccettato)
@@ -752,6 +819,11 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
   void _submitForm()
   {
+    // Marks the submission as started so the button shows its busy state and
+    // cannot be re-triggered. No reset is needed: the dialog pops right after,
+    // and the actual save runs in the parent wizard.
+    setState(() => _isSubmitting = true);
+
     final List<String> finalRoles = _selectedRoles.toList();
     if (_involvementType == 1) 
     {
@@ -778,11 +850,20 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       });
     }
 
-    //QuiIlMemberEsisteSempre_NonSoloQuandoMembershipsDataNonEVuoto_PortaConsensi_PagamentoESicurezzaMinore
+    // The member object always exists here, not only when membership data is present: it carries consents, payment and minor-safety info.
     String? paymentMethod;
-    if (_modalitaPagamento == 'Contanti') paymentMethod = 'CASH';
-    if (_modalitaPagamento == 'Bonifico bancario') paymentMethod = 'BANK_TRANSFER';
-    if (_modalitaPagamento == 'Altro') paymentMethod = 'OTHER';
+    if (_modalitaPagamento == 'Contanti')
+    {
+      paymentMethod = 'CASH';
+    }
+    if (_modalitaPagamento == 'Bonifico bancario')
+    {
+      paymentMethod = 'BANK_TRANSFER';
+    }
+    if (_modalitaPagamento == 'Altro')
+    {
+      paymentMethod = 'OTHER';
+    }
 
     final Map<String, dynamic> memberData = 
     {
@@ -810,8 +891,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     if (_selectedRoles.contains('DOCENTE')) 
     {
       String collType = 'VOLUNTEER';
-      if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-      if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
+      if (_tipoCollaborazione == 'Retribuito')
+      {
+        collType = 'PAID';
+      }
+      if (_tipoCollaborazione == 'FSL (Ex PCT0)')
+      {
+        collType = 'PCTO';
+      }
 
       staffData = 
       {
@@ -822,7 +909,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       teacherData = 
       {
         "school_education":     _studiScolasticiCtrl.text.isNotEmpty ? _studiScolasticiCtrl.text.trim() : null,
-        // Un minore non può per definizione avere un percorso universitario: campo non richiesto in questo wizard.
+        // A minor cannot have a university path by definition, so this field is not requested in this wizard.
         "university_education": null,
         "competences":          _subjectToggles.entries
             .where((e) => e.value)
@@ -838,8 +925,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     if (_selectedRoles.contains('CORSISTA')) 
     {
       String? courseType;
-      if (_tipoCorso == 'Yoga') courseType = 'YOGA';
-      if (_tipoCorso == 'Pilates') courseType = 'PILATES';
+      if (_tipoCorso == 'Yoga')
+      {
+        courseType = 'YOGA';
+      }
+      if (_tipoCorso == 'Pilates')
+      {
+        courseType = 'PILATES';
+      }
 
       courseParticipantData = 
       {
@@ -859,10 +952,22 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
     if (_selectedRoles.contains('STUDENTE')) 
     {
       String? certificationType;
-      if (_tipoCertificazione == 'DSA') certificationType = 'DSA';
-      if (_tipoCertificazione == 'BES') certificationType = 'BES';
-      if (_tipoCertificazione == 'ADHD') certificationType = 'ADHD';
-      if (_tipoCertificazione == 'Altro') certificationType = 'OTHER';
+      if (_tipoCertificazione == 'DSA')
+      {
+        certificationType = 'DSA';
+      }
+      if (_tipoCertificazione == 'BES')
+      {
+        certificationType = 'BES';
+      }
+      if (_tipoCertificazione == 'ADHD')
+      {
+        certificationType = 'ADHD';
+      }
+      if (_tipoCertificazione == 'Altro')
+      {
+        certificationType = 'OTHER';
+      }
 
       studentData = 
       {
@@ -983,11 +1088,17 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
     if (_currentStep == 2) 
     {
-      if (!_validateDatiGenerali()) return;
+      if (!_validateDatiGenerali())
+      {
+        return;
+      }
 
       final bool cfEsistente = await _checkCodiceFiscaleEsistente();
-      if (cfEsistente) return;
-      
+      if (cfEsistente)
+      {
+        return;
+      }
+
       if (_activeStep2Cards.isEmpty)
       {
         _submitForm();
@@ -1007,9 +1118,12 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
     if (_currentStep == 3) 
     {
-      if (!_validateDatiSpecifici()) return;
-      
-      if (_selectedRoles.contains('DOCENTE')) 
+      if (!_validateDatiSpecifici())
+      {
+        return;
+      }
+
+      if (_selectedRoles.contains('DOCENTE'))
       {
         setState(() 
         { 
@@ -1042,11 +1156,17 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
   void _onBack() 
   {
     setState(() => _movingForward = false);
-    if (_currentStep == 4) setState(() => _currentStep = 3);
-    else if (_currentStep == 3) setState(() => _currentStep = 2);
-    else if (_currentStep == 2) 
+    if (_currentStep == 4)
     {
-      if (_involvementType == 1) 
+      setState(() => _currentStep = 3);
+    }
+    else if (_currentStep == 3)
+    {
+      setState(() => _currentStep = 2);
+    }
+    else if (_currentStep == 2)
+    {
+      if (_involvementType == 1)
       {
         setState(() => _currentStep = 0);
       }
@@ -1055,7 +1175,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
         setState(() => _currentStep = 1);
       }
     }
-    else if (_currentStep == 1) setState(() => _currentStep = 0);
+    else if (_currentStep == 1)
+    {
+      setState(() => _currentStep = 0);
+    }
   }
 
   Widget _buildStep0Type() 
@@ -1076,9 +1199,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
             (
               children: 
               [
-                Text('Qual è il rapporto del minore con l\'Associazione?', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                Text('Qual è il rapporto del minore con l\'Associazione?', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                 const SizedBox(height: 8),
-                Text('Scegli la categoria che descrive meglio la sua posizione.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                Text('Scegli la categoria che descrive meglio la sua posizione.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
               ],
             ),
           ),
@@ -1148,7 +1271,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1160,7 +1283,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -1218,7 +1341,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       cards.add(_buildFormCardModalitaPagamento());
     }
 
-    //DisponibileAChiunqueSiaAssociato_QuiSempreVeroPerDefinizioneDelDialog
+    // Available to any member, which is always the case in this dialog.
     cards.add(_buildFormCardSostegnoPsicologico());
 
     if (_selectedRoles.contains('DOCENTE')) 
@@ -1403,10 +1526,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       cards.add(_buildFormCardIscrizioniScolastiche());
     }
 
-    //SempreVero_UnMinoreCreatoQuiEPerDefinizioneMinorenne
+    // Always true: a minor created here is underage by definition.
     cards.add(_buildFormCardSicurezzaMinore());
 
-    //SempreUltima_RispecchiaLeDichiarazioniInFondoAlModuloCartaceo
+    // Always last: mirrors the declarations at the bottom of the paper form.
     cards.add(_buildFormCardConsensi());
 
     return cards;
@@ -1420,14 +1543,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: 
       [
-        //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-        ...List.generate(_enrollmentRows.length, (index) 
+        // Same responsive rule as PersonWizardPage: stacks below the breakpoint.
+        ...List.generate(_enrollmentRows.length, (index)
         {
           final row = _enrollmentRows[index];
           return Padding
           (
             padding: const EdgeInsets.only(bottom: 16),
-            child: _WizardEnrollmentFieldRow
+            child: WizardEnrollmentFieldRow
             (
               yearCtrl:      row.yearCtrl,
               dateCtrl:      row.dateCtrl,
@@ -1467,7 +1590,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                 for (var r in _enrollmentRows)
                 {
                   int y = int.tryParse(r.yearCtrl.text) ?? 0;
-                  if (y > maxYear) maxYear = y;
+                  if (y > maxYear)
+                  {
+                    maxYear = y;
+                  }
                 }
                 lastYear = maxYear > 0 ? maxYear : lastYear;
               }
@@ -1623,8 +1749,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
             gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
           }
 
-          //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia_TrovatoMancanteInUnControlloSuccessivo
-          return _WizardSchoolFieldRow
+          // Same responsive rule as PersonWizardPage: stacks below the breakpoint.
+          return WizardSchoolFieldRow
           (
             yearCtrl:         r.yearCtrl,
             yearError:        _formErrors['schoolYear_$index'],
@@ -1693,7 +1819,10 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                 for (var r in _schoolRows)
                 {
                   int y = int.tryParse(r.yearCtrl.text) ?? 0;
-                  if (y > maxYear) maxYear = y;
+                  if (y > maxYear)
+                  {
+                    maxYear = y;
+                  }
                 }
                 lastYear = maxYear > 0 ? maxYear : lastYear;
               }
@@ -1896,9 +2025,15 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
   Widget _buildStepWidget(int step) 
   {
-    if (step == 0) return _buildStep0Type();
-    if (step == 1) return _buildStep1Roles();
-    
+    if (step == 0)
+    {
+      return _buildStep0Type();
+    }
+    if (step == 1)
+    {
+      return _buildStep1Roles();
+    }
+
     if (step == 2) 
     {
       Widget currentCard = const SizedBox.shrink();
@@ -2046,8 +2181,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               WizardFormInputRow
               (
                 label:       'Indirizzo',
-                //StessoCriterioResponsivoDiPersonWizardPage_ImpilaSottoSoglia
-                inputWidget: _WizardAddressFieldsRow
+                // Same responsive rule as PersonWizardPage: stacks below the breakpoint.
+                inputWidget: WizardAddressFieldsRow
                 (
                   tipoViaCtrl:      _tipoViaCtrl,
                   tipoViaError:     _formErrors['tipoVia'],
@@ -2153,9 +2288,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               (
                 children: 
                 [
-                  Text('Informazioni Personali Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Informazioni Personali Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                   const SizedBox(height: 8),
-                  Text('Compila i dati del minore.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                  Text('Compila i dati del minore.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
                 ],
               ),
             ),
@@ -2173,7 +2308,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     duration:       const Duration(milliseconds: 300),
                     switchInCurve:  Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                     transitionBuilder: (child, animation) 
                     {
                       final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
@@ -2188,7 +2323,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     duration:       const Duration(milliseconds: 300),
                     switchInCurve:  Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, ?currentChild]),
                     transitionBuilder: (child, animation) 
                     {
                       final isEntering   = (child.key as ValueKey<int>).value == _currentFormCardIndex;
@@ -2198,7 +2333,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     child: KeyedSubtree
                     (
                       key:   ValueKey(_currentFormCardIndex),
-                      //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                      // No fixed height: takes whatever height the outer Expanded provides.
                       child: SizedBox
                       (
                         width:  constraints.maxWidth,
@@ -2212,7 +2347,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                         (
                           children: 
                           [
-                            //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                            // Expanded gives the card exactly the residual height, avoiding a fragile fixed constant.
                             Expanded
                             (
                               child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCard),
@@ -2272,9 +2407,9 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               (
                 children: 
                 [
-                  Text('Informazioni Associative Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Informazioni Associative Minore', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                   const SizedBox(height: 8),
-                  Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                  Text('Compila i dati richiesti dai ruoli selezionati.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
                 ],
               ),
             ),
@@ -2292,7 +2427,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     duration:       const Duration(milliseconds: 300),
                     switchInCurve:  Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                     transitionBuilder: (child, animation) 
                     {
                       final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
@@ -2307,7 +2442,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     duration:       const Duration(milliseconds: 300),
                     switchInCurve:  Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
-                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+                    layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, ?currentChild]),
                     transitionBuilder: (child, animation) 
                     {
                       final isEntering   = (child.key as ValueKey<int>).value == _currentStep2CardIndex;
@@ -2317,7 +2452,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     child: KeyedSubtree
                     (
                       key:   ValueKey(_currentStep2CardIndex),
-                      //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt
+                      // No fixed height: takes whatever height the outer Expanded provides.
                       child: SizedBox
                       (
                         width:  constraints.maxWidth,
@@ -2331,7 +2466,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                         (
                           children: 
                           [
-                            //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                            // Expanded gives the card exactly the residual height, avoiding a fragile fixed constant.
                             Expanded
                             (
                               child: SizedBox(width: constraints.maxWidth, child: compactAnimatedCards),
@@ -2399,16 +2534,25 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                     }
                   }
                 }
-                if (hasMatch) break; 
+                if (hasMatch)
+                {
+                  break;
+                }
               }
             }
-          } 
+          }
           catch (_) {}
           
-          if (hasMatch) programs.add(prog);
+          if (hasMatch)
+          {
+            programs.add(prog);
+          }
         }
-        if (programs.isEmpty) return false;
-        
+        if (programs.isEmpty)
+        {
+          return false;
+        }
+
         final query         = _searchSubjectsText.toLowerCase();
         final matchesSearch = subject.name.toLowerCase().contains(query);
         final matchesArea   = _filterSubjectsArea == null || subject.area == _filterSubjectsArea;
@@ -2418,10 +2562,22 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
 
       validSubjects.sort((a, b) 
       {
-        if (_sortSubjectsBy == 'name_asc') return a.name.compareTo(b.name);
-        if (_sortSubjectsBy == 'name_desc') return b.name.compareTo(a.name);
-        if (_sortSubjectsBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
-        if (_sortSubjectsBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
+        if (_sortSubjectsBy == 'name_asc')
+        {
+          return a.name.compareTo(b.name);
+        }
+        if (_sortSubjectsBy == 'name_desc')
+        {
+          return b.name.compareTo(a.name);
+        }
+        if (_sortSubjectsBy == 'date_asc')
+        {
+          return a.createdAt.compareTo(b.createdAt);
+        }
+        if (_sortSubjectsBy == 'date_desc')
+        {
+          return b.createdAt.compareTo(a.createdAt);
+        }
         return 0;
       });
 
@@ -2441,21 +2597,20 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
               (
                 children: 
                 [
-                  Text('Discipline Insegnate', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
+                  Text('Discipline Insegnate', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, color: AppTheme.primary)),
                   const SizedBox(height: 8),
-                  Text('Seleziona le discipline in cui il minore farà da tutor.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: const Color(0xFF64748B))),
+                  Text('Seleziona le discipline in cui il minore farà da tutor.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w500, color: AppTheme.slate500)),
                 ],
               ),
             ),
             const SizedBox(height: 8),
-            //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-            //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
+            // Side by side when there is room, stacked only below the threshold.
             Center
             (
               child: ConstrainedBox
               (
                 constraints: const BoxConstraints(maxWidth: 500),
-                child: _ResponsiveSearchFilterRow
+                child: WizardResponsiveSearchFilterRow
                 (
                   breakpoint: 380,
                   searchBar: WizardAnimatedSearchBar
@@ -2533,13 +2688,19 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                                     }
                                   }
                                 }
-                                if (hasMatch) break; 
+                                if (hasMatch)
+                                {
+                                  break;
+                                }
                               }
                             }
-                          } 
+                          }
                           catch (_) {}
-                          
-                          if (hasMatch) programs.add(prog);
+
+                          if (hasMatch)
+                          {
+                            programs.add(prog);
+                          }
                         }
                         
                         showGeneralDialog
@@ -2645,7 +2806,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
         constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
         decoration: BoxDecoration
         (
-          color:        const Color(0xFFF4F7F9),
+          color:        AppTheme.pageBackground,
           borderRadius: BorderRadius.circular(40),
           boxShadow:    const 
           [
@@ -2727,14 +2888,14 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                           (
                             fontSize:   26, 
                             fontWeight: FontWeight.w700, 
-                            color:      const Color(0xFF003C82),
+                            color:      AppTheme.primary,
                           ),
                         ),
                         WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
                     ),
                   ),
-                  const Divider(height: 32, thickness: 1, color: Color(0xFFE2E8F0)),
+                  const Divider(height: 32, thickness: 1, color: AppTheme.slate200),
                   Expanded
                   (
                     child: Padding
@@ -2745,7 +2906,7 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                         duration:       const Duration(milliseconds: 300),
                         switchInCurve:  Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
-                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+                        layoutBuilder:  (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
                         transitionBuilder: (child, animation) 
                         {
                           final isEntering   = (child.key as ValueKey<String>).value == 'step${_currentStep}_m';
@@ -2768,16 +2929,16 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                   Padding
                   (
                     padding: const EdgeInsets.only(top: 16, bottom: 32),
-                    //StacksVerticallyWhenTheDialogIsTooNarrowForBothFixedWidthButtonsSideBySide
-                    child: _ResponsiveWizardBottomBar
+                    // Stacks vertically when the dialog is too narrow to fit both fixed-width buttons side by side.
+                    child: WizardResponsiveBottomBar
                     (
                       secondaryButton: _currentStep == 0
                           ? WizardAnimatedActionButton
                             (
                               text:       'ANNULLA', 
                               icon:       Icons.close_rounded, 
-                              baseColor:  const Color(0xFFE53935), 
-                              hoverColor: const Color(0xFFEF5350), 
+                              baseColor:  AppTheme.danger, 
+                              hoverColor: AppTheme.dangerHover, 
                               onPressed:  () => Navigator.of(context).pop(),
                             )
                           : WizardOutlinedActionButton
@@ -2790,8 +2951,8 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
                       (
                         text:       _isCheckingCf ? 'VERIFICA...' : (_isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA MINORE' : 'AVANTI')), 
                         icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-                        baseColor:  const Color(0xFF003C82), 
-                        hoverColor: const Color(0xFF004D99), 
+                        baseColor:  AppTheme.primary, 
+                        hoverColor: AppTheme.primaryHover, 
                         onPressed:  (_isSubmitting || _isCheckingCf) ? () {} : _onNext,
                       ),
                     ),
@@ -2802,583 +2963,6 @@ class _MinorCreationDialogState extends State<MinorCreationDialog>
           ),
         ),
       ),
-    );
-  }
-}
-
-//DecideRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
-//StessoCriterioDiPersonWizardPage_ConLarghezzaFissa200CoerenteConQuestoDialog
-class _ResponsiveWizardBottomBar extends StatelessWidget
-{
-  final Widget secondaryButton;
-  final Widget primaryButton;
-
-  const _ResponsiveWizardBottomBar
-  ({
-    required this.secondaryButton,
-    required this.primaryButton,
-  });
-
-  static const double _kButtonWidth = 200;
-  static const double _kSpacing = 24;
-  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              SizedBox(width: _kButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row
-        (
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: 
-          [
-            SizedBox(width: _kButtonWidth, child: secondaryButton),
-            const SizedBox(width: _kSpacing),
-            SizedBox(width: _kButtonWidth, child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDiPersonWizardPage
-class _WizardAddressFieldsRow extends StatelessWidget
-{
-  final TextEditingController tipoViaCtrl;
-  final String?               tipoViaError;
-  final ValueChanged<String>  onTipoViaChanged;
-
-  final TextEditingController nomeCtrl;
-  final String?               nomeError;
-  final ValueChanged<String>  onNomeChanged;
-
-  final TextEditingController civicoCtrl;
-  final String?               civicoError;
-  final ValueChanged<String>  onCivicoChanged;
-
-  const _WizardAddressFieldsRow
-  ({
-    required this.tipoViaCtrl,
-    required this.tipoViaError,
-    required this.onTipoViaChanged,
-    required this.nomeCtrl,
-    required this.nomeError,
-    required this.onNomeChanged,
-    required this.civicoCtrl,
-    required this.civicoError,
-    required this.onCivicoChanged,
-  });
-
-  static const double _kBreakpoint = 420;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 6),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   13, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget tipoViaField = WizardAnimatedTextField
-        (
-          controller: tipoViaCtrl, 
-          hint:       'Via/Strada/...',
-          errorText:  tipoViaError,
-          onChanged:  onTipoViaChanged,
-        );
-
-        final Widget nomeField = WizardAnimatedTextField
-        (
-          controller: nomeCtrl, 
-          hint:       'Nome',
-          errorText:  nomeError,
-          onChanged:  onNomeChanged,
-        );
-
-        final Widget civicoField = WizardAnimatedTextField
-        (
-          controller: civicoCtrl, 
-          hint:       'N°',
-          errorText:  civicoError,
-          onChanged:  onCivicoChanged,
-        );
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Via / Piazza'),
-              tipoViaField,
-              const SizedBox(height: 16),
-              _buildLabel('Nome via'),
-              nomeField,
-              const SizedBox(height: 16),
-              _buildLabel('Numero civico'),
-              civicoField,
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 3, child: tipoViaField),
-            const SizedBox(width: 8),
-            Expanded(flex: 5, child: nomeField),
-            const SizedBox(width: 8),
-            Expanded(flex: 2, child: civicoField),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDiPersonWizardPage
-class _WizardEnrollmentFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-  final String?               yearError;
-  final String?               dateError;
-  final ValueChanged<String>  onYearChanged;
-  final ValueChanged<String>  onDateChanged;
-  final VoidCallback?         onRemove;
-
-  const _WizardEnrollmentFieldRow
-  ({
-    required this.yearCtrl,
-    required this.dateCtrl,
-    required this.yearError,
-    required this.dateError,
-    required this.onYearChanged,
-    required this.onDateChanged,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 360;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   14, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget yearField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Anno'),
-            WizardAnimatedTextField
-            (
-              controller:   yearCtrl, 
-              hint:         'Es. 2024', 
-              keyboardType: TextInputType.number,
-              errorText:    yearError,
-              onChanged:    onYearChanged,
-            ),
-          ],
-        );
-
-        final Widget dateField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Data inizio'),
-            WizardAnimatedTextField
-            (
-              controller:      dateCtrl, 
-              hint:            'gg/mm', 
-              keyboardType:    TextInputType.number,
-              inputFormatters: [WizardDayMonthInputFormatter()],
-              errorText:       dateError,
-              onChanged:       onDateChanged,
-            ),
-          ],
-        );
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              yearField,
-              const SizedBox(height: 16),
-              onRemove == null
-                  ? dateField
-                  : Row
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: 
-                      [
-                        Expanded(child: dateField),
-                        const SizedBox(width: 8),
-                        WizardRemoveRowButton(onTap: onRemove!),
-                      ],
-                    ),
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 2, child: yearField),
-            const SizedBox(width: 16),
-            Expanded(flex: 3, child: dateField),
-            onRemove != null
-                ? Padding
-                  (
-                    padding: const EdgeInsets.only(top: 32, left: 8),
-                    child:   WizardRemoveRowButton(onTap: onRemove!),
-                  )
-                : const SizedBox(width: 48),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareIQuattroCampi_StessoCriterioDiPersonWizardPage
-//AggiuntoInUnControlloSuccessivo_MancavaInQuestoFileNonostanteLaCard"DettagliStudente"LoUsi
-class _WizardSchoolFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final String?                yearError;
-  final ValueChanged<String>   onYearChanged;
-
-  final String?                 schoolValue;
-  final List<String>            schoolOptions;
-  final String?                 schoolError;
-  final ValueChanged<String>    onSchoolSelected;
-
-  final String?                 programValue;
-  final List<String>            programOptions;
-  final bool                    programEnabled;
-  final String?                 programError;
-  final ValueChanged<String>    onProgramSelected;
-
-  final String?                 gradeValue;
-  final List<String>            gradeOptions;
-  final bool                    gradeEnabled;
-  final String?                 gradeError;
-  final ValueChanged<String>    onGradeSelected;
-
-  final VoidCallback?           onRemove;
-
-  const _WizardSchoolFieldRow
-  ({
-    required this.yearCtrl,
-    required this.yearError,
-    required this.onYearChanged,
-    required this.schoolValue,
-    required this.schoolOptions,
-    required this.schoolError,
-    required this.onSchoolSelected,
-    required this.programValue,
-    required this.programOptions,
-    required this.programEnabled,
-    required this.programError,
-    required this.onProgramSelected,
-    required this.gradeValue,
-    required this.gradeOptions,
-    required this.gradeEnabled,
-    required this.gradeError,
-    required this.onGradeSelected,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 700;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   12, 
-          fontWeight: FontWeight.w700, 
-          color:      const Color(0xFF64748B),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container
-    (
-      margin:     const EdgeInsets.only(bottom: 16),
-      padding:    const EdgeInsets.all(20),
-      decoration: BoxDecoration
-      (
-        borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: const Color(0xFFE2E8F0)),
-        color:        const Color(0xFFF8FAFC),
-      ),
-      child: LayoutBuilder
-      (
-        builder: (context, constraints)
-        {
-          final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-          final Widget yearField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Anno inizio'),
-              WizardAnimatedTextField
-              (
-                controller:   yearCtrl,
-                hint:         'Es. 2024',
-                errorText:    yearError,
-                keyboardType: TextInputType.number,
-                onChanged:    onYearChanged,
-              ),
-            ],
-          );
-
-          final Widget schoolField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Scuola'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      schoolValue,
-                items:      schoolOptions,
-                hint:       'Scuola',
-                errorText:  schoolError,
-                onChanged:  onSchoolSelected,
-              ),
-            ],
-          );
-
-          final Widget programField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Percorso'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      programValue,
-                items:      programOptions,
-                hint:       'Percorso',
-                enabled:    programEnabled,
-                errorText:  programError,
-                onChanged:  onProgramSelected,
-              ),
-            ],
-          );
-
-          final Widget gradeField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Classe'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      gradeValue,
-                items:      gradeOptions,
-                hint:       '',
-                enabled:    gradeEnabled,
-                errorText:  gradeError,
-                onChanged:  onGradeSelected,
-              ),
-            ],
-          );
-
-          if (isCompact)
-          {
-            return Column
-            (
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
-              [
-                yearField,
-                const SizedBox(height: 16),
-                schoolField,
-                const SizedBox(height: 16),
-                programField,
-                const SizedBox(height: 16),
-                onRemove == null
-                    ? gradeField
-                    : Row
-                      (
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: 
-                        [
-                          Expanded(child: gradeField),
-                          const SizedBox(width: 8),
-                          WizardRemoveRowButton(onTap: onRemove!),
-                        ],
-                      ),
-              ],
-            );
-          }
-
-          return Row
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              Expanded(flex: 2, child: yearField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: schoolField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: programField),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: gradeField),
-              onRemove != null
-                  ? Padding
-                    (
-                      padding: const EdgeInsets.only(top: 28, left: 16),
-                      child:   WizardRemoveRowButton(onTap: onRemove!),
-                    )
-                  : const SizedBox(width: 48),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-
-//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
-class _ResponsiveSearchFilterRow extends StatelessWidget
-{
-  final Widget searchBar;
-  final List<Widget> filterWidgets;
-  final double breakpoint;
-  final double spacing;
-
-  const _ResponsiveSearchFilterRow
-  ({
-    required this.searchBar,
-    required this.filterWidgets,
-    this.breakpoint = 700,
-    this.spacing = 12,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < breakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
-              searchBar,
-              SizedBox(height: spacing),
-              Wrap
-              (
-                spacing:    spacing,
-                runSpacing: spacing,
-                children:   filterWidgets,
-              ),
-            ],
-          );
-        }
-
-        final List<Widget> rowChildren = [Expanded(child: searchBar)];
-        for (final w in filterWidgets)
-        {
-          rowChildren.add(SizedBox(width: spacing));
-          rowChildren.add(w);
-        }
-
-        return Row(children: rowChildren);
-      },
     );
   }
 }

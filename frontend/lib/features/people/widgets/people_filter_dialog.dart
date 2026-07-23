@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../models/people_filter_state.dart';
 
-class PeopleFilterDialog extends StatefulWidget 
+class PeopleFilterDialog extends StatefulWidget
 {
   final PeopleFilterState                 initialState;
   final List<String>                      availableCities;
@@ -27,7 +29,7 @@ class PeopleFilterDialog extends StatefulWidget
   State<PeopleFilterDialog> createState() => _PeopleFilterDialogState();
 }
 
-class _PeopleFilterDialogState extends State<PeopleFilterDialog> 
+class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 {
   late PeopleFilterState _currentState;
 
@@ -49,7 +51,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   ];
 
   @override
-  void initState() 
+  void initState()
   {
     super.initState();
     _currentState = widget.initialState;
@@ -62,7 +64,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   }
 
   @override
-  void dispose() 
+  void dispose()
   {
     _cityController.dispose();
     _schoolController.dispose();
@@ -73,21 +75,21 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     super.dispose();
   }
 
-  void _toggleRole(String role, bool isSelected) 
+  void _toggleRole(String role, bool isSelected)
   {
-    setState(() 
+    setState(()
     {
       List<String> updatedRoles = List.from(_currentState.selectedRoles);
-      
-      if (isSelected) 
+
+      if (isSelected)
       {
         updatedRoles.add(role);
-      } 
-      else 
+      }
+      else
       {
         updatedRoles.remove(role);
       }
-      
+
       _currentState = _currentState.copyWith(
         selectedRoles: updatedRoles,
         clearRoles:    updatedRoles.isEmpty,
@@ -95,25 +97,28 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  void _addSubject(String subject) 
+  void _addSubject(String subject)
   {
     String s = subject.trim();
-    //AccettaSoloDisciplineRealmenteEsistenti_LaUiOraPassaSoloOpzioniDaWidget.availableSubjects_QuestoEUnaDifesaInProfondita
-    if (s.isEmpty || !widget.availableSubjects.contains(s) || _currentState.taughtSubjects.contains(s)) return;
+    // Defence in depth: only accept subjects that actually exist in widget.availableSubjects.
+    if (s.isEmpty || !widget.availableSubjects.contains(s) || _currentState.taughtSubjects.contains(s))
+    {
+      return;
+    }
 
-    setState(() 
+    setState(()
     {
       List<String> updated = List.from(_currentState.taughtSubjects)..add(s);
       _currentState        = _currentState.copyWith(taughtSubjects: updated);
     });
   }
 
-  void _removeSubject(String subject) 
+  void _removeSubject(String subject)
   {
-    setState(() 
+    setState(()
     {
       List<String> updated = List.from(_currentState.taughtSubjects)..remove(subject);
-      
+
       _currentState = _currentState.copyWith(
         taughtSubjects:      updated,
         clearTaughtSubjects: updated.isEmpty,
@@ -121,12 +126,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  void _resetFilters() 
+  void _resetFilters()
   {
-    setState(() 
+    setState(()
     {
       _currentState = const PeopleFilterState();
-      
+
       _cityController.clear();
       _schoolController.clear();
       _studyProgramController.clear();
@@ -135,14 +140,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  Widget _buildFieldLabel(String text) 
+  Widget _buildFieldLabel(String text)
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 16),
       child: Text(
         text,
         style: GoogleFonts.plusJakartaSans(
-          color:      const Color(0xFF003C82),
+          color:      AppTheme.primary,
           fontWeight: FontWeight.w700,
           fontSize:   14,
         ),
@@ -150,20 +155,20 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     );
   }
 
-  Widget _buildSectionTitle(String title) 
+  Widget _buildSectionTitle(String title)
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFE0E5EC)),
+        const Divider(height: 1, thickness: 1, color: AppTheme.border),
         const SizedBox(height: 16),
         Text(
           title,
           style: GoogleFonts.plusJakartaSans(
             fontSize:   16,
             fontWeight: FontWeight.w700,
-            color:      const Color(0xFF003C82),
+            color:      AppTheme.primary,
           ),
         ),
       ],
@@ -175,7 +180,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     String                 hint,
     ValueChanged<String>   onChanged, {
     ValueChanged<String>?  onSubmitted,
-  }) 
+  })
   {
     return Container(
       height:     50,
@@ -183,14 +188,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       decoration: BoxDecoration(
         color:        Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: const Color(0xFFE0E5EC), width: 1.5),
+        border:       Border.all(color: AppTheme.border, width: 1.5),
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller:  controller,
-              onChanged:   (val) 
+              onChanged:   (val)
               {
                 setState(() {});
                 onChanged(val);
@@ -206,7 +211,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                 hintStyle:   GoogleFonts.plusJakartaSans(
                   fontSize:   15,
                   fontWeight: FontWeight.w500,
-                  color:      const Color(0xFFB3B3B3),
+                  color:      AppTheme.hint,
                 ),
                 border:      InputBorder.none,
                 isCollapsed: true,
@@ -217,7 +222,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: () 
+                onTap: ()
                 {
                   controller.clear();
                   onChanged('');
@@ -226,13 +231,13 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                 child: Container(
                   padding:    const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color:        const Color(0xFFE53935).withValues(alpha: 0.1),
+                    color:        AppTheme.danger.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.close_rounded,
                     size:  16,
-                    color: Color(0xFFE53935),
+                    color: AppTheme.danger,
                   ),
                 ),
               ),
@@ -243,7 +248,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     final roles = _currentState.selectedRoles;
 
@@ -256,7 +261,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 
     final bool isFullAgeRange = _currentState.ageRange == null ||
         (_currentState.ageRange!.start == 5 && _currentState.ageRange!.end == 99);
-        
+
     final bool isFullSubjectRange = _currentState.taughtSubjectsCount == null ||
         (_currentState.taughtSubjectsCount!.start == 1 && _currentState.taughtSubjectsCount!.end == 15);
 
@@ -271,13 +276,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         decoration: BoxDecoration(
           color:        Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow:    const [
-            BoxShadow(
-              color:      Color(0x1A000000),
-              offset:     Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           children: [
@@ -291,20 +290,20 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize:   20,
                       fontWeight: FontWeight.w700,
-                      color:      const Color(0xFF003C82),
+                      color:      AppTheme.primary,
                     ),
                   ),
                   StaticHoverIconButton(
                     icon:       Icons.close,
-                    color:      const Color(0xFF003C82),
-                    hoverColor: const Color(0xFFE3F2FD),
+                    color:      AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
                     onTap:      () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F0)),
-            
+            const Divider(height: 1, thickness: 1, color: AppTheme.divider),
+
             Expanded(
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -313,7 +312,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                   thumbVisibility: true,
                   thickness:       6,
                   radius:          const Radius.circular(10),
-                  thumbColor:      const Color(0xFFB3B3B3),
+                  thumbColor:      AppTheme.hint,
                   child: SingleChildScrollView(
                     controller: _scrollController,
                     padding:    const EdgeInsets.only(
@@ -329,7 +328,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         Wrap(
                           spacing:    10,
                           runSpacing: 10,
-                          children:   _availableRoles.map((role) 
+                          children:   _availableRoles.map((role)
                           {
                             return CustomChip(
                               label:      role,
@@ -345,7 +344,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           controller: _cityController,
                           hint:       'Es. Thiene',
                           options:    widget.availableCities,
-                          onChanged:  (val) => setState(() 
+                          onChanged:  (val) => setState(()
                           {
                             _currentState = _currentState.copyWith(
                               city:      val,
@@ -358,10 +357,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         const SizedBox(height: 8),
                         SliderTheme(
                           data: SliderTheme.of(context).copyWith(
-                            activeTrackColor:        const Color(0xFF003C82),
-                            inactiveTrackColor:      const Color(0xFFE0E5EC),
-                            thumbColor:              const Color(0xFF003C82),
-                            valueIndicatorColor:     const Color(0xFF003C82),
+                            activeTrackColor:        AppTheme.primary,
+                            inactiveTrackColor:      AppTheme.border,
+                            thumbColor:              AppTheme.primary,
+                            valueIndicatorColor:     AppTheme.primary,
                             overlayShape:            SliderComponentShape.noOverlay,
                             valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
                               color:      Colors.white,
@@ -379,9 +378,9 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                   ? '99+'
                                   : _currentState.ageRange?.end.round().toString() ?? '99+',
                             ),
-                            onChanged: (RangeValues values) 
+                            onChanged: (RangeValues values)
                             {
-                              setState(() 
+                              setState(()
                               {
                                 _currentState = _currentState.copyWith(ageRange: values);
                               });
@@ -395,7 +394,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                 : '${_currentState.ageRange!.start.round()} - ${_currentState.ageRange!.end.round() == 99 ? '99+' : _currentState.ageRange!.end.round()} anni',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize:   14,
-                              color:      const Color(0xFF64748B),
+                              color:      AppTheme.slate500,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -421,7 +420,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: '3',  label: '3'),
                                         _DropdownOption(value: '4+', label: '4 o più'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           childrenCount:      val,
@@ -452,7 +451,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: true,  label: 'Attiva'),
                                         _DropdownOption(value: false, label: 'Inattiva'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           isActiveCollaborator: val,
@@ -472,7 +471,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: '2023', label: '2023'),
                                         _DropdownOption(value: '2022', label: '2022'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           enrollmentYear:  val,
@@ -504,7 +503,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: 'Secondaria I grado',  label: 'Secondaria I grado'),
                                         _DropdownOption(value: 'Secondaria II grado', label: 'Secondaria II grado'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           educationLevel:      val,
@@ -517,7 +516,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                       controller: _schoolController,
                                       hint:       'Es. Liceo Statale Francesco Corradini',
                                       options:    widget.availableSchools,
-                                      onChanged:  (val) => setState(() 
+                                      onChanged:  (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           schoolName:      val,
@@ -537,7 +536,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: 'IV',  label: 'IV'),
                                         _DropdownOption(value: 'V',   label: 'V'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           schoolClass:      val,
@@ -550,7 +549,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                       controller: _studyProgramController,
                                       hint:       'Es. Liceo Classico',
                                       options:    widget.availableStudyPrograms,
-                                      onChanged:  (val) => setState(() 
+                                      onChanged:  (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           studyProgram:      val,
@@ -567,7 +566,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: true,  label: 'Sì'),
                                         _DropdownOption(value: false, label: 'No'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           earlyExit:      val,
@@ -599,7 +598,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: 'Retribuito', label: 'Retribuito'),
                                         _DropdownOption(value: 'PCTO',       label: 'PCTO'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           collaborationType:      val,
@@ -621,7 +620,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildSectionTitle('Filtri Docente'),
-                                    
+
                                     _buildFieldLabel('Discipline insegnate'),
                                     _AutocompleteField(
                                       controller:  _subjectController,
@@ -635,7 +634,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                       Wrap(
                                         spacing:    8,
                                         runSpacing: 8,
-                                        children:   _currentState.taughtSubjects.map((s) 
+                                        children:   _currentState.taughtSubjects.map((s)
                                         {
                                           return _DeletableChip(
                                             label:    s,
@@ -644,15 +643,15 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         }).toList(),
                                       ),
                                     ],
-                                    
+
                                     _buildFieldLabel('Numero materie insegnate'),
                                     const SizedBox(height: 8),
                                     SliderTheme(
                                       data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor:        const Color(0xFF003C82),
-                                        inactiveTrackColor:      const Color(0xFFE0E5EC),
-                                        thumbColor:              const Color(0xFF003C82),
-                                        valueIndicatorColor:     const Color(0xFF003C82),
+                                        activeTrackColor:        AppTheme.primary,
+                                        inactiveTrackColor:      AppTheme.border,
+                                        thumbColor:              AppTheme.primary,
+                                        valueIndicatorColor:     AppTheme.primary,
                                         overlayShape:            SliderComponentShape.noOverlay,
                                         valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
                                           color:      Colors.white,
@@ -670,9 +669,9 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                               ? '15+'
                                               : _currentState.taughtSubjectsCount?.end.round().toString() ?? '15+',
                                         ),
-                                        onChanged: (RangeValues values) 
+                                        onChanged: (RangeValues values)
                                         {
-                                          setState(() 
+                                          setState(()
                                           {
                                             _currentState = _currentState.copyWith(taughtSubjectsCount: values);
                                           });
@@ -686,7 +685,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                             : '${_currentState.taughtSubjectsCount!.start.round()} - ${_currentState.taughtSubjectsCount!.end.round() == 15 ? '15+' : _currentState.taughtSubjectsCount!.end.round()} materie',
                                         style: GoogleFonts.plusJakartaSans(
                                           fontSize:   14,
-                                          color:      const Color(0xFF64748B),
+                                          color:      AppTheme.slate500,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -709,7 +708,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                     _buildTextField(
                                       _courseTypeController,
                                       'Es. Yoga',
-                                      (val) => setState(() 
+                                      (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           courseType:      val,
@@ -726,7 +725,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                         _DropdownOption(value: true,  label: 'Non scaduto'),
                                         _DropdownOption(value: false, label: 'Scaduto'),
                                       ],
-                                      onChanged: (val) => setState(() 
+                                      onChanged: (val) => setState(()
                                       {
                                         _currentState = _currentState.copyWith(
                                           isMedicalCertificateValid: val,
@@ -744,7 +743,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                 ),
               ),
             ),
-            
+
             Padding(
               padding: const EdgeInsets.all(24),
               child: Row(
@@ -753,8 +752,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                     child: AnimatedActionButton(
                       text:       'AZZERA',
                       icon:       Icons.refresh_rounded,
-                      baseColor:  const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
+                      baseColor:  AppTheme.danger,
+                      hoverColor: AppTheme.dangerHover,
                       onPressed:  _resetFilters,
                     ),
                   ),
@@ -763,9 +762,9 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                     child: AnimatedActionButton(
                       text:       'APPLICA',
                       icon:       Icons.check_circle_outline_rounded,
-                      baseColor:  const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
-                      onPressed:  () 
+                      baseColor:  AppTheme.primary,
+                      hoverColor: AppTheme.primaryHover,
+                      onPressed:  ()
                       {
                         widget.onApply(_currentState);
                         Navigator.of(context).pop();
@@ -782,11 +781,9 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   }
 }
 
-// ---------------------------------------------------------
-// COMPONENTI LOCALI
-// ---------------------------------------------------------
+// Local components
 
-class _AutocompleteField extends StatefulWidget 
+class _AutocompleteField extends StatefulWidget
 {
   final TextEditingController   controller;
   final String                  hint;
@@ -806,48 +803,48 @@ class _AutocompleteField extends StatefulWidget
   State<_AutocompleteField> createState() => _AutocompleteFieldState();
 }
 
-class _AutocompleteFieldState extends State<_AutocompleteField> 
+class _AutocompleteFieldState extends State<_AutocompleteField>
 {
   final FocusNode _focusNode = FocusNode();
 
   @override
-  void dispose() 
+  void dispose()
   {
     _focusNode.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return RawAutocomplete<String>(
       textEditingController: widget.controller,
       focusNode:             _focusNode,
-      optionsBuilder:        (TextEditingValue textEditingValue) 
+      optionsBuilder:        (TextEditingValue textEditingValue)
       {
         if (textEditingValue.text.isEmpty)
         {
           return const Iterable<String>.empty();
         }
-        
+
         return widget.options.where(
           (String option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()),
         );
       },
-      onSelected: (String selection) 
+      onSelected: (String selection)
       {
-        if (widget.onSubmitted != null) 
+        if (widget.onSubmitted != null)
         {
           widget.onSubmitted!(selection);
-          //SvuotaIlCampoERiportaIlCursoreVisibileSubito_clear()DaSoloLasciaLaSelectionACollapsed(-1)ChePerFlutterVuolDireNessunCursoreDisegnato
-          Future.microtask(() 
+          // clear() alone leaves the selection at -1, which Flutter draws with no visible cursor, so reset it and restore focus.
+          Future.microtask(()
           {
             widget.controller.clear();
             widget.controller.selection = const TextSelection.collapsed(offset: 0);
             _focusNode.requestFocus();
           });
-        } 
-        else 
+        }
+        else
         {
           widget.onChanged(selection);
         }
@@ -857,7 +854,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         TextEditingController textEditingController,
         FocusNode focusNode,
         VoidCallback onFieldSubmitted,
-      ) 
+      )
       {
         return Container(
           height:     50,
@@ -865,7 +862,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
           decoration: BoxDecoration(
             color:        Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border:       Border.all(color: const Color(0xFFE0E5EC), width: 1.5),
+            border:       Border.all(color: AppTheme.border, width: 1.5),
           ),
           child: Row(
             children: [
@@ -873,13 +870,13 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                 child: TextField(
                   controller: textEditingController,
                   focusNode:  focusNode,
-                  onChanged:  (val) 
+                  onChanged:  (val)
                   {
                     setState(() {});
                     widget.onChanged(val);
                   },
-                  //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
-                  //NonPassaPiuIlTestoLiberoDelCampo_SoloUnOpzioneRealmenteEsistenteInWidget.optionsPuoEssereConfermata
+                  // Enter confirms RawAutocomplete's highlighted option (arrow-selected or the first result),
+                  // never the free text, so only an option that really exists in widget.options can be submitted.
                   onSubmitted: (_) => onFieldSubmitted(),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize:   15,
@@ -891,7 +888,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                     hintStyle:   GoogleFonts.plusJakartaSans(
                       fontSize:   15,
                       fontWeight: FontWeight.w500,
-                      color:      const Color(0xFFB3B3B3),
+                      color:      AppTheme.hint,
                     ),
                     border:      InputBorder.none,
                     isCollapsed: true,
@@ -902,7 +899,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
-                    onTap: () 
+                    onTap: ()
                     {
                       textEditingController.clear();
                       widget.onChanged('');
@@ -911,13 +908,13 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                     child: Container(
                       padding:    const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color:        const Color(0xFFE53935).withValues(alpha: 0.1),
+                        color:        AppTheme.danger.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.close_rounded,
                         size:  16,
-                        color: Color(0xFFE53935),
+                        color: AppTheme.danger,
                       ),
                     ),
                   ),
@@ -930,7 +927,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         BuildContext context,
         AutocompleteOnSelected<String> onSelected,
         Iterable<String> options,
-      ) 
+      )
       {
         return _AutocompleteOptionsList(
           options:    options,
@@ -941,12 +938,12 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
   }
 }
 
-//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
+// Fixed height shared by the ListView itemExtent and each item container; the two must match exactly.
 const double _autocompleteOptionItemHeight = 44.0;
 
-//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
-//StessoPatternDi_CityOptionsListView(schools_tab.dart)_QuiGenericoSuStringheInveceCheSuCoppieCittaProvincia
-class _AutocompleteOptionsList extends StatefulWidget 
+// Scrollable suggestion list that follows the keyboard-highlighted item, auto-scrolling when it leaves the visible area.
+// Same pattern as CityOptionsListView (schools_tab.dart), here generic over strings instead of city/province pairs.
+class _AutocompleteOptionsList extends StatefulWidget
 {
   final Iterable<String>               options;
   final AutocompleteOnSelected<String> onSelected;
@@ -960,25 +957,28 @@ class _AutocompleteOptionsList extends StatefulWidget
   State<_AutocompleteOptionsList> createState() => _AutocompleteOptionsListState();
 }
 
-class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList> 
+class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
 {
-  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  // Vertical padding of the ListView (one side), used in the scroll math as the offset before the first item.
   static const double _verticalPadding = 8;
 
   final ScrollController _scrollController = ScrollController();
   int? _lastHighlightedIndex;
 
   @override
-  void dispose() 
+  void dispose()
   {
     _scrollController.dispose();
     super.dispose();
   }
 
-  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  // Bring the highlighted item into view, scrolling only the minimum needed rather than always centering it.
   void _ensureHighlightedVisible(int index)
   {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients)
+    {
+      return;
+    }
 
     final itemTop        = _verticalPadding + (index * _autocompleteOptionItemHeight);
     final itemBottom      = itemTop + _autocompleteOptionItemHeight;
@@ -1004,18 +1004,21 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
-    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    // The arrow-highlighted index; reading it here subscribes to the notifier so this widget rebuilds on every change.
     final highlightedIndex = AutocompleteHighlightedOption.of(context);
 
     if (_lastHighlightedIndex != highlightedIndex)
     {
       _lastHighlightedIndex = highlightedIndex;
-      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+      // Scheduled after the frame: the scrollable must be laid out before its viewportDimension and maxScrollExtent are known.
       WidgetsBinding.instance.addPostFrameCallback((_)
       {
-        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+        if (mounted)
+        {
+          _ensureHighlightedVisible(highlightedIndex);
+        }
       });
     }
 
@@ -1027,18 +1030,12 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
           width:       436,
           margin:      const EdgeInsets.only(top: 8),
           constraints: const BoxConstraints(maxHeight: 200),
-          //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+          // Clip.antiAlias stops the last highlighted item's rectangular background from covering the rounded corners.
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color:        Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow:    const [
-              BoxShadow(
-                color:        Color(0x14000000),
-                blurRadius:   20,
-                spreadRadius: 2,
-              ),
-            ],
+            boxShadow: AppTheme.overlayShadow,
           ),
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -1047,14 +1044,14 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
               thumbVisibility: true,
               thickness:       6,
               radius:          const Radius.circular(10),
-              thumbColor:      const Color(0xFFB3B3B3),
+              thumbColor:      AppTheme.hint,
               child: ListView.builder(
                 controller:  _scrollController,
                 padding:     const EdgeInsets.symmetric(vertical: _verticalPadding),
                 shrinkWrap:  true,
                 itemExtent:  _autocompleteOptionItemHeight,
                 itemCount:   widget.options.length,
-                itemBuilder: (BuildContext context, int index) 
+                itemBuilder: (BuildContext context, int index)
                 {
                   final String option = widget.options.elementAt(index);
                   return _AutocompleteOptionTile(
@@ -1072,8 +1069,8 @@ class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
   }
 }
 
-//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)_StessoLinguaggioVisivoDi_CityOptionTile
-class _AutocompleteOptionTile extends StatefulWidget 
+// A suggestion list item, highlighted on hover or via keyboard arrows (isHighlighted); same visual language as CityOptionTile.
+class _AutocompleteOptionTile extends StatefulWidget
 {
   final String       text;
   final bool         isHighlighted;
@@ -1089,12 +1086,12 @@ class _AutocompleteOptionTile extends StatefulWidget
   State<_AutocompleteOptionTile> createState() => _AutocompleteOptionTileState();
 }
 
-class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile> 
+class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
 {
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     final bool active = widget.isHighlighted || _hover;
 
@@ -1107,7 +1104,7 @@ class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
         child: Container(
           width:   double.infinity,
           height:  _autocompleteOptionItemHeight,
-          color:   active ? const Color(0xFFF5F8FC) : Colors.transparent,
+          color:   active ? AppTheme.surfaceHover : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
@@ -1115,7 +1112,7 @@ class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
                 duration:   const Duration(milliseconds: 150),
                 width:      2,
                 height:     active ? 16 : 0,
-                decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1125,7 +1122,7 @@ class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize:   14,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
               ),
@@ -1137,13 +1134,13 @@ class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
   }
 }
 
-class _DeletableChip extends StatefulWidget 
+class _DeletableChip extends StatefulWidget
 {
   final String       label;
   final VoidCallback onDelete;
 
   const _DeletableChip({
-    required this.label, 
+    required this.label,
     required this.onDelete
   });
 
@@ -1151,12 +1148,12 @@ class _DeletableChip extends StatefulWidget
   State<_DeletableChip> createState() => _DeletableChipState();
 }
 
-class _DeletableChipState extends State<_DeletableChip> 
+class _DeletableChipState extends State<_DeletableChip>
 {
   bool _isHovered = false;
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1165,9 +1162,9 @@ class _DeletableChipState extends State<_DeletableChip>
         duration:   const Duration(milliseconds: 150),
         padding:    const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color:        _isHovered ? const Color(0xFFF5F8FC) : Colors.white,
+          color:        _isHovered ? AppTheme.surfaceHover : Colors.white,
           borderRadius: BorderRadius.circular(100),
-          border:       Border.all(color: const Color(0xFFE0E5EC), width: 1.0),
+          border:       Border.all(color: AppTheme.border, width: 1.0),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1177,7 +1174,7 @@ class _DeletableChipState extends State<_DeletableChip>
               style: GoogleFonts.plusJakartaSans(
                 fontSize:   14,
                 fontWeight: FontWeight.w600,
-                color:      const Color(0xFF003C82),
+                color:      AppTheme.primary,
               ),
             ),
             const SizedBox(width: 8),
@@ -1188,13 +1185,13 @@ class _DeletableChipState extends State<_DeletableChip>
                 child: Container(
                   padding:    const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE53935).withValues(alpha: 0.1),
+                    color: AppTheme.danger.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.close_rounded,
                     size:  16,
-                    color: Color(0xFFE53935),
+                    color: AppTheme.danger,
                   ),
                 ),
               ),
@@ -1206,78 +1203,20 @@ class _DeletableChipState extends State<_DeletableChip>
   }
 }
 
-class CustomChip extends StatefulWidget 
-{
-  final String             label;
-  final bool               isSelected;
-  final ValueChanged<bool> onSelected;
-
-  const CustomChip({
-    required this.label,
-    required this.isSelected,
-    required this.onSelected,
-    super.key,
-  });
-
-  @override
-  State<CustomChip> createState() => _CustomChipState();
-}
-
-class _CustomChipState extends State<CustomChip> 
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit:  (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: () => widget.onSelected(!widget.isSelected),
-        child: AnimatedContainer(
-          duration:   const Duration(milliseconds: 150),
-          padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: widget.isSelected
-                ? const Color(0xFF003C82)
-                : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: widget.isSelected ? const Color(0xFF003C82) : const Color(0xFFE0E5EC),
-              width: 1.0,
-            ),
-          ),
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 150),
-            style:    GoogleFonts.plusJakartaSans(
-              fontSize:   14,
-              fontWeight: FontWeight.w600,
-              color:      widget.isSelected ? Colors.white : const Color(0xFF003C82),
-            ),
-            child: Text(widget.label),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownOption<T> 
+class _DropdownOption<T>
 {
   final T?     value;
   final String label;
   final bool   isSeparator;
 
   _DropdownOption({
-    this.value, 
-    this.label       = '', 
+    this.value,
+    this.label       = '',
     this.isSeparator = false
   });
 }
 
-class _DialogDropdownMenu<T> extends StatefulWidget 
+class _DialogDropdownMenu<T> extends StatefulWidget
 {
   final String                   hint;
   final T?                       value;
@@ -1295,7 +1234,7 @@ class _DialogDropdownMenu<T> extends StatefulWidget
   State<_DialogDropdownMenu<T>> createState() => _DialogDropdownMenuState<T>();
 }
 
-class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>> 
+class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
 {
   final GlobalKey _buttonKey = GlobalKey();
   OverlayEntry?   _overlayEntry;
@@ -1303,9 +1242,9 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
   final GlobalKey<_DialogDropdownOverlayState> _menuKey = GlobalKey();
   bool _isHovered = false;
 
-  void _toggleMenu() 
+  void _toggleMenu()
   {
-    if (_overlayEntry != null) 
+    if (_overlayEntry != null)
     {
       _closeMenu();
       return;
@@ -1340,7 +1279,7 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
               currentValue: widget.value,
               options:      widget.options,
               showAbove:    showAbove,
-              onSelected:   (val) 
+              onSelected:   (val)
               {
                 widget.onChanged(val);
                 _closeMenu();
@@ -1350,30 +1289,33 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
         ],
       ),
     );
-    
+
     Overlay.of(context).insert(_overlayEntry!);
     setState(() {});
   }
 
-  void _closeMenu() async 
+  void _closeMenu() async
   {
-    if (_overlayEntry != null) 
+    if (_overlayEntry != null)
     {
       await _menuKey.currentState?.hide();
       _overlayEntry?.remove();
       _overlayEntry = null;
-      if (mounted) setState(() {});
+      if (mounted)
+      {
+        setState(() {});
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     final selectedOption = widget.options.firstWhere(
       (o) => !o.isSeparator && o.value == widget.value,
       orElse: () => _DropdownOption(value: widget.value, label: widget.hint),
     );
-    
+
     final String displayText = selectedOption.label;
     final bool   isExpanded  = _overlayEntry != null;
 
@@ -1389,10 +1331,10 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
           height:     50,
           padding:    const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: _isHovered || isExpanded ? const Color(0xFFF5F8FC) : Colors.white,
+            color: _isHovered || isExpanded ? AppTheme.surfaceHover : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _isHovered || isExpanded ? const Color(0xFF003C82) : const Color(0xFFE0E5EC),
+              color: _isHovered || isExpanded ? AppTheme.primary : AppTheme.border,
               width: 1.5,
             ),
           ),
@@ -1411,7 +1353,7 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
               ),
               Icon(
                 isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                color: const Color(0xFF003C82),
+                color: AppTheme.primary,
               ),
             ],
           ),
@@ -1421,7 +1363,7 @@ class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
   }
 }
 
-class _DialogDropdownOverlay<T> extends StatefulWidget 
+class _DialogDropdownOverlay<T> extends StatefulWidget
 {
   final T?                       currentValue;
   final List<_DropdownOption<T>> options;
@@ -1440,36 +1382,42 @@ class _DialogDropdownOverlay<T> extends StatefulWidget
   State<_DialogDropdownOverlay<T>> createState() => _DialogDropdownOverlayState<T>();
 }
 
-class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>> 
+class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
 {
   bool                   _expanded         = false;
   final ScrollController _scrollController = ScrollController();
 
   @override
-  void initState() 
+  void initState()
   {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) 
+    WidgetsBinding.instance.addPostFrameCallback((_)
     {
-      if (mounted) setState(() => _expanded = true);
+      if (mounted)
+      {
+        setState(() => _expanded = true);
+      }
     });
   }
 
   @override
-  void dispose() 
+  void dispose()
   {
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> hide() async 
+  Future<void> hide() async
   {
-    if (mounted) setState(() => _expanded = false);
+    if (mounted)
+    {
+      setState(() => _expanded = false);
+    }
     await Future.delayed(const Duration(milliseconds: 180));
   }
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return Material(
       color: Colors.transparent,
@@ -1478,13 +1426,7 @@ class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
         decoration: BoxDecoration(
           color:        Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow:    const [
-            BoxShadow(
-              color:        Color(0x14000000),
-              blurRadius:   20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
           duration:  const Duration(milliseconds: 180),
@@ -1498,16 +1440,16 @@ class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
                     thumbVisibility: true,
                     thickness:       6,
                     radius:          const Radius.circular(10),
-                    thumbColor:      const Color(0xFFB3B3B3),
+                    thumbColor:      AppTheme.hint,
                     child: SingleChildScrollView(
                       controller: _scrollController,
                       padding:    const EdgeInsets.symmetric(vertical: 8),
                       child: Column(
                         mainAxisSize:       MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children:           widget.options.map((option) 
+                        children:           widget.options.map((option)
                         {
-                          if (option.isSeparator) 
+                          if (option.isSeparator)
                           {
                             return const Padding(
                               padding: EdgeInsets.symmetric(
@@ -1517,7 +1459,7 @@ class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
                               child: Divider(
                                 height:    1,
                                 thickness: 1,
-                                color:     Color(0xFFF0F0F0),
+                                color:     AppTheme.divider,
                               ),
                             );
                           }
@@ -1539,7 +1481,7 @@ class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
   }
 }
 
-class _DialogDropdownItem extends StatefulWidget 
+class _DialogDropdownItem extends StatefulWidget
 {
   final String       text;
   final bool         isSelected;
@@ -1555,12 +1497,12 @@ class _DialogDropdownItem extends StatefulWidget
   State<_DialogDropdownItem> createState() => _DialogDropdownItemState();
 }
 
-class _DialogDropdownItemState extends State<_DialogDropdownItem> 
+class _DialogDropdownItemState extends State<_DialogDropdownItem>
 {
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
     return MouseRegion(
       cursor:  SystemMouseCursors.click,
@@ -1579,7 +1521,7 @@ class _DialogDropdownItemState extends State<_DialogDropdownItem>
                 width:      2,
                 height:     (_hover || widget.isSelected) ? 16 : 0,
                 decoration: BoxDecoration(
-                  color:        const Color(0xFF003C82),
+                  color:        AppTheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1591,7 +1533,7 @@ class _DialogDropdownItemState extends State<_DialogDropdownItem>
                   style:    GoogleFonts.plusJakartaSans(
                     fontSize:   14,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
               ),

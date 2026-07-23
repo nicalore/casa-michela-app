@@ -1,21 +1,33 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/password_field.dart';
+import '../../../shared/widgets/password_policy_checklist.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 
-class AccountTab extends StatefulWidget {
+// No AppTheme equivalent: these tints are specific to the account card.
+const Color _avatarBackground = Color(0xFFE8EEF7);
+const Color _cardDivider = Color(0xFFF1F5F9);
+const Color _labelColor = Color(0xFF7A7A7A);
+const Color _valueColor = Color(0xFF2A2A2A);
+const Color _changePasswordHover = Color(0xFF002B5E);
+
+class AccountTab extends StatefulWidget
+{
   const AccountTab({super.key});
 
   @override
   State<AccountTab> createState() => _AccountTabState();
 }
 
-class _AccountTabState extends State<AccountTab> {
+class _AccountTabState extends State<AccountTab>
+{
   final ApiService _apiService = ApiService();
 
   MeResponse? _me;
@@ -23,73 +35,64 @@ class _AccountTabState extends State<AccountTab> {
   String? _errorMessage;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     _fetchAccount();
   }
 
-  Future<void> _fetchAccount() async {
-    try {
+  Future<void> _fetchAccount() async
+  {
+    try
+    {
       final meResponse = await _apiService.me();
 
-      if (mounted) {
-        setState(() {
+      if (mounted)
+      {
+        setState(()
+        {
           _me = meResponse;
           _isLoading = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        setState(()
+        {
           _isLoading = false;
-          _errorMessage = e.toString();
+          _errorMessage = readableApiError(e);
         });
       }
     }
   }
 
-  void _showChangePasswordDialog(BuildContext context) {
-    showGeneralDialog(
+  void _showChangePasswordDialog(BuildContext context)
+  {
+    showBlurredDialog<void>(
       context: context,
-      barrierDismissible: true,
       barrierLabel: 'ChangePassword',
-      barrierColor: Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) =>
-          const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final blurValue = animation.value * 8.0;
-
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: const _ChangePasswordDialogContent(),
-            ),
-          ),
-        );
-      },
+      builder: (context) => const _ChangePasswordDialogContent(),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
+  Widget build(BuildContext context)
+  {
+    if (_isLoading)
+    {
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child: CircularProgressIndicator(color: Color(0xFF003C82)),
+          child: CircularProgressIndicator(color: AppTheme.primary),
         ),
       );
     }
 
-    if (_errorMessage != null || _me == null) {
+    if (_errorMessage != null || _me == null)
+    {
       return Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 40.0),
@@ -98,7 +101,7 @@ class _AccountTabState extends State<AccountTab> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF94A3B8),
+              color: AppTheme.slate400,
             ),
           ),
         ),
@@ -117,13 +120,7 @@ class _AccountTabState extends State<AccountTab> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(40),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  offset: Offset(0, 4),
-                  blurRadius: 16,
-                ),
-              ],
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,25 +134,23 @@ class _AccountTabState extends State<AccountTab> {
                         width: 90,
                         height: 90,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFE8EEF7),
+                          color: _avatarBackground,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.manage_accounts_rounded,
                           size: 44,
-                          color: Color(0xFF003C82),
+                          color: AppTheme.primary,
                         ),
                       ),
-
                       const SizedBox(width: 24),
-
                       Expanded(
                         child: Text(
                           'Credenziali di accesso',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 26,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF003C82),
+                            color: AppTheme.primary,
                             height: 1.1,
                           ),
                         ),
@@ -163,16 +158,10 @@ class _AccountTabState extends State<AccountTab> {
                     ],
                   ),
                 ),
-
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24.0),
-                  child: Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFFF1F5F9),
-                  ),
+                  child: Divider(height: 1, thickness: 1, color: _cardDivider),
                 ),
-
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -183,26 +172,23 @@ class _AccountTabState extends State<AccountTab> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF7A7A7A),
+                          color: _labelColor,
                         ),
                       ),
                     ),
-
                     Expanded(
                       child: Text(
                         me.username,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2A2A2A),
+                          color: _valueColor,
                         ),
                       ),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 40),
-
                 Align(
                   alignment: Alignment.centerLeft,
                   child: SizedBox(
@@ -210,8 +196,8 @@ class _AccountTabState extends State<AccountTab> {
                     child: AnimatedActionButton(
                       text: 'MODIFICA PASSWORD',
                       icon: Icons.lock_reset_rounded,
-                      baseColor: const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF002B5E),
+                      baseColor: AppTheme.primary,
+                      hoverColor: _changePasswordHover,
                       onPressed: () => _showChangePasswordDialog(context),
                     ),
                   ),
@@ -225,74 +211,59 @@ class _AccountTabState extends State<AccountTab> {
   }
 }
 
-class _ChangePasswordDialogContent extends StatefulWidget {
+class _ChangePasswordDialogContent extends StatefulWidget
+{
   const _ChangePasswordDialogContent();
 
   @override
-  State<_ChangePasswordDialogContent> createState() =>
-      _ChangePasswordDialogContentState();
+  State<_ChangePasswordDialogContent> createState() => _ChangePasswordDialogContentState();
 }
 
-class _ChangePasswordDialogContentState
-    extends State<_ChangePasswordDialogContent> {
+class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogContent>
+{
   final TextEditingController _oldPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
-
-  bool _obscureOld = true;
-  bool _obscureNew = true;
-  bool _obscureConfirm = true;
-
-  bool _hasMinLength = false;
-  bool _hasLower = false;
-  bool _hasUpper = false;
-  bool _hasDigit = false;
-  bool _hasSpecial = false;
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isSaving = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    _newPasswordController.addListener(_validatePolicies);
+    _newPasswordController.addListener(_onNewPasswordChanged);
   }
 
   @override
-  void dispose() {
-    _newPasswordController.removeListener(_validatePolicies);
+  void dispose()
+  {
+    _newPasswordController.removeListener(_onNewPasswordChanged);
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _validatePolicies() {
-    final text = _newPasswordController.text;
-    setState(() {
-      _hasMinLength = text.length >= 12;
-      _hasLower = RegExp(r'[a-z]').hasMatch(text);
-      _hasUpper = RegExp(r'[A-Z]').hasMatch(text);
-      _hasDigit = RegExp(r'\d').hasMatch(text);
-      _hasSpecial = RegExp(r'[^A-Za-z0-9]').hasMatch(text);
-    });
+  // Rebuilds so the policy checklist reflects the new password as it is typed.
+  void _onNewPasswordChanged()
+  {
+    setState(() {});
   }
 
-  Future<void> _handleSave() async {
+  Future<void> _handleSave() async
+  {
     final oldPassword = _oldPasswordController.text;
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Compila tutti i campi',
-        isError: true,
-      );
+    if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: 'Compila tutti i campi', isError: true);
       return;
     }
 
-    if (oldPassword == newPassword) {
+    if (oldPassword == newPassword)
+    {
       CustomSnackBar.show(
         context: context,
         message: 'La nuova password non può coincidere con quella attuale.',
@@ -301,20 +272,14 @@ class _ChangePasswordDialogContentState
       return;
     }
 
-    if (newPassword != confirmPassword) {
-      CustomSnackBar.show(
-        context: context,
-        message: 'Le password non coincidono',
-        isError: true,
-      );
+    if (newPassword != confirmPassword)
+    {
+      CustomSnackBar.show(context: context, message: 'Le password non coincidono', isError: true);
       return;
     }
 
-    if (!_hasMinLength ||
-        !_hasLower ||
-        !_hasUpper ||
-        !_hasDigit ||
-        !_hasSpecial) {
+    if (!PasswordPolicyStatus.of(newPassword).isSatisfied)
+    {
       CustomSnackBar.show(
         context: context,
         message: 'La password non rispetta i criteri di sicurezza',
@@ -323,92 +288,43 @@ class _ChangePasswordDialogContentState
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
+    setState(() => _isSaving = true);
 
-    try {
-      // ApiService.changePassword usa internamente il refresh token della
-      // sessione corrente: non va più letto a mano da SessionService.
-      // La sessione resta valida dopo il cambio (il backend revoca tutti
-      // i refresh token tranne quello appena usato), quindi non serve
-      // nemmeno rifare login per ottenere nuovi token.
+    try
+    {
+      // changePassword reuses the current session refresh token internally. The
+      // session stays valid afterwards (the backend revokes every refresh token
+      // except the one just used), so no re-login is needed.
       await ApiService().changePassword(
         currentPassword: oldPassword,
         newPassword: newPassword,
       );
 
-      if (mounted) {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Password cambiata con successo!',
-          isError: false,
-        );
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: 'Password cambiata con successo!', isError: false);
         Navigator.of(context).pop();
       }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context: context,
-          message: e.toString().replaceAll('Exception: ', ''),
-          isError: true,
-        );
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isSaving = false);
       }
     }
   }
 
-  Widget _buildFieldLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 16),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color: const Color(0xFF003C82),
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPolicyRow(String text, bool isValid) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Row(
-        children: [
-          Icon(
-            isValid
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFB3B3B3),
-            size: 18,
-          ),
-
-          const SizedBox(width: 8),
-
-          Text(
-            text,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: isValid
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFF8A8A8A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -417,13 +333,7 @@ class _ChangePasswordDialogContentState
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -438,185 +348,56 @@ class _ChangePasswordDialogContentState
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
                   StaticHoverIconButton(
                     icon: Icons.close,
-                    color: const Color(0xFF003C82),
-                    hoverColor: const Color(0xFFE3F2FD),
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
                     onTap: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-
-            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-
+            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
             Padding(
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFieldLabel('Password attuale'),
-                  TextField(
+                  PasswordField(
                     controller: _oldPasswordController,
-                    obscureText: _obscureOld,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Inserisci password attuale',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 18,
-                        color: const Color(0xFFB3B3B3),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color(0xFF003C82),
-                          width: 2,
-                        ),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureOld
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          color: const Color(0xFF6B7280),
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureOld = !_obscureOld),
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                    ),
+                    label: 'Password attuale',
+                    hintText: 'Inserisci password attuale',
                   ),
-
-                  _buildFieldLabel('Nuova password'),
-                  TextField(
+                  PasswordField(
                     controller: _newPasswordController,
-                    obscureText: _obscureNew,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Inserisci nuova password',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 18,
-                        color: const Color(0xFFB3B3B3),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color(0xFF003C82),
-                          width: 2,
-                        ),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureNew
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          color: const Color(0xFF6B7280),
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureNew = !_obscureNew),
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                    ),
+                    label: 'Nuova password',
+                    hintText: 'Inserisci nuova password',
                   ),
-
                   const SizedBox(height: 16),
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPolicyRow('Almeno 12 caratteri', _hasMinLength),
-                        _buildPolicyRow(
-                          'Almeno una lettera minuscola',
-                          _hasLower,
-                        ),
-                        _buildPolicyRow(
-                          'Almeno una lettera maiuscola',
-                          _hasUpper,
-                        ),
-                        _buildPolicyRow('Almeno un numero', _hasDigit),
-                        _buildPolicyRow(
-                          'Almeno un carattere speciale',
-                          _hasSpecial,
-                        ),
-                      ],
-                    ),
+                  PasswordPolicyChecklist(
+                    status: PasswordPolicyStatus.of(_newPasswordController.text),
                   ),
-
-                  _buildFieldLabel('Conferma password'),
-                  TextField(
+                  PasswordField(
                     controller: _confirmPasswordController,
-                    obscureText: _obscureConfirm,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Ripeti nuova password',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 18,
-                        color: const Color(0xFFB3B3B3),
-                        fontWeight: FontWeight.w500,
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color(0xFF003C82),
-                          width: 2,
-                        ),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureConfirm
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          color: const Color(0xFF6B7280),
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
-                        splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                      ),
-                    ),
+                    label: 'Conferma password',
+                    hintText: 'Ripeti nuova password',
                   ),
                 ],
               ),
             ),
-
             Padding(
-              padding: const EdgeInsets.only(
-                left: 32,
-                right: 32,
-                bottom: 32,
-                top: 32,
-              ),
+              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
               child: Row(
                 children: [
                   Expanded(
                     child: AnimatedActionButton(
                       text: 'ANNULLA',
                       icon: Icons.cancel_outlined,
-                      baseColor: const Color(0xFFE53935),
-                      hoverColor: const Color(0xFFEF5350),
+                      baseColor: AppTheme.danger,
+                      hoverColor: AppTheme.dangerHover,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -625,8 +406,8 @@ class _ChangePasswordDialogContentState
                     child: AnimatedActionButton(
                       text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
                       icon: Icons.check_circle_outline,
-                      baseColor: const Color(0xFF003C82),
-                      hoverColor: const Color(0xFF004D99),
+                      baseColor: AppTheme.primary,
+                      hoverColor: AppTheme.primaryHover,
                       onPressed: _isSaving ? () {} : _handleSave,
                     ),
                   ),

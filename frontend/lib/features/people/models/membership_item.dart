@@ -1,12 +1,12 @@
-class MembershipItem 
+class MembershipItem
 {
-  final int      year;
+  final int year;
   final DateTime startDate;
   final DateTime endDate;
-  final int      renewalPeriodDays;
-  final String   revocation; 
+  final int renewalPeriodDays;
+  final String revocation;
 
-  MembershipItem({
+  const MembershipItem({
     required this.year,
     required this.startDate,
     required this.endDate,
@@ -14,14 +14,14 @@ class MembershipItem
     required this.revocation,
   });
 
-  factory MembershipItem.fromJson(Map<String, dynamic> json) 
+  factory MembershipItem.fromJson(Map<String, dynamic> json)
   {
     return MembershipItem(
-      year:              json['year'] as int,
-      startDate:         DateTime.parse(json['start_date'] as String),
-      endDate:           DateTime.parse(json['end_date'] as String),
+      year: json['year'] as int,
+      startDate: DateTime.parse(json['start_date'] as String),
+      endDate: DateTime.parse(json['end_date'] as String),
       renewalPeriodDays: json['renewal_period_days'] as int,
-      revocation:        json['revocation'] as String,
+      revocation: json['revocation'] as String,
     );
   }
 }

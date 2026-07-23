@@ -4,20 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../services/api_service.dart';
 import '../../core/constants/app_dimensions.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_message.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/snackbar.dart';
-import '../../../services/api_service.dart';
-
 import '../association/models/association_subject_item.dart';
-import '../association/models/study_program_item.dart';
 import '../association/models/school_item.dart';
-import './models/person_item.dart';
-import './models/parental_relationship_draft.dart';
-
-import './person_wizard_components.dart';
+import '../association/models/study_program_item.dart';
 import './minor_creation_dialog.dart';
+import './models/parental_relationship_draft.dart';
+import './models/person_item.dart';
 import './parent_creation_dialog.dart';
+import './person_wizard_components.dart';
 
 class PersonWizardPage extends StatefulWidget 
 {
@@ -129,17 +129,17 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   String?                     _tipoCertificazione = 'No';
   final TextEditingController _altraCertificazioneCtrl        = TextEditingController();
-  //DefaultNo_LaPresaVisioneVaConfermataEsplicitamente_CoerenteConServerDefaultFalse
+  // Defaults to false: the acknowledgement must be given explicitly, matching the server default.
   bool                         _presaVisioneIncontriPsicologa = false;
 
-  //Sezione9DelModulo_TutteObbligatorieTranneLaNewsletter_ValidatoAncheLatoBackend
+  // Form section 9: everything is mandatory except the newsletter, and it is also validated on the backend.
   bool _statutoAccettato          = false;
   bool _regolamentoAccettato      = false;
   bool _videosorveglianzaPresaVisione = false;
   bool _consensoDatiParticolari   = false;
   bool _consensoNewsletter        = false;
 
-  //DefaultNo_IlMinoreVaPrelevatoDaUnGenitoreSalvoDiversaIndicazione_CoerenteConServerDefaultFalse
+  // Defaults to false: a minor is collected by a parent unless stated otherwise, matching the server default.
   bool             _uscitaAnticipata = false;
   List<SchoolItem> _allSchools = [];
 
@@ -229,8 +229,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool get _isMinor
   {
-    if (_dataNascitaCtrl.text.isEmpty) return false; 
-    if (!_isValidDate(_dataNascitaCtrl.text)) return false;
+    if (_dataNascitaCtrl.text.isEmpty)
+    {
+      return false;
+    }
+    if (!_isValidDate(_dataNascitaCtrl.text))
+    {
+      return false;
+    }
     
     final parts = _dataNascitaCtrl.text.split('/');
     final date  = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
@@ -245,7 +251,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     return age < 18;
   }
 
-  //PresidenteVicepresidenteTesoriere_NonPossonoEssereRetribuiti_PolicyAssociazione
+  // President, vice-president and treasurer cannot be paid (association policy).
   bool get _collaborazioneForzataNonPagata
   {
     return _selectedRoles.contains('AMMINISTRATORE') &&
@@ -254,8 +260,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
          _ruoloAmministratore == 'Tesoriere');
   }
 
-  //SincronizzaIlCampoCollaborazioneConIlRuoloAmministrativo_ChiamataSiaInBuildCheInValidate
-  //MutazioneDirettaSenzaSetState_NonCausaRebuildLoop_VieneLettaSubitoDopoNelloStessoRebuild
+  // Keeps the collaboration field in sync with the administrative role; called from both build and validation.
+  // Mutating directly without setState is safe: it does not trigger a rebuild loop and is read back in the same rebuild.
   void _syncCollaborazioneConRuoloAmministrativo()
   {
     if (_collaborazioneForzataNonPagata)
@@ -279,7 +285,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     try 
     {
       final parts = dateStr.split('/');
-      if (parts.length != 3) return false;
+      if (parts.length != 3)
+      {
+        return false;
+      }
       
       final day   = int.parse(parts[0]);
       final month = int.parse(parts[1]);
@@ -299,7 +308,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     try 
     {
       final parts = dm.split('/');
-      if (parts.length != 2) return false;
+      if (parts.length != 2)
+      {
+        return false;
+      }
       
       final day   = int.parse(parts[0]);
       final month = int.parse(parts[1]);
@@ -316,7 +328,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool _isCodiceFiscaleValid(String cf) 
   {
-    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf)) return false;
+    if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf))
+    {
+      return false;
+    }
     
     const oddValues = 
     {
@@ -355,22 +370,40 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   bool _doesCfMatchData(String cf, String dateStr, String gender) 
   {
-    if (cf.length != 16) return false;
+    if (cf.length != 16)
+    {
+      return false;
+    }
     
     final parts = dateStr.split('/');
-    if (parts.length != 3) return false;
+    if (parts.length != 3)
+    {
+      return false;
+    }
     
     final year = parts[2].substring(2, 4);
-    if (cf.substring(6, 8) != year) return false;
+    if (cf.substring(6, 8) != year)
+    {
+      return false;
+    }
     
     const monthCodes = {'01': 'A', '02': 'B', '03': 'C', '04': 'D', '05': 'E', '06': 'H', '07': 'L', '08': 'M', '09': 'P', '10': 'R', '11': 'S', '12': 'T'};
-    if (cf.substring(8, 9) != monthCodes[parts[1]]) return false;
+    if (cf.substring(8, 9) != monthCodes[parts[1]])
+    {
+      return false;
+    }
     
     int day = int.parse(parts[0]);
-    if (gender == 'F') day += 40;
+    if (gender == 'F')
+    {
+      day += 40;
+    }
     
     final dayStr = day.toString().padLeft(2, '0');
-    if (cf.substring(9, 11) != dayStr) return false;
+    if (cf.substring(9, 11) != dayStr)
+    {
+      return false;
+    }
     
     return true;
   }
@@ -402,13 +435,19 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 }
               }
             }
-            if (hasMatch) break; 
+            if (hasMatch)
+            {
+              break;
+            }
           }
         }
       }
       catch (_) {}
       
-      if (hasMatch) linkedPrograms.add(prog);
+      if (hasMatch)
+      {
+        linkedPrograms.add(prog);
+      }
     }
     
     return linkedPrograms;
@@ -418,7 +457,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
   {
     var result = _allSubjects.where((subject)
     {
-      if (_getProgramsForSubject(subject).isEmpty) return false;
+      if (_getProgramsForSubject(subject).isEmpty)
+      {
+        return false;
+      }
       
       final query         = _searchSubjectsText.toLowerCase();
       final matchesSearch = subject.name.toLowerCase().contains(query);
@@ -429,10 +471,22 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     result.sort((a, b)
     {
-      if (_sortSubjectsBy == 'name_asc') return a.name.compareTo(b.name);
-      if (_sortSubjectsBy == 'name_desc') return b.name.compareTo(a.name);
-      if (_sortSubjectsBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
-      if (_sortSubjectsBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
+      if (_sortSubjectsBy == 'name_asc')
+      {
+        return a.name.compareTo(b.name);
+      }
+      if (_sortSubjectsBy == 'name_desc')
+      {
+        return b.name.compareTo(a.name);
+      }
+      if (_sortSubjectsBy == 'date_asc')
+      {
+        return a.createdAt.compareTo(b.createdAt);
+      }
+      if (_sortSubjectsBy == 'date_desc')
+      {
+        return b.createdAt.compareTo(a.createdAt);
+      }
       return 0;
     });
 
@@ -450,12 +504,30 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     result.sort((a, b)
     {
-      if (_sortParentsBy == 'name_asc') return a.firstName.compareTo(b.firstName);
-      if (_sortParentsBy == 'name_desc') return b.firstName.compareTo(a.firstName);
-      if (_sortParentsBy == 'surname_asc') return a.lastName.compareTo(b.lastName);
-      if (_sortParentsBy == 'surname_desc') return b.lastName.compareTo(a.lastName);
-      if (_sortParentsBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
-      if (_sortParentsBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
+      if (_sortParentsBy == 'name_asc')
+      {
+        return a.firstName.compareTo(b.firstName);
+      }
+      if (_sortParentsBy == 'name_desc')
+      {
+        return b.firstName.compareTo(a.firstName);
+      }
+      if (_sortParentsBy == 'surname_asc')
+      {
+        return a.lastName.compareTo(b.lastName);
+      }
+      if (_sortParentsBy == 'surname_desc')
+      {
+        return b.lastName.compareTo(a.lastName);
+      }
+      if (_sortParentsBy == 'date_desc')
+      {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+      if (_sortParentsBy == 'date_asc')
+      {
+        return a.createdAt.compareTo(b.createdAt);
+      }
       return 0;
     });
 
@@ -476,12 +548,30 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     result.sort((a, b)
     {
-      if (_sortMinorsBy == 'name_asc') return a.firstName.compareTo(b.firstName);
-      if (_sortMinorsBy == 'name_desc') return b.firstName.compareTo(a.firstName);
-      if (_sortMinorsBy == 'surname_asc') return a.lastName.compareTo(b.lastName);
-      if (_sortMinorsBy == 'surname_desc') return b.lastName.compareTo(a.lastName);
-      if (_sortMinorsBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
-      if (_sortMinorsBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
+      if (_sortMinorsBy == 'name_asc')
+      {
+        return a.firstName.compareTo(b.firstName);
+      }
+      if (_sortMinorsBy == 'name_desc')
+      {
+        return b.firstName.compareTo(a.firstName);
+      }
+      if (_sortMinorsBy == 'surname_asc')
+      {
+        return a.lastName.compareTo(b.lastName);
+      }
+      if (_sortMinorsBy == 'surname_desc')
+      {
+        return b.lastName.compareTo(a.lastName);
+      }
+      if (_sortMinorsBy == 'date_desc')
+      {
+        return b.createdAt.compareTo(a.createdAt);
+      }
+      if (_sortMinorsBy == 'date_asc')
+      {
+        return a.createdAt.compareTo(b.createdAt);
+      }
       return 0;
     });
 
@@ -579,9 +669,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       }
     }
 
-    if (_nomeCtrl.text.isEmpty) addError('nome', 'Campo obbligatorio', 0);
-    if (_cognomeCtrl.text.isEmpty) addError('cognome', 'Campo obbligatorio', 0);
-    if (_sesso == null) addError('sesso', 'Campo obbligatorio', 0);
+    if (_nomeCtrl.text.isEmpty)
+    {
+      addError('nome', 'Campo obbligatorio', 0);
+    }
+    if (_cognomeCtrl.text.isEmpty)
+    {
+      addError('cognome', 'Campo obbligatorio', 0);
+    }
+    if (_sesso == null)
+    {
+      addError('sesso', 'Campo obbligatorio', 0);
+    }
     
     if (_cfCtrl.text.isEmpty)
     {
@@ -643,7 +742,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       }
     }
     
-    if (_cittaNascitaCtrl.text.isEmpty) addError('cittaNascita', 'Campo obbligatorio', 1);
+    if (_cittaNascitaCtrl.text.isEmpty)
+    {
+      addError('cittaNascita', 'Campo obbligatorio', 1);
+    }
     
     if (_provNascitaCtrl.text.isEmpty)
     {
@@ -654,12 +756,27 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       addError('provNascita', 'Inserire 2 lettere (es. VI)', 1);
     }
 
-    if (_nazioneNascitaCtrl.text.isEmpty) addError('nazioneNascita', 'Campo obbligatorio', 1);
+    if (_nazioneNascitaCtrl.text.isEmpty)
+    {
+      addError('nazioneNascita', 'Campo obbligatorio', 1);
+    }
 
-    if (_tipoViaCtrl.text.isEmpty) addError('tipoVia', 'Campo obbligatorio', 2);
-    if (_indirizzoNomeCtrl.text.isEmpty) addError('indirizzoNome', 'Campo obbligatorio', 2);
-    if (_civicoCtrl.text.isEmpty) addError('civico', 'Campo obbligatorio', 2);
-    if (_cittaResidenzaCtrl.text.isEmpty) addError('cittaResidenza', 'Campo obbligatorio', 2);
+    if (_tipoViaCtrl.text.isEmpty)
+    {
+      addError('tipoVia', 'Campo obbligatorio', 2);
+    }
+    if (_indirizzoNomeCtrl.text.isEmpty)
+    {
+      addError('indirizzoNome', 'Campo obbligatorio', 2);
+    }
+    if (_civicoCtrl.text.isEmpty)
+    {
+      addError('civico', 'Campo obbligatorio', 2);
+    }
+    if (_cittaResidenzaCtrl.text.isEmpty)
+    {
+      addError('cittaResidenza', 'Campo obbligatorio', 2);
+    }
     
     if (_provResidenzaCtrl.text.isEmpty)
     {
@@ -868,7 +985,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     
     if (isStudente)
     {
-      //DettagliStudente_UscitaAnticipataNonHaValidazione_ECertificazioneSottostante
+      // Student details: the early-exit flag needs no validation, unlike the certification below.
       if (_tipoCertificazione == 'Altro' && _altraCertificazioneCtrl.text.isEmpty)
       {
         addError('altraCertificazione', 'Specificare il tipo', currentMappedIndex);
@@ -918,15 +1035,24 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           }
         }
         
-        if (r.selectedSchool == null) addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
-        if (r.selectedProgram == null) addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
-        if (r.selectedGrade == null) addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+        if (r.selectedSchool == null)
+        {
+          addError('schoolName_$i', 'Obbligatorio', currentMappedIndex);
+        }
+        if (r.selectedProgram == null)
+        {
+          addError('schoolProgram_$i', 'Obbligatorio', currentMappedIndex);
+        }
+        if (r.selectedGrade == null)
+        {
+          addError('schoolGrade_$i', 'Obbligatorio', currentMappedIndex);
+        }
       }
       currentMappedIndex++;
     }
 
-    //SpostataInFondo_SubitoPrimaDiSicurezzaMinoreEConsensi_SuRichiestaCommittente
-    //DeveStareDopoDettagliAmministratore_StessoMotivoDiActiveStep4Cards
+    // Moved to the end, right before minor safety and consents, at the client's request.
+    // Must come after the administrator details, for the same reason as the step 4 cards.
     if (isStaff)
     {
       if (_ibanCtrl.text.isNotEmpty && !RegExp(r'^IT\d{2}[A-Z]\d{10}[A-Z0-9]{12}$').hasMatch(_ibanCtrl.text))
@@ -940,10 +1066,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       currentMappedIndex++;
     }
 
-    //SpostataInFondo_SubitoPrimaDeiConsensi_SuRichiestaCommittente
+    // Moved to the end, right before the consents, at the client's request.
     if (_isMinor)
     {
-      //TuttiICampiSonoFacoltativi_NessunaValidazioneRichiesta_CoerenteConSezione10DelModuloCartaceo
+      // Every field here is optional and needs no validation, matching section 10 of the paper form.
       currentMappedIndex++;
     }
 
@@ -1042,15 +1168,24 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         }
       }
 
-      //IlProfiloAssociatoOraPortaAncheConsensi_PagamentoESicurezzaMinore_NonSoloLeIscrizioni
-      //QuindiVaCostruitoOgniVoltaCheEsisteUnMember_NonSoloQuandoCiSonoIscrizioni
+      // The associate profile now also carries consents, payment and minor safety, not just enrolments,
+      // so it must be built whenever a member exists, not only when there are enrolments.
       Map<String, dynamic>? memberData;
       if (!isOnlyGenitoreNotAssociato) 
       {
         String? paymentMethod;
-        if (_modalitaPagamento == 'Contanti') paymentMethod = 'CASH';
-        if (_modalitaPagamento == 'Bonifico bancario') paymentMethod = 'BANK_TRANSFER';
-        if (_modalitaPagamento == 'Altro') paymentMethod = 'OTHER';
+        if (_modalitaPagamento == 'Contanti')
+        {
+          paymentMethod = 'CASH';
+        }
+        if (_modalitaPagamento == 'Bonifico bancario')
+        {
+          paymentMethod = 'BANK_TRANSFER';
+        }
+        if (_modalitaPagamento == 'Altro')
+        {
+          paymentMethod = 'OTHER';
+        }
 
         memberData = 
         {
@@ -1084,9 +1219,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       if (isStaff) 
       {
         String collType = 'VOLUNTEER';
-        if (_tipoCollaborazione == 'Retribuito') collType = 'PAID';
-        if (_tipoCollaborazione == 'FSL (Ex PCT0)') collType = 'PCTO';
-        if (_tipoCollaborazione == 'Non pagato') collType = 'UNPAID';
+        if (_tipoCollaborazione == 'Retribuito')
+        {
+          collType = 'PAID';
+        }
+        if (_tipoCollaborazione == 'FSL (Ex PCT0)')
+        {
+          collType = 'PCTO';
+        }
+        if (_tipoCollaborazione == 'Non pagato')
+        {
+          collType = 'UNPAID';
+        }
 
         staffData = 
         {
@@ -1098,9 +1242,18 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       if (finalRoles.contains('AMMINISTRATORE')) 
       {
         String adminRole = 'OTHER';
-        if (_ruoloAmministratore == 'Presidente') adminRole = 'PRESIDENT';
-        if (_ruoloAmministratore == 'Vicepresidente') adminRole = 'VICE_PRESIDENT';
-        if (_ruoloAmministratore == 'Tesoriere') adminRole = 'TREASURER';
+        if (_ruoloAmministratore == 'Presidente')
+        {
+          adminRole = 'PRESIDENT';
+        }
+        if (_ruoloAmministratore == 'Vicepresidente')
+        {
+          adminRole = 'VICE_PRESIDENT';
+        }
+        if (_ruoloAmministratore == 'Tesoriere')
+        {
+          adminRole = 'TREASURER';
+        }
 
         adminData = 
         {
@@ -1129,8 +1282,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       if (finalRoles.contains('CORSISTA')) 
       {
         String? courseType;
-        if (_tipoCorso == 'Yoga') courseType = 'YOGA';
-        if (_tipoCorso == 'Pilates') courseType = 'PILATES';
+        if (_tipoCorso == 'Yoga')
+        {
+          courseType = 'YOGA';
+        }
+        if (_tipoCorso == 'Pilates')
+        {
+          courseType = 'PILATES';
+        }
 
         courseParticipantData = 
         {
@@ -1139,7 +1298,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         };
       }
 
-      //DisponibileAChiunqueSiaAssociato_TranneGliPsicologiStessi_CoerenteConLaCardVisibileNelWizard
+      // Available to anyone who is an associate, except psychologists themselves, matching the card shown in the wizard.
       if (!isOnlyGenitoreNotAssociato && !finalRoles.contains('PSICOLOGO') && _aderisceSostegnoPsicologico) 
       {
         psychologicalSupportData = 
@@ -1151,10 +1310,22 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       if (finalRoles.contains('STUDENTE')) 
       {
         String? certificationType;
-        if (_tipoCertificazione == 'DSA') certificationType = 'DSA';
-        if (_tipoCertificazione == 'BES') certificationType = 'BES';
-        if (_tipoCertificazione == 'ADHD') certificationType = 'ADHD';
-        if (_tipoCertificazione == 'Altro') certificationType = 'OTHER';
+        if (_tipoCertificazione == 'DSA')
+        {
+          certificationType = 'DSA';
+        }
+        if (_tipoCertificazione == 'BES')
+        {
+          certificationType = 'BES';
+        }
+        if (_tipoCertificazione == 'ADHD')
+        {
+          certificationType = 'ADHD';
+        }
+        if (_tipoCertificazione == 'Altro')
+        {
+          certificationType = 'OTHER';
+        }
 
         studentData = 
         {
@@ -1236,7 +1407,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         CustomSnackBar.show
         (
           context: context, 
-          message: e.toString().replaceAll('Exception: ', ''), 
+          message: readableApiError(e),
           isError: true,
         );
       }
@@ -1289,6 +1460,11 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       final newMinor = newMinorData['person'] as PersonItem;
       _pendingPersonsToCreate.add(newMinorData);
 
+      if (!mounted)
+      {
+        return;
+      }
+
       final draft = await showAuthorizedPickupDialog
       (
         context,
@@ -1297,12 +1473,15 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         childName:     '${newMinor.firstName} ${newMinor.lastName}',
       );
 
-      if (!mounted) return;
+      if (!mounted)
+      {
+        return;
+      }
 
       setState(() 
       {
         _allMinors.add(newMinor);
-        //SeIlDialogVieneAnnullato_DefaultAAutorizzatoTrue_IlMinoreRestaComunqueSelezionatoEBloccato
+        // If the dialog is cancelled the pickup defaults to authorized; the minor stays selected and locked anyway.
         _selectedMinors[newMinor.fiscalCode] = draft ?? ParentalRelationshipDraft(taxCode: newMinor.fiscalCode);
         _lockedMinors.add(newMinor.fiscalCode);
       });
@@ -1350,6 +1529,11 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       ParentalRelationshipDraft? draft;
       if (_selectedParents.length < 2)
       {
+        if (!mounted)
+        {
+          return;
+        }
+
         draft = await showAuthorizedPickupDialog
         (
           context,
@@ -1359,7 +1543,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         );
       }
 
-      if (!mounted) return;
+      if (!mounted)
+      {
+        return;
+      }
 
       setState(() 
       {
@@ -1376,7 +1563,6 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     }
   }
 
-  //AggiuntoDopo_CreateNewParent_PrimaDi_ActiveStep4Cards
   void _onParentCardTap(PersonItem adult) async
   {
     final bool alreadySelected = _selectedParents.containsKey(adult.fiscalCode);
@@ -1434,7 +1620,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       cards.add(_buildFormCardModalitaPagamento());
     }
 
-    //ChiunqueSiaAssociatoPuoAderire_TranneGliPsicologiStessi
+    // Anyone who is an associate can join, except psychologists themselves.
     if (!isOnlyGenitoreNotAssociato && !activeRoles.contains('PSICOLOGO'))
     {
       cards.add(_buildFormCardSostegnoPsicologico());
@@ -1461,8 +1647,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       cards.add(_buildFormCardIscrizioniScolastiche());
     }
 
-    //SpostataInFondo_SubitoPrimaDiSicurezzaMinoreEConsensi_SuRichiestaCommittente
-    //DeveStareDopoDettagliAmministratore_CosiIlRuoloEGiaNotoQuandoSiCalcolaLaCollaborazioneForzata
+    // Moved to the end, right before minor safety and consents, at the client's request.
+    // Must come after the administrator details so the role is known when the forced collaboration is computed.
     final bool isStaff = activeRoles.contains('AMMINISTRATORE') || 
                          activeRoles.contains('DOCENTE') || 
                          activeRoles.contains('PSICOLOGO');
@@ -1472,13 +1658,13 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       cards.add(_buildFormCardStaff());
     }
 
-    //SpostataInFondo_SubitoPrimaDeiConsensi_SuRichiestaCommittente
+    // Moved to the end, right before the consents, at the client's request.
     if (_isMinor)
     {
       cards.add(_buildFormCardSicurezzaMinore());
     }
 
-    //SempreUltima_RispecchiaLeDichiarazioniInFondoAlModuloCartaceo
+    // Always last, mirroring the declarations at the bottom of the paper form.
     if (!isOnlyGenitoreNotAssociato)
     {
       cards.add(_buildFormCardConsensi());
@@ -1521,7 +1707,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
     if (_currentStep == 1) 
     {
-      if (!_validateRoles()) return;
+      if (!_validateRoles())
+      {
+        return;
+      }
       
       if (_selectedRoles.length == 1 && _selectedRoles.contains('GENITORE'))
       {
@@ -1560,7 +1749,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       final bool isSkip = _nomeCtrl.text.trim().toLowerCase() == 'skip';
       
-      if (!isSkip && !_validateDatiGenerali()) return;
+      if (!isSkip && !_validateDatiGenerali())
+      {
+        return;
+      }
 
       if (_activeStep4Cards.isEmpty)
       {
@@ -1610,7 +1802,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     {
       final bool isSkip = _nomeCtrl.text.trim().toLowerCase() == 'skip';
       
-      if (!isSkip && !_validateDatiSpecifici()) return;
+      if (!isSkip && !_validateDatiSpecifici())
+      {
+        return;
+      }
       
       if (_isMinor)
       {
@@ -1799,7 +1994,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             style: GoogleFonts.plusJakartaSans
             (
               fontWeight: FontWeight.w700, 
-              color:      const Color(0xFF003C82),
+              color:      AppTheme.primary,
             ),
           ),
           content: Text
@@ -1814,7 +2009,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               style: ButtonStyle
               (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
-                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFF8A8A8A)),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => AppTheme.mutedText),
               ),
               onPressed: () => Navigator.pop(confirmContext), 
               child: Text
@@ -1828,7 +2023,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               style: ButtonStyle
               (
                 overlayColor:    WidgetStateProperty.all(Colors.transparent),
-                foregroundColor: WidgetStateProperty.resolveWith((states) => const Color(0xFFE53935)),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => AppTheme.danger),
               ),
               onPressed: () 
               {
@@ -1945,7 +2140,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           (
             width:  width,
             height: height,
-            color:  const Color(0xFFF4F7F9),
+            color:  AppTheme.pageBackground,
             child: Stack
             (
               children: 
@@ -2050,7 +2245,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                                 children:  <Widget>
                                 [
                                   ...previousChildren,
-                                  if (currentChild != null) currentChild,
+                                  ?currentChild,
                                 ],
                               );
                             },
@@ -2112,15 +2307,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           (
             color:        Colors.white, 
             borderRadius: BorderRadius.circular(40), 
-            boxShadow: const 
-            [
-              BoxShadow
-              (
-                color:      Color(0x0A000000), 
-                offset:     Offset(0, 4), 
-                blurRadius: 16,
-              )
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Center
           (
@@ -2131,7 +2318,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
               (
                 fontSize:   30, 
                 fontWeight: FontWeight.w500, 
-                color:      const Color(0xFF003C82),
+                color:      AppTheme.primary,
               ),
             ),
           ),
@@ -2166,7 +2353,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2178,7 +2365,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2250,7 +2437,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2262,7 +2449,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2336,7 +2523,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2348,7 +2535,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                   ),
                 ),
               ],
@@ -2432,7 +2619,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           children:  <Widget>
           [
             ...previousChildren,
-            if (currentChild != null) currentChild,
+            ?currentChild,
           ],
         );
       },
@@ -2471,7 +2658,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           children:  <Widget>
           [
             ...previousChildren,
-            if (currentChild != null) currentChild,
+            ?currentChild,
           ],
         );
       },
@@ -2493,7 +2680,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       child: KeyedSubtree
       (
         key:   ValueKey(_currentFormCardIndex),
-        //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt_ScrollsInternallyIfStillNotEnough
+        // No fixed height: takes whatever height the outer Expanded gives it, and scrolls internally if that is not enough.
         child: SizedBox
         (
           width:  viewportWidth - 64,
@@ -2523,7 +2710,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   fontSize:   22,
                   fontWeight: FontWeight.w700,
-                  color:      const Color(0xFF003C82),
+                  color:      AppTheme.primary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -2535,7 +2722,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   fontSize:   16,
                   fontWeight: FontWeight.w500,
-                  color:      const Color(0xFF64748B),
+                  color:      AppTheme.slate500,
                 ),
               ),
             ],
@@ -2549,7 +2736,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   children: 
                   [
-                    //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                    // Expanded gives the card exactly the residual height, with no fragile fixed constant.
                     Expanded
                     (
                       child: SizedBox
@@ -2628,7 +2815,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       duration:           const Duration(milliseconds: 300),
       switchInCurve:      Curves.easeOutCubic,
       switchOutCurve:     Curves.easeInCubic,
-      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, if (currentChild != null) currentChild]),
+      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.center, children: [...previousChildren, ?currentChild]),
       transitionBuilder:  (child, animation) 
       {
         final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
@@ -2656,7 +2843,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       duration:           const Duration(milliseconds: 300),
       switchInCurve:      Curves.easeOutCubic,
       switchOutCurve:     Curves.easeInCubic,
-      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, if (currentChild != null) currentChild]),
+      layoutBuilder:      (currentChild, previousChildren) => Stack(alignment: Alignment.topCenter, children: [...previousChildren, ?currentChild]),
       transitionBuilder:  (child, animation) 
       {
         final isEntering   = (child.key as ValueKey<int>).value == _currentStep4CardIndex;
@@ -2675,7 +2862,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       child: KeyedSubtree
       (
         key:   ValueKey(_currentStep4CardIndex),
-        //NoFixedHeightAnymore_TakesWhateverHeightTheOuterExpandedGivesIt_ScrollsInternallyIfStillNotEnough
+        // No fixed height: takes whatever height the outer Expanded gives it, and scrolls internally if that is not enough.
         child: SizedBox
         (
           width:  viewportWidth - 64,
@@ -2705,7 +2892,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   fontSize:   22,
                   fontWeight: FontWeight.w700,
-                  color:      const Color(0xFF003C82),
+                  color:      AppTheme.primary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -2717,7 +2904,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   fontSize:   16,
                   fontWeight: FontWeight.w500,
-                  color:      const Color(0xFF64748B),
+                  color:      AppTheme.slate500,
                 ),
               ),
             ],
@@ -2731,7 +2918,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 (
                   children: 
                   [
-                    //ExpandedGivesTheCardExactlyTheResidualHeight_NoFragileFixedConstantAnymore
+                    // Expanded gives the card exactly the residual height, with no fragile fixed constant.
                     Expanded
                     (
                       child: SizedBox
@@ -2826,7 +3013,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2838,7 +3025,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -2851,9 +3038,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room; stacks only below the threshold, rather than always splitting.
+              // Bug fix: the previous version always broke the row onto two lines, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 600,
                 searchBar: WizardAnimatedSearchBar
@@ -2897,7 +3084,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -2967,7 +3154,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2979,7 +3166,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -2992,9 +3179,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1320),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room; stacks only below the threshold, rather than always splitting.
+              // Bug fix: the previous version always broke the row onto two lines, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 750,
                 searchBar: WizardAnimatedSearchBar
@@ -3055,7 +3242,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -3083,7 +3270,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                               person:     minor,
                               isSelected: isSelected,
                               onTap:      () => _onMinorCardTap(minor),
-                              //IMinoriBloccatiRestanoModificabiliViaMatita_MaNonRimovibili_NessunaIconaCestino
+                              // Locked minors stay editable via the pencil but cannot be removed, so no trash icon.
                               onEdit:     isSelected ? () => _onMinorCardTap(minor) : null,
                               onRemove:   (isSelected && !isLocked) ? () => setState(() => _selectedMinors.remove(minorId)) : null,
                             );
@@ -3127,7 +3314,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   22,
                     fontWeight: FontWeight.w700,
-                    color:      const Color(0xFF003C82),
+                    color:      AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3139,7 +3326,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                   (
                     fontSize:   16,
                     fontWeight: FontWeight.w500,
-                    color:      const Color(0xFF64748B),
+                    color:      AppTheme.slate500,
                     height:     1.4,
                   ),
                 ),
@@ -3152,9 +3339,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             child: ConstrainedBox
             (
               constraints: const BoxConstraints(maxWidth: 1520),
-              //SideBySideWhenThereIsRoom_StacksOnlyBelowTheThreshold_NotAlwaysSplit
-              //ErroreCorretto_LaVersionePrecedenteSpezzavaSempreLaRigaAncheSuSchermiLarghi
-              child: _ResponsiveSearchFilterRow
+              // Side by side when there is room; stacks only below the threshold, rather than always splitting.
+              // Bug fix: the previous version always broke the row onto two lines, even on wide screens.
+              child: WizardResponsiveSearchFilterRow
               (
                 breakpoint: 650,
                 searchBar: WizardAnimatedSearchBar
@@ -3206,7 +3393,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
           Expanded
           (
             child: _isLoadingData 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF003C82)))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
               : SizedBox
                 (
                   width: double.infinity,
@@ -3263,14 +3450,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       leadingIcon: const WizardStaticAvatar(icon: Icons.assignment_ind_outlined),
       children: 
       [
-        //StessoCriterioResponsivoGiaUsatoInPersonMembershipsTab_ImpilaSottoSoglia
+        // Same responsive rule already used in PersonMembershipsTab: stacks below the threshold.
         ...List.generate(_enrollmentRows.length, (index) 
         {
           final row = _enrollmentRows[index];
           return Padding
           (
             padding: const EdgeInsets.only(bottom: 16),
-            child: _WizardEnrollmentFieldRow
+            child: WizardEnrollmentFieldRow
             (
               yearCtrl:      row.yearCtrl,
               dateCtrl:      row.dateCtrl,
@@ -3594,7 +3781,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
 
   Widget _buildFormCardStaff()
   {
-    //SincronizzazioneDerivata_VediCommentoSuSyncCollaborazioneConRuoloAmministrativo
+    // Derived synchronisation; see the comment on _syncCollaborazioneConRuoloAmministrativo.
     _syncCollaborazioneConRuoloAmministrativo();
 
     return WizardFormSectionCard
@@ -3617,7 +3804,7 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         const SizedBox(height: 16),
         WizardFormInputRow
         (
-          //PresidenteVicepresidenteTesoriere_NonSelezionabileManualmente_SoloValoreForzato
+          // President, vice-president and treasurer are not manually selectable, only set as a forced value.
           label:       'Collaborazione',
           inputWidget: WizardAnimatedOverlayDropdown
           (
@@ -3890,8 +4077,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
           }
 
-          //StessoCriterioResponsivoGiaUsatoInSchoolsTabDialog_ImpilaSottoSoglia
-          return _WizardSchoolFieldRow
+          // Same responsive rule already used in the schools tab dialog: stacks below the threshold.
+          return WizardSchoolFieldRow
           (
             yearCtrl:         r.yearCtrl,
             yearError:        _formErrors['schoolYear_$index'],
@@ -3960,7 +4147,10 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                 for (var r in _schoolRows)
                 {
                   int y = int.tryParse(r.yearCtrl.text) ?? 0;
-                  if (y > maxYear) maxYear = y;
+                  if (y > maxYear)
+                  {
+                    maxYear = y;
+                  }
                 }
                 lastYear = maxYear > 0 ? maxYear : lastYear;
               }
@@ -4121,8 +4311,8 @@ class _PersonWizardPageState extends State<PersonWizardPage>
         WizardFormInputRow
         (
           label:       'Indirizzo',
-          //StessoCriterioResponsivo_ImpilaSottoSogliaInvecediRimpicciolireIcampiFinoARenderliInutilizzabili
-          inputWidget: _WizardAddressFieldsRow
+          // Same responsive rule: stacks below the threshold instead of shrinking the fields until they become unusable.
+          inputWidget: WizardAddressFieldsRow
           (
             tipoViaCtrl:      _tipoViaCtrl,
             tipoViaError:     _formErrors['tipoVia'],
@@ -4242,14 +4432,14 @@ class _PersonWizardPageState extends State<PersonWizardPage>
       isLastStep = false;
     }
 
-    //ExtractedSoTheResponsiveWrapperBelowCanDecideRowVsColumn_WithoutDuplicatingTheButtonDefinitions
+    // Extracted so the responsive wrapper below can choose row vs column without duplicating the button definitions.
     final Widget secondaryButton = _currentStep == 0
         ? WizardAnimatedActionButton
           (
             text:       'ANNULLA', 
             icon:       Icons.close_rounded, 
-            baseColor:  const Color(0xFFE53935), 
-            hoverColor: const Color(0xFFEF5350), 
+            baseColor:  AppTheme.danger, 
+            hoverColor: AppTheme.dangerHover, 
             onPressed:  _showCancelConfirmation,
           )
         : WizardOutlinedActionButton
@@ -4263,607 +4453,21 @@ class _PersonWizardPageState extends State<PersonWizardPage>
     (
       text:       _isSubmitting ? 'SALVATAGGIO...' : (isLastStep ? 'CREA PERSONA' : 'AVANTI'), 
       icon:       isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded, 
-      baseColor:  const Color(0xFF003C82), 
-      hoverColor: const Color(0xFF004D99), 
+      baseColor:  AppTheme.primary, 
+      hoverColor: AppTheme.primaryHover, 
       onPressed:  _isSubmitting ? () {} : _onNext,
     );
 
     return Padding
     (
       padding: const EdgeInsets.only(top: 24, bottom: 80),
-      //StacksVerticallyWhenTheWindowIsTooNarrowForBothFixedWidthButtonsSideBySide
-      //PreviouslyAPlainRow_WouldOverflowOnNarrowScreensSincewidth240WasNeverGivenAFallback
-      child: _ResponsiveWizardBottomBar
+      // Stacks vertically when the window is too narrow to fit both fixed-width buttons side by side.
+      // Previously a plain Row, it overflowed on narrow screens because the 240px width had no fallback.
+      child: WizardResponsiveBottomBar
       (
         secondaryButton: secondaryButton,
         primaryButton:   primaryButton,
       ),
-    );
-  }
-}
-
-//DecidesRowVsColumnBasedOnActualAvailableWidth_NeverLetsTheButtonsStretchToFillTheSpace
-//BothBranchesKeepTheButtonsAtA240pxFixedWidth_ConsistentWithTheExplicitInstructionElsewhere
-//InThisConversation:BUTTONS_NEVER_ADAPT_TO_WINDOW_SIZE_ONCE_REPOSITIONED
-class _ResponsiveWizardBottomBar extends StatelessWidget
-{
-  final Widget secondaryButton;
-  final Widget primaryButton;
-
-  const _ResponsiveWizardBottomBar
-  ({
-    required this.secondaryButton,
-    required this.primaryButton,
-  });
-
-  static const double _kButtonWidth = 240;
-  static const double _kSpacing = 24;
-  //240*2+24diSpacing+40diMargineDiSicurezza_StessoCriterioUsatoAltrove
-  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        if (isCompact)
-        {
-          //PrimaryActionSempreSopra_SecondaryActionAnnulla/IndietroSempreSotto
-          return Column
-          (
-            mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              SizedBox(width: _kButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row
-        (
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: 
-          [
-            SizedBox(width: _kButtonWidth, child: secondaryButton),
-            const SizedBox(width: _kSpacing),
-            SizedBox(width: _kButtonWidth, child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareAnnoEDataInizio_StessoCriterioDi_MembershipEditRow_InPersonMembershipsTab
-//DaImpilato_IlPulsanteDiRimozioneSiSpostaAccantoAllUltimoCampo
-class _WizardEnrollmentFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-  final String?               yearError;
-  final String?               dateError;
-  final ValueChanged<String>  onYearChanged;
-  final ValueChanged<String>  onDateChanged;
-  final VoidCallback?         onRemove;
-
-  const _WizardEnrollmentFieldRow
-  ({
-    required this.yearCtrl,
-    required this.dateCtrl,
-    required this.yearError,
-    required this.dateError,
-    required this.onYearChanged,
-    required this.onDateChanged,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 360;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   14, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget yearField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Anno'),
-            WizardAnimatedTextField
-            (
-              controller:   yearCtrl, 
-              hint:         'Es. 2024', 
-              keyboardType: TextInputType.number,
-              errorText:    yearError,
-              onChanged:    onYearChanged,
-            ),
-          ],
-        );
-
-        final Widget dateField = Column
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            _buildLabel('Data inizio'),
-            WizardAnimatedTextField
-            (
-              controller:      dateCtrl, 
-              hint:            'gg/mm', 
-              keyboardType:    TextInputType.number,
-              inputFormatters: [WizardDayMonthInputFormatter()],
-              errorText:       dateError,
-              onChanged:       onDateChanged,
-            ),
-          ],
-        );
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              yearField,
-              const SizedBox(height: 16),
-              onRemove == null
-                  ? dateField
-                  : Row
-                    (
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: 
-                      [
-                        Expanded(child: dateField),
-                        const SizedBox(width: 8),
-                        WizardRemoveRowButton(onTap: onRemove!),
-                      ],
-                    ),
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 2, child: yearField),
-            const SizedBox(width: 16),
-            Expanded(flex: 3, child: dateField),
-            //RicalibratoRispettoAllOriginale_top:6EraCalibratoQuandoLetichettaCompariva
-            //SoloSullaPrimaRiga_QuiCompareSempre_QuindiIlCampoSiSpostaInBassoDiCirca27px
-            onRemove != null
-                ? Padding
-                  (
-                    padding: const EdgeInsets.only(top: 32, left: 8),
-                    child:   WizardRemoveRowButton(onTap: onRemove!),
-                  )
-                : const SizedBox(width: 48),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareIQuattroCampi_StessoCriterioDi_ResponsiveFourFieldRow_InSchoolsTab
-//IlPulsanteDiRimozioneSiAffiancaAllUltimoCampo_ClasseQuandoImpilato
-class _WizardSchoolFieldRow extends StatelessWidget
-{
-  final TextEditingController yearCtrl;
-  final String?                yearError;
-  final ValueChanged<String>   onYearChanged;
-
-  final String?                 schoolValue;
-  final List<String>            schoolOptions;
-  final String?                 schoolError;
-  final ValueChanged<String>   onSchoolSelected;
-
-  final String?                 programValue;
-  final List<String>            programOptions;
-  final bool                    programEnabled;
-  final String?                 programError;
-  final ValueChanged<String>   onProgramSelected;
-
-  final String?                 gradeValue;
-  final List<String>            gradeOptions;
-  final bool                    gradeEnabled;
-  final String?                 gradeError;
-  final ValueChanged<String>   onGradeSelected;
-
-  final VoidCallback?           onRemove;
-
-  const _WizardSchoolFieldRow
-  ({
-    required this.yearCtrl,
-    required this.yearError,
-    required this.onYearChanged,
-    required this.schoolValue,
-    required this.schoolOptions,
-    required this.schoolError,
-    required this.onSchoolSelected,
-    required this.programValue,
-    required this.programOptions,
-    required this.programEnabled,
-    required this.programError,
-    required this.onProgramSelected,
-    required this.gradeValue,
-    required this.gradeOptions,
-    required this.gradeEnabled,
-    required this.gradeError,
-    required this.onGradeSelected,
-    required this.onRemove,
-  });
-
-  static const double _kBreakpoint = 700;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   12, 
-          fontWeight: FontWeight.w700, 
-          color:      const Color(0xFF64748B),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container
-    (
-      margin:     const EdgeInsets.only(bottom: 16),
-      padding:    const EdgeInsets.all(20),
-      decoration: BoxDecoration
-      (
-        borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: const Color(0xFFE2E8F0)),
-        color:        const Color(0xFFF8FAFC),
-      ),
-      child: LayoutBuilder
-      (
-        builder: (context, constraints)
-        {
-          final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-          final Widget yearField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Anno inizio'),
-              WizardAnimatedTextField
-              (
-                controller:   yearCtrl,
-                hint:         'Es. 2024',
-                errorText:    yearError,
-                keyboardType: TextInputType.number,
-                onChanged:    onYearChanged,
-              ),
-            ],
-          );
-
-          final Widget schoolField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Scuola'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      schoolValue,
-                items:      schoolOptions,
-                hint:       'Scuola',
-                errorText:  schoolError,
-                onChanged:  onSchoolSelected,
-              ),
-            ],
-          );
-
-          final Widget programField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Percorso'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      programValue,
-                items:      programOptions,
-                hint:       'Percorso',
-                enabled:    programEnabled,
-                errorText:  programError,
-                onChanged:  onProgramSelected,
-              ),
-            ],
-          );
-
-          final Widget gradeField = Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Classe'),
-              WizardAnimatedOverlayDropdown
-              (
-                value:      gradeValue,
-                items:      gradeOptions,
-                hint:       'Classe',
-                enabled:    gradeEnabled,
-                errorText:  gradeError,
-                onChanged:  onGradeSelected,
-              ),
-            ],
-          );
-
-          if (isCompact)
-          {
-            return Column
-            (
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: 
-              [
-                yearField,
-                const SizedBox(height: 16),
-                schoolField,
-                const SizedBox(height: 16),
-                programField,
-                const SizedBox(height: 16),
-                onRemove == null
-                    ? gradeField
-                    : Row
-                      (
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: 
-                        [
-                          Expanded(child: gradeField),
-                          const SizedBox(width: 8),
-                          WizardRemoveRowButton(onTap: onRemove!),
-                        ],
-                      ),
-              ],
-            );
-          }
-
-          return Row
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              Expanded(flex: 2, child: yearField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: schoolField),
-              const SizedBox(width: 16),
-              Expanded(flex: 5, child: programField),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: gradeField),
-              onRemove != null
-                  ? Padding
-                    (
-                      padding: const EdgeInsets.only(top: 28, left: 16),
-                      child:   WizardRemoveRowButton(onTap: onRemove!),
-                    )
-                  : const SizedBox(width: 48),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareViaPiazza+Nome+Civico_StessoCriterioDelleAltreRigheResponsive
-//SottoLaSogliaOgniCampoOttieneUnaPropriaMiniEtichetta_ SopraRestaLaRowFlessibileOriginale3:5:2
-class _WizardAddressFieldsRow extends StatelessWidget
-{
-  final TextEditingController tipoViaCtrl;
-  final String?               tipoViaError;
-  final ValueChanged<String>  onTipoViaChanged;
-
-  final TextEditingController nomeCtrl;
-  final String?               nomeError;
-  final ValueChanged<String>  onNomeChanged;
-
-  final TextEditingController civicoCtrl;
-  final String?               civicoError;
-  final ValueChanged<String>  onCivicoChanged;
-
-  const _WizardAddressFieldsRow
-  ({
-    required this.tipoViaCtrl,
-    required this.tipoViaError,
-    required this.onTipoViaChanged,
-    required this.nomeCtrl,
-    required this.nomeError,
-    required this.onNomeChanged,
-    required this.civicoCtrl,
-    required this.civicoError,
-    required this.onCivicoChanged,
-  });
-
-  //TreCampiComodiHannoBisognoDiAlmeno~140pxCiascuno_3*140=420
-  static const double _kBreakpoint = 420;
-
-  Widget _buildLabel(String text)
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 6),
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          fontSize:   13, 
-          fontWeight: FontWeight.w600, 
-          color:      const Color(0xFF7A7A7A),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget tipoViaField = WizardAnimatedTextField
-        (
-          controller: tipoViaCtrl, 
-          hint:       'Via/Strada/...',
-          errorText:  tipoViaError,
-          onChanged:  onTipoViaChanged,
-        );
-
-        final Widget nomeField = WizardAnimatedTextField
-        (
-          controller: nomeCtrl, 
-          hint:       'Nome',
-          errorText:  nomeError,
-          onChanged:  onNomeChanged,
-        );
-
-        final Widget civicoField = WizardAnimatedTextField
-        (
-          controller: civicoCtrl, 
-          hint:       'N°',
-          errorText:  civicoError,
-          onChanged:  onCivicoChanged,
-        );
-
-        if (isCompact)
-        {
-          //QuandoImpilatiOgniCampoRicevePropriaEtichetta_SenzaLetichettaComplessivaSuIndirizzoNonSiCapirebbeCosaCompilare
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _buildLabel('Via / Piazza'),
-              tipoViaField,
-              const SizedBox(height: 16),
-              _buildLabel('Nome via'),
-              nomeField,
-              const SizedBox(height: 16),
-              _buildLabel('Numero civico'),
-              civicoField,
-            ],
-          );
-        }
-
-        return Row
-        (
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: 
-          [
-            Expanded(flex: 3, child: tipoViaField),
-            const SizedBox(width: 8),
-            Expanded(flex: 5, child: nomeField),
-            const SizedBox(width: 8),
-            Expanded(flex: 2, child: civicoField),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareRicercaEFiltriOImpilarli_SoloSottoSoglia_NonSempreCome_LaVersionePrecedenteSbagliava
-//SopraSoglia_Row(Expanded(searchBar),filtriSingoli)_ComeOriginariamente_SottoSoglia_ricercaAPienaLarghezza+Wrap(filtri)
-class _ResponsiveSearchFilterRow extends StatelessWidget
-{
-  final Widget searchBar;
-  final List<Widget> filterWidgets;
-  final double breakpoint;
-  final double spacing;
-
-  const _ResponsiveSearchFilterRow
-  ({
-    required this.searchBar,
-    required this.filterWidgets,
-    this.breakpoint = 700,
-    this.spacing = 12,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < breakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
-              searchBar,
-              SizedBox(height: spacing),
-              Wrap
-              (
-                spacing:    spacing,
-                runSpacing: spacing,
-                children:   filterWidgets,
-              ),
-            ],
-          );
-        }
-
-        final List<Widget> rowChildren = [Expanded(child: searchBar)];
-        for (final w in filterWidgets)
-        {
-          rowChildren.add(SizedBox(width: spacing));
-          rowChildren.add(w);
-        }
-
-        return Row(children: rowChildren);
-      },
     );
   }
 }

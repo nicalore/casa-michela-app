@@ -1,25 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Gestionale dell'Associazione Casa Michela A.P.S.">
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="<Associazione Casa Michela>">
+  <meta name="apple-mobile-web-app-title" content="Associazione Casa Michela">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
   <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>Associazione Casa Michela</title>
   <link rel="manifest" href="manifest.json">
 
+  <title>Associazione Casa Michela</title>
+
   <style>
-    html, body {
+    html, body
+    {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -27,7 +28,9 @@
       overflow: hidden;
       background-color: #FFFFFF;
     }
-    #flutter-viewport {
+
+    #flutter-viewport
+    {
       position: absolute;
       top: 0;
       left: 0;
@@ -37,7 +40,9 @@
       touch-action: none;
       background-color: #FFFFFF;
     }
-    #flutter-scale-wrapper {
+
+    #flutter-scale-wrapper
+    {
       position: absolute;
       top: 0;
       left: 0;
@@ -45,8 +50,9 @@
       will-change: transform;
     }
 
-    /* --- Splash overlay iniziale (bianco -> blur -> app) --- */
-    #splash-overlay {
+    /* The -webkit- prefixed backdrop-filter is still required by Safari. */
+    #splash-overlay
+    {
       position: fixed;
       top: 0;
       left: 0;
@@ -63,14 +69,16 @@
         backdrop-filter 700ms ease-out,
         -webkit-backdrop-filter 700ms ease-out;
     }
-    #splash-overlay.splash-overlay-hidden {
+
+    #splash-overlay.splash-overlay-hidden
+    {
       opacity: 0;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
 
-    /* --- Overlay landscape --- */
-    #landscape-overlay {
+    #landscape-overlay
+    {
       display: none;
       position: fixed;
       top: 0;
@@ -86,11 +94,16 @@
       text-align: center;
       padding: 32px;
       box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    #landscape-overlay.visible {
+
+    #landscape-overlay.visible
+    {
       display: flex;
     }
-    #landscape-overlay svg {
+
+    #landscape-overlay svg
+    {
       width: 72px;
       height: 72px;
       fill: none;
@@ -100,160 +113,223 @@
       stroke-linejoin: round;
       animation: rotate-hint 2.5s ease-in-out infinite;
     }
-    @keyframes rotate-hint {
-      0%, 100% { transform: rotate(0deg); }
-      30%, 70% { transform: rotate(-90deg); }
-    }
-    #landscape-overlay h2 {
+
+    #landscape-overlay h2
+    {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 22px;
       font-weight: 700;
       color: white;
       letter-spacing: 0.3px;
     }
-    #landscape-overlay p {
+
+    #landscape-overlay p
+    {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 15px;
       font-weight: 400;
       color: rgba(255, 255, 255, 0.75);
       line-height: 1.5;
       max-width: 340px;
     }
+
+    @keyframes rotate-hint
+    {
+      0%, 100% { transform: rotate(0deg); }
+      30%, 70% { transform: rotate(-90deg); }
+    }
   </style>
 
   <script>
-    window.__casaMichelaConfig = {
-      phoneDprMultiplier:  1,
+    window.__casaMichelaConfig =
+    {
+      phoneDprMultiplier: 1,
       tabletDprMultiplier: 1.1,
-      maxForcedDpr:        6,
-      phoneMaxZoom:        4,
-      tabletMaxZoom:       2
+      maxForcedDpr: 6,
+      phoneMaxZoom: 4,
+      tabletMaxZoom: 2
     };
 
-    // --- Rilevamento tablet vs telefono ---
-    function detectIsTablet() {
+    function detectIsTablet()
+    {
+      var TABLET_UA_PATTERN = /ipad|tablet|playbook|silk/;
+      var PHONE_UA_PATTERN = /mobile|iphone|ipod/;
+      var ASSUMED_PPI = 401;
+      var MIN_TABLET_DIAGONAL_INCHES = 7.5;
+
       var ua = (navigator.userAgent || '').toLowerCase();
       var maxTouchPoints = navigator.maxTouchPoints || 0;
 
-      if (/ipad/.test(ua))      { return true; }
-      if (/tablet/.test(ua))    { return true; }
-      if (/playbook/.test(ua))  { return true; }
-      if (/silk/.test(ua))      { return true; }
-      if (/macintosh/.test(ua) && maxTouchPoints > 1) { return true; }
+      if (TABLET_UA_PATTERN.test(ua))
+      {
+        return true;
+      }
 
-      if (/mobile/.test(ua) && !/tablet/.test(ua)) { return false; }
-      if (/iphone/.test(ua))                       { return false; }
-      if (/ipod/.test(ua))                         { return false; }
+      // iPadOS reports a desktop Safari user agent, so touch support is the
+      // only remaining way to tell an iPad from a real Mac.
+      if (/macintosh/.test(ua) && maxTouchPoints > 1)
+      {
+        return true;
+      }
 
+      if (PHONE_UA_PATTERN.test(ua))
+      {
+        return false;
+      }
+
+      // Unknown user agent: estimate the physical diagonal from the screen
+      // size assuming an average pixel density, since no API exposes the
+      // real one.
       var dpr = window.devicePixelRatio || 1;
-      var physicalWidthPx = screen.width * dpr;
-      var physicalHeightPx = screen.height * dpr;
-      var assumedPpi = 401;
-      var widthInches = physicalWidthPx / assumedPpi;
-      var heightInches = physicalHeightPx / assumedPpi;
+      var widthInches = (screen.width * dpr) / ASSUMED_PPI;
+      var heightInches = (screen.height * dpr) / ASSUMED_PPI;
       var diagonal = Math.sqrt(widthInches * widthInches + heightInches * heightInches);
 
-      return diagonal >= 7.5;
+      return diagonal >= MIN_TABLET_DIAGONAL_INCHES;
     }
 
-    // Rilevamento touch device (telefono o tablet, non desktop)
-    function detectIsTouchDevice() {
+    function detectIsTouchDevice()
+    {
+      var TOUCH_UA_PATTERN = /iphone|ipad|ipod|android|mobile|tablet|silk|playbook/;
+
       var maxTouchPoints = navigator.maxTouchPoints || 0;
-      if (maxTouchPoints > 1) { return true; }
+
+      if (maxTouchPoints > 1)
+      {
+        return true;
+      }
 
       var ua = (navigator.userAgent || '').toLowerCase();
-      if (/iphone|ipad|ipod|android|mobile|tablet|silk|playbook/.test(ua)) { return true; }
-      if (/macintosh/.test(ua) && maxTouchPoints > 0) { return true; }
 
-      return false;
+      return TOUCH_UA_PATTERN.test(ua) || (/macintosh/.test(ua) && maxTouchPoints > 0);
     }
 
-    window.__casaMichelaIsTablet      = detectIsTablet();
+    window.__casaMichelaIsTablet = detectIsTablet();
     window.__casaMichelaIsTouchDevice = detectIsTouchDevice();
 
-    // --- Override del devicePixelRatio ---
-    (function () {
+    (function ()
+    {
+      // Must run after the detection above, which needs to read the native
+      // devicePixelRatio rather than the overridden one.
       var cfg = window.__casaMichelaConfig;
-      var multiplier = window.__casaMichelaIsTablet ? cfg.tabletDprMultiplier : cfg.phoneDprMultiplier;
+      var multiplier = window.__casaMichelaIsTablet
+        ? cfg.tabletDprMultiplier
+        : cfg.phoneDprMultiplier;
 
-      if (multiplier <= 1) { return; }
+      if (multiplier <= 1)
+      {
+        return;
+      }
 
       var nativeDpr = window.devicePixelRatio || 1;
       var forcedDpr = Math.min(nativeDpr * multiplier, cfg.maxForcedDpr);
 
-      try {
-        Object.defineProperty(window, 'devicePixelRatio', {
+      try
+      {
+        Object.defineProperty(window, 'devicePixelRatio',
+        {
           configurable: true,
           get: function () { return forcedDpr; }
         });
-      } catch (e) {}
+      }
+      catch (e)
+      {
+        // Some browsers refuse to redefine the property: rendering simply
+        // stays at the native density.
+      }
     })();
 
-    // --- Blocco landscape su dispositivi touch ---
-    (function () {
-      if (!window.__casaMichelaIsTouchDevice) { return; }
+    (function ()
+    {
+      var ORIENTATION_SETTLE_MS = 150;
 
-      // Tentativo 1: API nativa (funziona su Android Chrome, fallisce silenziosamente altrove)
-      try {
-        var lockTarget = screen.orientation || screen.mozOrientation || screen.msOrientation;
-        if (lockTarget && typeof lockTarget.lock === 'function') {
-          lockTarget.lock('portrait').catch(function () {});
+      if (!window.__casaMichelaIsTouchDevice)
+      {
+        return;
+      }
+
+      function lockPortrait()
+      {
+        try
+        {
+          var target = screen.orientation || screen.mozOrientation || screen.msOrientation;
+
+          if (target && typeof target.lock === 'function')
+          {
+            target.lock('portrait').catch(function () {});
+          }
         }
-      } catch (e) {}
-
-      // Tentativo 2: overlay di fallback per browser che non supportano orientation.lock (iOS Safari)
-      function checkLandscape() {
-        var overlay = document.getElementById('landscape-overlay');
-        if (!overlay) { return; }
-
-        var isLandscape = window.innerWidth > window.innerHeight;
-
-        if (isLandscape) {
-          overlay.classList.add('visible');
-        } else {
-          overlay.classList.remove('visible');
+        catch (e)
+        {
+          // The lock API is unavailable outside Android Chrome; the overlay
+          // below is the fallback for everyone else.
         }
       }
 
-      // Controlla subito e ad ogni cambio
-      if (document.readyState === 'loading') {
+      function checkLandscape()
+      {
+        var overlay = document.getElementById('landscape-overlay');
+
+        if (!overlay)
+        {
+          return;
+        }
+
+        overlay.classList.toggle('visible', window.innerWidth > window.innerHeight);
+      }
+
+      lockPortrait();
+
+      if (document.readyState === 'loading')
+      {
         document.addEventListener('DOMContentLoaded', checkLandscape);
-      } else {
+      }
+      else
+      {
         checkLandscape();
       }
+
       window.addEventListener('resize', checkLandscape);
-      window.addEventListener('orientationchange', function () {
-        setTimeout(checkLandscape, 150);
+      window.addEventListener('orientationchange', function ()
+      {
+        // Right after the event the viewport still reports the old size.
+        setTimeout(checkLandscape, ORIENTATION_SETTLE_MS);
       });
     })();
 
-    // --- Rimozione splash overlay iniziale (chiamata da Dart al primo frame) ---
-    window.__hideCasaMichelaSplash = function () {
+    window.__hideCasaMichelaSplash = function ()
+    {
+      var FADE_FALLBACK_MS = 900;
+
       var overlay = document.getElementById('splash-overlay');
-      if (!overlay) { return; }
 
-      overlay.classList.add('splash-overlay-hidden');
+      if (!overlay)
+      {
+        return;
+      }
 
-      var cleanup = function () {
-        overlay.removeEventListener('transitionend', cleanup);
-        if (overlay.parentNode) {
+      function removeOverlay()
+      {
+        overlay.removeEventListener('transitionend', removeOverlay);
+
+        if (overlay.parentNode)
+        {
           overlay.parentNode.removeChild(overlay);
         }
-      };
-      overlay.addEventListener('transitionend', cleanup);
+      }
 
-      // Fallback: se transitionend non scatta (browser molto vecchi), rimuovi comunque
-      setTimeout(cleanup, 900);
+      overlay.classList.add('splash-overlay-hidden');
+      overlay.addEventListener('transitionend', removeOverlay);
+
+      // transitionend never fires when the browser skips the transition, so
+      // the node is dropped anyway once the fade should have completed.
+      setTimeout(removeOverlay, FADE_FALLBACK_MS);
     };
   </script>
 </head>
 <body>
-  <!-- Splash overlay iniziale: bianco pieno finché Flutter non dipinge il primo frame -->
   <div id="splash-overlay"></div>
 
-  <!-- Overlay landscape (solo touch devices) -->
   <div id="landscape-overlay">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
@@ -270,15 +346,22 @@
   </div>
 
   <script>
-    (function () {
+    (function ()
+    {
       var DESKTOP_WIDTH = 1024;
       var MIN_USER_ZOOM = 1;
+      var SINGLE_PAN_MIN_ZOOM = 1.02;
       var PAN_THRESHOLD = 12;
       var MOMENTUM_FRICTION = 0.95;
       var MOMENTUM_MIN_VELOCITY = 0.02;
+      var MOMENTUM_REFERENCE_FRAME_MS = 16;
+      var VELOCITY_SMOOTHING = 0.7;
+      var VELOCITY_SAMPLE_WEIGHT = 0.3;
 
       var cfg = window.__casaMichelaConfig;
-      var MAX_USER_ZOOM = window.__casaMichelaIsTablet ? cfg.tabletMaxZoom : cfg.phoneMaxZoom;
+      var MAX_USER_ZOOM = window.__casaMichelaIsTablet
+        ? cfg.tabletMaxZoom
+        : cfg.phoneMaxZoom;
 
       var host = document.getElementById('flutter_host');
       var wrapper = document.getElementById('flutter-scale-wrapper');
@@ -288,27 +371,6 @@
       var userZoom = 1;
       var panX = 0;
       var panY = 0;
-
-      function totalScale() {
-        return baseScale * userZoom;
-      }
-
-      function applyTransform() {
-        wrapper.style.transform =
-          'translate(' + panX + 'px,' + panY + 'px) scale(' + totalScale() + ')';
-      }
-
-      function clampPan() {
-        var vw = window.innerWidth;
-        var vh = window.innerHeight;
-        var s = totalScale();
-        var contentWidth = DESKTOP_WIDTH * s;
-        var contentHeight = parseFloat(host.style.height || 0) * s;
-        var minX = Math.min(0, vw - contentWidth);
-        var minY = Math.min(0, vh - contentHeight);
-        panX = Math.max(minX, Math.min(0, panX));
-        panY = Math.max(minY, Math.min(0, panY));
-      }
 
       var pinchActive = false;
       var pinchStartDistance = 0;
@@ -328,21 +390,52 @@
       var lastSampleY = 0;
       var momentumRAF = null;
 
-      function cancelMomentum() {
-        if (momentumRAF !== null) {
+      function totalScale()
+      {
+        return baseScale * userZoom;
+      }
+
+      function applyTransform()
+      {
+        wrapper.style.transform =
+          'translate(' + panX + 'px,' + panY + 'px) scale(' + totalScale() + ')';
+      }
+
+      function clampPan()
+      {
+        var scale = totalScale();
+        var contentWidth = DESKTOP_WIDTH * scale;
+        var contentHeight = parseFloat(host.style.height || 0) * scale;
+        var minX = Math.min(0, window.innerWidth - contentWidth);
+        var minY = Math.min(0, window.innerHeight - contentHeight);
+
+        panX = Math.max(minX, Math.min(0, panX));
+        panY = Math.max(minY, Math.min(0, panY));
+      }
+
+      function cancelMomentum()
+      {
+        if (momentumRAF !== null)
+        {
           cancelAnimationFrame(momentumRAF);
           momentumRAF = null;
         }
       }
 
-      function startMomentum() {
+      function startMomentum()
+      {
         cancelMomentum();
+
         var lastTime = performance.now();
 
-        function step(now) {
+        function step(now)
+        {
           var dt = now - lastTime;
           lastTime = now;
-          var friction = Math.pow(MOMENTUM_FRICTION, dt / 16);
+
+          // Friction is normalised on a 16 ms frame so that deceleration
+          // feels identical whatever the actual refresh rate is.
+          var friction = Math.pow(MOMENTUM_FRICTION, dt / MOMENTUM_REFERENCE_FRAME_MS);
           velocityX *= friction;
           velocityY *= friction;
 
@@ -351,135 +444,173 @@
           clampPan();
           applyTransform();
 
-          if (Math.abs(velocityX) > MOMENTUM_MIN_VELOCITY || Math.abs(velocityY) > MOMENTUM_MIN_VELOCITY) {
-            momentumRAF = requestAnimationFrame(step);
-          } else {
-            momentumRAF = null;
-          }
+          var stillMoving = Math.abs(velocityX) > MOMENTUM_MIN_VELOCITY
+            || Math.abs(velocityY) > MOMENTUM_MIN_VELOCITY;
+
+          momentumRAF = stillMoving ? requestAnimationFrame(step) : null;
         }
 
         momentumRAF = requestAnimationFrame(step);
       }
 
-      function trackVelocitySample(t) {
+      function trackVelocitySample(touch)
+      {
         var now = performance.now();
         var dt = now - lastSampleTime;
-        if (dt > 0 && lastSampleTime > 0) {
-          var instVX = (t.clientX - lastSampleX) / dt;
-          var instVY = (t.clientY - lastSampleY) / dt;
-          velocityX = velocityX * 0.7 + instVX * 0.3;
-          velocityY = velocityY * 0.7 + instVY * 0.3;
+
+        if (dt > 0 && lastSampleTime > 0)
+        {
+          var instantVX = (touch.clientX - lastSampleX) / dt;
+          var instantVY = (touch.clientY - lastSampleY) / dt;
+          velocityX = velocityX * VELOCITY_SMOOTHING + instantVX * VELOCITY_SAMPLE_WEIGHT;
+          velocityY = velocityY * VELOCITY_SMOOTHING + instantVY * VELOCITY_SAMPLE_WEIGHT;
         }
+
         lastSampleTime = now;
-        lastSampleX = t.clientX;
-        lastSampleY = t.clientY;
+        lastSampleX = touch.clientX;
+        lastSampleY = touch.clientY;
       }
 
-      // --- Layout responsivo del canvas Flutter ---
-      // La scalatura automatica del canvas (virtual DESKTOP_WIDTH + CSS scale) è
-      // riservata ai soli dispositivi touch: è il meccanismo che permette il
-      // pinch-zoom su telefono/tablet, dove Flutter non ha ancora breakpoint
-      // dedicati sotto una certa larghezza.
-      // Su desktop/mouse, invece, Flutter deve SEMPRE ricevere le dimensioni
-      // reali della finestra: è l'unico modo perché i widget interni (Wrap,
-      // LayoutBuilder con soglie) possano fare reflow reale invece di essere
-      // scalati via CSS.
-      function layout() {
+      function resetGestureState()
+      {
+        pinchActive = false;
+        singleTouchId = null;
+        singlePanClaimed = false;
+      }
+
+      function beginSinglePointerPan(touch, alreadyClaimed)
+      {
+        singleTouchId = touch.identifier;
+        singleStart = { x: touch.clientX, y: touch.clientY };
+        singleStartPan = { x: panX, y: panY };
+        singlePanClaimed = alreadyClaimed;
+        velocityX = 0;
+        velocityY = 0;
+        lastSampleTime = 0;
+        trackVelocitySample(touch);
+      }
+
+      function distanceBetween(first, second)
+      {
+        var dx = first.clientX - second.clientX;
+        var dy = first.clientY - second.clientY;
+
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function startPinch(first, second)
+      {
+        pinchActive = true;
+        pinchStartDistance = distanceBetween(first, second);
+        pinchStartZoom = userZoom;
+
+        var midX = (first.clientX + second.clientX) / 2;
+        var midY = (first.clientY + second.clientY) / 2;
+        var scale = totalScale();
+
+        pinchContentX = (midX - panX) / scale;
+        pinchContentY = (midY - panY) / scale;
+        singleTouchId = null;
+        singlePanClaimed = false;
+      }
+
+      // The virtual DESKTOP_WIDTH plus CSS scaling is reserved to touch
+      // devices: it is what makes pinch zoom possible where Flutter has no
+      // dedicated breakpoints below a certain width. On pointer devices
+      // Flutter must always receive the real window size, otherwise the inner
+      // widgets get scaled by CSS instead of reflowing.
+      function layout()
+      {
         var vw = window.innerWidth;
         var vh = window.innerHeight;
-
         var shouldScale = window.__casaMichelaIsTouchDevice && vw < DESKTOP_WIDTH;
 
-        if (!shouldScale) {
-          baseScale = 1;
-          host.style.width = vw + 'px';
-          host.style.height = vh + 'px';
-        } else {
+        if (shouldScale)
+        {
           baseScale = vw / DESKTOP_WIDTH;
           host.style.width = DESKTOP_WIDTH + 'px';
           host.style.height = (vh / baseScale) + 'px';
+        }
+        else
+        {
+          baseScale = 1;
+          host.style.width = vw + 'px';
+          host.style.height = vh + 'px';
         }
 
         userZoom = 1;
         panX = 0;
         panY = 0;
-        pinchActive = false;
-        singleTouchId = null;
-        singlePanClaimed = false;
+        resetGestureState();
         cancelMomentum();
         applyTransform();
       }
 
-      function dist(a, b) {
-        var dx = a.clientX - b.clientX;
-        var dy = a.clientY - b.clientY;
-        return Math.sqrt(dx * dx + dy * dy);
-      }
-
-      function startPinch(t1, t2) {
-        pinchActive = true;
-        pinchStartDistance = dist(t1, t2);
-        pinchStartZoom = userZoom;
-        var midX = (t1.clientX + t2.clientX) / 2;
-        var midY = (t1.clientY + t2.clientY) / 2;
-        var s = totalScale();
-        pinchContentX = (midX - panX) / s;
-        pinchContentY = (midY - panY) / s;
-        singleTouchId = null;
-        singlePanClaimed = false;
-      }
-
-      viewport.addEventListener('touchstart', function (e) {
+      // Capture phase and passive: false are both required, so that these
+      // handlers run before the Flutter ones and are still allowed to call
+      // preventDefault().
+      viewport.addEventListener('touchstart', function (e)
+      {
         cancelMomentum();
 
-        if (e.touches.length === 2) {
+        if (e.touches.length === 2)
+        {
           startPinch(e.touches[0], e.touches[1]);
           e.preventDefault();
-        } else if (e.touches.length === 1 && userZoom > 1.02) {
-          var t = e.touches[0];
-          singleTouchId = t.identifier;
-          singleStart = { x: t.clientX, y: t.clientY };
-          singleStartPan = { x: panX, y: panY };
-          singlePanClaimed = false;
-          velocityX = 0;
-          velocityY = 0;
-          lastSampleTime = 0;
-          trackVelocitySample(t);
+        }
+        else if (e.touches.length === 1 && userZoom > SINGLE_PAN_MIN_ZOOM)
+        {
+          beginSinglePointerPan(e.touches[0], false);
         }
       }, { capture: true, passive: false });
 
-      viewport.addEventListener('touchmove', function (e) {
-        if (e.touches.length === 2 && pinchActive) {
-          var t1 = e.touches[0], t2 = e.touches[1];
-          var ratio = dist(t1, t2) / pinchStartDistance;
+      viewport.addEventListener('touchmove', function (e)
+      {
+        if (e.touches.length === 2 && pinchActive)
+        {
+          var first = e.touches[0];
+          var second = e.touches[1];
+          var ratio = distanceBetween(first, second) / pinchStartDistance;
           userZoom = Math.max(MIN_USER_ZOOM, Math.min(MAX_USER_ZOOM, pinchStartZoom * ratio));
 
-          var midX = (t1.clientX + t2.clientX) / 2;
-          var midY = (t1.clientY + t2.clientY) / 2;
-          var s = totalScale();
-          panX = midX - pinchContentX * s;
-          panY = midY - pinchContentY * s;
+          var midX = (first.clientX + second.clientX) / 2;
+          var midY = (first.clientY + second.clientY) / 2;
+          var scale = totalScale();
+
+          panX = midX - pinchContentX * scale;
+          panY = midY - pinchContentY * scale;
 
           clampPan();
           applyTransform();
           e.preventDefault();
           e.stopPropagation();
+
           return;
         }
 
-        if (e.touches.length === 1 && singleTouchId !== null) {
-          var t = e.touches[0];
-          if (t.identifier !== singleTouchId) { return; }
+        if (e.touches.length === 1 && singleTouchId !== null)
+        {
+          var touch = e.touches[0];
 
-          trackVelocitySample(t);
+          if (touch.identifier !== singleTouchId)
+          {
+            return;
+          }
 
-          var dx = t.clientX - singleStart.x;
-          var dy = t.clientY - singleStart.y;
+          trackVelocitySample(touch);
 
-          if (!singlePanClaimed) {
-            if (Math.sqrt(dx * dx + dy * dy) <= PAN_THRESHOLD) {
+          var dx = touch.clientX - singleStart.x;
+          var dy = touch.clientY - singleStart.y;
+
+          // Below the threshold the gesture is left to Flutter, so that short
+          // drags still reach the widgets underneath.
+          if (!singlePanClaimed)
+          {
+            if (Math.sqrt(dx * dx + dy * dy) <= PAN_THRESHOLD)
+            {
               return;
             }
+
             singlePanClaimed = true;
           }
 
@@ -492,35 +623,32 @@
         }
       }, { capture: true, passive: false });
 
-      viewport.addEventListener('touchend', function (e) {
-        if (pinchActive && e.touches.length === 1) {
+      viewport.addEventListener('touchend', function (e)
+      {
+        // Lifting one finger out of a pinch turns the gesture into a pan
+        // without re-arming the movement threshold.
+        if (pinchActive && e.touches.length === 1)
+        {
           pinchActive = false;
-          var t = e.touches[0];
-          singleTouchId = t.identifier;
-          singleStart = { x: t.clientX, y: t.clientY };
-          singleStartPan = { x: panX, y: panY };
-          singlePanClaimed = true;
-          velocityX = 0;
-          velocityY = 0;
-          lastSampleTime = 0;
-          trackVelocitySample(t);
+          beginSinglePointerPan(e.touches[0], true);
+
           return;
         }
 
-        if (e.touches.length === 0) {
-          if (singlePanClaimed) {
+        if (e.touches.length === 0)
+        {
+          if (singlePanClaimed)
+          {
             startMomentum();
           }
-          pinchActive = false;
-          singleTouchId = null;
-          singlePanClaimed = false;
+
+          resetGestureState();
         }
       }, { capture: true });
 
-      viewport.addEventListener('touchcancel', function () {
-        pinchActive = false;
-        singleTouchId = null;
-        singlePanClaimed = false;
+      viewport.addEventListener('touchcancel', function ()
+      {
+        resetGestureState();
         cancelMomentum();
       }, { capture: true });
 

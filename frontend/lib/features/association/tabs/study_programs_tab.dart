@@ -1,23 +1,41 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../models/study_program_item.dart';
-import '../models/ministry_subject_item.dart';
-import '../models/association_subject_item.dart';
-import '../widgets/study_program_card.dart';
-import '../../../shared/widgets/snackbar.dart'; 
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/snackbar.dart';
+import '../models/association_subject_item.dart';
+import '../models/ministry_subject_item.dart';
+import '../models/study_program_item.dart';
+import '../models/subject_taxonomy.dart';
+import '../widgets/study_program_card.dart';
+
+// Shared between the ListView itemExtent and the height of a single tile:
+// the two must match exactly or the scroll math below lands on the wrong row.
+const double _subjectOptionItemHeight = 44.0;
+
+const int _middleSchoolMaxYear = 3;
+const int _defaultMaxYear = 5;
+
+int _maxYearForLevel(String? level)
+{
+  return level == 'MIDDLE_SCHOOL' ? _middleSchoolMaxYear : _defaultMaxYear;
+}
 
 class StudyProgramsTab extends StatefulWidget
 {
-  //DatiCondivisiRicevutiDallAlto_AssociationPageEUnicaFonteDiVeritaEProprietariaDelFetch
   final List<StudyProgramItem> studyPrograms;
-  //SoloLettura_ServeAllaCardEAlWizardPerAssociareLeMaterieMinisteriali_ProprietarioReaeEMinistrySubjectsTab
+
+  // Read only: needed by the card and by the wizard to link the ministry
+  // subjects, but owned by MinistrySubjectsTab.
   final List<MinistrySubjectItem> ministrySubjects;
-  //SoloLettura_ServeAlFiltroPerDisciplina_ProprietarioReaeEAssociationSubjectsTab
+
+  // Read only, used by the discipline filter alone.
   final List<AssociationSubjectItem> associationSubjects;
+
   final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
   final Future<bool> Function(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
   final void Function(StudyProgramItem item) onDelete;
@@ -41,9 +59,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
-  String _sortBy = 'name_asc';
+  SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterLevel;
-  //FiltriMultiSelezione_UnPercorsoPassaSeContieneAlmenoUnoDegliIdSelezionati_OrTraLoroStessi_AndConGliAltriFiltri
+
+  // Multi selection filters: a program passes when it matches at least one of
+  // the selected ids, and the two filters are combined with the others in AND.
   Set<int> _selectedMinistrySubjectIds = {};
   Set<int> _selectedAssociationSubjectIds = {};
 
@@ -51,29 +71,34 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
 
   List<StudyProgramItem> get _filteredPrograms
   {
-    var result = widget.studyPrograms.where((program)
+    final query = _searchText.toLowerCase();
+
+    final result = widget.studyPrograms.where((program)
     {
-      final query = _searchText.toLowerCase();
       final matchesSearch = program.name.toLowerCase().contains(query);
       final matchesLevel = _filterLevel == null || program.level == _filterLevel;
 
       final matchesMinistrySubjects = _selectedMinistrySubjectIds.isEmpty ||
-          program.ministrySubjects.any((ms) => _selectedMinistrySubjectIds.contains(ms.id));
+          program.ministrySubjects.any((subject) => _selectedMinistrySubjectIds.contains(subject.id));
 
-      //LaDisciplinaNonHaUnaRelazioneDirettaConIlPercorso_SiRaggiungeAttraversoLeMaterieMinisterialiDelPercorso
+      // A discipline has no direct relation with the program: it is reached
+      // through the ministry subjects of the program.
       final matchesAssociationSubjects = _selectedAssociationSubjectIds.isEmpty ||
-          program.ministrySubjects.any((ms) => ms.associationSubjects.any((as) => _selectedAssociationSubjectIds.contains(as.id)));
+          program.ministrySubjects.any(
+            (subject) => subject.associationSubjects.any(
+              (discipline) => _selectedAssociationSubjectIds.contains(discipline.id),
+            ),
+          );
 
       return matchesSearch && matchesLevel && matchesMinistrySubjects && matchesAssociationSubjects;
     }).toList();
 
-    result.sort((a, b)
+    result.sort((a, b) => switch (_sortBy)
     {
-      if (_sortBy == 'name_asc') return a.name.compareTo(b.name);
-      if (_sortBy == 'name_desc') return b.name.compareTo(a.name);
-      if (_sortBy == 'date_asc') return a.createdAt.compareTo(b.createdAt);
-      if (_sortBy == 'date_desc') return b.createdAt.compareTo(a.createdAt);
-      return 0;
+      SortCriterion.nameAsc => a.name.compareTo(b.name),
+      SortCriterion.nameDesc => b.name.compareTo(a.name),
+      SortCriterion.dateAsc => a.createdAt.compareTo(b.createdAt),
+      SortCriterion.dateDesc => b.createdAt.compareTo(a.createdAt),
     });
 
     return result;
@@ -81,57 +106,25 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
 
   void _showWizard({StudyProgramItem? program, VoidCallback? onCancelEdit})
   {
-    showGeneralDialog(
-      context: context, barrierDismissible: true, barrierLabel: 'StudyProgramWizard', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child)
-      {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _StudyProgramWizardDialog(
-                existingProgram: program,
-                //LettaSempreDaWidget.ministrySubjects_AggiornataAutomaticamenteDaAssociationPageAlProssimoSetState
-                availableMinistrySubjects: widget.ministrySubjects,
-                onCancelEdit: onCancelEdit,
-                onSave: (name, level, minYear, maxYear, description, subjectIds, onError) async
-                {
-                  if (program == null) return await widget.onCreate(name, level, minYear, maxYear, description, subjectIds, onError);
-                  else return await widget.onEdit(program.id, name, level, minYear, maxYear, description, subjectIds, onError);
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'StudyProgramWizard',
+      builder: (context) => _StudyProgramWizardDialog(
+        existingProgram: program,
+        // Read here, so the list is refreshed by the next setState of
+        // AssociationPage.
+        availableMinistrySubjects: widget.ministrySubjects,
+        onCancelEdit: onCancelEdit,
+        onSave: (name, level, minYear, maxYear, description, subjectIds, onError) async
+        {
+          if (program == null)
+          {
+            return await widget.onCreate(name, level, minYear, maxYear, description, subjectIds, onError);
+          }
 
-  void _showMinistrySubjectFilterDialog()
-  {
-    final options = widget.ministrySubjects.map((m) => _SubjectOption(id: m.id, name: m.name, subtitle: _levelShortLabel(m.level))).toList();
-    _showSubjectFilterDialog(
-      title: 'Filtra per materia ministeriale',
-      hint: 'Cerca materia ministeriale...',
-      options: options,
-      initialSelectedIds: _selectedMinistrySubjectIds,
-      onApply: (ids) => setState(() => _selectedMinistrySubjectIds = ids),
-    );
-  }
-
-  void _showAssociationSubjectFilterDialog()
-  {
-    final options = widget.associationSubjects.map((a) => _SubjectOption(id: a.id, name: a.name)).toList();
-    _showSubjectFilterDialog(
-      title: 'Filtra per disciplina interna',
-      hint: 'Cerca disciplina...',
-      options: options,
-      initialSelectedIds: _selectedAssociationSubjectIds,
-      onApply: (ids) => setState(() => _selectedAssociationSubjectIds = ids),
+          return await widget.onEdit(program.id, name, level, minYear, maxYear, description, subjectIds, onError);
+        },
+      ),
     );
   }
 
@@ -143,50 +136,97 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     required ValueChanged<Set<int>> onApply,
   })
   {
-    showGeneralDialog(
-      context: context, barrierDismissible: true, barrierLabel: 'SubjectFilterDialog', barrierColor: Colors.black.withValues(alpha: .15), transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child)
-      {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack, reverseCurve: Curves.easeIn),
-              child: _SubjectFilterDialog(
-                title: title,
-                hint: hint,
-                options: options,
-                initialSelectedIds: initialSelectedIds,
-                onApply: onApply,
-              ),
-            ),
-          ),
-        );
-      },
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'SubjectFilterDialog',
+      builder: (context) => _SubjectFilterDialog(
+        title: title,
+        hint: hint,
+        options: options,
+        initialSelectedIds: initialSelectedIds,
+        onApply: onApply,
+      ),
+    );
+  }
+
+  void _showMinistrySubjectFilterDialog()
+  {
+    _showSubjectFilterDialog(
+      title: 'Filtra per materia ministeriale',
+      hint: 'Cerca materia ministeriale...',
+      options: widget.ministrySubjects
+          .map((subject) => _SubjectOption(
+                id: subject.id,
+                name: subject.name,
+                subtitle: schoolLevelShortLabel(subject.level),
+              ))
+          .toList(),
+      initialSelectedIds: _selectedMinistrySubjectIds,
+      onApply: (ids) => setState(() => _selectedMinistrySubjectIds = ids),
+    );
+  }
+
+  void _showAssociationSubjectFilterDialog()
+  {
+    _showSubjectFilterDialog(
+      title: 'Filtra per disciplina interna',
+      hint: 'Cerca disciplina...',
+      options: widget.associationSubjects
+          .map((subject) => _SubjectOption(id: subject.id, name: subject.name))
+          .toList(),
+      initialSelectedIds: _selectedAssociationSubjectIds,
+      onApply: (ids) => setState(() => _selectedAssociationSubjectIds = ids),
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
+    final programs = _filteredPrograms;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: AnimatedSearchBar(controller: _searchController, onChanged: (value) => setState(() => _searchText = value), hintText: 'Cerca percorso di studio...')),
+            Expanded(
+              child: AnimatedSearchBar(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchText = value),
+                hintText: 'Cerca percorso di studio...',
+              ),
+            ),
             const SizedBox(width: 24),
             MouseRegion(
-              cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _newProgramHover = true), onExit: (_) => setState(() => _newProgramHover = false),
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _newProgramHover = true),
+              onExit: (_) => setState(() => _newProgramHover = false),
               child: GestureDetector(
                 onTap: () => _showWizard(),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180), curve: Curves.easeOut, height: 50, padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(40), border: Border.all(color: _newProgramHover ? const Color(0xFF003C82) : Colors.transparent, width: 2), boxShadow: const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16)]),
-                  child: Center(child: Text('Nuovo percorso', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  height: 50,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(40),
+                    border: Border.all(
+                      color: _newProgramHover ? AppTheme.primary : Colors.transparent,
+                      width: 2,
+                    ),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Nuovo percorso',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -194,25 +234,76 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         ),
         const SizedBox(height: 32),
         Wrap(
-          spacing: 16, runSpacing: 16, crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 16,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _CustomFilterMenu<String>(hint: 'Ordina per', icon: Icons.sort_rounded, value: _sortBy, menuWidth: 180, showClearIcon: false, onChanged: (val) => setState(() => _sortBy = val), onClear: () {}, options: [_FilterOption(value: 'name_asc', label: 'Nome (A-Z)'), _FilterOption(value: 'name_desc', label: 'Nome (Z-A)'), _FilterOption(value: 'date_desc', label: 'Più recente'), _FilterOption(value: 'date_asc', label: 'Meno recente')]),
-            _CustomFilterMenu<String>(hint: 'Tutti i livelli', icon: Icons.school_outlined, value: _filterLevel, menuWidth: 200, showClearIcon: true, onChanged: (val) => setState(() => _filterLevel = val), onClear: () => setState(() => _filterLevel = null), options: [_FilterOption(value: 'PRIMARY_SCHOOL', label: 'Scuola Primaria'), _FilterOption(value: 'MIDDLE_SCHOOL', label: 'Secondaria di I Grado'), _FilterOption(value: 'HIGH_SCHOOL', label: 'Secondaria di II Grado')]),
-            _FilterChipButton(icon: Icons.auto_stories_outlined, label: 'Discipline interne', count: _selectedAssociationSubjectIds.length, onTap: _showAssociationSubjectFilterDialog, onClear: () => setState(() => _selectedAssociationSubjectIds = {})),
-            _FilterChipButton(icon: Icons.menu_book_outlined, label: 'Materie ministeriali', count: _selectedMinistrySubjectIds.length, onTap: _showMinistrySubjectFilterDialog, onClear: () => setState(() => _selectedMinistrySubjectIds = {})),
+            CustomFilterMenu<SortCriterion>(
+              hint: 'Ordina per',
+              icon: Icons.sort_rounded,
+              value: _sortBy,
+              menuWidth: 180,
+              showClearIcon: false,
+              onChanged: (value) => setState(() => _sortBy = value),
+              onClear: () {},
+              options: SortCriterion.values
+                  .map((sort) => FilterOption(value: sort, label: sort.label))
+                  .toList(),
+            ),
+            CustomFilterMenu<String>(
+              hint: 'Tutti i livelli',
+              icon: Icons.school_outlined,
+              value: _filterLevel,
+              menuWidth: 200,
+              showClearIcon: true,
+              onChanged: (value) => setState(() => _filterLevel = value),
+              onClear: () => setState(() => _filterLevel = null),
+              options: schoolLevels
+                  .map((level) => FilterOption(value: level.value, label: level.label))
+                  .toList(),
+            ),
+            _FilterChipButton(
+              icon: Icons.auto_stories_outlined,
+              label: 'Discipline interne',
+              count: _selectedAssociationSubjectIds.length,
+              onTap: _showAssociationSubjectFilterDialog,
+              onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
+            ),
+            _FilterChipButton(
+              icon: Icons.menu_book_outlined,
+              label: 'Materie ministeriali',
+              count: _selectedMinistrySubjectIds.length,
+              onTap: _showMinistrySubjectFilterDialog,
+              onClear: () => setState(() => _selectedMinistrySubjectIds = {}),
+            ),
           ],
         ),
         const SizedBox(height: 16),
-        Text(_filteredPrograms.length == 1 ? '1 percorso trovato' : '${_filteredPrograms.length} percorsi trovati', style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+        Text(
+          programs.length == 1 ? '1 percorso trovato' : '${programs.length} percorsi trovati',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.primary,
+          ),
+        ),
         const SizedBox(height: 16),
-        //BloccoCardIsolato_SoloQuestaAreaScorre_HeaderEFiltriRestanoFissi
+        // Only the card area scrolls, so header and filters stay pinned.
         Expanded(
           child: SingleChildScrollView(
             child: Center(
               child: Wrap(
-                alignment: WrapAlignment.center, spacing: 20, runSpacing: 20,
-                children: _filteredPrograms.map((program) {
-                  return StudyProgramCard(program: program, availableMinistrySubjects: widget.ministrySubjects, onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel), onDelete: () => widget.onDelete(program));
+                alignment: WrapAlignment.center,
+                spacing: 20,
+                runSpacing: 20,
+                children: programs.map((program)
+                {
+                  return StudyProgramCard(
+                    program: program,
+                    availableMinistrySubjects: widget.ministrySubjects,
+                    onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel),
+                    onDelete: () => widget.onDelete(program),
+                  );
                 }).toList(),
               ),
             ),
@@ -231,7 +322,10 @@ class _StudyProgramWizardDialog extends StatefulWidget
   final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
 
   const _StudyProgramWizardDialog({
-    this.existingProgram, required this.availableMinistrySubjects, this.onCancelEdit, required this.onSave
+    this.existingProgram,
+    required this.availableMinistrySubjects,
+    this.onCancelEdit,
+    required this.onSave,
   });
 
   @override
@@ -240,35 +334,42 @@ class _StudyProgramWizardDialog extends StatefulWidget
 
 class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 {
-  int _currentStep = 0;
-  final PageController _pageController = PageController();
-  bool _isSaving = false;
-  bool _isClampingYears = false; //Guardia_EvitaRicorsioneQuandoAggiustiamoIlSecondoControllerACascata
+  static const Duration _stepTransition = Duration(milliseconds: 300);
 
+  final PageController _pageController = PageController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _minYearController = TextEditingController();
   final TextEditingController _maxYearController = TextEditingController();
-  final TextEditingController _subjectSearchCtrl = TextEditingController();
+  final TextEditingController _subjectSearchController = TextEditingController();
 
+  int _currentStep = 0;
+  bool _isSaving = false;
   String? _selectedLevel;
   List<int> _selectedSubjects = [];
 
-  //TettoMassimoAnniAmmessoPerIlLivelloCorrentementeSelezionato_3perMedie_5perElementariESuperiori
-  int get _maxYearForSelectedLevel => _selectedLevel == 'MIDDLE_SCHOOL' ? 3 : 5;
+  // Guard against re-entering the clamp while adjusting the other controller.
+  bool _isClampingYears = false;
+
+  bool get _isEditing => widget.existingProgram != null;
+
+  int get _maxYearForSelectedLevel => _maxYearForLevel(_selectedLevel);
 
   @override
   void initState()
   {
     super.initState();
-    if (widget.existingProgram != null)
+
+    final program = widget.existingProgram;
+
+    if (program != null)
     {
-      _nameController.text = widget.existingProgram!.name;
-      _descController.text = widget.existingProgram!.description;
-      _selectedLevel = widget.existingProgram!.level;
-      _minYearController.text = widget.existingProgram!.minYear.toString();
-      _maxYearController.text = widget.existingProgram!.maxYear.toString();
-      _selectedSubjects = widget.existingProgram!.ministrySubjects.map((s) => s.id).toList();
+      _nameController.text = program.name;
+      _descController.text = program.description;
+      _selectedLevel = program.level;
+      _minYearController.text = program.minYear.toString();
+      _maxYearController.text = program.maxYear.toString();
+      _selectedSubjects = program.ministrySubjects.map((subject) => subject.id).toList();
     }
   }
 
@@ -279,19 +380,20 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     _descController.dispose();
     _minYearController.dispose();
     _maxYearController.dispose();
-    _subjectSearchCtrl.dispose();
+    _subjectSearchController.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
   void _resetForm()
   {
-    setState(() {
+    setState(()
+    {
       _nameController.clear();
       _descController.clear();
       _minYearController.clear();
       _maxYearController.clear();
-      _subjectSearchCtrl.clear();
+      _subjectSearchController.clear();
       _selectedLevel = null;
       _selectedSubjects.clear();
       _currentStep = 0;
@@ -299,172 +401,288 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     });
   }
 
+  void _closeDialog()
+  {
+    Navigator.of(context).pop();
+
+    if (_isEditing)
+    {
+      widget.onCancelEdit?.call();
+    }
+  }
+
+  // Brings the year range inside the ceiling of the newly picked level. The
+  // ceiling is computed from the incoming level, not from _selectedLevel,
+  // which is only assigned at the end.
+  void _clampYearsToLevel(String level)
+  {
+    final maxAllowed = _maxYearForLevel(level);
+
+    var currentMin = int.tryParse(_minYearController.text);
+    var currentMax = int.tryParse(_maxYearController.text);
+
+    if (currentMin == null)
+    {
+      _minYearController.text = '1';
+    }
+    else if (currentMin < 1)
+    {
+      _minYearController.text = '1';
+    }
+    else if (currentMin > maxAllowed)
+    {
+      _minYearController.text = maxAllowed.toString();
+    }
+
+    if (currentMax == null)
+    {
+      _maxYearController.text = maxAllowed.toString();
+    }
+    else if (currentMax < 1)
+    {
+      _maxYearController.text = '1';
+    }
+    else if (currentMax > maxAllowed)
+    {
+      _maxYearController.text = maxAllowed.toString();
+    }
+
+    currentMin = int.tryParse(_minYearController.text);
+    currentMax = int.tryParse(_maxYearController.text);
+
+    if (currentMin != null && currentMax != null && currentMin > currentMax)
+    {
+      _minYearController.text = currentMax.toString();
+    }
+  }
+
   void _onLevelChanged(String level, bool isSelected)
   {
     setState(()
     {
-      if (isSelected)
-      {
-        if (_selectedLevel != level) 
-        {
-          _selectedSubjects.clear();
-          
-          int maxAllowed = 5;
-          if (level == 'MIDDLE_SCHOOL') maxAllowed = 3;
-
-          int? currentMin = int.tryParse(_minYearController.text);
-          int? currentMax = int.tryParse(_maxYearController.text);
-
-          if (currentMin == null) { _minYearController.text = '1'; } 
-          else {
-            if (currentMin < 1) _minYearController.text = '1';
-            if (currentMin > maxAllowed) _minYearController.text = maxAllowed.toString();
-          }
-
-          if (currentMax == null) { _maxYearController.text = maxAllowed.toString(); } 
-          else {
-            if (currentMax < 1) _maxYearController.text = '1';
-            if (currentMax > maxAllowed) _maxYearController.text = maxAllowed.toString();
-          }
-          
-          currentMin = int.tryParse(_minYearController.text);
-          currentMax = int.tryParse(_maxYearController.text);
-          
-          if (currentMin != null && currentMax != null && currentMin > currentMax) {
-            _minYearController.text = currentMax.toString();
-          }
-        }
-        _selectedLevel = level;
-      }
-      else
+      if (!isSelected)
       {
         _selectedLevel = null;
+        return;
       }
+
+      if (_selectedLevel != level)
+      {
+        _selectedSubjects.clear();
+        _clampYearsToLevel(level);
+      }
+
+      _selectedLevel = level;
     });
   }
 
-  //ClampaInTempoRealeIlValoreAppenaDigitato_EPropagaAlSecondoEstremoSeVieneScavalcato
+  // Clamps the value being typed and propagates it to the other end of the
+  // range when it gets overtaken.
   void _onYearChanged(bool isMinField)
   {
-    if (_isClampingYears) return;
-    if (_selectedLevel == null) return; // Senza livello non c'è ancora un tetto da applicare, ci pensa la validazione dello step
+    if (_isClampingYears)
+    {
+      return;
+    }
 
-    final TextEditingController controller = isMinField ? _minYearController : _maxYearController;
-    final TextEditingController otherController = isMinField ? _maxYearController : _minYearController;
+    // Without a level there is no ceiling to apply yet: the step validation
+    // takes care of it.
+    if (_selectedLevel == null)
+    {
+      return;
+    }
 
-    if (controller.text.isEmpty) return; // L'utente sta ancora digitando (es. ha appena cancellato tutto)
+    final controller = isMinField ? _minYearController : _maxYearController;
+    final otherController = isMinField ? _maxYearController : _minYearController;
 
-    final int? typed = int.tryParse(controller.text);
-    if (typed == null) return;
+    // The user is still typing, for instance right after clearing the field.
+    if (controller.text.isEmpty)
+    {
+      return;
+    }
 
-    final int maxAllowed = _maxYearForSelectedLevel;
-    final int clamped = typed < 1 ? 1 : (typed > maxAllowed ? maxAllowed : typed);
+    final typed = int.tryParse(controller.text);
+
+    if (typed == null)
+    {
+      return;
+    }
+
+    final maxAllowed = _maxYearForSelectedLevel;
+    final clamped = typed < 1 ? 1 : (typed > maxAllowed ? maxAllowed : typed);
 
     _isClampingYears = true;
 
     if (clamped != typed)
     {
-      controller.value = controller.value.copyWith(text: clamped.toString(), selection: TextSelection.collapsed(offset: clamped.toString().length));
+      controller.value = controller.value.copyWith(
+        text: clamped.toString(),
+        selection: TextSelection.collapsed(offset: clamped.toString().length),
+      );
     }
 
-    final int? otherValue = int.tryParse(otherController.text);
-    if (otherValue != null && ((isMinField && clamped > otherValue) || (!isMinField && clamped < otherValue)))
+    final otherValue = int.tryParse(otherController.text);
+    final isOvertaken = otherValue != null &&
+        ((isMinField && clamped > otherValue) || (!isMinField && clamped < otherValue));
+
+    if (isOvertaken)
     {
-      otherController.value = otherController.value.copyWith(text: clamped.toString(), selection: TextSelection.collapsed(offset: clamped.toString().length));
+      otherController.value = otherController.value.copyWith(
+        text: clamped.toString(),
+        selection: TextSelection.collapsed(offset: clamped.toString().length),
+      );
     }
 
     _isClampingYears = false;
-    setState((){}); // Aggiorna il testo di supporto sotto ai campi
+
+    // Refreshes the supporting text below the fields.
+    setState(() {});
   }
 
-  void _nextStep() async
+  bool _validateFirstStep()
+  {
+    if (_nameController.text.trim().isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true);
+      return false;
+    }
+
+    if (_selectedLevel == null)
+    {
+      CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true);
+      return false;
+    }
+
+    if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: "Compila l'intervallo degli anni di corso.", isError: true);
+      return false;
+    }
+
+    final minYear = int.tryParse(_minYearController.text);
+    final maxYear = int.tryParse(_maxYearController.text);
+
+    if (minYear == null || maxYear == null || minYear > maxYear || minYear < 1)
+    {
+      CustomSnackBar.show(context: context, message: 'Intervallo di anni non valido.', isError: true);
+      return false;
+    }
+
+    // Redundant with the live clamping, but covers programmatic input and
+    // future refactors.
+    if (maxYear > _maxYearForSelectedLevel)
+    {
+      CustomSnackBar.show(context: context, message: "Per il livello selezionato l'anno massimo consentito è $_maxYearForSelectedLevel.", isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _nextStep() async
   {
     if (_currentStep == 0)
     {
-      if (_nameController.text.trim().isEmpty) { CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true); return; }
-      if (_selectedLevel == null) { CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true); return; }
-      if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty) { CustomSnackBar.show(context: context, message: 'Compila l\'intervallo degli anni di corso.', isError: true); return; }
-
-      final minYear = int.tryParse(_minYearController.text);
-      final maxYear = int.tryParse(_maxYearController.text);
-
-      if (minYear == null || maxYear == null || minYear > maxYear || minYear < 1) { CustomSnackBar.show(context: context, message: 'Intervallo di anni non valido.', isError: true); return; }
-
-      //ControlloDifensivoRidondanteRispettoAlClampInTempoReale_CopreEdgeCaseComeInputProgrammaticiOFuturiRefactor
-      if (maxYear > _maxYearForSelectedLevel) { CustomSnackBar.show(context: context, message: 'Per il livello selezionato l\'anno massimo consentito è $_maxYearForSelectedLevel.', isError: true); return; }
+      if (!_validateFirstStep())
+      {
+        return;
+      }
 
       setState(() => _currentStep++);
-      _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
+
+      return;
+    }
+
+    if (_selectedSubjects.isEmpty)
+    {
+      CustomSnackBar.show(context: context, message: 'Seleziona almeno una materia ministeriale.', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final success = await widget.onSave(
+      _nameController.text.trim(),
+      _selectedLevel!,
+      int.parse(_minYearController.text),
+      int.parse(_maxYearController.text),
+      _descController.text.trim(),
+      _selectedSubjects,
+      (errorMessage)
+      {
+        if (mounted)
+        {
+          CustomSnackBar.show(context: context, message: errorMessage, isError: true);
+        }
+      },
+    );
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(() => _isSaving = false);
+
+    if (!success)
+    {
+      return;
+    }
+
+    if (_isEditing)
+    {
+      Navigator.of(context).pop();
     }
     else
     {
-      if (_selectedSubjects.isEmpty) { CustomSnackBar.show(context: context, message: 'Seleziona almeno una materia ministeriale.', isError: true); return; }
-
-      setState(() => _isSaving = true);
-      
-      final minYear = int.parse(_minYearController.text);
-      final maxYear = int.parse(_maxYearController.text);
-
-      bool success = await widget.onSave(_nameController.text.trim(), _selectedLevel!, minYear, maxYear, _descController.text.trim(), _selectedSubjects, (errorMsg) {
-        if (mounted) CustomSnackBar.show(context: context, message: errorMsg, isError: true);
-      });
-
-      if (mounted) setState(() => _isSaving = false);
-      
-      if (success) {
-        if (widget.existingProgram != null) Navigator.of(context).pop();
-        else _resetForm();
-      }
+      _resetForm();
     }
   }
 
   void _prevStep()
   {
-    if (_currentStep > 0)
+    if (_currentStep <= 0)
     {
-      setState(() => _currentStep--);
-      _pageController.animateToPage(_currentStep, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+      return;
     }
+
+    setState(() => _currentStep--);
+    _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
   }
 
-  Widget _buildFieldLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 12, top: 16), child: Text(text, style: GoogleFonts.plusJakartaSans(color: const Color(0xFF003C82), fontWeight: FontWeight.w700, fontSize: 16)));
-
-  @override
-  Widget build(BuildContext context)
+  Widget _buildFieldLabel(String text)
   {
-    bool isEditing = widget.existingProgram != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 16),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
 
-    return Dialog(
-      backgroundColor: Colors.transparent, elevation: 0,
-      child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre650
-        width: double.infinity,
-        height: 600,
-        constraints: const BoxConstraints(maxWidth: 650),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(isEditing ? 'Modifica Percorso (${_currentStep + 1}/2)' : 'Nuovo Percorso (${_currentStep + 1}/2)', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82))),
-                  FadeHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
-                ],
-              ),
-            ),
-            Expanded(child: PageView(controller: _pageController, physics: const NeverScrollableScrollPhysics(), children: [_buildStep1(), _buildStep2()])),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: _ResponsiveDialogButtonsRow(
-                secondaryButton: _currentStep > 0
-                    ? _OutlinedActionButton(text: 'INDIETRO', icon: Icons.arrow_back_rounded, onPressed: _prevStep)
-                    : AnimatedActionButton(text: 'ANNULLA', icon: Icons.cancel_outlined, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: () { Navigator.of(context).pop(); if (isEditing && widget.onCancelEdit != null) widget.onCancelEdit!(); }),
-                primaryButton: AnimatedActionButton(text: _isSaving ? 'SALVATAGGIO...' : (_currentStep == 1 ? (isEditing ? 'SALVA MODIFICHE' : 'CREA PERCORSO') : 'AVANTI'), icon: _currentStep == 1 ? Icons.check_circle_outline : Icons.arrow_forward_rounded, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99), onPressed: _isSaving ? () {} : _nextStep),
-              ),
-            ),
-          ],
+  Widget _buildYearField(TextEditingController controller, String hint, {required bool isMinField})
+  {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      onChanged: (_) => _onYearChanged(isMinField),
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        color: Colors.black,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: AppTheme.hint),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
         ),
       ),
     );
@@ -479,32 +697,96 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildFieldLabel('Nome'),
-            TextField(controller: _nameController, textCapitalization: TextCapitalization.sentences, style: GoogleFonts.plusJakartaSans(fontSize: 20, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. Liceo Classico (biennio)', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 20, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 2)))),
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.sentences,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 20,
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Es. Liceo Classico (biennio)',
+                hintStyle: GoogleFonts.plusJakartaSans(
+                  fontSize: 20,
+                  color: AppTheme.hint,
+                  fontWeight: FontWeight.w500,
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
+                ),
+              ),
+            ),
             _buildFieldLabel('Livello scolastico'),
             Wrap(
-              spacing: 12, runSpacing: 12,
-              children: [
-                CustomChip(label: 'Scuola Primaria', isSelected: _selectedLevel == 'PRIMARY_SCHOOL', onSelected: (v) => _onLevelChanged('PRIMARY_SCHOOL', v)),
-                CustomChip(label: 'Secondaria di I Grado', isSelected: _selectedLevel == 'MIDDLE_SCHOOL', onSelected: (v) => _onLevelChanged('MIDDLE_SCHOOL', v)),
-                CustomChip(label: 'Secondaria di II Grado', isSelected: _selectedLevel == 'HIGH_SCHOOL', onSelected: (v) => _onLevelChanged('HIGH_SCHOOL', v)),
-              ],
+              spacing: 12,
+              runSpacing: 12,
+              children: schoolLevels.map((level)
+              {
+                return CustomChip(
+                  label: level.label,
+                  isSelected: _selectedLevel == level.value,
+                  onSelected: (selected) => _onLevelChanged(level.value, selected),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Inizio'), TextField(controller: _minYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onYearChanged(true), style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 1', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Anno Inizio'),
+                      _buildYearField(_minYearController, 'Es. 1', isMinField: true),
+                    ],
+                  ),
+                ),
                 const SizedBox(width: 32),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFieldLabel('Anno Fine'), TextField(controller: _maxYearController, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], onChanged: (_) => _onYearChanged(false), style: GoogleFonts.plusJakartaSans(fontSize: 18, color: Colors.black, fontWeight: FontWeight.w600), decoration: InputDecoration(hintText: 'Es. 5', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: const Color(0xFFB3B3B3)), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5))))])),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFieldLabel('Anno Fine'),
+                      _buildYearField(_maxYearController, 'Es. 5', isMinField: false),
+                    ],
+                  ),
+                ),
               ],
             ),
-            //FeedbackVisivoDelVincolo_CompareSoloDopoLaSceltaDelLivelloPerNonConfondereLUtentePrima
+            // Shown only after a level has been picked, so the constraint does
+            // not confuse the user before it applies.
             if (_selectedLevel != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic)),
+                child: Text(
+                  'Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    color: AppTheme.mutedText,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
             _buildFieldLabel('Descrizione (opzionale)'),
-            TextField(controller: _descController, textCapitalization: TextCapitalization.sentences, maxLines: 4, minLines: 1, style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black), decoration: InputDecoration(hintText: 'Aggiungi una descrizione...', hintStyle: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFFB3B3B3), fontWeight: FontWeight.w500), focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF003C82), width: 1.5)))),
+            TextField(
+              controller: _descController,
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: 4,
+              minLines: 1,
+              style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black),
+              decoration: InputDecoration(
+                hintText: 'Aggiungi una descrizione...',
+                hintStyle: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  color: AppTheme.hint,
+                  fontWeight: FontWeight.w500,
+                ),
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -513,104 +795,160 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   Widget _buildStep2()
   {
-    final query = _subjectSearchCtrl.text.toLowerCase();
-    final filteredSubjects = widget.availableMinistrySubjects.where((m) => m.level == _selectedLevel && m.name.toLowerCase().contains(query)).toList();
+    final query = _subjectSearchController.text.toLowerCase();
+
+    final availableSubjects = widget.availableMinistrySubjects
+        .where((subject) => subject.level == _selectedLevel && subject.name.toLowerCase().contains(query))
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Seleziona le materie ministeriali associate', style: GoogleFonts.plusJakartaSans(fontSize: 16, color: const Color(0xFF003C82), fontWeight: FontWeight.w700)),
+          Text(
+            'Seleziona le materie ministeriali associate',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              color: AppTheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 12),
-          AnimatedSearchBar(controller: _subjectSearchCtrl, onChanged: (_) => setState((){}), hintText: 'Cerca materia ministeriale...'),
+          AnimatedSearchBar(
+            controller: _subjectSearchController,
+            onChanged: (_) => setState(() {}),
+            hintText: 'Cerca materia ministeriale...',
+          ),
           const SizedBox(height: 16),
-          Expanded(child: filteredSubjects.isEmpty ? Center(child: Text('Nessuna materia trovata per il livello.', style: GoogleFonts.plusJakartaSans(fontSize: 15, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic))) : SingleChildScrollView(child: Wrap(spacing: 12, runSpacing: 12, children: filteredSubjects.map((s) => CustomChip(label: s.name, isSelected: _selectedSubjects.contains(s.id), onSelected: (v) => setState(() { if (v) { _selectedSubjects.add(s.id); } else { _selectedSubjects.remove(s.id); } }))).toList()))),
+          Expanded(
+            child: availableSubjects.isEmpty
+                ? Center(
+                    child: Text(
+                      'Nessuna materia trovata per il livello.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        color: AppTheme.mutedText,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: availableSubjects.map((subject)
+                      {
+                        return CustomChip(
+                          label: subject.name,
+                          isSelected: _selectedSubjects.contains(subject.id),
+                          onSelected: (selected) => setState(()
+                          {
+                            if (selected)
+                            {
+                              _selectedSubjects.add(subject.id);
+                            }
+                            else
+                            {
+                              _selectedSubjects.remove(subject.id);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final isLastStep = _currentStep == 1;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        width: double.infinity,
+        height: 600,
+        constraints: const BoxConstraints(maxWidth: 650),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: AppTheme.dialogShadow,
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _isEditing
+                        ? 'Modifica Percorso (${_currentStep + 1}/2)'
+                        : 'Nuovo Percorso (${_currentStep + 1}/2)',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  FadeHoverIconButton(
+                    icon: Icons.close,
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
+                    onTap: _closeDialog,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [_buildStep1(), _buildStep2()],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: ResponsiveDialogButtonsRow(
+                secondaryButton: _currentStep > 0
+                    ? OutlinedActionButton(
+                        text: 'INDIETRO',
+                        icon: Icons.arrow_back_rounded,
+                        onPressed: _prevStep,
+                      )
+                    : AnimatedActionButton(
+                        text: 'ANNULLA',
+                        icon: Icons.cancel_outlined,
+                        baseColor: AppTheme.danger,
+                        hoverColor: AppTheme.dangerHover,
+                        onPressed: _closeDialog,
+                      ),
+                primaryButton: AnimatedActionButton(
+                  text: _isSaving
+                      ? 'SALVATAGGIO...'
+                      : (isLastStep ? (_isEditing ? 'SALVA MODIFICHE' : 'CREA PERCORSO') : 'AVANTI'),
+                  icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
+                  baseColor: AppTheme.primary,
+                  hoverColor: AppTheme.primaryHover,
+                  onPressed: _isSaving ? () {} : _nextStep,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-//DecideSoloSeAffiancareOImpilare_LaModalitaAffiancataRestaComEra_SoloLoStackingUsaLarghezzaFissa
-class _ResponsiveDialogButtonsRow extends StatelessWidget
-{
-  final Widget secondaryButton;
-  final Widget primaryButton;
-  final double breakpoint;
-
-  const _ResponsiveDialogButtonsRow
-  ({
-    required this.secondaryButton,
-    required this.primaryButton,
-    this.breakpoint = 460,
-  });
-
-  static const double _kStackedButtonWidth = 240;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return LayoutBuilder
-    (
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < breakpoint;
-
-        if (isCompact)
-        {
-          return Column
-          (
-            mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              SizedBox(width: _kStackedButtonWidth, child: primaryButton),
-              const SizedBox(height: 16),
-              SizedBox(width: _kStackedButtonWidth, child: secondaryButton),
-            ],
-          );
-        }
-
-        return Row
-        (
-          children: 
-          [
-            Expanded(child: secondaryButton),
-            const SizedBox(width: 16),
-            Expanded(child: primaryButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class CustomChip extends StatefulWidget { final String label; final bool isSelected; final ValueChanged<bool> onSelected; const CustomChip({required this.label, required this.isSelected, required this.onSelected, super.key}); @override State<CustomChip> createState() => _CustomChipState(); }
-class _CustomChipState extends State<CustomChip> { bool _isHovered = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTap: () => widget.onSelected(!widget.isSelected), child: AnimatedContainer(duration: const Duration(milliseconds: 150), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: widget.isSelected ? const Color(0xFF003C82) : (_isHovered ? const Color(0xFFF5F8FC) : Colors.white), borderRadius: BorderRadius.circular(100), border: Border.all(color: widget.isSelected ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.0)), child: AnimatedDefaultTextStyle(duration: const Duration(milliseconds: 150), style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: widget.isSelected ? Colors.white : const Color(0xFF003C82)), child: Text(widget.label))))); } }
-class _OutlinedActionButton extends StatefulWidget { final String text; final IconData icon; final VoidCallback onPressed; const _OutlinedActionButton({required this.text, required this.icon, required this.onPressed}); @override State<_OutlinedActionButton> createState() => _OutlinedActionButtonState(); }
-class _OutlinedActionButtonState extends State<_OutlinedActionButton> { bool _isHovered = false; bool _isPressed = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTapDown: (_) => setState(() => _isPressed = true), onTapUp: (_) { setState(() => _isPressed = false); widget.onPressed(); }, onTapCancel: () => setState(() => _isPressed = false), child: AnimatedScale(scale: _isPressed ? 0.95 : 1.0, duration: const Duration(milliseconds: 250), curve: Curves.easeOutQuint, child: AnimatedContainer(duration: const Duration(milliseconds: 250), curve: Curves.easeOutQuint, height: 56, decoration: BoxDecoration(color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF003C82), width: 1.5)), alignment: Alignment.center, child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(widget.icon, color: const Color(0xFF003C82), size: 20), const SizedBox(width: 8), Text(widget.text, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF003C82), letterSpacing: 1.2))]))))); } }
-class _FilterOption<T> { final T value; final String label; _FilterOption({required this.value, required this.label}); }
-class _CustomFilterMenu<T> extends StatefulWidget { final String hint; final IconData icon; final T? value; final List<_FilterOption<T>> options; final ValueChanged<T> onChanged; final VoidCallback onClear; final double menuWidth; final bool showClearIcon; const _CustomFilterMenu({required this.hint, required this.icon, required this.value, required this.options, required this.onChanged, required this.onClear, required this.menuWidth, required this.showClearIcon}); @override State<_CustomFilterMenu<T>> createState() => _CustomFilterMenuState<T>(); }
-class _CustomFilterMenuState<T> extends State<_CustomFilterMenu<T>> { final GlobalKey _buttonKey = GlobalKey(); OverlayEntry? _overlayEntry; final GlobalKey<_FilterOverlayContentState> _menuKey = GlobalKey(); bool _isHovered = false; void _toggleMenu() { if (_overlayEntry != null) { _closeMenu(); return; } final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox; final size = renderBox.size; final offset = renderBox.localToGlobal(Offset.zero); _overlayEntry = OverlayEntry(builder: (context) => Stack(children: [Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _closeMenu, child: Container())), Positioned(top: offset.dy + size.height + 8, left: offset.dx, child: _FilterOverlayContent<T>(key: _menuKey, currentValue: widget.value, options: widget.options, menuWidth: widget.menuWidth, onSelected: (val) { widget.onChanged(val); _closeMenu(); }))] )); Overlay.of(context).insert(_overlayEntry!); } void _closeMenu() async { if (_overlayEntry != null) { await _menuKey.currentState?.hide(); _overlayEntry?.remove(); _overlayEntry = null; } } @override Widget build(BuildContext context) { final bool isActive = widget.value != null; String displayText = widget.hint; if (isActive) { final selectedOption = widget.options.firstWhere((o) => o.value == widget.value, orElse: () => _FilterOption(value: widget.value!, label: '')); displayText = selectedOption.label; } return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false), child: GestureDetector(onTap: _toggleMenu, child: AnimatedContainer(key: _buttonKey, duration: const Duration(milliseconds: 200), height: 42, padding: EdgeInsets.only(left: 16, right: (isActive && widget.showClearIcon) ? 12 : 16), decoration: BoxDecoration(color: _isHovered || isActive ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: _isHovered || isActive ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.5), boxShadow: const [BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8)]), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(widget.icon, color: const Color(0xFF003C82), size: 18), const SizedBox(width: 8), ConstrainedBox(constraints: const BoxConstraints(maxWidth: 160), child: Text(displayText, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: isActive ? const Color(0xFF003C82) : const Color(0xFF8A8A8A)))), if (isActive && widget.showClearIcon) ...[const SizedBox(width: 8), GestureDetector(onTap: () { widget.onClear(); if (_overlayEntry != null) _closeMenu(); }, child: Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: .1), shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935))))]] )))); } }
-class _FilterOverlayContent<T> extends StatefulWidget { final T? currentValue; final List<_FilterOption<T>> options; final ValueChanged<T> onSelected; final double menuWidth; const _FilterOverlayContent({super.key, required this.currentValue, required this.options, required this.onSelected, required this.menuWidth}); @override State<_FilterOverlayContent<T>> createState() => _FilterOverlayContentState<T>(); }
-class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>> { bool _expanded = false; @override void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _expanded = true); }); } Future<void> hide() async { if (mounted) setState(() => _expanded = false); await Future.delayed(const Duration(milliseconds: 180)); } @override Widget build(BuildContext context) { return Material(color: Colors.transparent, child: Container(width: widget.menuWidth, constraints: const BoxConstraints(maxHeight: 350), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)]), child: AnimatedSize(duration: const Duration(milliseconds: 180), curve: Curves.easeOut, alignment: Alignment.topCenter, child: _expanded ? Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: widget.options.map((option) { return _FilterMenuItem(text: option.label, isSelected: widget.currentValue == option.value, onTap: () => widget.onSelected(option.value)); }).toList()))) : SizedBox(width: widget.menuWidth, height: 0)))); } }
-class _FilterMenuItem extends StatefulWidget { final String text; final bool isSelected; final VoidCallback onTap; const _FilterMenuItem({required this.text, required this.isSelected, required this.onTap}); @override State<_FilterMenuItem> createState() => _FilterMenuItemState(); }
-class _FilterMenuItemState extends State<_FilterMenuItem> { bool _hover = false; @override Widget build(BuildContext context) { return MouseRegion(cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _hover = true), onExit: (_) => setState(() => _hover = false), child: GestureDetector(onTap: widget.onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), color: Colors.transparent, child: Row(children: [AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: (_hover || widget.isSelected) ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))), const SizedBox(width: 10), Expanded(child: Text(widget.text, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82))))])))); } }
-//------------------------------------------------------------------
-//FiltroMultiSelezionePerMaterieMinisterialiEDiscipline_ChipCheApreUnDialogConAutocompletamento
-//------------------------------------------------------------------
-
-String _levelShortLabel(String level)
-{
-  switch (level)
-  {
-    case 'PRIMARY_SCHOOL': return 'Primaria';
-    case 'MIDDLE_SCHOOL': return 'Sec. I Grado';
-    case 'HIGH_SCHOOL': return 'Sec. II Grado';
-    default: return level;
-  }
-}
-
-//OpzioneGenericaIdPiuNome_UsataSiaPerLeMaterieMinisterialiCheLeDiscipline_SubtitleOpzionaleServeSoloADisambiguareOmonimiTraLivelli
+// Generic id plus name option, used both for ministry subjects and for
+// disciplines. The subtitle only disambiguates homonyms across levels.
 class _SubjectOption
 {
   final int id;
@@ -628,7 +966,13 @@ class _FilterChipButton extends StatefulWidget
   final VoidCallback onTap;
   final VoidCallback onClear;
 
-  const _FilterChipButton({required this.icon, required this.label, required this.count, required this.onTap, required this.onClear});
+  const _FilterChipButton({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+    required this.onClear,
+  });
 
   @override
   State<_FilterChipButton> createState() => _FilterChipButtonState();
@@ -641,29 +985,46 @@ class _FilterChipButtonState extends State<_FilterChipButton>
   @override
   Widget build(BuildContext context)
   {
-    final bool isActive = widget.count > 0;
-    final String displayText = isActive ? '${widget.label} (${widget.count})' : widget.label;
+    final isActive = widget.count > 0;
+    final isHighlighted = _isHovered || isActive;
+    final displayText = isActive ? '${widget.label} (${widget.count})' : widget.label;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200), height: 42, padding: EdgeInsets.only(left: 16, right: isActive ? 12 : 16),
+          duration: const Duration(milliseconds: 200),
+          height: 42,
+          padding: EdgeInsets.only(left: 16, right: isActive ? 12 : 16),
           decoration: BoxDecoration(
-            color: _isHovered || isActive ? const Color(0xFFF5F8FC) : Colors.white,
+            color: isHighlighted ? AppTheme.surfaceHover : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _isHovered || isActive ? const Color(0xFF003C82) : const Color(0xFFE0E5EC), width: 1.5),
-            boxShadow: const [BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8)],
+            border: Border.all(
+              color: isHighlighted ? AppTheme.primary : AppTheme.border,
+              width: 1.5,
+            ),
+            boxShadow: const [
+              BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, color: const Color(0xFF003C82), size: 18),
+              Icon(widget.icon, color: AppTheme.primary, size: 18),
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
-                child: Text(displayText, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: isActive ? const Color(0xFF003C82) : const Color(0xFF8A8A8A))),
+                child: Text(
+                  displayText,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    color: isActive ? AppTheme.primary : AppTheme.mutedText,
+                  ),
+                ),
               ),
               if (isActive) ...[
                 const SizedBox(width: 8),
@@ -671,8 +1032,11 @@ class _FilterChipButtonState extends State<_FilterChipButton>
                   onTap: widget.onClear,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: .1), shape: BoxShape.circle),
-                    child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger.withValues(alpha: .1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
                   ),
                 ),
               ],
@@ -706,8 +1070,9 @@ class _SubjectFilterDialog extends StatefulWidget
 
 class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
 {
+  final TextEditingController _searchController = TextEditingController();
+
   late Set<int> _selectedIds;
-  final TextEditingController _searchCtrl = TextEditingController();
 
   @override
   void initState()
@@ -719,19 +1084,21 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
   @override
   void dispose()
   {
-    _searchCtrl.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   List<_SubjectOption> get _selectedOptions
   {
-    final selected = widget.options.where((o) => _selectedIds.contains(o.id)).toList();
+    final selected = widget.options.where((option) => _selectedIds.contains(option.id)).toList();
     selected.sort((a, b) => a.name.compareTo(b.name));
+
     return selected;
   }
 
-  //OpzioniProposteInAutocomplete_EscludeQuelleGiaSelezionatePerNonMostrarleDueVolte
-  List<_SubjectOption> get _availableOptions => widget.options.where((o) => !_selectedIds.contains(o.id)).toList();
+  // Already selected options are not proposed again by the autocomplete.
+  List<_SubjectOption> get _availableOptions =>
+      widget.options.where((option) => !_selectedIds.contains(option.id)).toList();
 
   void _addOption(_SubjectOption option)
   {
@@ -745,21 +1112,35 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
 
   void _reset()
   {
-    setState(() {
+    setState(()
+    {
       _selectedIds.clear();
-      _searchCtrl.clear();
+      _searchController.clear();
     });
+  }
+
+  void _apply()
+  {
+    widget.onApply(_selectedIds);
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context)
   {
+    final selectedOptions = _selectedOptions;
+
     return Dialog(
-      backgroundColor: Colors.transparent, elevation: 0,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       child: Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 560),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 8), blurRadius: 24)]),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: AppTheme.dialogShadow,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -768,8 +1149,22 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(child: Text(widget.title, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF003C82)))),
-                  FadeHoverIconButton(icon: Icons.close, color: const Color(0xFF003C82), hoverColor: const Color(0xFFE3F2FD), onTap: () => Navigator.of(context).pop()),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ),
+                  FadeHoverIconButton(
+                    icon: Icons.close,
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
                 ],
               ),
             ),
@@ -779,17 +1174,36 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SubjectAutocompleteField(controller: _searchCtrl, hint: widget.hint, options: _availableOptions, onSelected: _addOption),
+                    _SubjectAutocompleteField(
+                      controller: _searchController,
+                      hint: widget.hint,
+                      options: _availableOptions,
+                      onSelected: _addOption,
+                    ),
                     const SizedBox(height: 16),
-                    if (_selectedOptions.isEmpty)
+                    if (selectedOptions.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Nessuna selezione.', style: GoogleFonts.plusJakartaSans(fontSize: 14, color: const Color(0xFF8A8A8A), fontStyle: FontStyle.italic)),
+                        child: Text(
+                          'Nessuna selezione.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            color: AppTheme.mutedText,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                       )
                     else
                       Wrap(
-                        spacing: 8, runSpacing: 8,
-                        children: _selectedOptions.map((o) => _DeletableChip(label: o.name, onDelete: () => _removeOption(o.id))).toList(),
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: selectedOptions.map((option)
+                        {
+                          return _DeletableChip(
+                            label: option.name,
+                            onDelete: () => _removeOption(option.id),
+                          );
+                        }).toList(),
                       ),
                     const SizedBox(height: 16),
                   ],
@@ -798,11 +1212,20 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
             ),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: _ResponsiveDialogButtonsRow(
-                secondaryButton: AnimatedActionButton(text: 'AZZERA', icon: Icons.refresh_rounded, baseColor: const Color(0xFFE53935), hoverColor: const Color(0xFFEF5350), onPressed: _reset),
+              child: ResponsiveDialogButtonsRow(
+                secondaryButton: AnimatedActionButton(
+                  text: 'AZZERA',
+                  icon: Icons.refresh_rounded,
+                  baseColor: AppTheme.danger,
+                  hoverColor: AppTheme.dangerHover,
+                  onPressed: _reset,
+                ),
                 primaryButton: AnimatedActionButton(
-                  text: 'APPLICA FILTRO', icon: Icons.check_circle_outline, baseColor: const Color(0xFF003C82), hoverColor: const Color(0xFF004D99),
-                  onPressed: () { widget.onApply(_selectedIds); Navigator.of(context).pop(); },
+                  text: 'APPLICA FILTRO',
+                  icon: Icons.check_circle_outline,
+                  baseColor: AppTheme.primary,
+                  hoverColor: AppTheme.primaryHover,
+                  onPressed: _apply,
                 ),
               ),
             ),
@@ -813,8 +1236,8 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
   }
 }
 
-//CampoDiRicercaConAutocompletamento_AdattatoDaPeopleFilterDialogPerLavorareSuIdInveceCheSuStringheSemplici
-//(NecessarioPerchéINomiDelleMaterieMinisterialiPossonoRipetersiTraLivelliDiversi_uq_level_ministry_subject_name)
+// Works on ids rather than plain strings, because ministry subject names can
+// repeat across levels (uq_level_ministry_subject_name).
 class _SubjectAutocompleteField extends StatefulWidget
 {
   final TextEditingController controller;
@@ -851,17 +1274,24 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
       textEditingController: widget.controller,
       focusNode: _focusNode,
       displayStringForOption: (option) => option.name,
-      optionsBuilder: (TextEditingValue textEditingValue)
+      optionsBuilder: (textEditingValue)
       {
-        if (textEditingValue.text.isEmpty) return const Iterable<_SubjectOption>.empty();
+        if (textEditingValue.text.isEmpty)
+        {
+          return const Iterable<_SubjectOption>.empty();
+        }
+
         final query = textEditingValue.text.toLowerCase();
-        return widget.options.where((o) => o.name.toLowerCase().contains(query));
+
+        return widget.options.where((option) => option.name.toLowerCase().contains(query));
       },
       onSelected: (option)
       {
         widget.onSelected(option);
-        //SvuotaIlCampoERiportaIlCursoreVisibileSubito_clear()DaSoloLasciaLaSelectionACollapsed(-1)ChePerFlutterVuolDireNessunCursoreDisegnato
-        Future.microtask(() 
+
+        // clear() alone leaves the selection collapsed at -1, which Flutter
+        // renders as no caret at all, so it is restored explicitly.
+        Future.microtask(()
         {
           widget.controller.clear();
           widget.controller.selection = const TextSelection.collapsed(offset: 0);
@@ -871,8 +1301,13 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
       fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
       {
         return Container(
-          height: 50, padding: const EdgeInsets.only(left: 16, right: 8),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE0E5EC), width: 1.5)),
+          height: 50,
+          padding: const EdgeInsets.only(left: 16, right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.border, width: 1.5),
+          ),
           child: Row(
             children: [
               Expanded(
@@ -880,13 +1315,21 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
                   controller: textEditingController,
                   focusNode: focusNode,
                   onChanged: (_) => setState(() {}),
-                  //InvioConfermaLopzioneEvidenziata(FrecceOPrimoRisultatoDiDefault)_LogicaInternaARawAutocomplete
                   onSubmitted: (_) => onFieldSubmitted(),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
                   decoration: InputDecoration(
                     hintText: widget.hint,
-                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w500, color: const Color(0xFFB3B3B3)),
-                    border: InputBorder.none, isCollapsed: true,
+                    hintStyle: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.hint,
+                    ),
+                    border: InputBorder.none,
+                    isCollapsed: true,
                   ),
                 ),
               ),
@@ -894,11 +1337,18 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
                 MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
-                    onTap: () { textEditingController.clear(); setState(() {}); },
+                    onTap: ()
+                    {
+                      textEditingController.clear();
+                      setState(() {});
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                      decoration: BoxDecoration(
+                        color: AppTheme.danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
                     ),
                   ),
                 ),
@@ -906,16 +1356,14 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
           ),
         );
       },
-      optionsViewBuilder: (context, onSelected, options) => _SubjectAutocompleteOptionsList(options: options, onSelected: onSelected),
+      optionsViewBuilder: (context, onSelected, options) => _SubjectAutocompleteOptionsList(
+        options: options,
+        onSelected: onSelected,
+      ),
     );
   }
 }
 
-//AltezzaFissaCondivisaTraItemExtentDelListViewEIlContainerDellaSingolaVoce_DeveCombaciareEsattamente
-const double _subjectOptionItemHeight = 44.0;
-
-//ListaScrollabileDeiSuggerimenti_SeguelElementoEvidenziatoDalleFrecceDellaTastieraAutoScrollandoQuandoEsceDallAreaVisibile
-//StessoPatternDi_CityOptionsListView(schools_tab.dart)
 class _SubjectAutocompleteOptionsList extends StatefulWidget
 {
   final Iterable<_SubjectOption> options;
@@ -929,10 +1377,12 @@ class _SubjectAutocompleteOptionsList extends StatefulWidget
 
 class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOptionsList>
 {
-  //PaddingVerticaleDelListView(UnLatoSolo)_UsatoNelCalcoloDelloScrollComeOffsetPrimaDelPrimoElemento
+  // Vertical padding of the ListView, on one side: it is the offset before the
+  // first item in the scroll computation below.
   static const double _verticalPadding = 8;
 
   final ScrollController _scrollController = ScrollController();
+
   int? _lastHighlightedIndex;
 
   @override
@@ -942,10 +1392,14 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
     super.dispose();
   }
 
-  //PortaInVistaLelementoEvidenziatoDalleFrecce_ScrollaSoloIlMinimoNecessario(NonCentraSemprelElemento)
+  // Scrolls by the minimum needed to reveal the arrow-highlighted option,
+  // rather than always centring it.
   void _ensureHighlightedVisible(int index)
   {
-    if (!_scrollController.hasClients) return;
+    if (!_scrollController.hasClients)
+    {
+      return;
+    }
 
     final itemTop = _verticalPadding + (index * _subjectOptionItemHeight);
     final itemBottom = itemTop + _subjectOptionItemHeight;
@@ -954,6 +1408,7 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
     final visibleBottom = visibleTop + viewportHeight;
 
     double? target;
+
     if (itemTop < visibleTop)
     {
       target = itemTop;
@@ -963,26 +1418,33 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
       target = itemBottom - viewportHeight;
     }
 
-    if (target != null)
+    if (target == null)
     {
-      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.jumpTo(clamped);
+      return;
     }
+
+    _scrollController.jumpTo(target.clamp(0.0, _scrollController.position.maxScrollExtent));
   }
 
   @override
   Widget build(BuildContext context)
   {
-    //LindiceEvidenziatoDalleFrecce_LeggerloQuiCreaLaDipendenzaReattivaDalNotifierERicostruisceQuestoWidgetAdOgniCambio
+    // Reading it here is what creates the reactive dependency on the notifier,
+    // so this widget rebuilds on every arrow key press.
     final highlightedIndex = AutocompleteHighlightedOption.of(context);
 
     if (_lastHighlightedIndex != highlightedIndex)
     {
       _lastHighlightedIndex = highlightedIndex;
-      //ScheduledDopoIlFrame_LoScrollableDeveEssereGiaLayoutatoPerConoscereViewportDimensionEMaxScrollExtent
+
+      // Deferred: the scrollable must already be laid out to expose
+      // viewportDimension and maxScrollExtent.
       WidgetsBinding.instance.addPostFrameCallback((_)
       {
-        if (mounted) _ensureHighlightedVisible(highlightedIndex);
+        if (mounted)
+        {
+          _ensureHighlightedVisible(highlightedIndex);
+        }
       });
     }
 
@@ -991,22 +1453,39 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 436, margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 200),
-          //ClipAntiAlias_ImpedisceAlloSfondoRettangolareDellUltimaVoceEvidenziataDiCoprireGliAngoliArrotondati
+          width: 436,
+          margin: const EdgeInsets.only(top: 8),
+          constraints: const BoxConstraints(maxHeight: 200),
+          // Keeps the highlighted row from painting over the rounded corners.
           clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 20, spreadRadius: 2)]),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.overlayShadow,
+          ),
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
             child: RawScrollbar(
-              controller: _scrollController, thumbVisibility: true, thickness: 6, radius: const Radius.circular(10), thumbColor: const Color(0xFFB3B3B3),
+              controller: _scrollController,
+              thumbVisibility: true,
+              thickness: 6,
+              radius: const Radius.circular(10),
+              thumbColor: AppTheme.hint,
               child: ListView.builder(
-                controller: _scrollController, padding: const EdgeInsets.symmetric(vertical: _verticalPadding), shrinkWrap: true,
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
+                shrinkWrap: true,
                 itemExtent: _subjectOptionItemHeight,
                 itemCount: widget.options.length,
                 itemBuilder: (context, index)
                 {
                   final option = widget.options.elementAt(index);
-                  return _SubjectAutocompleteItem(option: option, isHighlighted: index == highlightedIndex, onTap: () => widget.onSelected(option));
+
+                  return _SubjectAutocompleteItem(
+                    option: option,
+                    isHighlighted: index == highlightedIndex,
+                    onTap: () => widget.onSelected(option),
+                  );
                 },
               ),
             ),
@@ -1017,14 +1496,17 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
   }
 }
 
-//VoceDellaListaSuggerimenti_EvidenziataInHoverOTramiteFrecceDellaTastiera(isHighlighted)_StessoLinguaggioVisivoDi_CityOptionTile
 class _SubjectAutocompleteItem extends StatefulWidget
 {
   final _SubjectOption option;
   final bool isHighlighted;
   final VoidCallback onTap;
 
-  const _SubjectAutocompleteItem({required this.option, required this.isHighlighted, required this.onTap});
+  const _SubjectAutocompleteItem({
+    required this.option,
+    required this.isHighlighted,
+    required this.onTap,
+  });
 
   @override
   State<_SubjectAutocompleteItem> createState() => _SubjectAutocompleteItemState();
@@ -1037,22 +1519,53 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
   @override
   Widget build(BuildContext context)
   {
-    final bool active = widget.isHighlighted || _hover;
+    final isActive = widget.isHighlighted || _hover;
+    final subtitle = widget.option.subtitle;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click, onEnter: (_) => setState(() => _hover = true), onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
-          width: double.infinity, height: _subjectOptionItemHeight, color: active ? const Color(0xFFF5F8FC) : Colors.transparent, padding: const EdgeInsets.symmetric(horizontal: 16),
+          width: double.infinity,
+          height: _subjectOptionItemHeight,
+          color: isActive ? AppTheme.surfaceHover : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              AnimatedContainer(duration: const Duration(milliseconds: 150), width: 2, height: active ? 16 : 0, decoration: BoxDecoration(color: const Color(0xFF003C82), borderRadius: BorderRadius.circular(2))),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 2,
+                height: isActive ? 16 : 0,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               const SizedBox(width: 10),
-              Expanded(child: Text(widget.option.name, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF003C82)))),
-              if (widget.option.subtitle != null) ...[
+              Expanded(
+                child: Text(
+                  widget.option.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+              if (subtitle != null) ...[
                 const SizedBox(width: 8),
-                Text(widget.option.subtitle!, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A))),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.mutedText,
+                  ),
+                ),
               ],
             ],
           ),
@@ -1062,7 +1575,8 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
   }
 }
 
-//DuplicataDaPeopleFilterDialog_LeClassiPrivateNonSiPossonoCondividereTraFileDart
+// Also present in people_filter_dialog.dart: private classes cannot be shared
+// between Dart files.
 class _DeletableChip extends StatefulWidget
 {
   final String label;
@@ -1082,14 +1596,27 @@ class _DeletableChipState extends State<_DeletableChip>
   Widget build(BuildContext context)
   {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true), onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150), padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
-        decoration: BoxDecoration(color: _isHovered ? const Color(0xFFF5F8FC) : Colors.white, borderRadius: BorderRadius.circular(100), border: Border.all(color: const Color(0xFFE0E5EC), width: 1.0)),
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
+        decoration: BoxDecoration(
+          color: _isHovered ? AppTheme.surfaceHover : Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: AppTheme.border, width: 1.0),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.label, style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF003C82))),
+            Text(
+              widget.label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primary,
+              ),
+            ),
             const SizedBox(width: 8),
             MouseRegion(
               cursor: SystemMouseCursors.click,
@@ -1097,8 +1624,11 @@ class _DeletableChipState extends State<_DeletableChip>
                 onTap: widget.onDelete,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: const Color(0xFFE53935).withValues(alpha: 0.1), shape: BoxShape.circle),
-                  child: const Icon(Icons.close_rounded, size: 16, color: Color(0xFFE53935)),
+                  decoration: BoxDecoration(
+                    color: AppTheme.danger.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
                 ),
               ),
             ),

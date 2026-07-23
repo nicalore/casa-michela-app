@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
+
+const Color _idleBorder = Color(0xFFC7CDD4);
+const Color _inputText = Color(0xFF1A1A1A);
+const Color _iconColor = Color(0xFF6B7280);
+
+const String _fontFamily = 'Plus Jakarta Sans';
+
 class LoginTextField extends StatefulWidget
 {
   final TextEditingController controller;
@@ -19,38 +27,50 @@ class _LoginTextFieldState extends State<LoginTextField>
 {
   final FocusNode _focusNode = FocusNode();
 
-  bool _focused = false;
+  bool _isFocused = false;
   bool _showPassword = false;
 
   @override
   void initState()
   {
     super.initState();
-
-    //Listen to focus changes to animate text field borders
-    _focusNode.addListener(()
-    {
-      setState(()
-      {
-        _focused = _focusNode.hasFocus;
-      });
-    });
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose()
   {
-    //Release resources
     _focusNode.dispose();
-    
     super.dispose();
+  }
+
+  void _onFocusChanged()
+  {
+    setState(() => _isFocused = _focusNode.hasFocus);
+  }
+
+  // The four transparent overlay colours suppress the default IconButton
+  // ripple, which would clash with the flat border animation.
+  Widget _buildVisibilityToggle()
+  {
+    return IconButton(
+      onPressed: () => setState(() => _showPassword = !_showPassword),
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      icon: Icon(
+        _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 28,
+        color: _iconColor,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    //Calculate if text should be obscured
-    final bool actuallyObscured = widget.obscureText && !_showPassword;
+    final isObscured = widget.obscureText && !_showPassword;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -59,54 +79,28 @@ class _LoginTextFieldState extends State<LoginTextField>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _focused ? const Color(0xFF003C82) : const Color(0xFFC7CDD4),
-          width: _focused ? 2 : 1,
+          color: _isFocused ? AppTheme.primary : _idleBorder,
+          width: _isFocused ? 2 : 1,
         ),
       ),
       child: TextField(
         controller: widget.controller,
         focusNode: _focusNode,
-        obscureText: actuallyObscured,
+        obscureText: isObscured,
         style: const TextStyle(
-          fontFamily: 'Plus Jakarta Sans',
+          fontFamily: _fontFamily,
           fontSize: 17,
           fontWeight: FontWeight.w500,
-          color: Color(0xFF1A1A1A),
+          color: _inputText,
         ),
         decoration: InputDecoration(
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 18,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
           disabledBorder: InputBorder.none,
-
-          //Toggle password visibility
-          suffixIcon: widget.obscureText
-              ? IconButton(
-                  onPressed: ()
-                  {
-                    setState(()
-                    {
-                      _showPassword = !_showPassword;
-                    });
-                  },
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  focusColor: Colors.transparent,
-                  icon: Icon(
-                    _showPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 28,
-                    color: const Color(0xFF6B7280),
-                  ),
-                )
-              : null,
+          suffixIcon: widget.obscureText ? _buildVisibilityToggle() : null,
         ),
       ),
     );

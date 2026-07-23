@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/config/api_config.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
-
-import '../../../core/config/api_config.dart';
 
 class ProfileTab extends StatefulWidget 
 {
@@ -112,8 +112,8 @@ class _ProfileTabState extends State<ProfileTab>
     return role;
   }
 
-  //StacksToNewLineInsteadOfOverflowing_WasAPlainRowBeforeWithNoWrapAndNoScroll
-  Widget _buildSubNavigation() 
+  // Wraps to a new line instead of overflowing (was previously a plain Row).
+  Widget _buildSubNavigation()
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 32.0),
@@ -142,9 +142,9 @@ class _ProfileTabState extends State<ProfileTab>
                   vertical:   10,
                 ),
                 decoration: BoxDecoration(
-                  color:  isSelected ? const Color(0xFF003C82) : Colors.white,
+                  color:  isSelected ? AppTheme.primary : Colors.white,
                   border: Border.all(
-                    color: isSelected ? const Color(0xFF003C82) : const Color(0xFFE2E8F0),
+                    color: isSelected ? AppTheme.primary : AppTheme.slate200,
                   ),
                   borderRadius: BorderRadius.circular(24),
                 ),
@@ -154,7 +154,7 @@ class _ProfileTabState extends State<ProfileTab>
                   style:    GoogleFonts.plusJakartaSans(
                     fontSize:   14,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color:      isSelected ? Colors.white : const Color(0xFF64748B),
+                    color:      isSelected ? Colors.white : AppTheme.slate500,
                   ),
                   child: Text(_subTabs[index]),
                 ),
@@ -174,7 +174,7 @@ class _ProfileTabState extends State<ProfileTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child:   CircularProgressIndicator(color: Color(0xFF003C82)),
+          child:   CircularProgressIndicator(color: AppTheme.primary),
         ),
       );
     }
@@ -189,7 +189,7 @@ class _ProfileTabState extends State<ProfileTab>
             style: GoogleFonts.plusJakartaSans(
               fontSize:   18,
               fontWeight: FontWeight.w600,
-              color:      const Color( 0xFF94A3B8),
+              color:      AppTheme.slate400,
             ),
           ),
         ),
@@ -243,8 +243,9 @@ class _ProfileTabState extends State<ProfileTab>
               _buildSubNavigation(),
 
               if (_selectedSubTab == 0) ...[
-                //StacksVerticallyBelowTheBreakpoint_LayoutBuilderStaysOutsideIntrinsicHeight
-                //SameFixAppliedInPersonInfoTab_NeverNestLayoutBuilderInsideIntrinsicHeight
+                // Stacks vertically below the breakpoint; the LayoutBuilder stays
+                // outside IntrinsicHeight (same fix as in PersonInfoTab — never nest
+                // a LayoutBuilder inside an IntrinsicHeight).
                 _ResponsiveCardPair(
                   first: _ProfileSectionCard(
                     title:       'Identità',
@@ -336,7 +337,8 @@ class _ProfileTabState extends State<ProfileTab>
                       leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
                       rows: [
                         _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                        //IbanNascostoDiDefault_MostratoSoloAlTapSull'iconaOcchio_VediIsSensitiveInInfoRowData
+                        // IBAN hidden by default, revealed only when the eye icon
+                        // is tapped (see isSensitive on _InfoRowData).
                         _InfoRowData(
                           'IBAN',
                           person.iban?.isNotEmpty == true ? person.iban! : '-',
@@ -426,31 +428,25 @@ class _ResponsiveCardPair extends StatelessWidget
 {
   final Widget first;
   final Widget second;
-  final double breakpoint;
 
-  const _ResponsiveCardPair
-  ({
+  const _ResponsiveCardPair({
     required this.first,
     required this.second,
-    this.breakpoint = 820.0,
   });
 
   @override
-  Widget build(BuildContext context) 
+  Widget build(BuildContext context)
   {
-    return LayoutBuilder
-    (
-      builder: (context, constraints) 
+    return LayoutBuilder(
+      builder: (context, constraints)
       {
-        final bool isCompact = constraints.maxWidth < breakpoint;
+        final bool isCompact = constraints.maxWidth < 820.0;
 
-        if (isCompact) 
+        if (isCompact)
         {
-          return Column
-          (
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
+            children: [
               first,
               const SizedBox(height: 24),
               second,
@@ -458,13 +454,10 @@ class _ResponsiveCardPair extends StatelessWidget
           );
         }
 
-        return IntrinsicHeight
-        (
-          child: Row
-          (
+        return IntrinsicHeight(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
+            children: [
               Expanded(child: first),
               const SizedBox(width: 24),
               Expanded(child: second),
@@ -495,20 +488,13 @@ class _ProfileSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    //Card selection area
     return SelectionArea(
       child: Container(
         padding:    const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color:        Colors.white,
           borderRadius: BorderRadius.circular(40),
-          boxShadow:    const [
-            BoxShadow(
-              color:      Color(0x0A000000),
-              offset:     Offset(0, 4),
-              blurRadius: 16,
-            ),
-          ],
+          boxShadow:    AppTheme.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +513,7 @@ class _ProfileSectionCard extends StatelessWidget
                       style: GoogleFonts.plusJakartaSans(
                         fontSize:   26,
                         fontWeight: FontWeight.w700,
-                        color:      const Color(0xFF003C82),
+                        color:      AppTheme.primary,
                         height:     1.1,
                       ),
                     ),
@@ -583,7 +569,7 @@ class _ProfileSectionCard extends StatelessWidget
       } 
       else if (rowData.isSensitive)
       {
-        //RigaMascherataDiDefault_ToggleGestitoInternamenteDaObscurableInfoRow
+        // Masked by default; the show/hide toggle is handled inside _ObscurableInfoRow.
         rowWidget = _ObscurableInfoRow(
           label:      rowData.label,
           value:      rowData.value,
@@ -635,15 +621,15 @@ class _StaticAvatar extends StatelessWidget
       child: Icon(
         icon, 
         size:  44, 
-        color: const Color(0xFF003C82),
+        color: AppTheme.primary,
       ),
     );
   }
 }
 
-//SingolaIconaCliccabileMostrataDentroL'OverlayScuroSull'Avatar
-//OraStatefulPerchéServeUnHoverIndipendenteDallo_isHoveringDell'AvatarPadre_
-//CheGestisceSoloComparsa/ScomparsaDell'IntestCoppiaDiIcone
+// A single clickable icon shown inside the dark overlay on the avatar.
+// Stateful because it needs its own hover state, independent from the parent
+// avatar's _isHovering (which only drives the icon pair appearing/disappearing).
 class _AvatarIconButton extends StatefulWidget
 {
   final IconData      icon;
@@ -717,13 +703,13 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  //FIX_SFARFALLIO_HOVER: il cache buster viene generato una sola volta
-  //(initState) e rigenerato SOLO quando profileImageUrl cambia davvero
-  //(didUpdateWidget), non ad ogni rebuild. Prima il getter lo ricalcolava
-  //ogni volta: ogni hover faceva setState -> rebuild -> nuovo timestamp ->
-  //nuova ValueKey -> CircleAvatar ricreato da zero -> flash del
-  //backgroundColor mentre la NetworkImage ripartiva. Stessa causa/fix già
-  //presente in DashboardHeader (_sessionCacheBuster).
+  // Hover-flicker fix: the cache buster is generated once (initState) and
+  // regenerated only when profileImageUrl actually changes (didUpdateWidget),
+  // not on every rebuild. Previously the getter recomputed it each time, so
+  // every hover ran setState -> rebuild -> new timestamp -> new ValueKey ->
+  // CircleAvatar rebuilt from scratch -> backgroundColor flash while the
+  // NetworkImage reloaded. Same cause/fix as in DashboardHeader
+  // (_sessionCacheBuster).
   late String _cacheBuster;
 
   @override
@@ -761,8 +747,9 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     return '$url?v=$_cacheBuster';
   }
 
-  //StessaLogicaDiPersonCard_PrimaLetteraNomeEPrimaLetteraCognome
-  String get _initials 
+  // Same logic as PersonCard: first letter of the first name plus first letter
+  // of the last name.
+  String get _initials
   {
     final String first = widget.firstName.isNotEmpty ? widget.firstName[0] : '';
     final String last  = widget.lastName.isNotEmpty  ? widget.lastName[0]  : '';
@@ -817,9 +804,10 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     }
   }
 
-  //StileAllineatoAlDialogDiConfermaUsatoInPersonParentsTab_PerRimuoviResponsabilitàGenitoriali
-  //StessoShape_StessiColori_StessoButtonStyleSenzaOverlayDiHover
-  Future<void> _confirmAndDeleteImage() async 
+  // Styled to match the confirmation dialog in PersonParentsTab (removing a
+  // parental responsibility): same shape, colors and button style, with no
+  // hover overlay.
+  Future<void> _confirmAndDeleteImage() async
   {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -830,7 +818,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
           'Rimuovi Foto Profilo',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
-            color:      const Color(0xFF003C82),
+            color:      AppTheme.primary,
           ),
         ),
         content: Text(
@@ -846,7 +834,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
             child: Text(
               'ANNULLA',
               style: GoogleFonts.plusJakartaSans(
-                color:      const Color(0xFF64748B),
+                color:      AppTheme.slate500,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -859,7 +847,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
             child: Text(
               'RIMUOVI',
               style: GoogleFonts.plusJakartaSans(
-                color:      const Color(0xFFE53935),
+                color:      AppTheme.danger,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -937,7 +925,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize:   32,
                       fontWeight: FontWeight.w700,
-                      color:      const Color(0xFF003C82),
+                      color:      AppTheme.primary,
                     ),
                   )
                 : null,
@@ -962,7 +950,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
               ),
             )
           else
-            //OverlayUnicoSull'InteroCerchio_MatitaECestinoCompaionoInsiemeAlHover
+            // Single overlay over the whole circle; the edit and delete icons
+            // appear together on hover.
             MouseRegion(
               cursor:  SystemMouseCursors.click,
               onEnter: (_) => setState(() => _isHovering = true),
@@ -1057,8 +1046,8 @@ class _ProfileInfoRow extends StatelessWidget
   }
 }
 
-//StessaLogicaDelToggleUsataInLoginTextField_MaStatoLocaleAllaSingolaRigaInveceCheAlCampoDiInput
-//DefaultNascosto__isVisibleParteFalse_ComeRichiesto
+// Same show/hide toggle as LoginTextField, but the state lives on the single
+// row instead of an input field. Hidden by default (_isVisible starts false).
 class _ObscurableInfoRow extends StatefulWidget
 {
   final String label;
@@ -1079,10 +1068,11 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
 {
   bool _isVisible = false;
 
-  //NessunaIconaDaMostrareSeIlValoreEAssente_NonHaSensoUnToggleSuUnTrattino
+  // No toggle icon when the value is absent — toggling a dash makes no sense.
   bool get _hasValue => widget.value.isNotEmpty && widget.value != '-';
 
-  //SostituisceOgniCarattereNonSpazioConUnPallino_CosìLaStrutturaAGruppiRestaLeggibile
+  // Replaces every non-space character with a bullet, keeping the group
+  // structure readable.
   String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
 
   @override
@@ -1137,7 +1127,7 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
               size:  22,
-              color: const Color(0xFF6B7280),
+              color: AppTheme.secondaryText,
             ),
           ),
       ],
@@ -1161,14 +1151,14 @@ class _RoleChip extends StatelessWidget
       decoration: BoxDecoration(
         color:        const Color(0xFFF5F7FA),
         borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: const Color(0xFFE0E5EC)),
+        border:       Border.all(color: AppTheme.border),
       ),
       child: Text(
         label,
         style: GoogleFonts.plusJakartaSans(
           fontSize:   14,
           fontWeight: FontWeight.w600,
-          color:      const Color(0xFF64748B),
+          color:      AppTheme.slate500,
         ),
       ),
     );

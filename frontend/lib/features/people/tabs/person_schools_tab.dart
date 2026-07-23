@@ -1,9 +1,11 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/school_item.dart';
@@ -12,7 +14,45 @@ import '../models/person_item.dart';
 import '../models/school_enrollment_item.dart';
 import '../person_wizard_components.dart';
 
-class PersonSchoolsTab extends StatelessWidget {
+const Color _subtleBackground = Color(0xFFF8FAFC);
+const Color _disabledText = Color(0xFFCBD5E1);
+const Color _strongTextColor = Color(0xFF2A2A2A);
+
+// Month the school year starts in: before September the current year is still the
+// previous one.
+const int _schoolYearStartMonth = 9;
+
+// Single source of truth for the grade labels, used both to show a saved grade and
+// to translate the chosen one back. Study programs can span up to eight years, so
+// the map has to cover them all: a shorter one would turn an unknown label back
+// into the first year.
+const Map<int, String> _gradeLabels = {
+  1: 'I',
+  2: 'II',
+  3: 'III',
+  4: 'IV',
+  5: 'V',
+  6: 'VI',
+  7: 'VII',
+  8: 'VIII',
+};
+
+final Map<String, int> _gradeNumbers = {
+  for (final entry in _gradeLabels.entries) entry.value: entry.key,
+};
+
+/// Start year of the running school year.
+int currentSchoolYearStart()
+{
+  final now = DateTime.now();
+
+  return now.month < _schoolYearStartMonth ? now.year - 1 : now.year;
+}
+
+String _gradeLabel(int grade) => _gradeLabels[grade] ?? grade.toString();
+
+class PersonSchoolsTab extends StatelessWidget
+{
   final PersonItem person;
   final VoidCallback onUpdate;
 
@@ -22,72 +62,130 @@ class PersonSchoolsTab extends StatelessWidget {
     required this.onUpdate,
   });
 
-  int _getCurrentSchoolYearStart() {
-    final now = DateTime.now();
-    return now.month < 9 ? now.year - 1 : now.year;
-  }
+  // Repeating a year means the same grade at the same education level as the year
+  // before: moving from third year of middle school to third of high school is a
+  // progression, not a repeat.
+  bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
+  {
+    final previous =
+        all.where((item) => item.startYear == current.startYear - 1).firstOrNull;
 
-  bool _isRipetente(
-    SchoolEnrollmentItem current,
-    List<SchoolEnrollmentItem> all,
-  ) {
-    final previous = all
-        .where((e) => e.startYear == current.startYear - 1)
-        .firstOrNull;
-    if (previous == null) {
+    if (previous == null)
+    {
       return false;
     }
+
     return current.grade == previous.grade &&
         current.educationLevel == previous.educationLevel;
   }
 
-  String _getRomanGrade(int grade) {
-    const map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V'};
-    return map[grade] ?? grade.toString();
+  void _showEditDialog(BuildContext context)
+  {
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'EditSchools',
+      builder: (context) => _EditSchoolsDialog(person: person, onUpdate: onUpdate),
+    );
   }
 
-  void _showEditDialog(BuildContext context) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'EditSchools',
-      barrierColor: Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) =>
-          const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: _EditSchoolsDialog(person: person, onUpdate: onUpdate),
-            ),
+  Widget _buildInfoItem(String label, String value, {bool highlight = false})
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.slate400,
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: highlight ? AppTheme.danger : AppTheme.slate700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnrollmentCard(
+    SchoolEnrollmentItem item,
+    List<SchoolEnrollmentItem> all, {
+    required bool isCurrent,
+  })
+  {
+    return SelectionArea(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3), width: 2.0),
+          // Only the running year is raised, so it stands out among the history.
+          boxShadow: isCurrent ? AppTheme.cardShadow : null,
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Anno scolastico ${item.startYear}/${item.startYear + 1}',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.slate700,
+              ),
+            ),
+            const SizedBox(height: 32),
+            _ResponsiveInfoItemsRow(
+              items: [
+                _buildInfoItem('Scuola', item.schoolName),
+                _buildInfoItem('Livello', item.educationLevel),
+                _buildInfoItem('Percorso', item.studyProgramName),
+                _buildInfoItem('Classe', _gradeLabel(item.grade)),
+                _buildInfoItem(
+                  'Ripetente',
+                  _isRepeating(item, all) ? 'Sì' : 'No',
+                  highlight: _isRepeating(item, all),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String text)
+  {
+    return Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.primary,
+      ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final List<SchoolEnrollmentItem> enrollments =
-        List<SchoolEnrollmentItem>.from(person.schoolEnrollments ?? []);
+  Widget build(BuildContext context)
+  {
+    final enrollments = [...?person.schoolEnrollments];
     enrollments.sort((a, b) => b.startYear.compareTo(a.startYear));
 
-    final currentYear = _getCurrentSchoolYearStart();
-    final SchoolEnrollmentItem? current = enrollments
-        .where((e) => e.startYear == currentYear)
-        .firstOrNull;
-    final List<SchoolEnrollmentItem> past = enrollments
-        .where((e) => e.startYear < currentYear)
-        .toList();
+    final currentYear = currentSchoolYearStart();
+    final current =
+        enrollments.where((item) => item.startYear == currentYear).firstOrNull;
+    final past = enrollments.where((item) => item.startYear < currentYear).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 40),
@@ -95,34 +193,18 @@ class PersonSchoolsTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (current != null) ...[
-            Text(
-              'Anno scolastico attuale',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF003C82),
-              ),
-            ),
+            _buildSectionTitle('Anno scolastico attuale'),
             const SizedBox(height: 16),
             _buildEnrollmentCard(current, enrollments, isCurrent: true),
             const SizedBox(height: 48),
           ],
           if (past.isNotEmpty) ...[
-            Text(
-              'Anni scolastici passati',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF003C82),
-              ),
-            ),
+            _buildSectionTitle('Anni scolastici passati'),
             const SizedBox(height: 16),
-            ...past.map(
-              (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildEnrollmentCard(m, enrollments, isCurrent: false),
-              ),
-            ),
+            ...past.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildEnrollmentCard(item, enrollments, isCurrent: false),
+                )),
           ],
           if (current == null && past.isEmpty) ...[
             const SizedBox(height: 32),
@@ -132,7 +214,7 @@ class PersonSchoolsTab extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
+                  color: AppTheme.slate500,
                 ),
               ),
             ),
@@ -144,8 +226,8 @@ class PersonSchoolsTab extends StatelessWidget {
               child: AnimatedActionButton(
                 text: 'MODIFICA ANNI SCOLASTICI',
                 icon: Icons.edit_rounded,
-                baseColor: const Color(0xFF003C82),
-                hoverColor: const Color(0xFF004D99),
+                baseColor: AppTheme.primary,
+                hoverColor: AppTheme.primaryHover,
                 onPressed: () => _showEditDialog(context),
               ),
             ),
@@ -154,132 +236,40 @@ class PersonSchoolsTab extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildEnrollmentCard(
-    SchoolEnrollmentItem item,
-    List<SchoolEnrollmentItem> all, {
-    required bool isCurrent,
-  }) {
-    final bool isRipetente = _isRipetente(item, all);
-
-    return SelectionArea(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF003C82).withValues(alpha: 0.3),
-            width: 2.0,
-          ),
-          boxShadow: isCurrent
-              ? const [
-                  BoxShadow(
-                    color: Color(0x0A000000),
-                    offset: Offset(0, 4),
-                    blurRadius: 16,
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isCurrent) ...[const SizedBox(width: 12)],
-                Text(
-                  'Anno scolastico ${item.startYear}/${item.startYear + 1}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF334155),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            //StacksVerticallyOnlyWhenTheAvailableWidthCantFitAllInfoItemsSideBySide
-            //RipristinatoDopoUnaRichiestaPrecedenteChiedevaSempreImpilato_ErroreCorretto
-            _ResponsiveInfoItemsRow(
-              items: [
-                _buildInfoItem('Scuola', item.schoolName),
-                _buildInfoItem('Livello', item.educationLevel),
-                _buildInfoItem('Percorso', item.studyProgramName),
-                _buildInfoItem('Classe', _getRomanGrade(item.grade)),
-                _buildInfoItem(
-                  'Ripetente',
-                  isRipetente ? 'Sì' : 'No',
-                  highlight: isRipetente,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String label, String value, {bool highlight = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF94A3B8),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: highlight
-                ? const Color(0xFFE53935)
-                : const Color(0xFF334155),
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
 }
 
-//DecidesBetweenSideBySideAndStackedInfoItems_BasedOnActualAvailableWidth
-//ThresholdScalesWithTheNumberOfItems_StessoCriterioDi_ResponsiveDateItemsRow_InPersonMembershipsTab
-class _ResponsiveInfoItemsRow extends StatelessWidget {
-  final List<Widget> items;
-  final double minItemWidth;
+// Side by side while every item has room, stacked otherwise. The threshold scales
+// with the number of items.
+class _ResponsiveInfoItemsRow extends StatelessWidget
+{
+  static const double _minItemWidth = 150;
 
-  const _ResponsiveInfoItemsRow({required this.items, this.minItemWidth = 150});
+  final List<Widget> items;
+
+  const _ResponsiveInfoItemsRow({required this.items});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final double neededWidth = items.length * minItemWidth;
-        final bool isCompact = constraints.maxWidth < neededWidth;
-
-        if (isCompact) {
-          final List<Widget> stacked = [];
-          for (int i = 0; i < items.length; i++) {
-            if (i > 0) stacked.add(const SizedBox(height: 20));
-            stacked.add(items[i]);
-          }
-          return Column(mainAxisSize: MainAxisSize.min, children: stacked);
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < items.length * _minItemWidth)
+        {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(height: 20),
+                items[i],
+              ],
+            ],
+          );
         }
 
-        //EachItemWrappedInExpanded_InsteadOfLeftAtItsNaturalWidthWithspaceEvenly
-        //NamesLikeSchoolOrStudyProgramCanBeMuchLongerThanTheEstimated150pxPerItem
-        //ExpandedGuaranteesNoOverflowRegardlessOfContentLength_TextWrapsToASecondLineInstead
+        // Expanded rather than spaceEvenly: a school or programme name can be far
+        // longer than the estimated width per item, and Expanded lets it wrap to a
+        // second line instead of overflowing the row.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: items.map((item) => Expanded(child: item)).toList(),
@@ -289,81 +279,14 @@ class _ResponsiveInfoItemsRow extends StatelessWidget {
   }
 }
 
-//UsataNelBottomBarDelDialogModifica_ImpilaTastiSottoSoglia_ConfermaSopra_AnnullaSempreInFondo
-//StessoCriterioUsatoPerLeIscrizioni_MaConWizardAnimatedActionButton_CoerenteConQuestoFile
-class _ResponsiveDialogButtonsRow extends StatelessWidget {
-  final String cancelText;
-  final IconData cancelIcon;
-  final Color cancelColor;
-  final Color cancelHoverColor;
-  final VoidCallback cancelOnPressed;
+// Year, school, programme and grade side by side, stacked below the threshold.
+// Once stacked the remove button moves next to the grade, aligned to its bottom.
+class _ResponsiveFourFieldRow extends StatelessWidget
+{
+  // Below this width four fields side by side become unreadable, school and
+  // programme in particular.
+  static const double _breakpoint = 700;
 
-  final String confirmText;
-  final IconData confirmIcon;
-  final Color confirmColor;
-  final Color confirmHoverColor;
-  final VoidCallback confirmOnPressed;
-
-  const _ResponsiveDialogButtonsRow({
-    required this.cancelText,
-    required this.cancelIcon,
-    required this.cancelColor,
-    required this.cancelHoverColor,
-    required this.cancelOnPressed,
-    required this.confirmText,
-    required this.confirmIcon,
-    required this.confirmColor,
-    required this.confirmHoverColor,
-    required this.confirmOnPressed,
-  });
-
-  static const double _kBreakpoint = 460;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget cancelButton = WizardAnimatedActionButton(
-          text: cancelText,
-          icon: cancelIcon,
-          baseColor: cancelColor,
-          hoverColor: cancelHoverColor,
-          onPressed: cancelOnPressed,
-        );
-
-        final Widget confirmButton = WizardAnimatedActionButton(
-          text: confirmText,
-          icon: confirmIcon,
-          baseColor: confirmColor,
-          hoverColor: confirmHoverColor,
-          onPressed: confirmOnPressed,
-        );
-
-        if (isCompact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [confirmButton, const SizedBox(height: 16), cancelButton],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: cancelButton),
-            const SizedBox(width: 16),
-            Expanded(child: confirmButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-//DecideSeAffiancareOImpilareIQuattroCampiDellaRigaScuola_InBaseAllaLarghezzaReale
-//RiceveIBlocchiGiaCostruiti_LaLogicaDiCalcoloDeiDropdownRestaNelDialogParent
-//IlBottoneDiRimozioneSiAffiancaAllUltimoCampo_ClasseQuandoImpilato_StessoCriterioDelleIscrizioni
-class _ResponsiveFourFieldRow extends StatelessWidget {
   final Widget yearField;
   final Widget schoolField;
   final Widget programField;
@@ -378,16 +301,14 @@ class _ResponsiveFourFieldRow extends StatelessWidget {
     required this.onRemove,
   });
 
-  //SottoQuestaLarghezza4CampiAffiancatiDiventanoIllegibili_SchoolEProgramInParticolare
-  static const double _kBreakpoint = 700;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        if (isCompact) {
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < _breakpoint)
+        {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -430,7 +351,29 @@ class _ResponsiveFourFieldRow extends StatelessWidget {
   }
 }
 
-class _EditSchoolsDialog extends StatefulWidget {
+class _SchoolRowData
+{
+  final TextEditingController yearController;
+
+  SchoolItem? selectedSchool;
+  StudyProgramItem? selectedProgram;
+  String? selectedGrade;
+
+  _SchoolRowData({
+    required this.yearController,
+    this.selectedSchool,
+    this.selectedProgram,
+    this.selectedGrade,
+  });
+
+  void dispose()
+  {
+    yearController.dispose();
+  }
+}
+
+class _EditSchoolsDialog extends StatefulWidget
+{
   final PersonItem person;
   final VoidCallback onUpdate;
 
@@ -440,8 +383,11 @@ class _EditSchoolsDialog extends StatefulWidget {
   State<_EditSchoolsDialog> createState() => _EditSchoolsDialogState();
 }
 
-class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
+class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
+{
   final ApiService _apiService = ApiService();
+  final List<_SchoolRowData> _rows = [];
+  final Map<String, String> _errors = {};
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -449,17 +395,28 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
   List<SchoolItem> _allSchools = [];
   List<StudyProgramItem> _allPrograms = [];
 
-  final List<_SchoolRowData> _rows = [];
-  final Map<String, String> _errors = {};
-
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    _fetchData();
+    _loadData();
   }
 
-  Future<void> _fetchData() async {
-    try {
+  @override
+  void dispose()
+  {
+    for (final row in _rows)
+    {
+      row.dispose();
+    }
+
+    super.dispose();
+  }
+
+  Future<void> _loadData() async
+  {
+    try
+    {
       final results = await Future.wait([
         _apiService.getSchools(),
         _apiService.getStudyPrograms(),
@@ -468,198 +425,251 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
       _allSchools = results[0] as List<SchoolItem>;
       _allPrograms = results[1] as List<StudyProgramItem>;
 
-      final enrollments = widget.person.schoolEnrollments ?? [];
+      for (final enrollment in widget.person.schoolEnrollments ?? <SchoolEnrollmentItem>[])
+      {
+        final school =
+            _allSchools.where((item) => item.id == enrollment.schoolId).firstOrNull;
+        final program =
+            _allPrograms.where((item) => item.id == enrollment.studyProgramId).firstOrNull;
 
-      for (var e in enrollments) {
-        final school = _allSchools
-            .where((s) => s.id == e.schoolId)
-            .firstOrNull;
-        final program = _allPrograms
-            .where((p) => p.id == e.studyProgramId)
-            .firstOrNull;
-
-        String? gradeString;
-        if (program != null) {
-          const map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V'};
-          gradeString = map[e.grade];
-        }
-
-        _rows.add(
-          _SchoolRowData(
-            yearCtrl: TextEditingController(text: e.startYear.toString()),
-            selectedSchool: school,
-            selectedProgram: program,
-            selectedGrade: gradeString,
-          ),
-        );
+        _rows.add(_SchoolRowData(
+          yearController: TextEditingController(text: enrollment.startYear.toString()),
+          selectedSchool: school,
+          selectedProgram: program,
+          // Only meaningful once the programme is known, since the grade is picked
+          // from that programme's range.
+          selectedGrade: program == null ? null : _gradeLabels[enrollment.grade],
+        ));
       }
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _isLoading = false);
       }
-    } catch (_) {
-      if (mounted) {
+    }
+    catch (_)
+    {
+      if (mounted)
+      {
         setState(() => _isLoading = false);
       }
     }
   }
 
-  @override
-  void dispose() {
-    for (var r in _rows) {
-      r.yearCtrl.dispose();
-    }
-    super.dispose();
-  }
+  void _addEmptyRow()
+  {
+    var latestYear = DateTime.now().year;
 
-  int _getCurrentSchoolYearStart() {
-    final now = DateTime.now();
-    return now.month < 9 ? now.year - 1 : now.year;
-  }
+    for (final row in _rows)
+    {
+      final year = int.tryParse(row.yearController.text) ?? 0;
 
-  void _addEmptyRow() {
-    int lastYear = DateTime.now().year;
-    if (_rows.isNotEmpty) {
-      int maxYear = 0;
-      for (var r in _rows) {
-        int y = int.tryParse(r.yearCtrl.text) ?? 0;
-        if (y > maxYear) {
-          maxYear = y;
-        }
+      if (year > latestYear)
+      {
+        latestYear = year;
       }
-      lastYear = maxYear > 0 ? maxYear : lastYear;
     }
 
-    setState(() {
-      _rows.add(
-        _SchoolRowData(
-          yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
-        ),
-      );
+    setState(()
+    {
+      // Proposes the year before the most recent one, since rows are added going
+      // back in time.
+      _rows.add(_SchoolRowData(
+        yearController: TextEditingController(text: (latestYear - 1).toString()),
+      ));
     });
   }
 
-  int _romanToNumeric(String roman) {
-    const map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5};
-    return map[roman] ?? 1;
+  void _removeRow(int index)
+  {
+    setState(() => _rows.removeAt(index).dispose());
   }
 
-  Future<void> _save() async {
-    if (_rows.isEmpty) {
+  String _schoolLabel(SchoolItem school) => '${school.name} (${school.city})';
+
+  // Programmes actually taught by the chosen school, narrowed to those still
+  // present in the global list: a school can reference a programme that has since
+  // been removed from the association's catalogue.
+  List<String> _programNamesFor(SchoolItem? school)
+  {
+    if (school == null)
+    {
+      return const [];
+    }
+
+    final names = <String>[];
+
+    for (final option in school.studyPrograms)
+    {
+      final isKnown = _allPrograms.any((program) => program.name == option.name);
+
+      if (isKnown && !names.contains(option.name))
+      {
+        names.add(option.name);
+      }
+    }
+
+    return names;
+  }
+
+  // Grades allowed by the chosen programme. Falls back to the first five when the
+  // programme declares a range the labels do not cover.
+  List<String> _gradeOptionsFor(StudyProgramItem? program)
+  {
+    if (program == null)
+    {
+      return const [];
+    }
+
+    final options = <String>[];
+
+    for (var year = program.minYear; year <= program.maxYear; year++)
+    {
+      final label = _gradeLabels[year];
+
+      if (label != null && !options.contains(label))
+      {
+        options.add(label);
+      }
+    }
+
+    return options.isEmpty ? const ['I', 'II', 'III', 'IV', 'V'] : options;
+  }
+
+  // Fills _errors and reports whether every row is usable. Each row is checked on
+  // its own, so one bad year does not hide the problems of the rows below it.
+  bool _validateRows()
+  {
+    _errors.clear();
+
+    final seenYears = <int>{};
+    final currentYear = currentSchoolYearStart();
+
+    for (var i = 0; i < _rows.length; i++)
+    {
+      final row = _rows[i];
+      final yearText = row.yearController.text.trim();
+
+      if (!RegExp(r'^\d{4}$').hasMatch(yearText))
+      {
+        _errors['year_$i'] = 'Errore';
+      }
+      else
+      {
+        final year = int.parse(yearText);
+
+        if (year > currentYear)
+        {
+          _errors['year_$i'] = 'Anno futuro';
+        }
+        else if (!seenYears.add(year))
+        {
+          _errors['year_$i'] = 'Duplicato';
+        }
+      }
+
+      if (row.selectedSchool == null)
+      {
+        _errors['school_$i'] = 'Obbligatorio';
+      }
+
+      if (row.selectedProgram == null)
+      {
+        _errors['program_$i'] = 'Obbligatorio';
+      }
+
+      if (row.selectedGrade == null)
+      {
+        _errors['grade_$i'] = 'Obbligatorio';
+      }
+    }
+
+    return _errors.isEmpty;
+  }
+
+  bool get _hasFutureYearError => _errors.values.contains('Anno futuro');
+
+  List<Map<String, dynamic>> _buildPayload()
+  {
+    return _rows
+        .map((row) => <String, dynamic>{
+              'start_year': int.parse(row.yearController.text.trim()),
+              'school_id': row.selectedSchool!.id,
+              'study_program_id': row.selectedProgram!.id,
+              'grade': _gradeNumbers[row.selectedGrade!] ?? 1,
+            })
+        .toList();
+  }
+
+  Future<void> _save() async
+  {
+    if (_rows.isEmpty)
+    {
       CustomSnackBar.show(
         context: context,
         message: 'Lo studente deve avere almeno un anno scolastico.',
         isError: true,
       );
+
       return;
     }
 
-    setState(() => _errors.clear());
-    bool hasErrors = false;
-    bool showFutureYearError = false;
-
-    List<Map<String, dynamic>> payloadEnrollments = [];
-    final Set<int> distinctYears = {};
-
-    for (int i = 0; i < _rows.length; i++) {
-      final r = _rows[i];
-
-      if (r.yearCtrl.text.isEmpty ||
-          !RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text)) {
-        _errors['year_$i'] = 'Errore';
-        hasErrors = true;
-      } else {
-        int parsedYear = int.parse(r.yearCtrl.text);
-        if (parsedYear > _getCurrentSchoolYearStart()) {
-          _errors['year_$i'] = 'Anno futuro';
-          hasErrors = true;
-          showFutureYearError = true;
-        } else if (distinctYears.contains(parsedYear)) {
-          _errors['year_$i'] = 'Duplicato';
-          hasErrors = true;
-        } else {
-          distinctYears.add(parsedYear);
-        }
-      }
-
-      if (r.selectedSchool == null) {
-        _errors['school_$i'] = 'Obbligatorio';
-        hasErrors = true;
-      }
-
-      if (r.selectedProgram == null) {
-        _errors['program_$i'] = 'Obbligatorio';
-        hasErrors = true;
-      }
-
-      if (r.selectedGrade == null) {
-        _errors['grade_$i'] = 'Obbligatorio';
-        hasErrors = true;
-      }
-
-      if (!hasErrors) {
-        payloadEnrollments.add({
-          "start_year": int.parse(r.yearCtrl.text),
-          "school_id": r.selectedSchool!.id,
-          "study_program_id": r.selectedProgram!.id,
-          "grade": _romanToNumeric(r.selectedGrade!),
-        });
-      }
-    }
-
-    if (hasErrors) {
+    if (!_validateRows())
+    {
       setState(() {});
-      if (showFutureYearError) {
-        CustomSnackBar.show(
-          context: context,
-          message:
-              'Non è possibile inserire iscrizioni per anni scolastici futuri.',
-          isError: true,
-        );
-      } else {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Correggi gli errori prima di salvare.',
-          isError: true,
-        );
-      }
+      CustomSnackBar.show(
+        context: context,
+        message: _hasFutureYearError
+            ? 'Non è possibile inserire iscrizioni per anni scolastici futuri.'
+            : 'Correggi gli errori prima di salvare.',
+        isError: true,
+      );
+
       return;
     }
 
     setState(() => _isSaving = true);
 
-    try {
+    try
+    {
+      // studentUpdatedAt is the optimistic concurrency token for the student
+      // aggregate: the server refuses the update if it changed meanwhile.
       await _apiService.updatePersonSchoolEnrollments(
         widget.person.fiscalCode,
-        payloadEnrollments,
+        _buildPayload(),
         widget.person.studentUpdatedAt,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
           message: 'Anni scolastici aggiornati con successo!',
           isError: false,
         );
+
         Navigator.of(context).pop();
         widget.onUpdate();
       }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context: context,
-          message: e.toString().replaceAll('Exception: ', ''),
-          isError: true,
-        );
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
-    } finally {
-      if (mounted) {
+    }
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isSaving = false);
       }
     }
   }
 
-  Widget _buildFieldLabel(String text) {
+  Widget _buildFieldLabel(String text)
+  {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
@@ -667,20 +677,110 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
         style: GoogleFonts.plusJakartaSans(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
+          color: AppTheme.slate500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabelledField(String label, Widget field)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel(label),
+        field,
+      ],
+    );
+  }
+
+  // Choosing a school clears programme and grade, and choosing a programme clears
+  // the grade: each one narrows the options of the next, so a stale value would no
+  // longer be valid.
+  Widget _buildRow(int index)
+  {
+    final row = _rows[index];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.slate200),
+        color: _subtleBackground,
+      ),
+      child: _ResponsiveFourFieldRow(
+        onRemove: () => _removeRow(index),
+        yearField: _buildLabelledField(
+          'Anno inizio',
+          WizardAnimatedTextField(
+            controller: row.yearController,
+            hint: 'Es. 2024',
+            errorText: _errors['year_$index'],
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() => _errors.remove('year_$index')),
+          ),
+        ),
+        schoolField: _buildLabelledField(
+          'Scuola',
+          _FormOverlayDropdown(
+            value: row.selectedSchool == null ? null : _schoolLabel(row.selectedSchool!),
+            options: _allSchools.map(_schoolLabel).toList(),
+            hint: 'Seleziona scuola',
+            errorText: _errors['school_$index'],
+            onSelected: (label) => setState(()
+            {
+              row.selectedSchool =
+                  _allSchools.firstWhere((school) => _schoolLabel(school) == label);
+              row.selectedProgram = null;
+              row.selectedGrade = null;
+              _errors.remove('school_$index');
+            }),
+          ),
+        ),
+        programField: _buildLabelledField(
+          'Percorso',
+          _FormOverlayDropdown(
+            value: row.selectedProgram?.name,
+            options: _programNamesFor(row.selectedSchool),
+            hint: 'Seleziona percorso',
+            errorText: _errors['program_$index'],
+            onSelected: (name) => setState(()
+            {
+              row.selectedProgram =
+                  _allPrograms.firstWhere((program) => program.name == name);
+              row.selectedGrade = null;
+              _errors.remove('program_$index');
+            }),
+          ),
+        ),
+        gradeField: _buildLabelledField(
+          'Classe',
+          _FormOverlayDropdown(
+            value: row.selectedGrade,
+            options: _gradeOptionsFor(row.selectedProgram),
+            hint: 'Classe',
+            errorText: _errors['grade_$index'],
+            onSelected: (grade) => setState(()
+            {
+              row.selectedGrade = grade;
+              _errors.remove('grade_$index');
+            }),
+          ),
         ),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre980
-        //SenzaQuestoIlBreakpointSuiBottoniESulleRigheNonScatterebbeMai
+        // Fills the available space but never past 980: without an explicit width
+        // the breakpoints on the buttons and on the rows would never trigger.
         width: double.infinity,
         constraints: BoxConstraints(
           maxWidth: 980,
@@ -689,27 +789,15 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF003C82)),
-              )
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(
-                      top: 16,
-                      right: 16,
-                      left: 32,
-                    ),
+                    padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -718,220 +806,23 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF003C82),
+                            color: AppTheme.primary,
                           ),
                         ),
-                        WizardHoverCloseButton(
-                          onTap: () => Navigator.of(context).pop(),
-                        ),
+                        WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
                       ],
                     ),
                   ),
-                  const Divider(
-                    height: 32,
-                    thickness: 1,
-                    color: Color(0xFFF0F0F0),
-                  ),
+                  const Divider(height: 32, thickness: 1, color: AppTheme.divider),
                   Flexible(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(
-                        left: 32,
-                        right: 32,
-                        bottom: 16,
-                      ),
+                      padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
                       child: SizedBox(
                         width: double.infinity,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ...List.generate(_rows.length, (i) {
-                              final r = _rows[i];
-
-                              final List<String> schoolNames = _allSchools
-                                  .map((s) => '${s.name} (${s.city})')
-                                  .toList();
-
-                              List<String> programNames = [];
-                              if (r.selectedSchool != null) {
-                                try {
-                                  dynamic progs;
-                                  try {
-                                    progs = (r.selectedSchool as dynamic)
-                                        .studyPrograms;
-                                  } catch (_) {}
-                                  if (progs == null) {
-                                    try {
-                                      progs = (r.selectedSchool as dynamic)
-                                          .study_programs;
-                                    } catch (_) {}
-                                  }
-
-                                  if (progs != null && progs is Iterable) {
-                                    for (var p in progs) {
-                                      String? pName;
-                                      if (p is Map) {
-                                        pName = p['name'] as String?;
-                                      } else {
-                                        try {
-                                          pName =
-                                              (p as dynamic).name as String?;
-                                        } catch (_) {}
-                                      }
-
-                                      if (pName != null && pName.isNotEmpty) {
-                                        if (_allPrograms.any(
-                                              (allP) => allP.name == pName,
-                                            ) &&
-                                            !programNames.contains(pName)) {
-                                          programNames.add(pName);
-                                        }
-                                      }
-                                    }
-                                  }
-                                } catch (_) {}
-                              }
-
-                              //UpdateGradeOptionsBasedOnStudyProgram
-                              List<String> gradeOptions = [];
-                              if (r.selectedProgram != null) {
-                                try {
-                                  final globalProgram = _allPrograms.firstWhere(
-                                    (gp) => gp.id == r.selectedProgram!.id,
-                                  );
-                                  const romanGrades = {
-                                    1: 'I',
-                                    2: 'II',
-                                    3: 'III',
-                                    4: 'IV',
-                                    5: 'V',
-                                    6: 'VI',
-                                    7: 'VII',
-                                    8: 'VIII',
-                                  };
-
-                                  for (
-                                    int j = globalProgram.minYear;
-                                    j <= globalProgram.maxYear;
-                                    j++
-                                  ) {
-                                    if (romanGrades.containsKey(j) &&
-                                        !gradeOptions.contains(
-                                          romanGrades[j]!,
-                                        )) {
-                                      gradeOptions.add(romanGrades[j]!);
-                                    }
-                                  }
-                                } catch (_) {}
-                              }
-
-                              if (r.selectedProgram != null &&
-                                  gradeOptions.isEmpty) {
-                                gradeOptions = ['I', 'II', 'III', 'IV', 'V'];
-                              }
-
-                              final Widget yearField = Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Anno inizio'),
-                                  WizardAnimatedTextField(
-                                    controller: r.yearCtrl,
-                                    hint: 'Es. 2024',
-                                    errorText: _errors['year_$i'],
-                                    keyboardType: TextInputType.number,
-                                    onChanged: (_) => setState(
-                                      () => _errors.remove('year_$i'),
-                                    ),
-                                  ),
-                                ],
-                              );
-
-                              final Widget schoolField = Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Scuola'),
-                                  _FormOverlayDropdown(
-                                    value: r.selectedSchool != null
-                                        ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})'
-                                        : null,
-                                    options: schoolNames,
-                                    hint: 'Seleziona scuola',
-                                    errorText: _errors['school_$i'],
-                                    onSelected: (val) {
-                                      setState(() {
-                                        r.selectedSchool = _allSchools
-                                            .firstWhere(
-                                              (s) =>
-                                                  '${s.name} (${s.city})' ==
-                                                  val,
-                                            );
-                                        r.selectedProgram = null;
-                                        r.selectedGrade = null;
-                                        _errors.remove('school_$i');
-                                      });
-                                    },
-                                  ),
-                                ],
-                              );
-
-                              final Widget programField = Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Percorso'),
-                                  _FormOverlayDropdown(
-                                    value: r.selectedProgram?.name,
-                                    options: programNames,
-                                    hint: 'Seleziona percorso',
-                                    errorText: _errors['program_$i'],
-                                    onSelected: (val) {
-                                      setState(() {
-                                        r.selectedProgram = _allPrograms
-                                            .firstWhere((p) => p.name == val);
-                                        r.selectedGrade = null;
-                                        _errors.remove('program_$i');
-                                      });
-                                    },
-                                  ),
-                                ],
-                              );
-
-                              final Widget gradeField = Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFieldLabel('Classe'),
-                                  _FormOverlayDropdown(
-                                    value: r.selectedGrade,
-                                    options: gradeOptions,
-                                    hint: 'Classe',
-                                    errorText: _errors['grade_$i'],
-                                    onSelected: (val) => setState(() {
-                                      r.selectedGrade = val;
-                                      _errors.remove('grade_$i');
-                                    }),
-                                  ),
-                                ],
-                              );
-
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 16),
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFFE2E8F0),
-                                  ),
-                                  color: const Color(0xFFF8FAFC),
-                                ),
-                                //DecideRowVsColumnInBaseAllaLarghezzaRealeDelDialog
-                                child: _ResponsiveFourFieldRow(
-                                  yearField: yearField,
-                                  schoolField: schoolField,
-                                  programField: programField,
-                                  gradeField: gradeField,
-                                  onRemove: () =>
-                                      setState(() => _rows.removeAt(i)),
-                                ),
-                              );
-                            }),
+                            for (var i = 0; i < _rows.length; i++) _buildRow(i),
                             const SizedBox(height: 8),
                             Align(
                               alignment: Alignment.centerRight,
@@ -947,25 +838,23 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(
-                      left: 32,
-                      right: 32,
-                      bottom: 32,
-                      top: 16,
-                    ),
-                    child: _ResponsiveDialogButtonsRow(
-                      cancelText: 'ANNULLA',
-                      cancelIcon: Icons.cancel_outlined,
-                      cancelColor: const Color(0xFFE53935),
-                      cancelHoverColor: const Color(0xFFEF5350),
-                      cancelOnPressed: () => Navigator.of(context).pop(),
-                      confirmText: _isSaving
-                          ? 'SALVATAGGIO...'
-                          : 'SALVA MODIFICHE',
-                      confirmIcon: Icons.check_circle_outline,
-                      confirmColor: const Color(0xFF003C82),
-                      confirmHoverColor: const Color(0xFF004D99),
-                      confirmOnPressed: _isSaving ? () {} : _save,
+                    padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
+                    child: ResponsiveDialogButtonsRow(
+                      stackedButtonWidth: null,
+                      secondaryButton: WizardAnimatedActionButton(
+                        text: 'ANNULLA',
+                        icon: Icons.cancel_outlined,
+                        baseColor: AppTheme.danger,
+                        hoverColor: AppTheme.dangerHover,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      primaryButton: WizardAnimatedActionButton(
+                        text: _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
+                        icon: Icons.check_circle_outline,
+                        baseColor: AppTheme.primary,
+                        hoverColor: AppTheme.primaryHover,
+                        onPressed: _isSaving ? () {} : _save,
+                      ),
                     ),
                   ),
                 ],
@@ -975,69 +864,11 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog> {
   }
 }
 
-class _SchoolRowData {
-  TextEditingController yearCtrl;
-  SchoolItem? selectedSchool;
-  StudyProgramItem? selectedProgram;
-  String? selectedGrade;
-
-  _SchoolRowData({
-    required this.yearCtrl,
-    this.selectedSchool,
-    this.selectedProgram,
-    this.selectedGrade,
-  });
-}
-
-class _DropdownOverflowTooltipText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-
-  const _DropdownOverflowTooltipText({required this.text, required this.style});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-          maxLines: 1,
-        )..layout(maxWidth: constraints.maxWidth);
-
-        final Widget textWidget = Text(
-          text,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        );
-
-        if (!painter.didExceedMaxLines) return textWidget;
-
-        return Tooltip(
-          message: text,
-          waitDuration: const Duration(milliseconds: 600),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF334155), width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-            ],
-          ),
-          child: textWidget,
-        );
-      },
-    );
-  }
-}
-
-class _FormOverlayDropdown extends StatefulWidget {
+// Dropdown for a form field, with a hint, an inline error and support for being
+// disabled when there is nothing to choose from. Separate from the filter menus in
+// shared/widgets, which are built around clearing rather than picking one value.
+class _FormOverlayDropdown extends StatefulWidget
+{
   final String? value;
   final List<String> options;
   final String hint;
@@ -1048,27 +879,35 @@ class _FormOverlayDropdown extends StatefulWidget {
     required this.value,
     required this.options,
     required this.hint,
-    this.errorText,
     required this.onSelected,
+    this.errorText,
   });
 
   @override
   State<_FormOverlayDropdown> createState() => _FormOverlayDropdownState();
 }
 
-class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
+class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
+{
   final GlobalKey _buttonKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
   final GlobalKey<_FormOverlayContentState> _menuKey = GlobalKey();
+
+  OverlayEntry? _overlayEntry;
   bool _isHovered = false;
 
-  void _toggleMenu() {
-    if (_overlayEntry != null || widget.options.isEmpty) {
+  // Empty options mean the field upstream has not been chosen yet, so there is
+  // nothing to open.
+  bool get _isDisabled => widget.options.isEmpty;
+
+  void _toggleMenu()
+  {
+    if (_overlayEntry != null || _isDisabled)
+    {
       _closeMenu();
       return;
     }
-    final renderBox =
-        _buttonKey.currentContext!.findRenderObject() as RenderBox;
+
+    final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
 
@@ -1090,8 +929,9 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
               currentValue: widget.value,
               options: widget.options,
               width: size.width,
-              onSelected: (val) {
-                widget.onSelected(val);
+              onSelected: (value)
+              {
+                widget.onSelected(value);
                 _closeMenu();
               },
             ),
@@ -1099,92 +939,105 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
         ],
       ),
     );
+
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  void _closeMenu() async {
-    if (_overlayEntry != null) {
-      await _menuKey.currentState?.hide();
-      _overlayEntry?.remove();
-      _overlayEntry = null;
+  // The overlay is removed only after the collapse animation has run, so the menu
+  // does not disappear abruptly.
+  void _closeMenu() async
+  {
+    if (_overlayEntry == null)
+    {
+      return;
     }
+
+    await _menuKey.currentState?.hide();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  Color get _borderColor
+  {
+    if (widget.errorText != null)
+    {
+      return AppTheme.danger;
+    }
+
+    return _isHovered ? AppTheme.primary : AppTheme.slate200;
+  }
+
+  Color get _valueColor
+  {
+    if (_isDisabled)
+    {
+      return _disabledText;
+    }
+
+    return widget.value != null ? _strongTextColor : AppTheme.hint;
+  }
+
+  Widget _buildErrorBadge(String message)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: message,
+        textStyle: GoogleFonts.plusJakartaSans(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.danger,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.error_outline_rounded, color: AppTheme.danger, size: 22),
+      ),
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final bool hasError = widget.errorText != null;
-    final bool disabled = widget.options.isEmpty;
+  Widget build(BuildContext context)
+  {
+    final errorText = widget.errorText;
 
     return MouseRegion(
-      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      cursor: _isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: disabled ? null : _toggleMenu,
+        onTap: _isDisabled ? null : _toggleMenu,
         child: AnimatedContainer(
           key: _buttonKey,
           duration: const Duration(milliseconds: 200),
           height: 50,
-          padding: EdgeInsets.only(left: 16, right: hasError ? 8 : 16),
+          padding: EdgeInsets.only(left: 16, right: errorText != null ? 8 : 16),
           decoration: BoxDecoration(
-            color: disabled ? const Color(0xFFF8FAFC) : Colors.white,
+            color: _isDisabled ? _subtleBackground : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: hasError
-                  ? const Color(0xFFE53935)
-                  : (_isHovered
-                        ? const Color(0xFF003C82)
-                        : const Color(0xFFE2E8F0)),
-              width: 1.5,
-            ),
+            border: Border.all(color: _borderColor, width: 1.5),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: _DropdownOverflowTooltipText(
+                child: OverflowTooltipText(
                   text: widget.value ?? widget.hint,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
-                    fontWeight: widget.value != null
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: disabled
-                        ? const Color(0xFFCBD5E1)
-                        : (widget.value != null
-                              ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFB3B3B3)),
+                    fontWeight: widget.value != null ? FontWeight.w600 : FontWeight.w500,
+                    color: _valueColor,
                   ),
                 ),
               ),
-              if (hasError)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Tooltip(
-                    message: widget.errorText!,
-                    textStyle: GoogleFonts.plusJakartaSans(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE53935),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.error_outline_rounded,
-                      color: Color(0xFFE53935),
-                      size: 22,
-                    ),
-                  ),
-                ),
+              if (errorText != null) _buildErrorBadge(errorText),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: disabled
-                    ? const Color(0xFFCBD5E1)
-                    : (_isHovered
-                          ? const Color(0xFF003C82)
-                          : const Color(0xFF8A8A8A)),
+                color: _isDisabled
+                    ? _disabledText
+                    : (_isHovered ? AppTheme.primary : AppTheme.mutedText),
               ),
             ],
           ),
@@ -1194,7 +1047,8 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
   }
 }
 
-class _FormOverlayContent extends StatefulWidget {
+class _FormOverlayContent extends StatefulWidget
+{
   final String? currentValue;
   final List<String> options;
   final ValueChanged<String> onSelected;
@@ -1212,46 +1066,55 @@ class _FormOverlayContent extends StatefulWidget {
   State<_FormOverlayContent> createState() => _FormOverlayContentState();
 }
 
-class _FormOverlayContentState extends State<_FormOverlayContent> {
+class _FormOverlayContentState extends State<_FormOverlayContent>
+{
+  // The same value drives the AnimatedSize and the delay awaited by hide(): they
+  // must stay in sync or the overlay is torn down mid animation.
+  static const Duration _expandDuration = Duration(milliseconds: 180);
+
   bool _expanded = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+
+    // Expanding on the next frame is what makes the opening animation visible.
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
         setState(() => _expanded = true);
       }
     });
   }
 
-  Future<void> hide() async {
-    if (mounted) {
+  Future<void> hide() async
+  {
+    if (mounted)
+    {
       setState(() => _expanded = false);
     }
-    await Future.delayed(const Duration(milliseconds: 180));
+
+    await Future.delayed(_expandDuration);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Material(
       color: Colors.transparent,
       child: Container(
         width: widget.width,
+        // Long lists scroll instead of running past the bottom of the dialog.
         constraints: const BoxConstraints(maxHeight: 250),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 180),
+          duration: _expandDuration,
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _expanded
@@ -1261,7 +1124,8 @@ class _FormOverlayContentState extends State<_FormOverlayContent> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: widget.options.map((option) {
+                      children: widget.options.map((option)
+                      {
                         return _FormOverlayMenuItem(
                           text: option,
                           isSelected: widget.currentValue == option,
@@ -1278,7 +1142,8 @@ class _FormOverlayContentState extends State<_FormOverlayContent> {
   }
 }
 
-class _FormOverlayMenuItem extends StatefulWidget {
+class _FormOverlayMenuItem extends StatefulWidget
+{
   final String text;
   final bool isSelected;
   final VoidCallback onTap;
@@ -1293,11 +1158,15 @@ class _FormOverlayMenuItem extends StatefulWidget {
   State<_FormOverlayMenuItem> createState() => _FormOverlayMenuItemState();
 }
 
-class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
+class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
+{
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
+    final isHighlighted = _hover || widget.isSelected;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -1313,22 +1182,21 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 width: 2,
-                height: (_hover || widget.isSelected) ? 16 : 0,
+                height: isHighlighted ? 16 : 0,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF003C82),
+                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(width: 10),
-                Expanded(
-                child: _DropdownOverflowTooltipText(
+              Expanded(
+                child: OverflowTooltipText(
                   text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    fontWeight: (widget.isSelected || _hover)
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                    color: const Color(0xFF003C82),
+                    fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
+                    color: AppTheme.primary,
                   ),
                 ),
               ),

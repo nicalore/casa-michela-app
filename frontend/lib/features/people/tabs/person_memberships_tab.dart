@@ -1,24 +1,57 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/membership_item.dart';
 import '../models/person_item.dart';
 import '../person_wizard_components.dart';
+import '../widgets/person_detail_widgets.dart';
 
-class PersonMembershipsTab extends StatelessWidget {
+const Color _enrolledColor = Color(0xFF4CAF50);
+const Color _notEnrolledColor = Color(0xFFF44336);
+const Color _subtleBackground = Color(0xFFF8FAFC);
+const Color _strongTextColor = Color(0xFF2A2A2A);
+
+// Values of MembershipItem.revocation as the backend spells them. They travel
+// back unchanged in the update payload, so they cannot be translated in place.
+const String _revocationNone = 'NO';
+const String _revocationExpulsion = 'EXPULSION';
+const String _revocationResignation = 'RESIGNATION';
+
+const Map<String, String> _revocationLabels = {
+  _revocationExpulsion: 'Espulsione',
+  _revocationResignation: 'Dimissioni',
+};
+
+// Days after the end date during which the membership can still be renewed. The
+// backend stores one per membership, but this dialog can only create new rows and
+// has no field for it, so new ones get the standard period.
+const int _defaultRenewalPeriodDays = 30;
+
+final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
+final DateFormat _dayMonthFormat = DateFormat('dd/MM');
+
+/// A membership counts as running until the renewal window after its end date has
+/// passed, not on the end date itself.
+bool _isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays)
+{
+  return DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
+}
+
+class PersonMembershipsTab extends StatelessWidget
+{
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // True se l'account loggato è la persona visualizzata: in tal caso il
-  // bottone REVOCA ISCRIZIONE non deve comparire (resta solo MODIFICA
-  // ISCRIZIONI). Default false per non rompere eventuali altri punti di
-  // istanziazione di questo widget.
+  // True when the logged in account is the person being shown. Revoking your own
+  // membership is not allowed, so the button is hidden. Defaults to false so
+  // other call sites keep working.
   final bool isOwnProfile;
 
   const PersonMembershipsTab({
@@ -28,209 +61,38 @@ class PersonMembershipsTab extends StatelessWidget {
     this.isOwnProfile = false,
   });
 
-  void _showEditDialog(BuildContext context) {
-    showGeneralDialog(
+  void _showEditDialog(BuildContext context)
+  {
+    showBlurredDialog(
       context: context,
-      barrierDismissible: true,
       barrierLabel: 'EditMemberships',
-      barrierColor: Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) =>
-          const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: _EditMembershipsDialog(person: person, onUpdate: onUpdate),
-            ),
-          ),
-        );
-      },
+      builder: (context) => _EditMembershipsDialog(person: person, onUpdate: onUpdate),
     );
   }
 
-  void _showRevokeDialog(BuildContext context) {
-    showGeneralDialog(
+  void _showRevokeDialog(BuildContext context)
+  {
+    showBlurredDialog(
       context: context,
-      barrierDismissible: true,
       barrierLabel: 'RevokeMembership',
-      barrierColor: Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (animation, secondaryAnimation, child) =>
-          const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final blurValue = animation.value * 8.0;
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-                reverseCurve: Curves.easeIn,
-              ),
-              child: _RevokeMembershipDialog(
-                person: person,
-                onUpdate: onUpdate,
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context) => _RevokeMembershipDialog(person: person, onUpdate: onUpdate),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final List<MembershipItem> memberships = List<MembershipItem>.from(
-      person.memberships ?? [],
-    );
-    memberships.sort((a, b) => b.year.compareTo(a.year));
-
-    final MembershipItem? latest = memberships.isNotEmpty
-        ? memberships.first
-        : null;
-
-    bool isEnrolled = false;
-    bool isRevoked = false;
-
-    if (latest != null) {
-      if (latest.revocation != 'NO') {
-        isRevoked = true;
-      }
-      final DateTime now = DateTime.now();
-      if (latest.revocation == 'NO' &&
-          now.isBefore(
-            latest.endDate.add(Duration(days: latest.renewalPeriodDays)),
-          )) {
-        isEnrolled = true;
-      }
-    }
-
-    final MembershipItem? currentMembership = isEnrolled ? latest : null;
-    final List<MembershipItem> pastMemberships = isEnrolled
-        ? memberships.skip(1).toList()
-        : memberships;
-
-    final bool isFemale = person.gender == 'F';
-    final bool isActive = isEnrolled
-        ? (person.isActiveCollaborator ?? false)
-        : false;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatusCard(isEnrolled, isFemale, isActive),
-          const SizedBox(height: 48),
-
-          if (currentMembership != null) ...[
-            Text(
-              'Iscrizione attuale',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF003C82),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildMembershipCard(currentMembership, isCurrent: true),
-            const SizedBox(height: 32),
-          ],
-
-          if (pastMemberships.isNotEmpty) ...[
-            Text(
-              'Iscrizioni passate',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF003C82),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...pastMemberships.map(
-              (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildMembershipCard(m, isCurrent: false),
-              ),
-            ),
-          ],
-
-          if (currentMembership == null && pastMemberships.isEmpty) ...[
-            Center(
-              child: Text(
-                'Nessuna iscrizione registrata.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ),
-          ],
-
-          if (!isRevoked && latest != null) ...[
-            const SizedBox(height: 40),
-            Center(
-              //UnAccountNonPuoRevocareLaPropriaIscrizione
-              child: isOwnProfile
-                  ? SizedBox(
-                      width: 240,
-                      child: AnimatedActionButton(
-                        text: 'MODIFICA ISCRIZIONI',
-                        icon: Icons.edit_rounded,
-                        baseColor: const Color(0xFF003C82),
-                        hoverColor: const Color(0xFF004D99),
-                        onPressed: () => _showEditDialog(context),
-                      ),
-                    )
-                  : _ResponsiveActionButtonsRow(
-                      primaryText: 'MODIFICA ISCRIZIONI',
-                      primaryIcon: Icons.edit_rounded,
-                      primaryColor: const Color(0xFF003C82),
-                      primaryHoverColor: const Color(0xFF004D99),
-                      primaryOnPressed: () => _showEditDialog(context),
-                      secondaryText: 'REVOCA ISCRIZIONE',
-                      secondaryIcon: Icons.gavel_rounded,
-                      secondaryColor: const Color(0xFFE53935),
-                      secondaryHoverColor: const Color(0xFFEF5350),
-                      secondaryOnPressed: () => _showRevokeDialog(context),
-                    ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusCard(
-    bool isEnrolled,
-    bool isFemale,
-    bool isActiveCollaborator,
-  ) {
-    final String statusText = isEnrolled
+  Widget _buildStatusCard({
+    required bool isEnrolled,
+    required bool isFemale,
+    required bool isActiveCollaborator,
+  })
+  {
+    final statusText = isEnrolled
         ? (isFemale ? 'Iscritta' : 'Iscritto')
         : (isFemale ? 'Non iscritta' : 'Non iscritto');
 
-    final String collabText = isActiveCollaborator
+    final collaborationText = isActiveCollaborator
         ? (isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo')
         : 'Non collaborante';
 
-    final Color iconColor = isEnrolled
-        ? const Color(0xFF4CAF50)
-        : const Color(0xFFF44336);
-
-    //IsolateSelectionToCardBody
     return Center(
       child: SelectionArea(
         child: Container(
@@ -240,27 +102,18 @@ class PersonMembershipsTab extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                offset: Offset(0, 4),
-                blurRadius: 16,
-              ),
-            ],
+            border: Border.all(color: AppTheme.slate200),
+            boxShadow: AppTheme.cardShadow,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    isEnrolled
-                        ? Icons.check_circle_rounded
-                        : Icons.cancel_rounded,
-                    color: iconColor,
+                    isEnrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                    color: isEnrolled ? _enrolledColor : _notEnrolledColor,
                     size: 32,
                   ),
                   const SizedBox(width: 12),
@@ -269,21 +122,18 @@ class PersonMembershipsTab extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF2A2A2A),
+                      color: _strongTextColor,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: _subtleBackground,
                   borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: AppTheme.slate200),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -292,20 +142,16 @@ class PersonMembershipsTab extends StatelessWidget {
                       isActiveCollaborator
                           ? Icons.handshake_outlined
                           : Icons.work_off_rounded,
-                      color: isActiveCollaborator
-                          ? const Color(0xFF003C82)
-                          : const Color(0xFF94A3B8),
+                      color: isActiveCollaborator ? AppTheme.primary : AppTheme.slate400,
                       size: 18,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      collabText,
+                      collaborationText,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: isActiveCollaborator
-                            ? const Color(0xFF003C82)
-                            : const Color(0xFF64748B),
+                        color: isActiveCollaborator ? AppTheme.primary : AppTheme.slate500,
                       ),
                     ),
                   ],
@@ -318,16 +164,39 @@ class PersonMembershipsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMembershipCard(
-    MembershipItem membership, {
-    required bool isCurrent,
-  }) {
-    final DateFormat dateFormat = DateFormat('dd/MM/yyyy');
-    final DateTime deadline = membership.endDate.add(
-      Duration(days: membership.renewalPeriodDays),
+  Widget _buildDateItem(String label, String value)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.slate400,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.slate700,
+          ),
+        ),
+      ],
     );
+  }
 
-    //IsolateSelectionToCardBody
+  Widget _buildMembershipCard(MembershipItem membership, {required bool isCurrent})
+  {
+    final isRevoked = membership.revocation != _revocationNone;
+    final deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
+
     return SelectionArea(
       child: Container(
         width: double.infinity,
@@ -335,57 +204,41 @@ class PersonMembershipsTab extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF003C82).withValues(alpha: 0.3),
-            width: 2.0,
-          ),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3), width: 2.0),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               'Anno ${membership.year}',
+              textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF334155),
+                color: AppTheme.slate700,
               ),
-              textAlign: TextAlign.center,
             ),
-            if (membership.revocation != 'NO') ...[
+            if (isRevoked) ...[
               const SizedBox(height: 8),
               Text(
-                membership.revocation == 'EXPULSION'
-                    ? 'Iscrizione revocata (Espulsione)'
-                    : 'Iscrizione revocata (Dimissioni)',
+                'Iscrizione revocata '
+                '(${_revocationLabels[membership.revocation] ?? membership.revocation})',
+                textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFFE53935),
+                  color: AppTheme.danger,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
             const SizedBox(height: 32),
-            //StacksVerticallyOnlyWhenTheAvailableWidthCantFitAllDateItemsSideBySide
-            //RipristinatoDopoUnaRichiestaPrecedenteChiedevaSempreImpilato_ErroreCorretto
             _ResponsiveDateItemsRow(
               items: [
-                _buildDateItem(
-                  'Data inizio',
-                  dateFormat.format(membership.startDate),
-                ),
-                _buildDateItem(
-                  'Data fine',
-                  dateFormat.format(membership.endDate),
-                ),
+                _buildDateItem('Data inizio', _dateFormat.format(membership.startDate)),
+                _buildDateItem('Data fine', _dateFormat.format(membership.endDate)),
                 if (isCurrent)
                   _buildDateItem(
                     'Rinnovo entro',
-                    membership.revocation == 'NO'
-                        ? dateFormat.format(deadline)
-                        : '-',
-                    highlight: false,
+                    isRevoked ? missingValue : _dateFormat.format(deadline),
                   ),
               ],
             ),
@@ -395,62 +248,146 @@ class PersonMembershipsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildDateItem(String label, String value, {bool highlight = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF94A3B8),
-          ),
-          textAlign: TextAlign.center,
+  Widget _buildSectionTitle(String text)
+  {
+    return Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildActions(BuildContext context)
+  {
+    if (isOwnProfile)
+    {
+      return SizedBox(
+        width: 240,
+        child: AnimatedActionButton(
+          text: 'MODIFICA ISCRIZIONI',
+          icon: Icons.edit_rounded,
+          baseColor: AppTheme.primary,
+          hoverColor: AppTheme.primaryHover,
+          onPressed: () => _showEditDialog(context),
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: highlight
-                ? const Color(0xFF003C82)
-                : const Color(0xFF334155),
+      );
+    }
+
+    return _ResponsiveActionButtonsRow(
+      primaryText: 'MODIFICA ISCRIZIONI',
+      primaryIcon: Icons.edit_rounded,
+      primaryColor: AppTheme.primary,
+      primaryHoverColor: AppTheme.primaryHover,
+      primaryOnPressed: () => _showEditDialog(context),
+      secondaryText: 'REVOCA ISCRIZIONE',
+      secondaryIcon: Icons.gavel_rounded,
+      secondaryColor: AppTheme.danger,
+      secondaryHoverColor: AppTheme.dangerHover,
+      secondaryOnPressed: () => _showRevokeDialog(context),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final memberships = [...?person.memberships];
+    memberships.sort((a, b) => b.year.compareTo(a.year));
+
+    final latest = memberships.isNotEmpty ? memberships.first : null;
+
+    final isRevoked = latest != null && latest.revocation != _revocationNone;
+    final isEnrolled = latest != null &&
+        latest.revocation == _revocationNone &&
+        _isWithinRenewalWindow(latest.endDate, latest.renewalPeriodDays);
+
+    // Only the most recent membership can be the running one, so the rest are
+    // history whether or not it is.
+    final currentMembership = isEnrolled ? latest : null;
+    final pastMemberships = isEnrolled ? memberships.skip(1).toList() : memberships;
+
+    final isFemale = person.gender == 'F';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildStatusCard(
+            isEnrolled: isEnrolled,
+            isFemale: isFemale,
+            // Collaboration only counts while the membership is running.
+            isActiveCollaborator: isEnrolled && (person.isActiveCollaborator ?? false),
           ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+          const SizedBox(height: 48),
+          if (currentMembership != null) ...[
+            _buildSectionTitle('Iscrizione attuale'),
+            const SizedBox(height: 16),
+            _buildMembershipCard(currentMembership, isCurrent: true),
+            const SizedBox(height: 32),
+          ],
+          if (pastMemberships.isNotEmpty) ...[
+            _buildSectionTitle('Iscrizioni passate'),
+            const SizedBox(height: 16),
+            ...pastMemberships.map((membership) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildMembershipCard(membership, isCurrent: false),
+                )),
+          ],
+          if (currentMembership == null && pastMemberships.isEmpty)
+            Center(
+              child: Text(
+                'Nessuna iscrizione registrata.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.slate500,
+                ),
+              ),
+            ),
+          if (!isRevoked && latest != null) ...[
+            const SizedBox(height: 40),
+            Center(child: _buildActions(context)),
+          ],
+        ],
+      ),
     );
   }
 }
 
-//DecidesBetweenSideBySideAndStackedDateItems_BasedOnActualAvailableWidth
-//ThresholdScalesWithTheNumberOfItems_2ItemsFitInLessSpaceThan3
-class _ResponsiveDateItemsRow extends StatelessWidget {
-  final List<Widget> items;
-  final double minItemWidth;
+// Side by side while every item has room, stacked otherwise. The threshold scales
+// with the number of items, because two fit in less space than three.
+class _ResponsiveDateItemsRow extends StatelessWidget
+{
+  static const double _minItemWidth = 150;
 
-  const _ResponsiveDateItemsRow({required this.items, this.minItemWidth = 150});
+  final List<Widget> items;
+
+  const _ResponsiveDateItemsRow({required this.items});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final double neededWidth = items.length * minItemWidth;
-        final bool isCompact = constraints.maxWidth < neededWidth;
-
-        if (isCompact) {
-          final List<Widget> stacked = [];
-          for (int i = 0; i < items.length; i++) {
-            if (i > 0) stacked.add(const SizedBox(height: 20));
-            stacked.add(items[i]);
-          }
-          return Column(mainAxisSize: MainAxisSize.min, children: stacked);
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < items.length * _minItemWidth)
+        {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0) const SizedBox(height: 20),
+                items[i],
+              ],
+            ],
+          );
         }
 
-        //StessoIrrobustimentoApplicatoA_ResponsiveInfoItemsRow_InPersonSchoolsTab
-        //BassaProbabilitaQui(DateBrevi)_MaStessaDebolezzaStrutturaleSenzaExpanded
+        // Expanded rather than bare children: without it a long value would
+        // overflow the row instead of wrapping inside its own column.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: items.map((item) => Expanded(child: item)).toList(),
@@ -460,8 +397,15 @@ class _ResponsiveDateItemsRow extends StatelessWidget {
   }
 }
 
-//DecidesBetweenSideBySideAndStackedButtons_BasedOnActualAvailableWidth
-class _ResponsiveActionButtonsRow extends StatelessWidget {
+// Two full page actions, centred at a fixed width and stacked below the
+// threshold. Distinct from ResponsiveDialogButtonsRow, which stretches its
+// buttons to fill a dialog footer.
+class _ResponsiveActionButtonsRow extends StatelessWidget
+{
+  static const double _buttonWidth = 240;
+  static const double _spacing = 24;
+  static const double _breakpoint = _buttonWidth * 2 + _spacing + 40;
+
   final String primaryText;
   final IconData primaryIcon;
   final Color primaryColor;
@@ -487,39 +431,36 @@ class _ResponsiveActionButtonsRow extends StatelessWidget {
     required this.secondaryOnPressed,
   });
 
-  static const double _kButtonWidth = 240;
-  static const double _kSpacing = 24;
-  static const double _kBreakpoint = _kButtonWidth * 2 + _kSpacing + 40;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
+    final primaryButton = SizedBox(
+      width: _buttonWidth,
+      child: AnimatedActionButton(
+        text: primaryText,
+        icon: primaryIcon,
+        baseColor: primaryColor,
+        hoverColor: primaryHoverColor,
+        onPressed: primaryOnPressed,
+      ),
+    );
+
+    final secondaryButton = SizedBox(
+      width: _buttonWidth,
+      child: AnimatedActionButton(
+        text: secondaryText,
+        icon: secondaryIcon,
+        baseColor: secondaryColor,
+        hoverColor: secondaryHoverColor,
+        onPressed: secondaryOnPressed,
+      ),
+    );
+
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget primaryButton = SizedBox(
-          width: _kButtonWidth,
-          child: AnimatedActionButton(
-            text: primaryText,
-            icon: primaryIcon,
-            baseColor: primaryColor,
-            hoverColor: primaryHoverColor,
-            onPressed: primaryOnPressed,
-          ),
-        );
-
-        final Widget secondaryButton = SizedBox(
-          width: _kButtonWidth,
-          child: AnimatedActionButton(
-            text: secondaryText,
-            icon: secondaryIcon,
-            baseColor: secondaryColor,
-            hoverColor: secondaryHoverColor,
-            onPressed: secondaryOnPressed,
-          ),
-        );
-
-        if (isCompact) {
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < _breakpoint)
+        {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -534,7 +475,7 @@ class _ResponsiveActionButtonsRow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             primaryButton,
-            const SizedBox(width: _kSpacing),
+            const SizedBox(width: _spacing),
             secondaryButton,
           ],
         );
@@ -543,154 +484,113 @@ class _ResponsiveActionButtonsRow extends StatelessWidget {
   }
 }
 
-//UsataDentroIDueDialog_PulsantiAPienaLarghezzaCheSiImpilanoSottoSoglia
-//IlPrimoParametro_confirm_VaSempreSopraQuandoImpilati_IlSecondo_cancel_VaSempreSotto
-class _ResponsiveDialogButtonsRow extends StatelessWidget {
-  final String cancelText;
-  final IconData cancelIcon;
-  final Color cancelColor;
-  final Color cancelHoverColor;
-  final VoidCallback cancelOnPressed;
-
-  final String confirmText;
-  final IconData confirmIcon;
-  final Color confirmColor;
-  final Color confirmHoverColor;
-  final VoidCallback confirmOnPressed;
-
-  const _ResponsiveDialogButtonsRow({
-    required this.cancelText,
-    required this.cancelIcon,
-    required this.cancelColor,
-    required this.cancelHoverColor,
-    required this.cancelOnPressed,
-    required this.confirmText,
-    required this.confirmIcon,
-    required this.confirmColor,
-    required this.confirmHoverColor,
-    required this.confirmOnPressed,
-  });
-
-  //SottoQuestaLarghezzaTestiLunghiComeCONFERMAREVOCARischianoDiEssereSchiacciati
-  static const double _kBreakpoint = 460;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-        final Widget cancelButton = AnimatedActionButton(
-          text: cancelText,
-          icon: cancelIcon,
-          baseColor: cancelColor,
-          hoverColor: cancelHoverColor,
-          onPressed: cancelOnPressed,
-        );
-
-        final Widget confirmButton = AnimatedActionButton(
-          text: confirmText,
-          icon: confirmIcon,
-          baseColor: confirmColor,
-          hoverColor: confirmHoverColor,
-          onPressed: confirmOnPressed,
-        );
-
-        if (isCompact) {
-          //TastoAnnullaSempreInFondoQuandoIBottoniSiImpilano_RichiestaEsplicita
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [confirmButton, const SizedBox(height: 16), cancelButton],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: cancelButton),
-            const SizedBox(width: 16),
-            Expanded(child: confirmButton),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _RevokeMembershipDialog extends StatefulWidget {
+class _RevokeMembershipDialog extends StatefulWidget
+{
   final PersonItem person;
   final VoidCallback onUpdate;
 
   const _RevokeMembershipDialog({required this.person, required this.onUpdate});
 
   @override
-  State<_RevokeMembershipDialog> createState() =>
-      _RevokeMembershipDialogState();
+  State<_RevokeMembershipDialog> createState() => _RevokeMembershipDialogState();
 }
 
-class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog> {
+class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
+{
   final ApiService _apiService = ApiService();
-  String _selectedType = 'Dimissioni';
+
+  String _selectedCode = _revocationResignation;
   bool _isSaving = false;
 
-  Future<void> _submitRevocation() async {
+  Future<void> _submitRevocation() async
+  {
     setState(() => _isSaving = true);
 
-    final String typeEn = _selectedType == 'Espulsione'
-        ? 'EXPULSION'
-        : 'RESIGNATION';
-
-    try {
+    try
+    {
+      // memberUpdatedAt is the optimistic concurrency token: the server refuses
+      // the revocation if somebody else changed the membership meanwhile.
       await _apiService.revokePersonMembership(
         widget.person.fiscalCode,
-        typeEn,
+        _selectedCode,
         widget.person.memberUpdatedAt,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
           message: 'Iscrizione revocata con successo.',
           isError: false,
         );
+
         Navigator.of(context).pop();
         widget.onUpdate();
       }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context: context,
-          message: e.toString().replaceAll('Exception: ', ''),
-          isError: true,
-        );
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
-    } finally {
-      if (mounted) {
+    }
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isSaving = false);
       }
     }
   }
 
+  Widget _buildWarning()
+  {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_rounded, color: AppTheme.primary, size: 28),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'ATTENZIONE: Questa operazione è irreversibile. '
+              "L'iscrizione terminerà in data odierna e lo stato di collaborazione "
+              'verrà disattivato.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        //LarghezzaResponsive_RiempieLoSpazioDisponibileMaMaiOltre540
-        //SenzaQuestoIBottoniInternoNonRicevonoMaiUnoStrettoAbbastanzaDaImpilarsi
+        // Fills the available space but never past 540: without an explicit
+        // width the inner buttons never get a constraint tight enough to stack.
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 540),
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -704,76 +604,53 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF003C82),
+                    color: AppTheme.primary,
                   ),
                 ),
                 FadeHoverIconButton(
                   icon: Icons.close,
-                  color: const Color(0xFF003C82),
-                  hoverColor: const Color(0xFFE3F2FD),
+                  color: AppTheme.primary,
+                  hoverColor: AppTheme.iconHover,
                   onTap: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF003C82).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF003C82).withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_rounded,
-                    color: Color(0xFF003C82),
-                    size: 28,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      'ATTENZIONE: Questa operazione è irreversibile. L\'iscrizione terminerà in data odierna e lo stato di collaborazione verrà disattivato.',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF003C82),
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
+            _buildWarning(),
             const SizedBox(height: 24),
             Text(
               'Seleziona la motivazione della revoca:',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF003C82),
+                color: AppTheme.primary,
               ),
             ),
             const SizedBox(height: 12),
+            // The dropdown shows the Italian labels while the state keeps the
+            // backend code, so no translation is needed on submit.
             _FormOverlayDropdown(
-              value: _selectedType,
-              options: const ['Dimissioni', 'Espulsione'],
-              onSelected: (val) => setState(() => _selectedType = val),
+              value: _selectedCode,
+              labels: _revocationLabels,
+              onSelected: (code) => setState(() => _selectedCode = code),
             ),
             const SizedBox(height: 32),
-            _ResponsiveDialogButtonsRow(
-              cancelText: 'ANNULLA',
-              cancelIcon: Icons.cancel_outlined,
-              cancelColor: const Color(0xFFE53935),
-              cancelHoverColor: const Color(0xFFEF5350),
-              cancelOnPressed: () => Navigator.of(context).pop(),
-              confirmText: _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
-              confirmIcon: Icons.gavel_rounded,
-              confirmColor: const Color(0xFF003C82),
-              confirmHoverColor: const Color(0xFF004D99),
-              confirmOnPressed: _isSaving ? () {} : _submitRevocation,
+            ResponsiveDialogButtonsRow(
+              stackedButtonWidth: null,
+              secondaryButton: AnimatedActionButton(
+                text: 'ANNULLA',
+                icon: Icons.cancel_outlined,
+                baseColor: AppTheme.danger,
+                hoverColor: AppTheme.dangerHover,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              primaryButton: AnimatedActionButton(
+                text: _isSaving ? 'REVOCA...' : 'CONFERMA REVOCA',
+                icon: Icons.gavel_rounded,
+                baseColor: AppTheme.primary,
+                hoverColor: AppTheme.primaryHover,
+                onPressed: _isSaving ? () {} : _submitRevocation,
+              ),
             ),
           ],
         ),
@@ -782,7 +659,35 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog> {
   }
 }
 
-class _EditMembershipsDialog extends StatefulWidget {
+class _MembershipRowData
+{
+  final TextEditingController yearController;
+  final TextEditingController dayMonthController;
+
+  // Carried through untouched: this dialog cannot change a revocation, only the
+  // dedicated revoke dialog can.
+  final String revocation;
+
+  // Preserved from the loaded membership so that saving does not silently reset
+  // it. New rows get the standard period.
+  final int renewalPeriodDays;
+
+  _MembershipRowData({
+    required this.yearController,
+    required this.dayMonthController,
+    required this.revocation,
+    required this.renewalPeriodDays,
+  });
+
+  void dispose()
+  {
+    yearController.dispose();
+    dayMonthController.dispose();
+  }
+}
+
+class _EditMembershipsDialog extends StatefulWidget
+{
   final PersonItem person;
   final VoidCallback onUpdate;
 
@@ -792,232 +697,272 @@ class _EditMembershipsDialog extends StatefulWidget {
   State<_EditMembershipsDialog> createState() => _EditMembershipsDialogState();
 }
 
-class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
+class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
+{
   final ApiService _apiService = ApiService();
-  bool _isSaving = false;
-
-  late bool _isActiveCollaborator;
   final List<_MembershipRowData> _rows = [];
   final Map<String, String> _errors = {};
 
+  late bool _isActiveCollaborator;
+  bool _isSaving = false;
+
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
+
     _isActiveCollaborator = widget.person.isActiveCollaborator ?? false;
 
-    final dateFormat = DateFormat('dd/MM');
-    final members = widget.person.memberships ?? [];
-
-    for (var m in members) {
-      _rows.add(
-        _MembershipRowData(
-          yearCtrl: TextEditingController(text: m.year.toString()),
-          dateCtrl: TextEditingController(text: dateFormat.format(m.startDate)),
-          revocation: m.revocation,
-        ),
-      );
+    for (final membership in widget.person.memberships ?? <MembershipItem>[])
+    {
+      _rows.add(_MembershipRowData(
+        yearController: TextEditingController(text: membership.year.toString()),
+        dayMonthController:
+            TextEditingController(text: _dayMonthFormat.format(membership.startDate)),
+        revocation: membership.revocation,
+        renewalPeriodDays: membership.renewalPeriodDays,
+      ));
     }
   }
 
   @override
-  void dispose() {
-    for (var r in _rows) {
-      r.yearCtrl.dispose();
-      r.dateCtrl.dispose();
+  void dispose()
+  {
+    for (final row in _rows)
+    {
+      row.dispose();
     }
+
     super.dispose();
   }
 
-  void _sortRowsByYear() {
-    _rows.sort((a, b) {
-      int yearA = int.tryParse(a.yearCtrl.text) ?? 0;
-      int yearB = int.tryParse(b.yearCtrl.text) ?? 0;
-      return yearB.compareTo(yearA);
-    });
-  }
+  void _addEmptyRow()
+  {
+    var latestYear = DateTime.now().year;
 
-  void _addEmptyRow() {
-    int lastYear = DateTime.now().year;
-    if (_rows.isNotEmpty) {
-      int maxYear = 0;
-      for (var r in _rows) {
-        int y = int.tryParse(r.yearCtrl.text) ?? 0;
-        if (y > maxYear) {
-          maxYear = y;
-        }
+    for (final row in _rows)
+    {
+      final year = int.tryParse(row.yearController.text) ?? 0;
+
+      if (year > latestYear)
+      {
+        latestYear = year;
       }
-      lastYear = maxYear > 0 ? maxYear : lastYear;
     }
 
-    setState(() {
-      _rows.add(
-        _MembershipRowData(
-          yearCtrl: TextEditingController(text: (lastYear - 1).toString()),
-          dateCtrl: TextEditingController(),
-          revocation: 'NO',
-        ),
-      );
+    setState(()
+    {
+      // Proposes the year before the most recent one, since rows are added going
+      // back in time.
+      _rows.add(_MembershipRowData(
+        yearController: TextEditingController(text: (latestYear - 1).toString()),
+        dayMonthController: TextEditingController(),
+        revocation: _revocationNone,
+        renewalPeriodDays: _defaultRenewalPeriodDays,
+      ));
     });
   }
 
-  bool _isValidDayMonthYear(String dm, String yearStr) {
-    try {
-      final parts = dm.split('/');
-      if (parts.length != 2) {
-        return false;
-      }
+  void _removeRow(int index)
+  {
+    setState(() => _rows.removeAt(index).dispose());
+  }
 
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(yearStr);
-      final date = DateTime(year, month, day);
+  bool _isRealDate(String dayMonth, String year)
+  {
+    final parts = dayMonth.split('/');
 
-      return date.year == year && date.month == month && date.day == day;
-    } catch (_) {
+    if (parts.length != 2)
+    {
       return false;
     }
+
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final parsedYear = int.tryParse(year);
+
+    if (day == null || month == null || parsedYear == null)
+    {
+      return false;
+    }
+
+    // DateTime rolls over invalid values, so 31/02 becomes 02/03: comparing the
+    // components back is what rejects it.
+    final date = DateTime(parsedYear, month, day);
+
+    return date.year == parsedYear && date.month == month && date.day == day;
   }
 
-  Future<void> _save() async {
-    setState(() => _errors.clear());
-    bool hasErrors = false;
+  // Fills _errors and returns whether every row is usable. Each row is checked on
+  // its own, so one bad year does not hide the problems of the rows below it.
+  bool _validateRows()
+  {
+    _errors.clear();
 
-    List<Map<String, dynamic>> payloadMemberships = [];
-    final Set<int> distinctYears = {};
+    final seenYears = <int>{};
 
-    for (int i = 0; i < _rows.length; i++) {
-      final r = _rows[i];
-      bool yearValid = false;
+    for (var i = 0; i < _rows.length; i++)
+    {
+      final row = _rows[i];
+      final yearText = row.yearController.text.trim();
+      final dayMonthText = row.dayMonthController.text.trim();
 
-      if (r.yearCtrl.text.isEmpty ||
-          !RegExp(r'^\d{4}$').hasMatch(r.yearCtrl.text)) {
+      var isYearValid = false;
+
+      if (!RegExp(r'^\d{4}$').hasMatch(yearText))
+      {
         _errors['year_$i'] = 'Anno non valido';
-        hasErrors = true;
-      } else {
-        int parsedYear = int.parse(r.yearCtrl.text);
-        if (distinctYears.contains(parsedYear)) {
-          _errors['year_$i'] = 'Anno già inserito';
-          hasErrors = true;
-        } else {
-          distinctYears.add(parsedYear);
-          yearValid = true;
-        }
+      }
+      else if (!seenYears.add(int.parse(yearText)))
+      {
+        _errors['year_$i'] = 'Anno già inserito';
+      }
+      else
+      {
+        isYearValid = true;
       }
 
-      if (r.dateCtrl.text.isEmpty) {
+      if (dayMonthText.isEmpty)
+      {
         _errors['start_$i'] = 'Campo obbligatorio';
-        hasErrors = true;
-      } else if (yearValid &&
-          !_isValidDayMonthYear(
-            r.dateCtrl.text.trim(),
-            r.yearCtrl.text.trim(),
-          )) {
-        _errors['start_$i'] = 'Data non valida';
-        hasErrors = true;
-      } else if (!yearValid &&
-          !RegExp(r'^\d{2}/\d{2}$').hasMatch(r.dateCtrl.text.trim())) {
-        _errors['start_$i'] = 'Formato gg/mm';
-        hasErrors = true;
       }
-
-      if (!hasErrors) {
-        final partsStart = r.dateCtrl.text.split('/');
-        final isoStart = '${r.yearCtrl.text}-${partsStart[1]}-${partsStart[0]}';
-        final isoEnd = '${r.yearCtrl.text}-12-31';
-
-        payloadMemberships.add({
-          "year": int.parse(r.yearCtrl.text),
-          "start_date": isoStart,
-          "end_date": isoEnd,
-          "renewal_period_days": 30,
-          "revocation": r.revocation,
-        });
+      else if (isYearValid && !_isRealDate(dayMonthText, yearText))
+      {
+        _errors['start_$i'] = 'Data non valida';
+      }
+      else if (!isYearValid && !RegExp(r'^\d{2}/\d{2}$').hasMatch(dayMonthText))
+      {
+        _errors['start_$i'] = 'Formato gg/mm';
       }
     }
 
-    if (_rows.isEmpty) {
+    return _errors.isEmpty;
+  }
+
+  // The membership always ends on the last day of its own year, so only the start
+  // day and month are editable.
+  List<Map<String, dynamic>> _buildPayload()
+  {
+    final payload = _rows.map((row)
+    {
+      final year = row.yearController.text.trim();
+      final parts = row.dayMonthController.text.trim().split('/');
+
+      return <String, dynamic>{
+        'year': int.parse(year),
+        'start_date': '$year-${parts[1]}-${parts[0]}',
+        'end_date': '$year-12-31',
+        'renewal_period_days': row.renewalPeriodDays,
+        'revocation': row.revocation,
+      };
+    }).toList();
+
+    payload.sort((a, b) => (b['year'] as int).compareTo(a['year'] as int));
+
+    return payload;
+  }
+
+  bool _hasRunningMembership(List<Map<String, dynamic>> payload)
+  {
+    for (final membership in payload)
+    {
+      if (membership['revocation'] != _revocationNone)
+      {
+        continue;
+      }
+
+      final endDate = DateTime.tryParse(membership['end_date'] as String);
+
+      if (endDate != null &&
+          _isWithinRenewalWindow(endDate, membership['renewal_period_days'] as int))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _save() async
+  {
+    if (_rows.isEmpty)
+    {
       CustomSnackBar.show(
         context: context,
-        message: 'Deve esserci almeno un\'iscrizione.',
+        message: "Deve esserci almeno un'iscrizione.",
         isError: true,
       );
+
       return;
     }
 
-    if (hasErrors) {
+    if (!_validateRows())
+    {
       setState(() {});
       CustomSnackBar.show(
         context: context,
         message: 'Correggi gli errori prima di salvare.',
         isError: true,
       );
+
       return;
     }
 
-    payloadMemberships.sort(
-      (a, b) => (b['year'] as int).compareTo(a['year'] as int),
-    );
+    final payload = _buildPayload();
 
-    bool isEnrolled = false;
-    final now = DateTime.now();
-    for (var m in payloadMemberships) {
-      if (m['revocation'] == 'NO') {
-        try {
-          final endDate = DateTime.parse(m['end_date']);
-          if (now.isBefore(
-            endDate.add(Duration(days: m['renewal_period_days'])),
-          )) {
-            isEnrolled = true;
-            break;
-          }
-        } catch (_) {}
-      }
-    }
-
-    if (_isActiveCollaborator && !isEnrolled) {
+    if (_isActiveCollaborator && !_hasRunningMembership(payload))
+    {
       CustomSnackBar.show(
         context: context,
-        message:
-            'Impossibile impostare "Collaboratore attivo" senza un\'iscrizione in corso.',
+        message: 'Impossibile impostare "Collaboratore attivo" senza '
+            "un'iscrizione in corso.",
         isError: true,
       );
+
       return;
     }
 
     setState(() => _isSaving = true);
-    try {
+
+    try
+    {
       await _apiService.updatePersonMemberships(
         widget.person.fiscalCode,
         _isActiveCollaborator,
-        payloadMemberships,
+        payload,
         widget.person.memberUpdatedAt,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         CustomSnackBar.show(
           context: context,
           message: 'Iscrizioni aggiornate con successo!',
           isError: false,
         );
+
         Navigator.of(context).pop();
         widget.onUpdate();
       }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context: context,
-          message: e.toString().replaceAll('Exception: ', ''),
-          isError: true,
-        );
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
-    } finally {
-      if (mounted) {
+    }
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isSaving = false);
       }
     }
   }
 
-  Widget _buildFieldLabel(String text) {
+  Widget _buildFieldLabel(String text)
+  {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
@@ -1025,14 +970,52 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF003C82),
+          color: AppTheme.primary,
         ),
       ),
     );
   }
 
+  Widget _buildForm()
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel('Collaboratore attivo'),
+        Center(
+          child: WizardYesNoSwitch(
+            value: _isActiveCollaborator,
+            onChanged: (value) => setState(() => _isActiveCollaborator = value),
+          ),
+        ),
+        const SizedBox(height: 32),
+        _buildFieldLabel('Storico Iscrizioni'),
+        for (var i = 0; i < _rows.length; i++)
+          _MembershipEditRow(
+            yearController: _rows[i].yearController,
+            dayMonthController: _rows[i].dayMonthController,
+            yearError: _errors['year_$i'],
+            startError: _errors['start_$i'],
+            onYearChanged: (_) => setState(() => _errors.remove('year_$i')),
+            onDayMonthChanged: (_) => setState(() => _errors.remove('start_$i')),
+            onRemove: () => _removeRow(i),
+          ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: WizardTextLinkButton(
+            text: 'Aggiungi iscrizione',
+            icon: Icons.add_rounded,
+            onTap: _addEmptyRow,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -1045,13 +1028,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A000000),
-              offset: Offset(0, 8),
-              blurRadius: 24,
-            ),
-          ],
+          boxShadow: AppTheme.dialogShadow,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1066,84 +1043,43 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF003C82),
+                      color: AppTheme.primary,
                     ),
                   ),
                   FadeHoverIconButton(
                     icon: Icons.close,
-                    color: const Color(0xFF003C82),
-                    hoverColor: const Color(0xFFE3F2FD),
+                    color: AppTheme.primary,
+                    hoverColor: AppTheme.iconHover,
                     onTap: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
+            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Collaboratore attivo'),
-                      Center(
-                        child: WizardYesNoSwitch(
-                          value: _isActiveCollaborator,
-                          onChanged: (val) =>
-                              setState(() => _isActiveCollaborator = val),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      _buildFieldLabel('Storico Iscrizioni'),
-                      //OgniRigaOraDecideDaSolaSeAffiancareOImpilareIDueCampi
-                      ...List.generate(_rows.length, (i) {
-                        final r = _rows[i];
-                        return _MembershipEditRow(
-                          yearCtrl: r.yearCtrl,
-                          dateCtrl: r.dateCtrl,
-                          yearError: _errors['year_$i'],
-                          startError: _errors['start_$i'],
-                          onYearChanged: (_) =>
-                              setState(() => _errors.remove('year_$i')),
-                          onDateChanged: (_) =>
-                              setState(() => _errors.remove('start_$i')),
-                          onRemove: () => setState(() => _rows.removeAt(i)),
-                        );
-                      }),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: WizardTextLinkButton(
-                          text: 'Aggiungi iscrizione',
-                          icon: Icons.add_rounded,
-                          onTap: _addEmptyRow,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                child: SizedBox(width: double.infinity, child: _buildForm()),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(
-                left: 32,
-                right: 32,
-                bottom: 32,
-                top: 16,
-              ),
-              child: _ResponsiveDialogButtonsRow(
-                cancelText: 'ANNULLA',
-                cancelIcon: Icons.cancel_outlined,
-                cancelColor: const Color(0xFFE53935),
-                cancelHoverColor: const Color(0xFFEF5350),
-                cancelOnPressed: () => Navigator.of(context).pop(),
-                confirmText: _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
-                confirmIcon: Icons.check_circle_outline,
-                confirmColor: const Color(0xFF003C82),
-                confirmHoverColor: const Color(0xFF004D99),
-                confirmOnPressed: _isSaving ? () {} : _save,
+              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
+              child: ResponsiveDialogButtonsRow(
+                stackedButtonWidth: null,
+                secondaryButton: AnimatedActionButton(
+                  text: 'ANNULLA',
+                  icon: Icons.cancel_outlined,
+                  baseColor: AppTheme.danger,
+                  hoverColor: AppTheme.dangerHover,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                primaryButton: AnimatedActionButton(
+                  text: _isSaving ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
+                  icon: Icons.check_circle_outline,
+                  baseColor: AppTheme.primary,
+                  hoverColor: AppTheme.primaryHover,
+                  onPressed: _isSaving ? () {} : _save,
+                ),
               ),
             ),
           ],
@@ -1153,30 +1089,32 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog> {
   }
 }
 
-//DecideSeAffiancareOImpilareAnnoEDataInizio_InBaseAllaLarghezzaRealeDellaRiga
-//DaImpilato_Il"-"SiSpostaAccantoAllUltimoCampo_AllineatoInBasso
-class _MembershipEditRow extends StatelessWidget {
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
+// Year and start date side by side, stacked when the row gets too narrow. Once
+// stacked the remove button moves next to the last field, aligned to its bottom.
+class _MembershipEditRow extends StatelessWidget
+{
+  static const double _breakpoint = 360;
+
+  final TextEditingController yearController;
+  final TextEditingController dayMonthController;
   final String? yearError;
   final String? startError;
   final ValueChanged<String> onYearChanged;
-  final ValueChanged<String> onDateChanged;
+  final ValueChanged<String> onDayMonthChanged;
   final VoidCallback onRemove;
 
   const _MembershipEditRow({
-    required this.yearCtrl,
-    required this.dateCtrl,
+    required this.yearController,
+    required this.dayMonthController,
     required this.yearError,
     required this.startError,
     required this.onYearChanged,
-    required this.onDateChanged,
+    required this.onDayMonthChanged,
     required this.onRemove,
   });
 
-  static const double _kBreakpoint = 360;
-
-  Widget _buildFieldBlock(String label, Widget field) {
+  Widget _buildFieldBlock(String label, Widget field)
+  {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1185,7 +1123,7 @@ class _MembershipEditRow extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
+            color: AppTheme.slate500,
           ),
         ),
         const SizedBox(height: 4),
@@ -1195,43 +1133,44 @@ class _MembershipEditRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
+    final yearField = _buildFieldBlock(
+      'Anno',
+      WizardAnimatedTextField(
+        controller: yearController,
+        hint: 'Es. 2024',
+        errorText: yearError,
+        keyboardType: TextInputType.number,
+        onChanged: onYearChanged,
+      ),
+    );
+
+    final dayMonthField = _buildFieldBlock(
+      'Data inizio',
+      WizardAnimatedTextField(
+        controller: dayMonthController,
+        hint: 'gg/mm',
+        errorText: startError,
+        inputFormatters: [WizardDayMonthInputFormatter()],
+        keyboardType: TextInputType.number,
+        onChanged: onDayMonthChanged,
+      ),
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: AppTheme.slate200),
+        color: _subtleBackground,
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isCompact = constraints.maxWidth < _kBreakpoint;
-
-          final Widget yearField = _buildFieldBlock(
-            'Anno',
-            WizardAnimatedTextField(
-              controller: yearCtrl,
-              hint: 'Es. 2024',
-              errorText: yearError,
-              keyboardType: TextInputType.number,
-              onChanged: onYearChanged,
-            ),
-          );
-
-          final Widget dateField = _buildFieldBlock(
-            'Data inizio',
-            WizardAnimatedTextField(
-              controller: dateCtrl,
-              hint: 'gg/mm',
-              errorText: startError,
-              inputFormatters: [WizardDayMonthInputFormatter()],
-              keyboardType: TextInputType.number,
-              onChanged: onDateChanged,
-            ),
-          );
-
-          if (isCompact) {
+        builder: (context, constraints)
+        {
+          if (constraints.maxWidth < _breakpoint)
+          {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1240,7 +1179,7 @@ class _MembershipEditRow extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(child: dateField),
+                    Expanded(child: dayMonthField),
                     const SizedBox(width: 8),
                     WizardRemoveRowButton(onTap: onRemove),
                   ],
@@ -1254,7 +1193,7 @@ class _MembershipEditRow extends StatelessWidget {
             children: [
               Expanded(flex: 2, child: yearField),
               const SizedBox(width: 16),
-              Expanded(flex: 3, child: dateField),
+              Expanded(flex: 3, child: dayMonthField),
               Padding(
                 padding: const EdgeInsets.only(top: 22, left: 8),
                 child: WizardRemoveRowButton(onTap: onRemove),
@@ -1267,26 +1206,18 @@ class _MembershipEditRow extends StatelessWidget {
   }
 }
 
-class _MembershipRowData {
-  final TextEditingController yearCtrl;
-  final TextEditingController dateCtrl;
-  String revocation;
-
-  _MembershipRowData({
-    required this.yearCtrl,
-    required this.dateCtrl,
-    required this.revocation,
-  });
-}
-
-class _FormOverlayDropdown extends StatefulWidget {
+// Dropdown for a form field: it keeps the backend code as its value and shows the
+// matching label. Separate from the filter menus in shared/widgets, which are
+// built around clearing and multi selection rather than picking one value.
+class _FormOverlayDropdown extends StatefulWidget
+{
   final String value;
-  final List<String> options;
+  final Map<String, String> labels;
   final ValueChanged<String> onSelected;
 
   const _FormOverlayDropdown({
     required this.value,
-    required this.options,
+    required this.labels,
     required this.onSelected,
   });
 
@@ -1294,19 +1225,23 @@ class _FormOverlayDropdown extends StatefulWidget {
   State<_FormOverlayDropdown> createState() => _FormOverlayDropdownState();
 }
 
-class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
+class _FormOverlayDropdownState extends State<_FormOverlayDropdown>
+{
   final GlobalKey _buttonKey = GlobalKey();
-  OverlayEntry? _overlayEntry;
   final GlobalKey<_FormOverlayContentState> _menuKey = GlobalKey();
+
+  OverlayEntry? _overlayEntry;
   bool _isHovered = false;
 
-  void _toggleMenu() {
-    if (_overlayEntry != null) {
+  void _toggleMenu()
+  {
+    if (_overlayEntry != null)
+    {
       _closeMenu();
       return;
     }
-    final renderBox =
-        _buttonKey.currentContext!.findRenderObject() as RenderBox;
+
+    final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
 
@@ -1326,10 +1261,11 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
             child: _FormOverlayContent(
               key: _menuKey,
               currentValue: widget.value,
-              options: widget.options,
+              labels: widget.labels,
               width: size.width,
-              onSelected: (val) {
-                widget.onSelected(val);
+              onSelected: (value)
+              {
+                widget.onSelected(value);
                 _closeMenu();
               },
             ),
@@ -1337,19 +1273,27 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
         ],
       ),
     );
+
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  void _closeMenu() async {
-    if (_overlayEntry != null) {
-      await _menuKey.currentState?.hide();
-      _overlayEntry?.remove();
-      _overlayEntry = null;
+  // The overlay is removed only after the collapse animation has run, so the menu
+  // does not disappear abruptly.
+  void _closeMenu() async
+  {
+    if (_overlayEntry == null)
+    {
+      return;
     }
+
+    await _menuKey.currentState?.hide();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovered = true),
@@ -1365,9 +1309,7 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _isHovered
-                  ? const Color(0xFF003C82)
-                  : const Color(0xFFE2E8F0),
+              color: _isHovered ? AppTheme.primary : AppTheme.slate200,
               width: 1.5,
             ),
           ),
@@ -1375,18 +1317,16 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                widget.value,
+                widget.labels[widget.value] ?? widget.value,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF2A2A2A),
+                  color: _strongTextColor,
                 ),
               ),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: _isHovered
-                    ? const Color(0xFF003C82)
-                    : const Color(0xFF8A8A8A),
+                color: _isHovered ? AppTheme.primary : AppTheme.mutedText,
               ),
             ],
           ),
@@ -1396,16 +1336,17 @@ class _FormOverlayDropdownState extends State<_FormOverlayDropdown> {
   }
 }
 
-class _FormOverlayContent extends StatefulWidget {
+class _FormOverlayContent extends StatefulWidget
+{
   final String currentValue;
-  final List<String> options;
+  final Map<String, String> labels;
   final ValueChanged<String> onSelected;
   final double width;
 
   const _FormOverlayContent({
     super.key,
     required this.currentValue,
-    required this.options,
+    required this.labels,
     required this.onSelected,
     required this.width,
   });
@@ -1414,28 +1355,42 @@ class _FormOverlayContent extends StatefulWidget {
   State<_FormOverlayContent> createState() => _FormOverlayContentState();
 }
 
-class _FormOverlayContentState extends State<_FormOverlayContent> {
+class _FormOverlayContentState extends State<_FormOverlayContent>
+{
+  // The same value drives the AnimatedSize and the delay awaited by hide(): they
+  // must stay in sync or the overlay is torn down mid animation.
+  static const Duration _expandDuration = Duration(milliseconds: 180);
+
   bool _expanded = false;
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+
+    // Expanding on the next frame is what makes the opening animation visible.
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
         setState(() => _expanded = true);
       }
     });
   }
 
-  Future<void> hide() async {
-    if (mounted) {
+  Future<void> hide() async
+  {
+    if (mounted)
+    {
       setState(() => _expanded = false);
     }
-    await Future.delayed(const Duration(milliseconds: 180));
+
+    await Future.delayed(_expandDuration);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -1443,16 +1398,10 @@ class _FormOverlayContentState extends State<_FormOverlayContent> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-          ],
+          boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 180),
+          duration: _expandDuration,
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _expanded
@@ -1461,11 +1410,12 @@ class _FormOverlayContentState extends State<_FormOverlayContent> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: widget.options.map((option) {
+                    children: widget.labels.entries.map((entry)
+                    {
                       return _FormOverlayMenuItem(
-                        text: option,
-                        isSelected: widget.currentValue == option,
-                        onTap: () => widget.onSelected(option),
+                        text: entry.value,
+                        isSelected: widget.currentValue == entry.key,
+                        onTap: () => widget.onSelected(entry.key),
                       );
                     }).toList(),
                   ),
@@ -1477,7 +1427,8 @@ class _FormOverlayContentState extends State<_FormOverlayContent> {
   }
 }
 
-class _FormOverlayMenuItem extends StatefulWidget {
+class _FormOverlayMenuItem extends StatefulWidget
+{
   final String text;
   final bool isSelected;
   final VoidCallback onTap;
@@ -1492,11 +1443,15 @@ class _FormOverlayMenuItem extends StatefulWidget {
   State<_FormOverlayMenuItem> createState() => _FormOverlayMenuItemState();
 }
 
-class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
+class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
+{
   bool _hover = false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
+    final isHighlighted = _hover || widget.isSelected;
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -1512,9 +1467,9 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 width: 2,
-                height: (_hover || widget.isSelected) ? 16 : 0,
+                height: isHighlighted ? 16 : 0,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF003C82),
+                  color: AppTheme.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1525,10 +1480,8 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    fontWeight: (widget.isSelected || _hover)
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                    color: const Color(0xFF003C82),
+                    fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,
+                    color: AppTheme.primary,
                   ),
                 ),
               ),

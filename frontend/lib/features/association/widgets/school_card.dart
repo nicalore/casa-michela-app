@@ -1,22 +1,28 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/ministry_subject_chip.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/shared_components.dart';
+import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
 import '../models/study_program_item.dart';
-import '../models/ministry_subject_item.dart';
-import '../../../shared/widgets/shared_components.dart';
+import '../models/subject_taxonomy.dart';
+
+const Color _chipBackground = Color(0xFFF5F7FA);
+const Color _chipHover = AppTheme.slate200;
 
 class SchoolCard extends StatefulWidget
 {
-  final SchoolItem                           school;
-  final List<StudyProgramItem>               availableStudyPrograms;
-  final List<MinistrySubjectItem>            availableMinistrySubjects;
+  final SchoolItem school;
+  final List<StudyProgramItem> availableStudyPrograms;
+  final List<MinistrySubjectItem> availableMinistrySubjects;
   final void Function(VoidCallback onCancel) onEditRequested;
-  final VoidCallback                         onDelete;
+  final VoidCallback onDelete;
 
-  const SchoolCard
-  ({
+  const SchoolCard({
     super.key,
     required this.school,
     required this.availableStudyPrograms,
@@ -33,118 +39,74 @@ class _SchoolCardState extends State<SchoolCard>
 {
   bool _isHovering = false;
 
-  void _showDetailsDialog(BuildContext context)
+  void _showDetailsDialog()
   {
-    //StableReferenceToTheCardsOwnContext_MustSurviveTheDialogsOpenCloseCycle
-    //DoNotLetThisGetShadowedByTransitionBuildersOwnContextParamBelow
-    final BuildContext cardContext = context;
-
-    showGeneralDialog
-    (
-      context:            cardContext,
-      barrierDismissible: true,
-      barrierLabel:       'SchoolDetails',
-      barrierColor:       Colors.black.withValues(alpha: .15),
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      //RenamedFrom"context"ToAvoidShadowingTheOuterCardContext_ThisIsTheDialogsOwnContext
-      //ItBecomesInvalidAssoonAsThisSpecificDialogIsPopped_NeverStoreItInALongLivedClosure
-      transitionBuilder:  (dialogContext, animation, secondaryAnimation, child)
-      {
-        final blurValue = animation.value * 8.0;
-        
-        return BackdropFilter
-        (
-          filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-          child: FadeTransition
-          (
-            opacity: animation,
-            child: ScaleTransition
-            (
-              scale: CurvedAnimation
-              (
-                parent:       animation, 
-                curve:        Curves.easeOutBack, 
-                reverseCurve: Curves.easeIn,
-              ),
-              child: _SchoolDetailsDialogContent
-              (
-                school:                    widget.school,
-                availableStudyPrograms:    widget.availableStudyPrograms,
-                availableMinistrySubjects: widget.availableMinistrySubjects,
-                onEditRequested:           ()
-                {
-                  //PopsTheCurrentDialogUsingItsOwnStillValidContext
-                  Navigator.of(dialogContext).pop();
-                  //ButHandsTheReopenCallbackTheCard'sStableContext_NotTheSoonToBeDefunctDialogOne
-                  //ThisIsTheActualFix_BeforeThisLineUsedTheShadowedDialogContextHere_CausingTheCrash
-                  widget.onEditRequested(() => _showDetailsDialog(cardContext));
-                },
-                onDelete:                  widget.onDelete,
-              ),
-            ),
-          ),
-        );
-      },
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'SchoolDetails',
+      builder: (dialogContext) => _SchoolDetailsDialogContent(
+        school: widget.school,
+        availableStudyPrograms: widget.availableStudyPrograms,
+        availableMinistrySubjects: widget.availableMinistrySubjects,
+        onEditRequested: ()
+        {
+          Navigator.of(dialogContext).pop();
+          // The reopen callback reuses the card state, not the dialog context
+          // that is about to become invalid.
+          widget.onEditRequested(_showDetailsDialog);
+        },
+        onDelete: widget.onDelete,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion
-    (
-      cursor:  SystemMouseCursors.click,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _isHovering = true),
-      onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector
-      (
-        onTap: () => _showDetailsDialog(context),
-        child: AnimatedContainer
-        (
-          duration:   const Duration(milliseconds: 180),
-          curve:      Curves.easeOut,
-          width:      360,
-          height:     140,
-          padding:    const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          decoration: BoxDecoration
-          (
-            color:        Colors.white,
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: _showDetailsDialog,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: 360,
+          height: 140,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
-            border:       Border.all
-            (
-              color: _isHovering ? const Color(0xFF003C82) : Colors.transparent, 
+            border: Border.all(
+              color: _isHovering ? AppTheme.primary : Colors.transparent,
               width: 2,
             ),
-            boxShadow:    const 
-            [
-              BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 16),
-            ],
+            boxShadow: AppTheme.cardShadow,
           ),
-          child: Column
-          (
-            mainAxisAlignment:  MainAxisAlignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: 
-            [
-              _CardOverflowTooltipText
-              (
-                text:  widget.school.name,
-                style: GoogleFonts.plusJakartaSans
-                (
-                  fontSize:   19, 
-                  fontWeight: FontWeight.w700, 
-                  color:      const Color(0xFF003C82), 
-                  height:     1.15,
+            children: [
+              OverflowTooltipText(
+                text: widget.school.name,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primary,
+                  height: 1.15,
                 ),
               ),
               const SizedBox(height: 4),
-              Text
-              (
-                '${widget.school.city} (${widget.school.province})', 
-                maxLines: 1, 
+              Text(
+                '${widget.school.city} (${widget.school.province})',
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style:    GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF8A8A8A)),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.mutedText,
+                ),
               ),
             ],
           ),
@@ -156,77 +118,64 @@ class _SchoolCardState extends State<SchoolCard>
 
 class _SchoolDetailsDialogContent extends StatelessWidget
 {
-  final SchoolItem                school;
-  final List<StudyProgramItem>    availableStudyPrograms;
+  final SchoolItem school;
+  final List<StudyProgramItem> availableStudyPrograms;
   final List<MinistrySubjectItem> availableMinistrySubjects;
-  final VoidCallback              onEditRequested;
-  final VoidCallback              onDelete;
+  final VoidCallback onEditRequested;
+  final VoidCallback onDelete;
 
-  const _SchoolDetailsDialogContent
-  ({
-    required this.school, 
-    required this.availableStudyPrograms, 
-    required this.availableMinistrySubjects, 
-    required this.onEditRequested, 
+  const _SchoolDetailsDialogContent({
+    required this.school,
+    required this.availableStudyPrograms,
+    required this.availableMinistrySubjects,
+    required this.onEditRequested,
     required this.onDelete,
   });
 
   void _showDeleteConfirmation(BuildContext context)
   {
-    showDialog
-    (
+    showDialog(
       context: context,
-      builder: (BuildContext confirmContext)
+      builder: (confirmContext)
       {
-        return AlertDialog
-        (
-          backgroundColor: Colors.white, 
-          shape:           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title:           Text
-          (
-            'Conferma Eliminazione', 
-            style: GoogleFonts.plusJakartaSans
-            (
-              fontWeight: FontWeight.w700, 
-              color:      const Color(0xFF003C82),
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            'Conferma Eliminazione',
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primary,
             ),
           ),
-          content:         Text
-          (
-            'Sei sicuro di voler eliminare la scuola "${school.name}"?', 
+          content: Text(
+            'Sei sicuro di voler eliminare la scuola "${school.name}"?',
             style: GoogleFonts.plusJakartaSans(fontSize: 16),
           ),
-          actions: 
-          [
-            TextButton
-            (
-              style:     ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
+          actions: [
+            TextButton(
+              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
               onPressed: () => Navigator.pop(confirmContext),
-              child:     Text
-              (
-                'ANNULLA', 
-                style: GoogleFonts.plusJakartaSans
-                (
-                  color:      const Color(0xFF8A8A8A), 
+              child: Text(
+                'ANNULLA',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.mutedText,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            TextButton
-            (
-              style:     ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () 
-              { 
-                Navigator.pop(confirmContext); 
-                Navigator.pop(context); 
-                onDelete(); 
+            TextButton(
+              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
+              onPressed: ()
+              {
+                Navigator.pop(confirmContext);
+                Navigator.pop(context);
+                onDelete();
               },
-              child:     Text
-              (
-                'ELIMINA', 
-                style: GoogleFonts.plusJakartaSans
-                (
-                  color:      const Color(0xFFE53935), 
+              child: Text(
+                'ELIMINA',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppTheme.danger,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -237,41 +186,37 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
+  // The program id carried by a SchoolStudyProgramOption is resolved against
+  // the full StudyProgramItem list loaded elsewhere, so the read only dialog
+  // can show ministry subjects and years that the option does not carry.
   void _openReadOnlyProgramDialog(BuildContext context, int programId)
   {
-    final fullProgram = availableStudyPrograms.firstWhere
-    (
-      (p) => p.id == programId, 
+    final fullProgram = availableStudyPrograms.firstWhere(
+      (program) => program.id == programId,
       orElse: () => throw Exception('Percorso non trovato nei dati caricati'),
     );
-    
-    showGeneralDialog
-    (
-      context:            context, 
-      barrierDismissible: true, 
-      barrierLabel:       'ReadOnlyProgramDetails', 
-      barrierColor:       Colors.transparent, 
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'ReadOnlyProgramDetails',
+      barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder:        (animation, secondaryAnimation, child) => const SizedBox.shrink(),
-      transitionBuilder:  (context, animation, secondaryAnimation, child)
+      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child)
       {
-        return FadeTransition
-        (
-          opacity: animation, 
-          child:   ScaleTransition
-          (
-            scale: CurvedAnimation
-            (
-              parent:       animation, 
-              curve:        Curves.easeOutBack, 
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutBack,
               reverseCurve: Curves.easeIn,
             ),
-            child: Align
-            (
-              alignment: const Alignment(0.5, 0.0), 
-              child:     _ReadOnlyStudyProgramDialogContent
-              (
-                program:                   fullProgram, 
+            child: Align(
+              alignment: const Alignment(0.5, 0.0),
+              child: _ReadOnlyStudyProgramDialogContent(
+                program: fullProgram,
                 availableMinistrySubjects: availableMinistrySubjects,
               ),
             ),
@@ -281,19 +226,16 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
-  Widget _buildFieldLabel(String text) 
+  Widget _buildFieldLabel(String text)
   {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8, top: 20), 
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          color:      const Color(0xFF003C82), 
-          fontWeight: FontWeight.w700, 
-          fontSize:   16,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
         ),
       ),
     );
@@ -302,135 +244,94 @@ class _SchoolDetailsDialogContent extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    //CodiceOraOpzionale_SeAssenteSiMostraUnPlaceholderNeutro
-    final bool hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
-    
-    return Dialog
-    (
-      backgroundColor: Colors.transparent, 
-      elevation:       0,
-      child: Container
-      (
-        width:       600, 
+    final hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        width: 600,
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration:  BoxDecoration
-        (
-          color:        Colors.white, 
-          borderRadius: BorderRadius.circular(30), 
-          boxShadow:    const 
-          [
-            BoxShadow
-            (
-              color:      Color(0x1A000000), 
-              offset:     Offset(0, 8), 
-              blurRadius: 24,
-            ),
-          ],
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: AppTheme.dialogShadow,
         ),
-        //MakeTextContentSelectable
-        child: SelectionArea
-        (
-          child: Column
-          (
+        child: SelectionArea(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: 
-            [
-              Padding
-              (
+            children: [
+              Padding(
                 padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child:   Row
-                (
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: 
-                  [
-                    Text
-                    (
-                      'Dettagli Scuola', 
-                      style: GoogleFonts.plusJakartaSans
-                      (
-                        fontSize:   22, 
-                        fontWeight: FontWeight.w700, 
-                        color:      const Color(0xFF003C82),
+                  children: [
+                    Text(
+                      'Dettagli Scuola',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
                       ),
                     ),
-                    StaticHoverIconButton
-                    (
-                      icon:       Icons.close, 
-                      color:      const Color(0xFF003C82), 
-                      hoverColor: const Color(0xFFE3F2FD), 
-                      onTap:      () => Navigator.of(context).pop(),
+                    StaticHoverIconButton(
+                      icon: Icons.close,
+                      color: AppTheme.primary,
+                      hoverColor: AppTheme.iconHover,
+                      onTap: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-              Flexible
-              (
-                child: SingleChildScrollView
-                (
+              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
+              Flexible(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                  child:   Column
-                  (
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
-                      //GerarchiaAggiornata_IlNomeApreIDettagli_IlCodiceScendeInFondoComeDatoSecondario
+                    children: [
                       _buildFieldLabel('Nome'),
-                      Text
-                      (
-                        school.name, 
-                        style: GoogleFonts.plusJakartaSans
-                        (
-                          fontSize:   20, 
-                          fontWeight: FontWeight.w600, 
-                          color:      Colors.black,
+                      Text(
+                        school.name,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
                         ),
                       ),
-                      Row
-                      (
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: 
-                        [
-                          Expanded
-                          (
-                            flex:  3, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Città'), 
-                                Text
-                                (
-                                  school.city, 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   20, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      Colors.black,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Città'),
+                                Text(
+                                  school.city,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 16),
-                          Expanded
-                          (
-                            flex:  1, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Provincia'), 
-                                Text
-                                (
-                                  school.province, 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   20, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      Colors.black,
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Provincia'),
+                                Text(
+                                  school.province,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
@@ -439,84 +340,70 @@ class _SchoolDetailsDialogContent extends StatelessWidget
                         ],
                       ),
                       _buildFieldLabel('Codice Meccanografico'),
-                      Text
-                      (
-                        hasCode ? school.mechanographicCode! : 'Non presente', 
-                        style: GoogleFonts.plusJakartaSans
-                        (
-                          fontSize:   20, 
-                          fontWeight: FontWeight.w600, 
-                          color:      hasCode ? Colors.black : const Color(0xFF8A8A8A), 
-                          fontStyle:  hasCode ? FontStyle.normal : FontStyle.italic,
+                      Text(
+                        hasCode ? school.mechanographicCode! : 'Non presente',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: hasCode ? Colors.black : AppTheme.mutedText,
+                          fontStyle: hasCode ? FontStyle.normal : FontStyle.italic,
                         ),
                       ),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Percorsi di Studio Attivi'),
-                      if (school.studyPrograms.isEmpty) 
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(top: 8.0), 
-                          child:   Text
-                          (
-                            'Nessun percorso associato a questa scuola.', 
-                            style: GoogleFonts.plusJakartaSans
-                            (
-                              fontSize:  15, 
-                              color:     const Color(0xFF8A8A8A), 
+                      if (school.studyPrograms.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Nessun percorso associato a questa scuola.',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              color: AppTheme.mutedText,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
                         )
-                      else 
-                        Padding
-                        (
-                          padding: const EdgeInsets.only(top: 8.0), 
-                          child:   Wrap
-                          (
-                            spacing:    10, 
-                            runSpacing: 10, 
-                            children:   school.studyPrograms.map((program) => _HoverableProgramChip
-                            (
-                              name:  program.name, 
-                              onTap: () => _openReadOnlyProgramDialog(context, program.id),
-                            )).toList(),
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: school.studyPrograms.map((program)
+                            {
+                              return _HoverableProgramChip(
+                                name: program.name,
+                                onTap: () => _openReadOnlyProgramDialog(context, program.id),
+                              );
+                            }).toList(),
                           ),
                         ),
                     ],
                   ),
                 ),
               ),
-              //DisableSelectionForActionButtons
-              SelectionContainer.disabled
-              (
-                child: Padding
-                (
+              SelectionContainer.disabled(
+                child: Padding(
                   padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-                  child:   Row
-                  (
-                    children: 
-                    [
-                      Expanded
-                      (
-                        child: AnimatedActionButton
-                        (
-                          text:       'ELIMINA', 
-                          icon:       Icons.delete_outline_rounded, 
-                          baseColor:  const Color(0xFFE53935), 
-                          hoverColor: const Color(0xFFEF5350), 
-                          onPressed:  () => _showDeleteConfirmation(context),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: AnimatedActionButton(
+                          text: 'ELIMINA',
+                          icon: Icons.delete_outline_rounded,
+                          baseColor: AppTheme.danger,
+                          hoverColor: AppTheme.dangerHover,
+                          onPressed: () => _showDeleteConfirmation(context),
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Expanded
-                      (
-                        child: AnimatedActionButton
-                        (
-                          text:       'MODIFICA', 
-                          icon:       Icons.edit_outlined, 
-                          baseColor:  const Color(0xFF003C82), 
-                          hoverColor: const Color(0xFF004D99), 
-                          onPressed:  onEditRequested,
+                      Expanded(
+                        child: AnimatedActionButton(
+                          text: 'MODIFICA',
+                          icon: Icons.edit_outlined,
+                          baseColor: AppTheme.primary,
+                          hoverColor: AppTheme.primaryHover,
+                          onPressed: onEditRequested,
                         ),
                       ),
                     ],
@@ -533,15 +420,11 @@ class _SchoolDetailsDialogContent extends StatelessWidget
 
 class _HoverableProgramChip extends StatefulWidget
 {
-  final String       name;
+  final String name;
   final VoidCallback onTap;
-  
-  const _HoverableProgramChip
-  ({
-    required this.name, 
-    required this.onTap,
-  });
-  
+
+  const _HoverableProgramChip({required this.name, required this.onTap});
+
   @override
   State<_HoverableProgramChip> createState() => _HoverableProgramChipState();
 }
@@ -549,36 +432,30 @@ class _HoverableProgramChip extends StatefulWidget
 class _HoverableProgramChipState extends State<_HoverableProgramChip>
 {
   bool _isHovering = false;
-  
+
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion
-    (
-      cursor:  SystemMouseCursors.click, 
-      onEnter: (_) => setState(() => _isHovering = true), 
-      onExit:  (_) => setState(() => _isHovering = false),
-      child: GestureDetector
-      (
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer
-        (
-          duration:   const Duration(milliseconds: 200), 
-          padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration
-          (
-            color:        _isHovering ? const Color(0xFFE2E8F0) : const Color(0xFFF5F7FA), 
-            borderRadius: BorderRadius.circular(20), 
-            border:       Border.all(color: const Color(0xFFE0E5EC)),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: _isHovering ? _chipHover : _chipBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.border),
           ),
-          child: Text
-          (
-            widget.name, 
-            style: GoogleFonts.plusJakartaSans
-            (
-              fontSize:   14, 
-              fontWeight: FontWeight.w500, 
-              color:      Colors.black87,
+          child: Text(
+            widget.name,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
             ),
           ),
         ),
@@ -589,43 +466,24 @@ class _HoverableProgramChipState extends State<_HoverableProgramChip>
 
 class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
 {
-  final StudyProgramItem          program;
+  final StudyProgramItem program;
   final List<MinistrySubjectItem> availableMinistrySubjects;
 
-  const _ReadOnlyStudyProgramDialogContent
-  ({
-    required this.program, 
+  const _ReadOnlyStudyProgramDialogContent({
+    required this.program,
     required this.availableMinistrySubjects,
   });
 
-  String _translateLevel(String level)
+  Widget _buildFieldLabel(String text)
   {
-    switch (level) 
-    { 
-      case 'PRIMARY_SCHOOL': 
-        return 'Scuola Primaria'; 
-      case 'MIDDLE_SCHOOL': 
-        return 'Scuola Secondaria di I Grado'; 
-      case 'HIGH_SCHOOL': 
-        return 'Scuola Secondaria di II Grado'; 
-      default: 
-        return level; 
-    }
-  }
-
-  Widget _buildFieldLabel(String text) 
-  {
-    return Padding
-    (
-      padding: const EdgeInsets.only(bottom: 8, top: 20), 
-      child:   Text
-      (
-        text, 
-        style: GoogleFonts.plusJakartaSans
-        (
-          color:      const Color(0xFF003C82), 
-          fontWeight: FontWeight.w700, 
-          fontSize:   16,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.primary,
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
         ),
       ),
     );
@@ -634,129 +492,94 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Material
-    (
+    final hasDescription = program.description.isNotEmpty;
+
+    return Material(
       color: Colors.transparent,
-      child: Container
-      (
-        width:       500, 
+      child: Container(
+        width: 500,
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration:  BoxDecoration
-        (
-          color:        Colors.white, 
-          borderRadius: BorderRadius.circular(30), 
-          boxShadow:    const 
-          [
-            BoxShadow
-            (
-              color:      Color(0x2A000000), 
-              offset:     Offset(0, 12), 
-              blurRadius: 36,
-            ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: const [
+            BoxShadow(color: Color(0x2A000000), offset: Offset(0, 12), blurRadius: 36),
           ],
         ),
-        //MakeTextContentSelectable
-        child: SelectionArea
-        (
-          child: Column
-          (
-            mainAxisSize:       MainAxisSize.min, 
+        child: SelectionArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: 
-            [
-              Padding
-              (
+            children: [
+              Padding(
                 padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child:   Row
-                (
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: 
-                  [
-                    Text
-                    (
-                      'Dettagli Percorso', 
-                      style: GoogleFonts.plusJakartaSans
-                      (
-                        fontSize:   22, 
-                        fontWeight: FontWeight.w700, 
-                        color:      const Color(0xFF003C82),
+                  children: [
+                    Text(
+                      'Dettagli Percorso',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
                       ),
                     ),
-                    StaticHoverIconButton
-                    (
-                      icon:       Icons.close, 
-                      color:      const Color(0xFF003C82), 
-                      hoverColor: const Color(0xFFE3F2FD), 
-                      onTap:      () => Navigator.of(context).pop(),
+                    StaticHoverIconButton(
+                      icon: Icons.close,
+                      color: AppTheme.primary,
+                      hoverColor: AppTheme.iconHover,
+                      onTap: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 32, thickness: 1, color: Color(0xFFF0F0F0)),
-              Flexible
-              (
-                child: SingleChildScrollView
-                (
+              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
+              Flexible(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32),
-                  child:   Column
-                  (
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: 
-                    [
+                    children: [
                       _buildFieldLabel('Nome'),
-                      Text
-                      (
-                        program.name, 
-                        style: GoogleFonts.plusJakartaSans
-                        (
-                          fontSize:   20, 
-                          fontWeight: FontWeight.w600, 
-                          color:      Colors.black,
+                      Text(
+                        program.name,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
                         ),
                       ),
-                      Row
-                      (
-                        children: 
-                        [
-                          Expanded
-                          (
-                            flex:  2, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Livello'), 
-                                Text
-                                (
-                                  _translateLevel(program.level), 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   18, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      Colors.black87,
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Livello'),
+                                Text(
+                                  schoolLevelLabel(program.level),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          Expanded
-                          (
-                            flex:  1, 
-                            child: Column
-                            (
-                              crossAxisAlignment: CrossAxisAlignment.start, 
-                              children: 
-                              [
-                                _buildFieldLabel('Anni di corso'), 
-                                Text
-                                (
-                                  '${program.minYear} - ${program.maxYear}', 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   18, 
-                                    fontWeight: FontWeight.w600, 
-                                    color:      Colors.black87,
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFieldLabel('Anni di corso'),
+                                Text(
+                                  '${program.minYear} - ${program.maxYear}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ],
@@ -765,163 +588,38 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                         ],
                       ),
                       _buildFieldLabel('Descrizione'),
-                      Text
-                      (
-                        program.description.isEmpty ? 'Nessuna descrizione fornita.' : program.description, 
-                        style: GoogleFonts.plusJakartaSans
-                        (
-                          fontSize:   16, 
-                          fontWeight: FontWeight.w500, 
-                          height:     1.4, 
-                          color:      program.description.isEmpty ? const Color(0xFFB3B3B3) : Colors.black87, 
-                          fontStyle:  program.description.isEmpty ? FontStyle.italic : FontStyle.normal,
+                      Text(
+                        hasDescription ? program.description : 'Nessuna descrizione fornita.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                          color: hasDescription ? Colors.black87 : AppTheme.hint,
+                          fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
                         ),
                       ),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Materie ministeriali incluse'),
-                      if (program.ministrySubjects.isEmpty) 
-                        Text
-                        (
-                          'Nessuna materia associata.', 
-                          style: GoogleFonts.plusJakartaSans
-                          (
-                            fontSize:  16, 
-                            color:     const Color(0xFF8A8A8A), 
+                      if (program.ministrySubjects.isEmpty)
+                        Text(
+                          'Nessuna materia associata.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            color: AppTheme.mutedText,
                             fontStyle: FontStyle.italic,
                           ),
                         )
-                      else 
-                        Wrap
-                        (
-                          spacing:    12, 
+                      else
+                        Wrap(
+                          spacing: 12,
                           runSpacing: 12,
-                          children:   program.ministrySubjects.map((subj)
-                          {
-                            final fullSubject = availableMinistrySubjects.firstWhere
-                            (
-                              (s) => s.id == subj.id, 
-                              orElse: () => MinistrySubjectItem
-                              (
-                                id:                  subj.id, 
-                                name:                subj.name, 
-                                level:               '', 
-                                areas:               const [], 
-                                description:         '', 
-                                createdAt:           DateTime.now(), 
-                                associationSubjects: const [],
-                              ),
-                            );
-                            
-                            return Tooltip
-                            (
-                              constraints: const BoxConstraints(maxWidth: 400),
-                              richMessage: TextSpan
-                              (
-                                children: 
-                                [
-                                  TextSpan
-                                  (
-                                    text:  'Discipline interne:\n', 
-                                    style: GoogleFonts.plusJakartaSans
-                                    (
-                                      fontSize:   12, 
-                                      color:      const Color(0xFF94A3B8), 
-                                      fontWeight: FontWeight.w700, 
-                                      height:     1.5,
-                                    ),
-                                  ),
-                                  if (fullSubject.associationSubjects.isEmpty) 
-                                    TextSpan
-                                    (
-                                      text:  'Nessuna disciplina associata', 
-                                      style: GoogleFonts.plusJakartaSans
-                                      (
-                                        fontSize:  14, 
-                                        color:     Colors.white60, 
-                                        fontStyle: FontStyle.italic, 
-                                        height:    1.4,
-                                      ),
-                                    )
-                                  else 
-                                    WidgetSpan
-                                    (
-                                      child: Padding
-                                      (
-                                        padding: const EdgeInsets.only(top: 4), 
-                                        child:   Wrap
-                                        (
-                                          spacing:            8, 
-                                          runSpacing:         4, 
-                                          crossAxisAlignment: WrapCrossAlignment.center, 
-                                          children:           List.generate(fullSubject.associationSubjects.length * 2 - 1, (index) 
-                                          { 
-                                            if (index.isOdd) 
-                                            {
-                                              return Text
-                                              (
-                                                '•', 
-                                                style: GoogleFonts.plusJakartaSans
-                                                (
-                                                  fontSize: 12, 
-                                                  color:    const Color(0xFF64748B),
-                                                ),
-                                              ); 
-                                            }
-                                            return Text
-                                            (
-                                              fullSubject.associationSubjects[index ~/ 2].name, 
-                                              style: GoogleFonts.plusJakartaSans
-                                              (
-                                                fontSize:   14, 
-                                                color:      Colors.white, 
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ); 
-                                          }),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              decoration:   BoxDecoration
-                              (
-                                color:        const Color(0xFF1E293B).withValues(alpha: .98), 
-                                borderRadius: BorderRadius.circular(12), 
-                                border:       Border.all(color: const Color(0xFF334155), width: 1.5), 
-                                boxShadow:    const 
-                                [
-                                  BoxShadow
-                                  (
-                                    color:      Color(0x4A000000), 
-                                    offset:     Offset(0, 6), 
-                                    blurRadius: 16,
-                                  ),
-                                ],
-                              ),
-                              padding:      const EdgeInsets.symmetric(horizontal: 20, vertical: 14), 
-                              waitDuration: const Duration(milliseconds: 200),
-                              child:        Container
-                              (
-                                padding:    const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-                                decoration: BoxDecoration
-                                (
-                                  color:        const Color(0xFFF5F7FA), 
-                                  borderRadius: BorderRadius.circular(20), 
-                                  border:       Border.all(color: const Color(0xFFE0E5EC)),
-                                ), 
-                                child:      Text
-                                (
-                                  subj.name, 
-                                  style: GoogleFonts.plusJakartaSans
-                                  (
-                                    fontSize:   15, 
-                                    fontWeight: FontWeight.w500, 
-                                    color:      Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                          children: program.ministrySubjects.map((option)
+                        {
+                          return MinistrySubjectChip(
+                            option: option,
+                            availableMinistrySubjects: availableMinistrySubjects,
+                          );
+                        }).toList(),
                         ),
                     ],
                   ),
@@ -931,60 +629,6 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CardOverflowTooltipText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
-  final int maxLines;
-
-  const _CardOverflowTooltipText({
-    required this.text,
-    required this.style,
-    this.maxLines = 2,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: text, style: style),
-          textDirection: TextDirection.ltr,
-          maxLines: maxLines,
-        )..layout(maxWidth: constraints.maxWidth);
-
-        final Widget textWidget = Text(
-          text,
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-          style: style,
-        );
-
-        if (!painter.didExceedMaxLines) return textWidget;
-
-        return Tooltip(
-          message: text,
-          waitDuration: const Duration(milliseconds: 600),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF334155), width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-            ],
-          ),
-          child: textWidget,
-        );
-      },
     );
   }
 }

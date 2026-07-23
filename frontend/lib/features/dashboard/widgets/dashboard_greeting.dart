@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 class DashboardGreeting extends StatelessWidget
 {
+  static const int _morningStart = 6;
+  static const int _afternoonStart = 13;
+  static const int _eveningStart = 17;
+
   final String firstName;
 
   const DashboardGreeting({
@@ -14,23 +18,22 @@ class DashboardGreeting extends StatelessWidget
   {
     final hour = DateTime.now().hour;
 
-    //Determine appropriate greeting based on time
-    if (hour >= 6 && hour < 13)
+    if (hour < _morningStart)
+    {
+      return 'È tardi, $firstName. Non dimenticarti di riposare.';
+    }
+
+    if (hour < _afternoonStart)
     {
       return 'Buongiorno, $firstName';
     }
 
-    if (hour >= 13 && hour < 17)
+    if (hour < _eveningStart)
     {
       return 'Buon pomeriggio, $firstName';
     }
 
-    if (hour >= 17)
-    {
-      return 'Buonasera, $firstName';
-    }
-
-    return 'È tardi, $firstName. Non dimenticarti di riposare.';
+    return 'Buonasera, $firstName';
   }
 
   @override
@@ -49,7 +52,7 @@ class DashboardGreeting extends StatelessWidget
             style: GoogleFonts.plusJakartaSans(
               fontSize: 50,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF000000),
+              color: Colors.black,
               height: 1.0,
             ),
           ),

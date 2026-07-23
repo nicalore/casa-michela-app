@@ -1,4 +1,4 @@
-class MinistrySubjectItem 
+class MinistrySubjectItem
 {
   final int id;
   final String name;
@@ -19,7 +19,7 @@ class MinistrySubjectItem
   });
 }
 
-class AssociationSubjectOption 
+class AssociationSubjectOption
 {
   final int id;
   final String name;
