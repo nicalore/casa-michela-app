@@ -407,6 +407,432 @@ class _WizardAnimatedTextFieldState extends State<WizardAnimatedTextField>
   }
 }
 
+/// Free-text field with a filtered, tappable suggestions list, used to pick a
+/// school by typing its name instead of scrolling a dropdown: school names are
+/// often too long for a fixed-width dropdown button to show in full.
+class WizardSchoolAutocompleteField extends StatefulWidget
+{
+  final String? value;
+  final List<String> options;
+  final String hint;
+  final String? errorText;
+  final ValueChanged<String> onSelected;
+
+  /// Called when the field is emptied and then loses focus, so the caller can
+  /// clear the row's actual selection instead of the field silently reverting
+  /// to the last confirmed value.
+  final VoidCallback onCleared;
+
+  const WizardSchoolAutocompleteField({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.hint,
+    this.errorText,
+    required this.onSelected,
+    required this.onCleared,
+  });
+
+  @override
+  State<WizardSchoolAutocompleteField> createState() =>
+      _WizardSchoolAutocompleteFieldState();
+}
+
+class _WizardSchoolAutocompleteFieldState
+    extends State<WizardSchoolAutocompleteField>
+{
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.value ?? '');
+  final FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant WizardSchoolAutocompleteField oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    // Keeps the field in sync when the row's school changes from outside (for
+    // example a reset, or another row shifting into this position after one
+    // above it is removed), without fighting the user while they are typing.
+    if (!_focusNode.hasFocus && widget.value != oldWidget.value && widget.value != _controller.text)
+    {
+      _controller.text = widget.value ?? '';
+    }
+  }
+
+  void _handleFocusChange()
+  {
+    final bool hasFocus = _focusNode.hasFocus;
+
+    setState(() => _isFocused = hasFocus);
+
+    if (hasFocus)
+    {
+      // Selects the current text so the next keystroke replaces it outright,
+      // instead of the suggestions filtering against the old value with
+      // nothing new typed yet.
+      _controller.selection = TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
+      return;
+    }
+
+    // An intentional clear stays cleared, instead of snapping back to the old
+    // school: the caller resets the row's actual selection to match.
+    if (_controller.text.isEmpty)
+    {
+      if (widget.value != null)
+      {
+        widget.onCleared();
+      }
+      return;
+    }
+
+    // Leaving the field without picking a real suggestion would otherwise show
+    // text that does not match the row's actual school, so it snaps back to
+    // the last confirmed value.
+    if (!widget.options.contains(_controller.text))
+    {
+      _controller.text = widget.value ?? '';
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Iterable<String> _optionsFor(TextEditingValue textEditingValue)
+  {
+    if (textEditingValue.text.isEmpty)
+    {
+      return const Iterable<String>.empty();
+    }
+
+    return widget.options.where(
+      (option) => option.toLowerCase().contains(textEditingValue.text.toLowerCase()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool hasError = widget.errorText != null;
+    final Color borderColor = hasError
+        ? AppTheme.danger
+        : (_isFocused ? AppTheme.primary : AppTheme.slate200);
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        return RawAutocomplete<String>(
+          textEditingController: _controller,
+          focusNode: _focusNode,
+          optionsBuilder: _optionsFor,
+          onSelected: widget.onSelected,
+          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
+          {
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              height: 50,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: borderColor,
+                  width: (_isFocused || hasError) ? 2.0 : 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: textEditingController,
+                      focusNode: focusNode,
+                      cursorColor: AppTheme.primary,
+                      onSubmitted: (_) => onFieldSubmitted(),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2A2A2A),
+                      ),
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        hintText: widget.hint,
+                        hintStyle: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.hint,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.only(left: 16, right: hasError ? 8 : 16),
+                      ),
+                    ),
+                  ),
+                  if (hasError)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: Tooltip(
+                        message: widget.errorText!,
+                        textStyle: GoogleFonts.plusJakartaSans(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.danger,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.error_outline_rounded,
+                          color: AppTheme.danger,
+                          size: 22,
+                        ),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: Icon(
+                        Icons.search_rounded,
+                        color: _isFocused ? AppTheme.primary : AppTheme.mutedText,
+                        size: 20,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) => _WizardAutocompleteOptionsList(
+            width: constraints.maxWidth,
+            options: options,
+            onSelected: onSelected,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Fixed height shared by the ListView itemExtent and each row: the two must
+// match for the scroll-into-view math below to stay correct.
+const double _wizardAutocompleteOptionHeight = 44.0;
+
+// Scrollable suggestions list that follows the keyboard-highlighted option,
+// auto-scrolling it into view. Same pattern and grey hover highlight as the
+// people list filters.
+class _WizardAutocompleteOptionsList extends StatefulWidget
+{
+  final double width;
+  final Iterable<String> options;
+  final AutocompleteOnSelected<String> onSelected;
+
+  const _WizardAutocompleteOptionsList({
+    required this.width,
+    required this.options,
+    required this.onSelected,
+  });
+
+  @override
+  State<_WizardAutocompleteOptionsList> createState() =>
+      _WizardAutocompleteOptionsListState();
+}
+
+class _WizardAutocompleteOptionsListState
+    extends State<_WizardAutocompleteOptionsList>
+{
+  static const double _verticalPadding = 8;
+
+  final ScrollController _scrollController = ScrollController();
+  int? _lastHighlightedIndex;
+
+  @override
+  void dispose()
+  {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Brings the highlighted item into view, scrolling only the minimum needed
+  // rather than always centering it.
+  void _ensureHighlightedVisible(int index)
+  {
+    if (!_scrollController.hasClients)
+    {
+      return;
+    }
+
+    final itemTop = _verticalPadding + (index * _wizardAutocompleteOptionHeight);
+    final itemBottom = itemTop + _wizardAutocompleteOptionHeight;
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final visibleTop = _scrollController.offset;
+    final visibleBottom = visibleTop + viewportHeight;
+
+    double? target;
+
+    if (itemTop < visibleTop)
+    {
+      target = itemTop;
+    }
+    else if (itemBottom > visibleBottom)
+    {
+      target = itemBottom - viewportHeight;
+    }
+
+    if (target != null)
+    {
+      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.jumpTo(clamped);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    // Reading the highlighted index here subscribes to the notifier, so this
+    // widget rebuilds on every arrow-key change.
+    final highlightedIndex = AutocompleteHighlightedOption.of(context);
+
+    if (_lastHighlightedIndex != highlightedIndex)
+    {
+      _lastHighlightedIndex = highlightedIndex;
+      // Scheduled after the frame: the scrollable must be laid out before its
+      // viewportDimension and maxScrollExtent are known.
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          _ensureHighlightedVisible(highlightedIndex);
+        }
+      });
+    }
+
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: widget.width,
+          margin: const EdgeInsets.only(top: 8),
+          constraints: const BoxConstraints(maxHeight: 250),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.overlayShadow,
+          ),
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+            child: RawScrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              thickness: 6,
+              radius: const Radius.circular(10),
+              thumbColor: AppTheme.hint,
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
+                shrinkWrap: true,
+                itemExtent: _wizardAutocompleteOptionHeight,
+                itemCount: widget.options.length,
+                itemBuilder: (context, index)
+                {
+                  final option = widget.options.elementAt(index);
+
+                  return _WizardAutocompleteOptionTile(
+                    text: option,
+                    isHighlighted: index == highlightedIndex,
+                    onTap: () => widget.onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// A suggestion row, highlighted on hover or via keyboard arrows with the same
+// grey wash used by the search filters, so the two feel like the same
+// component.
+class _WizardAutocompleteOptionTile extends StatefulWidget
+{
+  final String text;
+  final bool isHighlighted;
+  final VoidCallback onTap;
+
+  const _WizardAutocompleteOptionTile({
+    required this.text,
+    required this.isHighlighted,
+    required this.onTap,
+  });
+
+  @override
+  State<_WizardAutocompleteOptionTile> createState() => _WizardAutocompleteOptionTileState();
+}
+
+class _WizardAutocompleteOptionTileState extends State<_WizardAutocompleteOptionTile>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool active = widget.isHighlighted || _hover;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: double.infinity,
+          height: _wizardAutocompleteOptionHeight,
+          color: active ? AppTheme.surfaceHover : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 2,
+                height: active ? 16 : 0,
+                decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class WizardAnimatedOverlayDropdown extends StatefulWidget
 {
   final String? value;
@@ -3802,6 +4228,7 @@ class WizardSchoolFieldRow extends StatelessWidget
   final List<String>            schoolOptions;
   final String?                 schoolError;
   final ValueChanged<String>    onSchoolSelected;
+  final VoidCallback            onSchoolCleared;
 
   final String?                 programValue;
   final List<String>            programOptions;
@@ -3827,6 +4254,7 @@ class WizardSchoolFieldRow extends StatelessWidget
     required this.schoolOptions,
     required this.schoolError,
     required this.onSchoolSelected,
+    required this.onSchoolCleared,
     required this.programValue,
     required this.programOptions,
     required this.programEnabled,
@@ -3841,6 +4269,7 @@ class WizardSchoolFieldRow extends StatelessWidget
   });
 
   static const double _kBreakpoint = 700;
+  static const double _kShortFieldWidth = 110;
 
   Widget _buildLabel(String text)
   {
@@ -3902,13 +4331,14 @@ class WizardSchoolFieldRow extends StatelessWidget
             children:
             [
               _buildLabel('Scuola'),
-              WizardAnimatedOverlayDropdown
+              WizardSchoolAutocompleteField
               (
                 value:      schoolValue,
-                items:      schoolOptions,
+                options:    schoolOptions,
                 hint:       'Scuola',
                 errorText:  schoolError,
-                onChanged:  onSchoolSelected,
+                onSelected: onSchoolSelected,
+                onCleared:  onSchoolCleared,
               ),
             ],
           );
@@ -3923,7 +4353,7 @@ class WizardSchoolFieldRow extends StatelessWidget
               (
                 value:      programValue,
                 items:      programOptions,
-                hint:       'Percorso',
+                hint:       'Seleziona',
                 enabled:    programEnabled,
                 errorText:  programError,
                 onChanged:  onProgramSelected,
@@ -3983,13 +4413,16 @@ class WizardSchoolFieldRow extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.start,
             children:
             [
-              Expanded(flex: 2, child: yearField),
+              // Year and grade only ever hold a short value (a 4-digit year, a
+              // roman numeral), so they stay a fixed width and leave the
+              // reclaimed space to school and program, which can both run long.
+              SizedBox(width: _kShortFieldWidth, child: yearField),
               const SizedBox(width: 16),
-              Expanded(flex: 5, child: schoolField),
+              Expanded(child: schoolField),
               const SizedBox(width: 16),
-              Expanded(flex: 5, child: programField),
+              Expanded(child: programField),
               const SizedBox(width: 16),
-              Expanded(flex: 2, child: gradeField),
+              SizedBox(width: _kShortFieldWidth, child: gradeField),
               onRemove != null
                   ? Padding
                     (

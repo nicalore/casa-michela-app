@@ -1914,7 +1914,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       (
         width:       MediaQuery.of(context).size.width * 0.85,
         height:      MediaQuery.of(context).size.height * 0.85,
-        constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
+        // Wide enough for the school enrollment step to give its school and
+        // program names more room.
+        constraints: const BoxConstraints(maxWidth: 1400, minHeight: 600),
         decoration: BoxDecoration
         (
           color:        AppTheme.pageBackground,
@@ -2671,7 +2673,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                         [
                           WizardCarouselArrowButton(icon: Icons.chevron_left_rounded, isDisabled: _currentStep4CardIndex == 0, onTap: () => setState(() { _card4MovingForward = false; _currentStep4CardIndex--; })),
                           const SizedBox(width: 32),
-                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1100), child: desktopAnimatedCards)),
+                          Flexible(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1300), child: desktopAnimatedCards)),
                           const SizedBox(width: 32),
                           WizardCarouselArrowButton(icon: Icons.chevron_right_rounded, isDisabled: _currentStep4CardIndex >= cards.length - 1, onTap: () => setState(() { _card4MovingForward = true; _currentStep4CardIndex++; })),
                         ],
@@ -3086,14 +3088,23 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             schoolValue:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
             schoolOptions:    schoolNames,
             schoolError:      _formErrors['schoolName_$index'],
-            onSchoolSelected: (val) 
+            onSchoolSelected: (val)
             {
-              setState(() 
+              setState(()
               {
                 r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
                 r.selectedProgram = null;
                 r.selectedGrade   = null;
                 _formErrors.remove('schoolName_$index');
+              });
+            },
+            onSchoolCleared: ()
+            {
+              setState(()
+              {
+                r.selectedSchool  = null;
+                r.selectedProgram = null;
+                r.selectedGrade   = null;
               });
             },
             programValue:      r.selectedProgram?.name,

@@ -25,6 +25,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  bool _isTrendLoading = false;
+  bool _isCollabTrendLoading = false;
   CurrentTotalsItem? _currentTotals;
   List<MemberTrendItem> _trendData = [];
   List<MemberTrendItem> _collabTrendData = [];
@@ -118,6 +120,80 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     _loadData();
   }
 
+  // The two trend charts fetch and reload independently of the rest of the
+  // tab, so changing their own filters only spins their own chart area instead
+  // of blanking out every other card while unrelated data is refetched.
+
+  Future<void> _loadTrendData() async
+  {
+    setState(() => _isTrendLoading = true);
+
+    try
+    {
+      final data = await _apiService.getMembersTrend(
+        resolution: _trendResolution,
+        startYear: _startTrendYear,
+        endYear: _endTrendYear,
+      );
+
+      if (mounted)
+      {
+        setState(() => _trendData = padTrendData(data, _trendResolution, _startTrendYear, _endTrendYear));
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isTrendLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadCollabTrendData() async
+  {
+    setState(() => _isCollabTrendLoading = true);
+
+    try
+    {
+      final data = await _apiService.getCollaboratingTrend(
+        resolution: _collabTrendResolution,
+        startYear: _startCollabTrendYear,
+        endYear: _endCollabTrendYear,
+      );
+
+      if (mounted)
+      {
+        setState(()
+        {
+          _collabTrendData =
+              padTrendData(data, _collabTrendResolution, _startCollabTrendYear, _endCollabTrendYear);
+        });
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isCollabTrendLoading = false);
+      }
+    }
+  }
+
+  void _reloadTrend(VoidCallback mutateState)
+  {
+    setState(mutateState);
+    _loadTrendData();
+  }
+
+  void _reloadCollabTrend(VoidCallback mutateState)
+  {
+    setState(mutateState);
+    _loadCollabTrendData();
+  }
+
   // Shared shell of the two retention cards: they differ only in the filters
   // above and in the sentence explaining the percentage.
   String _membersRetentionSentence(RetentionRateItem data)
@@ -205,6 +281,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildTrendChartCard({
     required String title,
     required List<MemberTrendItem> data,
+    required bool isLoading,
     required String resolution,
     required int startYear,
     required int endYear,
@@ -219,7 +296,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       alignment: WrapAlignment.start,
       children: [
         StatFilterMenu<String>(
-          hint: 'Risoluzione',
+          hint: 'Vista',
           value: resolution,
           options: resolutionOptions(),
           onChanged: onResolutionChanged,
@@ -243,6 +320,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       title: title,
       filters: filters,
       isEmpty: data.isEmpty,
+      isLoading: isLoading,
       chart: TrendLineChart(data: data, isMonthly: resolution == 'month'),
     );
   }
@@ -252,12 +330,13 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     return _buildTrendChartCard(
       title: 'Trend Iscritti Totali',
       data: _trendData,
+      isLoading: _isTrendLoading,
       resolution: _trendResolution,
       startYear: _startTrendYear,
       endYear: _endTrendYear,
-      onResolutionChanged: (value) => _reload(() => _trendResolution = value),
+      onResolutionChanged: (value) => _reloadTrend(() => _trendResolution = value),
       // The two bounds push each other, so the range can never invert.
-      onStartYearChanged: (value) => _reload(()
+      onStartYearChanged: (value) => _reloadTrend(()
       {
         _startTrendYear = value;
 
@@ -266,7 +345,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           _endTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reload(()
+      onEndYearChanged: (value) => _reloadTrend(()
       {
         _endTrendYear = value;
 
@@ -283,11 +362,12 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     return _buildTrendChartCard(
       title: 'Trend Collaboratori Attivi',
       data: _collabTrendData,
+      isLoading: _isCollabTrendLoading,
       resolution: _collabTrendResolution,
       startYear: _startCollabTrendYear,
       endYear: _endCollabTrendYear,
-      onResolutionChanged: (value) => _reload(() => _collabTrendResolution = value),
-      onStartYearChanged: (value) => _reload(()
+      onResolutionChanged: (value) => _reloadCollabTrend(() => _collabTrendResolution = value),
+      onStartYearChanged: (value) => _reloadCollabTrend(()
       {
         _startCollabTrendYear = value;
 
@@ -296,7 +376,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
           _endCollabTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reload(()
+      onEndYearChanged: (value) => _reloadCollabTrend(()
       {
         _endCollabTrendYear = value;
 

@@ -259,7 +259,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
               onChanged: (value) => setState(() => _filterLevel = value),
               onClear: () => setState(() => _filterLevel = null),
               options: schoolLevels
-                  .map((level) => FilterOption(value: level.value, label: level.label))
+                  .map((level) => FilterOption(value: level.value, label: level.compactLabel))
                   .toList(),
             ),
             _FilterChipButton(
@@ -724,7 +724,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               children: schoolLevels.map((level)
               {
                 return CustomChip(
-                  label: level.label,
+                  label: level.compactLabel,
                   isSelected: _selectedLevel == level.value,
                   onSelected: (selected) => _onLevelChanged(level.value, selected),
                 );

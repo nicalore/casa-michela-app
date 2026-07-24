@@ -2967,7 +2967,9 @@ class _PersonWizardPageState extends State<PersonWizardPage>
                     (
                       child: ConstrainedBox
                       (
-                        constraints: const BoxConstraints(maxWidth: 1100),
+                        // Wide enough for the school enrollment row's long
+                        // school and program names.
+                        constraints: const BoxConstraints(maxWidth: 1300),
                         child:       desktopAnimatedCards,
                       ),
                     ),
@@ -4086,14 +4088,23 @@ class _PersonWizardPageState extends State<PersonWizardPage>
             schoolValue:      r.selectedSchool != null ? '${r.selectedSchool!.name} (${r.selectedSchool!.city})' : null,
             schoolOptions:    schoolNames,
             schoolError:      _formErrors['schoolName_$index'],
-            onSchoolSelected: (val) 
+            onSchoolSelected: (val)
             {
-              setState(() 
+              setState(()
               {
                 r.selectedSchool  = _allSchools.firstWhere((s) => '${s.name} (${s.city})' == val);
                 r.selectedProgram = null;
                 r.selectedGrade   = null;
                 _formErrors.remove('schoolName_$index');
+              });
+            },
+            onSchoolCleared: ()
+            {
+              setState(()
+              {
+                r.selectedSchool  = null;
+                r.selectedProgram = null;
+                r.selectedGrade   = null;
               });
             },
             programValue:      r.selectedProgram?.name,

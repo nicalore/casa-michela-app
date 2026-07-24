@@ -43,6 +43,7 @@ class EducationDistributionItem(BaseModel):
 
 class SubjectDistributionItem(BaseModel):
     name: str
+    program_name: str | None = None
     count: int
 
 

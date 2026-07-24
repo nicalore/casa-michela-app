@@ -498,10 +498,10 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                                       hint:    'Qualsiasi',
                                       value:   _currentState.educationLevel,
                                       options: [
-                                        _DropdownOption(value: null,                  label: 'Qualsiasi'),
-                                        _DropdownOption(value: 'Scuola Primaria',     label: 'Scuola Primaria'),
-                                        _DropdownOption(value: 'Secondaria I grado',  label: 'Secondaria I grado'),
-                                        _DropdownOption(value: 'Secondaria II grado', label: 'Secondaria II grado'),
+                                        _DropdownOption(value: null,                            label: 'Qualsiasi'),
+                                        _DropdownOption(value: 'Scuola primaria',               label: 'Primaria'),
+                                        _DropdownOption(value: 'Scuola secondaria di I grado',  label: 'Secondaria di I grado'),
+                                        _DropdownOption(value: 'Scuola secondaria di II grado', label: 'Secondaria di II grado'),
                                       ],
                                       onChanged: (val) => setState(()
                                       {

@@ -3,14 +3,16 @@ import '../../../core/utils/json_parsing.dart';
 class SubjectDistributionItem
 {
   final String name;
+  final String? programName;
   final int count;
 
-  const SubjectDistributionItem({required this.name, required this.count});
+  const SubjectDistributionItem({required this.name, this.programName, required this.count});
 
   factory SubjectDistributionItem.fromJson(Map<String, dynamic> json)
   {
     return SubjectDistributionItem(
       name: json['name'],
+      programName: json['program_name'],
       count: json['count'],
     );
   }

@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.labels import (
     roman_numeral,
     translate_collaboration_type,
+    translate_course_type,
     translate_education_level,
 )
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
@@ -509,7 +510,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
         if member.course_participant_profile is not None:
             roles.append(_ROLE_COURSE_PARTICIPANT)
             course_profile = member.course_participant_profile
-            course_type = course_profile.course_type
+            course_type = translate_course_type(course_profile.course_type)
             medical_certificate_expiration = (
                 course_profile.medical_certificate_expiration
             )

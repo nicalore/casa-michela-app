@@ -34,15 +34,21 @@ class SchoolLevel
 {
   final String value;
   final String label;
+
+  /// Drops the redundant "Scuola" prefix, for places where the surrounding
+  /// context already says these are school levels (the selection chips and the
+  /// level filter). Keeps the three options on a single row.
+  final String compactLabel;
+
   final String shortLabel;
 
-  const SchoolLevel(this.value, this.label, this.shortLabel);
+  const SchoolLevel(this.value, this.label, this.compactLabel, this.shortLabel);
 }
 
 const List<SchoolLevel> schoolLevels = <SchoolLevel>[
-  SchoolLevel('PRIMARY_SCHOOL', 'Scuola Primaria', 'Primaria'),
-  SchoolLevel('MIDDLE_SCHOOL', 'Scuola Secondaria di I Grado', 'Sec. I Grado'),
-  SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Sec. II Grado'),
+  SchoolLevel('PRIMARY_SCHOOL', 'Scuola Primaria', 'Primaria', 'Primaria'),
+  SchoolLevel('MIDDLE_SCHOOL', 'Scuola Secondaria di I Grado', 'Secondaria di I Grado', 'Sec. I Grado'),
+  SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Sec. II Grado'),
 ];
 
 // Unknown values are returned unchanged, so a new backend level shows up as

@@ -6,7 +6,7 @@ from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
-from app.core.labels import education_level_label
+from app.core.labels import course_type_label, education_level_label
 from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
 from app.models.course_participant import CourseParticipant
@@ -209,6 +209,33 @@ async def _calculate_current_totals_dashboard(
     )
 
 
+def _accumulate_monthly_trend(
+    new_members_by_period: dict[tuple[int, int], int],
+    start_year: int | None,
+    end_year: int | None,
+) -> list[MemberTrendItem]:
+    years = [year for year, _ in new_members_by_period]
+    first_year = start_year if start_year is not None else min(years, default=None)
+    last_year = end_year if end_year is not None else max(years, default=None)
+
+    if first_year is None or last_year is None:
+        return []
+
+    items: list[MemberTrendItem] = []
+
+    for year in range(first_year, last_year + 1):
+        # A membership is a yearly enrollment, so the running total resets at
+        # January and builds up to the same figure the year resolution reports,
+        # instead of the count of members who joined in that specific month.
+        running_total = 0
+
+        for month in range(1, 13):
+            running_total += new_members_by_period.get((year, month), 0)
+            items.append(MemberTrendItem(year=year, month=month, total_members=running_total))
+
+    return items
+
+
 async def _execute_trend(
     role: str | None,
     resolution: str,
@@ -251,21 +278,19 @@ async def _execute_trend(
     if end_year is not None:
         query = query.where(Membership.year <= end_year)
 
-    query = (
-        query.order_by(Membership.year, _month_of(Membership.start_date))
-        if by_month
-        else query.order_by(Membership.year)
-    )
-
     result = await db.execute(query)
+    rows = result.all()
+
+    if by_month:
+        new_members_by_period = {
+            (row.year, int(row.month)): row.total for row in rows if row.month
+        }
+
+        return _accumulate_monthly_trend(new_members_by_period, start_year, end_year)
 
     return [
-        MemberTrendItem(
-            year=row.year,
-            month=int(row.month) if by_month and row.month else None,
-            total_members=row.total,
-        )
-        for row in result.all()
+        MemberTrendItem(year=row.year, total_members=row.total)
+        for row in sorted(rows, key=lambda row: row.year)
     ]
 
 
@@ -606,7 +631,11 @@ async def get_teacher_subjects_statistics(
 
     subjects_by_teacher: dict[str, set[int]] = {}
     teachers_by_group: dict[str, set[str]] = {}
-    label_by_group: dict[str, str] = {}
+    # Kept separate rather than concatenated into one label, so the frontend can
+    # style the discipline and its study program differently instead of showing
+    # one long run-on string.
+    subject_name_by_group: dict[str, str] = {}
+    program_name_by_group: dict[str, str | None] = {}
     teachers_by_area: dict[str, set[str]] = {}
     teachers_by_subject: dict[int, set[str]] = {}
 
@@ -619,13 +648,13 @@ async def get_teacher_subjects_statistics(
 
         if ranking_mode == "program":
             group_key = f"{subject_id}-{row.study_program_id}"
-            group_label = f"{row.subject_name} - {row.program_name}"
+            program_name_by_group[group_key] = row.program_name
         else:
             group_key = str(subject_id)
-            group_label = row.subject_name
+            program_name_by_group[group_key] = None
 
+        subject_name_by_group[group_key] = row.subject_name
         teachers_by_group.setdefault(group_key, set()).add(teacher_tax_code)
-        label_by_group[group_key] = group_label
 
         teachers_by_area.setdefault(_area_label(row.area), set()).add(teacher_tax_code)
 
@@ -644,17 +673,21 @@ async def get_teacher_subjects_statistics(
     )
 
     subject_counts = [
-        SubjectDistributionItem(name=label_by_group[key], count=len(teachers))
+        SubjectDistributionItem(
+            name=subject_name_by_group[key],
+            program_name=program_name_by_group[key],
+            count=len(teachers),
+        )
         for key, teachers in teachers_by_group.items()
     ]
 
     top_subjects = sorted(
         subject_counts,
-        key=lambda item: (-item.count, item.name),
+        key=lambda item: (-item.count, item.name, item.program_name or ""),
     )[:_TOP_SUBJECTS_LIMIT]
     bottom_subjects = sorted(
         subject_counts,
-        key=lambda item: (item.count, item.name),
+        key=lambda item: (item.count, item.name, item.program_name or ""),
     )[:_TOP_SUBJECTS_LIMIT]
 
     area_distribution = [
@@ -698,6 +731,6 @@ async def get_course_participant_distribution(
     result = await db.execute(query)
 
     return [
-        CourseDistributionItem(label=row.label, count=row.participant_count)
+        CourseDistributionItem(label=course_type_label(row.label), count=row.participant_count)
         for row in result.all()
     ]

@@ -174,7 +174,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
               onChanged: (value) => setState(() => _filterLevel = value),
               onClear: () => setState(() => _filterLevel = null),
               options: schoolLevels
-                  .map((level) => FilterOption(value: level.value, label: level.label))
+                  .map((level) => FilterOption(value: level.value, label: level.compactLabel))
                   .toList(),
             ),
             CustomFilterMenu<String>(
@@ -490,7 +490,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
               children: schoolLevels.map((level)
               {
                 return CustomChip(
-                  label: level.label,
+                  label: level.compactLabel,
                   isSelected: _selectedLevel == level.value,
                   onSelected: (selected) => setState(()
                   {

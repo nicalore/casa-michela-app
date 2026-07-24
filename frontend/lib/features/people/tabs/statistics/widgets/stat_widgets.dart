@@ -224,6 +224,12 @@ class ChartCard extends StatelessWidget
   final Widget? filters;
   final double filtersBreakpoint;
   final bool isEmpty;
+
+  /// Shows a spinner in place of the chart, without touching the title or the
+  /// filters above it, so changing this card's own filters does not blank out
+  /// the rest of the page while the new data loads.
+  final bool isLoading;
+
   final Widget chart;
 
   const ChartCard({
@@ -233,12 +239,28 @@ class ChartCard extends StatelessWidget
     required this.chart,
     this.filters,
     this.filtersBreakpoint = 760,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context)
   {
     final titleWidget = StatCardTitle(title);
+
+    Widget chartArea;
+
+    if (isLoading)
+    {
+      chartArea = const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+    }
+    else if (isEmpty)
+    {
+      chartArea = const EmptyChartMessage();
+    }
+    else
+    {
+      chartArea = chart;
+    }
 
     return StatCard(
       child: Column(
@@ -252,10 +274,7 @@ class ChartCard extends StatelessWidget
                   breakpoint: filtersBreakpoint,
                 ),
           const SizedBox(height: _titleGap),
-          SizedBox(
-            height: _chartHeight,
-            child: isEmpty ? const EmptyChartMessage() : chart,
-          ),
+          SizedBox(height: _chartHeight, child: chartArea),
         ],
       ),
     );

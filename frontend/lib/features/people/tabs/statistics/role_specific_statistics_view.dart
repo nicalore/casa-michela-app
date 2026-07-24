@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/stat_card.dart';
 import '../../../association/models/subject_taxonomy.dart';
 import '../../models/age_distribution_item.dart';
@@ -77,6 +78,8 @@ class _RoleSpecificStatisticsViewState
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
+  bool _isTrendLoading = false;
+  bool _isCollabTrendLoading = false;
   CurrentTotalsItem? _currentTotals;
   List<MemberTrendItem> _trendData = [];
   List<MemberTrendItem> _collabTrendData = [];
@@ -244,6 +247,68 @@ class _RoleSpecificStatisticsViewState
     _loadData();
   }
 
+  // The two trend charts fetch and reload independently of the rest of the
+  // view, so changing their own filters only spins their own chart area
+  // instead of blanking out every other card while unrelated data is
+  // refetched.
+
+  Future<void> _loadTrendData() async {
+    setState(() => _isTrendLoading = true);
+
+    try {
+      final data = await _apiService.getRoleMembersTrend(
+        role: widget.roleKey,
+        resolution: _trendResolution,
+        startYear: _startTrendYear,
+        endYear: _endTrendYear,
+      );
+
+      if (mounted) {
+        setState(() => _trendData = padTrendData(data, _trendResolution, _startTrendYear, _endTrendYear));
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isTrendLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadCollabTrendData() async {
+    setState(() => _isCollabTrendLoading = true);
+
+    try {
+      final data = await _apiService.getRoleCollaboratingTrend(
+        role: widget.roleKey,
+        resolution: _collabTrendResolution,
+        startYear: _startCollabTrendYear,
+        endYear: _endCollabTrendYear,
+      );
+
+      if (mounted) {
+        setState(() {
+          _collabTrendData =
+              padTrendData(data, _collabTrendResolution, _startCollabTrendYear, _endCollabTrendYear);
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isCollabTrendLoading = false);
+      }
+    }
+  }
+
+  void _reloadTrend(VoidCallback mutateState) {
+    setState(mutateState);
+    _loadTrendData();
+  }
+
+  void _reloadCollabTrend(VoidCallback mutateState) {
+    setState(mutateState);
+    _loadCollabTrendData();
+  }
+
   void _clampCollabMonthToDataStart() {
     if (_selectedCollabYear == dataStartYear &&
         _selectedCollabMonth < dataStartMonth) {
@@ -332,6 +397,7 @@ class _RoleSpecificStatisticsViewState
   Widget _buildTrendChartCard({
     required String title,
     required List<MemberTrendItem> data,
+    required bool isLoading,
     required String resolution,
     required int startYear,
     required int endYear,
@@ -345,7 +411,7 @@ class _RoleSpecificStatisticsViewState
       alignment: WrapAlignment.start,
       children: [
         StatFilterMenu<String>(
-          hint: 'Risoluzione',
+          hint: 'Vista',
           value: resolution,
           options: resolutionOptions(),
           onChanged: onResolutionChanged,
@@ -369,6 +435,7 @@ class _RoleSpecificStatisticsViewState
       title: title,
       filters: filters,
       isEmpty: data.isEmpty,
+      isLoading: isLoading,
       chart: TrendLineChart(data: data, isMonthly: resolution == 'month'),
     );
   }
@@ -377,19 +444,20 @@ class _RoleSpecificStatisticsViewState
     return _buildTrendChartCard(
       title: 'Trend Iscritti',
       data: _trendData,
+      isLoading: _isTrendLoading,
       resolution: _trendResolution,
       startYear: _startTrendYear,
       endYear: _endTrendYear,
-      onResolutionChanged: (value) => _reload(() => _trendResolution = value),
+      onResolutionChanged: (value) => _reloadTrend(() => _trendResolution = value),
       // The two bounds push each other, so the range can never invert.
-      onStartYearChanged: (value) => _reload(() {
+      onStartYearChanged: (value) => _reloadTrend(() {
         _startTrendYear = value;
 
         if (_endTrendYear < value) {
           _endTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reload(() {
+      onEndYearChanged: (value) => _reloadTrend(() {
         _endTrendYear = value;
 
         if (_startTrendYear > value) {
@@ -403,19 +471,20 @@ class _RoleSpecificStatisticsViewState
     return _buildTrendChartCard(
       title: 'Trend Collaboratori Attivi',
       data: _collabTrendData,
+      isLoading: _isCollabTrendLoading,
       resolution: _collabTrendResolution,
       startYear: _startCollabTrendYear,
       endYear: _endCollabTrendYear,
       onResolutionChanged: (value) =>
-          _reload(() => _collabTrendResolution = value),
-      onStartYearChanged: (value) => _reload(() {
+          _reloadCollabTrend(() => _collabTrendResolution = value),
+      onStartYearChanged: (value) => _reloadCollabTrend(() {
         _startCollabTrendYear = value;
 
         if (_endCollabTrendYear < value) {
           _endCollabTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reload(() {
+      onEndYearChanged: (value) => _reloadCollabTrend(() {
         _endCollabTrendYear = value;
 
         if (_startCollabTrendYear > value) {
@@ -489,21 +558,40 @@ class _RoleSpecificStatisticsViewState
 
   Widget _buildSubjectRow(SubjectDistributionItem subject) {
     final unit = subject.count == 1 ? 'docente' : 'docenti';
+    final programName = subject.programName;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
-            child: Text(
-              subject.name,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.slate500,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OverflowTooltipText(
+                  text: subject.name,
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.slate800,
+                  ),
+                ),
+                if (programName != null) ...[
+                  const SizedBox(height: 2),
+                  OverflowTooltipText(
+                    text: programName,
+                    maxLines: 1,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.slate400,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(width: 12),

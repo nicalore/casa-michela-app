@@ -287,6 +287,11 @@ class _ResponsiveFourFieldRow extends StatelessWidget
   // programme in particular.
   static const double _breakpoint = 700;
 
+  // Year and grade only ever hold a short value (a 4-digit year, a roman
+  // numeral), so they stay a fixed width and leave the reclaimed space to
+  // school and program, which can both run long.
+  static const double _shortFieldWidth = 110;
+
   final Widget yearField;
   final Widget schoolField;
   final Widget programField;
@@ -333,13 +338,13 @@ class _ResponsiveFourFieldRow extends StatelessWidget
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 2, child: yearField),
+            SizedBox(width: _shortFieldWidth, child: yearField),
             const SizedBox(width: 16),
-            Expanded(flex: 5, child: schoolField),
+            Expanded(child: schoolField),
             const SizedBox(width: 16),
-            Expanded(flex: 5, child: programField),
+            Expanded(child: programField),
             const SizedBox(width: 16),
-            Expanded(flex: 2, child: gradeField),
+            SizedBox(width: _shortFieldWidth, child: gradeField),
             Padding(
               padding: const EdgeInsets.only(top: 28, left: 16),
               child: WizardRemoveRowButton(onTap: onRemove),
@@ -723,7 +728,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
         ),
         schoolField: _buildLabelledField(
           'Scuola',
-          _FormOverlayDropdown(
+          WizardSchoolAutocompleteField(
             value: row.selectedSchool == null ? null : _schoolLabel(row.selectedSchool!),
             options: _allSchools.map(_schoolLabel).toList(),
             hint: 'Seleziona scuola',
@@ -736,6 +741,12 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
               row.selectedGrade = null;
               _errors.remove('school_$index');
             }),
+            onCleared: () => setState(()
+            {
+              row.selectedSchool = null;
+              row.selectedProgram = null;
+              row.selectedGrade = null;
+            }),
           ),
         ),
         programField: _buildLabelledField(
@@ -743,7 +754,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
           _FormOverlayDropdown(
             value: row.selectedProgram?.name,
             options: _programNamesFor(row.selectedSchool),
-            hint: 'Seleziona percorso',
+            hint: 'Seleziona',
             errorText: _errors['program_$index'],
             onSelected: (name) => setState(()
             {
@@ -759,7 +770,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
           _FormOverlayDropdown(
             value: row.selectedGrade,
             options: _gradeOptionsFor(row.selectedProgram),
-            hint: 'Classe',
+            hint: '',
             errorText: _errors['grade_$index'],
             onSelected: (grade) => setState(()
             {
@@ -779,11 +790,12 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
       backgroundColor: Colors.transparent,
       elevation: 0,
       child: Container(
-        // Fills the available space but never past 980: without an explicit width
-        // the breakpoints on the buttons and on the rows would never trigger.
+        // Fills the available space but never past 1100: without an explicit
+        // width the breakpoints on the buttons and on the rows would never
+        // trigger. Wide enough to give the school and program names room.
         width: double.infinity,
         constraints: BoxConstraints(
-          maxWidth: 980,
+          maxWidth: 1100,
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(

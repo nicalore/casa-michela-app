@@ -13,6 +13,11 @@ EDUCATION_LEVEL_LABELS: Final[dict[str, str]] = {
     "HIGH_SCHOOL": "Scuola secondaria di II grado",
 }
 
+COURSE_TYPE_LABELS: Final[dict[str, str]] = {
+    "YOGA": "Yoga",
+    "PILATES": "Pilates",
+}
+
 ROMAN_NUMERAL_BY_GRADE: Final[dict[int, str]] = {
     1: "I",
     2: "II",
@@ -43,6 +48,17 @@ def translate_collaboration_type(collaboration_type: str | None) -> str | None:
         return None
 
     return COLLABORATION_TYPE_LABELS.get(collaboration_type, collaboration_type)
+
+
+def course_type_label(course_type: str) -> str:
+    return COURSE_TYPE_LABELS.get(course_type, course_type)
+
+
+def translate_course_type(course_type: str | None) -> str | None:
+    if not course_type:
+        return None
+
+    return course_type_label(course_type)
 
 
 def roman_numeral(grade: int) -> str:
