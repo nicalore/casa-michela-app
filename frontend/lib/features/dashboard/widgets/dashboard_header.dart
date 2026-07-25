@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import 'live_clock.dart';
 
 const Color _headerShadow = Color(0x14000000);
@@ -105,10 +106,9 @@ class _DashboardHeaderState extends State<DashboardHeader>
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: Text(
-                  widget.fullName,
+                child: OverflowTooltipText(
+                  text: widget.fullName,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 17,
                     fontWeight: FontWeight.w500,

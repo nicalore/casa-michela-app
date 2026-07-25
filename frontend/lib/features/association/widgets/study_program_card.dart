@@ -92,10 +92,9 @@ class _StudyProgramCardState extends State<StudyProgramCard>
               ),
               if (widget.program.description.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(
-                  widget.program.description,
+                OverflowTooltipText(
+                  text: widget.program.description,
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

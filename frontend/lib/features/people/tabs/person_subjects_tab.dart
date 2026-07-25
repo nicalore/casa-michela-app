@@ -391,9 +391,9 @@ class _ReadOnlyProgramsDialog extends StatelessWidget
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(
-                      subject.subjectName,
-                      overflow: TextOverflow.ellipsis,
+                    child: OverflowTooltipText(
+                      text: subject.subjectName,
+                      maxLines: 1,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,

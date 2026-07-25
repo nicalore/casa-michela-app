@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
-// White panel hosting a statistics block. SelectionArea is part of the container
-// because these cards exist to be read and copied: every figure inside them must
-// be selectable without each caller remembering to wrap it.
+// White panel hosting a statistics block. Its text is intentionally not
+// selectable: the statistics tab and its sub-sections must not let the figures
+// be highlighted while interacting with the charts and filters.
 class StatCard extends StatelessWidget
 {
   static const EdgeInsets _defaultPadding = EdgeInsets.all(24);
@@ -21,16 +21,14 @@ class StatCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return SelectionArea(
-      child: Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: child,
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
       ),
+      child: child,
     );
   }
 }

@@ -12,6 +12,7 @@ from app.models.association_subject import AssociationSubject
 from app.models.course_participant import CourseParticipant
 from app.models.member import Member
 from app.models.membership import Membership
+from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.person import Person
 from app.models.psychologist import Psychologist
 from app.models.school import School
@@ -20,6 +21,7 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.staff import Staff
 from app.models.student import Student
 from app.models.study_program import StudyProgram
+from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.statistics import (
@@ -672,13 +674,61 @@ async def get_teacher_subjects_statistics(
         else 0.0
     )
 
+    # The ranking universe must also contain disciplines (and, in "program"
+    # mode, discipline/study-program pairs) that currently have zero teachers,
+    # otherwise the "least covered" list skips the genuinely uncovered ones and
+    # starts from those already covered by a single teacher.
+    group_labels: dict[str, tuple[str, str | None]] = {}
+
+    if ranking_mode == "program":
+        universe_result = await db.execute(
+            select(
+                AssociationSubject.id,
+                AssociationSubject.name,
+                StudyProgram.id,
+                StudyProgram.name,
+            )
+            .select_from(MinistryAssociationSubject)
+            .join(
+                StudyProgramSubject,
+                StudyProgramSubject.ministry_subject_id
+                == MinistryAssociationSubject.ministry_subject_id,
+            )
+            .join(
+                AssociationSubject,
+                AssociationSubject.id
+                == MinistryAssociationSubject.association_subject_id,
+            )
+            .join(
+                StudyProgram,
+                StudyProgram.id == StudyProgramSubject.study_program_id,
+            )
+            .distinct()
+        )
+        for subject_id, subject_name, program_id, program_name in universe_result.all():
+            group_labels[f"{subject_id}-{program_id}"] = (subject_name, program_name)
+    else:
+        universe_result = await db.execute(
+            select(AssociationSubject.id, AssociationSubject.name)
+        )
+        for subject_id, subject_name in universe_result.all():
+            group_labels[str(subject_id)] = (subject_name, None)
+
+    # Keep any covered group whose taxonomy mapping is missing from the universe
+    # (e.g. a competence left over after the taxonomy changed), so a pair that
+    # actually has teachers is never dropped from the ranking.
+    for key in teachers_by_group:
+        group_labels.setdefault(
+            key, (subject_name_by_group[key], program_name_by_group[key])
+        )
+
     subject_counts = [
         SubjectDistributionItem(
-            name=subject_name_by_group[key],
-            program_name=program_name_by_group[key],
-            count=len(teachers),
+            name=subject_name,
+            program_name=program_name,
+            count=len(teachers_by_group.get(key, set())),
         )
-        for key, teachers in teachers_by_group.items()
+        for key, (subject_name, program_name) in group_labels.items()
     ]
 
     top_subjects = sorted(

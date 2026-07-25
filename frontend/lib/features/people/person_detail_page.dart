@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/config/api_config.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/overflow_tooltip_text.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
@@ -390,10 +391,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           crossAxisAlignment:
               isCompact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
           children: [
-            Text(
-              '${_person!.firstName} ${_person!.lastName}',
+            OverflowTooltipText(
+              text: '${_person!.firstName} ${_person!.lastName}',
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               textAlign: isCompact ? TextAlign.center : TextAlign.start,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 32,

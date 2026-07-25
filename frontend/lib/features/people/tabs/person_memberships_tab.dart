@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/dialog_components.dart';
@@ -1475,9 +1476,9 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: isHighlighted ? FontWeight.w700 : FontWeight.w500,

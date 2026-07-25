@@ -98,10 +98,9 @@ class _SchoolCardState extends State<SchoolCard>
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                '${widget.school.city} (${widget.school.province})',
+              OverflowTooltipText(
+                text: '${widget.school.city} (${widget.school.province})',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,

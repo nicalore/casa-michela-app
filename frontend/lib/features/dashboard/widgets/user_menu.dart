@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 
 const Color _logoutColor = Color(0xFFC62828);
 
@@ -137,10 +138,9 @@ class _RoleSection extends StatelessWidget
                 ),
                 const SizedBox(width: _iconTextGap),
                 Expanded(
-                  child: Text(
-                    activeRole,
+                  child: OverflowTooltipText(
+                    text: activeRole,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -244,14 +244,15 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
                     child: Icon(widget.icon, size: _iconSize, color: widget.color),
                   ),
                   const SizedBox(width: _iconTextGap),
-                  Text(
-                    widget.text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: widget.color,
+                  Expanded(
+                    child: OverflowTooltipText(
+                      text: widget.text,
+                      maxLines: 1,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: widget.color,
+                      ),
                     ),
                   ),
                 ],

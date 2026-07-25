@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'overflow_tooltip_text.dart';
 
 enum SortCriterion
 {
@@ -165,9 +166,9 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>>
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  displayText,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: displayText,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w600,
                     color: isActive ? AppTheme.primary : AppTheme.mutedText,
@@ -347,9 +348,9 @@ class _FilterMenuItemState extends State<_FilterMenuItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,

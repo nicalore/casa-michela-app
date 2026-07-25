@@ -95,10 +95,9 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                _levelLabel,
+              OverflowTooltipText(
+                text: _levelLabel,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -106,10 +105,9 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                _areasLabel,
+              OverflowTooltipText(
+                text: _areasLabel,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
@@ -134,8 +135,15 @@ class _PieChartState extends State<PieChart>
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text.rich(
-              TextSpan(
+            child: OverflowTooltipText(
+              text: '${datum.label} (${share.toStringAsFixed(1)}%)',
+              maxLines: 2,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.slate800,
+              ),
+              textSpan: TextSpan(
                 children: [
                   TextSpan(
                     text: '${datum.label} ',
@@ -155,8 +163,6 @@ class _PieChartState extends State<PieChart>
                   ),
                 ],
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
             ),
           ),
         ],

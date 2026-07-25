@@ -138,9 +138,9 @@ class _WizardAnimatedActionButtonState
                 Icon(widget.icon, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    widget.text,
-                    overflow: TextOverflow.ellipsis,
+                  child: OverflowTooltipText(
+                    text: widget.text,
+                    maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -244,9 +244,9 @@ class _WizardOutlinedActionButtonState
                 Icon(widget.icon, color: AppTheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    widget.text,
-                    overflow: TextOverflow.ellipsis,
+                  child: OverflowTooltipText(
+                    text: widget.text,
+                    maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -814,10 +814,9 @@ class _WizardAutocompleteOptionTileState extends State<_WizardAutocompleteOption
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
+                child: OverflowTooltipText(
+                  text: widget.text,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -2235,9 +2234,9 @@ class _WizardFilterMenuState<T> extends State<WizardFilterMenu<T>>
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  displayText,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: displayText,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -2434,9 +2433,9 @@ class _WizardFilterMenuItemState extends State<WizardFilterMenuItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: widget.isSelected
@@ -2701,9 +2700,9 @@ class _WizardProgramsSelectionDialogState
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(
-                      widget.subject.name,
-                      overflow: TextOverflow.ellipsis,
+                    child: OverflowTooltipText(
+                      text: widget.subject.name,
+                      maxLines: 1,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -3259,9 +3258,9 @@ class _WizardMiniActionPillButtonState
                 Icon(widget.icon, color: AppTheme.primary, size: 18),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    widget.text,
-                    overflow: TextOverflow.ellipsis,
+                  child: OverflowTooltipText(
+                    text: widget.text,
+                    maxLines: 1,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

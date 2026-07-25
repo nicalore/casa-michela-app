@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 
 class StatFilterOption<T>
 {
@@ -318,9 +319,9 @@ class _StatFilterMenuItemState extends State<_StatFilterMenuItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,

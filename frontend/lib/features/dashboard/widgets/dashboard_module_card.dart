@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 
 const Color _iconBackground = Color(0xFF12A0D7);
 const Color _subtitleColor = Color(0xFF464646);
@@ -104,9 +105,9 @@ class _DashboardModuleCardState extends State<DashboardModuleCard>
                     ),
                     const SizedBox(width: DashboardModuleCard._contentPadding),
                     Expanded(
-                      child: Text(
-                        widget.title,
-                        overflow: TextOverflow.ellipsis,
+                      child: OverflowTooltipText(
+                        text: widget.title,
+                        maxLines: 1,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 25,
                           fontWeight: FontWeight.w700,

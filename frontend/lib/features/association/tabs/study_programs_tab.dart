@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/shared_components.dart';
@@ -1017,9 +1018,9 @@ class _FilterChipButtonState extends State<_FilterChipButton>
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
-                child: Text(
-                  displayText,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: displayText,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w600,
                     color: isActive ? AppTheme.primary : AppTheme.mutedText,
@@ -1546,9 +1547,9 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.option.name,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.option.name,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,

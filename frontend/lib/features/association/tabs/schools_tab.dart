@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/shared_components.dart';
@@ -963,9 +964,9 @@ class _CityOptionTileState extends State<_CityOptionTile>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.option.city,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.option.city,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,

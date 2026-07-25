@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../models/people_filter_state.dart';
@@ -1116,9 +1117,9 @@ class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize:   14,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -1527,9 +1528,9 @@ class _DialogDropdownItemState extends State<_DialogDropdownItem>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.text,
-                  overflow: TextOverflow.ellipsis,
+                child: OverflowTooltipText(
+                  text: widget.text,
+                  maxLines: 1,
                   style:    GoogleFonts.plusJakartaSans(
                     fontSize:   14,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
