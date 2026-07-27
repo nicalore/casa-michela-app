@@ -40,7 +40,7 @@ class InfoTab extends StatelessWidget
                 '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.secondaryText,
+                  color: AppTheme.trialMutedText,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   height: 1.5,
@@ -81,12 +81,15 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
+            // Gold under the pointer, the same mark a module card on the
+            // dashboard takes: on a page of white rows it is the one warm thing
+            // on screen, so the row being pointed at needs no other signal.
             border: Border.all(
-              color: _isHovering ? AppTheme.primary : Colors.transparent,
+              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
               width: 2,
             ),
             boxShadow: AppTheme.cardShadow,
@@ -101,14 +104,14 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.primary,
+                    color: AppTheme.trialOcean,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Icon(
                 Icons.chevron_right_rounded,
-                color: _isHovering ? AppTheme.primary : AppTheme.hint,
+                color: _isHovering ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
                 size: 28,
               ),
             ],

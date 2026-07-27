@@ -174,6 +174,11 @@ async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
         "active_role": active_role,
         "status": account.status,
         "password_reset_required": account.password_reset_required,
+        # Written at every successful login, so what this carries is the moment
+        # the session asking for it began. It is stored aware and in UTC: the
+        # offset travels with the value, and the client is the one that knows
+        # which wall clock to show it on.
+        "last_login": account.last_login.isoformat() if account.last_login else None,
         "gender": person.gender.value if person.gender else None,
         "email": person.email,
         "phone_number": person.phone,

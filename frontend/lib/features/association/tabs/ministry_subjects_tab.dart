@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
@@ -44,7 +49,6 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterArea;
   String? _filterLevel;
-  bool _newSubjectHover = false;
 
   List<MinistrySubjectItem> get _filteredSubjects
   {
@@ -105,84 +109,68 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         Row(
           children: [
             Expanded(
-              child: AnimatedSearchBar(
+              child: AppSearchField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _searchText = value),
                 hintText: 'Cerca materia ministeriale...',
               ),
             ),
             const SizedBox(width: 24),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _newSubjectHover = true),
-              onExit: (_) => setState(() => _newSubjectHover = false),
-              child: GestureDetector(
-                onTap: () => _showWizard(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40),
-                    border: Border.all(
-                      color: _newSubjectHover ? AppTheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                    boxShadow: AppTheme.cardShadow,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Nuova materia',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            AppGradientButton(
+              label: 'NUOVA MATERIA',
+              icon: Icons.add_rounded,
+              height: 50,
+              // Half its own height: the shape of the search bar it stands
+              // beside.
+              radius: 25,
+              fontSize: 14,
+              onPressed: () => _showWizard(),
             ),
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         Wrap(
-          spacing: 16,
-          runSpacing: 16,
+          spacing: 12,
+          runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            CustomFilterMenu<SortCriterion>(
+            AppFilterPill<SortCriterion>.setting(
+              prefix: 'Ordina',
               hint: 'Ordina per',
-              icon: Icons.sort_rounded,
+              icon: Icons.swap_vert_rounded,
               value: _sortBy,
-              menuWidth: 180,
-              showClearIcon: false,
+              menuWidth: 190,
               onChanged: (value) => setState(() => _sortBy = value),
-              onClear: () {},
               options: SortCriterion.values
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            CustomFilterMenu<String>(
+            // What is left of this line arranges the list, what is right of it
+            // shortens it.
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: AppTheme.trialLine,
+            ),
+            AppFilterPill<String>.filter(
+              prefix: 'Livello',
               hint: 'Tutti i livelli',
               icon: Icons.school_outlined,
               value: _filterLevel,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 210,
               onChanged: (value) => setState(() => _filterLevel = value),
               onClear: () => setState(() => _filterLevel = null),
               options: schoolLevels
                   .map((level) => FilterOption(value: level.value, label: level.compactLabel))
                   .toList(),
             ),
-            CustomFilterMenu<String>(
+            AppFilterPill<String>.filter(
+              prefix: 'Area',
               hint: 'Tutte le aree',
               icon: Icons.category_outlined,
               value: _filterArea,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 210,
               onChanged: (value) => setState(() => _filterArea = value),
               onClear: () => setState(() => _filterArea = null),
               options: subjectAreas
@@ -191,15 +179,15 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           subjects.length == 1
               ? '1 materia trovata'
               : '${subjects.length} materie trovate',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: AppTheme.primary,
+            color: AppTheme.trialMutedText,
           ),
         ),
         const SizedBox(height: 16),
@@ -248,6 +236,10 @@ class _MinistrySubjectWizardDialog extends StatefulWidget
 
 class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDialog>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
+
   static const int _maxAreas = 3;
   static const Duration _stepTransition = Duration(milliseconds: 300);
 
@@ -439,16 +431,19 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
   }
 
+  // Small, tracked and muted over what it names, the way the settings cards and
+  // the dialogs of this app label a value.
   Widget _buildFieldLabel(String text)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 20),
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
       child: Text(
-        text,
+        text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
         ),
       ),
     );
@@ -462,36 +457,21 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildFieldLabel('Nome'),
-            TextField(
+            AppTextField(
               controller: _nameController,
+              label: 'Nome',
+              hintText: 'Es. Lingua e cultura latina',
               textCapitalization: TextCapitalization.sentences,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 20,
-                color: Colors.black,
-                fontWeight: FontWeight.w600,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Es. Lingua e cultura latina',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  color: AppTheme.hint,
-                  fontWeight: FontWeight.w500,
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
-                ),
-              ),
             ),
             _buildFieldLabel('Livello scolastico'),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 10,
+              runSpacing: 10,
               children: schoolLevels.map((level)
               {
-                return CustomChip(
+                return AppSelectableChip(
                   label: level.compactLabel,
-                  isSelected: _selectedLevel == level.value,
+                  selected: _selectedLevel == level.value,
                   onSelected: (selected) => setState(()
                   {
                     _selectedLevel = selected ? level.value : null;
@@ -501,35 +481,24 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
             ),
             _buildFieldLabel('Aree (massimo $_maxAreas)'),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 10,
+              runSpacing: 10,
               children: subjectAreas.map((area)
               {
-                return CustomChip(
+                return AppSelectableChip(
                   label: area.label,
-                  isSelected: _selectedAreas.contains(area.value),
+                  selected: _selectedAreas.contains(area.value),
                   onSelected: (selected) => _onAreaChanged(area.value, selected),
                 );
               }).toList(),
             ),
-            _buildFieldLabel('Descrizione (opzionale)'),
-            TextField(
+            AppTextField(
               controller: _descController,
+              label: 'Descrizione (opzionale)',
+              hintText: 'Aggiungi una descrizione...',
               textCapitalization: TextCapitalization.sentences,
-              maxLines: 4,
               minLines: 1,
-              style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black),
-              decoration: InputDecoration(
-                hintText: 'Aggiungi una descrizione...',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  color: AppTheme.hint,
-                  fontWeight: FontWeight.w500,
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
-                ),
-              ),
+              maxLines: 4,
             ),
           ],
         ),
@@ -553,13 +522,13 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
           Text(
             'Seleziona le discipline interne associate',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              color: AppTheme.primary,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppTheme.trialMutedText,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          AnimatedSearchBar(
+          const SizedBox(height: 14),
+          AppSearchField(
             controller: _disciplineSearchController,
             onChanged: (_) => setState(() {}),
             hintText: 'Cerca disciplina interna...',
@@ -572,20 +541,21 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                       'Nessuna disciplina trovata per le aree selezionate.',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
-                        color: AppTheme.mutedText,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.trialMutedText,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
                   )
                 : SingleChildScrollView(
                     child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: availableSubjects.map((subject)
                       {
-                        return CustomChip(
+                        return AppSelectableChip(
                           label: subject.name,
-                          isSelected: _selectedAssociations.contains(subject.id),
+                          selected: _selectedAssociations.contains(subject.id),
                           onSelected: (selected) => setState(()
                           {
                             if (selected)
@@ -612,80 +582,48 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   {
     final isLastStep = _currentStep == 1;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: double.infinity,
-        height: 600,
-        constraints: const BoxConstraints(maxWidth: 650),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+    return AppDialogShell(
+      // Which step you are on belongs over the title, not inside it: the title
+      // is what you are doing, the eyebrow is where you are in doing it.
+      eyebrow: 'Passo ${_currentStep + 1} di 2',
+      title: _isEditing ? 'Modifica materia' : 'Nuova materia',
+      width: 650,
+      // Pinned, or the dialog would change height between a step of fields and
+      // a step of chips while you are still working through it.
+      height: 600,
+      footer: AppDialogFooter(
+        secondary: _currentStep > 0
+            ? AppGradientButton(
+                label: 'INDIETRO',
+                icon: Icons.arrow_back_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _prevStep,
+              )
+            : AppGradientButton(
+                label: 'ANNULLA',
+                icon: Icons.close_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _closeDialog,
+              ),
+        primary: AppGradientButton(
+          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
+          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+          busy: _isSaving,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _nextStep,
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isEditing
-                        ? 'Modifica Materia (${_currentStep + 1}/2)'
-                        : 'Nuova Materia (${_currentStep + 1}/2)',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  FadeHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: _closeDialog,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [_buildStep1(), _buildStep2()],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: ResponsiveDialogButtonsRow(
-                secondaryButton: _currentStep > 0
-                    ? OutlinedActionButton(
-                        text: 'INDIETRO',
-                        icon: Icons.arrow_back_rounded,
-                        onPressed: _prevStep,
-                      )
-                    : AnimatedActionButton(
-                        text: 'ANNULLA',
-                        icon: Icons.cancel_outlined,
-                        baseColor: AppTheme.danger,
-                        hoverColor: AppTheme.dangerHover,
-                        onPressed: _closeDialog,
-                      ),
-                primaryButton: AnimatedActionButton(
-                  text: _isSaving
-                      ? 'SALVATAGGIO...'
-                      : (isLastStep ? (_isEditing ? 'SALVA MODIFICHE' : 'CREA MATERIA') : 'AVANTI'),
-                  icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _isSaving ? () {} : _nextStep,
-                ),
-              ),
-            ),
-          ],
-        ),
+      ),
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [_buildStep1(), _buildStep2()],
       ),
     );
   }

@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_entity_chip.dart';
 import '../../features/association/models/ministry_subject_item.dart';
 import '../../features/association/models/study_program_item.dart';
 
-const Color _chipBackground = Color(0xFFF5F7FA);
-const Color _tooltipBackground = AppTheme.slate800;
-const Color _tooltipBorder = AppTheme.slate700;
 const Color _tooltipLabel = AppTheme.slate400;
 const Color _tooltipBullet = AppTheme.slate500;
 
@@ -114,32 +112,9 @@ class MinistrySubjectChip extends StatelessWidget
             ),
         ],
       ),
-      decoration: BoxDecoration(
-        color: _tooltipBackground.withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _tooltipBorder, width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       waitDuration: const Duration(milliseconds: 200),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: _chipBackground,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Text(
-          option.name,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-      ),
+      child: AppEntityChip(label: option.name),
     );
   }
 }

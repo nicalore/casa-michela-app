@@ -4,9 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
@@ -68,7 +73,6 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   Set<int> _selectedMinistrySubjectIds = {};
   Set<int> _selectedAssociationSubjectIds = {};
 
-  bool _newProgramHover = false;
 
   List<StudyProgramItem> get _filteredPrograms
   {
@@ -191,101 +195,85 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         Row(
           children: [
             Expanded(
-              child: AnimatedSearchBar(
+              child: AppSearchField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _searchText = value),
                 hintText: 'Cerca percorso di studio...',
               ),
             ),
             const SizedBox(width: 24),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _newProgramHover = true),
-              onExit: (_) => setState(() => _newProgramHover = false),
-              child: GestureDetector(
-                onTap: () => _showWizard(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40),
-                    border: Border.all(
-                      color: _newProgramHover ? AppTheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                    boxShadow: AppTheme.cardShadow,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Nuovo percorso',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            AppGradientButton(
+              label: 'NUOVO PERCORSO',
+              icon: Icons.add_rounded,
+              height: 50,
+              // Half its own height: the shape of the search bar it stands
+              // beside.
+              radius: 25,
+              fontSize: 14,
+              onPressed: () => _showWizard(),
             ),
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         Wrap(
-          spacing: 16,
-          runSpacing: 16,
+          spacing: 12,
+          runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            CustomFilterMenu<SortCriterion>(
+            AppFilterPill<SortCriterion>.setting(
+              prefix: 'Ordina',
               hint: 'Ordina per',
-              icon: Icons.sort_rounded,
+              icon: Icons.swap_vert_rounded,
               value: _sortBy,
-              menuWidth: 180,
-              showClearIcon: false,
+              menuWidth: 190,
               onChanged: (value) => setState(() => _sortBy = value),
-              onClear: () {},
               options: SortCriterion.values
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            CustomFilterMenu<String>(
+            // What is left of this line arranges the list, what is right of it
+            // shortens it.
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: AppTheme.trialLine,
+            ),
+            AppFilterPill<String>.filter(
+              prefix: 'Livello',
               hint: 'Tutti i livelli',
               icon: Icons.school_outlined,
               value: _filterLevel,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 210,
               onChanged: (value) => setState(() => _filterLevel = value),
               onClear: () => setState(() => _filterLevel = null),
               options: schoolLevels
                   .map((level) => FilterOption(value: level.value, label: level.compactLabel))
                   .toList(),
             ),
-            _FilterChipButton(
+            AppCountFilterPill(
               icon: Icons.auto_stories_outlined,
               label: 'Discipline interne',
               count: _selectedAssociationSubjectIds.length,
-              onTap: _showAssociationSubjectFilterDialog,
+              onOpen: _showAssociationSubjectFilterDialog,
               onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
             ),
-            _FilterChipButton(
+            AppCountFilterPill(
               icon: Icons.menu_book_outlined,
               label: 'Materie ministeriali',
               count: _selectedMinistrySubjectIds.length,
-              onTap: _showMinistrySubjectFilterDialog,
+              onOpen: _showMinistrySubjectFilterDialog,
               onClear: () => setState(() => _selectedMinistrySubjectIds = {}),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           programs.length == 1 ? '1 percorso trovato' : '${programs.length} percorsi trovati',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: AppTheme.primary,
+            color: AppTheme.trialMutedText,
           ),
         ),
         const SizedBox(height: 16),
@@ -335,6 +323,10 @@ class _StudyProgramWizardDialog extends StatefulWidget
 
 class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
+
   static const Duration _stepTransition = Duration(milliseconds: 300);
 
   final PageController _pageController = PageController();
@@ -412,49 +404,49 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     }
   }
 
-  // Brings the year range inside the ceiling of the newly picked level. The
-  // ceiling is computed from the incoming level, not from _selectedLevel,
-  // which is only assigned at the end.
+  // Fits the year range to the level just picked. The ceiling is computed from
+  // the incoming level, not from _selectedLevel, which still holds the old one
+  // and is assigned at the end.
   void _clampYearsToLevel(String level)
   {
     final maxAllowed = _maxYearForLevel(level);
 
-    var currentMin = int.tryParse(_minYearController.text);
-    var currentMax = int.tryParse(_maxYearController.text);
+    // The ceiling the range in the fields was written against. A range that ran
+    // to the end of the old level means "all of it", so it follows the new level
+    // up as well as down — going from the middle school to the high school it
+    // used to stay at 1-3 while the line underneath said 1-5. A range somebody
+    // picked by hand, 2 to 4 out of five, is left alone unless it no longer fits.
+    final previousMax = _maxYearForLevel(_selectedLevel);
 
-    if (currentMin == null)
-    {
-      _minYearController.text = '1';
-    }
-    else if (currentMin < 1)
-    {
-      _minYearController.text = '1';
-    }
-    else if (currentMin > maxAllowed)
-    {
-      _minYearController.text = maxAllowed.toString();
-    }
+    final currentMin = int.tryParse(_minYearController.text);
+    final currentMax = int.tryParse(_maxYearController.text);
 
-    if (currentMax == null)
+    final int newMax;
+
+    if (currentMax == null || currentMax >= previousMax || currentMax > maxAllowed)
     {
-      _maxYearController.text = maxAllowed.toString();
+      newMax = maxAllowed;
     }
-    else if (currentMax < 1)
+    else
     {
-      _maxYearController.text = '1';
-    }
-    else if (currentMax > maxAllowed)
-    {
-      _maxYearController.text = maxAllowed.toString();
+      newMax = currentMax < 1 ? 1 : currentMax;
     }
 
-    currentMin = int.tryParse(_minYearController.text);
-    currentMax = int.tryParse(_maxYearController.text);
+    final int newMin;
 
-    if (currentMin != null && currentMax != null && currentMin > currentMax)
+    if (currentMin == null || currentMin < 1)
     {
-      _minYearController.text = currentMax.toString();
+      newMin = 1;
     }
+    else
+    {
+      // Covers the ceiling too: newMin can never pass newMax, which is already
+      // inside it.
+      newMin = currentMin > newMax ? newMax : currentMin;
+    }
+
+    _minYearController.text = newMin.toString();
+    _maxYearController.text = newMax.toString();
   }
 
   void _onLevelChanged(String level, bool isSelected)
@@ -655,37 +647,32 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   Widget _buildFieldLabel(String text)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 16),
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
       child: Text(
-        text,
+        text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
         ),
       ),
     );
   }
 
-  Widget _buildYearField(TextEditingController controller, String hint, {required bool isMinField})
+  Widget _buildYearField(
+    TextEditingController controller,
+    String label,
+    String hint, {
+    required bool isMinField,
+  })
   {
-    return TextField(
+    return AppTextField(
       controller: controller,
-      keyboardType: TextInputType.number,
+      label: label,
+      hintText: hint,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       onChanged: (_) => _onYearChanged(isMinField),
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 18,
-        color: Colors.black,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.plusJakartaSans(fontSize: 18, color: AppTheme.hint),
-        focusedBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
-        ),
-      ),
     );
   }
 
@@ -697,36 +684,21 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildFieldLabel('Nome'),
-            TextField(
+            AppTextField(
               controller: _nameController,
+              label: 'Nome',
+              hintText: 'Es. Liceo Scientifico',
               textCapitalization: TextCapitalization.sentences,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 20,
-                color: Colors.black,
-                fontWeight: FontWeight.w600,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Es. Liceo Classico (biennio)',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  color: AppTheme.hint,
-                  fontWeight: FontWeight.w500,
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.primary, width: 2),
-                ),
-              ),
             ),
             _buildFieldLabel('Livello scolastico'),
             Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 10,
+              runSpacing: 10,
               children: schoolLevels.map((level)
               {
-                return CustomChip(
+                return AppSelectableChip(
                   label: level.compactLabel,
-                  isSelected: _selectedLevel == level.value,
+                  selected: _selectedLevel == level.value,
                   onSelected: (selected) => _onLevelChanged(level.value, selected),
                 );
               }).toList(),
@@ -738,8 +710,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Anno Inizio'),
-                      _buildYearField(_minYearController, 'Es. 1', isMinField: true),
+                      _buildYearField(_minYearController, 'Anno inizio', 'Es. 1', isMinField: true),
                     ],
                   ),
                 ),
@@ -748,8 +719,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Anno Fine'),
-                      _buildYearField(_maxYearController, 'Es. 5', isMinField: false),
+                      _buildYearField(_maxYearController, 'Anno fine', 'Es. 5', isMinField: false),
                     ],
                   ),
                 ),
@@ -764,29 +734,19 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                   'Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
-                    color: AppTheme.mutedText,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
-            _buildFieldLabel('Descrizione (opzionale)'),
-            TextField(
+            AppTextField(
               controller: _descController,
+              label: 'Descrizione (opzionale)',
+              hintText: 'Aggiungi una descrizione...',
               textCapitalization: TextCapitalization.sentences,
-              maxLines: 4,
               minLines: 1,
-              style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black),
-              decoration: InputDecoration(
-                hintText: 'Aggiungi una descrizione...',
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  color: AppTheme.hint,
-                  fontWeight: FontWeight.w500,
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
-                ),
-              ),
+              maxLines: 4,
             ),
           ],
         ),
@@ -810,13 +770,13 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
           Text(
             'Seleziona le materie ministeriali associate',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              color: AppTheme.primary,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppTheme.trialMutedText,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          AnimatedSearchBar(
+          const SizedBox(height: 14),
+          AppSearchField(
             controller: _subjectSearchController,
             onChanged: (_) => setState(() {}),
             hintText: 'Cerca materia ministeriale...',
@@ -829,20 +789,21 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                       'Nessuna materia trovata per il livello.',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
-                        color: AppTheme.mutedText,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.trialMutedText,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
                   )
                 : SingleChildScrollView(
                     child: Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: availableSubjects.map((subject)
                       {
-                        return CustomChip(
+                        return AppSelectableChip(
                           label: subject.name,
-                          isSelected: _selectedSubjects.contains(subject.id),
+                          selected: _selectedSubjects.contains(subject.id),
                           onSelected: (selected) => setState(()
                           {
                             if (selected)
@@ -869,80 +830,48 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   {
     final isLastStep = _currentStep == 1;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: double.infinity,
-        height: 600,
-        constraints: const BoxConstraints(maxWidth: 650),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+    return AppDialogShell(
+      // Which step you are on belongs over the title, not inside it: the title
+      // is what you are doing, the eyebrow is where you are in doing it.
+      eyebrow: 'Passo ${_currentStep + 1} di 2',
+      title: _isEditing ? 'Modifica percorso' : 'Nuovo percorso',
+      width: 650,
+      // Pinned, or the dialog would change height between a step of fields and
+      // a step of chips while you are still working through it.
+      height: 620,
+      footer: AppDialogFooter(
+        secondary: _currentStep > 0
+            ? AppGradientButton(
+                label: 'INDIETRO',
+                icon: Icons.arrow_back_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _prevStep,
+              )
+            : AppGradientButton(
+                label: 'ANNULLA',
+                icon: Icons.close_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _closeDialog,
+              ),
+        primary: AppGradientButton(
+          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
+          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+          busy: _isSaving,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _nextStep,
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isEditing
-                        ? 'Modifica Percorso (${_currentStep + 1}/2)'
-                        : 'Nuovo Percorso (${_currentStep + 1}/2)',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  FadeHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: _closeDialog,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [_buildStep1(), _buildStep2()],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: ResponsiveDialogButtonsRow(
-                secondaryButton: _currentStep > 0
-                    ? OutlinedActionButton(
-                        text: 'INDIETRO',
-                        icon: Icons.arrow_back_rounded,
-                        onPressed: _prevStep,
-                      )
-                    : AnimatedActionButton(
-                        text: 'ANNULLA',
-                        icon: Icons.cancel_outlined,
-                        baseColor: AppTheme.danger,
-                        hoverColor: AppTheme.dangerHover,
-                        onPressed: _closeDialog,
-                      ),
-                primaryButton: AnimatedActionButton(
-                  text: _isSaving
-                      ? 'SALVATAGGIO...'
-                      : (isLastStep ? (_isEditing ? 'SALVA MODIFICHE' : 'CREA PERCORSO') : 'AVANTI'),
-                  icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _isSaving ? () {} : _nextStep,
-                ),
-              ),
-            ),
-          ],
-        ),
+      ),
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [_buildStep1(), _buildStep2()],
       ),
     );
   }
@@ -957,96 +886,6 @@ class _SubjectOption
   final String? subtitle;
 
   const _SubjectOption({required this.id, required this.name, this.subtitle});
-}
-
-class _FilterChipButton extends StatefulWidget
-{
-  final IconData icon;
-  final String label;
-  final int count;
-  final VoidCallback onTap;
-  final VoidCallback onClear;
-
-  const _FilterChipButton({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.onTap,
-    required this.onClear,
-  });
-
-  @override
-  State<_FilterChipButton> createState() => _FilterChipButtonState();
-}
-
-class _FilterChipButtonState extends State<_FilterChipButton>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final isActive = widget.count > 0;
-    final isHighlighted = _isHovered || isActive;
-    final displayText = isActive ? '${widget.label} (${widget.count})' : widget.label;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 42,
-          padding: EdgeInsets.only(left: 16, right: isActive ? 12 : 16),
-          decoration: BoxDecoration(
-            color: isHighlighted ? AppTheme.surfaceHover : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isHighlighted ? AppTheme.primary : AppTheme.border,
-              width: 1.5,
-            ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: AppTheme.primary, size: 18),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 200),
-                child: OverflowTooltipText(
-                  text: displayText,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? AppTheme.primary : AppTheme.mutedText,
-                  ),
-                ),
-              ),
-              if (isActive) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: widget.onClear,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.danger.withValues(alpha: .1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _SubjectFilterDialog extends StatefulWidget
@@ -1071,6 +910,10 @@ class _SubjectFilterDialog extends StatefulWidget
 
 class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
+
   final TextEditingController _searchController = TextEditingController();
 
   late Set<int> _selectedIds;
@@ -1131,105 +974,69 @@ class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
   {
     final selectedOptions = _selectedOptions;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 560),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+    return AppDialogShell(
+      eyebrow: 'Filtro',
+      title: widget.title,
+      width: 520,
+      maxHeight: 560,
+      footer: AppDialogFooter(
+        // Emptying a filter throws nothing away, so it speaks in violet like
+        // every other way out of a dialog rather than in red.
+        secondary: AppGradientButton(
+          label: 'AZZERA',
+          icon: Icons.refresh_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _reset,
         ),
+        primary: AppGradientButton(
+          label: 'APPLICA',
+          icon: Icons.check_rounded,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _apply,
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
+            _SubjectAutocompleteField(
+              controller: _searchController,
+              hint: widget.hint,
+              options: _availableOptions,
+              onSelected: _addOption,
+            ),
+            const SizedBox(height: 18),
+            if (selectedOptions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Nessuna selezione.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
+                    fontStyle: FontStyle.italic,
                   ),
-                  FadeHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SubjectAutocompleteField(
-                      controller: _searchController,
-                      hint: widget.hint,
-                      options: _availableOptions,
-                      onSelected: _addOption,
-                    ),
-                    const SizedBox(height: 16),
-                    if (selectedOptions.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          'Nessuna selezione.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            color: AppTheme.mutedText,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: selectedOptions.map((option)
-                        {
-                          return _DeletableChip(
-                            label: option.name,
-                            onDelete: () => _removeOption(option.id),
-                          );
-                        }).toList(),
-                      ),
-                    const SizedBox(height: 16),
-                  ],
                 ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: selectedOptions.map((option)
+                {
+                  return _DeletableChip(
+                    label: option.name,
+                    onDelete: () => _removeOption(option.id),
+                  );
+                }).toList(),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: ResponsiveDialogButtonsRow(
-                secondaryButton: AnimatedActionButton(
-                  text: 'AZZERA',
-                  icon: Icons.refresh_rounded,
-                  baseColor: AppTheme.danger,
-                  hoverColor: AppTheme.dangerHover,
-                  onPressed: _reset,
-                ),
-                primaryButton: AnimatedActionButton(
-                  text: 'APPLICA FILTRO',
-                  icon: Icons.check_circle_outline,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _apply,
-                ),
-              ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -1305,9 +1112,9 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
           height: 50,
           padding: const EdgeInsets.only(left: 16, right: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.border, width: 1.5),
+            color: const Color(0xFFFBFDFC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.trialLine, width: 2),
           ),
           child: Row(
             children: [
@@ -1317,17 +1124,18 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
                   focusNode: focusNode,
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => onFieldSubmitted(),
+                  cursorColor: AppTheme.trialTealDeep,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppTheme.trialInk,
                   ),
                   decoration: InputDecoration(
                     hintText: widget.hint,
                     hintStyle: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: AppTheme.hint,
+                      color: AppTheme.trialMutedText,
                     ),
                     border: InputBorder.none,
                     isCollapsed: true,
@@ -1346,10 +1154,14 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppTheme.danger.withValues(alpha: 0.1),
+                        color: AppTheme.trialGoldSurface,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: AppTheme.trialTealDeep,
+                      ),
                     ),
                   ),
                 ),
@@ -1471,7 +1283,7 @@ class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOpt
               thumbVisibility: true,
               thickness: 6,
               radius: const Radius.circular(10),
-              thumbColor: AppTheme.hint,
+              thumbColor: AppTheme.trialLine,
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
@@ -1532,8 +1344,8 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
         child: Container(
           width: double.infinity,
           height: _subjectOptionItemHeight,
-          color: isActive ? AppTheme.surfaceHover : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          color: Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: [
               AnimatedContainer(
@@ -1541,11 +1353,11 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
                 width: 2,
                 height: isActive ? 16 : 0,
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  color: AppTheme.trialGold,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: OverflowTooltipText(
                   text: widget.option.name,
@@ -1553,7 +1365,7 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: AppTheme.primary,
+                    color: isActive ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
                   ),
                 ),
               ),
@@ -1564,7 +1376,7 @@ class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: AppTheme.mutedText,
+                    color: AppTheme.trialMutedText,
                   ),
                 ),
               ],
@@ -1603,9 +1415,12 @@ class _DeletableChipState extends State<_DeletableChip>
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color: _isHovered ? AppTheme.surfaceHover : Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: AppTheme.border, width: 1.0),
+          border: Border.all(
+            color: _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
+            width: 1.5,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1615,7 +1430,7 @@ class _DeletableChipState extends State<_DeletableChip>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.primary,
+                color: AppTheme.trialTealDeep,
               ),
             ),
             const SizedBox(width: 8),
@@ -1626,10 +1441,14 @@ class _DeletableChipState extends State<_DeletableChip>
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: AppTheme.danger.withValues(alpha: 0.1),
+                    color: AppTheme.trialGoldSurface,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: AppTheme.trialTealDeep,
+                  ),
                 ),
               ),
             ),

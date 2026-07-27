@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
@@ -52,7 +57,6 @@ class _SchoolsTabState extends State<SchoolsTab>
   String _searchText = '';
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterCity;
-  bool _newSchoolHover = false;
 
   // Built from the schools actually stored, not from a fixed enum.
   List<FilterOption<String>> get _cityOptions
@@ -142,85 +146,77 @@ class _SchoolsTabState extends State<SchoolsTab>
         Row(
           children: [
             Expanded(
-              child: AnimatedSearchBar(
+              child: AppSearchField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _searchText = value),
                 hintText: 'Cerca per nome o codice meccanografico...',
               ),
             ),
             const SizedBox(width: 24),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _newSchoolHover = true),
-              onExit: (_) => setState(() => _newSchoolHover = false),
-              child: GestureDetector(
-                onTap: () => _showWizard(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40),
-                    border: Border.all(
-                      color: _newSchoolHover ? AppTheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                    boxShadow: AppTheme.cardShadow,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Nuova scuola',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            // The one thing this page is for, so it wears the button the app
+            // keeps for exactly that. Cut down to the height of the search bar
+            // beside it: at its full size it would be shouting over a field the
+            // user is far more likely to reach for.
+            AppGradientButton(
+              label: 'NUOVA SCUOLA',
+              icon: Icons.add_rounded,
+              height: 50,
+              // Half its own height: the shape it had before, and the shape of
+              // the search bar it stands beside.
+              radius: 25,
+              fontSize: 14,
+              onPressed: () => _showWizard(),
             ),
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         Wrap(
-          spacing: 16,
-          runSpacing: 16,
+          spacing: 12,
+          runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            CustomFilterMenu<SortCriterion>(
+            // A list is always sorted somehow, so this one can never be off and
+            // has nothing to clear: it states what it is set to and stays quiet.
+            AppFilterPill<SortCriterion>.setting(
+              prefix: 'Ordina',
               hint: 'Ordina per',
-              icon: Icons.sort_rounded,
+              icon: Icons.swap_vert_rounded,
               value: _sortBy,
-              menuWidth: 180,
-              showClearIcon: false,
+              menuWidth: 190,
               onChanged: (value) => setState(() => _sortBy = value),
-              onClear: () {},
               options: SortCriterion.values
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            CustomFilterMenu<String>(
+            // The rule of the row: what is left of this line arranges the list,
+            // what is right of it shortens it.
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: AppTheme.trialLine,
+            ),
+            // Off until you choose a city, and once chosen it is the reason the
+            // list is shorter than the truth, so it fills and says so.
+            AppFilterPill<String>.filter(
+              prefix: 'Città',
               hint: 'Tutte le città',
               icon: Icons.location_city_outlined,
               value: _filterCity,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 210,
               onChanged: (value) => setState(() => _filterCity = value),
               onClear: () => setState(() => _filterCity = null),
               options: _cityOptions,
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           schools.length == 1 ? '1 scuola trovata' : '${schools.length} scuole trovate',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: AppTheme.primary,
+            color: AppTheme.trialMutedText,
           ),
         ),
         const SizedBox(height: 16),
@@ -274,6 +270,10 @@ class _SchoolWizardDialog extends StatefulWidget
 class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 {
   static const Duration _stepTransition = Duration(milliseconds: 300);
+
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
   static const int _provinceLength = 2;
   static const int _maxCitySuggestions = 8;
 
@@ -456,43 +456,6 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
   }
 
-  Widget _buildFieldLabel(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4, top: 16),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _buildFieldDecoration(String hintText, {String? counterText})
-  {
-    return InputDecoration(
-      hintText: hintText,
-      counterText: counterText,
-      hintStyle: GoogleFonts.plusJakartaSans(
-        fontSize: 18,
-        color: AppTheme.hint,
-        fontWeight: FontWeight.w500,
-      ),
-      focusedBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: AppTheme.primary, width: 2),
-      ),
-    );
-  }
-
-  TextStyle get _fieldTextStyle => GoogleFonts.plusJakartaSans(
-        fontSize: 18,
-        color: Colors.black,
-        fontWeight: FontWeight.w600,
-      );
-
   Widget _buildCityAutocomplete()
   {
     return LayoutBuilder(
@@ -546,13 +509,13 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
           },
           fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted)
           {
-            return TextField(
+            return AppTextField(
               controller: controller,
               focusNode: focusNode,
-              onSubmitted: (_) => onFieldSubmitted(),
+              label: 'Città',
+              hintText: 'Es. Thiene',
               textCapitalization: TextCapitalization.words,
-              style: _fieldTextStyle,
-              decoration: _buildFieldDecoration('Es. Thiene'),
+              onSubmitted: (_) => onFieldSubmitted(),
             );
           },
           optionsViewBuilder: (context, onSelected, options)
@@ -607,52 +570,35 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             // Name and city form the uniqueness constraint, hence they sit
             // next to each other; the code closes the form as an optional
             // detail.
-            _buildFieldLabel('Nome'),
-            TextField(
+            AppTextField(
               controller: _nameController,
+              label: 'Nome',
+              hintText: 'Es. Liceo Statale F. Corradini',
               textCapitalization: TextCapitalization.words,
-              style: _fieldTextStyle,
-              decoration: _buildFieldDecoration('Es. Liceo Statale F. Corradini'),
             ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Città'),
-                      _buildCityAutocomplete(),
-                    ],
-                  ),
-                ),
+                Expanded(flex: 3, child: _buildCityAutocomplete()),
                 const SizedBox(width: 16),
                 Expanded(
                   flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Provincia'),
-                      TextField(
-                        controller: _provController,
-                        textCapitalization: TextCapitalization.characters,
-                        maxLength: _provinceLength,
-                        style: _fieldTextStyle,
-                        decoration: _buildFieldDecoration('Es. VI', counterText: ''),
-                      ),
-                    ],
+                  child: AppTextField(
+                    controller: _provController,
+                    label: 'Provincia',
+                    hintText: 'Es. VI',
+                    maxLength: _provinceLength,
+                    textCapitalization: TextCapitalization.characters,
                   ),
                 ),
               ],
             ),
-            _buildFieldLabel('Codice Meccanografico (opzionale)'),
-            TextField(
+            AppTextField(
               controller: _codeController,
               focusNode: _codeFocusNode,
+              label: 'Codice meccanografico (opzionale)',
+              hintText: 'Es. VIPC02000P',
               textCapitalization: TextCapitalization.characters,
-              style: _fieldTextStyle,
-              decoration: _buildFieldDecoration('Es. VIPC02000P'),
             ),
           ],
         ),
@@ -676,28 +622,28 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
           Text(
             'Seleziona i percorsi di studio attivi in questa scuola',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              color: AppTheme.primary,
-              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppTheme.trialMutedText,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          AnimatedSearchBar(
+          const SizedBox(height: 14),
+          AppSearchField(
             controller: _programSearchController,
             onChanged: (_) => setState(() {}),
             hintText: 'Cerca percorso di studio...',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Expanded(
             child: SingleChildScrollView(
               child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: 10,
+                runSpacing: 10,
                 children: availablePrograms.map((program)
                 {
-                  return CustomChip(
+                  return AppSelectableChip(
                     label: program.name,
-                    isSelected: _selectedPrograms.contains(program.id),
+                    selected: _selectedPrograms.contains(program.id),
                     onSelected: (selected) => setState(()
                     {
                       if (selected)
@@ -724,80 +670,48 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   {
     final isLastStep = _currentStep == 1;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: double.infinity,
-        height: 550,
-        constraints: const BoxConstraints(maxWidth: 600),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+    return AppDialogShell(
+      // Which step you are on belongs over the title, not inside it: the title
+      // is what you are doing, the eyebrow is where you are in doing it.
+      eyebrow: 'Passo ${_currentStep + 1} di 2',
+      title: _isEditing ? 'Modifica scuola' : 'Nuova scuola',
+      width: 600,
+      // Pinned, or the dialog would change height between a step of fields and
+      // a step of chips while you are still working through it.
+      height: 560,
+      footer: AppDialogFooter(
+        secondary: _currentStep > 0
+            ? AppGradientButton(
+                label: 'INDIETRO',
+                icon: Icons.arrow_back_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _prevStep,
+              )
+            : AppGradientButton(
+                label: 'ANNULLA',
+                icon: Icons.close_rounded,
+                gradient: AppTheme.dismissGradient,
+                accent: AppTheme.trialViolet,
+                height: _dialogButtonHeight,
+                fontSize: _dialogButtonFontSize,
+                onPressed: _closeDialog,
+              ),
+        primary: AppGradientButton(
+          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
+          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+          busy: _isSaving,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _nextStep,
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isEditing
-                        ? 'Modifica Scuola (${_currentStep + 1}/2)'
-                        : 'Nuova Scuola (${_currentStep + 1}/2)',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  StaticHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: _closeDialog,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [_buildStep1(), _buildStep2()],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: ResponsiveDialogButtonsRow(
-                secondaryButton: _currentStep > 0
-                    ? OutlinedActionButton(
-                        text: 'INDIETRO',
-                        icon: Icons.arrow_back_rounded,
-                        onPressed: _prevStep,
-                      )
-                    : AnimatedActionButton(
-                        text: 'ANNULLA',
-                        icon: Icons.cancel_outlined,
-                        baseColor: AppTheme.danger,
-                        hoverColor: AppTheme.dangerHover,
-                        onPressed: _closeDialog,
-                      ),
-                primaryButton: AnimatedActionButton(
-                  text: _isSaving
-                      ? 'SALVATAGGIO...'
-                      : (isLastStep ? (_isEditing ? 'SALVA MODIFICHE' : 'CREA SCUOLA') : 'AVANTI'),
-                  icon: isLastStep ? Icons.check_circle_outline : Icons.arrow_forward_rounded,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _isSaving ? () {} : _nextStep,
-                ),
-              ),
-            ),
-          ],
-        ),
+      ),
+      child: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [_buildStep1(), _buildStep2()],
       ),
     );
   }

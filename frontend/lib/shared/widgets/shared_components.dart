@@ -112,6 +112,10 @@ class AnimatedActionButton extends StatefulWidget
   final Color hoverColor;
   final VoidCallback onPressed;
 
+  /// 56 suits a dialog footer; page-level actions sit at 50, matching the
+  /// search bar and the "Nuova …" buttons.
+  final double height;
+
   const AnimatedActionButton({
     super.key,
     required this.text,
@@ -119,6 +123,7 @@ class AnimatedActionButton extends StatefulWidget
     required this.baseColor,
     required this.hoverColor,
     required this.onPressed,
+    this.height = 56,
   });
 
   @override
@@ -154,7 +159,7 @@ class _AnimatedActionButtonState extends State<AnimatedActionButton>
           child: AnimatedContainer(
             duration: _animationDuration,
             curve: Curves.easeOutQuint,
-            height: 56,
+            height: widget.height,
             decoration: BoxDecoration(
               color: _isHovered ? widget.hoverColor : widget.baseColor,
               borderRadius: BorderRadius.circular(16),

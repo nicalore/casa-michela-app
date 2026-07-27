@@ -1,22 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
+import '../../../shared/widgets/settings_card.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 
-// No AppTheme equivalent: these tints are specific to the account card.
-const Color _avatarBackground = Color(0xFFE8EEF7);
-const Color _cardDivider = Color(0xFFF1F5F9);
-const Color _labelColor = Color(0xFF7A7A7A);
-const Color _valueColor = Color(0xFF2A2A2A);
-const Color _changePasswordHover = Color(0xFF002B5E);
+// Both values are short, so the labels only need the room the longer of the two
+// asks for.
+const double _labelWidth = 170;
+
+// Side by side at the foot of the dialog, so both stand at the height and the
+// type size the role dialog gives its own.
+const double _dialogButtonHeight = 52;
+const double _dialogButtonFontSize = 14;
+
+// The date the app writes everywhere, and the clock this country reads.
+final DateFormat _lastLoginFormat = DateFormat('dd/MM/yyyy, HH:mm');
+
+// It is written at every successful login, so on a session that just started it
+// says now. Absent only for an account that has never been through the login
+// screen at all.
+String _formatLastLogin(DateTime? lastLogin)
+{
+  if (lastLogin == null)
+  {
+    return '-';
+  }
+
+  return _lastLoginFormat.format(lastLogin);
+}
 
 class AccountTab extends StatefulWidget
 {
@@ -86,7 +107,7 @@ class _AccountTabState extends State<AccountTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child: CircularProgressIndicator(color: AppTheme.primary),
+          child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
         ),
       );
     }
@@ -101,7 +122,7 @@ class _AccountTabState extends State<AccountTab>
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppTheme.slate400,
+              color: AppTheme.trialMutedText,
             ),
           ),
         ),
@@ -113,97 +134,49 @@ class _AccountTabState extends State<AccountTab>
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 32),
       child: Center(
+        // Narrow: the card carries two values, and stretched to the width of the
+        // profile's cards it would be mostly empty paper.
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 90,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: const BoxDecoration(
-                          color: _avatarBackground,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.manage_accounts_rounded,
-                          size: 44,
-                          color: AppTheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: Text(
-                          'Credenziali di accesso',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.primary,
-                            height: 1.1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SettingsCard(
+                title: 'Credenziali di accesso',
+                compact: true,
+                leading: const SettingsCardBadge(
+                  icon: Icons.manage_accounts_rounded,
+                  compact: true,
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24.0),
-                  child: Divider(height: 1, thickness: 1, color: _cardDivider),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(
-                      width: 140,
-                      child: Text(
-                        'Nome utente',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: _labelColor,
-                        ),
-                      ),
+                    SettingsInfoRow(
+                      label: 'Nome utente',
+                      value: me.username,
+                      labelWidth: _labelWidth,
                     ),
-                    Expanded(
-                      child: Text(
-                        me.username,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: _valueColor,
-                        ),
-                      ),
+                    const SizedBox(height: 16),
+                    SettingsInfoRow(
+                      label: 'Ultimo accesso',
+                      value: _formatLastLogin(me.lastLogin),
+                      labelWidth: _labelWidth,
                     ),
                   ],
                 ),
-                const SizedBox(height: 40),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    width: 260,
-                    child: AnimatedActionButton(
-                      text: 'MODIFICA PASSWORD',
-                      icon: Icons.lock_reset_rounded,
-                      baseColor: AppTheme.primary,
-                      hoverColor: _changePasswordHover,
-                      onPressed: () => _showChangePasswordDialog(context),
-                    ),
-                  ),
+              ),
+              // Out of the card and in the middle of the page: it is the one
+              // thing this section is for, and inside the card it read as a
+              // footnote to the username above it.
+              const SizedBox(height: 40),
+              Center(
+                child: AppGradientButton(
+                  label: 'MODIFICA PASSWORD',
+                  onPressed: () => _showChangePasswordDialog(context),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -231,23 +204,63 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
   void initState()
   {
     super.initState();
-    _newPasswordController.addListener(_onNewPasswordChanged);
+    _newPasswordController.addListener(_onTypedPasswordChanged);
+    _confirmPasswordController.addListener(_onTypedPasswordChanged);
   }
 
   @override
   void dispose()
   {
-    _newPasswordController.removeListener(_onNewPasswordChanged);
+    _newPasswordController.removeListener(_onTypedPasswordChanged);
+    _confirmPasswordController.removeListener(_onTypedPasswordChanged);
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // Rebuilds so the policy checklist reflects the new password as it is typed.
-  void _onNewPasswordChanged()
+  // Rebuilds so the meter follows the new password and the two fields can say
+  // whether they agree, both as they are typed.
+  void _onTypedPasswordChanged()
   {
     setState(() {});
+  }
+
+  // Nothing to say until there is something to compare: an empty confirmation is
+  // a field waiting to be filled in, not a mismatch.
+  Widget _buildMatchHint()
+  {
+    final String newPassword = _newPasswordController.text;
+    final String confirmPassword = _confirmPasswordController.text;
+
+    if (newPassword.isEmpty || confirmPassword.isEmpty)
+    {
+      return const SizedBox(height: 22);
+    }
+
+    final bool matches = newPassword == confirmPassword;
+
+    return SizedBox(
+      height: 22,
+      child: Row(
+        children: [
+          Icon(
+            matches ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+            size: 16,
+            color: matches ? AppTheme.trialTurquoise : AppTheme.trialDanger,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            matches ? 'Le password coincidono' : 'Le password non coincidono',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: matches ? AppTheme.trialTealDeep : AppTheme.trialDanger,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleSave() async
@@ -343,24 +356,47 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Modifica Password',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // The same small tracked line the bar puts over a name and
+                      // the role dialog over a role, so the two windows read as
+                      // one family rather than as distant relatives.
+                      Text(
+                        'ACCOUNT',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.4,
+                          height: 1.2,
+                          color: AppTheme.trialMutedText,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Modifica password',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          color: AppTheme.trialOcean,
+                        ),
+                      ),
+                    ],
                   ),
-                  StaticHoverIconButton(
+                  // The same close the role dialog carries, so the two windows
+                  // are dismissed by the same button rather than by two that
+                  // merely look alike.
+                  FadeHoverIconButton(
                     icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
+                    color: AppTheme.trialTealDeep,
+                    hoverColor: AppTheme.trialGoldSurface,
                     onTap: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
+            const Divider(height: 32, thickness: 1, color: AppTheme.trialLine),
             Padding(
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
               child: Column(
@@ -385,6 +421,13 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                     label: 'Conferma password',
                     hintText: 'Ripeti nuova password',
                   ),
+                  const SizedBox(height: 8),
+                  // Answered while typing rather than after pressing save: the
+                  // two fields disagreeing is the one mistake here you can be
+                  // told about before you have finished making it. The row keeps
+                  // its height whether or not it has anything to say, so the
+                  // buttons under it never move.
+                  _buildMatchHint(),
                 ],
               ),
             ),
@@ -392,23 +435,29 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
               padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
               child: Row(
                 children: [
+                  // Violet to back out and the brand ramp to go through with it.
+                  // Neither is red: nothing here is destroyed, and the app keeps
+                  // red for the answers that destroy something.
                   Expanded(
-                    child: AnimatedActionButton(
-                      text: 'ANNULLA',
-                      icon: Icons.cancel_outlined,
-                      baseColor: AppTheme.danger,
-                      hoverColor: AppTheme.dangerHover,
+                    child: AppGradientButton(
+                      label: 'ANNULLA',
+                      icon: Icons.close_rounded,
+                      gradient: AppTheme.dismissGradient,
+                      accent: AppTheme.trialViolet,
+                      height: _dialogButtonHeight,
+                      fontSize: _dialogButtonFontSize,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: AnimatedActionButton(
-                      text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                      icon: Icons.check_circle_outline,
-                      baseColor: AppTheme.primary,
-                      hoverColor: AppTheme.primaryHover,
-                      onPressed: _isSaving ? () {} : _handleSave,
+                    child: AppGradientButton(
+                      label: 'SALVA',
+                      icon: Icons.check_rounded,
+                      busy: _isSaving,
+                      height: _dialogButtonHeight,
+                      fontSize: _dialogButtonFontSize,
+                      onPressed: _handleSave,
                     ),
                   ),
                 ],

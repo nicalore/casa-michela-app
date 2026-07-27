@@ -29,11 +29,13 @@ class AppPageContainer extends StatefulWidget
 class _AppPageContainerState extends State<AppPageContainer>
 {
   final ScrollController _verticalController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
 
   @override
   void dispose()
   {
     _verticalController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
 
@@ -59,15 +61,31 @@ class _AppPageContainerState extends State<AppPageContainer>
         final width = math.max(constraints.maxWidth, widget.minWidth);
         final height = math.max(constraints.maxHeight, widget.minHeight);
 
+        // The horizontal scroll view is what makes the minimum width real. A
+        // ConstrainedBox cannot enforce it on its own: minWidth is clamped to
+        // the width it is handed, so in a window narrower than minWidth the
+        // page used to be squeezed into the window instead of keeping its size
+        // and scrolling, which is the opposite of what the minimum is for. A
+        // scroll view hands its child an unbounded main axis, so the minimum
+        // survives and the overflow becomes something you can scroll to.
         return Scrollbar(
           controller: _verticalController,
           thumbVisibility: true,
           trackVisibility: true,
           child: SingleChildScrollView(
             controller: _verticalController,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: width, minHeight: height),
-              child: widget.builder(context, width, height),
+            child: Scrollbar(
+              controller: _horizontalController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                controller: _horizontalController,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: width, minHeight: height),
+                  child: widget.builder(context, width, height),
+                ),
+              ),
             ),
           ),
         );

@@ -1,15 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/app_custom_tab_bar.dart';
 import '../../shared/widgets/app_page_container.dart';
+import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/people_search_tab.dart';
-import 'tabs/people_statistics_tab.dart';
+import 'tabs/statistics/general_statistics_tab.dart';
+import 'tabs/statistics/role_specific_statistics_view.dart';
+
+// The order here is the order of the IndexedStack below: search first, then the
+// statistics, which used to be a second row of chips inside their own tab.
+const List<RailGroup> _sections = [
+  RailGroup(entries: ['Ricerca']),
+  RailGroup(
+    title: 'Statistiche',
+    entries: [
+      'Generali',
+      'Amministratori',
+      'Psicologi',
+      'Docenti',
+      'Studenti',
+      'Corsisti',
+    ],
+  ),
+];
+
+// All six are const widgets, so declaring them here costs nothing: the
+// expensive part is the State, which Flutter creates only for the entries the
+// IndexedStack actually mounts.
+const List<Widget> _sectionContents = [
+  PeopleSearchTab(),
+  GeneralStatisticsTab(),
+  RoleSpecificStatisticsView(roleKey: 'administrator'),
+  RoleSpecificStatisticsView(roleKey: 'psychologist'),
+  RoleSpecificStatisticsView(roleKey: 'teacher'),
+  RoleSpecificStatisticsView(roleKey: 'student'),
+  RoleSpecificStatisticsView(roleKey: 'course_participant'),
+];
 
 class PeoplePage extends StatefulWidget
 {
@@ -21,84 +52,58 @@ class PeoplePage extends StatefulWidget
 
 class _PeoplePageState extends State<PeoplePage>
 {
-  int _mainSelectedTab = 0;
+  int _selectedSection = 0;
 
-  // Tracks which tabs have been opened: once visited a tab stays mounted in the
-  // IndexedStack. Reset only when GoRouter destroys this page.
-  final Set<int> _visitedTabs = {};
+  // Tracks which sections have been opened: once visited a section stays
+  // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
+  final Set<int> _visitedSections = {};
 
-  final List<String> _mainTabs = ['Ricerca', 'Statistiche'];
+  // Held from here on, because in dispose the context can no longer be asked
+  // for it.
+  GoRouter? _router;
 
   @override
   void initState()
   {
     super.initState();
-    _visitedTabs.add(_mainSelectedTab);
+    _visitedSections.add(_selectedSection);
   }
 
-  Widget _buildTabContent()
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+    _router = GoRouter.of(context);
+  }
+
+  // Search text, sorting and filters are static in the tab so that opening a
+  // person and coming back finds them where they were left. Walking out of the
+  // module is the one case where they have to go, which the back button used to
+  // take care of; now that the top bar has taken its place, the decision is made
+  // here, on wherever the router has just gone.
+  @override
+  void dispose()
+  {
+    // Read off the configuration rather than off GoRouter.state, which throws
+    // when there is no route left at all: on the way down with the whole app,
+    // this asks the question at exactly that moment.
+    final destination = _router?.routerDelegate.currentConfiguration.uri.path ?? '';
+
+    if (!destination.startsWith('/people'))
+    {
+      PeopleSearchTab.clearSavedState();
+    }
+
+    super.dispose();
+  }
+
+  Widget _buildSectionContent()
   {
     return IndexedStack(
-      index: _mainSelectedTab,
+      index: _selectedSection,
       children: [
-        _visitedTabs.contains(0) ? const PeopleSearchTab() : const SizedBox.shrink(),
-        _visitedTabs.contains(1) ? const PeopleStatisticsTab() : const SizedBox.shrink(),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context)
-  {
-    return Row(
-      children: [
-        Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(40),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(40),
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            onTap: ()
-            {
-              PeopleSearchTab.clearSavedState();
-              context.go('/dashboard');
-            },
-            child: Container(
-              width: 88,
-              height: 54,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.all(Radius.circular(40)),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.primary,
-                size: 26,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.all(Radius.circular(40)),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Center(
-            child: Text(
-              'Persone',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 30,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
-        ),
+        for (var index = 0; index < _sectionContents.length; index++)
+          if (_visitedSections.contains(index)) _sectionContents[index] else const SizedBox.shrink(),
       ],
     );
   }
@@ -112,44 +117,68 @@ class _PeoplePageState extends State<PeoplePage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final viewportWidth = MediaQuery.of(context).size.width;
-
           return Container(
             width: width,
             height: height,
-            color: AppTheme.pageBackground,
+            color: AppTheme.trialPaper,
             child: Stack(
               children: [
-                const CornerGlow(corner: GlowCorner.topRight),
-                const CornerGlow(corner: GlowCorner.bottomLeft),
+                // The same pair of glows the dashboard wears, on the same paper.
+                // See the note in DashboardLayout for why they both fade towards
+                // a blue.
+                const CornerGlow(
+                  corner: GlowCorner.topRight,
+                  tint: AppTheme.trialDeepWater,
+                  edgeTint: AppTheme.trialOcean,
+                  intensity: 1.25,
+                  animated: true,
+                ),
+                const CornerGlow(
+                  corner: GlowCorner.bottomLeft,
+                  tint: AppTheme.trialSeaGreen,
+                  edgeTint: AppTheme.trialTealDeep,
+                  animated: true,
+                ),
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // The top inset clears the bar floating above the page: it
+                    // is laid over the content rather than in the column with
+                    // it, so the room it needs has to be left here.
+                    padding: const EdgeInsets.only(
+                      left: 40,
+                      right: 40,
+                      top: AppTopBar.contentTopInset,
+                      bottom: 24,
+                    ),
+                    // Stretched, so the content keeps being handed the full
+                    // height it was given when it sat in a column; the rail is
+                    // pinned back to its own height inside that.
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildHeader(context),
-                        const SizedBox(height: 16),
-                        AppCustomTabBar(
-                          tabs: _mainTabs,
-                          selectedIndex: _mainSelectedTab,
-                          maxWidth: viewportWidth - 80,
-                          onTabSelected: (index)
-                          {
-                            setState(()
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: AppSectionRail(
+                            title: 'Persone',
+                            groups: _sections,
+                            selectedIndex: _selectedSection,
+                            onSelected: (index) => setState(()
                             {
-                              _mainSelectedTab = index;
-                              _visitedTabs.add(index);
-                            });
-                          },
+                              _selectedSection = index;
+                              _visitedSections.add(index);
+                            }),
+                          ),
                         ),
-                        const SizedBox(height: 24),
-                        Expanded(child: _buildTabContent()),
+                        const SizedBox(width: AppSectionRail.gap),
+                        Expanded(child: _buildSectionContent()),
                       ],
                     ),
                   ),
                 ),
+                // Last in the stack, so the bar and the menu it opens stay above
+                // the page.
+                const AppTopBar(currentRoute: '/people'),
               ],
             ),
           );

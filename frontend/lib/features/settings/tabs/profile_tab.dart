@@ -7,18 +7,31 @@ import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_entity_chip.dart';
+import '../../../shared/widgets/settings_card.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
 
-class ProfileTab extends StatefulWidget 
+// The two halves of the profile. They used to be a row of chips at the top of
+// this tab; the rail on the left of the page holds them now, and the tab is
+// told which one to show.
+enum ProfileSection
 {
-  const ProfileTab({super.key});
+  personal,
+  association,
+}
+
+class ProfileTab extends StatefulWidget
+{
+  final ProfileSection section;
+
+  const ProfileTab({super.key, required this.section});
 
   @override
   State<ProfileTab> createState() => _ProfileTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> 
+class _ProfileTabState extends State<ProfileTab>
 {
   final ApiService _apiService = ApiService();
 
@@ -26,13 +39,6 @@ class _ProfileTabState extends State<ProfileTab>
   PersonItem? _person;
   bool        _isLoading    = true;
   String?     _errorMessage;
-
-  int _selectedSubTab = 0;
-
-  final List<String> _subTabs = [
-    'Informazioni personali',
-    'Informazioni associative',
-  ];
 
   @override
   void initState() 
@@ -112,60 +118,6 @@ class _ProfileTabState extends State<ProfileTab>
     return role;
   }
 
-  // Wraps to a new line instead of overflowing (was previously a plain Row).
-  Widget _buildSubNavigation()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 32.0),
-      child:   Wrap(
-        spacing:    12,
-        runSpacing: 12,
-        children:   List.generate(_subTabs.length, (index) 
-        {
-          final isSelected = _selectedSubTab == index;
-
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child:  GestureDetector(
-              onTap: () 
-              {
-                setState(() 
-                {
-                  _selectedSubTab = index;
-                });
-              },
-              child: AnimatedContainer(
-                duration:   const Duration(milliseconds: 250),
-                curve:      Curves.easeInOut,
-                padding:    const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical:   10,
-                ),
-                decoration: BoxDecoration(
-                  color:  isSelected ? AppTheme.primary : Colors.white,
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primary : AppTheme.slate200,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 250),
-                  curve:    Curves.easeInOut,
-                  style:    GoogleFonts.plusJakartaSans(
-                    fontSize:   14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color:      isSelected ? Colors.white : AppTheme.slate500,
-                  ),
-                  child: Text(_subTabs[index]),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) 
   {
@@ -174,7 +126,7 @@ class _ProfileTabState extends State<ProfileTab>
       return const Center(
         child: Padding(
           padding: EdgeInsets.only(top: 40.0),
-          child:   CircularProgressIndicator(color: AppTheme.primary),
+          child:   CircularProgressIndicator(color: AppTheme.trialTealDeep),
         ),
       );
     }
@@ -189,7 +141,7 @@ class _ProfileTabState extends State<ProfileTab>
             style: GoogleFonts.plusJakartaSans(
               fontSize:   18,
               fontWeight: FontWeight.w600,
-              color:      AppTheme.slate400,
+              color:      AppTheme.trialMutedText,
             ),
           ),
         ),
@@ -240,9 +192,7 @@ class _ProfileTabState extends State<ProfileTab>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildSubNavigation(),
-
-              if (_selectedSubTab == 0) ...[
+              if (widget.section == ProfileSection.personal) ...[
                 // Stacks vertically below the breakpoint; the LayoutBuilder stays
                 // outside IntrinsicHeight (same fix as in PersonInfoTab — never nest
                 // a LayoutBuilder inside an IntrinsicHeight).
@@ -314,13 +264,13 @@ class _ProfileTabState extends State<ProfileTab>
                           ? Wrap(
                               spacing:    8,
                               runSpacing: 8,
-                              children:   translatedRoles.map((role) => _RoleChip(label: role)).toList(),
+                              children:   translatedRoles.map((role) => AppEntityChip(label: role)).toList(),
                             )
                           : Text(
                               'Nessun ruolo assegnato',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
-                                color:    const Color(0xFF7A7A7A),
+                                color:    AppTheme.trialMutedText,
                               ),
                             ),
                     ),
@@ -488,54 +438,13 @@ class _ProfileSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return SelectionArea(
-      child: Container(
-        padding:    const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color:        Colors.white,
-          borderRadius: BorderRadius.circular(40),
-          boxShadow:    AppTheme.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize:       MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 90,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  leadingIcon,
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize:   26,
-                        fontWeight: FontWeight.w700,
-                        color:      AppTheme.primary,
-                        height:     1.1,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.0),
-              child:   Divider(
-                height:    1, 
-                thickness: 1, 
-                color:     Color(0xFFF1F5F9),
-              ),
-            ),
-            customContent ?? Column(
-              mainAxisSize:       MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children:           _buildRows(),
-            ),
-          ],
-        ),
+    return SettingsCard(
+      title:   title,
+      leading: leadingIcon,
+      child:   customContent ?? Column(
+        mainAxisSize:       MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children:           _buildRows(),
       ),
     );
   }
@@ -560,7 +469,7 @@ class _ProfileSectionCard extends StatelessWidget
       {
         rowWidget = Opacity(
           opacity: 0.0,
-          child:   _ProfileInfoRow(
+          child:   SettingsInfoRow(
             label:      '-', 
             value:      '-',
             labelWidth: labelWidth,
@@ -578,7 +487,7 @@ class _ProfileSectionCard extends StatelessWidget
       }
       else 
       {
-        rowWidget = _ProfileInfoRow(
+        rowWidget = SettingsInfoRow(
           label:      rowData.label, 
           value:      rowData.value,
           labelWidth: labelWidth,
@@ -611,19 +520,7 @@ class _StaticAvatar extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return Container(
-      width:  90,
-      height: 90,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE8EEF7),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        icon, 
-        size:  44, 
-        color: AppTheme.primary,
-      ),
-    );
+    return SettingsCardBadge(icon: icon);
   }
 }
 
@@ -786,7 +683,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:         Text('Errore durante il caricamento: $e'),
-            backgroundColor: const Color(0xFFC62828),
+            backgroundColor: AppTheme.trialDanger,
           ),
         );
       }
@@ -818,7 +715,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
           'Rimuovi Foto Profilo',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
-            color:      AppTheme.primary,
+            color:      AppTheme.trialOcean,
           ),
         ),
         content: Text(
@@ -834,7 +731,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
             child: Text(
               'ANNULLA',
               style: GoogleFonts.plusJakartaSans(
-                color:      AppTheme.slate500,
+                color:      AppTheme.trialMutedText,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -847,7 +744,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
             child: Text(
               'RIMUOVI',
               style: GoogleFonts.plusJakartaSans(
-                color:      AppTheme.danger,
+                color:      AppTheme.trialDanger,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -884,7 +781,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content:         Text('Errore durante la rimozione: $e'),
-            backgroundColor: const Color(0xFFC62828),
+            backgroundColor: AppTheme.trialDanger,
           ),
         );
       }
@@ -915,20 +812,30 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       child:  Stack(
         fit:      StackFit.expand,
         children: [
-          CircleAvatar(
-            key:             ValueKey(imageUrl),
-            backgroundColor: const Color(0xFFE8EEF7),
-            backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
-            child:           !hasImage
-                ? Text(
-                    _initials,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize:   32,
-                      fontWeight: FontWeight.w700,
-                      color:      AppTheme.primary,
-                    ),
-                  )
-                : null,
+          // With no picture the circle falls back to the brand ramp with the
+          // initials reversed out of it, so the identity card carries the same
+          // badge as every other card in the settings until a photo takes its
+          // place.
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: AppTheme.brandGradient,
+              shape:    BoxShape.circle,
+            ),
+            child: CircleAvatar(
+              key:             ValueKey(imageUrl),
+              backgroundColor: Colors.transparent,
+              backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
+              child:           !hasImage
+                  ? Text(
+                      _initials,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize:   32,
+                        fontWeight: FontWeight.w700,
+                        color:      Colors.white,
+                      ),
+                    )
+                  : null,
+            ),
           ),
 
           if (isBusy)
@@ -1002,50 +909,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
   }
 }
 
-class _ProfileInfoRow extends StatelessWidget 
-{
-  final String label;
-  final String value;
-  final double labelWidth;
-
-  const _ProfileInfoRow({
-    required this.label, 
-    required this.value,
-    required this.labelWidth,
-  });
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: labelWidth,
-          child: Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   18,
-              fontWeight: FontWeight.w500,
-              color:      const Color(0xFF7A7A7A),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   18,
-              fontWeight: FontWeight.w600,
-              color:      const Color(0xFF2A2A2A),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // Same show/hide toggle as LoginTextField, but the state lives on the single
 // row instead of an input field. Hidden by default (_isVisible starts false).
 class _ObscurableInfoRow extends StatefulWidget
@@ -1082,88 +945,39 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
         ? widget.value
         : (_isVisible ? widget.value : _maskedValue);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: widget.labelWidth,
-          child: Text(
-            widget.label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   18,
-              fontWeight: FontWeight.w500,
-              color:      const Color(0xFF7A7A7A),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            displayValue,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   18,
-              fontWeight: FontWeight.w600,
-              color:      const Color(0xFF2A2A2A),
-              letterSpacing: (_hasValue && !_isVisible) ? 3 : 0,
-            ),
-          ),
-        ),
-        if (_hasValue)
-          IconButton(
-            onPressed: ()
-            {
-              setState(()
+    return SettingsInfoRow(
+      label:              widget.label,
+      value:              displayValue,
+      labelWidth:         widget.labelWidth,
+      valueLetterSpacing: (_hasValue && !_isVisible) ? 3 : 0,
+      trailing: !_hasValue
+          ? null
+          : IconButton(
+              onPressed: ()
               {
-                _isVisible = !_isVisible;
-              });
-            },
-            splashColor:    Colors.transparent,
-            highlightColor: Colors.transparent,
-            hoverColor:     Colors.transparent,
-            focusColor:     Colors.transparent,
-            padding:        EdgeInsets.zero,
-            constraints:    const BoxConstraints(),
-            icon: Icon(
-              _isVisible
-                  ? Icons.visibility_off_outlined
-                  : Icons.visibility_outlined,
-              size:  22,
-              color: AppTheme.secondaryText,
+                setState(()
+                {
+                  _isVisible = !_isVisible;
+                });
+              },
+              splashColor:    Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor:     Colors.transparent,
+              focusColor:     Colors.transparent,
+              padding:        EdgeInsets.zero,
+              constraints:    const BoxConstraints(),
+              icon: Icon(
+                _isVisible
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size:  22,
+                color: AppTheme.trialMutedText,
+              ),
             ),
-          ),
-      ],
     );
   }
 }
 
-class _RoleChip extends StatelessWidget 
-{
-  final String label;
-
-  const _RoleChip({
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    return Container(
-      padding:    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color:        const Color(0xFFF5F7FA),
-        borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: AppTheme.border),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize:   14,
-          fontWeight: FontWeight.w600,
-          color:      AppTheme.slate500,
-        ),
-      ),
-    );
-  }
-}
 
 class _InfoRowData 
 {

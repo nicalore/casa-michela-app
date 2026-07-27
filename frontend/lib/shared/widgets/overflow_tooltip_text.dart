@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-import '../../core/theme/app_theme.dart';
 
 // Shows a tooltip with the full text only when the label is actually clipped.
 // Overflow is detected by re-measuring the text with a TextPainter at the real
@@ -138,20 +135,6 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
     return Tooltip(
       message: widget.text,
       waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      textStyle: GoogleFonts.plusJakartaSans(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.white,
-      ),
-      decoration: BoxDecoration(
-        color: AppTheme.slate800.withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.slate700, width: 1.5),
-        boxShadow: const [
-          BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-        ],
-      ),
       child: textWidget,
     );
   }

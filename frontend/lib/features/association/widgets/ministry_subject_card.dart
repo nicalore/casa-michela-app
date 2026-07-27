@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_entity_chip.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 
-const Color _levelTextColor = AppTheme.slate500;
-const Color _chipBackground = Color(0xFFF5F7FA);
+const Color _levelTextColor = AppTheme.trialTealDeep;
 
 class MinistrySubjectCard extends StatefulWidget
 {
@@ -34,7 +35,9 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
 
   String get _levelLabel => schoolLevelLabel(widget.subject.level);
 
-  String get _areasLabel => widget.subject.areas.map(subjectAreaLabel).join(', ');
+  List<String> get _areaLabels => widget.subject.areas.map(subjectAreaLabel).toList();
+
+  String get _areasLabel => _areaLabels.join(', ');
 
   void _showDetailsDialog()
   {
@@ -44,7 +47,7 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
       builder: (dialogContext) => _MinistrySubjectDetailsDialogContent(
         subject: widget.subject,
         levelLabel: _levelLabel,
-        areasLabel: _areasLabel,
+        areaLabels: _areaLabels,
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
@@ -75,8 +78,10 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
+            // Gold under the pointer, the same mark a module card takes on the
+            // dashboard and a document row in the settings.
             border: Border.all(
-              color: _isHovering ? AppTheme.primary : Colors.transparent,
+              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
               width: 2,
             ),
             boxShadow: AppTheme.cardShadow,
@@ -90,7 +95,7 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 19,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primary,
+                  color: AppTheme.trialOcean,
                   height: 1.15,
                 ),
               ),
@@ -111,7 +116,7 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.mutedText,
+                  color: AppTheme.trialMutedText,
                 ),
               ),
             ],
@@ -124,264 +129,224 @@ class _MinistrySubjectCardState extends State<MinistrySubjectCard>
 
 class _MinistrySubjectDetailsDialogContent extends StatelessWidget
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
+
   final MinistrySubjectItem subject;
   final String levelLabel;
-  final String areasLabel;
+  final List<String> areaLabels;
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
   const _MinistrySubjectDetailsDialogContent({
     required this.subject,
     required this.levelLabel,
-    required this.areasLabel,
+    required this.areaLabels,
     required this.onEditRequested,
     required this.onDelete,
   });
 
+  // Two full buttons rather than two words in a corner: this one throws
+  // something away, and the answer that does it should not be quieter than the
+  // one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
-    showDialog(
+    showBlurredDialog<void>(
       context: context,
-      builder: (confirmContext)
-      {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Conferma Eliminazione',
+      barrierLabel: 'ConfirmDeletion',
+      builder: (confirmContext) => AppDialogShell(
+        eyebrow: 'Eliminazione',
+        title: 'Confermi?',
+        width: 460,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: () => Navigator.pop(confirmContext),
+          ),
+          primary: AppGradientButton(
+            label: 'ELIMINA',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: ()
+            {
+              Navigator.pop(confirmContext);
+              Navigator.pop(context);
+              onDelete();
+            },
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'La materia '),
+                TextSpan(
+                  text: subject.name,
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                ),
+                const TextSpan(text: ' verrà eliminata definitivamente.'),
+              ],
+            ),
             style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primary,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppTheme.trialInk,
             ),
           ),
-          content: Text(
-            'Sei sicuro di voler eliminare la materia "${subject.name}"?',
-            style: GoogleFonts.plusJakartaSans(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () => Navigator.pop(confirmContext),
-              child: Text(
-                'ANNULLA',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.mutedText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: ()
-              {
-                Navigator.pop(confirmContext);
-                Navigator.pop(context);
-                onDelete();
-              },
-              child: Text(
-                'ELIMINA',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.danger,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFieldLabel(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
         ),
       ),
     );
   }
+
+  // Small, tracked and muted over the value it names: the same pairing the
+  // settings cards use, and the same the top bar uses over a role.
+  Widget _buildFieldLabel(String text)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, top: 20),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.plusJakartaSans(
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+  }
+
+  TextStyle get _valueStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.trialInk,
+      );
 
   @override
   Widget build(BuildContext context)
   {
     final hasDescription = subject.description != null && subject.description!.isNotEmpty;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
+    return AppDialogShell(
+      eyebrow: 'Materia ministeriale',
+      title: subject.name,
+      // Wider than the other detail windows: the name of a level and a list of
+      // areas stand side by side in here, and neither of them is short.
+      width: 660,
+      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      footer: AppDialogFooter(
+        secondary: AppGradientButton(
+          label: 'ELIMINA',
+          icon: Icons.delete_outline_rounded,
+          gradient: AppTheme.dangerGradient,
+          accent: AppTheme.trialDanger,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: () => _showDeleteConfirmation(context),
+        ),
+        primary: AppGradientButton(
+          label: 'MODIFICA',
+          icon: Icons.edit_outlined,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: onEditRequested,
+        ),
+      ),
       child: SelectionArea(
-        child: Container(
-          width: 600,
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: AppTheme.dialogShadow,
-          ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Dettagli Materia',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    StaticHoverIconButton(
-                      icon: Icons.close,
-                      color: AppTheme.primary,
-                      hoverColor: AppTheme.iconHover,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Nome'),
-                      Text(
-                        subject.name,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Livello'),
-                                Text(
-                                  levelLabel,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Area'),
-                                Text(
-                                  areasLabel,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildFieldLabel('Descrizione'),
-                      Text(
-                        hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                          color: hasDescription ? Colors.black87 : AppTheme.hint,
-                          fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Discipline interne associate'),
-                      if (subject.associationSubjects.isEmpty)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // A fixed column rather than a share of the dialog: half of it
+                  // is not enough for "Scuola Secondaria di II Grado" (254px at
+                  // this size) and a level broken over two lines reads as two
+                  // levels. Wide enough that the longest of the three still has
+                  // room to spare, and the same width whichever level this is,
+                  // so the areas start where they always start instead of
+                  // sliding left and right from one subject to the next.
+                  SizedBox(
+                    width: 300,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Livello'),
                         Text(
-                          'Nessuna disciplina associata.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 16,
-                            color: AppTheme.mutedText,
-                            fontStyle: FontStyle.italic,
+                          levelLabel,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: _valueStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 40),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel(areaLabels.length == 1 ? 'Area' : 'Aree'),
+                        // One per line: they are separate things, and a comma
+                        // between two of them looked like one long area.
+                        for (int i = 0; i < areaLabels.length; i++)
+                          Padding(
+                            padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
+                            child: Text(areaLabels[i], style: _valueStyle),
                           ),
-                        )
-                      else
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: subject.associationSubjects.map((discipline)
-                          {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: _chipBackground,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppTheme.border),
-                              ),
-                              child: Text(
-                                discipline.name,
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
+                ],
+              ),
+              _buildFieldLabel('Descrizione'),
+              Text(
+                hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                  color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
+                  fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
                 ),
               ),
-              SelectionContainer.disabled(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AnimatedActionButton(
-                          text: 'ELIMINA',
-                          icon: Icons.delete_outline_rounded,
-                          baseColor: AppTheme.danger,
-                          hoverColor: AppTheme.dangerHover,
-                          onPressed: () => _showDeleteConfirmation(context),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: AnimatedActionButton(
-                          text: 'MODIFICA',
-                          icon: Icons.edit_outlined,
-                          baseColor: AppTheme.primary,
-                          hoverColor: AppTheme.primaryHover,
-                          onPressed: onEditRequested,
-                        ),
-                      ),
-                    ],
+              _buildFieldLabel('Discipline interne associate'),
+              if (subject.associationSubjects.isEmpty)
+                Text(
+                  'Nessuna disciplina associata.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: subject.associationSubjects.map((discipline)
+                    {
+                      return AppEntityChip(label: discipline.name);
+                    }).toList(),
                   ),
                 ),
-              ),
             ],
           ),
         ),

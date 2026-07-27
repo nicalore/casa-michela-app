@@ -1050,19 +1050,6 @@ class _DropdownOverflowTooltipText extends StatelessWidget
           message: text,
           waitDuration: const Duration(milliseconds: 600),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-          ),
-          decoration: BoxDecoration(
-            color: AppTheme.slate800.withValues(alpha: .98),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.slate700, width: 1.5),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-            ],
-          ),
           child: textWidget,
         );
       },
@@ -1254,14 +1241,27 @@ class WizardDateInputFormatter extends TextInputFormatter
     }
 
     String text = newValue.text;
+    // Follows the caret instead of forcing it to the end, so editing a digit
+    // in the middle of an already typed date leaves the cursor where it was.
+    int caret = newValue.selection.baseOffset;
 
     if (text.length == 2 && !text.contains('/'))
     {
       text += '/';
+
+      if (caret == 2)
+      {
+        caret = 3;
+      }
     }
     else if (text.length == 5 && text.indexOf('/', 3) == -1)
     {
       text += '/';
+
+      if (caret == 5)
+      {
+        caret = 6;
+      }
     }
 
     if (text.length > 10)
@@ -1271,7 +1271,7 @@ class WizardDateInputFormatter extends TextInputFormatter
 
     return TextEditingValue(
       text: text,
-      selection: TextSelection.collapsed(offset: text.length),
+      selection: TextSelection.collapsed(offset: caret.clamp(0, text.length)),
     );
   }
 }

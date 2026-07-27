@@ -2,17 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_entity_chip.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/ministry_subject_chip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
 import '../models/study_program_item.dart';
 import '../models/subject_taxonomy.dart';
 
-const Color _chipBackground = Color(0xFFF5F7FA);
-const Color _chipHover = AppTheme.slate200;
+// The read-only panel opens over the details dialog, not over the page, so it
+// needs more depth than the usual dialog shadow to lift off the white behind it.
+const List<BoxShadow> _floatingPanelShadow = [
+  BoxShadow(color: Color(0x2A000000), offset: Offset(0, 12), blurRadius: 36),
+];
+
+// Both dialogs of this file stand at the same height and type size as the ones
+// in the settings and in the role switch.
+const double _dialogButtonHeight = 52;
+const double _dialogButtonFontSize = 14;
 
 class SchoolCard extends StatefulWidget
 {
@@ -78,8 +88,10 @@ class _SchoolCardState extends State<SchoolCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
+            // Gold under the pointer, the same mark a module card takes on the
+            // dashboard and a document row in the settings.
             border: Border.all(
-              color: _isHovering ? AppTheme.primary : Colors.transparent,
+              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
               width: 2,
             ),
             boxShadow: AppTheme.cardShadow,
@@ -93,7 +105,7 @@ class _SchoolCardState extends State<SchoolCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 19,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.primary,
+                  color: AppTheme.trialOcean,
                   height: 1.15,
                 ),
               ),
@@ -104,7 +116,7 @@ class _SchoolCardState extends State<SchoolCard>
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.mutedText,
+                  color: AppTheme.trialMutedText,
                 ),
               ),
             ],
@@ -131,57 +143,65 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
+  // Two full buttons rather than two words in a corner: this one throws a school
+  // away, and the answer that does it should not be quieter than the one that
+  // walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
-    showDialog(
+    showBlurredDialog<void>(
       context: context,
-      builder: (confirmContext)
-      {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Conferma Eliminazione',
+      barrierLabel: 'ConfirmSchoolDeletion',
+      builder: (confirmContext) => AppDialogShell(
+        eyebrow: 'Eliminazione',
+        title: 'Confermi?',
+        width: 460,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: () => Navigator.pop(confirmContext),
+          ),
+          primary: AppGradientButton(
+            label: 'ELIMINA',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: _dialogButtonHeight,
+            fontSize: _dialogButtonFontSize,
+            onPressed: ()
+            {
+              Navigator.pop(confirmContext);
+              Navigator.pop(context);
+              onDelete();
+            },
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'La scuola '),
+                TextSpan(
+                  text: school.name,
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                ),
+                const TextSpan(text: ' verrà eliminata definitivamente.'),
+              ],
+            ),
             style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primary,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppTheme.trialInk,
             ),
           ),
-          content: Text(
-            'Sei sicuro di voler eliminare la scuola "${school.name}"?',
-            style: GoogleFonts.plusJakartaSans(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () => Navigator.pop(confirmContext),
-              child: Text(
-                'ANNULLA',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.mutedText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: ()
-              {
-                Navigator.pop(confirmContext);
-                Navigator.pop(context);
-                onDelete();
-              },
-              child: Text(
-                'ELIMINA',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.danger,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -212,12 +232,11 @@ class _SchoolDetailsDialogContent extends StatelessWidget
               curve: Curves.easeOutBack,
               reverseCurve: Curves.easeIn,
             ),
-            child: Align(
-              alignment: const Alignment(0.5, 0.0),
-              child: _ReadOnlyStudyProgramDialogContent(
-                program: fullProgram,
-                availableMinistrySubjects: availableMinistrySubjects,
-              ),
+            // Placed by the dialog itself, which is the only place it can be
+            // done: see the note on AppDialogShell.alignment.
+            child: _ReadOnlyStudyProgramDialogContent(
+              program: fullProgram,
+              availableMinistrySubjects: availableMinistrySubjects,
             ),
           ),
         );
@@ -225,237 +244,130 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
+  // Small, tracked and muted over the value it names: the same pairing the
+  // settings cards use, and the same the top bar uses over a role.
   Widget _buildFieldLabel(String text)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      padding: const EdgeInsets.only(bottom: 6, top: 20),
       child: Text(
-        text,
+        text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
         ),
       ),
     );
   }
+
+  TextStyle get _valueStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.trialInk,
+      );
 
   @override
   Widget build(BuildContext context)
   {
     final hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: 600,
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+    return AppDialogShell(
+      eyebrow: 'Scuola',
+      title: school.name,
+      width: 600,
+      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      // Selection stops at the body: the buttons underneath are not text you
+      // would ever want to drag a cursor through.
+      footer: AppDialogFooter(
+        secondary: AppGradientButton(
+          label: 'ELIMINA',
+          icon: Icons.delete_outline_rounded,
+          gradient: AppTheme.dangerGradient,
+          accent: AppTheme.trialDanger,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: () => _showDeleteConfirmation(context),
         ),
-        child: SelectionArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Dettagli Scuola',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    StaticHoverIconButton(
-                      icon: Icons.close,
-                      color: AppTheme.primary,
-                      hoverColor: AppTheme.iconHover,
-                      onTap: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(left: 32, right: 32, bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Nome'),
-                      Text(
-                        school.name,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Città'),
-                                Text(
-                                  school.city,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Provincia'),
-                                Text(
-                                  school.province,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildFieldLabel('Codice Meccanografico'),
-                      Text(
-                        hasCode ? school.mechanographicCode! : 'Non presente',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: hasCode ? Colors.black : AppTheme.mutedText,
-                          fontStyle: hasCode ? FontStyle.normal : FontStyle.italic,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Percorsi di Studio Attivi'),
-                      if (school.studyPrograms.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'Nessun percorso associato a questa scuola.',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 15,
-                              color: AppTheme.mutedText,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: school.studyPrograms.map((program)
-                            {
-                              return _HoverableProgramChip(
-                                name: program.name,
-                                onTap: () => _openReadOnlyProgramDialog(context, program.id),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              SelectionContainer.disabled(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AnimatedActionButton(
-                          text: 'ELIMINA',
-                          icon: Icons.delete_outline_rounded,
-                          baseColor: AppTheme.danger,
-                          hoverColor: AppTheme.dangerHover,
-                          onPressed: () => _showDeleteConfirmation(context),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: AnimatedActionButton(
-                          text: 'MODIFICA',
-                          icon: Icons.edit_outlined,
-                          baseColor: AppTheme.primary,
-                          hoverColor: AppTheme.primaryHover,
-                          onPressed: onEditRequested,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+        primary: AppGradientButton(
+          label: 'MODIFICA',
+          icon: Icons.edit_outlined,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: onEditRequested,
         ),
       ),
-    );
-  }
-}
-
-class _HoverableProgramChip extends StatefulWidget
-{
-  final String name;
-  final VoidCallback onTap;
-
-  const _HoverableProgramChip({required this.name, required this.onTap});
-
-  @override
-  State<_HoverableProgramChip> createState() => _HoverableProgramChipState();
-}
-
-class _HoverableProgramChipState extends State<_HoverableProgramChip>
-{
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: _isHovering ? _chipHover : _chipBackground,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Text(
-            widget.name,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Città'),
+                        Text(school.city, style: _valueStyle),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Provincia'),
+                        Text(school.province, style: _valueStyle),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              _buildFieldLabel('Codice meccanografico'),
+              Text(
+                hasCode ? school.mechanographicCode! : 'Non presente',
+                style: hasCode
+                    ? _valueStyle
+                    : _valueStyle.copyWith(
+                        color: AppTheme.trialMutedText,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w500,
+                      ),
+              ),
+              _buildFieldLabel('Percorsi di studio attivi'),
+              if (school.studyPrograms.isEmpty)
+                Text(
+                  'Nessun percorso associato a questa scuola.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: school.studyPrograms.map((program)
+                    {
+                      return AppEntityChip(
+                        label: program.name,
+                        onTap: () => _openReadOnlyProgramDialog(context, program.id),
+                      );
+                    }).toList(),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -473,157 +385,110 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
     required this.availableMinistrySubjects,
   });
 
+  // Small, tracked and muted over the value it names: the same pairing the
+  // settings cards use, and the same the top bar uses over a role.
   Widget _buildFieldLabel(String text)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      padding: const EdgeInsets.only(bottom: 6, top: 20),
       child: Text(
-        text,
+        text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
         ),
       ),
     );
   }
+
+  TextStyle get _valueStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.trialInk,
+      );
 
   @override
   Widget build(BuildContext context)
   {
     final hasDescription = program.description.isNotEmpty;
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 500,
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(color: Color(0x2A000000), offset: Offset(0, 12), blurRadius: 36),
-          ],
-        ),
-        child: SelectionArea(
+    return AppDialogShell(
+      eyebrow: 'Percorso di studio',
+      title: program.name,
+      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      // To the right of centre, so the school details it was opened from stay
+      // readable behind it rather than being covered up.
+      alignment: const Alignment(0.5, 0),
+      shadow: _floatingPanelShadow,
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Dettagli Percorso',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Livello'),
+                        Text(schoolLevelLabel(program.level), style: _valueStyle),
+                      ],
                     ),
-                    StaticHoverIconButton(
-                      icon: Icons.close,
-                      color: AppTheme.primary,
-                      hoverColor: AppTheme.iconHover,
-                      onTap: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFieldLabel('Anni di corso'),
+                        Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              _buildFieldLabel('Descrizione'),
+              Text(
+                hasDescription ? program.description : 'Nessuna descrizione fornita.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                  color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
+                  fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
                 ),
               ),
-              const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Nome'),
-                      Text(
-                        program.name,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Livello'),
-                                Text(
-                                  schoolLevelLabel(program.level),
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildFieldLabel('Anni di corso'),
-                                Text(
-                                  '${program.minYear} - ${program.maxYear}',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      _buildFieldLabel('Descrizione'),
-                      Text(
-                        hasDescription ? program.description : 'Nessuna descrizione fornita.',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                          color: hasDescription ? Colors.black87 : AppTheme.hint,
-                          fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Materie ministeriali incluse'),
-                      if (program.ministrySubjects.isEmpty)
-                        Text(
-                          'Nessuna materia associata.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 16,
-                            color: AppTheme.mutedText,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        )
-                      else
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: program.ministrySubjects.map((option)
-                        {
-                          return MinistrySubjectChip(
-                            option: option,
-                            availableMinistrySubjects: availableMinistrySubjects,
-                          );
-                        }).toList(),
-                        ),
-                    ],
+              _buildFieldLabel('Materie ministeriali incluse'),
+              if (program.ministrySubjects.isEmpty)
+                Text(
+                  'Nessuna materia associata.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.trialMutedText,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: program.ministrySubjects.map((option)
+                    {
+                      return MinistrySubjectChip(
+                        option: option,
+                        availableMinistrySubjects: availableMinistrySubjects,
+                      );
+                    }).toList(),
                   ),
                 ),
-              ),
             ],
           ),
         ),

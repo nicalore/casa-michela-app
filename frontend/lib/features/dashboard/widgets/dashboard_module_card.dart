@@ -4,8 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 
-const Color _iconBackground = Color(0xFF12A0D7);
-const Color _subtitleColor = Color(0xFF464646);
+const Color _subtitleColor = AppTheme.trialMutedText;
 
 class DashboardModuleCard extends StatefulWidget
 {
@@ -77,8 +76,11 @@ class _DashboardModuleCardState extends State<DashboardModuleCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(40),
+            // Gold marks the pointer, and nothing else on the page uses it: the
+            // card being hovered is the only warm thing on screen, so the eye
+            // finds it without the border having to shout.
             border: Border.all(
-              color: _hover ? AppTheme.primary : Colors.transparent,
+              color: _hover ? AppTheme.trialGold : Colors.transparent,
               width: 2,
             ),
             boxShadow: AppTheme.cardShadow,
@@ -98,7 +100,7 @@ class _DashboardModuleCardState extends State<DashboardModuleCard>
                       width: DashboardModuleCard._iconBoxSize,
                       height: DashboardModuleCard._iconBoxSize,
                       decoration: BoxDecoration(
-                        color: _iconBackground,
+                        gradient: AppTheme.brandGradient,
                         borderRadius: BorderRadius.circular(40),
                       ),
                       child: _buildLeadingGlyph(),
@@ -111,7 +113,7 @@ class _DashboardModuleCardState extends State<DashboardModuleCard>
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 25,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.primary,
+                          color: AppTheme.trialOcean,
                         ),
                       ),
                     ),

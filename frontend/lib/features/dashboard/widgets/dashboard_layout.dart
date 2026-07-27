@@ -6,62 +6,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
-import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
+import '../dashboard_modules.dart';
 import 'dashboard_greeting.dart';
-import 'dashboard_header.dart';
 import 'dashboard_module_card.dart';
 import 'dashboard_placeholder_card.dart';
-import 'user_menu.dart';
-
-// Descriptor of a dashboard module, so the four entries are declared once and
-// rendered by both the web and the native layout. A null route marks a module
-// whose page does not exist yet.
-class _DashboardModule
-{
-  final String title;
-  final String subtitle;
-  final IconData? icon;
-  final String? imageAsset;
-  final String? route;
-
-  const _DashboardModule({
-    required this.title,
-    required this.subtitle,
-    this.icon,
-    this.imageAsset,
-    this.route,
-  });
-}
-
-const List<_DashboardModule> _modules = [
-  _DashboardModule(
-    title: 'Persone',
-    subtitle: 'Gestisci membri e profili',
-    icon: Icons.groups_outlined,
-    route: '/people',
-  ),
-  _DashboardModule(
-    title: 'Calendario',
-    subtitle: 'Organizza prenotazioni e lezioni',
-    icon: Icons.calendar_month_rounded,
-  ),
-  _DashboardModule(
-    title: 'Contabilità',
-    subtitle: 'Monitora pagamenti e ore lavorate',
-    icon: Icons.account_balance_wallet_outlined,
-  ),
-  _DashboardModule(
-    title: 'Associazione',
-    subtitle: 'Configura regole e parametri',
-    imageAsset: 'assets/images/house_watermark_white.png',
-    route: '/association',
-  ),
-];
 
 class DashboardLayout extends StatefulWidget
 {
@@ -102,12 +56,8 @@ class _DashboardLayoutState extends State<DashboardLayout>
   // Below this width the two bottom cards no longer fit side by side.
   static const double _bottomCardsStackBreakpoint = 1420;
 
-  static const double _userMenuTop = 115;
-  static const double _userMenuRight = 60;
-
   final ApiService _apiService = ApiService();
 
-  bool _isMenuOpen = false;
   bool _loadingUser = true;
   MeResponse? _currentUser;
 
@@ -116,11 +66,6 @@ class _DashboardLayoutState extends State<DashboardLayout>
   {
     super.initState();
     _loadCurrentUser();
-  }
-
-  void _toggleMenu()
-  {
-    setState(() => _isMenuOpen = !_isMenuOpen);
   }
 
   Future<void> _loadCurrentUser() async
@@ -151,10 +96,12 @@ class _DashboardLayoutState extends State<DashboardLayout>
     }
   }
 
-  // The local logout (session cleanup plus the redirect to /login driven by
-  // authState) happens only if the server call succeeds. On failure the user
-  // stays authenticated on the dashboard and is told what happened, rather than
-  // being left in a half logged out state (TC-IAM-012 / RF-IAM-018).
+  // Logout of the native layout only: on the web the same job belongs to the
+  // menu inside AppTopBar. The local logout (session cleanup plus the redirect
+  // to /login driven by authState) happens only if the server call succeeds. On
+  // failure the user stays authenticated on the dashboard and is told what
+  // happened, rather than being left in a half logged out state (TC-IAM-012 /
+  // RF-IAM-018).
   Future<void> _logout() async
   {
     try
@@ -168,7 +115,6 @@ class _DashboardLayoutState extends State<DashboardLayout>
         return;
       }
 
-      setState(() => _isMenuOpen = false);
       CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
 
       return;
@@ -182,7 +128,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
     context.go('/login');
   }
 
-  DashboardModuleCard _buildModuleCard(_DashboardModule module)
+  DashboardModuleCard _buildModuleCard(DashboardModule module)
   {
     final route = module.route;
 
@@ -204,7 +150,9 @@ class _DashboardLayoutState extends State<DashboardLayout>
   {
     if (_loadingUser)
     {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+      );
     }
 
     return kIsWeb ? _buildWebLayout(context) : _buildNativeLayout(context);
@@ -216,21 +164,21 @@ class _DashboardLayoutState extends State<DashboardLayout>
     final isTablet = screenWidth > _tabletBreakpoint;
 
     return Scaffold(
-      backgroundColor: AppTheme.pageBackground,
+      backgroundColor: AppTheme.trialPaper,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'Ciao, ${_currentUser?.firstName ?? ''}',
           style: const TextStyle(
-            color: AppTheme.primary,
+            color: AppTheme.trialOcean,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            color: AppTheme.primary,
+            color: AppTheme.trialTealDeep,
             onPressed: _logout,
           ),
         ],
@@ -243,7 +191,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
             crossAxisSpacing: 16.0,
             mainAxisSpacing: 16.0,
             childAspectRatio: isTablet ? 1.4 : 1.2,
-            children: _modules.map(_buildModuleCard).toList(),
+            children: dashboardModules.map(_buildModuleCard).toList(),
           ),
         ),
       ),
@@ -254,7 +202,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
   Widget _buildBottomNavigation()
   {
     return BottomNavigationBar(
-      selectedItemColor: AppTheme.primary,
+      selectedItemColor: AppTheme.trialTealDeep,
       unselectedItemColor: Colors.grey,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
@@ -270,57 +218,15 @@ class _DashboardLayoutState extends State<DashboardLayout>
     );
   }
 
-  Widget _buildUserMenu()
-  {
-    return Positioned(
-      top: _userMenuTop,
-      right: _userMenuRight,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation)
-        {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, -0.08),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
-        },
-        child: _isMenuOpen
-            // The inner GestureDetector swallows taps on the menu, so they do
-            // not reach the outer one that closes it.
-            ? GestureDetector(
-                onTap: () {},
-                child: UserMenu(
-                  key: const ValueKey('menu'),
-                  activeRole: RoleLabelMapper.toLabel(_currentUser?.activeRole ?? 'ADMIN'),
-                  availableRoles: (_currentUser?.availableRoles ?? const [])
-                      .map(RoleLabelMapper.toLabel)
-                      .toList(),
-                  onRoleSelected: (role) {},
-                  onLogout: _logout,
-                ),
-              )
-            : const SizedBox(key: ValueKey('empty')),
-      ),
-    );
-  }
-
   Widget _buildWebLayout(BuildContext context)
   {
     final viewportWidth = MediaQuery.of(context).size.width;
 
     final cardsPerRow = ((viewportWidth - 2 * _pageHorizontalMargin + _cardGap) ~/
             (_cardWidth + _cardGap))
-        .clamp(1, _modules.length);
+        .clamp(1, dashboardModules.length);
 
-    final upperRows = (_modules.length / cardsPerRow).ceil();
+    final upperRows = (dashboardModules.length / cardsPerRow).ceil();
 
     // Every row is centred on its own width, so the last incomplete row does
     // not hang to the left of the ones above it.
@@ -330,7 +236,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
       final indexInRow = index % cardsPerRow;
 
       final cardsInThisRow = row == upperRows - 1
-          ? _modules.length - ((upperRows - 1) * cardsPerRow)
+          ? dashboardModules.length - ((upperRows - 1) * cardsPerRow)
           : cardsPerRow;
 
       final rowWidth = cardsInThisRow * _cardWidth + (cardsInThisRow - 1) * _cardGap;
@@ -354,7 +260,7 @@ class _DashboardLayoutState extends State<DashboardLayout>
     final bottomCardHeight = bottomCardWidth / _bottomCardAspectRatio;
     final stackBottomCards = viewportWidth < _bottomCardsStackBreakpoint;
 
-    final bottomCardsTop = cardTop(_modules.length - 1) + _cardHeight + _bottomCardsTopGap;
+    final bottomCardsTop = cardTop(dashboardModules.length - 1) + _cardHeight + _bottomCardsTopGap;
 
     final bottomCardsStartX = stackBottomCards
         ? (viewportWidth - bottomCardWidth) / 2
@@ -368,62 +274,67 @@ class _DashboardLayoutState extends State<DashboardLayout>
     // page scroll instead of clipping the bottom cards.
     final dashboardHeight = math.max(widget.height, contentHeight);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: ()
-      {
-        if (_isMenuOpen)
-        {
-          setState(() => _isMenuOpen = false);
-        }
-      },
-      child: Container(
-        width: widget.width,
-        height: dashboardHeight,
-        color: AppTheme.pageBackground,
-        child: Stack(
-          children: [
-            const CornerGlow(corner: GlowCorner.topRight),
-            const CornerGlow(corner: GlowCorner.bottomLeft),
-            const PageWatermark(),
-            DashboardGreeting(firstName: _currentUser?.firstName ?? ''),
-            for (var i = 0; i < _modules.length; i++)
-              Positioned(
-                left: cardLeft(i),
-                top: cardTop(i),
-                child: _buildModuleCard(_modules[i]),
-              ),
+    return Container(
+      width: widget.width,
+      height: dashboardHeight,
+      color: AppTheme.trialPaper,
+      child: Stack(
+        children: [
+          // The two ends of the mockup's background ramp, split between the
+          // corners. Both fade towards a blue rather than towards the green
+          // end of the ramp, so the blue reads across the whole page instead
+          // of only in the top corner: the top glow stays blue throughout,
+          // and the bottom one starts on sea green and cools into teal.
+          //
+          // The mockup also lays a gold and a violet wash over that ramp, but
+          // at the opacity it uses they only warm up a dark background and
+          // would read as two foreign stains on a page this light, so those
+          // two stay accents for the foreground.
+          const CornerGlow(
+            corner: GlowCorner.topRight,
+            tint: AppTheme.trialDeepWater,
+            edgeTint: AppTheme.trialOcean,
+            intensity: 1.25,
+            animated: true,
+          ),
+          const CornerGlow(
+            corner: GlowCorner.bottomLeft,
+            tint: AppTheme.trialSeaGreen,
+            edgeTint: AppTheme.trialTealDeep,
+            animated: true,
+          ),
+          const PageWatermark(),
+          DashboardGreeting(firstName: _currentUser?.firstName ?? ''),
+          for (var i = 0; i < dashboardModules.length; i++)
             Positioned(
-              left: bottomCardsStartX,
-              top: bottomCardsTop,
-              child: DashboardPlaceholderCard(
-                title: 'Attività',
-                width: bottomCardWidth,
-                height: bottomCardHeight,
-              ),
+              left: cardLeft(i),
+              top: cardTop(i),
+              child: _buildModuleCard(dashboardModules[i]),
             ),
-            Positioned(
-              left: stackBottomCards
-                  ? bottomCardsStartX
-                  : bottomCardsStartX + bottomCardWidth + _bottomCardsGap,
-              top: stackBottomCards
-                  ? bottomCardsTop + bottomCardHeight + _bottomCardsGap
-                  : bottomCardsTop,
-              child: DashboardPlaceholderCard(
-                title: 'Statistiche',
-                width: bottomCardWidth,
-                height: bottomCardHeight,
-              ),
+          Positioned(
+            left: bottomCardsStartX,
+            top: bottomCardsTop,
+            child: DashboardPlaceholderCard(
+              title: 'Attività',
+              width: bottomCardWidth,
+              height: bottomCardHeight,
             ),
-            DashboardHeader(
-              isMenuOpen: _isMenuOpen,
-              onProfileTap: _toggleMenu,
-              fullName: _currentUser?.fullName ?? '',
-              profileImageUrl: _currentUser?.profileImageUrl,
+          ),
+          Positioned(
+            left: stackBottomCards
+                ? bottomCardsStartX
+                : bottomCardsStartX + bottomCardWidth + _bottomCardsGap,
+            top: stackBottomCards
+                ? bottomCardsTop + bottomCardHeight + _bottomCardsGap
+                : bottomCardsTop,
+            child: DashboardPlaceholderCard(
+              title: 'Statistiche',
+              width: bottomCardWidth,
+              height: bottomCardHeight,
             ),
-            _buildUserMenu(),
-          ],
-        ),
+          ),
+          AppTopBar(currentRoute: '/dashboard', user: _currentUser),
+        ],
       ),
     );
   }

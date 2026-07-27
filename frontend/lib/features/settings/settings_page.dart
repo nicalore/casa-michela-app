@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/widgets/app_custom_tab_bar.dart';
 import '../../shared/widgets/app_page_container.dart';
+import '../../shared/widgets/app_section_rail.dart';
+import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/account_tab.dart';
 import 'tabs/info_tab.dart';
 import 'tabs/profile_tab.dart';
+
+const List<RailGroup> _sections = [
+  RailGroup(
+    title: 'Profilo',
+    entries: ['Informazioni personali', 'Informazioni associative'],
+  ),
+  RailGroup(entries: ['Account', 'Informazioni']),
+];
+
+const int _personalProfileIndex = 0;
+const int _associationProfileIndex = 1;
+const int _accountIndex = 2;
+const int _infoIndex = 3;
 
 class SettingsPage extends StatefulWidget
 {
@@ -22,69 +34,22 @@ class SettingsPage extends StatefulWidget
 
 class _SettingsPageState extends State<SettingsPage>
 {
-  int _selectedTab = 0;
+  int _selectedSection = _personalProfileIndex;
 
-  // Tracks which tabs have been opened: once visited a tab stays mounted in the
-  // IndexedStack. Reset only when GoRouter destroys this page.
-  final Set<int> _visitedTabs = {0};
+  // Tracks which sections have been opened: once visited a section stays
+  // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
+  final Set<int> _visitedSections = {_personalProfileIndex};
 
-  final List<String> _tabs = [
-    'Profilo',
-    'Account',
-    'Informazioni',
-  ];
+  // The two profile sections are one tab showing one half or the other, so the
+  // rail's four entries stand over three children. Keeping them a single tab is
+  // what makes the profile load once instead of once per half.
+  bool get _showingProfile => _selectedSection <= _associationProfileIndex;
 
-  Widget _buildHeader(BuildContext context)
-  {
-    return Row(
-      children: [
-        Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(40),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(40),
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            onTap: () => context.go('/dashboard'),
-            child: Container(
-              width: 88,
-              height: 54,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.all(Radius.circular(40)),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: AppTheme.primary,
-                size: 26,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.all(Radius.circular(40)),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Center(
-            child: Text(
-              'Impostazioni',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 30,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  bool get _profileVisited =>
+      _visitedSections.contains(_personalProfileIndex) ||
+      _visitedSections.contains(_associationProfileIndex);
+
+  int get _stackIndex => _showingProfile ? 0 : _selectedSection - 1;
 
   @override
   Widget build(BuildContext context)
@@ -95,50 +60,80 @@ class _SettingsPageState extends State<SettingsPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final viewportWidth = MediaQuery.of(context).size.width;
-
           return Container(
             width: width,
-            color: AppTheme.pageBackground,
+            color: AppTheme.trialPaper,
             child: Stack(
               children: [
-                const CornerGlow(corner: GlowCorner.topRight),
-                const CornerGlow(corner: GlowCorner.bottomLeft),
+                // The same pair of glows the dashboard wears, on the same paper.
+                // See the note in DashboardLayout for why they both fade towards
+                // a blue.
+                const CornerGlow(
+                  corner: GlowCorner.topRight,
+                  tint: AppTheme.trialDeepWater,
+                  edgeTint: AppTheme.trialOcean,
+                  intensity: 1.25,
+                  animated: true,
+                ),
+                const CornerGlow(
+                  corner: GlowCorner.bottomLeft,
+                  tint: AppTheme.trialSeaGreen,
+                  edgeTint: AppTheme.trialTealDeep,
+                  animated: true,
+                ),
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-                    child: Column(
+                    // The top inset clears the bar floating above the page: it
+                    // is laid over the content rather than in the column with
+                    // it, so the room it needs has to be left here.
+                    padding: const EdgeInsets.only(
+                      left: 40,
+                      right: 40,
+                      top: AppTopBar.contentTopInset,
+                      bottom: 24,
+                    ),
+                    // Aligned to the top rather than stretched, unlike the other
+                    // module pages: this page has no fixed height, it is as tall
+                    // as its content, and stretching a row inside an unbounded
+                    // height has nothing to stretch to.
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(context),
-                        const SizedBox(height: 16),
-                        AppCustomTabBar(
-                          tabs: _tabs,
-                          selectedIndex: _selectedTab,
-                          onTabSelected: (index)
+                        AppSectionRail(
+                          title: 'Impostazioni',
+                          groups: _sections,
+                          selectedIndex: _selectedSection,
+                          onSelected: (index) => setState(()
                           {
-                            setState(()
-                            {
-                              _selectedTab = index;
-                              _visitedTabs.add(index);
-                            });
-                          },
-                          maxWidth: viewportWidth - 80,
+                            _selectedSection = index;
+                            _visitedSections.add(index);
+                          }),
                         ),
-                        const SizedBox(height: 24),
-                        IndexedStack(
-                          index: _selectedTab,
-                          children: [
-                            _visitedTabs.contains(0) ? const ProfileTab() : const SizedBox.shrink(),
-                            _visitedTabs.contains(1) ? const AccountTab() : const SizedBox.shrink(),
-                            _visitedTabs.contains(2) ? const InfoTab() : const SizedBox.shrink(),
-                          ],
+                        const SizedBox(width: AppSectionRail.gap),
+                        Expanded(
+                          child: IndexedStack(
+                            index: _stackIndex,
+                            children: [
+                              _profileVisited
+                                  ? ProfileTab(
+                                      section: _selectedSection == _associationProfileIndex
+                                          ? ProfileSection.association
+                                          : ProfileSection.personal,
+                                    )
+                                  : const SizedBox.shrink(),
+                              _visitedSections.contains(_accountIndex) ? const AccountTab() : const SizedBox.shrink(),
+                              _visitedSections.contains(_infoIndex) ? const InfoTab() : const SizedBox.shrink(),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                // Last in the stack, so the bar and the menu it opens stay above
+                // the page.
+                const AppTopBar(currentRoute: '/settings'),
               ],
             ),
           );

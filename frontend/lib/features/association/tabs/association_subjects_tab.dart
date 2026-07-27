@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
@@ -36,7 +41,6 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
   String _searchText = '';
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterArea;
-  bool _newSubjectHover = false;
 
   List<AssociationSubjectItem> get _filteredSubjects
   {
@@ -93,72 +97,54 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
         Row(
           children: [
             Expanded(
-              child: AnimatedSearchBar(
+              child: AppSearchField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _searchText = value),
                 hintText: 'Cerca disciplina...',
               ),
             ),
             const SizedBox(width: 24),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _newSubjectHover = true),
-              onExit: (_) => setState(() => _newSubjectHover = false),
-              child: GestureDetector(
-                onTap: () => _showWizard(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  height: 50,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(40),
-                    border: Border.all(
-                      color: _newSubjectHover ? AppTheme.primary : Colors.transparent,
-                      width: 2,
-                    ),
-                    boxShadow: AppTheme.cardShadow,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Nuova disciplina',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            AppGradientButton(
+              label: 'NUOVA DISCIPLINA',
+              icon: Icons.add_rounded,
+              height: 50,
+              radius: 25,
+              fontSize: 14,
+              onPressed: () => _showWizard(),
             ),
           ],
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         Wrap(
-          spacing: 16,
-          runSpacing: 16,
+          spacing: 12,
+          runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            CustomFilterMenu<SortCriterion>(
+            AppFilterPill<SortCriterion>.setting(
+              prefix: 'Ordina',
               hint: 'Ordina per',
-              icon: Icons.sort_rounded,
+              icon: Icons.swap_vert_rounded,
               value: _sortBy,
-              menuWidth: 180,
-              showClearIcon: false,
+              menuWidth: 190,
               onChanged: (value) => setState(() => _sortBy = value),
-              onClear: () {},
               options: SortCriterion.values
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            CustomFilterMenu<String>(
+            // What is left of this line arranges the list, what is right of it
+            // shortens it.
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: AppTheme.trialLine,
+            ),
+            AppFilterPill<String>.filter(
+              prefix: 'Area',
               hint: 'Tutte le aree',
               icon: Icons.category_outlined,
               value: _filterArea,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 210,
               onChanged: (value) => setState(() => _filterArea = value),
               onClear: () => setState(() => _filterArea = null),
               options: subjectAreas
@@ -167,15 +153,15 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           subjects.length == 1
               ? '1 disciplina trovata'
               : '${subjects.length} discipline trovate',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
-            color: AppTheme.primary,
+            color: AppTheme.trialMutedText,
           ),
         ),
         const SizedBox(height: 16),
@@ -222,6 +208,10 @@ class _AssociationSubjectWizardDialog extends StatefulWidget
 
 class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWizardDialog>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _dialogButtonHeight = 52;
+  static const double _dialogButtonFontSize = 14;
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
@@ -331,16 +321,19 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
     }
   }
 
+  // Small, tracked and muted over what it names, the way the settings cards and
+  // the dialogs of this app label a value.
   Widget _buildFieldLabel(String text)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 16),
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
       child: Text(
-        text,
+        text.toUpperCase(),
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize: 16,
+          color: AppTheme.trialMutedText,
+          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          letterSpacing: 1.4,
         ),
       ),
     );
@@ -349,137 +342,69 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
   @override
   Widget build(BuildContext context)
   {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: double.infinity,
-        constraints: BoxConstraints(
-          maxWidth: 540,
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+    return AppDialogShell(
+      eyebrow: 'Disciplina interna',
+      title: _isEditing ? 'Modifica disciplina' : 'Nuova disciplina',
+      width: 540,
+      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      footer: AppDialogFooter(
+        secondary: AppGradientButton(
+          label: 'ANNULLA',
+          icon: Icons.close_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _closeDialog,
         ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
+        primary: AppGradientButton(
+          label: _isEditing ? 'SALVA' : 'CREA',
+          icon: Icons.check_rounded,
+          busy: _isSaving,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _save,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isEditing ? 'Modifica Disciplina' : 'Nuova Disciplina',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  FadeHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: _closeDialog,
-                  ),
-                ],
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: _nameController,
+                label: 'Nome',
+                hintText: 'Es. Grammatica latina',
+                textCapitalization: TextCapitalization.sentences,
               ),
-            ),
-            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildFieldLabel('Nome'),
-                      TextField(
-                        controller: _nameController,
-                        textCapitalization: TextCapitalization.sentences,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 20,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Es. Grammatica latina',
-                          hintStyle: GoogleFonts.plusJakartaSans(
-                            fontSize: 20,
-                            color: AppTheme.hint,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: AppTheme.primary, width: 2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Area'),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: subjectAreas.map((area)
-                        {
-                          return CustomChip(
-                            label: area.label,
-                            isSelected: _selectedArea == area.value,
-                            onSelected: (selected) => setState(()
-                            {
-                              _selectedArea = selected ? area.value : null;
-                            }),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildFieldLabel('Descrizione (opzionale)'),
-                      TextField(
-                        controller: _descController,
-                        textCapitalization: TextCapitalization.sentences,
-                        maxLines: 4,
-                        minLines: 1,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 16, color: Colors.black),
-                        decoration: InputDecoration(
-                          hintText: 'Aggiungi una descrizione...',
-                          hintStyle: GoogleFonts.plusJakartaSans(
-                            fontSize: 16,
-                            color: AppTheme.hint,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: AppTheme.primary, width: 1.5),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _buildFieldLabel('Area'),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: subjectAreas.map((area)
+                {
+                  return AppSelectableChip(
+                    label: area.label,
+                    selected: _selectedArea == area.value,
+                    onSelected: (selected) => setState(()
+                    {
+                      _selectedArea = selected ? area.value : null;
+                    }),
+                  );
+                }).toList(),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 24),
-              child: ResponsiveDialogButtonsRow(
-                secondaryButton: AnimatedActionButton(
-                  text: 'ANNULLA',
-                  icon: Icons.cancel_outlined,
-                  baseColor: AppTheme.danger,
-                  hoverColor: AppTheme.dangerHover,
-                  onPressed: _closeDialog,
-                ),
-                primaryButton: AnimatedActionButton(
-                  text: _isSaving ? 'SALVATAGGIO...' : (_isEditing ? 'SALVA MODIFICHE' : 'CREA'),
-                  icon: Icons.check_circle_outline,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _save,
-                ),
+              AppTextField(
+                controller: _descController,
+                label: 'Descrizione (opzionale)',
+                hintText: 'Aggiungi una descrizione...',
+                textCapitalization: TextCapitalization.sentences,
+                minLines: 1,
+                maxLines: 4,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

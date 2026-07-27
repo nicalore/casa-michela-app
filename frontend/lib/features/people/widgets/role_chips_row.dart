@@ -3,12 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-// No AppTheme equivalent: this chip fill and the tooltip drop shadow are unique
-// to the role chips, so they stay as literals to preserve the exact appearance.
+// No AppTheme equivalent: this fill is unique to the role chips, so it stays a
+// literal to preserve the exact appearance.
 const Color _chipBackground = Color(0xFFF5F7FA);
-const List<BoxShadow> _tooltipShadow = [
-  BoxShadow(color: Color(0x4A000000), offset: Offset(0, 6), blurRadius: 16),
-];
 
 /// A single row of role chips that truncates to the available width, replacing
 /// the overflowing roles with a "+N" chip whose tooltip lists the hidden ones.
@@ -169,13 +166,6 @@ class RoleChipsRow extends StatelessWidget
 
     return Tooltip(
       waitDuration: const Duration(milliseconds: 600),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.slate800.withValues(alpha: .98),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.slate700, width: 1.5),
-        boxShadow: _tooltipShadow,
-      ),
       richMessage: TextSpan(
         children: [
           TextSpan(

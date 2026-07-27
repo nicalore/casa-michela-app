@@ -3,7 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-const Color _comingSoonColor = Color(0xA6003C82);
+// Teal at reduced opacity, like the title above it and unlike the accents: a
+// label this large is the second thing read on the page, so it belongs to the
+// brand pair rather than to the colours reserved for state and for the tail of
+// the greeting.
+const Color _comingSoonColor = Color(0xA60B6478);
 
 class DashboardPlaceholderCard extends StatelessWidget
 {
@@ -45,7 +49,7 @@ class DashboardPlaceholderCard extends StatelessWidget
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 25,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
+                  color: AppTheme.trialOcean,
                 ),
               ),
             ),
