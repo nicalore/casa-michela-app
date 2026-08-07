@@ -142,3 +142,8 @@ app.*.map.json
 
 backend/uploads/profile-images/*
 !backend/uploads/profile-images/.gitkeep
+# ============================================================
+# Frontend tests
+# ============================================================
+
+frontend/test/
