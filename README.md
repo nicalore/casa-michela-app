@@ -59,9 +59,8 @@ The application is designed with a modular structure, including:
 
 Current activities include:
 
-* Database creation
-* Authentication module
-* Users management for Administrators
+* Availability and booking management for Teachers, Parents, and Administrators
+* Automated lessons scheduling
 
 ## ROADMAP
 
