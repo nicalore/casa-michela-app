@@ -149,7 +149,7 @@ class _TrendLineChartPainter extends CustomPainter
   });
 
   TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
-        color: AppTheme.slate400,
+        color: AppTheme.trialMutedText,
         fontSize: _labelFontSize,
       );
 
@@ -220,7 +220,7 @@ class _TrendLineChartPainter extends CustomPainter
   void _paintGrid(Canvas canvas, Size size, double chartHeight, TextPainter textPainter)
   {
     final gridPaint = Paint()
-      ..color = AppTheme.slate200
+      ..color = AppTheme.trialLine
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -250,8 +250,8 @@ class _TrendLineChartPainter extends CustomPainter
       Paint()
         ..shader = LinearGradient(
           colors: [
-            AppTheme.primary.withValues(alpha: 0.2),
-            AppTheme.primary.withValues(alpha: 0.0),
+            AppTheme.trialTurquoise.withValues(alpha: 0.22),
+            AppTheme.trialTurquoise.withValues(alpha: 0.0),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -302,10 +302,15 @@ class _TrendLineChartPainter extends CustomPainter
       linePath.lineTo(points[i].dx, points[i].dy);
     }
 
+    // The line runs the brand ramp along its own length, deep teal where the
+    // series starts into turquoise where it arrives — the same pair the buttons
+    // and the bars are made of, laid the way this chart is read.
     canvas.drawPath(
       linePath,
       Paint()
-        ..color = AppTheme.primary
+        ..shader = AppTheme.brandGradient.createShader(
+          Rect.fromLTWH(_chartPaddingLeft, 0, chartWidth, chartHeight),
+        )
         ..strokeWidth = 3
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
@@ -316,7 +321,7 @@ class _TrendLineChartPainter extends CustomPainter
 
     for (final point in points)
     {
-      canvas.drawCircle(point, 5, Paint()..color = AppTheme.primary);
+      canvas.drawCircle(point, 5, Paint()..color = AppTheme.trialTealDeep);
       canvas.drawCircle(point, 3, Paint()..color = Colors.white);
     }
 

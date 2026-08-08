@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
-import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/app_dialog_footer.dart';
+import '../../shared/widgets/app_dialog_stack.dart';
+import '../../shared/widgets/app_gradient_button.dart';
 import '../../shared/widgets/password_field.dart';
 import '../../shared/widgets/password_policy_checklist.dart';
-import '../../shared/widgets/shared_components.dart';
+import 'widgets/auth_pill_page.dart';
 import '../../shared/widgets/snackbar.dart';
 
 class ResetPasswordPage extends StatefulWidget
@@ -23,6 +24,10 @@ class ResetPasswordPage extends StatefulWidget
 
 class _ResetPasswordPageState extends State<ResetPasswordPage>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _buttonHeight = 52;
+  static const double _buttonFontSize = 14;
+
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final ApiService _apiService = ApiService();
@@ -147,105 +152,62 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     }
   }
 
-  Widget _buildCard()
-  {
-    return Container(
-      width: 500,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: AppTheme.dialogShadow,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 24, right: 16, left: 32),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Nuova Password',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-          Padding(
-            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PasswordField(
-                  controller: _newPasswordController,
-                  label: 'Nuova password',
-                  hintText: 'Inserisci nuova password',
-                ),
-                const SizedBox(height: 16),
-                PasswordPolicyChecklist(status: _policyStatus),
-                PasswordField(
-                  controller: _confirmPasswordController,
-                  label: 'Conferma password',
-                  hintText: 'Ripeti nuova password',
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
-            child: Row(
-              children: [
-                Expanded(
-                  child: AnimatedActionButton(
-                    text: 'TORNA AL LOGIN',
-                    icon: Icons.logout_rounded,
-                    baseColor: AppTheme.danger,
-                    hoverColor: AppTheme.dangerHover,
-                    onPressed: () => context.go('/login'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AnimatedActionButton(
-                    text: _isSaving ? 'SALVATAGGIO...' : 'SALVA',
-                    icon: Icons.check_circle_outline,
-                    baseColor: AppTheme.primary,
-                    hoverColor: AppTheme.primaryHover,
-                    onPressed: _isSaving ? () {} : _handleSave,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    return Scaffold(
-      backgroundColor: AppTheme.pageBackground,
-      body: Stack(
-        children: [
-          const CornerGlow(corner: GlowCorner.topRight),
-          const CornerGlow(corner: GlowCorner.bottomLeft),
-          Center(
-            child: _isValidating
-                ? const CircularProgressIndicator(color: AppTheme.primary)
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
-                    child: _buildCard(),
-                  ),
-          ),
-        ],
+    if (_isValidating)
+    {
+      return const Scaffold(
+        backgroundColor: AppTheme.trialPaper,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      );
+    }
+
+    return AuthPillPage(
+      eyebrow: 'Recupero',
+      title: 'Nuova password',
+      footer: AppDialogFooter(
+        secondary: AppGradientButton(
+          label: 'TORNA AL LOGIN',
+          icon: Icons.arrow_back_rounded,
+          gradient: AppTheme.dismissGradient,
+          accent: AppTheme.trialViolet,
+          height: _buttonHeight,
+          fontSize: _buttonFontSize,
+          onPressed: () => context.go('/login'),
+        ),
+        primary: AppGradientButton(
+          label: 'SALVA',
+          icon: Icons.check_rounded,
+          busy: _isSaving,
+          height: _buttonHeight,
+          fontSize: _buttonFontSize,
+          onPressed: _handleSave,
+        ),
       ),
+      children: [
+        AppDialogPill(
+          expand: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PasswordField(
+                controller: _newPasswordController,
+                label: 'Nuova password',
+                hintText: 'Inserisci nuova password',
+              ),
+              const SizedBox(height: 16),
+              PasswordPolicyChecklist(status: _policyStatus),
+              PasswordField(
+                controller: _confirmPasswordController,
+                label: 'Conferma password',
+                hintText: 'Ripeti nuova password',
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

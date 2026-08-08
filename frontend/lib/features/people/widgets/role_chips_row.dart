@@ -5,10 +5,17 @@ import '../../../core/theme/app_theme.dart';
 
 // No AppTheme equivalent: this fill is unique to the role chips, so it stays a
 // literal to preserve the exact appearance.
-const Color _chipBackground = Color(0xFFF5F7FA);
+// The turquoise laid on white until it is barely a colour, with the deep teal
+// on top of it: the tint the roles already wear in the settings and the one
+// every "here is something this thing is tied to" chip of the app wears.
+const Color _chipBackground = Color(0xFFE8F7F5);
 
-/// A single row of role chips that truncates to the available width, replacing
-/// the overflowing roles with a "+N" chip whose tooltip lists the hidden ones.
+/// Role chips packed into the width there is, with whatever did not fit
+/// replaced by a "+N" chip whose tooltip lists the hidden ones.
+///
+/// One row by default. Given more, the chips run on to the next one instead of
+/// disappearing behind the counter: on the cards of the people list a single row
+/// holds two of them, and a person is commonly three things.
 ///
 /// The chip metrics differ between call sites (card, detail header, wizard), so
 /// they are exposed as parameters while the overflow-measurement algorithm is
@@ -36,6 +43,12 @@ class RoleChipsRow extends StatelessWidget
   final bool scrollable;
   final bool centered;
 
+  /// How many rows the chips may take before the rest become the "+N".
+  final int maxLines;
+
+  /// Between one row of chips and the next.
+  final double runSpacing;
+
   const RoleChipsRow({
     super.key,
     required this.roles,
@@ -48,6 +61,8 @@ class RoleChipsRow extends StatelessWidget
     this.applyTextScaler = false,
     this.scrollable = false,
     this.centered = false,
+    this.maxLines = 1,
+    this.runSpacing = 6,
   });
 
   double _measureChipWidth(String text, TextStyle style, TextScaler textScaler)
@@ -60,8 +75,9 @@ class RoleChipsRow extends StatelessWidget
     )..layout();
 
     // The measured chip spans the text plus its horizontal padding on both
-    // sides and a one-pixel border per side.
-    return painter.width + 2 * horizontalPadding + 2;
+    // sides. There is no border to add: the chips are a tint now, not an
+    // outline.
+    return painter.width + 2 * horizontalPadding;
   }
 
   @override
@@ -79,53 +95,144 @@ class RoleChipsRow extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        final chipStyle = GoogleFonts.plusJakartaSans(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.slate500,
-        );
-        final extraStyle = GoogleFonts.plusJakartaSans(
+        // Merged onto what the chips will actually inherit when they are
+        // drawn. Measured against the bare style instead, every chip came out
+        // narrower on paper than on screen by the theme's letter spacing —
+        // a quarter of a pixel per character, which is three and a half on
+        // "Amministratore" and is what used to hang over the edge of a row.
+        final ambient = DefaultTextStyle.of(context).style;
+
+        final chipStyle = ambient.merge(GoogleFonts.plusJakartaSans(
           fontSize: fontSize,
           fontWeight: FontWeight.w700,
-          color: AppTheme.slate500,
-        );
+          color: AppTheme.trialTealDeep,
+        ));
+        final extraStyle = ambient.merge(GoogleFonts.plusJakartaSans(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.trialTealDeep,
+        ));
 
-        int visibleCount = roles.length;
-        while (visibleCount > 1)
+        // Packed row by row, taking each chip while it fits and starting the
+        // next row when it does not, up to the number of rows allowed.
+        final List<List<String>> lines = [];
+        List<String> line = [];
+        double lineWidth = 0;
+        int placed = 0;
+
+        for (final role in roles)
         {
-          double totalWidth = 0;
-          for (int i = 0; i < visibleCount; i++)
+          final width = _measureChipWidth(role, chipStyle, textScaler);
+          final needed = line.isEmpty ? width : width + spacing;
+
+          if (lineWidth + needed + safetyMargin <= constraints.maxWidth)
           {
-            totalWidth += _measureChipWidth(roles[i], chipStyle, textScaler);
-            if (i > 0) totalWidth += spacing;
+            line.add(role);
+            lineWidth += needed;
+            placed++;
+
+            continue;
           }
 
-          final int remaining = roles.length - visibleCount;
-          if (remaining > 0)
+          if (lines.length + 1 < maxLines)
           {
-            totalWidth += spacing + _measureChipWidth('+$remaining', extraStyle, textScaler);
+            lines.add(line);
+            line = [role];
+            lineWidth = width;
+            placed++;
+
+            continue;
           }
 
-          if (totalWidth + safetyMargin <= constraints.maxWidth) break;
-          visibleCount--;
+          break;
         }
 
-        final int extraCount = roles.length - visibleCount;
-        final List<String> hiddenRoles = roles.sublist(visibleCount);
+        lines.add(line);
 
-        final List<Widget> chips = [];
-        for (int i = 0; i < visibleCount; i++)
+        // The counter goes at the end of the last row, and room has to be made
+        // for it: chips come back off that row until it fits, which is what
+        // keeps a "+2" from hanging over the edge. Where the row is down to its
+        // last chip the counter takes the row on its own — unless it is also the
+        // only row there is, because a row of nothing but a counter says
+        // nothing.
+        int hiddenCount = roles.length - placed;
+
+        while (hiddenCount > 0)
         {
-          if (i > 0) chips.add(SizedBox(width: spacing));
-          chips.add(_buildChip(roles[i], chipStyle));
-        }
-        if (extraCount > 0)
-        {
-          chips.add(SizedBox(width: spacing));
-          chips.add(_buildChip('+$extraCount', extraStyle, hiddenRoles: hiddenRoles));
+          final extraWidth = (lines.last.isEmpty ? 0 : spacing) +
+              _measureChipWidth('+$hiddenCount', extraStyle, textScaler);
+
+          if (lineWidth + extraWidth + safetyMargin <= constraints.maxWidth)
+          {
+            break;
+          }
+
+          final shown = lines.fold<int>(0, (total, row) => total + row.length);
+
+          // A counter standing on its own says nothing: at least one chip is
+          // always kept, even where it is wider than the room there is.
+          if (lines.last.isEmpty || shown <= 1)
+          {
+            break;
+          }
+
+          final removed = lines.last.removeLast();
+
+          lineWidth -= _measureChipWidth(removed, chipStyle, textScaler) +
+              (lines.last.isEmpty ? 0 : spacing);
+          hiddenCount++;
         }
 
-        final Widget row = Row(mainAxisSize: MainAxisSize.min, children: chips);
+        final List<String> hiddenRoles = roles.sublist(roles.length - hiddenCount);
+
+        List<Widget> chipsOf(List<String> labels, {required bool withCounter})
+        {
+          final List<Widget> chips = [];
+
+          for (var i = 0; i < labels.length; i++)
+          {
+            if (i > 0)
+            {
+              chips.add(SizedBox(width: spacing));
+            }
+
+            chips.add(_buildChip(labels[i], chipStyle));
+          }
+
+          if (withCounter && hiddenCount > 0)
+          {
+            if (chips.isNotEmpty)
+            {
+              chips.add(SizedBox(width: spacing));
+            }
+
+            chips.add(_buildChip('+$hiddenCount', extraStyle, hiddenRoles: hiddenRoles));
+          }
+
+          return chips;
+        }
+
+        final List<Widget> rows = [
+          for (var i = 0; i < lines.length; i++)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: chipsOf(lines[i], withCounter: i == lines.length - 1),
+            ),
+        ];
+
+        final Widget row = rows.length == 1
+            ? rows.first
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment:
+                    centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) SizedBox(height: runSpacing),
+                    rows[i],
+                  ],
+                ],
+              );
 
         if (!scrollable)
         {
@@ -154,7 +261,6 @@ class RoleChipsRow extends StatelessWidget
       decoration: BoxDecoration(
         color: _chipBackground,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: AppTheme.border),
       ),
       child: Text(label, style: style),
     );

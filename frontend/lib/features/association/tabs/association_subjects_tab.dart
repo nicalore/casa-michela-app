@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -11,6 +13,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/association_subject_card.dart';
@@ -91,28 +94,22 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
   {
     final subjects = _filteredSubjects;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchText = value),
-                hintText: 'Cerca disciplina...',
-              ),
-            ),
-            const SizedBox(width: 24),
-            AppGradientButton(
-              label: 'NUOVA DISCIPLINA',
-              icon: Icons.add_rounded,
-              height: 50,
-              radius: 25,
-              fontSize: 14,
-              onPressed: () => _showWizard(),
-            ),
-          ],
+    return TabContent(
+      header: [
+        TabHeaderRow(
+          search: AppSearchField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchText = value),
+            hintText: 'Cerca disciplina...',
+          ),
+          action: AppGradientButton(
+            label: 'NUOVA DISCIPLINA',
+            icon: Icons.add_rounded,
+            height: 50,
+            radius: 25,
+            fontSize: 14,
+            onPressed: () => _showWizard(),
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -131,14 +128,7 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            // What is left of this line arranges the list, what is right of it
-            // shortens it.
-            Container(
-              width: 1,
-              height: 24,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: AppTheme.trialLine,
-            ),
+            const FilterGroupDivider(),
             AppFilterPill<String>.filter(
               prefix: 'Area',
               hint: 'Tutte le aree',
@@ -165,27 +155,17 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
           ),
         ),
         const SizedBox(height: 16),
-        // Only the card area scrolls, so header and filters stay pinned.
-        Expanded(
-          child: SingleChildScrollView(
-            child: Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 20,
-                runSpacing: 20,
-                children: subjects.map((subject)
-                {
-                  return AssociationSubjectCard(
-                    subject: subject,
-                    onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
-                    onDelete: () => widget.onDelete(subject),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ),
       ],
+      body: EntityCardGrid(
+        children: subjects.map((subject)
+        {
+          return AssociationSubjectCard(
+            subject: subject,
+            onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
+            onDelete: () => widget.onDelete(subject),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -327,37 +307,20 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      child: AppFieldLabel(text),
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    return AppDialogShell(
+    return AppDialogStack(
       eyebrow: 'Disciplina interna',
       title: _isEditing ? 'Modifica disciplina' : 'Nuova disciplina',
-      width: 540,
-      maxHeight: MediaQuery.of(context).size.height * 0.85,
-      footer: AppDialogFooter(
-        secondary: AppGradientButton(
-          label: 'ANNULLA',
-          icon: Icons.close_rounded,
-          gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _closeDialog,
-        ),
-        primary: AppGradientButton(
+      onClose: _closeDialog,
+      maxWidth: 540,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
           label: _isEditing ? 'SALVA' : 'CREA',
           icon: Icons.check_rounded,
           busy: _isSaving,
@@ -366,12 +329,11 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
           onPressed: _save,
         ),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-        child: SizedBox(
-          width: double.infinity,
+      children: [
+        AppDialogPill(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AppTextField(
                 controller: _nameController,
@@ -406,7 +368,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }

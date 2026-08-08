@@ -7,6 +7,13 @@ import '../../features/dashboard/dashboard_modules.dart';
 
 const double _fontSize = 17;
 const double _itemGap = 22;
+
+// The same row, set tighter. On the middle width the six destinations, the mark
+// and the role no longer fit at full size, and type set smaller reads better
+// than type scaled down: the scale shrinks the spaces along with the letters,
+// while this keeps the words apart and only makes them a little quieter.
+const double _denseFontSize = 15;
+const double _denseItemGap = 14;
 const double _underlineHeight = 3;
 const double _underlineGap = 7;
 
@@ -19,12 +26,37 @@ const double _entryPadding = 5;
 // the two hover marks of the interface move as one gesture.
 const Duration _hoverFade = Duration(milliseconds: 150);
 
-class _NavDestination
+class AppDestination
 {
   final String label;
   final String? route;
 
-  const _NavDestination(this.label, this.route);
+  const AppDestination(this.label, this.route);
+}
+
+// The destinations of the app, in the order they are offered. The bar writes
+// them along a row and the drawer writes them down a column, and they read the
+// same list so the two can never end up offering different places to go.
+List<AppDestination> get appDestinations
+{
+  return [
+    const AppDestination('Home', '/dashboard'),
+    for (final module in dashboardModules) AppDestination(module.title, module.route),
+    const AppDestination('Impostazioni', '/settings'),
+  ];
+}
+
+// Whether the app is at a destination, given where it actually is. True as well
+// for whatever is opened out of one: a person's page is /people with a name on
+// the end, and the row should go on saying you are in Persone.
+bool _isCurrent(String? route, String path)
+{
+  if (route == null)
+  {
+    return false;
+  }
+
+  return path == route || path.startsWith('$route/');
 }
 
 // The modules, written along the header bar, with Home opening the row and
@@ -32,37 +64,56 @@ class _NavDestination
 // page, which is why they live here and not in dashboardModules.
 class AppTopNav extends StatelessWidget
 {
-  // Route of the page on screen: its entry keeps the underline while you are
-  // there, without waiting for the pointer.
-  final String? currentRoute;
+  // Set for a bar that has less room to give: see the two constants above.
+  final bool dense;
 
-  const AppTopNav({super.key, this.currentRoute});
-
-  List<_NavDestination> get _destinations
-  {
-    return [
-      const _NavDestination('Home', '/dashboard'),
-      for (final module in dashboardModules) _NavDestination(module.title, module.route),
-      const _NavDestination('Impostazioni', '/settings'),
-    ];
-  }
+  const AppTopNav({super.key, this.dense = false});
 
   @override
   Widget build(BuildContext context)
   {
-    final destinations = _destinations;
+    // Where the app is, asked of the router rather than of the page.
+    //
+    // Every destination of the shell carries a bar of its own, and a bar told
+    // the route of the page it belongs to never learns that page has been left:
+    // it went out in the crossfade with the mark still under its word, while the
+    // bar arriving came up with the new mark already drawn. That is the whole of
+    // the "it vanishes and comes back" — two pictures where there should be one
+    // movement.
+    //
+    // Read from the router, every bar in the tree answers the same thing at the
+    // same moment: the mark closes under the word you are leaving and opens
+    // under the one you picked, the way the rail hands a section over, and the
+    // crossfade between the two bars has nothing left to give away.
+    //
+    // It is the delegate that is listened to and not the router: GoRouter.of
+    // hands the router over without making anybody a dependent of it, so nothing
+    // here would be rebuilt when the location changes.
+    final GoRouterDelegate delegate = GoRouter.of(context).routerDelegate;
+
+    return ListenableBuilder(
+      listenable: delegate,
+      builder: (context, _) => _buildRow(delegate.currentConfiguration.uri.path),
+    );
+  }
+
+  Widget _buildRow(String path)
+  {
+    final destinations = appDestinations;
+    final gap = dense ? _denseItemGap : _itemGap;
+    final fontSize = dense ? _denseFontSize : _fontSize;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < destinations.length; i++)
           Padding(
-            padding: EdgeInsets.only(right: i == destinations.length - 1 ? 0 : _itemGap),
+            padding: EdgeInsets.only(right: i == destinations.length - 1 ? 0 : gap),
             child: _NavEntry(
               label: destinations[i].label,
               route: destinations[i].route,
-              current: destinations[i].route != null &&
-                  destinations[i].route == currentRoute,
+              fontSize: fontSize,
+              current: _isCurrent(destinations[i].route, path),
             ),
           ),
       ],
@@ -75,11 +126,13 @@ class _NavEntry extends StatefulWidget
   final String label;
   final String? route;
   final bool current;
+  final double fontSize;
 
   const _NavEntry({
     required this.label,
     required this.route,
     required this.current,
+    required this.fontSize,
   });
 
   @override
@@ -120,7 +173,7 @@ class _NavEntryState extends State<_NavEntry>
             maxLines: 1,
             softWrap: false,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: _fontSize,
+              fontSize: widget.fontSize,
               // The weight is the same in every state on purpose: a bolder
               // hover would widen the word and shove its neighbours sideways.
               fontWeight: FontWeight.w600,

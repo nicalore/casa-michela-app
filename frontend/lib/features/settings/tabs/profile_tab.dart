@@ -7,8 +7,9 @@ import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_entity_chip.dart';
-import '../../../shared/widgets/settings_card.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
 
@@ -151,23 +152,23 @@ class _ProfileTabState extends State<ProfileTab>
     final me     = _me!;
     final person = _person!;
 
-    final String nome    = me.firstName;
-    final String cognome = me.lastName;
-    final String sesso   = me.gender ?? '-';
+    final String firstNameValue    = me.firstName;
+    final String lastNameValue = me.lastName;
+    final String genderValue   = me.gender ?? '-';
     final String cf      = me.taxCode;
 
     final String email    = me.email ?? '-';
-    final String telefono = me.phoneNumber ?? '-';
+    final String phoneValue = me.phoneNumber ?? '-';
 
-    final String dataNascita  = me.birthDate != null ? DateFormat('dd/MM/yyyy').format(me.birthDate!) : '-';
-    final String cittaNascita = me.birthCity ?? '-';
-    final String provNascita  = me.birthProvince ?? '-';
+    final String birthDateValue  = me.birthDate != null ? DateFormat('dd/MM/yyyy').format(me.birthDate!) : '-';
+    final String birthCityValue = me.birthCity ?? '-';
+    final String birthProvinceValue  = me.birthProvince ?? '-';
 
-    final String indirizzo      = me.address ?? '-';
-    final String civico         = me.addressNumber ?? '-';
-    final String cittaResidenza = me.city ?? '-';
-    final String provResidenza  = me.province ?? '-';
-    final String cap            = me.zipCode ?? '-';
+    final String addressValue      = me.address ?? '-';
+    final String streetNumberValue         = me.addressNumber ?? '-';
+    final String residenceCityValue = me.city ?? '-';
+    final String residenceProvinceValue  = me.province ?? '-';
+    final String postalCodeValue            = me.zipCode ?? '-';
 
     final rawRoles        = person.roles.map((r) => r.toUpperCase()).toSet();
     final translatedRoles = RoleLabelMapper.processRoles(person.roles);
@@ -179,197 +180,211 @@ class _ProfileTabState extends State<ProfileTab>
                          rawRoles.contains('PSICOLOGO') ||
                          rawRoles.contains('PSYCHOLOGIST');
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top:    16, 
-        left:   0, 
-        right:  0, 
-        bottom: 32,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.section == ProfileSection.personal) ...[
-                // Stacks vertically below the breakpoint; the LayoutBuilder stays
-                // outside IntrinsicHeight (same fix as in PersonInfoTab — never nest
-                // a LayoutBuilder inside an IntrinsicHeight).
-                _ResponsiveCardPair(
-                  first: _ProfileSectionCard(
-                    title:       'Identità',
-                    labelWidth:  160,
-                    leadingIcon: _ProfileAvatar(
-                      profileImageUrl: me.profileImageUrl,
-                      firstName:       nome,
-                      lastName:        cognome,
-                      onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
+    // The two halves of the profile are two entries in the rail and were one
+    // child: choosing the other one changed what was drawn with nothing handing
+    // over, so the one step made from a rail that did not move was this one.
+    //
+    // They are two sections here, and the tab holding them is still one — which
+    // is what keeps the profile loading once instead of once per half.
+    Widget half(bool personal)
+    {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(
+          top:    16, 
+          left:   0, 
+          right:  0, 
+          bottom: 32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: pageTransitionBlocks([
+                if (personal) ...[
+                  // Stacks vertically below the breakpoint; the LayoutBuilder stays
+                  // outside IntrinsicHeight (same fix as in PersonInfoTab — never nest
+                  // a LayoutBuilder inside an IntrinsicHeight).
+                  _ResponsiveCardPair(
+                    first: _ProfileSectionCard(
+                      title:       'Identità',
+                      labelWidth:  160,
+                      leadingIcon: _ProfileAvatar(
+                        profileImageUrl: me.profileImageUrl,
+                        firstName:       firstNameValue,
+                        lastName:        lastNameValue,
+                        onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
+                      ),
+                      rows: [
+                        _InfoRowData('Nome',           firstNameValue),
+                        _InfoRowData('Cognome',        lastNameValue),
+                        _InfoRowData('Sesso',          genderValue),
+                        _InfoRowData('Codice fiscale', cf),
+                        null,
+                      ],
                     ),
-                    rows: [
-                      _InfoRowData('Nome',           nome),
-                      _InfoRowData('Cognome',        cognome),
-                      _InfoRowData('Sesso',          sesso),
-                      _InfoRowData('Codice fiscale', cf),
-                      null,
-                    ],
+                    second: _ProfileSectionCard(
+                      title:       'Residenza',
+                      labelWidth:  110,
+                      leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
+                      rows: [
+                        _InfoRowData('Indirizzo', addressValue),
+                        _InfoRowData('N°',        streetNumberValue),
+                        _InfoRowData('Città',     residenceCityValue),
+                        _InfoRowData('Provincia', residenceProvinceValue),
+                        _InfoRowData('CAP',       postalCodeValue),
+                      ],
+                    ),
                   ),
-                  second: _ProfileSectionCard(
-                    title:       'Residenza',
-                    labelWidth:  110,
-                    leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
-                    rows: [
-                      _InfoRowData('Indirizzo', indirizzo),
-                      _InfoRowData('N°',        civico),
-                      _InfoRowData('Città',     cittaResidenza),
-                      _InfoRowData('Provincia', provResidenza),
-                      _InfoRowData('CAP',       cap),
-                    ],
+                  const SizedBox(height: 24),
+                  _ResponsiveCardPair(
+                    first: _ProfileSectionCard(
+                      title:       'Dati anagrafici',
+                      labelWidth:  160,
+                      leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
+                      rows: [
+                        _InfoRowData('Data di nascita',  birthDateValue),
+                        _InfoRowData('Città di nascita', birthCityValue),
+                        _InfoRowData('Provincia',        birthProvinceValue),
+                      ],
+                    ),
+                    second: _ProfileSectionCard(
+                      title:       'Contatti',
+                      labelWidth:  110,
+                      leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
+                      rows: [
+                        _InfoRowData('Email',    email),
+                        _InfoRowData('Telefono', phoneValue),
+                        null,
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                _ResponsiveCardPair(
-                  first: _ProfileSectionCard(
-                    title:       'Dati anagrafici',
-                    labelWidth:  160,
-                    leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
-                    rows: [
-                      _InfoRowData('Data di nascita',  dataNascita),
-                      _InfoRowData('Città di nascita', cittaNascita),
-                      _InfoRowData('Provincia',        provNascita),
-                    ],
-                  ),
-                  second: _ProfileSectionCard(
-                    title:       'Contatti',
-                    labelWidth:  110,
-                    leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
-                    rows: [
-                      _InfoRowData('Email',    email),
-                      _InfoRowData('Telefono', telefono),
-                      null,
-                    ],
-                  ),
-                ),
-              ] 
-              else ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: _ProfileSectionCard(
-                    title:       'Ruoli',
-                    labelWidth:  160,
-                    leadingIcon: const _StaticAvatar(icon: Icons.admin_panel_settings_rounded),
-                    customContent: Align(
-                      alignment: Alignment.topLeft,
-                      child:     translatedRoles.isNotEmpty
-                          ? Wrap(
-                              spacing:    8,
-                              runSpacing: 8,
-                              children:   translatedRoles.map((role) => AppEntityChip(label: role)).toList(),
-                            )
-                          : Text(
-                              'Nessun ruolo assegnato',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 16,
-                                color:    AppTheme.trialMutedText,
+                ] 
+                else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: _ProfileSectionCard(
+                      title:       'Ruoli',
+                      labelWidth:  160,
+                      leadingIcon: const _StaticAvatar(icon: Icons.admin_panel_settings_rounded),
+                      customContent: Align(
+                        alignment: Alignment.topLeft,
+                        child:     translatedRoles.isNotEmpty
+                            ? Wrap(
+                                spacing:    8,
+                                runSpacing: 8,
+                                children:   translatedRoles.map((role) => AppEntityChip(label: role)).toList(),
+                              )
+                            : Text(
+                                'Nessun ruolo assegnato',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 16,
+                                  color:    AppTheme.trialMutedText,
+                                ),
                               ),
-                            ),
+                      ),
                     ),
                   ),
-                ),
 
-                if (isStaff) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Dettagli collaborazione',
-                      labelWidth:  205,
-                      leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
-                      rows: [
-                        _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                        // IBAN hidden by default, revealed only when the eye icon
-                        // is tapped (see isSensitive on _InfoRowData).
-                        _InfoRowData(
-                          'IBAN',
-                          person.iban?.isNotEmpty == true ? person.iban! : '-',
-                          isSensitive: true,
-                        ),
-                      ],
+                  if (isStaff) ...[
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Dettagli collaborazione',
+                        labelWidth:  205,
+                        leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
+                        rows: [
+                          _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
+                          // IBAN hidden by default, revealed only when the eye icon
+                          // is tapped (see isSensitive on _InfoRowData).
+                          _InfoRowData(
+                            'IBAN',
+                            person.iban?.isNotEmpty == true ? person.iban! : '-',
+                            isSensitive: true,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
-                if (rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN')) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Dettagli amministratore',
-                      labelWidth:  205,
-                      leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
-                      rows: [
-                        _InfoRowData('Ruolo', _getAdminRoleText(person)),
-                      ],
+                  if (rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN')) ...[
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Dettagli amministratore',
+                        labelWidth:  205,
+                        leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
+                        rows: [
+                          _InfoRowData('Ruolo', _getAdminRoleText(person)),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
-                if (rawRoles.contains('DOCENTE') || rawRoles.contains('TEACHER')) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Dettagli docente',
-                      labelWidth:  205,
-                      leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
-                      rows: [
-                        _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
-                        _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
-                      ],
+                  if (rawRoles.contains('DOCENTE') || rawRoles.contains('TEACHER')) ...[
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Dettagli docente',
+                        labelWidth:  205,
+                        leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
+                        rows: [
+                          _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
+                          _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
-                if (rawRoles.contains('STUDENTE') || rawRoles.contains('STUDENT')) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Dettagli studente',
-                      labelWidth:  205,
-                      leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
-                      rows: [
-                        _InfoRowData(
-                          'Uscita anticipata',
-                          person.earlyExit == null
-                              ? '-'
-                              : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
-                        ),
-                      ],
+                  if (rawRoles.contains('STUDENTE') || rawRoles.contains('STUDENT')) ...[
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Dettagli studente',
+                        labelWidth:  205,
+                        leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
+                        rows: [
+                          _InfoRowData(
+                            'Uscita anticipata',
+                            person.earlyExit == null
+                                ? '-'
+                                : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
 
-                if (rawRoles.contains('CORSISTA') || rawRoles.contains('COURSE_PARTICIPANT')) ...[
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Dettagli corsista',
-                      labelWidth:  205,
-                      leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
-                      rows: [
-                        _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
-                        _InfoRowData('Scadenza certificato', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
-                      ],
+                  if (rawRoles.contains('CORSISTA') || rawRoles.contains('COURSE_PARTICIPANT')) ...[
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Dettagli corsista',
+                        labelWidth:  205,
+                        leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
+                        rows: [
+                          _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
+                          _InfoRowData('Scadenza certificato', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            ],
+              ]),
+            ),
           ),
         ),
-      ),
+      );
+    }
+
+    return PageSections(
+      index: widget.section == ProfileSection.personal ? 0 : 1,
+      children: [half(true), half(false)],
     );
   }
 }
@@ -438,7 +453,7 @@ class _ProfileSectionCard extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return SettingsCard(
+    return AppCard(
       title:   title,
       leading: leadingIcon,
       child:   customContent ?? Column(
@@ -469,7 +484,7 @@ class _ProfileSectionCard extends StatelessWidget
       {
         rowWidget = Opacity(
           opacity: 0.0,
-          child:   SettingsInfoRow(
+          child:   AppInfoRow(
             label:      '-', 
             value:      '-',
             labelWidth: labelWidth,
@@ -487,7 +502,7 @@ class _ProfileSectionCard extends StatelessWidget
       }
       else 
       {
-        rowWidget = SettingsInfoRow(
+        rowWidget = AppInfoRow(
           label:      rowData.label, 
           value:      rowData.value,
           labelWidth: labelWidth,
@@ -520,7 +535,7 @@ class _StaticAvatar extends StatelessWidget
   @override
   Widget build(BuildContext context) 
   {
-    return SettingsCardBadge(icon: icon);
+    return AppCardBadge(icon: icon);
   }
 }
 
@@ -945,7 +960,7 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
         ? widget.value
         : (_isVisible ? widget.value : _maskedValue);
 
-    return SettingsInfoRow(
+    return AppInfoRow(
       label:              widget.label,
       value:              displayValue,
       labelWidth:         widget.labelWidth,

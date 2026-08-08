@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-// Descriptor of a dashboard module. A null route marks a module whose page does
-// not exist yet.
+// The app's destinations: the ones the top bar lists. They used to double as
+// the home cards; those are gone, but the list stays a single one, and this is
+// it.
 class DashboardModule
 {
   final String title;
@@ -31,7 +32,7 @@ const List<DashboardModule> dashboardModules = [
   ),
   DashboardModule(
     title: 'Lezioni',
-    subtitle: 'Organizza prenotazioni e lezioni',
+    subtitle: 'Organizza richieste e lezioni',
     icon: Icons.menu_book_rounded,
     route: '/lessons',
   ),

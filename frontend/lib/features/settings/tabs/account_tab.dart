@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/password_policy_checklist.dart';
-import '../../../shared/widgets/settings_card.dart';
-import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 
@@ -132,7 +135,15 @@ class _AccountTabState extends State<AccountTab>
     final me = _me!;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 32),
+      // The side padding is on top of the page's own margin, which is why it
+      // goes on a narrow window: sixteen and thirty-two together are a fifth of
+      // a phone screen spent on air.
+      padding: EdgeInsets.only(
+        top: 16,
+        left: AppBreakpoints.of(context).isCompact ? 0 : 32,
+        right: AppBreakpoints.of(context).isCompact ? 0 : 32,
+        bottom: 32,
+      ),
       child: Center(
         // Narrow: the card carries two values, and stretched to the width of the
         // profile's cards it would be mostly empty paper.
@@ -140,11 +151,11 @@ class _AccountTabState extends State<AccountTab>
           constraints: const BoxConstraints(maxWidth: 560),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SettingsCard(
+            children: pageTransitionBlocks([
+              AppCard(
                 title: 'Credenziali di accesso',
                 compact: true,
-                leading: const SettingsCardBadge(
+                leading: const AppCardBadge(
                   icon: Icons.manage_accounts_rounded,
                   compact: true,
                 ),
@@ -152,13 +163,13 @@ class _AccountTabState extends State<AccountTab>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SettingsInfoRow(
+                    AppInfoRow(
                       label: 'Nome utente',
                       value: me.username,
                       labelWidth: _labelWidth,
                     ),
                     const SizedBox(height: 16),
-                    SettingsInfoRow(
+                    AppInfoRow(
                       label: 'Ultimo accesso',
                       value: _formatLastLogin(me.lastLogin),
                       labelWidth: _labelWidth,
@@ -176,7 +187,7 @@ class _AccountTabState extends State<AccountTab>
                   onPressed: () => _showChangePasswordDialog(context),
                 ),
               ),
-            ],
+            ]),
           ),
         ),
       ),
@@ -338,134 +349,60 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
   @override
   Widget build(BuildContext context)
   {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: 500,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // The same small tracked line the bar puts over a name and
-                      // the role dialog over a role, so the two windows read as
-                      // one family rather than as distant relatives.
-                      Text(
-                        'ACCOUNT',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.4,
-                          height: 1.2,
-                          color: AppTheme.trialMutedText,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Modifica password',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          color: AppTheme.trialOcean,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // The same close the role dialog carries, so the two windows
-                  // are dismissed by the same button rather than by two that
-                  // merely look alike.
-                  FadeHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.trialTealDeep,
-                    hoverColor: AppTheme.trialGoldSurface,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 32, thickness: 1, color: AppTheme.trialLine),
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PasswordField(
-                    controller: _oldPasswordController,
-                    label: 'Password attuale',
-                    hintText: 'Inserisci password attuale',
-                  ),
-                  PasswordField(
-                    controller: _newPasswordController,
-                    label: 'Nuova password',
-                    hintText: 'Inserisci nuova password',
-                  ),
-                  const SizedBox(height: 16),
-                  PasswordPolicyChecklist(
-                    status: PasswordPolicyStatus.of(_newPasswordController.text),
-                  ),
-                  PasswordField(
-                    controller: _confirmPasswordController,
-                    label: 'Conferma password',
-                    hintText: 'Ripeti nuova password',
-                  ),
-                  const SizedBox(height: 8),
-                  // Answered while typing rather than after pressing save: the
-                  // two fields disagreeing is the one mistake here you can be
-                  // told about before you have finished making it. The row keeps
-                  // its height whether or not it has anything to say, so the
-                  // buttons under it never move.
-                  _buildMatchHint(),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
-              child: Row(
-                children: [
-                  // Violet to back out and the brand ramp to go through with it.
-                  // Neither is red: nothing here is destroyed, and the app keeps
-                  // red for the answers that destroy something.
-                  Expanded(
-                    child: AppGradientButton(
-                      label: 'ANNULLA',
-                      icon: Icons.close_rounded,
-                      gradient: AppTheme.dismissGradient,
-                      accent: AppTheme.trialViolet,
-                      height: _dialogButtonHeight,
-                      fontSize: _dialogButtonFontSize,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: AppGradientButton(
-                      label: 'SALVA',
-                      icon: Icons.check_rounded,
-                      busy: _isSaving,
-                      height: _dialogButtonHeight,
-                      fontSize: _dialogButtonFontSize,
-                      onPressed: _handleSave,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return AppDialogStack(
+      eyebrow: 'Account',
+      title: 'Modifica password',
+      maxWidth: 560,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: 'SALVA',
+          icon: Icons.check_rounded,
+          busy: _isSaving,
+          height: _dialogButtonHeight,
+          fontSize: _dialogButtonFontSize,
+          onPressed: _handleSave,
         ),
       ),
+      children: [
+        // Chi sei ora, e cosa diventi: due domande diverse, due pilloline.
+        AppDialogPill(
+          expand: true,
+          child: PasswordField(
+            controller: _oldPasswordController,
+            label: 'Password attuale',
+            hintText: 'Inserisci password attuale',
+          ),
+        ),
+        AppDialogPill(
+          expand: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PasswordField(
+                controller: _newPasswordController,
+                label: 'Nuova password',
+                hintText: 'Inserisci nuova password',
+              ),
+              const SizedBox(height: 16),
+              PasswordPolicyChecklist(
+                status: PasswordPolicyStatus.of(_newPasswordController.text),
+              ),
+              PasswordField(
+                controller: _confirmPasswordController,
+                label: 'Conferma password',
+                hintText: 'Ripeti nuova password',
+              ),
+              const SizedBox(height: 8),
+              // Said while typing rather than after pressing save: two fields
+              // that do not match are the one mistake that can be pointed out
+              // before it is finished. The line keeps its height even with
+              // nothing to say, so the buttons below do not move.
+              _buildMatchHint(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

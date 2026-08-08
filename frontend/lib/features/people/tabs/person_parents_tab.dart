@@ -5,21 +5,21 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/pill_tab_bar.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
-import '../person_wizard_components.dart';
+import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
 
-const Color _dialogBackground = Color(0xFFF4F7F9);
-const Color _dialogShadow = Color(0x26000000);
-
-const double _dialogRadius = 40;
 const int _adultAge = 18;
 const int _maxParentsPerPerson = 2;
 
@@ -67,11 +67,17 @@ class PersonParentsTab extends StatefulWidget
   // personal information tab instead.
   final VoidCallback onResponsibilityRemoved;
 
+  // Which of the linked parents is being shown. The page holds it, because the
+  // rail beside the page is what chooses: one entry per parent under a heading,
+  // as the sections of every other module are chosen.
+  final int selectedIndex;
+
   const PersonParentsTab({
     super.key,
     required this.person,
     required this.onUpdate,
     required this.onResponsibilityRemoved,
+    this.selectedIndex = 0,
   });
 
   @override
@@ -80,7 +86,6 @@ class PersonParentsTab extends StatefulWidget
 
 class _PersonParentsTabState extends State<PersonParentsTab>
 {
-  int _selectedParentIndex = 0;
 
   Map<String, ParentalRelationshipDraft> get _currentDrafts
   {
@@ -233,59 +238,59 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     }
   }
 
-  void _confirmRemoveResponsibilities()
+  Future<void> _confirmRemoveResponsibilities() async
   {
-    showDialog(
+    final confirmed = await showBlurredDialog<bool>(
       context: context,
-      builder: (dialogContext)
-      {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(
-            'Rimuovi Responsabilità Genitoriali',
-            style: GoogleFonts.plusJakartaSans(
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primary,
-            ),
+      barrierLabel: 'ConfirmParentalRemoval',
+      builder: (dialogContext) => AppDialogStack(
+        eyebrow: 'Responsabilità genitoriali',
+        title: 'Confermi?',
+        // ANNULLA is already the way out of this one.
+        showClose: false,
+        maxWidth: 520,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: 52,
+            fontSize: 14,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
           ),
-          content: Text(
-            'Dopo la rimozione delle responsabilità genitoriali, questa persona '
-            "gestirà autonomamente il proprio rapporto con l'Associazione. "
-            "L'operazione è irreversibile.",
-            style: GoogleFonts.plusJakartaSans(fontSize: 16),
+          primary: AppGradientButton(
+            label: 'RIMUOVI',
+            icon: Icons.gavel_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: 52,
+            fontSize: 14,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
-          actions: [
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                'ANNULLA',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.slate500,
-                  fontWeight: FontWeight.w600,
-                ),
+        ),
+        children: [
+          AppDialogPill(
+            child: Text(
+              'Dopo la rimozione delle responsabilità genitoriali, questa persona '
+              "gestirà autonomamente il proprio rapporto con l'Associazione. "
+              "L'operazione è irreversibile.",
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: AppTheme.trialInk,
               ),
             ),
-            TextButton(
-              style: ButtonStyle(overlayColor: WidgetStateProperty.all(Colors.transparent)),
-              onPressed: ()
-              {
-                Navigator.pop(dialogContext);
-                _removeAllResponsibilities();
-              },
-              child: Text(
-                'RIMUOVI',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.danger,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true)
+    {
+      await _removeAllResponsibilities();
+    }
   }
 
   String _residenceAddress(ParentItem parent)
@@ -298,33 +303,12 @@ class _PersonParentsTabState extends State<PersonParentsTab>
 
   Widget _buildEmptyState()
   {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Nessun genitore associato a sistema.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.slate500,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: 240,
-              child: WizardAnimatedActionButton(
-                text: 'AGGIUNGI GENITORI',
-                icon: Icons.add_rounded,
-                baseColor: AppTheme.primary,
-                hoverColor: AppTheme.primaryHover,
-                onPressed: _openParentSelectionDialog,
-              ),
-            ),
-          ],
-        ),
+    return PersonEmptyState(
+      message: 'Nessun genitore associato a sistema.',
+      action: AppGradientButton(
+        label: 'AGGIUNGI GENITORI',
+        icon: Icons.add_rounded,
+        onPressed: _openParentSelectionDialog,
       ),
     );
   }
@@ -408,12 +392,8 @@ class _PersonParentsTabState extends State<PersonParentsTab>
 
     // Guards against a selection left over from a longer list, for instance after
     // removing the parent that was being shown.
-    if (_selectedParentIndex >= parents.length)
-    {
-      _selectedParentIndex = 0;
-    }
-
-    final parent = parents[_selectedParentIndex];
+    final index = widget.selectedIndex < parents.length ? widget.selectedIndex : 0;
+    final parent = parents[index];
 
     // Only an adult can be released from parental responsibility, so the button
     // is absent for minors.
@@ -426,14 +406,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PillTabBar(
-                labels: [
-                  for (final item in parents) '${item.firstName} ${item.lastName}',
-                ],
-                selectedIndex: _selectedParentIndex,
-                onSelected: (index) => setState(() => _selectedParentIndex = index),
-              ),
+            children: pageTransitionBlocks([
               ..._buildDetailCards(parent),
               const SizedBox(height: 48),
               Center(
@@ -442,7 +415,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
                   onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
                 ),
               ),
-            ],
+            ]),
           ),
         ),
       ),
@@ -450,18 +423,11 @@ class _PersonParentsTabState extends State<PersonParentsTab>
   }
 }
 
-// Two actions whose widths stay fixed in both layouts, never stretched. The
-// secondary label is shortened when stacked, because the long one does not fit
-// the narrower button.
+// The two things that can be done from this tab. Side by side while there is
+// room, one over the other when there is not, and never stretched: a button is
+// as wide as what is written on it.
 class _ResponsiveParentActionButtonsRow extends StatelessWidget
 {
-  static const double _primaryWidth = 230;
-  static const double _secondaryWidthSideBySide = 395;
-  static const double _secondaryWidthStacked = 300;
-  static const double _spacing = 16;
-  static const double _breakpoint =
-      _primaryWidth + _spacing + _secondaryWidthSideBySide + 40;
-
   final VoidCallback onModify;
   final VoidCallback? onRemoveResponsibility;
 
@@ -470,69 +436,36 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
     required this.onRemoveResponsibility,
   });
 
-  Widget _buildRemoveButton({required double width, required String label})
-  {
-    return SizedBox(
-      width: width,
-      child: WizardAnimatedActionButton(
-        text: label,
-        icon: Icons.gavel_rounded,
-        baseColor: AppTheme.danger,
-        hoverColor: AppTheme.dangerHover,
-        onPressed: onRemoveResponsibility!,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    final primaryButton = SizedBox(
-      width: _primaryWidth,
-      child: WizardAnimatedActionButton(
-        text: 'MODIFICA GENITORI',
-        icon: Icons.edit_rounded,
-        baseColor: AppTheme.primary,
-        hoverColor: AppTheme.primaryHover,
-        onPressed: onModify,
-      ),
+    final Widget modify = AppGradientButton(
+      label: 'MODIFICA GENITORI',
+      icon: Icons.edit_rounded,
+      onPressed: onModify,
     );
 
+    // Only an adult can be released from parental responsibility, so for a minor
+    // there is nothing here but the first button.
     if (onRemoveResponsibility == null)
     {
-      return primaryButton;
+      return modify;
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth >= _breakpoint)
-        {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              primaryButton,
-              const SizedBox(width: _spacing),
-              _buildRemoveButton(
-                width: _secondaryWidthSideBySide,
-                label: 'RIMUOVI RESPONSABILITÀ GENITORIALI',
-              ),
-            ],
-          );
-        }
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            primaryButton,
-            const SizedBox(height: _spacing),
-            _buildRemoveButton(
-              width: _secondaryWidthStacked,
-              label: 'RIMUOVI RESPONSABILITÀ',
-            ),
-          ],
-        );
-      },
+    return Wrap(
+      spacing: 16,
+      runSpacing: 12,
+      alignment: WrapAlignment.center,
+      children: [
+        modify,
+        AppGradientButton(
+          label: 'RIMUOVI RESPONSABILITÀ',
+          icon: Icons.gavel_rounded,
+          gradient: AppTheme.dangerGradient,
+          accent: AppTheme.trialDanger,
+          onPressed: onRemoveResponsibility!,
+        ),
+      ],
     );
   }
 }
@@ -555,8 +488,6 @@ class _ParentSelectionDialog extends StatefulWidget
 
 class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
 {
-  static const double _contentMaxWidth = 1320;
-
   final TextEditingController _searchController = TextEditingController();
 
   late Map<String, ParentalRelationshipDraft> _selected;
@@ -680,51 +611,30 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
     Navigator.of(context).pop(_selected);
   }
 
-  Widget _buildDialogGlow({required bool topRight})
-  {
-    return Positioned(
-      right: topRight ? -400 : null,
-      top: topRight ? -400 : null,
-      left: topRight ? null : -400,
-      bottom: topRight ? null : -400,
-      child: const IgnorePointer(
-        child: SizedBox(
-          width: 800,
-          height: 800,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [Color(0x22003C82), Color(0x00003C82)],
-                stops: [0.0, 1.0],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
+  // The same head every list of the app carries.
   Widget _buildFilters()
   {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
-        child: _ResponsiveSearchFilterRow(
-          breakpoint: 500,
-          searchBar: AnimatedSearchBar(
-            controller: _searchController,
-            hintText: 'Cerca genitore...',
-            onChanged: (value) => setState(() => _searchText = value),
-          ),
-          filterWidgets: [
-            CustomFilterMenu<_ParentSort>(
-              hint: 'Ordina per',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppSearchField(
+          controller: _searchController,
+          hintText: 'Cerca genitore...',
+          onChanged: (value) => setState(() => _searchText = value),
+        ),
+        const SizedBox(height: 16),
+        // In a Wrap rather than on its own in a stretched column: a pill is as
+        // wide as what is written on it, here as everywhere else.
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            AppFilterPill<_ParentSort>.setting(
+              prefix: 'Ordina',
+              hint: 'Ordina',
               icon: Icons.sort_rounded,
               value: _sort,
-              menuWidth: 180,
-              showClearIcon: false,
-              onClear: () {},
+              menuWidth: 200,
               onChanged: (value) => setState(() => _sort = value),
               options: _ParentSort.values
                   .map((sort) => FilterOption(value: sort, label: sort.label))
@@ -732,261 +642,74 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildCandidatesGrid(List<PersonItem> candidates)
   {
-    if (candidates.isEmpty)
+    if (_isLoading)
     {
-      return Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: Center(
-          child: Text(
-            'Nessun genitore disponibile trovato.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.slate500,
-            ),
-          ),
-        ),
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
     }
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: candidates.map((adult)
-          {
-            final isSelected = _selected.containsKey(adult.fiscalCode);
+    if (candidates.isEmpty)
+    {
+      return const PersonEmptyState(message: 'Nessun genitore disponibile trovato.');
+    }
 
-            return WizardSelectablePersonCard(
-              person: adult,
-              isSelected: isSelected,
-              onTap: () => _onCardTap(adult),
-              onEdit: isSelected ? () => _onCardTap(adult) : null,
-              onRemove: isSelected
-                  ? () => setState(() => _selected.remove(adult.fiscalCode))
-                  : null,
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final candidates = _filteredCandidates;
-    final size = MediaQuery.of(context).size;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: size.width * 0.85,
-        height: size.height * 0.85,
-        constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
-        decoration: BoxDecoration(
-          color: _dialogBackground,
-          borderRadius: BorderRadius.circular(_dialogRadius),
-          boxShadow: const [
-            BoxShadow(color: _dialogShadow, offset: Offset(0, 12), blurRadius: 36),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_dialogRadius),
-          child: Stack(
-            children: [
-              _buildDialogGlow(topRight: true),
-              _buildDialogGlow(topRight: false),
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24, right: 24, left: 32),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Gestisci Genitori',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.primary,
-                          ),
-                        ),
-                        WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 32, thickness: 1, color: AppTheme.slate200),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 16),
-                          _buildFilters(),
-                          const SizedBox(height: 24),
-                          Expanded(
-                            child: _isLoading
-                                ? const Center(
-                                    child: CircularProgressIndicator(color: AppTheme.primary),
-                                  )
-                                : SizedBox(
-                                    width: double.infinity,
-                                    child: SingleChildScrollView(
-                                      padding: const EdgeInsets.only(bottom: 40),
-                                      child: _buildCandidatesGrid(candidates),
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 32, left: 32, right: 32),
-                    child: Center(
-                      child: _ResponsiveDialogButtonsRow(
-                        cancelOnPressed: () => Navigator.of(context).pop(),
-                        confirmOnPressed: _confirm,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Bottom bar of the manage dialog. Kept local rather than using the shared
-// ResponsiveDialogButtonsRow: that one stretches its buttons to fill the footer,
-// while these stay at a fixed width in both layouts and are built from the wizard
-// component set.
-class _ResponsiveDialogButtonsRow extends StatelessWidget
-{
-  static const double _buttonWidth = 230;
-  static const double _spacing = 24;
-  static const double _breakpoint = _buttonWidth * 2 + _spacing + 40;
-
-  final VoidCallback cancelOnPressed;
-  final VoidCallback confirmOnPressed;
-
-  const _ResponsiveDialogButtonsRow({
-    required this.cancelOnPressed,
-    required this.confirmOnPressed,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final cancelButton = SizedBox(
-      width: _buttonWidth,
-      child: WizardAnimatedActionButton(
-        text: 'ANNULLA',
-        icon: Icons.close_rounded,
-        baseColor: AppTheme.danger,
-        hoverColor: AppTheme.dangerHover,
-        onPressed: cancelOnPressed,
-      ),
-    );
-
-    final confirmButton = SizedBox(
-      width: _buttonWidth,
-      child: WizardAnimatedActionButton(
-        text: 'CONFERMA',
-        icon: Icons.check_circle_outline,
-        baseColor: AppTheme.primary,
-        hoverColor: AppTheme.primaryHover,
-        onPressed: confirmOnPressed,
-      ),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        // Confirm on top when stacked, so the primary action stays closest to the
-        // content above it.
-        if (constraints.maxWidth < _breakpoint)
+    // The pill this stands in has been handed the height left in the window, so
+    // this is what moves when there are more people than there is room for.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        alignment: WrapAlignment.center,
+        children: candidates.map((adult)
         {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              confirmButton,
-              const SizedBox(height: 16),
-              cancelButton,
-            ],
-          );
-        }
+          final isSelected = _selected.containsKey(adult.fiscalCode);
 
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            cancelButton,
-            const SizedBox(width: _spacing),
-            confirmButton,
-          ],
-        );
-      },
+          return PersonPickerCard(
+            person: adult,
+            isSelected: isSelected,
+            onTap: () => _onCardTap(adult),
+            onEdit: isSelected ? () => _onCardTap(adult) : null,
+            onRemove: isSelected
+                ? () => setState(() => _selected.remove(adult.fiscalCode))
+                : null,
+          );
+        }).toList(),
+      ),
     );
   }
-}
-
-// Search bar and filters on one row while there is room, stacked below the
-// threshold rather than always split.
-class _ResponsiveSearchFilterRow extends StatelessWidget
-{
-  static const double _spacing = 12;
-
-  final Widget searchBar;
-  final List<Widget> filterWidgets;
-  final double breakpoint;
-
-  const _ResponsiveSearchFilterRow({
-    required this.searchBar,
-    required this.filterWidgets,
-    this.breakpoint = 700,
-  });
 
   @override
   Widget build(BuildContext context)
   {
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth < breakpoint)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              searchBar,
-              const SizedBox(height: _spacing),
-              Wrap(spacing: _spacing, runSpacing: _spacing, children: filterWidgets),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: searchBar),
-            for (final filter in filterWidgets) ...[
-              const SizedBox(width: _spacing),
-              filter,
-            ],
-          ],
-        );
-      },
+    return AppDialogStack(
+      eyebrow: 'Genitori',
+      title: 'Gestisci genitori',
+      maxWidth: 1160,
+      // The search and the filter stay where they are; only the list under them
+      // moves.
+      fillLast: true,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: 'SALVA',
+          icon: Icons.check_rounded,
+          height: kPersonDialogButtonHeight,
+          fontSize: kPersonDialogButtonFontSize,
+          onPressed: _confirm,
+        ),
+      ),
+      children: [
+        AppDialogPill(expand: true, child: _buildFilters()),
+        AppDialogPill(expand: true, child: _buildCandidatesGrid(_filteredCandidates)),
+      ],
     );
   }
 }

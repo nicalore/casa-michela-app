@@ -2,24 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
-import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_choice_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
-import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
 import '../models/study_program_item.dart';
+import '../models/subject_taxonomy.dart';
 import '../widgets/school_card.dart';
-
-// Shared between the ListView itemExtent and the height of a single tile:
-// the two must match exactly or the scroll math below lands on the wrong row.
-const double _cityOptionItemHeight = 44.0;
 
 class SchoolsTab extends StatefulWidget
 {
@@ -32,8 +32,8 @@ class SchoolsTab extends StatefulWidget
   // Read only and used by the card alone, not by the wizard.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onCreate;
-  final Future<bool> Function(int id, String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onEdit;
+  final Future<bool> Function(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) onEdit;
   final void Function(SchoolItem item) onDelete;
 
   const SchoolsTab({
@@ -122,14 +122,14 @@ class _SchoolsTabState extends State<SchoolsTab>
         availableStudyPrograms: widget.studyPrograms,
         citySuggestions: _citySuggestions,
         onCancelEdit: onCancelEdit,
-        onSave: (code, name, city, prov, programIds, onError) async
+        onSave: (code, name, city, provinceCode, programIds, onError) async
         {
           if (school == null)
           {
-            return await widget.onCreate(code, name, city, prov, programIds, onError);
+            return await widget.onCreate(code, name, city, provinceCode, programIds, onError);
           }
 
-          return await widget.onEdit(school.id, code, name, city, prov, programIds, onError);
+          return await widget.onEdit(school.id, code, name, city, provinceCode, programIds, onError);
         },
       ),
     );
@@ -140,34 +140,24 @@ class _SchoolsTabState extends State<SchoolsTab>
   {
     final schools = _filteredSchools;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchText = value),
-                hintText: 'Cerca per nome o codice meccanografico...',
-              ),
-            ),
-            const SizedBox(width: 24),
-            // The one thing this page is for, so it wears the button the app
-            // keeps for exactly that. Cut down to the height of the search bar
-            // beside it: at its full size it would be shouting over a field the
-            // user is far more likely to reach for.
-            AppGradientButton(
-              label: 'NUOVA SCUOLA',
-              icon: Icons.add_rounded,
-              height: 50,
-              // Half its own height: the shape it had before, and the shape of
-              // the search bar it stands beside.
-              radius: 25,
-              fontSize: 14,
-              onPressed: () => _showWizard(),
-            ),
-          ],
+    return TabContent(
+      header: [
+        TabHeaderRow(
+          search: AppSearchField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchText = value),
+            hintText: 'Cerca per nome o codice meccanografico...',
+          ),
+          action: AppGradientButton(
+            label: 'NUOVA SCUOLA',
+            icon: Icons.add_rounded,
+            height: 50,
+            // Half its own height: the shape it had before, and the shape of
+            // the search bar it stands beside.
+            radius: 25,
+            fontSize: 14,
+            onPressed: () => _showWizard(),
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -188,14 +178,7 @@ class _SchoolsTabState extends State<SchoolsTab>
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            // The rule of the row: what is left of this line arranges the list,
-            // what is right of it shortens it.
-            Container(
-              width: 1,
-              height: 24,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: AppTheme.trialLine,
-            ),
+            const FilterGroupDivider(),
             // Off until you choose a city, and once chosen it is the reason the
             // list is shorter than the truth, so it fills and says so.
             AppFilterPill<String>.filter(
@@ -220,29 +203,19 @@ class _SchoolsTabState extends State<SchoolsTab>
           ),
         ),
         const SizedBox(height: 16),
-        // Only the card area scrolls, so header and filters stay pinned.
-        Expanded(
-          child: SingleChildScrollView(
-            child: Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 20,
-                runSpacing: 20,
-                children: schools.map((school)
-                {
-                  return SchoolCard(
-                    school: school,
-                    availableStudyPrograms: widget.studyPrograms,
-                    availableMinistrySubjects: widget.ministrySubjects,
-                    onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel),
-                    onDelete: () => widget.onDelete(school),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ),
       ],
+      body: EntityCardGrid(
+        children: schools.map((school)
+        {
+          return SchoolCard(
+            school: school,
+            availableStudyPrograms: widget.studyPrograms,
+            availableMinistrySubjects: widget.ministrySubjects,
+            onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel),
+            onDelete: () => widget.onDelete(school),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -253,7 +226,7 @@ class _SchoolWizardDialog extends StatefulWidget
   final List<StudyProgramItem> availableStudyPrograms;
   final List<_CityProvinceOption> citySuggestions;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) onSave;
+  final Future<bool> Function(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) onSave;
 
   const _SchoolWizardDialog({
     this.existingSchool,
@@ -269,19 +242,16 @@ class _SchoolWizardDialog extends StatefulWidget
 
 class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 {
-  static const Duration _stepTransition = Duration(milliseconds: 300);
-
   // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
   static const double _dialogButtonFontSize = 14;
   static const int _provinceLength = 2;
   static const int _maxCitySuggestions = 8;
 
-  final PageController _pageController = PageController();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
-  final TextEditingController _provController = TextEditingController();
+  final TextEditingController _provinceController = TextEditingController();
   final TextEditingController _programSearchController = TextEditingController();
 
   // RawAutocomplete requires an explicit FocusNode when an external
@@ -294,7 +264,24 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   // when the focus comes back; it is reset as soon as the user edits the text.
   String? _lastConfirmedCity;
 
+  // How wide the card in the carousel is allowed to get, and the stack around
+  // it: the card plus an arrow and a gap on either side.
+  // The programmes are picked from rows carrying the name and, below it, the
+  // level and the sector: narrower, both wrapped — a row twice as tall, and half
+  // the programmes below the fold.
+  static const double _contentMaxWidth = 760;
+  static const double _stackMaxWidth =
+      _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
+
+  // How far the programme list may grow before it starts scrolling.
+  //
+  // A row carries the name with its level and sector under it, so it costs more
+  // height than a chip did. Five or six fit here, which is enough for scrolling
+  // to be the exception.
+  static const double _optionsMaxHeight = 520;
+
   int _currentStep = 0;
+  bool _movingForward = true;
   bool _isSaving = false;
   List<int> _selectedPrograms = [];
 
@@ -305,6 +292,12 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   {
     super.initState();
 
+    // The arrow lights up as soon as the mandatory fields are there: without
+    // listening to them it would stay dark until something else repainted.
+    _nameController.addListener(_refresh);
+    _cityController.addListener(_refresh);
+    _provinceController.addListener(_refresh);
+
     final school = widget.existingSchool;
 
     if (school != null)
@@ -312,7 +305,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       _codeController.text = school.mechanographicCode ?? '';
       _nameController.text = school.name;
       _cityController.text = school.city;
-      _provController.text = school.province;
+      _provinceController.text = school.province;
       _selectedPrograms = school.studyPrograms.map((program) => program.id).toList();
 
       // While editing the city is already definitive, so it starts out as if
@@ -321,17 +314,27 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     }
   }
 
+  void _refresh()
+  {
+    if (mounted)
+    {
+      setState(() {});
+    }
+  }
+
   @override
   void dispose()
   {
+    _nameController.removeListener(_refresh);
+    _cityController.removeListener(_refresh);
+    _provinceController.removeListener(_refresh);
     _codeController.dispose();
     _nameController.dispose();
     _cityController.dispose();
-    _provController.dispose();
+    _provinceController.dispose();
     _programSearchController.dispose();
     _cityFocusNode.dispose();
     _codeFocusNode.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -342,12 +345,12 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       _codeController.clear();
       _nameController.clear();
       _cityController.clear();
-      _provController.clear();
+      _provinceController.clear();
       _programSearchController.clear();
       _selectedPrograms.clear();
       _lastConfirmedCity = null;
       _currentStep = 0;
-      _pageController.jumpToPage(0);
+      _movingForward = false;
     });
   }
 
@@ -361,45 +364,62 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     }
   }
 
-  bool _validateFirstStep()
+  // Why the first step does not let one move on, where it does not. The reason
+  // is said on the darkened arrow, before it is pressed.
+  String? get _firstStepBlockedReason
   {
-    final name = _nameController.text.trim();
-    final city = _cityController.text.trim();
-    final province = _provController.text.trim().toUpperCase();
-
-    if (name.isEmpty || city.isEmpty)
+    if (_nameController.text.trim().isEmpty || _cityController.text.trim().isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Compila tutti i campi richiesti.', isError: true);
-      return false;
+      return 'Compila nome e città per andare avanti.';
     }
 
-    if (province.length != _provinceLength)
+    if (_provinceController.text.trim().length != _provinceLength)
     {
-      CustomSnackBar.show(context: context, message: 'La provincia deve essere esattamente di 2 lettere.', isError: true);
+      return 'La provincia è di due lettere.';
+    }
+
+    return null;
+  }
+
+  bool _validateFirstStep()
+  {
+    final reason = _firstStepBlockedReason;
+
+    if (reason != null)
+    {
+      CustomSnackBar.show(context: context, message: reason, isError: true);
+
       return false;
     }
 
     return true;
   }
 
-  Future<void> _nextStep() async
+  void _goToStep(int step)
   {
-    if (_currentStep == 0)
+    setState(()
     {
-      if (!_validateFirstStep())
-      {
-        return;
-      }
+      _movingForward = step > _currentStep;
+      _currentStep = step;
+    });
+  }
 
-      setState(() => _currentStep++);
-      _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
+  // Everything is checked from here, whichever phase you are standing on, and
+  // whatever is missing is on the phase this puts you on.
+  Future<void> _submit() async
+  {
+    if (!_validateFirstStep())
+    {
+      _goToStep(0);
 
       return;
     }
 
     if (_selectedPrograms.isEmpty)
     {
+      _goToStep(1);
       CustomSnackBar.show(context: context, message: 'Associa almeno un percorso di studio alla scuola.', isError: true);
+
       return;
     }
 
@@ -412,7 +432,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       rawCode.isEmpty ? null : rawCode,
       _nameController.text.trim(),
       _cityController.text.trim(),
-      _provController.text.trim().toUpperCase(),
+      _provinceController.text.trim().toUpperCase(),
       _selectedPrograms,
       (errorMessage)
       {
@@ -443,17 +463,6 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
     {
       _resetForm();
     }
-  }
-
-  void _prevStep()
-  {
-    if (_currentStep <= 0)
-    {
-      return;
-    }
-
-    setState(() => _currentStep--);
-    _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
   }
 
   Widget _buildCityAutocomplete()
@@ -490,7 +499,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
           {
             setState(()
             {
-              _provController.text = option.province;
+              _provinceController.text = option.province;
               _lastConfirmedCity = option.city;
             });
 
@@ -532,26 +541,16 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
               return const SizedBox.shrink();
             }
 
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(16),
-                color: Colors.white,
-                shadowColor: const Color(0x33000000),
-                // Keeps the highlighted row from painting over the rounded corners.
-                clipBehavior: Clip.antiAlias,
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 240),
-                    child: _CityOptionsListView(
-                      options: options.toList(),
-                      onSelected: onSelected,
-                    ),
-                  ),
-                ),
-              ),
+            return AutocompleteOptionsList<_CityProvinceOption>(
+              options: options,
+              label: (option) => option.city,
+              // The province at the end of the row, where a level stands on a
+              // ministry subject: it is what tells two Bonifacios apart.
+              subtitle: (option) => option.province,
+              // The list opens in an overlay, where the width of the field
+              // under it does not reach through the constraints.
+              width: constraints.maxWidth,
+              onSelected: onSelected,
             );
           },
         );
@@ -561,9 +560,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 
   Widget _buildStep1()
   {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: SingleChildScrollView(
+    return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -584,7 +581,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                 Expanded(
                   flex: 1,
                   child: AppTextField(
-                    controller: _provController,
+                    controller: _provinceController,
                     label: 'Provincia',
                     hintText: 'Es. VI',
                     maxLength: _provinceLength,
@@ -602,47 +599,61 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             ),
           ],
         ),
-      ),
-    );
+      );
   }
+
+  // Between one row of the programme list and the next.
+  static const double _programGap = 12;
 
   Widget _buildStep2()
   {
     final query = _programSearchController.text.toLowerCase();
 
+    // Searched on the full name, sector included: the sector sits under the
+    // name and not inside it, but it is still what one types.
     final availablePrograms = widget.availableStudyPrograms
-        .where((program) => program.name.toLowerCase().contains(query))
+        .where((program) => program.fullName.toLowerCase().contains(query))
         .toList();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Seleziona i percorsi di studio attivi in questa scuola',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              color: AppTheme.trialMutedText,
-              fontWeight: FontWeight.w500,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Seleziona i percorsi di studio attivi in questa scuola',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            color: AppTheme.trialMutedText,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 14),
-          AppSearchField(
-            controller: _programSearchController,
-            onChanged: (_) => setState(() {}),
-            hintText: 'Cerca percorso di studio...',
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: availablePrograms.map((program)
-                {
-                  return AppSelectableChip(
-                    label: program.name,
+        ),
+        const SizedBox(height: 14),
+        AppSearchField(
+          controller: _programSearchController,
+          onChanged: (_) => setState(() {}),
+          hintText: 'Cerca percorso di studio...',
+        ),
+        const SizedBox(height: 20),
+        // A ceiling rather than the whole of what is left: the phase is a
+        // piece floating on the page now, and there is no fixed panel height
+        // for it to take a share of. Past this the list scrolls inside it.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
+          child: SingleChildScrollView(
+            // Rows to tick instead of chips: programme names are long, and a
+            // run of chips each wrapping three times reads as a wall. They are
+            // the same rows a person's roles are picked with.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: _programGap,
+              children: [
+                for (final program in availablePrograms)
+                  AppChoiceCard(
+                    title: program.name,
+                    subtitle: programScopeTitle(
+                      level: program.level,
+                      sector: program.sector,
+                    ),
                     selected: _selectedPrograms.contains(program.id),
                     onSelected: (selected) => setState(()
                     {
@@ -655,64 +666,49 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                         _selectedPrograms.remove(program.id);
                       }
                     }),
-                  );
-                }).toList(),
-              ),
+                  ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final isLastStep = _currentStep == 1;
-
-    return AppDialogShell(
-      // Which step you are on belongs over the title, not inside it: the title
-      // is what you are doing, the eyebrow is where you are in doing it.
+    return AppDialogStack(
       eyebrow: 'Passo ${_currentStep + 1} di 2',
       title: _isEditing ? 'Modifica scuola' : 'Nuova scuola',
-      width: 600,
-      // Pinned, or the dialog would change height between a step of fields and
-      // a step of chips while you are still working through it.
-      height: 560,
-      footer: AppDialogFooter(
-        secondary: _currentStep > 0
-            ? AppGradientButton(
-                label: 'INDIETRO',
-                icon: Icons.arrow_back_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _prevStep,
-              )
-            : AppGradientButton(
-                label: 'ANNULLA',
-                icon: Icons.close_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _closeDialog,
-              ),
-        primary: AppGradientButton(
-          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
-          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+      onClose: _closeDialog,
+      maxWidth: _stackMaxWidth,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: _isEditing ? 'SALVA' : 'CREA',
+          icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          onPressed: _nextStep,
+          onPressed: _submit,
         ),
       ),
-      child: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [_buildStep1(), _buildStep2()],
-      ),
+      children: [
+        AppCarouselFrame(
+          index: _currentStep,
+          movingForward: _movingForward,
+          maxContentWidth: _contentMaxWidth,
+          canGoBack: _currentStep > 0,
+          canGoForward: _currentStep == 0,
+          forwardBlockedReason:
+              _currentStep == 0 ? _firstStepBlockedReason : null,
+          onBack: () => _goToStep(0),
+          onForward: () => _goToStep(1),
+          child: AppDialogPill(
+            child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -723,191 +719,4 @@ class _CityProvinceOption
   final String province;
 
   const _CityProvinceOption({required this.city, required this.province});
-}
-
-class _CityOptionsListView extends StatefulWidget
-{
-  final List<_CityProvinceOption> options;
-  final AutocompleteOnSelected<_CityProvinceOption> onSelected;
-
-  const _CityOptionsListView({required this.options, required this.onSelected});
-
-  @override
-  State<_CityOptionsListView> createState() => _CityOptionsListViewState();
-}
-
-class _CityOptionsListViewState extends State<_CityOptionsListView>
-{
-  // Vertical padding of the ListView, on one side: it is the offset before the
-  // first item in the scroll computation below.
-  static const double _verticalPadding = 8;
-
-  final ScrollController _scrollController = ScrollController();
-
-  int? _lastHighlightedIndex;
-
-  @override
-  void dispose()
-  {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // Scrolls by the minimum needed to reveal the arrow-highlighted option,
-  // rather than always centring it.
-  void _ensureHighlightedVisible(int index)
-  {
-    if (!_scrollController.hasClients)
-    {
-      return;
-    }
-
-    final itemTop = _verticalPadding + (index * _cityOptionItemHeight);
-    final itemBottom = itemTop + _cityOptionItemHeight;
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final visibleTop = _scrollController.offset;
-    final visibleBottom = visibleTop + viewportHeight;
-
-    double? target;
-
-    if (itemTop < visibleTop)
-    {
-      target = itemTop;
-    }
-    else if (itemBottom > visibleBottom)
-    {
-      target = itemBottom - viewportHeight;
-    }
-
-    if (target == null)
-    {
-      return;
-    }
-
-    _scrollController.jumpTo(target.clamp(0.0, _scrollController.position.maxScrollExtent));
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    // Reading it here is what creates the reactive dependency on the notifier,
-    // so this widget rebuilds on every arrow key press.
-    final highlightedIndex = AutocompleteHighlightedOption.of(context);
-
-    if (_lastHighlightedIndex != highlightedIndex)
-    {
-      _lastHighlightedIndex = highlightedIndex;
-
-      // Deferred: the scrollable must already be laid out to expose
-      // viewportDimension and maxScrollExtent.
-      WidgetsBinding.instance.addPostFrameCallback((_)
-      {
-        if (mounted)
-        {
-          _ensureHighlightedVisible(highlightedIndex);
-        }
-      });
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
-      shrinkWrap: true,
-      itemExtent: _cityOptionItemHeight,
-      itemCount: widget.options.length,
-      itemBuilder: (context, index)
-      {
-        final option = widget.options[index];
-
-        return _CityOptionTile(
-          option: option,
-          isHighlighted: index == highlightedIndex,
-          onTap: () => widget.onSelected(option),
-        );
-      },
-    );
-  }
-}
-
-class _CityOptionTile extends StatefulWidget
-{
-  final _CityProvinceOption option;
-  final bool isHighlighted;
-  final VoidCallback onTap;
-
-  const _CityOptionTile({
-    required this.option,
-    required this.isHighlighted,
-    required this.onTap,
-  });
-
-  @override
-  State<_CityOptionTile> createState() => _CityOptionTileState();
-}
-
-class _CityOptionTileState extends State<_CityOptionTile>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final isActive = widget.isHighlighted || _hover;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: double.infinity,
-          height: _cityOptionItemHeight,
-          color: isActive ? AppTheme.surfaceHover : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 2,
-                height: isActive ? 16 : 0,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: widget.option.city,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: AppTheme.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.iconHover,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  widget.option.province,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/account_tab.dart';
 import 'tabs/info_tab.dart';
@@ -51,6 +53,15 @@ class _SettingsPageState extends State<SettingsPage>
 
   int get _stackIndex => _showingProfile ? 0 : _selectedSection - 1;
 
+  void _selectSection(int index)
+  {
+    setState(()
+    {
+      _selectedSection = index;
+      _visitedSections.add(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -60,6 +71,9 @@ class _SettingsPageState extends State<SettingsPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
+          final size = AppBreakpoints.fromWidth(width);
+          final margin = AppBreakpoints.pageMargin(size);
+
           return Container(
             width: width,
             color: AppTheme.trialPaper,
@@ -87,10 +101,10 @@ class _SettingsPageState extends State<SettingsPage>
                     // The top inset clears the bar floating above the page: it
                     // is laid over the content rather than in the column with
                     // it, so the room it needs has to be left here.
-                    padding: const EdgeInsets.only(
-                      left: 40,
-                      right: 40,
-                      top: AppTopBar.contentTopInset,
+                    padding: EdgeInsets.only(
+                      left: margin,
+                      right: margin,
+                      top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
                     // Aligned to the top rather than stretched, unlike the other
@@ -100,30 +114,61 @@ class _SettingsPageState extends State<SettingsPage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        AppSectionRail(
-                          title: 'Impostazioni',
-                          groups: _sections,
-                          selectedIndex: _selectedSection,
-                          onSelected: (index) => setState(()
-                          {
-                            _selectedSection = index;
-                            _visitedSections.add(index);
-                          }),
-                        ),
-                        const SizedBox(width: AppSectionRail.gap),
+                        // The rail steps aside below the breakpoint; the drawer
+                        // behind the bar is holding these same sections.
+                        if (size.hasRail) ...[
+                          // First out and first back in on a change of page: the
+                          // rail is what frames the content beside it.
+                          PageTransitionItem(
+                            slot: PageTransitionItem.frame,
+                            child: AppSectionRail(
+                              title: 'Impostazioni',
+                              groups: _sections,
+                              selectedIndex: _selectedSection,
+                              onSelected: _selectSection,
+                            ),
+                          ),
+                          const SizedBox(width: AppSectionRail.gap),
+                        ],
                         Expanded(
-                          child: IndexedStack(
-                            index: _stackIndex,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _profileVisited
-                                  ? ProfileTab(
-                                      section: _selectedSection == _associationProfileIndex
-                                          ? ProfileSection.association
-                                          : ProfileSection.personal,
-                                    )
-                                  : const SizedBox.shrink(),
-                              _visitedSections.contains(_accountIndex) ? const AccountTab() : const SizedBox.shrink(),
-                              _visitedSections.contains(_infoIndex) ? const InfoTab() : const SizedBox.shrink(),
+                              // What the rail was saying about where you are has
+                              // to keep being said.
+                              if (size.isCompact) ...[
+                                PageTransitionItem(
+                                  slot: PageTransitionItem.frame,
+                                  child: AppSectionHeading(
+                                    module: 'Impostazioni',
+                                    section: railEntryAt(_sections, _selectedSection),
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                              ],
+                              // Nothing wrapped out here: each of the three
+                              // sections times its own cards, one under the
+                              // next, the way a list page times its own.
+                              // Wrapped as one element from this side, a section
+                              // would leave in a single slab.
+                              PageSections(
+                                index: _stackIndex,
+                                children: [
+                                  _profileVisited
+                                      ? ProfileTab(
+                                          section: _selectedSection == _associationProfileIndex
+                                              ? ProfileSection.association
+                                              : ProfileSection.personal,
+                                        )
+                                      : const SizedBox.shrink(),
+                                  _visitedSections.contains(_accountIndex)
+                                      ? const AccountTab()
+                                      : const SizedBox.shrink(),
+                                  _visitedSections.contains(_infoIndex)
+                                      ? const InfoTab()
+                                      : const SizedBox.shrink(),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -133,7 +178,13 @@ class _SettingsPageState extends State<SettingsPage>
                 ),
                 // Last in the stack, so the bar and the menu it opens stay above
                 // the page.
-                const AppTopBar(currentRoute: '/settings'),
+                AppTopBar(
+                  currentRoute: '/settings',
+                  sectionTitle: 'Impostazioni',
+                  sectionGroups: _sections,
+                  selectedSection: _selectedSection,
+                  onSectionSelected: _selectSection,
+                ),
               ],
             ),
           );

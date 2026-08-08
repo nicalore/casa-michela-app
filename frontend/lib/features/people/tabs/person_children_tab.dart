@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/pill_tab_bar.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/child_item.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_widgets.dart';
-import '../person_wizard_components.dart';
-
-const Color _dialogBackground = Color(0xFFF4F7F9);
-const double _dialogRadius = 40;
-const Color _dialogShadow = Color(0x26000000);
+import '../widgets/authorized_pickup_dialog.dart';
 
 const int _adultAge = 18;
 const int _maxParentsPerMinor = 2;
@@ -58,7 +59,20 @@ class PersonChildrenTab extends StatefulWidget
 {
   final PersonItem person;
 
-  const PersonChildrenTab({super.key, required this.person});
+  // Called once the linked children have changed, so the page can fetch the
+  // person again: the rail beside it carries one entry per child, and it would
+  // otherwise keep offering a child that is no longer there.
+  final VoidCallback onUpdate;
+
+  // Which of the children is being shown, chosen from that rail.
+  final int selectedIndex;
+
+  const PersonChildrenTab({
+    super.key,
+    required this.person,
+    required this.onUpdate,
+    this.selectedIndex = 0,
+  });
 
   @override
   State<PersonChildrenTab> createState() => _PersonChildrenTabState();
@@ -66,116 +80,36 @@ class PersonChildrenTab extends StatefulWidget
 
 class _PersonChildrenTabState extends State<PersonChildrenTab>
 {
-  late PersonItem _currentPerson;
-
-  int _selectedChildIndex = 0;
-  bool _isRefreshing = false;
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _currentPerson = widget.person;
-  }
-
-  @override
-  void didUpdateWidget(covariant PersonChildrenTab oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.person != widget.person)
-    {
-      _currentPerson = widget.person;
-      _selectedChildIndex = 0;
-    }
-  }
-
-  // Reloads the whole people list and picks this person out of it: the children
-  // just edited arrive only with a fresh fetch.
-  Future<void> _refreshCurrentPerson() async
-  {
-    setState(() => _isRefreshing = true);
-
-    try
-    {
-      final allPeople = await ApiService().getPeople();
-      final updatedPerson = allPeople.firstWhere(
-        (person) => person.fiscalCode == _currentPerson.fiscalCode,
-        orElse: () => _currentPerson,
-      );
-
-      if (mounted)
-      {
-        setState(()
-        {
-          _currentPerson = updatedPerson;
-          _selectedChildIndex = 0;
-        });
-      }
-    }
-    catch (e)
-    {
-      // Deliberately silent: the edit already succeeded, and reporting a failed
-      // refresh as a failed save would be misleading.
-    }
-    finally
-    {
-      if (mounted)
-      {
-        setState(() => _isRefreshing = false);
-      }
-    }
-  }
-
   Future<void> _openChildrenEditDialog() async
   {
     final changed = await showBlurredDialog<bool>(
       context: context,
       barrierLabel: 'ChildrenEdit',
-      builder: (context) => ChildrenEditDialog(person: _currentPerson),
+      builder: (context) => ChildrenEditDialog(person: widget.person),
     );
 
+    // The page owns the person and the list of children in the rail, so the
+    // refresh belongs there rather than in a copy kept here.
     if (changed == true)
     {
-      await _refreshCurrentPerson();
+      widget.onUpdate();
     }
   }
 
   Widget _buildManageButton(String label)
   {
-    return SizedBox(
-      width: 255,
-      child: WizardAnimatedActionButton(
-        text: label,
-        icon: Icons.family_restroom_outlined,
-        baseColor: AppTheme.primary,
-        hoverColor: AppTheme.primaryHover,
-        onPressed: _openChildrenEditDialog,
-      ),
+    return AppGradientButton(
+      label: label,
+      icon: Icons.family_restroom_rounded,
+      onPressed: _openChildrenEditDialog,
     );
   }
 
   Widget _buildEmptyState()
   {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 32.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Nessun figlio associato a questa anagrafica genitore.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.slate500,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildManageButton('AGGIUNGI FIGLI'),
-          ],
-        ),
-      ),
+    return PersonEmptyState(
+      message: 'Nessun figlio associato a questa anagrafica genitore.',
+      action: _buildManageButton('AGGIUNGI FIGLI'),
     );
   }
 
@@ -266,17 +200,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
   @override
   Widget build(BuildContext context)
   {
-    if (_isRefreshing)
-    {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.only(top: 32.0),
-          child: CircularProgressIndicator(color: AppTheme.primary),
-        ),
-      );
-    }
-
-    final children = _currentPerson.children ?? [];
+    final children = widget.person.children ?? [];
 
     if (children.isEmpty)
     {
@@ -285,12 +209,8 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
 
     // Guards against a selection left over from a longer list, for instance
     // after removing the child that was being shown.
-    if (_selectedChildIndex >= children.length)
-    {
-      _selectedChildIndex = 0;
-    }
-
-    final child = children[_selectedChildIndex];
+    final index = widget.selectedIndex < children.length ? widget.selectedIndex : 0;
+    final child = children[index];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 16, bottom: 32),
@@ -299,18 +219,11 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PillTabBar(
-                labels: [
-                  for (final item in children) '${item.firstName} ${item.lastName}',
-                ],
-                selectedIndex: _selectedChildIndex,
-                onSelected: (index) => setState(() => _selectedChildIndex = index),
-              ),
+            children: pageTransitionBlocks([
               ..._buildDetailCards(child),
               const SizedBox(height: 48),
               Center(child: _buildManageButton('GESTISCI FIGLI')),
-            ],
+            ]),
           ),
         ),
       ),
@@ -329,8 +242,6 @@ class ChildrenEditDialog extends StatefulWidget
 
 class _ChildrenEditDialogState extends State<ChildrenEditDialog>
 {
-  static const double _contentMaxWidth = 1320;
-
   final TextEditingController _searchController = TextEditingController();
   final Map<String, ParentalRelationshipDraft> _selectedMinors = {};
 
@@ -568,6 +479,10 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
             ? DateFormat('yyyy-MM-dd').format(person.birthDate!)
             : null,
         'birth_city': person.birthCity,
+        // Required by GeneralDataUpdate, and this payload is a whole person: the
+        // endpoint that links children is the one that updates everything, so a
+        // field left out here is a field the server refuses the whole call over.
+        'birth_nation': person.birthNation ?? '',
         'birth_province': person.birthProvince,
         'residence_type': person.residenceType,
         'residence_address': person.address,
@@ -643,342 +558,119 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     }
   }
 
-  Widget _buildDialogGlow({required bool topRight})
-  {
-    return Positioned(
-      right: topRight ? -400 : null,
-      top: topRight ? -400 : null,
-      left: topRight ? null : -400,
-      bottom: topRight ? null : -400,
-      child: const IgnorePointer(
-        child: SizedBox(
-          width: 800,
-          height: 800,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [Color(0x22003C82), Color(0x00003C82)],
-                stops: [0.0, 1.0],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, right: 24, left: 32),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Gestisci Figli',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primary,
-            ),
-          ),
-          WizardHoverCloseButton(onTap: () => Navigator.of(context).pop()),
-        ],
-      ),
-    );
-  }
-
+  // The same head every list of the app carries.
   Widget _buildFilters()
   {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
-        // Side by side when there is room, stacked only below the threshold.
-        child: _ResponsiveSearchFilterRow(
-          breakpoint: 750,
-          searchBar: WizardAnimatedSearchBar(
-            controller: _searchController,
-            hintText: 'Cerca minore...',
-            onChanged: (value) => setState(() => _searchText = value),
-          ),
-          filterWidgets: [
-            WizardFilterMenu<_MinorSort>(
-              hint: 'Ordina per',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppSearchField(
+          controller: _searchController,
+          hintText: 'Cerca minore...',
+          onChanged: (value) => setState(() => _searchText = value),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            AppFilterPill<_MinorSort>.setting(
+              prefix: 'Ordina',
+              hint: 'Ordina',
               icon: Icons.sort_rounded,
               value: _sort,
-              menuWidth: 180,
-              showClearIcon: false,
-              onClear: () {},
+              menuWidth: 200,
               onChanged: (value) => setState(() => _sort = value),
               options: _MinorSort.values
-                  .map((sort) => WizardFilterOption(value: sort, label: sort.label))
+                  .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            WizardFilterMenu<String>(
+            AppFilterPill<String>.filter(
+              prefix: 'Ruolo',
               hint: 'Tutti i ruoli',
-              icon: Icons.badge_outlined,
+              icon: Icons.badge_rounded,
               value: _filterRole,
-              menuWidth: 200,
-              showClearIcon: true,
+              menuWidth: 220,
               onChanged: (value) => setState(() => _filterRole = value),
               onClear: () => setState(() => _filterRole = null),
               options: [
-                WizardFilterOption(value: 'STUDENTE', label: 'Studente'),
-                WizardFilterOption(value: 'CORSISTA', label: 'Corsista'),
-                WizardFilterOption(value: 'DOCENTE', label: 'Docente'),
-                WizardFilterOption(value: _memberOnlyFilterValue, label: 'Solo Associato'),
+                const FilterOption(value: 'STUDENTE', label: 'Studente'),
+                const FilterOption(value: 'CORSISTA', label: 'Corsista'),
+                const FilterOption(value: 'DOCENTE', label: 'Docente'),
+                FilterOption(value: _memberOnlyFilterValue, label: 'Solo associato'),
               ],
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildMinorsGrid(List<PersonItem> minors)
   {
-    return SizedBox(
-      width: double.infinity,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 40),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _contentMaxWidth),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: minors.map((minor)
-              {
-                final isSelected = _selectedMinors.containsKey(minor.fiscalCode);
+    if (_isLoadingData)
+    {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
+      );
+    }
 
-                return WizardSelectablePersonCard(
-                  person: minor,
-                  isSelected: isSelected,
-                  onTap: () => _onCardTap(minor),
-                  onEdit: isSelected ? () => _onCardTap(minor) : null,
-                  onRemove: isSelected
-                      ? () => setState(() => _selectedMinors.remove(minor.fiscalCode))
-                      : null,
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    if (minors.isEmpty)
+    {
+      return const PersonEmptyState(message: 'Nessun minore trovato per questa ricerca.');
+    }
 
-  @override
-  Widget build(BuildContext context)
-  {
-    final minors = _filteredMinors;
-    final size = MediaQuery.of(context).size;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: size.width * 0.85,
-        height: size.height * 0.85,
-        constraints: const BoxConstraints(maxWidth: 1200, minHeight: 600),
-        decoration: BoxDecoration(
-          color: _dialogBackground,
-          borderRadius: BorderRadius.circular(_dialogRadius),
-          boxShadow: const [
-            BoxShadow(color: _dialogShadow, offset: Offset(0, 12), blurRadius: 36),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(_dialogRadius),
-          child: Stack(
-            children: [
-              _buildDialogGlow(topRight: true),
-              _buildDialogGlow(topRight: false),
-              Column(
-                children: [
-                  _buildHeader(),
-                  const Divider(height: 32, thickness: 1, color: AppTheme.slate200),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 16),
-                          _buildFilters(),
-                          const SizedBox(height: 24),
-                          Expanded(
-                            child: _isLoadingData
-                                ? const Center(
-                                    child: CircularProgressIndicator(color: AppTheme.primary),
-                                  )
-                                : _buildMinorsGrid(minors),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 32, left: 32, right: 32),
-                    child: Center(
-                      child: _ResponsiveDialogButtonsRow(
-                        cancelText: 'ANNULLA',
-                        cancelIcon: Icons.close_rounded,
-                        cancelColor: AppTheme.danger,
-                        cancelHoverColor: AppTheme.dangerHover,
-                        cancelOnPressed: () => Navigator.of(context).pop(),
-                        confirmText: _isSubmitting ? 'SALVATAGGIO...' : 'SALVA MODIFICHE',
-                        confirmIcon: Icons.check_circle_outline,
-                        confirmColor: AppTheme.primary,
-                        confirmHoverColor: AppTheme.primaryHover,
-                        confirmOnPressed: _isSubmitting ? () {} : _onSave,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Bottom bar of the manage dialog. Unlike the shared ResponsiveDialogButtonsRow
-// it centres two fixed width buttons instead of stretching them, and builds the
-// buttons itself from the wizard component set.
-class _ResponsiveDialogButtonsRow extends StatelessWidget
-{
-  static const double _buttonWidth = 230;
-  static const double _spacing = 24;
-
-  // Below the width of both buttons plus their gap and some slack there is no
-  // room for a row, so the two stack with the confirm action on top.
-  static const double _breakpoint = _buttonWidth * 2 + _spacing + 40;
-
-  final String cancelText;
-  final IconData cancelIcon;
-  final Color cancelColor;
-  final Color cancelHoverColor;
-  final VoidCallback cancelOnPressed;
-
-  final String confirmText;
-  final IconData confirmIcon;
-  final Color confirmColor;
-  final Color confirmHoverColor;
-  final VoidCallback confirmOnPressed;
-
-  const _ResponsiveDialogButtonsRow({
-    required this.cancelText,
-    required this.cancelIcon,
-    required this.cancelColor,
-    required this.cancelHoverColor,
-    required this.cancelOnPressed,
-    required this.confirmText,
-    required this.confirmIcon,
-    required this.confirmColor,
-    required this.confirmHoverColor,
-    required this.confirmOnPressed,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final cancelButton = SizedBox(
-      width: _buttonWidth,
-      child: WizardAnimatedActionButton(
-        text: cancelText,
-        icon: cancelIcon,
-        baseColor: cancelColor,
-        hoverColor: cancelHoverColor,
-        onPressed: cancelOnPressed,
-      ),
-    );
-
-    final confirmButton = SizedBox(
-      width: _buttonWidth,
-      child: WizardAnimatedActionButton(
-        text: confirmText,
-        icon: confirmIcon,
-        baseColor: confirmColor,
-        hoverColor: confirmHoverColor,
-        onPressed: confirmOnPressed,
-      ),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth < _breakpoint)
+    // The pill this stands in has been handed the height left in the window, so
+    // this is what moves when there are more minors than there is room for.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
+      child: Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        alignment: WrapAlignment.center,
+        children: minors.map((minor)
         {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              confirmButton,
-              const SizedBox(height: 16),
-              cancelButton,
-            ],
-          );
-        }
+          final isSelected = _selectedMinors.containsKey(minor.fiscalCode);
 
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            cancelButton,
-            const SizedBox(width: _spacing),
-            confirmButton,
-          ],
-        );
-      },
+          return PersonPickerCard(
+            person: minor,
+            isSelected: isSelected,
+            onTap: () => _onCardTap(minor),
+            onEdit: isSelected ? () => _onCardTap(minor) : null,
+            onRemove: isSelected
+                ? () => setState(() => _selectedMinors.remove(minor.fiscalCode))
+                : null,
+          );
+        }).toList(),
+      ),
     );
   }
-}
-
-// Search bar and filters on one row while there is room, stacked below the
-// threshold rather than always split.
-class _ResponsiveSearchFilterRow extends StatelessWidget
-{
-  static const double _spacing = 12;
-
-  final Widget searchBar;
-  final List<Widget> filterWidgets;
-  final double breakpoint;
-
-  const _ResponsiveSearchFilterRow({
-    required this.searchBar,
-    required this.filterWidgets,
-    this.breakpoint = 700,
-  });
 
   @override
   Widget build(BuildContext context)
   {
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth < breakpoint)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              searchBar,
-              SizedBox(height: _spacing),
-              Wrap(spacing: _spacing, runSpacing: _spacing, children: filterWidgets),
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: searchBar),
-            for (final filter in filterWidgets) ...[
-              SizedBox(width: _spacing),
-              filter,
-            ],
-          ],
-        );
-      },
+    return AppDialogStack(
+      eyebrow: 'Figli',
+      title: 'Gestisci figli',
+      maxWidth: 1160,
+      // The search and the filters stay where they are; only the list under them
+      // moves.
+      fillLast: true,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: 'SALVA',
+          icon: Icons.check_rounded,
+          busy: _isSubmitting,
+          height: kPersonDialogButtonHeight,
+          fontSize: kPersonDialogButtonFontSize,
+          onPressed: _onSave,
+        ),
+      ),
+      children: [
+        AppDialogPill(expand: true, child: _buildFilters()),
+        AppDialogPill(expand: true, child: _buildMinorsGrid(_filteredMinors)),
+      ],
     );
   }
 }

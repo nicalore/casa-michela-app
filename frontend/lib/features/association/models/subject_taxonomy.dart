@@ -78,3 +78,26 @@ String schoolLevelShortLabel(String value)
 
   return value;
 }
+
+// The heading a programme sits under when programmes are grouped: the level,
+// which they all have, and the sector where there is one. Here because the two
+// places listing programmes — the one that picks them and the one that only
+// shows them — have to group them the same way.
+String programScopeTitle({required String level, String? sector})
+{
+  final String levelLabel = schoolLevelShortLabel(level);
+
+  return sector == null ? levelLabel : '$levelLabel · $sector';
+}
+
+// A discipline's description, or null where it says nothing.
+//
+// A description never written arrives null, a cleared one arrives as an empty
+// string, and a half-written one can be two spaces: three ways of having said
+// nothing, and whoever shows it has to treat them as one.
+String? descriptionOrNull(String? description)
+{
+  final String? said = description?.trim();
+
+  return said == null || said.isEmpty ? null : said;
+}

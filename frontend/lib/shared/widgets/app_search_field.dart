@@ -38,6 +38,7 @@ class _AppSearchFieldState extends State<AppSearchField>
   final FocusNode _focusNode = FocusNode();
 
   bool _hasFocus = false;
+  bool _hover = false;
 
   @override
   void initState()
@@ -103,47 +104,56 @@ class _AppSearchFieldState extends State<AppSearchField>
   @override
   Widget build(BuildContext context)
   {
-    return AnimatedContainer(
-      duration: _focusFade,
-      curve: Curves.easeOut,
-      height: _height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_height),
-        border: Border.all(
-          color: _hasFocus ? AppTheme.trialGold : AppTheme.trialLine,
-          width: 1.5,
-        ),
-        boxShadow: [
-          ...AppTheme.cardShadow,
-          BoxShadow(
-            color: AppTheme.trialGold.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
-            spreadRadius: _hasFocus ? _focusRingWidth : 0,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: _focusFade,
+        curve: Curves.easeOut,
+        height: _height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_height),
+          // Gold as soon as the pointer arrives, gold with the ring as soon as
+          // it listens: the two answers every field of the app gives, and that
+          // this bar did not.
+          border: Border.all(
+            color: _hasFocus || _hover ? AppTheme.trialGold : AppTheme.trialLine,
+            width: 1.5,
           ),
-        ],
-      ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: _focusNode,
-        onChanged: widget.onChanged,
-        textAlignVertical: TextAlignVertical.center,
-        cursorColor: AppTheme.trialTealDeep,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 17,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.trialInk,
+          boxShadow: [
+            ...AppTheme.cardShadow,
+            // The ring belongs to focus alone: it says the field is listening,
+            // which is a different statement from saying it can be pressed.
+            BoxShadow(
+              color: AppTheme.trialGold.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
+              spreadRadius: _hasFocus ? _focusRingWidth : 0,
+            ),
+          ],
         ),
-        decoration: InputDecoration(
-          hintText: widget.hintText,
-          hintStyle: GoogleFonts.plusJakartaSans(
+        child: TextField(
+          controller: widget.controller,
+          focusNode: _focusNode,
+          onChanged: widget.onChanged,
+          textAlignVertical: TextAlignVertical.center,
+          cursorColor: AppTheme.trialTealDeep,
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 17,
             fontWeight: FontWeight.w500,
-            color: AppTheme.trialMutedText,
+            color: AppTheme.trialInk,
           ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.only(left: 26),
-          suffixIcon: _buildTrailing(),
-          suffixIconConstraints: const BoxConstraints(minWidth: 60, minHeight: _height),
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            hintStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.trialMutedText,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.only(left: 26),
+            suffixIcon: _buildTrailing(),
+            suffixIconConstraints: const BoxConstraints(minWidth: 60, minHeight: _height),
+          ),
         ),
       ),
     );

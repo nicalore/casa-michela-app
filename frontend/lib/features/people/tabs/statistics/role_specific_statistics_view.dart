@@ -3,8 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_filter_pill.dart';
+import '../../../../shared/widgets/filter_menu.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../../shared/widgets/stat_card.dart';
+import '../../../../shared/widgets/page_transition.dart';
 import '../../../association/models/subject_taxonomy.dart';
 import '../../models/age_distribution_item.dart';
 import '../../models/city_distribution_item.dart';
@@ -17,16 +20,18 @@ import '../../models/teacher_subjects_statistics_item.dart';
 import 'widgets/bar_chart.dart';
 import 'widgets/chart_common.dart';
 import 'widgets/pie_chart.dart';
-import 'widgets/stat_filter_menu.dart';
+import 'widgets/stat_filters.dart';
 import 'widgets/stat_widgets.dart';
 import 'widgets/stats_data.dart';
 import 'widgets/stats_layout.dart';
 import 'widgets/trend_line_chart.dart';
 import 'widgets/stats_constants.dart';
 
-const Color _sectionDivider = Color(0xFFF1F5F9);
-const Color _subjectBadgeBackground = Color(0xFFE0F2FE);
-const Color _subjectBadgeText = Color(0xFF0284C7);
+const Color _sectionDivider = AppTheme.trialLine;
+
+// The ground every chip of the app that names something stands on: the brand
+// turquoise laid on white until it is barely a colour.
+const Color _subjectBadgeBackground = Color(0xFFE8F7F5);
 
 // Roles whose members have a residence and an age worth charting. The other
 // roles skip those two requests entirely.
@@ -80,6 +85,8 @@ class _RoleSpecificStatisticsViewState
   bool _isLoading = true;
   bool _isTrendLoading = false;
   bool _isCollabTrendLoading = false;
+  bool _isRetentionLoading = false;
+  bool _isCollabRetentionLoading = false;
   CurrentTotalsItem? _currentTotals;
   List<MemberTrendItem> _trendData = [];
   List<MemberTrendItem> _collabTrendData = [];
@@ -242,15 +249,66 @@ class _RoleSpecificStatisticsViewState
     }
   }
 
-  void _reload(VoidCallback mutateState) {
-    setState(mutateState);
-    _loadData();
+  // Every card fetches and reloads on its own. A pill belongs to the card it
+  // stands on, and answering it by blanking the whole view behind a spinner —
+  // which is what a single shared load did — throws away the cards that were
+  // not asked about and makes a change of year read as a page change.
+
+  Future<void> _loadRetentionData() async {
+    setState(() => _isRetentionLoading = true);
+
+    try {
+      final data = await _apiService.getRoleRetentionRate(
+        widget.roleKey,
+        _selectedRetentionYear,
+      );
+
+      if (mounted) {
+        setState(() => _retentionData = data);
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isRetentionLoading = false);
+      }
+    }
   }
 
-  // The two trend charts fetch and reload independently of the rest of the
-  // view, so changing their own filters only spins their own chart area
-  // instead of blanking out every other card while unrelated data is
-  // refetched.
+  Future<void> _loadCollabRetentionData() async {
+    setState(() => _isCollabRetentionLoading = true);
+
+    try {
+      final data = _collabRetentionType == 'year'
+          ? await _apiService.getRoleRetentionRate(
+              widget.roleKey,
+              _selectedCollabYear,
+            )
+          : await _apiService.getRoleCollaboratingRetentionRate(
+              widget.roleKey,
+              _selectedCollabYear,
+              _selectedCollabMonth,
+            );
+
+      if (mounted) {
+        setState(() => _collabRetentionData = data);
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isCollabRetentionLoading = false);
+      }
+    }
+  }
+
+  void _reloadRetention(VoidCallback mutateState) {
+    setState(mutateState);
+    _loadRetentionData();
+  }
+
+  void _reloadCollabRetention(VoidCallback mutateState) {
+    setState(mutateState);
+    _loadCollabRetentionData();
+  }
 
   Future<void> _loadTrendData() async {
     setState(() => _isTrendLoading = true);
@@ -336,48 +394,42 @@ class _RoleSpecificStatisticsViewState
     return '$subject rispetto ai ${data.previousYearMembers} attivi $period.';
   }
 
-  Widget _buildMembersRetentionCard() {
+  Widget _buildMembersRetentionCard(double width, bool matched) {
     return RetentionCard(
-      title: 'Fidelizzazione Iscritti',
-      filtersBreakpoint: 480,
+      title: 'Fidelizzazione iscritti',
+      icon: Icons.favorite_rounded,
+      width: width,
+      matched: matched,
       data: _retentionData,
+      isLoading: _isRetentionLoading,
       describe: _membersRetentionSentence,
-      filters: StatFilterMenu<int>(
-        hint: 'Anno',
+      filters: yearPill(
         value: _selectedRetentionYear,
-        options: yearOptions(),
-        onChanged: (value) => _reload(() => _selectedRetentionYear = value),
+        onChanged: (value) => _reloadRetention(() => _selectedRetentionYear = value),
       ),
     );
   }
 
-  Widget _buildCollabRetentionCard() {
-    final filters = Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      alignment: WrapAlignment.start,
+  Widget _buildCollabRetentionCard(double width, bool matched) {
+    final filters = StatFilterRow(
       children: [
-        StatFilterMenu<String>(
-          hint: 'Tipo',
+        resolutionPill(
+          prefix: 'Tipo',
           value: _collabRetentionType,
-          options: resolutionOptions(),
-          onChanged: (value) => _reload(() {
+          onChanged: (value) => _reloadCollabRetention(() {
             _collabRetentionType = value;
             _clampCollabMonthToDataStart();
           }),
         ),
         if (_collabRetentionType == 'month')
-          StatFilterMenu<int>(
-            hint: 'Mese',
+          monthPill(
+            year: _selectedCollabYear,
             value: _selectedCollabMonth,
-            options: monthOptions(_selectedCollabYear),
-            onChanged: (value) => _reload(() => _selectedCollabMonth = value),
+            onChanged: (value) => _reloadCollabRetention(() => _selectedCollabMonth = value),
           ),
-        StatFilterMenu<int>(
-          hint: 'Anno',
+        yearPill(
           value: _selectedCollabYear,
-          options: yearOptions(),
-          onChanged: (value) => _reload(() {
+          onChanged: (value) => _reloadCollabRetention(() {
             _selectedCollabYear = value;
             _clampCollabMonthToDataStart();
           }),
@@ -386,9 +438,12 @@ class _RoleSpecificStatisticsViewState
     );
 
     return RetentionCard(
-      title: 'Fidelizzazione Collaboratori Attivi',
-      filtersBreakpoint: 620,
+      title: 'Fidelizzazione collaboratori attivi',
+      icon: Icons.volunteer_activism_rounded,
+      width: width,
+      matched: matched,
       data: _collabRetentionData,
+      isLoading: _isCollabRetentionLoading,
       describe: _collaboratorsRetentionSentence,
       filters: filters,
     );
@@ -396,6 +451,7 @@ class _RoleSpecificStatisticsViewState
 
   Widget _buildTrendChartCard({
     required String title,
+    required IconData icon,
     required List<MemberTrendItem> data,
     required bool isLoading,
     required String resolution,
@@ -405,34 +461,21 @@ class _RoleSpecificStatisticsViewState
     required ValueChanged<int> onStartYearChanged,
     required ValueChanged<int> onEndYearChanged,
   }) {
-    final filters = Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      alignment: WrapAlignment.start,
+    final filters = StatFilterRow(
       children: [
-        StatFilterMenu<String>(
-          hint: 'Vista',
+        resolutionPill(
+          prefix: 'Vista',
           value: resolution,
-          options: resolutionOptions(),
           onChanged: onResolutionChanged,
         ),
-        StatFilterMenu<int>(
-          hint: 'Da anno',
-          value: startYear,
-          options: yearOptions(),
-          onChanged: onStartYearChanged,
-        ),
-        StatFilterMenu<int>(
-          hint: 'A anno',
-          value: endYear,
-          options: yearOptions(),
-          onChanged: onEndYearChanged,
-        ),
+        startYearPill(value: startYear, onChanged: onStartYearChanged),
+        endYearPill(value: endYear, onChanged: onEndYearChanged),
       ],
     );
 
     return ChartCard(
       title: title,
+      icon: icon,
       filters: filters,
       isEmpty: data.isEmpty,
       isLoading: isLoading,
@@ -442,7 +485,8 @@ class _RoleSpecificStatisticsViewState
 
   Widget _buildMembersTrendCard() {
     return _buildTrendChartCard(
-      title: 'Trend Iscritti',
+      title: 'Trend iscritti',
+      icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
       resolution: _trendResolution,
@@ -469,7 +513,8 @@ class _RoleSpecificStatisticsViewState
 
   Widget _buildCollabTrendCard() {
     return _buildTrendChartCard(
-      title: 'Trend Collaboratori Attivi',
+      title: 'Trend collaboratori attivi',
+      icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
       resolution: _collabTrendResolution,
@@ -497,6 +542,7 @@ class _RoleSpecificStatisticsViewState
   Widget _buildCityChartCard() {
     return ChartCard(
       title: 'Distribuzione per città',
+      icon: Icons.location_city_rounded,
       isEmpty: _cityData.isEmpty,
       chart: BarChart(
         data: _cityData
@@ -509,6 +555,7 @@ class _RoleSpecificStatisticsViewState
   Widget _buildAgeChartCard() {
     return ChartCard(
       title: 'Distribuzione per età',
+      icon: Icons.cake_rounded,
       isEmpty: _ageData.isEmpty,
       chart: PieChart(
         data: _ageData
@@ -521,20 +568,23 @@ class _RoleSpecificStatisticsViewState
   Widget _buildEducationChartCard() {
     return ChartCard(
       title: 'Distribuzione scolastica',
-      filtersBreakpoint: 560,
+      icon: Icons.school_rounded,
       isEmpty: _educationData.isEmpty,
-      filters: StatFilterMenu<String>(
+      filters: AppFilterPill<String>.setting(
+        prefix: 'Raggruppa per',
         hint: 'Raggruppa per',
+        icon: Icons.category_rounded,
         value: _educationDistributionType,
         options: const [
-          StatFilterOption(value: 'school', label: 'Scuola'),
-          StatFilterOption(value: 'program', label: 'Percorso di studio'),
-          StatFilterOption(value: 'level', label: 'Livello di istruzione'),
+          FilterOption(value: 'school', label: 'Scuola'),
+          FilterOption(value: 'program', label: 'Percorso di studio'),
+          FilterOption(value: 'level', label: 'Livello di istruzione'),
         ],
         onChanged: (value) {
           setState(() => _educationDistributionType = value);
           _loadEducationData();
         },
+        menuWidth: 230,
       ),
       chart: BarChart(
         data: _educationData
@@ -547,6 +597,7 @@ class _RoleSpecificStatisticsViewState
   Widget _buildCourseChartCard() {
     return ChartCard(
       title: 'Distribuzione per corso',
+      icon: Icons.menu_book_rounded,
       isEmpty: _courseData.isEmpty,
       chart: BarChart(
         data: _courseData
@@ -576,7 +627,7 @@ class _RoleSpecificStatisticsViewState
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.slate800,
+                    color: AppTheme.trialInk,
                   ),
                 ),
                 if (programName != null) ...[
@@ -587,7 +638,7 @@ class _RoleSpecificStatisticsViewState
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: AppTheme.slate400,
+                      color: AppTheme.trialMutedText,
                     ),
                   ),
                 ],
@@ -596,32 +647,21 @@ class _RoleSpecificStatisticsViewState
           ),
           const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
             decoration: BoxDecoration(
               color: _subjectBadgeBackground,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '${subject.count} $unit',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: _subjectBadgeText,
+                color: AppTheme.trialTealDeep,
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSubjectSectionTitle(String text) {
-    return Text(
-      text,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.slate800,
       ),
     );
   }
@@ -634,7 +674,7 @@ class _RoleSpecificStatisticsViewState
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSubjectSectionTitle(title),
+        StatSectionTitle(title),
         const SizedBox(height: 24),
         if (subjects.isEmpty)
           const EmptyChartMessage(fontSize: 14)
@@ -649,7 +689,7 @@ class _RoleSpecificStatisticsViewState
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildSubjectSectionTitle('Distribuzione per area'),
+        const StatSectionTitle('Distribuzione per area'),
         const SizedBox(height: 24),
         // The explicit height is what keeps the IntrinsicHeight below working:
         // it stops the intrinsic measurement before it reaches the LayoutBuilder
@@ -692,11 +732,11 @@ class _RoleSpecificStatisticsViewState
             children: [
               topRanking,
               const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 2),
+              const Divider(color: _sectionDivider, thickness: 1),
               const SizedBox(height: 24),
               bottomRanking,
               const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 2),
+              const Divider(color: _sectionDivider, thickness: 1),
               const SizedBox(height: 24),
               areaSection,
             ],
@@ -710,12 +750,12 @@ class _RoleSpecificStatisticsViewState
               Expanded(flex: 4, child: topRanking),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 2),
+                child: VerticalDivider(color: _sectionDivider, thickness: 1),
               ),
               Expanded(flex: 4, child: bottomRanking),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 2),
+                child: VerticalDivider(color: _sectionDivider, thickness: 1),
               ),
               Expanded(flex: 5, child: areaSection),
             ],
@@ -735,7 +775,7 @@ class _RoleSpecificStatisticsViewState
             style: GoogleFonts.plusJakartaSans(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppTheme.slate500,
+              color: AppTheme.trialMutedText,
             ),
           ),
           const SizedBox(height: 8),
@@ -744,7 +784,7 @@ class _RoleSpecificStatisticsViewState
             style: GoogleFonts.plusJakartaSans(
               fontSize: 36,
               fontWeight: FontWeight.w800,
-              color: AppTheme.primary,
+              color: AppTheme.trialTealDeep,
             ),
           ),
         ],
@@ -759,37 +799,29 @@ class _RoleSpecificStatisticsViewState
       return const SizedBox();
     }
 
-    return StatCard(
+    return AppCard(
+      title: 'Analisi competenze',
+      selectable: false,
+      leading: const AppCardBadge(icon: Icons.workspace_premium_rounded),
+      trailingFit: AppCardTrailing.wrapping,
+      trailing: AppFilterPill<String>.setting(
+        prefix: 'Classifica',
+        hint: 'Classifica',
+        icon: Icons.leaderboard_rounded,
+        value: _teacherRankingMode,
+        options: const [
+          FilterOption(value: 'absolute', label: 'Per disciplina'),
+          FilterOption(value: 'program', label: 'Per disciplina e percorso'),
+        ],
+        onChanged: (value) {
+          setState(() => _teacherRankingMode = value);
+          _loadTeacherData();
+        },
+        menuWidth: 260,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ResponsiveCardHeader(
-            title: Text(
-              'Analisi Competenze',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.slate800,
-              ),
-            ),
-            breakpoint: 560,
-            filters: StatFilterMenu<String>(
-              hint: 'Classifica',
-              value: _teacherRankingMode,
-              options: const [
-                StatFilterOption(value: 'absolute', label: 'Per disciplina'),
-                StatFilterOption(
-                  value: 'program',
-                  label: 'Per disciplina e percorso',
-                ),
-              ],
-              onChanged: (value) {
-                setState(() => _teacherRankingMode = value);
-                _loadTeacherData();
-              },
-            ),
-          ),
-          const SizedBox(height: 32),
           Row(
             children: [
               _buildAverageBlock(
@@ -804,7 +836,7 @@ class _RoleSpecificStatisticsViewState
             ],
           ),
           const SizedBox(height: 32),
-          const Divider(color: _sectionDivider, thickness: 2),
+          const Divider(color: _sectionDivider, thickness: 1),
           const SizedBox(height: 32),
           _buildTeacherSubjectsSections(stats),
         ],
@@ -850,19 +882,19 @@ class _RoleSpecificStatisticsViewState
       physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: pageTransitionBlocks([
           ResponsiveCardPair(
             first: SummaryStatCard(
               title: 'Iscritti',
-              icon: Icons.person_outline,
+              icon: Icons.groups_rounded,
               count: _currentTotals?.currentTotalMembers ?? 0,
               deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
               deltaYear: _currentTotals?.membersDeltaYear ?? 0,
               percentage: _currentTotals?.percentageOfTotalMembers,
             ),
             second: SummaryStatCard(
-              title: 'Collaboratori Attivi',
-              icon: Icons.handshake_outlined,
+              title: 'Collaboratori attivi',
+              icon: Icons.handshake_rounded,
               count: _currentTotals?.currentActiveCollaborators ?? 0,
               deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
               deltaYear: _currentTotals?.collabDeltaYear ?? 0,
@@ -870,9 +902,11 @@ class _RoleSpecificStatisticsViewState
             ),
           ),
           const SizedBox(height: 24),
-          ResponsiveCardPair(
-            first: _buildMembersRetentionCard(),
-            second: _buildCollabRetentionCard(),
+          // The one pair of the page that has to be the same height on both
+          // sides: they are the same question asked of two populations.
+          MatchedCardPair(
+            first: _buildMembersRetentionCard,
+            second: _buildCollabRetentionCard,
           ),
           const SizedBox(height: 24),
           if (demographics != null) ...[
@@ -887,7 +921,7 @@ class _RoleSpecificStatisticsViewState
           const SizedBox(height: 24),
           _buildCollabTrendCard(),
           const SizedBox(height: 40),
-        ],
+        ]),
       ),
     );
   }
@@ -898,10 +932,13 @@ class _RoleSpecificStatisticsViewState
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
+        child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
     }
 
+    // The charts are timed one by one inside, rather than the whole page being
+    // wrapped as one element out here: a page that left in a single slab was
+    // the odd one out beside every list in the app.
     return Navigator(
       onGenerateRoute: (settings) =>
           MaterialPageRoute(builder: (context) => _buildContent()),

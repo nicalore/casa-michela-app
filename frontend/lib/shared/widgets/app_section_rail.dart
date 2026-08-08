@@ -39,6 +39,21 @@ class RailGroup
   const RailGroup({this.title, required this.entries});
 }
 
+// The label of the entry a page is showing, counted the way the rail counts:
+// entries only, headings skipped, in the order they are declared. The pages need
+// it where the rail is not on screen to say it for them.
+String railEntryAt(List<RailGroup> groups, int index)
+{
+  final entries = [for (final group in groups) ...group.entries];
+
+  if (index < 0 || index >= entries.length)
+  {
+    return '';
+  }
+
+  return entries[index];
+}
+
 // The sections of a module, down the left side of the page.
 //
 // It carries the navigation the pages used to spread over a tab bar and a row
@@ -95,28 +110,6 @@ class AppSectionRail extends StatelessWidget
     );
   }
 
-  // Set like the upper line of the wordmark in the top bar: upper case, tracked,
-  // muted, small. It names a group without ever looking like something you can
-  // click.
-  Widget _buildGroupTitle(String groupTitle)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(left: _labelInset, right: 16, top: 18, bottom: 8),
-      child: Text(
-        groupTitle.toUpperCase(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.5,
-          height: 1.2,
-          color: AppTheme.trialMutedText,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
@@ -124,7 +117,7 @@ class AppSectionRail extends StatelessWidget
     // will hear back, headings taking no number of their own.
     var entryIndex = 0;
 
-    final children = <Widget>[_buildTitle()];
+    final children = <Widget>[];
 
     for (final group in groups)
     {
@@ -132,9 +125,9 @@ class AppSectionRail extends StatelessWidget
 
       if (groupTitle != null)
       {
-        children.add(_buildGroupTitle(groupTitle));
+        children.add(AppRailHeading(groupTitle));
       }
-      else if (children.length > 1)
+      else if (children.isNotEmpty)
       {
         // A heading brings its own air with it; a run of entries standing on
         // their own after one would otherwise butt straight against the last
@@ -146,7 +139,7 @@ class AppSectionRail extends StatelessWidget
       {
         final index = entryIndex++;
 
-        children.add(_RailEntry(
+        children.add(AppRailEntry(
           label: entry,
           nested: groupTitle != null,
           selected: index == selectedIndex,
@@ -166,20 +159,72 @@ class AppSectionRail extends StatelessWidget
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+        children: [
+          _buildTitle(),
+          // A module whose sections are counted rather than named can put more
+          // entries in here than the page is tall — Lezioni lists a day at a
+          // time, and how many days there are depends on when you ask. They
+          // scroll inside the card rather than running off the bottom of the
+          // page. Loose, so a rail that fits is exactly as tall as its entries,
+          // which is what every module currently is.
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _RailEntry extends StatefulWidget
+// Set like the upper line of the wordmark in the top bar: upper case, tracked,
+// muted, small. It names a group without ever looking like something you can
+// click.
+class AppRailHeading extends StatelessWidget
+{
+  final String text;
+
+  const AppRailHeading(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(left: _labelInset, right: 16, top: 18, bottom: 8),
+      child: Text(
+        text.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.5,
+          height: 1.2,
+          color: AppTheme.trialMutedText,
+        ),
+      ),
+    );
+  }
+}
+
+// One line of the rail. Public because the drawer that replaces the rail on a
+// narrow window is made of these same rows: the sections have to answer the
+// finger the way they answer the pointer, or moving between the two widths
+// would feel like moving between two apps.
+class AppRailEntry extends StatefulWidget
 {
   final String label;
   final bool nested;
   final bool selected;
   final VoidCallback onTap;
 
-  const _RailEntry({
+  const AppRailEntry({
+    super.key,
     required this.label,
     required this.nested,
     required this.selected,
@@ -187,10 +232,10 @@ class _RailEntry extends StatefulWidget
   });
 
   @override
-  State<_RailEntry> createState() => _RailEntryState();
+  State<AppRailEntry> createState() => _AppRailEntryState();
 }
 
-class _RailEntryState extends State<_RailEntry>
+class _AppRailEntryState extends State<AppRailEntry>
 {
   bool _hover = false;
 
@@ -264,6 +309,56 @@ class _RailEntryState extends State<_RailEntry>
           ),
         ),
       ),
+    );
+  }
+}
+
+// What the rail says on a window too narrow to hold it. The module it belongs
+// to, quietly, over the section you are actually in: the same eyebrow and title
+// pairing the dialogs of the app use, and the same two lines the rail carries at
+// its head — one of them just moved into the drawer with the entries.
+class AppSectionHeading extends StatelessWidget
+{
+  final String module;
+  final String section;
+
+  const AppSectionHeading({
+    super.key,
+    required this.module,
+    required this.section,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          module.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
+            height: 1.2,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+        const SizedBox(height: 2),
+        OverflowTooltipText(
+          text: section,
+          maxLines: 1,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: AppTheme.trialOcean,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,46 +1,57 @@
-import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/app_primary_button.dart';
-import '../../../shared/widgets/corner_glow.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/password_field.dart';
+import 'auth_pill_page.dart';
 import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
-import 'login_text_field.dart';
-
-const Color _bodyText = Color(0xFF6B7280);
-const Color _labelText = Color(0xFF1A1A1A);
-const Color _linkHover = Color(0xFF002244);
-
-const String _fontFamily = 'Plus Jakarta Sans';
-
-const double _narrowBreakpoint = 600;
-const double _tabletBreakpoint = 600.0;
-const double _wideViewportThreshold = 1300;
-const double _maxCardWidth = 1160.0;
-const double _fieldHeight = 56;
 
 // Width kept from the previous dedicated login button; in the narrow layouts
 // the surrounding SizedBox overrides it and the button fills the row.
+
+// How wide the sign-in button is, and below which width the page stacks: the
+// central card is comfortable down to here.
 const double _loginButtonWidth = 190;
+const double _maxCardWidth = 1160;
+const double _narrowBreakpoint = 600;
+
+// Quanto prende l'etichetta accanto al campo: «Nome utente» ci sta larga.
+const double _labelColumnWidth = 200;
+
+// Below this width the label goes back above the box: alongside, it would leave
+// the field less room than what gets typed into it.
+const double _labelBesideFieldFrom = 480;
+
+// The height and type size every dialog of the app gives its buttons.
+const double _authButtonHeight = 52;
+const double _authButtonFontSize = 14;
+
+// The gradient of the association's name, the same as the dashboard greeting.
+// The stops sit at the ends of the line and not at the centre, so on two short
+// lines both colours still show instead of landing on their blend.
+const LinearGradient _titleGradient = LinearGradient(
+  colors: [AppTheme.trialOcean, AppTheme.trialViolet],
+  stops: [0.15, 0.95],
+);
+
+// The measurements of the command standing beside the primary one: the same as
+// the "add row" buttons elsewhere in the app.
+const double _secondaryButtonHeight = 46;
+const double _secondaryButtonFontSize = 13;
+const double _secondaryButtonRadius = 23;
 
 class LoginLayout extends StatefulWidget
 {
-  final double width;
-  final double height;
-
-  const LoginLayout({
-    super.key,
-    required this.width,
-    required this.height,
-  });
+  const LoginLayout({super.key});
 
   @override
   State<LoginLayout> createState() => _LoginLayoutState();
@@ -120,401 +131,230 @@ class _LoginLayoutState extends State<LoginLayout>
     );
   }
 
-  // kIsWeb is true in every browser, phones included, so this is not a
-  // desktop-versus-mobile switch: on the web build the layout below always
-  // wins, and index.html scales it down for touch devices through its virtual
-  // viewport. _buildMobileLayout is reached only by the native Android and iOS
-  // builds.
-  @override
-  Widget build(BuildContext context)
+  // The association's name with its logo, which is this page's title: not an
+  // eyebrow inside a pill but the largest thing on screen. On a single line, as
+  // wide as the card underneath — the type grows to fill it, instead of sitting
+  // at a hand-picked size that lands differently at every window width.
+  Widget _buildTitle(bool isNarrow)
   {
-    return kIsWeb ? _buildWebLayout(context) : _buildMobileLayout(context);
-  }
-
-  Widget _buildMobileLayout(BuildContext context)
-  {
-    final width = MediaQuery.of(context).size.width;
-    final isTablet = width > _tabletBreakpoint;
-
-    return Scaffold(
-      backgroundColor: AppTheme.pageBackground,
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: isTablet ? 500.0 : double.infinity,
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: 120,
-                  height: 120,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Casa Michela',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: _fontFamily,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                _LoginRow(
-                  label: 'Nome utente',
-                  controller: _usernameController,
-                  isNarrow: true,
-                ),
-                const SizedBox(height: 16),
-                _LoginRow(
-                  label: 'Password',
-                  obscure: true,
-                  controller: _passwordController,
-                  isNarrow: true,
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: AppPrimaryButton(
-                    label: 'ACCEDI',
-                    width: _loginButtonWidth,
-                    onPressed: _login,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _AnimatedTextLink(
-                  text: 'Password dimenticata?',
-                  onTap: _showForgotPasswordDialog,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegalNotice()
-  {
-    // RichText has no const constructor, so const sits on the span tree.
-    return RichText(
-      textAlign: TextAlign.center,
-      text: const TextSpan(
-        style: TextStyle(
-          fontFamily: _fontFamily,
-          fontSize: 14,
-          color: _bodyText,
-          height: 1.5,
-        ),
-        children: [
-          TextSpan(text: 'Accedendo, accetti le '),
-          TextSpan(
-            text: "Condizioni d'Uso",
-            style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
-          ),
-          TextSpan(text: " e l'"),
-          TextSpan(
-            text: 'Informativa sulla Privacy',
-            style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.w600),
-          ),
-          TextSpan(text: '.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCredentialsCard({required bool isNarrow})
-  {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            offset: const Offset(0, 4),
-            blurRadius: 16,
-          ),
-        ],
-      ),
-      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 25 : 50, vertical: 40),
-      child: Column(
+    return FittedBox(
+      fit: BoxFit.fitWidth,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _LoginRow(
-            label: 'Nome utente',
-            controller: _usernameController,
-            isNarrow: isNarrow,
+          Image.asset(
+            'assets/images/logo.png',
+            width: isNarrow ? 96 : 130,
+            height: isNarrow ? 96 : 130,
+            fit: BoxFit.contain,
           ),
-          SizedBox(height: isNarrow ? 20 : 32),
-          _LoginRow(
-            label: 'Password',
-            obscure: true,
-            controller: _passwordController,
-            isNarrow: isNarrow,
-          ),
-          SizedBox(height: isNarrow ? 32 : 40),
-          if (isNarrow) ...[
-            SizedBox(
-              width: double.infinity,
-              child: AppPrimaryButton(
-                label: 'ACCEDI',
-                width: _loginButtonWidth,
-                onPressed: _login,
+          SizedBox(width: isNarrow ? 20 : 28),
+          // srcIn paints the gradient only where the letters are, which is why
+          // the text is white — that colour is never seen, it only acts as a
+          // mask.
+          //
+          // The line height stays the font's: the mask works on the box the text
+          // declares, and tightening it would push descenders outside it, where
+          // they would be clipped away.
+          ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (bounds) => _titleGradient.createShader(bounds),
+            child: Text(
+              'Associazione Casa Michela',
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: isNarrow ? 34 : 58,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 20),
-            _AnimatedTextLink(
-              text: 'Password dimenticata?',
-              onTap: _showForgotPasswordDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // The label alongside the box rather than above it: there are only two
+  // questions here, and stacking them with their labels on top made four lines
+  // where two are enough.
+  Widget _labelledField(String label, Widget field)
+  {
+    final Widget text = Text(
+      label,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialOcean,
+      ),
+    );
+
+    // Decided on how much room there really is here and not on how wide the
+    // window is: the card and its margins sit between the two, and a label
+    // beside a hundred-pixel box is no longer a label beside anything.
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < _labelBesideFieldFrom)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [text, const SizedBox(height: 8), field],
+          );
+        }
+
+        return Row(
+          children: [
+            SizedBox(width: _labelColumnWidth, child: text),
+            Expanded(child: field),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCredentials(bool isNarrow)
+  {
+    // The measurements of the app's "add row" buttons: a command standing next
+    // to the primary one without weighing as much — shorter, smaller, rounder —
+    // but of the same family, with the same fade entering from the left under
+    // the pointer.
+    final Widget forgotten = AppGradientButton(
+      label: 'PASSWORD DIMENTICATA?',
+      icon: Icons.lock_reset_rounded,
+      height: _secondaryButtonHeight,
+      fontSize: _secondaryButtonFontSize,
+      radius: _secondaryButtonRadius,
+      onPressed: _showForgotPasswordDialog,
+    );
+
+    final Widget enter = AppGradientButton(
+      label: 'ACCEDI',
+      icon: Icons.login_rounded,
+      height: _authButtonHeight,
+      fontSize: _authButtonFontSize,
+      onPressed: _login,
+    );
+
+    return AppDialogPill(
+      expand: true,
+      padding: EdgeInsets.symmetric(horizontal: isNarrow ? 24 : 44, vertical: isNarrow ? 24 : 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // No hint: what goes in here is something the user already knows, and
+          // a sample username looks like an already filled field.
+          _labelledField(
+            'Nome utente',
+            AppTextField(
+              controller: _usernameController,
+              label: 'Nome utente',
+              showLabel: false,
+              hintText: '',
+              onSubmitted: (_) => _login(),
             ),
-          ]
-          else
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+          SizedBox(height: isNarrow ? 16 : 22),
+          _labelledField(
+            'Password',
+            PasswordField(
+              controller: _passwordController,
+              label: 'Password',
+              showLabel: false,
+              hintText: '',
+            ),
+          ),
+          const SizedBox(height: 28),
+          // The two commands at either end of the row while the row holds
+          // them, and stacked and centred once it no longer does. OverflowBar
+          // measures what they want and decides for itself: a hand-written
+          // threshold was decided on the window's width, whereas what counts is
+          // the width in here — and the whole card sits between the two.
+          OverflowBar(
+            alignment: MainAxisAlignment.spaceBetween,
+            overflowAlignment: OverflowBarAlignment.center,
+            spacing: 16,
+            overflowSpacing: 16,
+            children: [
+              forgotten,
+              SizedBox(width: _loginButtonWidth, child: enter),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final double width = MediaQuery.sizeOf(context).width;
+    final bool isNarrow = width < _narrowBreakpoint;
+
+    return AuthPageBackground(
+      watermark: false,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 40),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _maxCardWidth),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _AnimatedTextLink(
-                  text: 'Password dimenticata?',
-                  onTap: _showForgotPasswordDialog,
+                _buildTitle(isNarrow),
+                SizedBox(height: isNarrow ? 32 : 48),
+                _buildCredentials(isNarrow),
+                const SizedBox(height: 26),
+                AppDialogPill(
+                  expand: true,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Accedendo, accetti le '),
+                        TextSpan(
+                          text: "Condizioni d'Uso",
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialTealDeep,
+                          ),
+                        ),
+                        const TextSpan(text: " e l'"),
+                        TextSpan(
+                          text: 'Informativa sulla Privacy',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.trialTealDeep,
+                          ),
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      color: AppTheme.trialMutedText,
+                    ),
+                  ),
                 ),
-                AppPrimaryButton(
-                  label: 'ACCEDI',
-                  width: _loginButtonWidth,
-                  onPressed: _login,
+                const SizedBox(height: 28),
+                Text(
+                  '© ${DateTime.now().year} Nicolò Calore\n'
+                  'ATTENZIONE: applicazione attualmente in sviluppo. '
+                  'Potrebbero verificarsi comportamenti inaspettati.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                    color: AppTheme.trialMutedText,
+                  ),
                 ),
               ],
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWebLayout(BuildContext context)
-  {
-    final viewportWidth = MediaQuery.of(context).size.width;
-    final currentYear = DateTime.now().year;
-
-    final isNarrow = viewportWidth < _narrowBreakpoint;
-
-    // Clamped at zero because the viewport can momentarily be narrower than the
-    // horizontal margins while the window is being resized.
-    final cardWidth = math.max(
-      0.0,
-      viewportWidth > _wideViewportThreshold ? _maxCardWidth : viewportWidth - 80,
-    );
-
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      color: AppTheme.pageBackground,
-      child: Stack(
-        children: [
-          const CornerGlow(corner: GlowCorner.topRight),
-          const CornerGlow(corner: GlowCorner.bottomLeft),
-          Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints)
-              {
-                // The three pieces below work together and none can be removed
-                // on its own: the ConstrainedBox forces the content to be at
-                // least as tall as the viewport, IntrinsicHeight resolves that
-                // height for the Column, and only then can the Spacer push the
-                // footer down. Without IntrinsicHeight the Spacer has no
-                // bounded height to expand into inside a scroll view.
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isNarrow ? 20 : 40,
-                        vertical: 40,
-                      ),
-                      child: IntrinsicHeight(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 20),
-                            ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Image.asset(
-                                      'assets/images/logo.png',
-                                      width: 185,
-                                      height: 185,
-                                      fit: BoxFit.contain,
-                                    ),
-                                    const SizedBox(width: 40),
-                                    const Text(
-                                      'Associazione Casa Michela',
-                                      style: TextStyle(
-                                        fontFamily: _fontFamily,
-                                        fontSize: 76,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 50),
-                            ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: _buildCredentialsCard(isNarrow: isNarrow),
-                            ),
-                            const SizedBox(height: 40),
-                            ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: cardWidth),
-                              child: _buildLegalNotice(),
-                            ),
-                            const Spacer(),
-                            const SizedBox(height: 40),
-                            Text(
-                              '© $currentYear Nicolò Calore\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontFamily: _fontFamily,
-                                color: _bodyText,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginRow extends StatelessWidget
-{
-  final String label;
-  final bool obscure;
-  final TextEditingController controller;
-  final bool isNarrow;
-
-  const _LoginRow({
-    required this.label,
-    required this.controller,
-    required this.isNarrow,
-    this.obscure = false,
-  });
-
-  TextStyle _labelStyle(double fontSize)
-  {
-    return TextStyle(
-      fontFamily: _fontFamily,
-      fontSize: fontSize,
-      fontWeight: FontWeight.w600,
-      color: _labelText,
-    );
-  }
-
-  Widget _buildField()
-  {
-    return SizedBox(
-      height: _fieldHeight,
-      child: LoginTextField(controller: controller, obscureText: obscure),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    if (isNarrow)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: _labelStyle(18)),
-          const SizedBox(height: 8),
-          _buildField(),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        SizedBox(
-          width: 260,
-          child: Text(label, style: _labelStyle(22)),
-        ),
-        const SizedBox(width: 20),
-        Expanded(child: _buildField()),
-      ],
-    );
-  }
-}
-
-class _AnimatedTextLink extends StatefulWidget
-{
-  final String text;
-  final VoidCallback onTap;
-
-  const _AnimatedTextLink({required this.text, required this.onTap});
-
-  @override
-  State<_AnimatedTextLink> createState() => _AnimatedTextLinkState();
-}
-
-class _AnimatedTextLinkState extends State<_AnimatedTextLink>
-{
-  // Width of the underline when hovered, sized for the current label. It does
-  // not follow the text, so a longer label would overflow it.
-  static const double _underlineWidth = 175;
-
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontFamily: _fontFamily,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _isHovered ? _linkHover : AppTheme.primary,
-              ),
-              child: Text(widget.text),
-            ),
-            const SizedBox(height: 2),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutQuint,
-              height: 2,
-              width: _isHovered ? _underlineWidth : 0,
-              decoration: BoxDecoration(
-                color: _linkHover,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -595,121 +435,45 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
   @override
   Widget build(BuildContext context)
   {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: 500,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 16, right: 16, left: 32),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recupero Password',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  StaticHoverIconButton(
-                    icon: Icons.close,
-                    color: AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 32, thickness: 1, color: AppTheme.divider),
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Inserisci il nome utente associato al tuo account. '
-                    "Se esiste, ti invieremo un link di recupero all'indirizzo email registrato.\n"
-                    "Se non ricordi il tuo nome utente, contatta l'Associazione.",
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      color: _bodyText,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'Nome utente',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  TextField(
-                    controller: _usernameController,
-                    keyboardType: TextInputType.text,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Es. mario.rossi',
-                      hintStyle: GoogleFonts.plusJakartaSans(
-                        fontSize: 18,
-                        color: AppTheme.hint,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppTheme.primary, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AnimatedActionButton(
-                      text: 'ANNULLA',
-                      icon: Icons.cancel_outlined,
-                      baseColor: AppTheme.danger,
-                      hoverColor: AppTheme.dangerHover,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: AnimatedActionButton(
-                      text: _isSending ? 'INVIO IN CORSO...' : 'INVIA LINK',
-                      icon: Icons.send_rounded,
-                      baseColor: AppTheme.primary,
-                      hoverColor: AppTheme.primaryHover,
-                      onPressed: _isSending ? () {} : _handleSend,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return AppDialogStack(
+      eyebrow: 'Accesso',
+      title: 'Recupero password',
+      maxWidth: 560,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: 'INVIA LINK',
+          icon: Icons.send_rounded,
+          busy: _isSending,
+          height: _authButtonHeight,
+          fontSize: _authButtonFontSize,
+          onPressed: _handleSend,
         ),
       ),
+      children: [
+        AppDialogPill(
+          expand: true,
+          child: Text(
+            'Inserisci il nome utente associato al tuo account. Se esiste, ti '
+            "invieremo un link di recupero all'indirizzo email registrato.\n\n"
+            "Se non ricordi il tuo nome utente, contatta l'Associazione.",
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+        ),
+        AppDialogPill(
+          expand: true,
+          child: AppTextField(
+            controller: _usernameController,
+            label: 'Nome utente',
+            hintText: 'Es. mario.rossi',
+            onSubmitted: (_) => _handleSend(),
+          ),
+        ),
+      ],
     );
   }
 }

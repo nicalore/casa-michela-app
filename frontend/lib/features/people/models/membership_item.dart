@@ -1,5 +1,15 @@
 class MembershipItem
 {
+  // The values of [revocation] as the server writes them. They travel unchanged
+  // in the update payload, so they cannot be translated in place.
+  //
+  // Here and not in the page showing them, because that page is no longer the
+  // only one asking: two places writing 'NO' by hand are two places that can
+  // stop agreeing.
+  static const String revocationNone = 'NO';
+  static const String revocationExpulsion = 'EXPULSION';
+  static const String revocationResignation = 'RESIGNATION';
+
   final int year;
   final DateTime startDate;
   final DateTime endDate;
@@ -13,6 +23,9 @@ class MembershipItem
     required this.renewalPeriodDays,
     required this.revocation,
   });
+
+  /// Espulsa o dimessa.
+  bool get isRevoked => revocation != revocationNone;
 
   factory MembershipItem.fromJson(Map<String, dynamic> json)
   {

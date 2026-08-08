@@ -52,7 +52,9 @@ class _AppEntityChipState extends State<AppEntityChip>
         color: AppTheme.trialTurquoise.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(_radius),
         border: Border.all(
-          color: _hover ? AppTheme.trialGold : Colors.transparent,
+          color: _hover
+                  ? AppTheme.trialGold
+                  : AppTheme.trialGold.withValues(alpha: 0),
           width: 1.5,
         ),
       ),

@@ -8,18 +8,25 @@ import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-// Cycled when there are more slices than colours.
+// The palette of the app, ordered so that no two neighbours in the ring are the
+// same colour twice over: the brand pair first, then the two accents that only
+// ever appear beside it. Cycled when there are more slices than colours.
 const List<Color> _sliceColors = [
-  Color(0xFF003C82),
-  Color(0xFF0284C7),
-  Color(0xFF38BDF8),
-  Color(0xFF818CF8),
-  Color(0xFF10B981),
-  Color(0xFFF59E0B),
-  Color(0xFFEF4444),
+  AppTheme.trialTealDeep,
+  AppTheme.trialTurquoise,
+  AppTheme.trialOcean,
+  AppTheme.trialGold,
+  AppTheme.trialSeaGreen,
+  AppTheme.trialViolet,
+  AppTheme.trialDeepWater,
 ];
 
 const double _ringThickness = 30.0;
+
+// What the slice under the pointer grows by. The ring answers the pointer the
+// way everything else in the app does, only it cannot do it with gold: gold is
+// one of the slices.
+const double _hoveredExtraThickness = 8.0;
 
 // Angular gap between slices, in radians. Dropped when there is a single slice,
 // which would otherwise show a seam in a full circle.
@@ -141,7 +148,7 @@ class _PieChartState extends State<PieChart>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.slate800,
+                color: AppTheme.trialInk,
               ),
               textSpan: TextSpan(
                 children: [
@@ -150,7 +157,7 @@ class _PieChartState extends State<PieChart>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.slate800,
+                      color: AppTheme.trialInk,
                     ),
                   ),
                   TextSpan(
@@ -158,7 +165,7 @@ class _PieChartState extends State<PieChart>
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppTheme.slate500,
+                      color: AppTheme.trialMutedText,
                     ),
                   ),
                 ],
@@ -280,7 +287,9 @@ class _PieChartPainter extends CustomPainter
         Paint()
           ..color = _sliceColors[i % _sliceColors.length]
           ..style = PaintingStyle.stroke
-          ..strokeWidth = _ringThickness
+          ..strokeWidth = i == hoveredIndex
+              ? _ringThickness + _hoveredExtraThickness
+              : _ringThickness
           ..strokeCap = StrokeCap.butt,
       );
 

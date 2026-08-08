@@ -3,16 +3,25 @@ import '../../../core/utils/json_parsing.dart';
 import 'child_item.dart';
 import 'membership_item.dart';
 import 'parent_item.dart';
+import 'person_face.dart';
 import 'school_enrollment_item.dart';
 import 'teacher_subject_item.dart';
 
-class PersonItem
+class PersonItem implements PersonFace
 {
   final String fiscalCode;
+
+  @override
   final String firstName;
+
+  @override
   final String lastName;
+
   final List<String> roles;
+
+  @override
   final String? profileImageUrl;
+
   final DateTime createdAt;
 
   final String? gender;
@@ -65,6 +74,12 @@ class PersonItem
   // the corresponding edit endpoints, so their exact instant is significant:
   // unlike the display-only dates above, these are compared for equality by the
   // backend.
+  // The two consents that stay a choice: special category data and the
+  // newsletters. The three declarations signed on joining are not here, because
+  // they are never withdrawn.
+  final bool? specialCategoryDataConsent;
+  final bool? newsletterConsent;
+
   final DateTime? memberUpdatedAt;
   final DateTime? studentUpdatedAt;
   final DateTime? teacherUpdatedAt;
@@ -74,6 +89,11 @@ class PersonItem
   final List<ParentItem>? parents;
   final List<ChildItem>? children;
   final List<TeacherSubjectItem>? teacherSubjects;
+
+  // The services the teacher can take on, by name. Kept apart from the
+  // disciplines: a service has no programmes, and whoever shows them calls the
+  // two by different names.
+  final List<String>? teacherServices;
 
   const PersonItem({
     required this.fiscalCode,
@@ -122,6 +142,8 @@ class PersonItem
     this.schoolEducation,
     this.universityEducation,
     this.medicalCertificateExpiration,
+    this.specialCategoryDataConsent,
+    this.newsletterConsent,
     this.memberUpdatedAt,
     this.studentUpdatedAt,
     this.teacherUpdatedAt,
@@ -130,6 +152,7 @@ class PersonItem
     this.parents,
     this.children,
     this.teacherSubjects,
+    this.teacherServices,
   });
 
   factory PersonItem.fromJson(Map<String, dynamic> json)
@@ -183,6 +206,8 @@ class PersonItem
       schoolEducation: json['school_education'],
       universityEducation: json['university_education'],
       medicalCertificateExpiration: parseDate(json['medical_certificate_expiration']),
+      specialCategoryDataConsent: json['special_category_data_consent'] as bool?,
+      newsletterConsent: json['newsletter_consent'] as bool?,
       memberUpdatedAt: parseInstant(json['member_updated_at']),
       studentUpdatedAt: parseInstant(json['student_updated_at']),
       teacherUpdatedAt: parseInstant(json['teacher_updated_at']),
@@ -191,8 +216,31 @@ class PersonItem
       parents: parseOptionalList(json['parents'], ParentItem.fromJson),
       children: parseOptionalList(json['children'], ChildItem.fromJson),
       teacherSubjects: parseOptionalList(json['teacher_subjects'], TeacherSubjectItem.fromJson),
+      teacherServices: json['teacher_services'] == null
+          ? null
+          : parseStringList(json['teacher_services']),
     );
   }
+
+  // The most recent membership, the only one that can be the current one: the
+  // others are history either way.
+  MembershipItem? get latestMembership
+  {
+    final List<MembershipItem> all = [...?memberships];
+
+    if (all.isEmpty)
+    {
+      return null;
+    }
+
+    all.sort((a, b) => b.year.compareTo(a.year));
+
+    return all.first;
+  }
+
+  // Expelled or resigned: their last membership was revoked, and with it
+  // everything that depended on being part of the association.
+  bool get isMembershipRevoked => latestMembership?.isRevoked ?? false;
 
   int? get age
   {
@@ -215,4 +263,25 @@ class PersonItem
 
     return years;
   }
+}
+
+// Who can still be picked: only those actively collaborating. It holds wherever
+// somebody is named for something still to happen — the teacher offering an
+// availability, the one preferred or not preferred on a lesson, the pupil booked
+// for — because whoever has stopped will not be there that day, and offering
+// them is offering a choice nobody can honour.
+//
+// Expelled or resigned counts as not collaborating: collaborating holds while
+// the membership runs, and whoever is no longer part of the association does not
+// spend the day inside it.
+//
+// It does not apply to what has already happened: the availability a former
+// collaborator gave still carries their name, and writing it needs the whole
+// list.
+List<PersonItem> activeCollaborators(List<PersonItem> people)
+{
+  return people
+      .where((person) =>
+          (person.isActiveCollaborator ?? false) && !person.isMembershipRevoked)
+      .toList();
 }

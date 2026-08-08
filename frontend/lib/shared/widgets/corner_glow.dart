@@ -11,8 +11,21 @@ enum GlowCorner
 // faded tail of the gradient is visible.
 class CornerGlow extends StatefulWidget
 {
+  // The size it was drawn at, on a page as wide as the layout was drawn for.
   static const double _diameter = 1600;
-  static const double _offset = -800;
+
+  // On a narrower window it comes down with the page. Fixed at 1600 it stopped
+  // being a glow in a corner of a phone and became the background: half of it
+  // is 800px, which is more than twice the width of the screen it was tinting.
+  static const double _widthFactor = 1.15;
+  static const double _minDiameter = 520;
+
+  static double _diameterFor(BuildContext context)
+  {
+    final width = MediaQuery.sizeOf(context).width * _widthFactor;
+
+    return width.clamp(_minDiameter, _diameter);
+  }
 
   // The blue every page has always used. It stays the default so tinting the
   // glow is opt in, page by page.
@@ -148,12 +161,14 @@ class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateM
     final midAlpha = (CornerGlow._midOpacity * widget.intensity).clamp(0.0, 1.0);
 
     // Under the RepaintBoundary the gradient is rasterised once and the
-    // animation only re-transforms that layer, instead of re-shading 1600 by
-    // 1600 pixels on every frame.
+    // animation only re-transforms that layer, instead of re-shading a circle
+    // this size on every frame.
+    final diameter = CornerGlow._diameterFor(context);
+
     final Widget glow = RepaintBoundary(
       child: SizedBox(
-        width: CornerGlow._diameter,
-        height: CornerGlow._diameter,
+        width: diameter,
+        height: diameter,
         child: DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -170,11 +185,14 @@ class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateM
       ),
     );
 
+    // Half of it hangs off the corner, whatever size it came out.
+    final offset = -diameter / 2;
+
     return Positioned(
-      top: isTopRight ? CornerGlow._offset : null,
-      right: isTopRight ? CornerGlow._offset : null,
-      bottom: isTopRight ? null : CornerGlow._offset,
-      left: isTopRight ? null : CornerGlow._offset,
+      top: isTopRight ? offset : null,
+      right: isTopRight ? offset : null,
+      bottom: isTopRight ? null : offset,
+      left: isTopRight ? null : offset,
       child: IgnorePointer(
         child: widget.animated
             // Both transforms run on the cached layer, so the frame costs a

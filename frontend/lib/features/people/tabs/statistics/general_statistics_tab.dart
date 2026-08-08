@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../services/api_service.dart';
+import '../../../../shared/widgets/page_transition.dart';
 import '../../models/current_totals_item.dart';
 import '../../models/member_trend_item.dart';
 import '../../models/retention_rate_item.dart';
-import 'widgets/stat_filter_menu.dart';
+import 'widgets/stat_filters.dart';
 import 'widgets/stat_widgets.dart';
 import 'widgets/stats_constants.dart';
 import 'widgets/stats_data.dart';
@@ -27,6 +28,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   bool _isLoading = true;
   bool _isTrendLoading = false;
   bool _isCollabTrendLoading = false;
+  bool _isRetentionLoading = false;
+  bool _isCollabRetentionLoading = false;
   CurrentTotalsItem? _currentTotals;
   List<MemberTrendItem> _trendData = [];
   List<MemberTrendItem> _collabTrendData = [];
@@ -114,15 +117,73 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     }
   }
 
-  void _reload(VoidCallback mutateState)
+  // Every card fetches and reloads on its own. A pill belongs to the card it
+  // stands on, and answering it by blanking the whole tab behind a spinner —
+  // which is what a single shared load did — throws away four cards that were
+  // not asked about and makes a change of year read as a page change.
+
+  Future<void> _loadRetentionData() async
   {
-    setState(mutateState);
-    _loadData();
+    setState(() => _isRetentionLoading = true);
+
+    try
+    {
+      final data = await _apiService.getRetentionRate(_selectedRetentionYear);
+
+      if (mounted)
+      {
+        setState(() => _retentionData = data);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isRetentionLoading = false);
+      }
+    }
   }
 
-  // The two trend charts fetch and reload independently of the rest of the
-  // tab, so changing their own filters only spins their own chart area instead
-  // of blanking out every other card while unrelated data is refetched.
+  Future<void> _loadCollabRetentionData() async
+  {
+    setState(() => _isCollabRetentionLoading = true);
+
+    try
+    {
+      final data = _collabRetentionType == 'year'
+          ? await _apiService.getRetentionRate(_selectedCollabYear)
+          : await _apiService.getCollaboratingRetentionRate(
+              _selectedCollabYear,
+              _selectedCollabMonth,
+            );
+
+      if (mounted)
+      {
+        setState(() => _collabRetentionData = data);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isCollabRetentionLoading = false);
+      }
+    }
+  }
+
+  void _reloadRetention(VoidCallback mutateState)
+  {
+    setState(mutateState);
+    _loadRetentionData();
+  }
+
+  void _reloadCollabRetention(VoidCallback mutateState)
+  {
+    setState(mutateState);
+    _loadCollabRetentionData();
+  }
 
   Future<void> _loadTrendData() async
   {
@@ -216,51 +277,45 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     return '$subject rispetto ai ${data.previousYearMembers} attivi $period.';
   }
 
-  Widget _buildMembersRetentionCard()
+  Widget _buildMembersRetentionCard(double width, bool matched)
   {
     return RetentionCard(
-      title: 'Fidelizzazione Iscritti',
-      filtersBreakpoint: 480,
+      title: 'Fidelizzazione iscritti',
+      icon: Icons.favorite_rounded,
+      width: width,
+      matched: matched,
       data: _retentionData,
+      isLoading: _isRetentionLoading,
       describe: _membersRetentionSentence,
-      filters: StatFilterMenu<int>(
-        hint: 'Anno',
+      filters: yearPill(
         value: _selectedRetentionYear,
-        options: yearOptions(),
-        onChanged: (value) => _reload(() => _selectedRetentionYear = value),
+        onChanged: (value) => _reloadRetention(() => _selectedRetentionYear = value),
       ),
     );
   }
 
-  Widget _buildCollabRetentionCard()
+  Widget _buildCollabRetentionCard(double width, bool matched)
   {
-    final filters = Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      alignment: WrapAlignment.start,
+    final filters = StatFilterRow(
       children: [
-        StatFilterMenu<String>(
-          hint: 'Tipo',
+        resolutionPill(
+          prefix: 'Tipo',
           value: _collabRetentionType,
-          options: resolutionOptions(),
-          onChanged: (value) => _reload(()
+          onChanged: (value) => _reloadCollabRetention(()
           {
             _collabRetentionType = value;
             _clampCollabMonthToDataStart();
           }),
         ),
         if (_collabRetentionType == 'month')
-          StatFilterMenu<int>(
-            hint: 'Mese',
+          monthPill(
+            year: _selectedCollabYear,
             value: _selectedCollabMonth,
-            options: monthOptions(_selectedCollabYear),
-            onChanged: (value) => _reload(() => _selectedCollabMonth = value),
+            onChanged: (value) => _reloadCollabRetention(() => _selectedCollabMonth = value),
           ),
-        StatFilterMenu<int>(
-          hint: 'Anno',
+        yearPill(
           value: _selectedCollabYear,
-          options: yearOptions(),
-          onChanged: (value) => _reload(()
+          onChanged: (value) => _reloadCollabRetention(()
           {
             _selectedCollabYear = value;
             _clampCollabMonthToDataStart();
@@ -270,9 +325,12 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     );
 
     return RetentionCard(
-      title: 'Fidelizzazione Collaboratori Attivi',
-      filtersBreakpoint: 620,
+      title: 'Fidelizzazione collaboratori attivi',
+      icon: Icons.volunteer_activism_rounded,
+      width: width,
+      matched: matched,
       data: _collabRetentionData,
+      isLoading: _isCollabRetentionLoading,
       describe: _collaboratorsRetentionSentence,
       filters: filters,
     );
@@ -280,6 +338,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Widget _buildTrendChartCard({
     required String title,
+    required IconData icon,
     required List<MemberTrendItem> data,
     required bool isLoading,
     required String resolution,
@@ -290,34 +349,21 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     required ValueChanged<int> onEndYearChanged,
   })
   {
-    final filters = Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      alignment: WrapAlignment.start,
+    final filters = StatFilterRow(
       children: [
-        StatFilterMenu<String>(
-          hint: 'Vista',
+        resolutionPill(
+          prefix: 'Vista',
           value: resolution,
-          options: resolutionOptions(),
           onChanged: onResolutionChanged,
         ),
-        StatFilterMenu<int>(
-          hint: 'Da anno',
-          value: startYear,
-          options: yearOptions(),
-          onChanged: onStartYearChanged,
-        ),
-        StatFilterMenu<int>(
-          hint: 'A anno',
-          value: endYear,
-          options: yearOptions(),
-          onChanged: onEndYearChanged,
-        ),
+        startYearPill(value: startYear, onChanged: onStartYearChanged),
+        endYearPill(value: endYear, onChanged: onEndYearChanged),
       ],
     );
 
     return ChartCard(
       title: title,
+      icon: icon,
       filters: filters,
       isEmpty: data.isEmpty,
       isLoading: isLoading,
@@ -328,7 +374,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildMembersTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend Iscritti Totali',
+      title: 'Trend iscritti totali',
+      icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
       resolution: _trendResolution,
@@ -360,7 +407,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildCollabTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend Collaboratori Attivi',
+      title: 'Trend collaboratori attivi',
+      icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
       resolution: _collabTrendResolution,
@@ -394,34 +442,36 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: pageTransitionBlocks([
           ResponsiveCardPair(
             first: SummaryStatCard(
-              title: 'Iscritti Totali',
-              icon: Icons.people_alt_outlined,
+              title: 'Iscritti totali',
+              icon: Icons.groups_rounded,
               count: _currentTotals?.currentTotalMembers ?? 0,
               deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
               deltaYear: _currentTotals?.membersDeltaYear ?? 0,
             ),
             second: SummaryStatCard(
-              title: 'Collaboratori Attivi',
-              icon: Icons.handshake_outlined,
+              title: 'Collaboratori attivi',
+              icon: Icons.handshake_rounded,
               count: _currentTotals?.currentActiveCollaborators ?? 0,
               deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
               deltaYear: _currentTotals?.collabDeltaYear ?? 0,
             ),
           ),
           const SizedBox(height: 24),
-          ResponsiveCardPair(
-            first: _buildMembersRetentionCard(),
-            second: _buildCollabRetentionCard(),
+          // The one pair of the page that has to be the same height on both
+          // sides: they are the same question asked of two populations.
+          MatchedCardPair(
+            first: _buildMembersRetentionCard,
+            second: _buildCollabRetentionCard,
           ),
           const SizedBox(height: 24),
           _buildMembersTrendCard(),
           const SizedBox(height: 24),
           _buildCollabTrendCard(),
           const SizedBox(height: 40),
-        ],
+        ]),
       ),
     );
   }
@@ -431,11 +481,15 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
     // The nested Navigator gives this tab its own Overlay, which is why the
     // filter menus below insert into the root overlay instead.
+    //
+    // The charts are timed one by one inside, rather than the whole page being
+    // wrapped as one element out here: a page that left in a single slab was
+    // the odd one out beside every list in the app.
     return Navigator(
       onGenerateRoute: (settings) => MaterialPageRoute(
         builder: (context) => _buildContent(),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../models/person_item.dart';
-import '../person_wizard_components.dart';
 import '../widgets/person_detail_widgets.dart';
 
 const int _adultAge = 18;
@@ -207,7 +207,7 @@ class PersonInfoTab extends StatelessWidget
     if (roles.contains('STUDENTE') || roles.contains('CORSISTA'))
     {
       cards.add(PersonDetailCard(
-        title: 'Modalità di Pagamento',
+        title: 'Modalità di pagamento',
         icon: Icons.payments_outlined,
         labelWidth: 205,
         rows: [DetailRowData('Modalità', _paymentMethodText)],
@@ -289,7 +289,7 @@ class PersonInfoTab extends StatelessWidget
     if (!_isAdult)
     {
       cards.add(PersonDetailCard(
-        title: 'Sicurezza del Minore',
+        title: 'Sicurezza del minore',
         icon: Icons.health_and_safety_outlined,
         labelWidth: 205,
         rows: [
@@ -319,25 +319,20 @@ class PersonInfoTab extends StatelessWidget
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: pageTransitionBlocks([
               _buildIdentityAndResidence(),
               const SizedBox(height: 24),
               _buildBirthAndContacts(),
               ..._buildRoleSpecificCards(),
               const SizedBox(height: 48),
               Center(
-                child: SizedBox(
-                  width: 255,
-                  child: WizardAnimatedActionButton(
-                    text: 'MODIFICA ANAGRAFICA',
-                    icon: Icons.edit_rounded,
-                    baseColor: AppTheme.primary,
-                    hoverColor: AppTheme.primaryHover,
-                    onPressed: onEdit,
-                  ),
+                child: AppGradientButton(
+                  label: 'MODIFICA ANAGRAFICA',
+                  icon: Icons.edit_rounded,
+                  onPressed: onEdit,
                 ),
               ),
-            ],
+            ]),
           ),
         ),
       ),

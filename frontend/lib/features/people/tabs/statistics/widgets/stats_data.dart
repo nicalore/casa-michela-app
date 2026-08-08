@@ -1,5 +1,5 @@
+import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../models/member_trend_item.dart';
-import 'stat_filter_menu.dart';
 import 'stats_constants.dart';
 
 // Data preparation and filter options shared by every statistics tab. They are
@@ -64,32 +64,32 @@ List<MemberTrendItem> padTrendData(
   return padded;
 }
 
-List<StatFilterOption<String>> resolutionOptions()
+List<FilterOption<String>> resolutionOptions()
 {
   return const [
-    StatFilterOption(value: 'year', label: 'Annuale'),
-    StatFilterOption(value: 'month', label: 'Mensile'),
+    FilterOption(value: 'year', label: 'Annuale'),
+    FilterOption(value: 'month', label: 'Mensile'),
   ];
 }
 
 /// Every year with data, most recent first.
-List<StatFilterOption<int>> yearOptions()
+List<FilterOption<int>> yearOptions()
 {
   final currentYear = DateTime.now().year;
 
   return List.generate(currentYear - dataStartYear + 1, (index) => currentYear - index)
-      .map((year) => StatFilterOption(value: year, label: year.toString()))
+      .map((year) => FilterOption(value: year, label: year.toString()))
       .toList();
 }
 
 /// Months selectable for [selectedYear]. The first year only has data from
 /// [dataStartMonth] on, so offering earlier months would point at nothing.
-List<StatFilterOption<int>> monthOptions(int selectedYear)
+List<FilterOption<int>> monthOptions(int selectedYear)
 {
   final firstMonth = selectedYear == dataStartYear ? dataStartMonth : 1;
 
   return [
     for (var month = firstMonth; month <= 12; month++)
-      StatFilterOption(value: month, label: monthAbbreviations[month - 1]),
+      FilterOption(value: month, label: monthAbbreviations[month - 1]),
   ];
 }

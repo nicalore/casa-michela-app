@@ -21,6 +21,46 @@ const double _menuMaxHeight = 350;
 const double _markWidth = 2;
 const double _markHeight = 16;
 
+// The cross that turns a filter off, and the disc it sits in.
+const double _clearIcon = 14;
+const double _clearDiscPadding = 3;
+const double _clearDisc = _clearIcon + 2 * _clearDiscPadding;
+
+// Air between the chevron and the disc.
+const double _clearGap = 8;
+
+// How much bigger the disc gets under the pointer, and the room that growth is
+// given on either side of it.
+//
+// A scale paints outside the box it was measured at, and this one is measured
+// inside the ClipRect that opens it sideways with the ground. Without the room
+// reserved here the disc grew straight into that clip and the cross came out
+// with its side shaved off — the one part of a pill whose whole job is to be
+// obviously pressable, and the only part of it that looked broken.
+const double _clearGrowth = 1.12;
+const double _clearHoverRoom = _clearDisc * (_clearGrowth - 1) / 2;
+
+// How much of the pill the label may take when there is room for all of it.
+const double _labelMaxWidth = 210;
+
+// The label is the part of a pill that gives way. Flexible is what lets it: a
+// pill on a card too narrow to hold "Raggruppa per: Livello di istruzione" gives
+// up label rather than running off the card, and where there is room the limit
+// above is what it keeps.
+//
+// It has to be a flex rather than a measurement, because a card matched to
+// another card's height asks this whole subtree how tall it would be at a given
+// width, and a LayoutBuilder in here could not answer.
+Widget _pillLabel(Widget label)
+{
+  return Flexible(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _labelMaxWidth),
+      child: label,
+    ),
+  );
+}
+
 // Two things wearing one shape, and they are not the same thing.
 //
 // A setting always holds a value — a list is always sorted somehow — so it can
@@ -274,10 +314,7 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
       children: [
         Icon(widget.icon, size: 18, color: contentColor),
         const SizedBox(width: 9),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 210),
-          child: _buildLabel(contentColor),
-        ),
+        _pillLabel(_buildLabel(contentColor)),
         const SizedBox(width: 6),
         // The chevron is the part that was missing: without it these read as
         // buttons that do something rather than as something that opens.
@@ -367,9 +404,8 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
       children: [
         Icon(widget.icon, size: 18, color: contentColor),
         const SizedBox(width: 9),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 210),
-          child: Text.rich(
+        _pillLabel(
+          Text.rich(
             TextSpan(
               children: [
                 TextSpan(text: widget.label),
@@ -542,25 +578,35 @@ class _ClearButtonState extends State<_ClearButton>
         child: Tooltip(
           message: 'Rimuovi il filtro',
           waitDuration: const Duration(milliseconds: 400),
-          child: AnimatedScale(
-            scale: _hover ? 1.12 : 1,
-            duration: _hoverFade,
-            curve: Curves.easeOut,
-            child: AnimatedContainer(
+          // The gap on one side and the room to grow on the other. The disc
+          // grows into the gap on the left, which is wider than it needs, so
+          // only the right has to be paid for.
+          //
+          // The gap is out here rather than inside the scale on purpose: scaled
+          // along with the disc it would drag the disc sideways as it grew, and
+          // what should read as a button swelling under the pointer read as one
+          // shifting away from it.
+          child: Padding(
+            padding: const EdgeInsets.only(left: _clearGap, right: _clearHoverRoom),
+            child: AnimatedScale(
+              scale: _hover ? _clearGrowth : 1,
               duration: _hoverFade,
               curve: Curves.easeOut,
-              margin: const EdgeInsets.only(left: 8),
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(
-                  alpha: (_hover ? 0.42 : 0.20) * widget.opacity,
+              child: AnimatedContainer(
+                duration: _hoverFade,
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.all(_clearDiscPadding),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(
+                    alpha: (_hover ? 0.42 : 0.20) * widget.opacity,
+                  ),
+                  shape: BoxShape.circle,
                 ),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: Colors.white.withValues(alpha: widget.opacity),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: _clearIcon,
+                  color: Colors.white.withValues(alpha: widget.opacity),
+                ),
               ),
             ),
           ),

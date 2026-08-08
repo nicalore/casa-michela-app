@@ -5,10 +5,15 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_filter_pill.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
-import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
+import '../edit/person_edit_dialog.dart';
 import '../models/people_filter_state.dart';
 import '../models/person_item.dart';
 import '../widgets/people_filter_dialog.dart';
@@ -28,6 +33,11 @@ enum _PeopleSort
   const _PeopleSort(this.label);
 }
 
+// Four cards to a row is the shape of this list: past that they get small
+// enough that the grid reads as a wall rather than as people.
+const int _maxColumns = 4;
+const double _cardGap = 20;
+
 class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
@@ -45,11 +55,13 @@ class PeopleSearchTab extends StatefulWidget
   State<PeopleSearchTab> createState() => _PeopleSearchTabState();
 }
 
-class _PeopleSearchTabState extends State<PeopleSearchTab>
+class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefresh
 {
-  // Static on purpose: search text, sorting and filters have to survive
-  // navigating to a person and back, and the tab itself is rebuilt from scratch
-  // each time.
+  // Static on purpose: search text, sorting and filters have to survive the tab
+  // being taken down and put back. Since the destinations of the shell are kept
+  // alive that no longer happens on the way to a person and back — the tab is
+  // simply still there — and what these are left holding is the session: they
+  // outlive a logout, which is why clearSavedState above exists.
   static String _savedSearchText = '';
   static _PeopleSort _savedSort = _PeopleSort.nameAsc;
   static PeopleFilterState _savedFilterState = const PeopleFilterState();
@@ -61,8 +73,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
   late _PeopleSort _sort;
   late PeopleFilterState _filterState;
 
-  bool _newPersonHover = false;
-  bool _filtersHover = false;
   bool _isLoading = true;
 
   List<PersonItem> _people = [];
@@ -84,6 +94,12 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
 
     _loadData();
   }
+
+  // People can have been edited while away — by you, from a person's page — so
+  // they are asked for again on return. Quietly: the list already there stays on
+  // screen until the new one arrives.
+  @override
+  void onDestinationShown() => _loadData(quiet: true);
 
   @override
   void dispose()
@@ -107,7 +123,26 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
     return result;
   }
 
-  Future<void> _loadData() async
+  // A person is created in a dialog over the list and not on a page of its own:
+  // where one started from stays visible, and closing it lands exactly there.
+  Future<void> _openCreationDialog() async
+  {
+    final String? created = await showBlurredDialog<String>(
+      context: context,
+      barrierLabel: 'PersonCreation',
+      builder: (context) => const PersonEditDialog.create(),
+    );
+
+    if (created != null && mounted)
+    {
+      await _loadData();
+    }
+  }
+
+  // Quiet means asked for again rather than asked for the first time: the page
+  // is already showing a list, so a failure leaves it standing and says nothing
+  // instead of raising an error over a list that is perfectly readable.
+  Future<void> _loadData({bool quiet = false}) async
   {
     try
     {
@@ -136,11 +171,15 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
       }
 
       setState(() => _isLoading = false);
-      CustomSnackBar.show(
-        context: context,
-        message: 'Impossibile caricare le anagrafiche dal server.',
-        isError: true,
-      );
+
+      if (!quiet)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: 'Impossibile caricare le anagrafiche dal server.',
+          isError: true,
+        );
+      }
     }
   }
 
@@ -331,213 +370,154 @@ class _PeopleSearchTabState extends State<PeopleSearchTab>
     });
   }
 
-  Widget _buildNewPersonButton()
-  {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _newPersonHover = true),
-      onExit: (_) => setState(() => _newPersonHover = false),
-      child: GestureDetector(
-        onTap: () => context.go('/people/new'),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          height: 50,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: _newPersonHover ? AppTheme.primary : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Center(
-            child: Text(
-              'Nuova persona',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActiveFiltersBadge()
-  {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        _filterState.activeFiltersCount.toString(),
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: AppTheme.primary,
-          height: 1.1,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFiltersButton({required bool isFilterActive})
-  {
-    final isHighlighted = _filtersHover || isFilterActive;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _filtersHover = true),
-      onExit: (_) => setState(() => _filtersHover = false),
-      child: GestureDetector(
-        onTap: _showFilterDialog,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 42,
-          padding: EdgeInsets.only(left: 16, right: isFilterActive ? 12 : 16),
-          decoration: BoxDecoration(
-            color: isHighlighted ? AppTheme.surfaceHover : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isHighlighted ? AppTheme.primary : AppTheme.border,
-              width: 1.5,
-            ),
-            boxShadow: const [
-              BoxShadow(color: Color(0x05000000), offset: Offset(0, 2), blurRadius: 8),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.tune_rounded, color: AppTheme.primary, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'Filtri',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.w600,
-                  color: isFilterActive ? AppTheme.primary : AppTheme.mutedText,
-                ),
-              ),
-              if (isFilterActive) ...[
-                const SizedBox(width: 8),
-                _buildActiveFiltersBadge(),
-                const SizedBox(width: 8),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: _clearFilters,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.danger.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded, size: 16, color: AppTheme.danger),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildResultList(List<PersonItem> people)
   {
     return Expanded(
-      child: SingleChildScrollView(
-        child: Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 20,
-            runSpacing: 20,
-            children: people.map((person)
-            {
-              return PersonCard(
-                person: person,
-                onTap: () => context.go('/people/${person.fiscalCode}'),
-              );
-            }).toList(),
-          ),
+      child: PageTransitionScrollView(
+        child: LayoutBuilder(
+          builder: (context, constraints)
+          {
+            // Four to a row wherever four fit, and the row shared out between
+            // them rather than packed with as many as will go: at 1920 that is
+            // six narrow cards or four roomy ones, and four of a person is
+            // easier to read than six.
+            //
+            // Narrower windows drop a column at a time, and past the widest a
+            // card is allowed to be the row simply centres what is left over.
+            final columns = _columnsFor(constraints.maxWidth);
+            final width = ((constraints.maxWidth - _cardGap * (columns - 1)) / columns)
+                .clamp(PersonCard.minWidth, PersonCard.maxWidth);
+
+            return Center(
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: _cardGap,
+                runSpacing: _cardGap,
+                children: [
+                  // One box per card, so on a page change they leave and come
+                  // back one after another rather than all at once.
+                  for (var i = 0; i < people.length; i++)
+                    PageTransitionItem(
+                      slot: PageTransitionItem.list + i,
+                      child: PersonCard(
+                        person: people[i],
+                        width: width,
+                        onTap: () => context.go('/people/${people[i].fiscalCode}'),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
+  }
+
+  int _columnsFor(double available)
+  {
+    for (var columns = _maxColumns; columns > 1; columns--)
+    {
+      if (columns * PersonCard.minWidth + _cardGap * (columns - 1) <= available)
+      {
+        return columns;
+      }
+    }
+
+    return 1;
   }
 
   @override
   Widget build(BuildContext context)
   {
     final people = _filteredPeople;
-    final isFilterActive = _filterState.hasActiveFilters;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: AnimatedSearchBar(
-                controller: _searchController,
-                hintText: 'Cerca persona...',
-                onChanged: (value) => setState(()
-                {
-                  _searchText = value;
-                  _savedSearchText = value;
-                }),
-              ),
-            ),
-            const SizedBox(width: 24),
-            _buildNewPersonButton(),
-          ],
-        ),
-        const SizedBox(height: 32),
-        Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            CustomFilterMenu<_PeopleSort>(
-              hint: 'Ordina per',
-              icon: Icons.sort_rounded,
-              value: _sort,
-              menuWidth: 200,
-              showClearIcon: false,
-              onClear: () {},
+        // The page head leaves all at once: field, button, filters and count
+        // read as a single block, and it is the cards below that carry the
+        // stagger from one item to the next.
+        PageTransitionItem(
+          slot: PageTransitionItem.header,
+          child: TabHeaderRow(
+            search: AppSearchField(
+              controller: _searchController,
               onChanged: (value) => setState(()
               {
-                _sort = value;
-                _savedSort = value;
+                _searchText = value;
+                _savedSearchText = value;
               }),
-              options: _PeopleSort.values
-                  .map((sort) => FilterOption(value: sort, label: sort.label))
-                  .toList(),
+              hintText: 'Cerca persona...',
             ),
-            _buildFiltersButton(isFilterActive: isFilterActive),
-          ],
+            action: AppGradientButton(
+              label: 'NUOVA PERSONA',
+              icon: Icons.person_add_alt_1_rounded,
+              height: 50,
+              // Half its own height: the shape of the search bar it stands
+              // beside, and of the button that adds a school.
+              radius: 25,
+              fontSize: 14,
+              onPressed: _openCreationDialog,
+            ),
+          ),
         ),
+        const SizedBox(height: 28),
+        PageTransitionItem(
+          slot: PageTransitionItem.header,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // A list is always sorted somehow, so this one can never be off
+              // and has nothing to clear.
+              AppFilterPill<_PeopleSort>.setting(
+                prefix: 'Ordina',
+                hint: 'Ordina per',
+                icon: Icons.swap_vert_rounded,
+                value: _sort,
+                menuWidth: 220,
+                onChanged: (value) => setState(()
+                {
+                  _sort = value;
+                  _savedSort = value;
+                }),
+                options: _PeopleSort.values
+                    .map((sort) => FilterOption(value: sort, label: sort.label))
+                    .toList(),
+              ),
+              const FilterGroupDivider(),
+              // Everything else lives in a window of its own, so the pill says
+              // how many of them are on rather than what they are.
+              AppCountFilterPill(
+                label: 'Filtri',
+                icon: Icons.tune_rounded,
+                count: _filterState.activeFiltersCount,
+                onOpen: _showFilterDialog,
+                onClear: _clearFilters,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
         const SizedBox(height: 16),
-        Text(
-          people.length == 1 ? '1 persona trovata' : '${people.length} persone trovate',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.primary,
+        PageTransitionItem(
+          slot: PageTransitionItem.header,
+          child: Text(
+            people.length == 1 ? '1 persona trovata' : '${people.length} persone trovate',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
           ),
         ),
         const SizedBox(height: 16),
         if (_isLoading)
           const Padding(
             padding: EdgeInsets.only(top: 60),
-            child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+            child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
           )
         else
           _buildResultList(people),

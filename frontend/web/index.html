@@ -29,7 +29,8 @@
       background-color: #FFFFFF;
     }
 
-    #flutter-viewport
+    #flutter-viewport,
+    #flutter_host
     {
       position: absolute;
       top: 0;
@@ -37,17 +38,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      touch-action: none;
       background-color: #FFFFFF;
-    }
-
-    #flutter-scale-wrapper
-    {
-      position: absolute;
-      top: 0;
-      left: 0;
-      transform-origin: top left;
-      will-change: transform;
     }
 
     /* The -webkit- prefixed backdrop-filter is still required by Safari. */
@@ -77,67 +68,6 @@
       -webkit-backdrop-filter: blur(20px);
     }
 
-    #landscape-overlay
-    {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 999999;
-      background: linear-gradient(135deg, #003C82 0%, #001E41 100%);
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      gap: 24px;
-      text-align: center;
-      padding: 32px;
-      box-sizing: border-box;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
-
-    #landscape-overlay.visible
-    {
-      display: flex;
-    }
-
-    #landscape-overlay svg
-    {
-      width: 72px;
-      height: 72px;
-      fill: none;
-      stroke: white;
-      stroke-width: 1.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      animation: rotate-hint 2.5s ease-in-out infinite;
-    }
-
-    #landscape-overlay h2
-    {
-      margin: 0;
-      font-size: 22px;
-      font-weight: 700;
-      color: white;
-      letter-spacing: 0.3px;
-    }
-
-    #landscape-overlay p
-    {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 400;
-      color: rgba(255, 255, 255, 0.75);
-      line-height: 1.5;
-      max-width: 340px;
-    }
-
-    @keyframes rotate-hint
-    {
-      0%, 100% { transform: rotate(0deg); }
-      30%, 70% { transform: rotate(-90deg); }
-    }
   </style>
 
   <script>
@@ -145,9 +75,7 @@
     {
       phoneDprMultiplier: 1,
       tabletDprMultiplier: 1.1,
-      maxForcedDpr: 6,
-      phoneMaxZoom: 4,
-      tabletMaxZoom: 2
+      maxForcedDpr: 6
     };
 
     function detectIsTablet()
@@ -188,24 +116,7 @@
       return diagonal >= MIN_TABLET_DIAGONAL_INCHES;
     }
 
-    function detectIsTouchDevice()
-    {
-      var TOUCH_UA_PATTERN = /iphone|ipad|ipod|android|mobile|tablet|silk|playbook/;
-
-      var maxTouchPoints = navigator.maxTouchPoints || 0;
-
-      if (maxTouchPoints > 1)
-      {
-        return true;
-      }
-
-      var ua = (navigator.userAgent || '').toLowerCase();
-
-      return TOUCH_UA_PATTERN.test(ua) || (/macintosh/.test(ua) && maxTouchPoints > 0);
-    }
-
     window.__casaMichelaIsTablet = detectIsTablet();
-    window.__casaMichelaIsTouchDevice = detectIsTouchDevice();
 
     (function ()
     {
@@ -237,64 +148,6 @@
         // Some browsers refuse to redefine the property: rendering simply
         // stays at the native density.
       }
-    })();
-
-    (function ()
-    {
-      var ORIENTATION_SETTLE_MS = 150;
-
-      if (!window.__casaMichelaIsTouchDevice)
-      {
-        return;
-      }
-
-      function lockPortrait()
-      {
-        try
-        {
-          var target = screen.orientation || screen.mozOrientation || screen.msOrientation;
-
-          if (target && typeof target.lock === 'function')
-          {
-            target.lock('portrait').catch(function () {});
-          }
-        }
-        catch (e)
-        {
-          // The lock API is unavailable outside Android Chrome; the overlay
-          // below is the fallback for everyone else.
-        }
-      }
-
-      function checkLandscape()
-      {
-        var overlay = document.getElementById('landscape-overlay');
-
-        if (!overlay)
-        {
-          return;
-        }
-
-        overlay.classList.toggle('visible', window.innerWidth > window.innerHeight);
-      }
-
-      lockPortrait();
-
-      if (document.readyState === 'loading')
-      {
-        document.addEventListener('DOMContentLoaded', checkLandscape);
-      }
-      else
-      {
-        checkLandscape();
-      }
-
-      window.addEventListener('resize', checkLandscape);
-      window.addEventListener('orientationchange', function ()
-      {
-        // Right after the event the viewport still reports the old size.
-        setTimeout(checkLandscape, ORIENTATION_SETTLE_MS);
-      });
     })();
 
     window.__hideCasaMichelaSplash = function ()
@@ -330,333 +183,20 @@
 <body>
   <div id="splash-overlay"></div>
 
-  <div id="landscape-overlay">
-    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-      <line x1="12" y1="18" x2="12" y2="18.01" stroke-width="2"/>
-    </svg>
-    <h2>Ruota il dispositivo</h2>
-    <p>Per una migliore esperienza, utilizza l'applicazione in modalità verticale.</p>
-  </div>
-
+  <!--
+    The host is sized by the stylesheet above and by nothing else. It used to be
+    a virtual 1024px desktop canvas scaled down by CSS on touch devices, with
+    hand-rolled pinch, pan and momentum driving it from a script down here. All
+    of that existed because the app had no layout below that width: a phone was
+    shown the desktop page from far away, and zooming was the only way to read
+    it. The app has a compact layout now, and the scaling would be exactly what
+    stops it from ever being used — Flutter would still be told the window is
+    1024 wide, whatever the phone. Left to the stylesheet, the host is the
+    window, and the browser keeps its own zoom and scrolling.
+  -->
   <div id="flutter-viewport">
-    <div id="flutter-scale-wrapper">
-      <div id="flutter_host"></div>
-    </div>
+    <div id="flutter_host"></div>
   </div>
-
-  <script>
-    (function ()
-    {
-      var DESKTOP_WIDTH = 1024;
-      var MIN_USER_ZOOM = 1;
-      var SINGLE_PAN_MIN_ZOOM = 1.02;
-      var PAN_THRESHOLD = 12;
-      var MOMENTUM_FRICTION = 0.95;
-      var MOMENTUM_MIN_VELOCITY = 0.02;
-      var MOMENTUM_REFERENCE_FRAME_MS = 16;
-      var VELOCITY_SMOOTHING = 0.7;
-      var VELOCITY_SAMPLE_WEIGHT = 0.3;
-
-      var cfg = window.__casaMichelaConfig;
-      var MAX_USER_ZOOM = window.__casaMichelaIsTablet
-        ? cfg.tabletMaxZoom
-        : cfg.phoneMaxZoom;
-
-      var host = document.getElementById('flutter_host');
-      var wrapper = document.getElementById('flutter-scale-wrapper');
-      var viewport = document.getElementById('flutter-viewport');
-
-      var baseScale = 1;
-      var userZoom = 1;
-      var panX = 0;
-      var panY = 0;
-
-      var pinchActive = false;
-      var pinchStartDistance = 0;
-      var pinchStartZoom = 1;
-      var pinchContentX = 0;
-      var pinchContentY = 0;
-
-      var singleTouchId = null;
-      var singleStart = { x: 0, y: 0 };
-      var singleStartPan = { x: 0, y: 0 };
-      var singlePanClaimed = false;
-
-      var velocityX = 0;
-      var velocityY = 0;
-      var lastSampleTime = 0;
-      var lastSampleX = 0;
-      var lastSampleY = 0;
-      var momentumRAF = null;
-
-      function totalScale()
-      {
-        return baseScale * userZoom;
-      }
-
-      function applyTransform()
-      {
-        wrapper.style.transform =
-          'translate(' + panX + 'px,' + panY + 'px) scale(' + totalScale() + ')';
-      }
-
-      function clampPan()
-      {
-        var scale = totalScale();
-        var contentWidth = DESKTOP_WIDTH * scale;
-        var contentHeight = parseFloat(host.style.height || 0) * scale;
-        var minX = Math.min(0, window.innerWidth - contentWidth);
-        var minY = Math.min(0, window.innerHeight - contentHeight);
-
-        panX = Math.max(minX, Math.min(0, panX));
-        panY = Math.max(minY, Math.min(0, panY));
-      }
-
-      function cancelMomentum()
-      {
-        if (momentumRAF !== null)
-        {
-          cancelAnimationFrame(momentumRAF);
-          momentumRAF = null;
-        }
-      }
-
-      function startMomentum()
-      {
-        cancelMomentum();
-
-        var lastTime = performance.now();
-
-        function step(now)
-        {
-          var dt = now - lastTime;
-          lastTime = now;
-
-          // Friction is normalised on a 16 ms frame so that deceleration
-          // feels identical whatever the actual refresh rate is.
-          var friction = Math.pow(MOMENTUM_FRICTION, dt / MOMENTUM_REFERENCE_FRAME_MS);
-          velocityX *= friction;
-          velocityY *= friction;
-
-          panX += velocityX * dt;
-          panY += velocityY * dt;
-          clampPan();
-          applyTransform();
-
-          var stillMoving = Math.abs(velocityX) > MOMENTUM_MIN_VELOCITY
-            || Math.abs(velocityY) > MOMENTUM_MIN_VELOCITY;
-
-          momentumRAF = stillMoving ? requestAnimationFrame(step) : null;
-        }
-
-        momentumRAF = requestAnimationFrame(step);
-      }
-
-      function trackVelocitySample(touch)
-      {
-        var now = performance.now();
-        var dt = now - lastSampleTime;
-
-        if (dt > 0 && lastSampleTime > 0)
-        {
-          var instantVX = (touch.clientX - lastSampleX) / dt;
-          var instantVY = (touch.clientY - lastSampleY) / dt;
-          velocityX = velocityX * VELOCITY_SMOOTHING + instantVX * VELOCITY_SAMPLE_WEIGHT;
-          velocityY = velocityY * VELOCITY_SMOOTHING + instantVY * VELOCITY_SAMPLE_WEIGHT;
-        }
-
-        lastSampleTime = now;
-        lastSampleX = touch.clientX;
-        lastSampleY = touch.clientY;
-      }
-
-      function resetGestureState()
-      {
-        pinchActive = false;
-        singleTouchId = null;
-        singlePanClaimed = false;
-      }
-
-      function beginSinglePointerPan(touch, alreadyClaimed)
-      {
-        singleTouchId = touch.identifier;
-        singleStart = { x: touch.clientX, y: touch.clientY };
-        singleStartPan = { x: panX, y: panY };
-        singlePanClaimed = alreadyClaimed;
-        velocityX = 0;
-        velocityY = 0;
-        lastSampleTime = 0;
-        trackVelocitySample(touch);
-      }
-
-      function distanceBetween(first, second)
-      {
-        var dx = first.clientX - second.clientX;
-        var dy = first.clientY - second.clientY;
-
-        return Math.sqrt(dx * dx + dy * dy);
-      }
-
-      function startPinch(first, second)
-      {
-        pinchActive = true;
-        pinchStartDistance = distanceBetween(first, second);
-        pinchStartZoom = userZoom;
-
-        var midX = (first.clientX + second.clientX) / 2;
-        var midY = (first.clientY + second.clientY) / 2;
-        var scale = totalScale();
-
-        pinchContentX = (midX - panX) / scale;
-        pinchContentY = (midY - panY) / scale;
-        singleTouchId = null;
-        singlePanClaimed = false;
-      }
-
-      // The virtual DESKTOP_WIDTH plus CSS scaling is reserved to touch
-      // devices: it is what makes pinch zoom possible where Flutter has no
-      // dedicated breakpoints below a certain width. On pointer devices
-      // Flutter must always receive the real window size, otherwise the inner
-      // widgets get scaled by CSS instead of reflowing.
-      function layout()
-      {
-        var vw = window.innerWidth;
-        var vh = window.innerHeight;
-        var shouldScale = window.__casaMichelaIsTouchDevice && vw < DESKTOP_WIDTH;
-
-        if (shouldScale)
-        {
-          baseScale = vw / DESKTOP_WIDTH;
-          host.style.width = DESKTOP_WIDTH + 'px';
-          host.style.height = (vh / baseScale) + 'px';
-        }
-        else
-        {
-          baseScale = 1;
-          host.style.width = vw + 'px';
-          host.style.height = vh + 'px';
-        }
-
-        userZoom = 1;
-        panX = 0;
-        panY = 0;
-        resetGestureState();
-        cancelMomentum();
-        applyTransform();
-      }
-
-      // Capture phase and passive: false are both required, so that these
-      // handlers run before the Flutter ones and are still allowed to call
-      // preventDefault().
-      viewport.addEventListener('touchstart', function (e)
-      {
-        cancelMomentum();
-
-        if (e.touches.length === 2)
-        {
-          startPinch(e.touches[0], e.touches[1]);
-          e.preventDefault();
-        }
-        else if (e.touches.length === 1 && userZoom > SINGLE_PAN_MIN_ZOOM)
-        {
-          beginSinglePointerPan(e.touches[0], false);
-        }
-      }, { capture: true, passive: false });
-
-      viewport.addEventListener('touchmove', function (e)
-      {
-        if (e.touches.length === 2 && pinchActive)
-        {
-          var first = e.touches[0];
-          var second = e.touches[1];
-          var ratio = distanceBetween(first, second) / pinchStartDistance;
-          userZoom = Math.max(MIN_USER_ZOOM, Math.min(MAX_USER_ZOOM, pinchStartZoom * ratio));
-
-          var midX = (first.clientX + second.clientX) / 2;
-          var midY = (first.clientY + second.clientY) / 2;
-          var scale = totalScale();
-
-          panX = midX - pinchContentX * scale;
-          panY = midY - pinchContentY * scale;
-
-          clampPan();
-          applyTransform();
-          e.preventDefault();
-          e.stopPropagation();
-
-          return;
-        }
-
-        if (e.touches.length === 1 && singleTouchId !== null)
-        {
-          var touch = e.touches[0];
-
-          if (touch.identifier !== singleTouchId)
-          {
-            return;
-          }
-
-          trackVelocitySample(touch);
-
-          var dx = touch.clientX - singleStart.x;
-          var dy = touch.clientY - singleStart.y;
-
-          // Below the threshold the gesture is left to Flutter, so that short
-          // drags still reach the widgets underneath.
-          if (!singlePanClaimed)
-          {
-            if (Math.sqrt(dx * dx + dy * dy) <= PAN_THRESHOLD)
-            {
-              return;
-            }
-
-            singlePanClaimed = true;
-          }
-
-          panX = singleStartPan.x + dx;
-          panY = singleStartPan.y + dy;
-          clampPan();
-          applyTransform();
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }, { capture: true, passive: false });
-
-      viewport.addEventListener('touchend', function (e)
-      {
-        // Lifting one finger out of a pinch turns the gesture into a pan
-        // without re-arming the movement threshold.
-        if (pinchActive && e.touches.length === 1)
-        {
-          pinchActive = false;
-          beginSinglePointerPan(e.touches[0], true);
-
-          return;
-        }
-
-        if (e.touches.length === 0)
-        {
-          if (singlePanClaimed)
-          {
-            startMomentum();
-          }
-
-          resetGestureState();
-        }
-      }, { capture: true });
-
-      viewport.addEventListener('touchcancel', function ()
-      {
-        resetGestureState();
-        cancelMomentum();
-      }, { capture: true });
-
-      layout();
-      window.addEventListener('resize', layout);
-      window.addEventListener('orientationchange', layout);
-    })();
-  </script>
 
   <script src="flutter_bootstrap.js" async></script>
 </body>

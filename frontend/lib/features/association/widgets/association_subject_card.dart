@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_catalogue_card.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 
-class AssociationSubjectCard extends StatefulWidget
+class AssociationSubjectCard extends StatelessWidget
 {
   final AssociationSubjectItem subject;
   final void Function(VoidCallback onCancel) onEditRequested;
@@ -22,32 +24,22 @@ class AssociationSubjectCard extends StatefulWidget
     required this.onDelete,
   });
 
-  @override
-  State<AssociationSubjectCard> createState() => _AssociationSubjectCardState();
-}
-
-class _AssociationSubjectCardState extends State<AssociationSubjectCard>
-{
-  bool _isHovering = false;
-
-  String get _areaLabel => subjectAreaLabel(widget.subject.area);
-
-  void _showDetailsDialog()
+  void _showDetailsDialog(BuildContext context)
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'AssociationSubjectDetails',
       builder: (dialogContext) => _AssociationSubjectDetailsDialogContent(
-        subject: widget.subject,
-        areaLabel: _areaLabel,
+        subject: subject,
+        areaLabel: subjectAreaLabel(subject.area),
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The reopen callback reuses the card state, not the dialog context
-          // that is about to become invalid.
-          widget.onEditRequested(_showDetailsDialog);
+          // The callback that reopens the details carries the card's context
+          // along, not that of the dialog about to close.
+          onEditRequested(() => _showDetailsDialog(context));
         },
-        onDelete: widget.onDelete,
+        onDelete: onDelete,
       ),
     );
   }
@@ -55,56 +47,18 @@ class _AssociationSubjectCardState extends State<AssociationSubjectCard>
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: _showDetailsDialog,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 360,
-          height: 140,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            // Gold under the pointer, the same mark a module card takes on the
-            // dashboard and a document row in the settings.
-            border: Border.all(
-              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OverflowTooltipText(
-                text: widget.subject.name,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialOcean,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 6),
-              OverflowTooltipText(
-                text: _areaLabel,
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // The name and what it is. The area used to be here and is gone: there are
+    // three areas, so one card in three repeats the same word, and whoever is
+    // looking for a discipline needs to know what is done inside it — the area is
+    // already told by the filter they searched with.
+    final String? description = descriptionOrNull(subject.description);
+
+    return AppCatalogueCard(
+      title: subject.name,
+      details: [
+        if (description != null) CatalogueDetail(description),
+      ],
+      onTap: () => _showDetailsDialog(context),
     );
   }
 }
@@ -113,6 +67,11 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
 {
   // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
+
+  // Narrow: a question of one sentence, and the two answers under it.
+  static const double _confirmWidth = 480;
+
+  static const double _detailsWidth = 600;
   static const double _dialogButtonFontSize = 14;
 
   final AssociationSubjectItem subject;
@@ -135,10 +94,12 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
     showBlurredDialog<void>(
       context: context,
       barrierLabel: 'ConfirmDeletion',
-      builder: (confirmContext) => AppDialogShell(
+      builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        width: 460,
+        // ANNULLA is already the way out of this one.
+        showClose: false,
+        maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
             label: 'ANNULLA',
@@ -164,46 +125,41 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
             },
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: 'La disciplina '),
-                TextSpan(
-                  text: subject.name,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-                ),
-                const TextSpan(text: ' verrà eliminata definitivamente.'),
-              ],
-            ),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              height: 1.45,
-              color: AppTheme.trialInk,
+        children: [
+          AppDialogPill(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'La disciplina '),
+                  TextSpan(
+                    text: subject.name,
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' verrà eliminata definitivamente.'),
+                ],
+              ),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: AppTheme.trialInk,
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   // Small, tracked and muted over the value it names: the same pairing the
   // settings cards use, and the same the top bar uses over a role.
-  Widget _buildFieldLabel(String text)
+  // The first label of a piece sits at its top edge; the ones after it open a
+  // gap from what they follow.
+  Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      padding: EdgeInsets.only(bottom: 6, top: first ? 0 : 20),
+      child: AppFieldLabel(text),
     );
   }
 
@@ -218,11 +174,10 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
   {
     final hasDescription = subject.description != null && subject.description!.isNotEmpty;
 
-    return AppDialogShell(
+    return AppDialogStack(
       eyebrow: 'Disciplina interna',
       title: subject.name,
-      width: 600,
-      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      maxWidth: _detailsWidth,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
           label: 'ELIMINA',
@@ -241,29 +196,32 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
           onPressed: onEditRequested,
         ),
       ),
-      child: SelectionArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildFieldLabel('Area'),
-              Text(areaLabel, style: _valueStyle),
-              _buildFieldLabel('Descrizione'),
-              Text(
-                hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
-                  color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
-                  fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
+      children: [
+        AppDialogPill(
+          expand: true,
+          child: SelectionArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFieldLabel('Area', first: true),
+                Text(areaLabel, style: _valueStyle),
+                _buildFieldLabel('Descrizione'),
+                Text(
+                  hasDescription ? subject.description! : 'Nessuna descrizione fornita.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                    color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
+                    fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

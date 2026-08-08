@@ -5,14 +5,18 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/config/api_config.dart';
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../features/auth/models/me_response.dart';
 import '../../services/api_service.dart';
+import 'app_nav_drawer.dart';
+import 'app_section_rail.dart';
 import 'app_top_nav.dart';
 import 'overflow_tooltip_text.dart';
 import 'role_switch_dialog.dart';
+import 'shared_components.dart';
 import 'snackbar.dart';
 import 'user_menu.dart';
 
@@ -21,11 +25,20 @@ const Color _headerShadow = Color(0x14000000);
 const double _topMargin = 20;
 const double _barHeight = 80;
 
+// The bar on a narrow window: lower, and closer to the top edge, because on a
+// phone the room above the fold is the scarcest thing there is.
+const double _compactTopMargin = 12;
+const double _compactBarHeight = 64;
+
 // How far the shadow reaches past the bar. It is a wide soft one — 24 of blur
 // laid over 19 of spread — so it carries well beyond the white itself, and a
 // page that only clears the bar ends up with the shadow falling across whatever
 // it puts first. A little more than the 43 those two add up to, for air.
 const double _shadowReach = 50;
+
+double _topMarginFor(AppWindowSize size) => size.isCompact ? _compactTopMargin : _topMargin;
+
+double _barHeightFor(AppWindowSize size) => size.isCompact ? _compactBarHeight : _barHeight;
 
 // The shell every page of the app wears: the wordmark, the destinations and the
 // identity block, plus the menu that opens under it. It is a Positioned.fill and
@@ -43,8 +56,18 @@ class AppTopBar extends StatefulWidget
   // taken by anything and has to be left on purpose.
   static const double contentTopInset = _topMargin + _barHeight + _shadowReach;
 
-  // Route of the page showing the bar: its entry in the destinations keeps the
-  // underline for as long as you are there.
+  // The same room, measured for the width the page actually got. The compact
+  // bar is shorter and sits higher, and a page that kept the wide inset would
+  // open with a band of empty paper where a phone can least afford one.
+  static double contentTopInsetFor(AppWindowSize size)
+  {
+    return _topMarginFor(size) + _barHeightFor(size) + (size.isCompact ? 44 : _shadowReach);
+  }
+
+  // Route of the page showing the bar, for the drawer that stands in for the
+  // destinations on a narrow window: its entry is the one marked while you are
+  // there. The row in the bar itself asks the router instead — it has to keep
+  // agreeing with the bar of the page being handed over, which this cannot say.
   final String currentRoute;
 
   // The identity already in hand, for a page that fetches it for its own
@@ -53,10 +76,23 @@ class AppTopBar extends StatefulWidget
   // asks for it itself, which is what every other page does.
   final MeResponse? user;
 
+  // The sections of the page behind the bar. On a wide window they are the
+  // rail's business and the bar never sees them; below the breakpoint the rail
+  // is gone and they move into the drawer, which is the only place left that
+  // can hold two levels of navigation at once.
+  final String? sectionTitle;
+  final List<RailGroup> sectionGroups;
+  final int selectedSection;
+  final ValueChanged<int>? onSectionSelected;
+
   const AppTopBar({
     super.key,
     required this.currentRoute,
     this.user,
+    this.sectionTitle,
+    this.sectionGroups = const [],
+    this.selectedSection = 0,
+    this.onSectionSelected,
   });
 
   @override
@@ -65,8 +101,8 @@ class AppTopBar extends StatefulWidget
 
 class _AppTopBarState extends State<AppTopBar>
 {
-  static const double _horizontalMargin = 40;
   static const double _avatarSize = 54;
+  static const double _compactAvatarSize = 42;
   static const double _maxRoleWidth = 190;
   // Chosen so the lower line comes out at the size of the role on the other
   // end of the bar. The width is the only handle there is: the lines are scaled
@@ -79,29 +115,42 @@ class _AppTopBarState extends State<AppTopBar>
   // identity block leaves over.
   static const double _sideSlotWidth = 290;
 
+  // What the role is allowed on the middle width. Long enough for
+  // "Amministratore", which is 114px at the size it is set there; the two long
+  // ones end in an ellipsis with the whole label in the tooltip, which is what
+  // OverflowTooltipText is for.
+  static const double _mediumRoleWidth = 170;
+
+  // Air the destinations always keep on either side of them, so that a row
+  // scaled down to fit still never touches the mark or the role. This is the
+  // thing the middle width was missing: three equal slots put the words as
+  // close to their neighbours as the arithmetic allowed.
+  static const double _navGutter = 20;
+
   // Where the menu hangs: just below the bar, under the avatar it belongs to.
-  static const double _userMenuTop = 115;
-  static const double _userMenuRight = 60;
+  static const double _userMenuGap = 15;
 
   final ApiService _apiService = ApiService();
 
   bool _isMenuOpen = false;
+  bool _isDrawerOpen = false;
   MeResponse? _user;
-
-  late final String _sessionCacheBuster;
 
   @override
   void initState()
   {
     super.initState();
 
-    // Computed once per mount: the value must stay stable across rebuilds, or
-    // every rebuild would produce a new URL and refetch the image.
-    _sessionCacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
+    // What the page handed over, or failing that the identity the app saw last.
+    // The bar is drawn on the first frame either way, which is what lets a step
+    // between two destinations leave it standing: a bar waiting for its own
+    // request would blink out in the middle of the handover and take the
+    // illusion with it.
+    _user = widget.user ?? _apiService.lastKnownIdentity;
 
-    _user = widget.user;
-
-    if (_user == null)
+    // Asked for all the same, because what is above is a memory and may be a
+    // change of picture or of role out of date.
+    if (widget.user == null)
     {
       _loadUser();
     }
@@ -153,14 +202,33 @@ class _AppTopBarState extends State<AppTopBar>
 
   void _toggleMenu()
   {
-    setState(() => _isMenuOpen = !_isMenuOpen);
+    setState(()
+    {
+      _isMenuOpen = !_isMenuOpen;
+      // Never both at once: they are two answers to the same question, and on a
+      // window this narrow they would be standing on top of each other.
+      _isDrawerOpen = false;
+    });
   }
 
-  void _closeMenu()
+  void _toggleDrawer()
   {
-    if (_isMenuOpen)
+    setState(()
     {
-      setState(() => _isMenuOpen = false);
+      _isDrawerOpen = !_isDrawerOpen;
+      _isMenuOpen = false;
+    });
+  }
+
+  void _closeOverlays()
+  {
+    if (_isMenuOpen || _isDrawerOpen)
+    {
+      setState(()
+      {
+        _isMenuOpen = false;
+        _isDrawerOpen = false;
+      });
     }
   }
 
@@ -222,8 +290,12 @@ class _AppTopBarState extends State<AppTopBar>
         : '${ApiConfig.baseUrl}$url';
 
     // The query parameter defeats the browser cache, so a freshly uploaded
-    // picture replaces the old one instead of showing the stale copy.
-    return '$absoluteUrl?v=$_sessionCacheBuster';
+    // picture replaces the old one instead of showing the stale copy. It counts
+    // the changes of picture rather than the time, so the URL is the same on
+    // every page of the app: stamped with the moment the bar was built, each
+    // page would ask for the same image again under a name the cache had never
+    // seen, and the face would blink on every navigation.
+    return '$absoluteUrl?v=${_apiService.profileImageVersion}';
   }
 
   // Works on the already concatenated full name, splitting on whitespace,
@@ -253,10 +325,12 @@ class _AppTopBarState extends State<AppTopBar>
   // greeting. The role does not appear anywhere else on the page and used to be
   // buried inside the menu, so the bar now answers a question you could not
   // otherwise ask it: which of your roles you are currently wearing.
-  Widget _buildProfileButton()
+  Widget _buildProfileButton(AppWindowSize size)
   {
+    final medium = size == AppWindowSize.medium;
+
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: _maxRoleWidth),
+      constraints: BoxConstraints(maxWidth: medium ? _mediumRoleWidth : _maxRoleWidth),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
@@ -274,23 +348,24 @@ class _AppTopBarState extends State<AppTopBar>
                     // upper case, tracked, muted, small. The two ends of the
                     // bar then read as one pair of blocks facing each other,
                     // each a quiet label over a name.
-                    Text(
-                      'SEI AUTENTICATO COME',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.4,
-                        height: 1.2,
-                        color: AppTheme.trialMutedText,
+                    if (size == AppWindowSize.expanded)
+                      Text(
+                        'SEI AUTENTICATO COME',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.4,
+                          height: 1.2,
+                          color: AppTheme.trialMutedText,
+                        ),
                       ),
-                    ),
                     OverflowTooltipText(
                       text: _activeRoleLabel,
                       maxLines: 1,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 17,
+                        fontSize: medium ? 15 : 17,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                         color: AppTheme.trialTealDeep,
@@ -373,11 +448,24 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildAvatar(String? imageUrl)
+  // Three lines and nothing else: on this width the word "menu" would cost more
+  // room than it explains, and this is the one drawing everybody already reads
+  // as "the rest of the app is behind here".
+  Widget _buildDrawerButton()
+  {
+    return FadeHoverIconButton(
+      icon: _isDrawerOpen ? Icons.close_rounded : Icons.menu_rounded,
+      color: AppTheme.trialTealDeep,
+      hoverColor: AppTheme.trialGoldSurface,
+      onTap: _toggleDrawer,
+    );
+  }
+
+  Widget _buildAvatar(String? imageUrl, double diameter)
   {
     return Container(
-      width: _avatarSize,
-      height: _avatarSize,
+      width: diameter,
+      height: diameter,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
@@ -392,7 +480,7 @@ class _AppTopBarState extends State<AppTopBar>
             ? Text(
                 _initials(_user!.fullName),
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
+                  fontSize: diameter * 0.37,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.trialTealDeep,
                 ),
@@ -402,11 +490,11 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildMenu()
+  Widget _buildMenu(AppWindowSize size)
   {
     return Positioned(
-      top: _userMenuTop,
-      right: _userMenuRight,
+      top: _topMarginFor(size) + _barHeightFor(size) + _userMenuGap,
+      right: AppBreakpoints.pageMargin(size) + 20,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
         switchInCurve: Curves.easeOutCubic,
@@ -436,17 +524,138 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  Widget _buildBar()
+  // The bar as it is on a window wide enough for it: the mark on one end, the
+  // destinations along the middle, who you are on the other.
+  Widget _buildWideBar(AppWindowSize size, String? imageUrl)
+  {
+    // On the middle width the bar stops reserving equal ends. Two hundred and
+    // ninety pixels a side is what centres the destinations on a wide bar, and
+    // it is also what leaves them 348 of the 928 there are at 1024 — half of
+    // what the six words need. Here the mark and the role take the width they
+    // actually are, the destinations take everything else, and the two gutters
+    // keep them from ever touching either.
+    if (size == AppWindowSize.medium)
+    {
+      return Row(
+        children: [
+          _buildWordmark(),
+          const SizedBox(width: _navGutter),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: const AppTopNav(dense: true),
+              ),
+            ),
+          ),
+          const SizedBox(width: _navGutter),
+          _buildProfileButton(size),
+          const SizedBox(width: 12),
+          _buildAvatar(imageUrl, _avatarSize),
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        // The side slots give way before the middle does, so a bar too
+        // narrow for everything squeezes the mark and the role rather than
+        // leaving the destinations no room at all.
+        final sideWidth = math.min(_sideSlotWidth, constraints.maxWidth / 3);
+        final navWidth = math.max(0.0, constraints.maxWidth - 2 * sideWidth);
+
+        return Row(
+          children: [
+            SizedBox(
+              width: sideWidth,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _buildWordmark(),
+              ),
+            ),
+            SizedBox(
+              width: navWidth,
+              // Below its natural width the row of destinations shrinks as
+              // a whole instead of overflowing: the words keep their
+              // spacing and their proportions, and the bar keeps working
+              // down to sizes where nothing else would fit.
+              child: Padding(
+                // The same air the middle width keeps. Here the slots are
+                // usually generous enough on their own, but between 1280 and
+                // about 1350 the row fills its slot exactly, and without this
+                // it would end flush against the block beside it.
+                padding: const EdgeInsets.symmetric(horizontal: _navGutter),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: const AppTopNav(),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: sideWidth,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Flexible(child: _buildProfileButton(size)),
+                  const SizedBox(width: 12),
+                  _buildAvatar(imageUrl, _avatarSize),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // The bar on a narrow window. The destinations are not squeezed into it, they
+  // are moved out of it: what stays is the one thing that opens them, the mark
+  // that says which app this is, and the face that opens the identity menu.
+  Widget _buildCompactBar(String? imageUrl)
+  {
+    return Row(
+      children: [
+        _buildDrawerButton(),
+        const SizedBox(width: 4),
+        // Takes what the two ends leave and gives the rest back: the mark is
+        // the one thing here that can be cut short without costing a way of
+        // getting somewhere.
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: _buildWordmark(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleMenu,
+            child: _buildAvatar(imageUrl, _compactAvatarSize),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBar(AppWindowSize size)
   {
     final imageUrl = _absoluteImageUrl;
+    final margin = AppBreakpoints.pageMargin(size);
 
     return Positioned(
-      left: _horizontalMargin,
-      right: _horizontalMargin,
-      top: _topMargin,
-      child: Container(
-        height: _barHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+      left: margin,
+      right: margin,
+      top: _topMarginFor(size),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        height: _barHeightFor(size),
+        padding: EdgeInsets.symmetric(horizontal: size.isCompact ? 12 : 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(100),
@@ -454,52 +663,47 @@ class _AppTopBarState extends State<AppTopBar>
             BoxShadow(color: _headerShadow, blurRadius: 24, spreadRadius: 19),
           ],
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints)
-          {
-            // The side slots give way before the middle does, so a bar too
-            // narrow for everything squeezes the mark and the role rather than
-            // leaving the destinations no room at all.
-            final sideWidth = math.min(_sideSlotWidth, constraints.maxWidth / 3);
-            final navWidth = math.max(0.0, constraints.maxWidth - 2 * sideWidth);
+        child: size.isCompact
+            ? _buildCompactBar(imageUrl)
+            : _buildWideBar(size, imageUrl),
+      ),
+    );
+  }
 
-            return Row(
-              children: [
-                SizedBox(
-                  width: sideWidth,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: _buildWordmark(),
-                  ),
-                ),
-                SizedBox(
-                  width: navWidth,
-                  // Below its natural width the row of destinations shrinks as
-                  // a whole instead of overflowing: the words keep their
-                  // spacing and their proportions, and the bar keeps working
-                  // down to sizes where nothing else would fit.
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: AppTopNav(currentRoute: widget.currentRoute),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: sideWidth,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Flexible(child: _buildProfileButton()),
-                      const SizedBox(width: 12),
-                      _buildAvatar(imageUrl),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+  Widget _buildDrawer(AppWindowSize size)
+  {
+    return Positioned(
+      left: 0,
+      top: 0,
+      bottom: 0,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation)
+        {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(-1, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: _isDrawerOpen && size.isCompact
+            ? AppNavDrawer(
+                key: const ValueKey('drawer'),
+                currentRoute: widget.currentRoute,
+                sectionTitle: widget.sectionTitle,
+                sectionGroups: widget.sectionGroups,
+                selectedSection: widget.selectedSection,
+                onSectionSelected: widget.onSectionSelected,
+                onDismiss: _closeOverlays,
+              )
+            : const SizedBox(key: ValueKey('empty')),
       ),
     );
   }
@@ -515,28 +719,50 @@ class _AppTopBarState extends State<AppTopBar>
     }
 
     return Positioned.fill(
-      child: Stack(
-        children: [
-          // A sheet over the whole page that catches the next tap and closes the
-          // menu with it. It is always here and merely stops listening when the
-          // menu is shut, rather than being added and removed: a child appearing
-          // at the head of the list shifts the two below it by one, and Flutter,
-          // which pairs children with their elements by position, would tear the
-          // bar and the menu down and build them again on every open. That is
-          // what cost the menu its opening animation and reset the underline
-          // under whichever destination you were on.
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_isMenuOpen,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _closeMenu,
+      // The page under it decides the shape, not the window: on a wide layout
+      // the page can be wider than the window and scroll, and a bar measured
+      // against the window would change form halfway along its own page.
+      child: LayoutBuilder(
+        builder: (context, constraints)
+        {
+          final size = AppBreakpoints.fromWidth(constraints.maxWidth);
+
+          return Stack(
+            children: [
+              // A sheet over the whole page that catches the next tap and closes
+              // whatever is open with it. It is always here and merely stops
+              // listening when nothing is: a child appearing at the head of the
+              // list shifts the ones below it by one, and Flutter, which pairs
+              // children with their elements by position, would tear the bar and
+              // the menu down and build them again on every open. That is what
+              // cost the menu its opening animation and reset the underline
+              // under whichever destination you were on.
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !(_isMenuOpen || _isDrawerOpen),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeOverlays,
+                    // Dimmed only under the drawer, which covers the page and
+                    // has to say so. The menu hangs off the bar over a page you
+                    // are still reading, and darkening it would be a lie about
+                    // how much of the app it has taken.
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      color: _isDrawerOpen
+                          ? AppTheme.trialInk.withValues(alpha: 0.28)
+                          : Colors.transparent,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          _buildBar(),
-          _buildMenu(),
-        ],
+              _buildBar(size),
+              _buildMenu(size),
+              _buildDrawer(size),
+            ],
+          );
+        },
       ),
     );
   }

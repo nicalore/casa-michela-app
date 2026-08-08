@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
-import 'app_primary_button.dart';
+import '../../features/auth/widgets/auth_pill_page.dart';
+import 'app_dialog_stack.dart';
+import 'app_gradient_button.dart';
 
-const String _fontFamily = 'Plus Jakarta Sans';
-
+// The address that leads nowhere, in the same shape as the pages seen before
+// signing in: a stack of pills on the paper, and a single command — going back
+// to where there is something.
 class NotFoundPage extends StatelessWidget
 {
   final String? requestedLocation;
@@ -15,55 +19,54 @@ class NotFoundPage extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: 140,
-                  height: 140,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Errore 404',
-                  style: TextStyle(
-                    fontFamily: _fontFamily,
-                    fontSize: 44,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.primary,
-                    height: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  "L'indirizzo che hai digitato non corrisponde a nessuna pagina disponibile.",
-                  textAlign: TextAlign.center,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 36),
-                AppPrimaryButton(
-                  label: 'TORNA ALLA HOME',
-                  width: 200,
-                  onPressed: () => context.go('/'),
-                ),
-              ],
-            ),
-          ),
+    return AuthPillPage(
+      eyebrow: 'Errore 404',
+      title: 'Pagina non trovata',
+      maxWidth: 560,
+      footer: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: AppGradientButton(
+          label: 'TORNA ALLA HOME',
+          icon: Icons.home_rounded,
+          height: 52,
+          fontSize: 14,
+          onPressed: () => context.go('/'),
         ),
       ),
+      children: [
+        AppDialogPill(
+          expand: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "L'indirizzo che hai digitato non corrisponde a nessuna pagina "
+                'disponibile.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+              // Said only when known: which address was asked for is half the
+              // answer, when it is a typo.
+              if (requestedLocation != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  requestedLocation!,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialTealDeep,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

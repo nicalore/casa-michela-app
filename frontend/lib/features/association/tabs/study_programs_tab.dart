@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -12,16 +14,14 @@ import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/study_program_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/study_program_card.dart';
-
-// Shared between the ListView itemExtent and the height of a single tile:
-// the two must match exactly or the scroll math below lands on the wrong row.
-const double _subjectOptionItemHeight = 44.0;
 
 const int _middleSchoolMaxYear = 3;
 const int _defaultMaxYear = 5;
@@ -42,8 +42,8 @@ class StudyProgramsTab extends StatefulWidget
   // Read only, used by the discipline filter alone.
   final List<AssociationSubjectItem> associationSubjects;
 
-  final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
-  final Future<bool> Function(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
+  final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
   final void Function(StudyProgramItem item) onDelete;
 
   const StudyProgramsTab({
@@ -67,6 +67,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   String _searchText = '';
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterLevel;
+  String? _filterSector;
 
   // Multi selection filters: a program passes when it matches at least one of
   // the selected ids, and the two filters are combined with the others in AND.
@@ -80,8 +81,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
 
     final result = widget.studyPrograms.where((program)
     {
-      final matchesSearch = program.name.toLowerCase().contains(query);
+      // Searched on the full name: the sector no longer lives inside the name,
+      // but it is still what one types to reach a programme.
+      final matchesSearch = program.fullName.toLowerCase().contains(query);
       final matchesLevel = _filterLevel == null || program.level == _filterLevel;
+      final matchesSector = _filterSector == null || program.sector == _filterSector;
 
       final matchesMinistrySubjects = _selectedMinistrySubjectIds.isEmpty ||
           program.ministrySubjects.any((subject) => _selectedMinistrySubjectIds.contains(subject.id));
@@ -95,7 +99,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
             ),
           );
 
-      return matchesSearch && matchesLevel && matchesMinistrySubjects && matchesAssociationSubjects;
+      return matchesSearch &&
+          matchesLevel &&
+          matchesSector &&
+          matchesMinistrySubjects &&
+          matchesAssociationSubjects;
     }).toList();
 
     result.sort((a, b) => switch (_sortBy)
@@ -109,6 +117,20 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     return result;
   }
 
+  // The sectors the programmes really have, in alphabetical order: there is no
+  // fixed list of sectors, they are written by whoever enters the programmes.
+  List<String> get _knownSectors
+  {
+    final sectors = <String>{
+      for (final program in widget.studyPrograms)
+        if (program.sector != null) program.sector!,
+    }.toList();
+
+    sectors.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    return sectors;
+  }
+
   void _showWizard({StudyProgramItem? program, VoidCallback? onCancelEdit})
   {
     showBlurredDialog(
@@ -119,15 +141,16 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         // Read here, so the list is refreshed by the next setState of
         // AssociationPage.
         availableMinistrySubjects: widget.ministrySubjects,
+        knownSectors: _knownSectors,
         onCancelEdit: onCancelEdit,
-        onSave: (name, level, minYear, maxYear, description, subjectIds, onError) async
+        onSave: (name, sector, level, minYear, maxYear, description, subjectIds, onError) async
         {
           if (program == null)
           {
-            return await widget.onCreate(name, level, minYear, maxYear, description, subjectIds, onError);
+            return await widget.onCreate(name, sector, level, minYear, maxYear, description, subjectIds, onError);
           }
 
-          return await widget.onEdit(program.id, name, level, minYear, maxYear, description, subjectIds, onError);
+          return await widget.onEdit(program.id, name, sector, level, minYear, maxYear, description, subjectIds, onError);
         },
       ),
     );
@@ -136,7 +159,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   void _showSubjectFilterDialog({
     required String title,
     required String hint,
-    required List<_SubjectOption> options,
+    required List<MultiSelectFilterOption<int>> options,
     required Set<int> initialSelectedIds,
     required ValueChanged<Set<int>> onApply,
   })
@@ -144,11 +167,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectFilterDialog',
-      builder: (context) => _SubjectFilterDialog(
+      builder: (context) => MultiSelectFilterDialog<int>(
         title: title,
         hint: hint,
         options: options,
-        initialSelectedIds: initialSelectedIds,
+        initialSelected: initialSelectedIds,
         onApply: onApply,
       ),
     );
@@ -158,11 +181,11 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   {
     _showSubjectFilterDialog(
       title: 'Filtra per materia ministeriale',
-      hint: 'Cerca materia ministeriale...',
+      hint: 'Es. Matematica',
       options: widget.ministrySubjects
-          .map((subject) => _SubjectOption(
-                id: subject.id,
-                name: subject.name,
+          .map((subject) => MultiSelectFilterOption(
+                value: subject.id,
+                label: subject.name,
                 subtitle: schoolLevelShortLabel(subject.level),
               ))
           .toList(),
@@ -175,9 +198,9 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   {
     _showSubjectFilterDialog(
       title: 'Filtra per disciplina interna',
-      hint: 'Cerca disciplina...',
+      hint: 'Es. Aritmetica',
       options: widget.associationSubjects
-          .map((subject) => _SubjectOption(id: subject.id, name: subject.name))
+          .map((subject) => MultiSelectFilterOption(value: subject.id, label: subject.name))
           .toList(),
       initialSelectedIds: _selectedAssociationSubjectIds,
       onApply: (ids) => setState(() => _selectedAssociationSubjectIds = ids),
@@ -189,30 +212,24 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   {
     final programs = _filteredPrograms;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchText = value),
-                hintText: 'Cerca percorso di studio...',
-              ),
-            ),
-            const SizedBox(width: 24),
-            AppGradientButton(
-              label: 'NUOVO PERCORSO',
-              icon: Icons.add_rounded,
-              height: 50,
-              // Half its own height: the shape of the search bar it stands
-              // beside.
-              radius: 25,
-              fontSize: 14,
-              onPressed: () => _showWizard(),
-            ),
-          ],
+    return TabContent(
+      header: [
+        TabHeaderRow(
+          search: AppSearchField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchText = value),
+            hintText: 'Cerca percorso di studio...',
+          ),
+          action: AppGradientButton(
+            label: 'NUOVO PERCORSO',
+            icon: Icons.add_rounded,
+            height: 50,
+            // Half its own height: the shape of the search bar it stands
+            // beside.
+            radius: 25,
+            fontSize: 14,
+            onPressed: () => _showWizard(),
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -231,14 +248,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            // What is left of this line arranges the list, what is right of it
-            // shortens it.
-            Container(
-              width: 1,
-              height: 24,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: AppTheme.trialLine,
-            ),
+            const FilterGroupDivider(),
             AppFilterPill<String>.filter(
               prefix: 'Livello',
               hint: 'Tutti i livelli',
@@ -251,6 +261,19 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
                   .map((level) => FilterOption(value: level.value, label: level.compactLabel))
                   .toList(),
             ),
+            if (_knownSectors.isNotEmpty)
+              AppFilterPill<String>.filter(
+                prefix: 'Settore',
+                hint: 'Tutti i settori',
+                icon: Icons.account_tree_outlined,
+                value: _filterSector,
+                menuWidth: 280,
+                onChanged: (value) => setState(() => _filterSector = value),
+                onClear: () => setState(() => _filterSector = null),
+                options: _knownSectors
+                    .map((sector) => FilterOption(value: sector, label: sector))
+                    .toList(),
+              ),
             AppCountFilterPill(
               icon: Icons.auto_stories_outlined,
               label: 'Discipline interne',
@@ -277,28 +300,18 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           ),
         ),
         const SizedBox(height: 16),
-        // Only the card area scrolls, so header and filters stay pinned.
-        Expanded(
-          child: SingleChildScrollView(
-            child: Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 20,
-                runSpacing: 20,
-                children: programs.map((program)
-                {
-                  return StudyProgramCard(
-                    program: program,
-                    availableMinistrySubjects: widget.ministrySubjects,
-                    onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel),
-                    onDelete: () => widget.onDelete(program),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ),
       ],
+      body: EntityCardGrid(
+        children: programs.map((program)
+        {
+          return StudyProgramCard(
+            program: program,
+            availableMinistrySubjects: widget.ministrySubjects,
+            onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel),
+            onDelete: () => widget.onDelete(program),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -307,12 +320,17 @@ class _StudyProgramWizardDialog extends StatefulWidget
 {
   final StudyProgramItem? existingProgram;
   final List<MinistrySubjectItem> availableMinistrySubjects;
+
+  // The sectors already used by the other programmes, offered as choices so
+  // that the same wording stays the same word.
+  final List<String> knownSectors;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
+  final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
 
   const _StudyProgramWizardDialog({
     this.existingProgram,
     required this.availableMinistrySubjects,
+    required this.knownSectors,
     this.onCancelEdit,
     required this.onSave,
   });
@@ -327,16 +345,24 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   static const double _dialogButtonHeight = 52;
   static const double _dialogButtonFontSize = 14;
 
-  static const Duration _stepTransition = Duration(milliseconds: 300);
-
-  final PageController _pageController = PageController();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _sectorController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _minYearController = TextEditingController();
   final TextEditingController _maxYearController = TextEditingController();
   final TextEditingController _subjectSearchController = TextEditingController();
 
+  // How wide the card in the carousel is allowed to get, and the stack around
+  // it: the card plus an arrow and a gap on either side.
+  static const double _contentMaxWidth = 640;
+  static const double _stackMaxWidth =
+      _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
+
+  // How tall the list of things to pick can get before it scrolls on its own.
+  static const double _optionsMaxHeight = 300;
+
   int _currentStep = 0;
+  bool _movingForward = true;
   bool _isSaving = false;
   String? _selectedLevel;
   List<int> _selectedSubjects = [];
@@ -353,11 +379,18 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   {
     super.initState();
 
+    // The arrow lights up as soon as the mandatory fields are there: without
+    // listening to them it would stay dark until something else repainted.
+    _nameController.addListener(_refresh);
+    _minYearController.addListener(_refresh);
+    _maxYearController.addListener(_refresh);
+
     final program = widget.existingProgram;
 
     if (program != null)
     {
       _nameController.text = program.name;
+      _sectorController.text = program.sector ?? '';
       _descController.text = program.description;
       _selectedLevel = program.level;
       _minYearController.text = program.minYear.toString();
@@ -366,15 +399,26 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     }
   }
 
+  void _refresh()
+  {
+    if (mounted)
+    {
+      setState(() {});
+    }
+  }
+
   @override
   void dispose()
   {
+    _nameController.removeListener(_refresh);
+    _minYearController.removeListener(_refresh);
+    _maxYearController.removeListener(_refresh);
     _nameController.dispose();
+    _sectorController.dispose();
     _descController.dispose();
     _minYearController.dispose();
     _maxYearController.dispose();
     _subjectSearchController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -383,6 +427,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     setState(()
     {
       _nameController.clear();
+      _sectorController.clear();
       _descController.clear();
       _minYearController.clear();
       _maxYearController.clear();
@@ -390,7 +435,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _selectedLevel = null;
       _selectedSubjects.clear();
       _currentStep = 0;
-      _pageController.jumpToPage(0);
+      _movingForward = false;
     });
   }
 
@@ -532,23 +577,35 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     setState(() {});
   }
 
-  bool _validateFirstStep()
+  // Why the first step does not let one move on, where it does not. What stays
+  // below is the full check, which holds on save too.
+  String? get _firstStepBlockedReason
   {
     if (_nameController.text.trim().isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true);
-      return false;
+      return 'Scrivi il nome per andare avanti.';
     }
 
     if (_selectedLevel == null)
     {
-      CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true);
-      return false;
+      return 'Seleziona un livello scolastico per andare avanti.';
     }
 
     if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: "Compila l'intervallo degli anni di corso.", isError: true);
+      return "Compila l'intervallo degli anni per andare avanti.";
+    }
+
+    return null;
+  }
+
+  bool _validateFirstStep()
+  {
+    final blocked = _firstStepBlockedReason;
+
+    if (blocked != null)
+    {
+      CustomSnackBar.show(context: context, message: blocked, isError: true);
       return false;
     }
 
@@ -572,24 +629,31 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     return true;
   }
 
-  Future<void> _nextStep() async
+  void _goToStep(int step)
   {
-    if (_currentStep == 0)
+    setState(()
     {
-      if (!_validateFirstStep())
-      {
-        return;
-      }
+      _movingForward = step > _currentStep;
+      _currentStep = step;
+    });
+  }
 
-      setState(() => _currentStep++);
-      _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
+  // Everything is checked from here, whichever phase you are standing on, and
+  // whatever is missing is on the phase this puts you on.
+  Future<void> _submit() async
+  {
+    if (!_validateFirstStep())
+    {
+      _goToStep(0);
 
       return;
     }
 
     if (_selectedSubjects.isEmpty)
     {
+      _goToStep(1);
       CustomSnackBar.show(context: context, message: 'Seleziona almeno una materia ministeriale.', isError: true);
+
       return;
     }
 
@@ -597,6 +661,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     final success = await widget.onSave(
       _nameController.text.trim(),
+      _sectorController.text.trim().isEmpty ? null : _sectorController.text.trim(),
       _selectedLevel!,
       int.parse(_minYearController.text),
       int.parse(_maxYearController.text),
@@ -633,30 +698,11 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     }
   }
 
-  void _prevStep()
-  {
-    if (_currentStep <= 0)
-    {
-      return;
-    }
-
-    setState(() => _currentStep--);
-    _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
-  }
-
   Widget _buildFieldLabel(String text)
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      child: AppFieldLabel(text),
     );
   }
 
@@ -678,16 +724,23 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   Widget _buildStep1()
   {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: SingleChildScrollView(
+    return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Prima il settore, poi il nome: è l'ordine in cui si legge un
+            // percorso — la famiglia, e poi quale.
+            _SectorAutocompleteField(
+              controller: _sectorController,
+              label: 'Settore (opzionale)',
+              hint: 'Es. Istituto tecnico economico',
+              options: widget.knownSectors,
+              onChanged: () => setState(() {}),
+            ),
             AppTextField(
               controller: _nameController,
               label: 'Nome',
-              hintText: 'Es. Liceo Scientifico',
+              hintText: 'Es. Amministrazione finanza e marketing (triennio)',
               textCapitalization: TextCapitalization.sentences,
             ),
             _buildFieldLabel('Livello scolastico'),
@@ -750,8 +803,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildStep2()
@@ -762,309 +814,134 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         .where((subject) => subject.level == _selectedLevel && subject.name.toLowerCase().contains(query))
         .toList();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Seleziona le materie ministeriali associate',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              color: AppTheme.trialMutedText,
-              fontWeight: FontWeight.w500,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Seleziona le materie ministeriali associate',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            color: AppTheme.trialMutedText,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 14),
-          AppSearchField(
-            controller: _subjectSearchController,
-            onChanged: (_) => setState(() {}),
-            hintText: 'Cerca materia ministeriale...',
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: availableSubjects.isEmpty
-                ? Center(
-                    child: Text(
-                      'Nessuna materia trovata per il livello.',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.trialMutedText,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: availableSubjects.map((subject)
-                      {
-                        return AppSelectableChip(
-                          label: subject.name,
-                          selected: _selectedSubjects.contains(subject.id),
-                          onSelected: (selected) => setState(()
-                          {
-                            if (selected)
-                            {
-                              _selectedSubjects.add(subject.id);
-                            }
-                            else
-                            {
-                              _selectedSubjects.remove(subject.id);
-                            }
-                          }),
-                        );
-                      }).toList(),
+        ),
+        const SizedBox(height: 14),
+        AppSearchField(
+          controller: _subjectSearchController,
+          onChanged: (_) => setState(() {}),
+          hintText: 'Cerca materia ministeriale...',
+        ),
+        const SizedBox(height: 16),
+        // A ceiling rather than the whole of what is left: the phase is a
+        // piece floating on the page now, and there is no fixed panel height
+        // for it to take a share of. Past this the list scrolls inside it.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
+          child: availableSubjects.isEmpty
+              ? Center(
+                  child: Text(
+                    'Nessuna materia trovata per il livello.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-          ),
-        ],
-      ),
+                )
+              : SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: availableSubjects.map((subject)
+                    {
+                      return AppSelectableChip(
+                        label: subject.name,
+                        selected: _selectedSubjects.contains(subject.id),
+                        onSelected: (selected) => setState(()
+                        {
+                          if (selected)
+                          {
+                            _selectedSubjects.add(subject.id);
+                          }
+                          else
+                          {
+                            _selectedSubjects.remove(subject.id);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final isLastStep = _currentStep == 1;
-
-    return AppDialogShell(
-      // Which step you are on belongs over the title, not inside it: the title
-      // is what you are doing, the eyebrow is where you are in doing it.
+    return AppDialogStack(
       eyebrow: 'Passo ${_currentStep + 1} di 2',
       title: _isEditing ? 'Modifica percorso' : 'Nuovo percorso',
-      width: 650,
-      // Pinned, or the dialog would change height between a step of fields and
-      // a step of chips while you are still working through it.
-      height: 620,
-      footer: AppDialogFooter(
-        secondary: _currentStep > 0
-            ? AppGradientButton(
-                label: 'INDIETRO',
-                icon: Icons.arrow_back_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _prevStep,
-              )
-            : AppGradientButton(
-                label: 'ANNULLA',
-                icon: Icons.close_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _closeDialog,
-              ),
-        primary: AppGradientButton(
-          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
-          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+      onClose: _closeDialog,
+      maxWidth: _stackMaxWidth,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: _isEditing ? 'SALVA' : 'CREA',
+          icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          onPressed: _nextStep,
+          onPressed: _submit,
         ),
       ),
-      child: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [_buildStep1(), _buildStep2()],
-      ),
+      children: [
+        AppCarouselFrame(
+          index: _currentStep,
+          movingForward: _movingForward,
+          maxContentWidth: _contentMaxWidth,
+          canGoBack: _currentStep > 0,
+          canGoForward: _currentStep == 0,
+          forwardBlockedReason:
+              _currentStep == 0 ? _firstStepBlockedReason : null,
+          onBack: () => _goToStep(0),
+          onForward: () => _goToStep(1),
+          child: AppDialogPill(
+            child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
+          ),
+        ),
+      ],
     );
   }
 }
 
-// Generic id plus name option, used both for ministry subjects and for
-// disciplines. The subtitle only disambiguates homonyms across levels.
-class _SubjectOption
-{
-  final int id;
-  final String name;
-  final String? subtitle;
-
-  const _SubjectOption({required this.id, required this.name, this.subtitle});
-}
-
-class _SubjectFilterDialog extends StatefulWidget
-{
-  final String title;
-  final String hint;
-  final List<_SubjectOption> options;
-  final Set<int> initialSelectedIds;
-  final ValueChanged<Set<int>> onApply;
-
-  const _SubjectFilterDialog({
-    required this.title,
-    required this.hint,
-    required this.options,
-    required this.initialSelectedIds,
-    required this.onApply,
-  });
-
-  @override
-  State<_SubjectFilterDialog> createState() => _SubjectFilterDialogState();
-}
-
-class _SubjectFilterDialogState extends State<_SubjectFilterDialog>
-{
-  // The height and type size every dialog of the app gives its buttons.
-  static const double _dialogButtonHeight = 52;
-  static const double _dialogButtonFontSize = 14;
-
-  final TextEditingController _searchController = TextEditingController();
-
-  late Set<int> _selectedIds;
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _selectedIds = Set<int>.from(widget.initialSelectedIds);
-  }
-
-  @override
-  void dispose()
-  {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  List<_SubjectOption> get _selectedOptions
-  {
-    final selected = widget.options.where((option) => _selectedIds.contains(option.id)).toList();
-    selected.sort((a, b) => a.name.compareTo(b.name));
-
-    return selected;
-  }
-
-  // Already selected options are not proposed again by the autocomplete.
-  List<_SubjectOption> get _availableOptions =>
-      widget.options.where((option) => !_selectedIds.contains(option.id)).toList();
-
-  void _addOption(_SubjectOption option)
-  {
-    setState(() => _selectedIds.add(option.id));
-  }
-
-  void _removeOption(int id)
-  {
-    setState(() => _selectedIds.remove(id));
-  }
-
-  void _reset()
-  {
-    setState(()
-    {
-      _selectedIds.clear();
-      _searchController.clear();
-    });
-  }
-
-  void _apply()
-  {
-    widget.onApply(_selectedIds);
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final selectedOptions = _selectedOptions;
-
-    return AppDialogShell(
-      eyebrow: 'Filtro',
-      title: widget.title,
-      width: 520,
-      maxHeight: 560,
-      footer: AppDialogFooter(
-        // Emptying a filter throws nothing away, so it speaks in violet like
-        // every other way out of a dialog rather than in red.
-        secondary: AppGradientButton(
-          label: 'AZZERA',
-          icon: Icons.refresh_rounded,
-          gradient: AppTheme.dismissGradient,
-          accent: AppTheme.trialViolet,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _reset,
-        ),
-        primary: AppGradientButton(
-          label: 'APPLICA',
-          icon: Icons.check_rounded,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _apply,
-        ),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SubjectAutocompleteField(
-              controller: _searchController,
-              hint: widget.hint,
-              options: _availableOptions,
-              onSelected: _addOption,
-            ),
-            const SizedBox(height: 18),
-            if (selectedOptions.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'Nessuna selezione.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: selectedOptions.map((option)
-                {
-                  return _DeletableChip(
-                    label: option.name,
-                    onDelete: () => _removeOption(option.id),
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Works on ids rather than plain strings, because ministry subject names can
-// repeat across levels (uq_level_ministry_subject_name).
-class _SubjectAutocompleteField extends StatefulWidget
+// A programme's sector, with autocomplete over the sectors already in use.
+//
+// Free text: a new sector is simply typed. The autocomplete is there because the
+// grouping only holds if the same wording stays the same word, and retyping it
+// by hand every time is the quickest way not to.
+class _SectorAutocompleteField extends StatefulWidget
 {
   final TextEditingController controller;
+  final String label;
   final String hint;
-  final List<_SubjectOption> options;
-  final ValueChanged<_SubjectOption> onSelected;
+  final List<String> options;
+  final VoidCallback onChanged;
 
-  const _SubjectAutocompleteField({
+  const _SectorAutocompleteField({
     required this.controller,
+    required this.label,
     required this.hint,
     required this.options,
-    required this.onSelected,
+    required this.onChanged,
   });
 
   @override
-  State<_SubjectAutocompleteField> createState() => _SubjectAutocompleteFieldState();
+  State<_SectorAutocompleteField> createState() => _SectorAutocompleteFieldState();
 }
 
-class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
+class _SectorAutocompleteFieldState extends State<_SectorAutocompleteField>
 {
   final FocusNode _focusNode = FocusNode();
 
@@ -1078,383 +955,50 @@ class _SubjectAutocompleteFieldState extends State<_SubjectAutocompleteField>
   @override
   Widget build(BuildContext context)
   {
-    return RawAutocomplete<_SubjectOption>(
-      textEditingController: widget.controller,
-      focusNode: _focusNode,
-      displayStringForOption: (option) => option.name,
-      optionsBuilder: (textEditingValue)
-      {
-        if (textEditingValue.text.isEmpty)
+    // Measured here so the list, which lives in an overlay, can be as wide as
+    // the field it opens under.
+    return LayoutBuilder(builder: (context, constraints)
+    {
+      final double width = constraints.maxWidth;
+
+      return RawAutocomplete<String>(
+        textEditingController: widget.controller,
+        focusNode: _focusNode,
+        optionsBuilder: (value)
         {
-          return const Iterable<_SubjectOption>.empty();
-        }
+          final query = value.text.trim().toLowerCase();
 
-        final query = textEditingValue.text.toLowerCase();
-
-        return widget.options.where((option) => option.name.toLowerCase().contains(query));
-      },
-      onSelected: (option)
-      {
-        widget.onSelected(option);
-
-        // clear() alone leaves the selection collapsed at -1, which Flutter
-        // renders as no caret at all, so it is restored explicitly.
-        Future.microtask(()
+          // On an empty field everything is offered: there are five or six, and
+          // seeing them is how they get reused instead of a seventh being
+          // invented.
+          return widget.options.where(
+            (option) => query.isEmpty || option.toLowerCase().contains(query),
+          );
+        },
+        // The chosen text stays in the field: nothing is being collected into a
+        // list here, a single question is being answered.
+        onSelected: (option) => widget.onChanged(),
+        // The field is the one every other field is: a sector is typed the way
+        // a name is typed, and the autocomplete is only what opens under it.
+        fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted)
         {
-          widget.controller.clear();
-          widget.controller.selection = const TextSelection.collapsed(offset: 0);
-          _focusNode.requestFocus();
-        });
-      },
-      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
-      {
-        return Container(
-          height: 50,
-          padding: const EdgeInsets.only(left: 16, right: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFBFDFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.trialLine, width: 2),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: textEditingController,
-                  focusNode: focusNode,
-                  onChanged: (_) => setState(() {}),
-                  onSubmitted: (_) => onFieldSubmitted(),
-                  cursorColor: AppTheme.trialTealDeep,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.trialInk,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: widget.hint,
-                    hintStyle: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.trialMutedText,
-                    ),
-                    border: InputBorder.none,
-                    isCollapsed: true,
-                  ),
-                ),
-              ),
-              if (textEditingController.text.isNotEmpty)
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: ()
-                    {
-                      textEditingController.clear();
-                      setState(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.trialGoldSurface,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: AppTheme.trialTealDeep,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-      optionsViewBuilder: (context, onSelected, options) => _SubjectAutocompleteOptionsList(
-        options: options,
-        onSelected: onSelected,
-      ),
-    );
-  }
-}
-
-class _SubjectAutocompleteOptionsList extends StatefulWidget
-{
-  final Iterable<_SubjectOption> options;
-  final AutocompleteOnSelected<_SubjectOption> onSelected;
-
-  const _SubjectAutocompleteOptionsList({required this.options, required this.onSelected});
-
-  @override
-  State<_SubjectAutocompleteOptionsList> createState() => _SubjectAutocompleteOptionsListState();
-}
-
-class _SubjectAutocompleteOptionsListState extends State<_SubjectAutocompleteOptionsList>
-{
-  // Vertical padding of the ListView, on one side: it is the offset before the
-  // first item in the scroll computation below.
-  static const double _verticalPadding = 8;
-
-  final ScrollController _scrollController = ScrollController();
-
-  int? _lastHighlightedIndex;
-
-  @override
-  void dispose()
-  {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // Scrolls by the minimum needed to reveal the arrow-highlighted option,
-  // rather than always centring it.
-  void _ensureHighlightedVisible(int index)
-  {
-    if (!_scrollController.hasClients)
-    {
-      return;
-    }
-
-    final itemTop = _verticalPadding + (index * _subjectOptionItemHeight);
-    final itemBottom = itemTop + _subjectOptionItemHeight;
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final visibleTop = _scrollController.offset;
-    final visibleBottom = visibleTop + viewportHeight;
-
-    double? target;
-
-    if (itemTop < visibleTop)
-    {
-      target = itemTop;
-    }
-    else if (itemBottom > visibleBottom)
-    {
-      target = itemBottom - viewportHeight;
-    }
-
-    if (target == null)
-    {
-      return;
-    }
-
-    _scrollController.jumpTo(target.clamp(0.0, _scrollController.position.maxScrollExtent));
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    // Reading it here is what creates the reactive dependency on the notifier,
-    // so this widget rebuilds on every arrow key press.
-    final highlightedIndex = AutocompleteHighlightedOption.of(context);
-
-    if (_lastHighlightedIndex != highlightedIndex)
-    {
-      _lastHighlightedIndex = highlightedIndex;
-
-      // Deferred: the scrollable must already be laid out to expose
-      // viewportDimension and maxScrollExtent.
-      WidgetsBinding.instance.addPostFrameCallback((_)
-      {
-        if (mounted)
-        {
-          _ensureHighlightedVisible(highlightedIndex);
-        }
-      });
-    }
-
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 436,
-          margin: const EdgeInsets.only(top: 8),
-          constraints: const BoxConstraints(maxHeight: 200),
-          // Keeps the highlighted row from painting over the rounded corners.
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.overlayShadow,
-          ),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-            child: RawScrollbar(
-              controller: _scrollController,
-              thumbVisibility: true,
-              thickness: 6,
-              radius: const Radius.circular(10),
-              thumbColor: AppTheme.trialLine,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: _verticalPadding),
-                shrinkWrap: true,
-                itemExtent: _subjectOptionItemHeight,
-                itemCount: widget.options.length,
-                itemBuilder: (context, index)
-                {
-                  final option = widget.options.elementAt(index);
-
-                  return _SubjectAutocompleteItem(
-                    option: option,
-                    isHighlighted: index == highlightedIndex,
-                    onTap: () => widget.onSelected(option),
-                  );
-                },
-              ),
-            ),
-          ),
+          return AppTextField(
+            controller: controller,
+            focusNode: focusNode,
+            label: widget.label,
+            hintText: widget.hint,
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => widget.onChanged(),
+            onSubmitted: (_) => onFieldSubmitted(),
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) => AutocompleteOptionsList<String>(
+          options: options,
+          label: (sector) => sector,
+          width: width,
+          onSelected: onSelected,
         ),
-      ),
-    );
-  }
-}
-
-class _SubjectAutocompleteItem extends StatefulWidget
-{
-  final _SubjectOption option;
-  final bool isHighlighted;
-  final VoidCallback onTap;
-
-  const _SubjectAutocompleteItem({
-    required this.option,
-    required this.isHighlighted,
-    required this.onTap,
-  });
-
-  @override
-  State<_SubjectAutocompleteItem> createState() => _SubjectAutocompleteItemState();
-}
-
-class _SubjectAutocompleteItemState extends State<_SubjectAutocompleteItem>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final isActive = widget.isHighlighted || _hover;
-    final subtitle = widget.option.subtitle;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: double.infinity,
-          height: _subjectOptionItemHeight,
-          color: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 2,
-                height: isActive ? 16 : 0,
-                decoration: BoxDecoration(
-                  color: AppTheme.trialGold,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: widget.option.name,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: isActive ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
-                  ),
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Also present in people_filter_dialog.dart: private classes cannot be shared
-// between Dart files.
-class _DeletableChip extends StatefulWidget
-{
-  final String label;
-  final VoidCallback onDelete;
-
-  const _DeletableChip({required this.label, required this.onDelete});
-
-  @override
-  State<_DeletableChip> createState() => _DeletableChipState();
-}
-
-class _DeletableChipState extends State<_DeletableChip>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(
-            color: _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialTealDeep,
-              ),
-            ),
-            const SizedBox(width: 8),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: widget.onDelete,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.trialGoldSurface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: AppTheme.trialTealDeep,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+    });
   }
 }

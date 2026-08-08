@@ -13,11 +13,15 @@ class PasswordField extends StatefulWidget
   final String label;
   final String hintText;
 
+  // As in AppTextField: off where the label sits alongside the box.
+  final bool showLabel;
+
   const PasswordField({
     super.key,
     required this.controller,
     required this.label,
     required this.hintText,
+    this.showLabel = true,
   });
 
   @override
@@ -57,6 +61,7 @@ class _PasswordFieldState extends State<PasswordField>
       controller: widget.controller,
       label: widget.label,
       hintText: widget.hintText,
+      showLabel: widget.showLabel,
       obscureText: _isObscured,
       suffix: _buildVisibilityToggle(),
     );

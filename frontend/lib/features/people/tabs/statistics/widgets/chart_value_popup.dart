@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
-
-const Color _popupShadow = Color(0x1F000000);
 
 // Dark label that follows the hovered element on a chart. It is always built,
 // even when nothing is hovered: keeping it mounted and only animating opacity is
@@ -46,22 +43,13 @@ class ChartValuePopup extends StatelessWidget
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppTheme.slate800,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: const [
-                        BoxShadow(color: _popupShadow, offset: Offset(0, 3), blurRadius: 6),
-                      ],
-                    ),
-                    child: Text(
-                      text,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    // The app's one dark surface, read from the theme rather
+                    // than dressed here: this is a tooltip, and a tooltip on a
+                    // chart has no reason to be a different object from the one
+                    // on a button.
+                    decoration: AppTheme.tooltipDecoration,
+                    child: Text(text, style: AppTheme.tooltipTextStyle),
                   ),
                   CustomPaint(
                     size: const Size(10, 5),
@@ -89,7 +77,9 @@ class _TriangleArrowPainter extends CustomPainter
         ..lineTo(size.width / 2, size.height)
         ..close(),
       Paint()
-        ..color = AppTheme.slate800
+        // The same surface as the balloon above it, alpha included, or the two
+        // read as two objects.
+        ..color = AppTheme.trialOcean.withValues(alpha: 0.97)
         ..style = PaintingStyle.fill,
     );
   }

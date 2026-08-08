@@ -61,7 +61,12 @@ abstract final class CustomSnackBar
   {
     dismiss();
 
-    final overlay = Overlay.of(context);
+    // The root one, not the nearest. A dialog is pushed on the root navigator,
+    // so a banner put in the overlay of the page underneath comes out below the
+    // window that asked for it — and, worse, behind that window's backdrop
+    // filter, which blurs it along with the page. The banner has to reach the
+    // top of the app whatever asked for it.
+    final overlay = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
 
     entry = OverlayEntry(

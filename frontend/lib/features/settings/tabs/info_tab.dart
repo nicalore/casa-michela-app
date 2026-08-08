@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/page_transition.dart';
 
 class InfoTab extends StatelessWidget
 {
@@ -11,7 +13,7 @@ class InfoTab extends StatelessWidget
   Widget build(BuildContext context)
   {
     final int currentYear = DateTime.now().year;
-    const String appVersion = '0.1.0';
+    const String appVersion = '0.1.1';
 
     final List<String> documents = [
       'Condizioni d\'uso',
@@ -21,13 +23,21 @@ class InfoTab extends StatelessWidget
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, left: 32, right: 32, bottom: 32),
+      // The side padding is on top of the page's own margin, which is why it
+      // goes on a narrow window: sixteen and thirty-two together are a fifth of
+      // a phone screen spent on air.
+      padding: EdgeInsets.only(
+        top: 16,
+        left: AppBreakpoints.of(context).isCompact ? 0 : 32,
+        right: AppBreakpoints.of(context).isCompact ? 0 : 32,
+        bottom: 32,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+            children: pageTransitionBlocks([
               ...documents.map((title)
               {
                 return Padding(
@@ -46,7 +56,7 @@ class InfoTab extends StatelessWidget
                   height: 1.5,
                 ),
               ),
-            ],
+            ]),
           ),
         ),
       ),
@@ -89,7 +99,9 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
             // dashboard takes: on a page of white rows it is the one warm thing
             // on screen, so the row being pointed at needs no other signal.
             border: Border.all(
-              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
+              color: _isHovering
+                  ? AppTheme.trialGold
+                  : AppTheme.trialGold.withValues(alpha: 0),
               width: 2,
             ),
             boxShadow: AppTheme.cardShadow,

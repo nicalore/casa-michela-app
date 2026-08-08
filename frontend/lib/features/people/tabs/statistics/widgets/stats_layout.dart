@@ -47,19 +47,32 @@ class ResponsiveCardPair extends StatelessWidget
   }
 }
 
-// Title on the left, filters on the right, stacked below the breakpoint. The
-// filters stay wrapped in Flexible even side by side, so an internal Wrap can
-// absorb the squeeze instead of overflowing.
-class ResponsiveCardHeader extends StatelessWidget
-{
-  final Widget title;
-  final Widget filters;
-  final double breakpoint;
+// The header these cards used to build for themselves — title on the left,
+// filters on the right, stacked below a breakpoint — now lives in AppCard, which
+// is where every card of the app gets its heading.
 
-  const ResponsiveCardHeader({
-    required this.title,
-    required this.filters,
-    this.breakpoint = 620,
+// Two cards that have to read as one row rather than as two: the same height,
+// whichever of them is taller, and the shorter one spreading its content into
+// what it was given instead of leaving a hole under itself.
+//
+// The cards are built by the callers rather than passed in, because each of them
+// has to be told two things it cannot work out for itself. How wide it will be:
+// matching the heights means asking a card how tall it would be at a given
+// width, and nothing in the subtree of a card being asked that question may
+// measure itself — a LayoutBuilder in there cannot answer at all. And whether
+// its height is the pair's or its own, which decides whether there is any room
+// to spread into.
+class MatchedCardPair extends StatelessWidget
+{
+  static const double _breakpoint = 900.0;
+  static const double _gap = 24.0;
+
+  final Widget Function(double width, bool matched) first;
+  final Widget Function(double width, bool matched) second;
+
+  const MatchedCardPair({
+    required this.first,
+    required this.second,
     super.key,
   });
 
@@ -69,27 +82,31 @@ class ResponsiveCardHeader extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < breakpoint)
+        // One under the other, each as tall as it needs: there is no row for
+        // them to share, so there is nothing to match.
+        if (constraints.maxWidth < _breakpoint)
         {
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              title,
-              const SizedBox(height: 12),
-              filters,
+              first(constraints.maxWidth, false),
+              const SizedBox(height: _gap),
+              second(constraints.maxWidth, false),
             ],
           );
         }
 
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            title,
-            Flexible(
-              child: Align(alignment: Alignment.centerRight, child: filters),
-            ),
-          ],
+        final double width = (constraints.maxWidth - _gap) / 2;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first(width, true)),
+              const SizedBox(width: _gap),
+              Expanded(child: second(width, true)),
+            ],
+          ),
         );
       },
     );

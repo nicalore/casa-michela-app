@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/people_search_tab.dart';
 import 'tabs/statistics/general_statistics_tab.dart';
@@ -76,11 +78,12 @@ class _PeoplePageState extends State<PeoplePage>
     _router = GoRouter.of(context);
   }
 
-  // Search text, sorting and filters are static in the tab so that opening a
-  // person and coming back finds them where they were left. Walking out of the
-  // module is the one case where they have to go, which the back button used to
-  // take care of; now that the top bar has taken its place, the decision is made
-  // here, on wherever the router has just gone.
+  // Search text, sorting and filters are static in the tab, so they outlive it.
+  //
+  // This page is not taken down when you walk to another destination any more —
+  // it is kept, and so is everything it was showing — so what is left here is
+  // the end of the session: the page goes with the shell when the account does,
+  // and what was being looked for must not be waiting for whoever logs in next.
   @override
   void dispose()
   {
@@ -99,13 +102,22 @@ class _PeoplePageState extends State<PeoplePage>
 
   Widget _buildSectionContent()
   {
-    return IndexedStack(
+    return PageSections(
       index: _selectedSection,
       children: [
         for (var index = 0; index < _sectionContents.length; index++)
           if (_visitedSections.contains(index)) _sectionContents[index] else const SizedBox.shrink(),
       ],
     );
+  }
+
+  void _selectSection(int index)
+  {
+    setState(()
+    {
+      _selectedSection = index;
+      _visitedSections.add(index);
+    });
   }
 
   @override
@@ -117,6 +129,9 @@ class _PeoplePageState extends State<PeoplePage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
+          final size = AppBreakpoints.fromWidth(width);
+          final margin = AppBreakpoints.pageMargin(size);
+
           return Container(
             width: width,
             height: height,
@@ -145,10 +160,10 @@ class _PeoplePageState extends State<PeoplePage>
                     // The top inset clears the bar floating above the page: it
                     // is laid over the content rather than in the column with
                     // it, so the room it needs has to be left here.
-                    padding: const EdgeInsets.only(
-                      left: 40,
-                      right: 40,
-                      top: AppTopBar.contentTopInset,
+                    padding: EdgeInsets.only(
+                      left: margin,
+                      right: margin,
+                      top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
                     // Stretched, so the content keeps being handed the full
@@ -157,28 +172,61 @@ class _PeoplePageState extends State<PeoplePage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: AppSectionRail(
-                            title: 'Persone',
-                            groups: _sections,
-                            selectedIndex: _selectedSection,
-                            onSelected: (index) => setState(()
-                            {
-                              _selectedSection = index;
-                              _visitedSections.add(index);
-                            }),
+                        // The rail steps aside below the breakpoint. Two hundred
+                        // and seventy pixels of a phone cannot go to a column of
+                        // section names, and the drawer behind the bar is
+                        // already holding them.
+                        if (size.hasRail) ...[
+                          Align(
+                            alignment: Alignment.topLeft,
+                            // First out and first back in on a change of page:
+                            // the rail is what frames the content beside it.
+                            child: PageTransitionItem(
+                              slot: PageTransitionItem.frame,
+                              child: AppSectionRail(
+                                title: 'Persone',
+                                groups: _sections,
+                                selectedIndex: _selectedSection,
+                                onSelected: _selectSection,
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: AppSectionRail.gap),
+                        ],
+                        Expanded(
+                          child: size.isCompact
+                              // What the rail was saying about where you are has
+                              // to keep being said: the module quietly, over the
+                              // section you are in.
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    PageTransitionItem(
+                                      slot: PageTransitionItem.frame,
+                                      child: AppSectionHeading(
+                                        module: 'Persone',
+                                        section: railEntryAt(_sections, _selectedSection),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Expanded(child: _buildSectionContent()),
+                                  ],
+                                )
+                              : _buildSectionContent(),
                         ),
-                        const SizedBox(width: AppSectionRail.gap),
-                        Expanded(child: _buildSectionContent()),
                       ],
                     ),
                   ),
                 ),
                 // Last in the stack, so the bar and the menu it opens stay above
                 // the page.
-                const AppTopBar(currentRoute: '/people'),
+                AppTopBar(
+                  currentRoute: '/people',
+                  sectionTitle: 'Persone',
+                  sectionGroups: _sections,
+                  selectedSection: _selectedSection,
+                  onSectionSelected: _selectSection,
+                ),
               ],
             ),
           );

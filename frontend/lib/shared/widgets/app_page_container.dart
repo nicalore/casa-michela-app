@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/layout/app_breakpoints.dart';
+
 typedef PageContentBuilder = Widget Function(
   BuildContext context,
   double width,
@@ -58,6 +60,30 @@ class _AppPageContainerState extends State<AppPageContainer>
     return LayoutBuilder(
       builder: (context, constraints)
       {
+        // Under the breakpoint the minimum is dropped rather than scrolled to:
+        // the page is handed the window as it is and lays itself out compactly
+        // inside it. Holding a phone to a desktop minimum is what produced the
+        // horizontally scrolling page it was never possible to read.
+        if (AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
+        {
+          // Vertically only, and only when the page turns out to be taller than
+          // the window: the dashboard stacks its cards into a column far longer
+          // than a phone screen, while a module page is exactly as tall as the
+          // window and scrolls inside itself. The minimum height is what keeps
+          // the second kind from collapsing to the height of its content.
+          return SingleChildScrollView(
+            controller: _verticalController,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: widget.builder(
+                context,
+                constraints.maxWidth,
+                constraints.maxHeight,
+              ),
+            ),
+          );
+        }
+
         final width = math.max(constraints.maxWidth, widget.minWidth);
         final height = math.max(constraints.maxHeight, widget.minHeight);
 

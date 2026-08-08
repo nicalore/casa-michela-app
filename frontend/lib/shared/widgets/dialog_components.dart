@@ -14,14 +14,22 @@ Future<T?> showBlurredDialog<T>({
   required BuildContext context,
   required String barrierLabel,
   required WidgetBuilder builder,
+  // Off for every dialog of the app: with the windows made of separate floating
+  // pieces, the paper "outside" one runs between its pieces as well, and a tap
+  // meant for a field that landed a few pixels short would throw the whole edit
+  // away. They close by their own X or by the button that says so.
+  bool barrierDismissible = false,
+  // Longer for a dialog that brings its pieces in one after the other and needs
+  // the room to do it.
+  Duration transitionDuration = const Duration(milliseconds: 240),
 })
 {
   return showGeneralDialog<T>(
     context: context,
-    barrierDismissible: true,
+    barrierDismissible: barrierDismissible,
     barrierLabel: barrierLabel,
     barrierColor: Colors.black.withValues(alpha: .15),
-    transitionDuration: const Duration(milliseconds: 240),
+    transitionDuration: transitionDuration,
     pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
     transitionBuilder: (context, animation, secondaryAnimation, child)
     {
@@ -101,66 +109,6 @@ class ResponsiveDialogButtonsRow extends StatelessWidget
           ],
         );
       },
-    );
-  }
-}
-
-class CustomChip extends StatefulWidget
-{
-  final String label;
-  final bool isSelected;
-  final ValueChanged<bool> onSelected;
-
-  const CustomChip({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onSelected,
-  });
-
-  @override
-  State<CustomChip> createState() => _CustomChipState();
-}
-
-class _CustomChipState extends State<CustomChip>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final backgroundColor = widget.isSelected
-        ? AppTheme.primary
-        : (_isHovered ? AppTheme.surfaceHover : Colors.white);
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: () => widget.onSelected(!widget.isSelected),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(
-              color: widget.isSelected ? AppTheme.primary : AppTheme.border,
-              width: 1.0,
-            ),
-          ),
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 150),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: widget.isSelected ? Colors.white : AppTheme.primary,
-            ),
-            child: Text(widget.label),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -11,11 +11,14 @@ abstract final class AppTheme
   static const Color dangerHover = Color(0xFFEF5350);
 
   // Marks a value that differs from the recurring weekly template (a
-  // hand-edited hour, a holiday closure): amber reads as "notable", not as an
-  // error the way danger's red would. First semantic accent beyond
-  // primary/secondary/danger, introduced for the opening-hours table
-  // (Associazione > Orari), the app's first true data table.
-  static const Color modifiedAccent = Color(0xFFB45309);
+  // hand-edited hour, a holiday closure): gold reads as "notable", not as an
+  // error the way danger's red would, and it is the colour this app already
+  // gives to whatever it wants looked at.
+  //
+  // A deepened trialGold rather than the gold itself: #E3A83C is drawn to sit
+  // under a word or behind one, and as type on white it has too little contrast
+  // to be read at fifteen pixels.
+  static const Color modifiedAccent = Color(0xFF9A6B15);
 
   // Surfaces for the "Chiuso" strip that runs across the band columns. Opaque,
   // not modifiedAccent at low alpha: a translucent strip lets whatever is
@@ -25,8 +28,22 @@ abstract final class AppTheme
   //
   // The neutral one marks a day the weekly template simply never opens, as
   // against a closure somebody decided on.
-  static const Color modifiedAccentSurface = Color(0xFFF9F1EB);
-  static const Color closedSurface = Color(0xFFF1F3F6);
+  static const Color modifiedAccentSurface = Color(0xFFF9ECD4);
+
+  // The grey of surfaces that cannot be touched — a disabled field, a spent
+  // chip, a closed day, the bed of a segmented control.
+  //
+  // It sits just above the outline colour and not just below the paper: six
+  // points away from the paper there was no telling anything was there, and a
+  // rail that cannot be seen leaves its white pill resting on nothing.
+  static const Color closedSurface = Color(0xFFE2ECEA);
+
+  // The row of today in the weekly table. Not the gold this app gives to
+  // whatever the pointer is on: the strip marking a closure somebody decided on
+  // sits inside that row, and two pale golds one on top of the other read as one
+  // smudge. The brand at a tenth strength says "this is the row you are in"
+  // without competing with what the row is telling you.
+  static const Color todaySurface = Color(0xFFEAF7F5);
 
   // Trial palette taken from the timbrature mockup: deep teal and turquoise as
   // the brand pair, ocean for headings, gold and violet as the two decorative
@@ -64,6 +81,20 @@ abstract final class AppTheme
   static const Color trialPaper = Color(0xFFF5FAF9);
   static const Color trialInk = Color(0xFF122438);
   static const Color trialLine = Color(0xFFDDE8E6);
+
+  // The same rule, where what lies under it is a closed surface instead of the
+  // paper.
+  //
+  // An outline is seen for how far it stands off what is under it, not for its
+  // own value: the standard line stands off an enabled field by 1.23 and reads,
+  // off the closed grey by 1.04 and is gone. This gives it back the same 1.21 —
+  // as decided as an enabled control's and no more, which would read as the
+  // opposite of what it is.
+  static const Color closedLine = Color(0xFFCBD9D6);
+
+  // The veil over selected text: the brand turquoise, kept light enough to let
+  // what is underneath be read.
+  static const Color trialSelection = Color(0x3317B3A3);
   static const Color trialDanger = Color(0xFFC1503F);
   static const Color trialMutedText = Color(0xFF5B7280);
 
@@ -160,10 +191,13 @@ abstract final class AppTheme
 
   static ThemeData _buildLightTheme()
   {
+    // The seed is the brand teal: from here Material derives the colours we do
+    // not decide ourselves — text selection, the caret, the drag handles, the
+    // tick of a system checkbox.
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      primary: primary,
-      secondary: secondary,
+      seedColor: trialTealDeep,
+      primary: trialTealDeep,
+      secondary: trialTurquoise,
       surface: Colors.white,
       brightness: Brightness.light,
     );
@@ -171,11 +205,18 @@ abstract final class AppTheme
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: Colors.white,
+      scaffoldBackgroundColor: trialPaper,
       canvasColor: Colors.white,
       fontFamily: 'Plus Jakarta Sans',
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primary,
+        color: trialTurquoise,
+      ),
+      // Selected text takes the soft green of what is chosen, while the caret
+      // and the handles take the teal of the commands.
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: trialTealDeep,
+        selectionColor: trialSelection,
+        selectionHandleColor: trialTealDeep,
       ),
       tooltipTheme: TooltipThemeData(
         decoration: tooltipDecoration,

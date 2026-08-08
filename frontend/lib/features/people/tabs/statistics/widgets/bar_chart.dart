@@ -7,7 +7,17 @@ import '../../../../../core/theme/app_theme.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-const Color _barColor = Color(0xFF0284C7);
+// The brand ramp stood on end, turquoise at the top into teal at the foot: the
+// same pair the buttons and the badges are made of, only vertical, because a bar
+// is read from its head down to the axis.
+const LinearGradient _barGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [AppTheme.trialTurquoise, AppTheme.trialTealDeep],
+);
+
+// Gold is where the pointer is, here as everywhere else in the app.
+const Color _hoveredBarColor = AppTheme.trialGold;
 
 // Width reserved for the Y axis, which is painted outside the scrollable area so
 // the labels stay visible while the bars scroll.
@@ -166,7 +176,7 @@ class _YAxisPainter extends CustomPainter
   void paint(Canvas canvas, Size size)
   {
     final gridPaint = Paint()
-      ..color = AppTheme.slate200
+      ..color = AppTheme.trialLine
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -180,7 +190,7 @@ class _YAxisPainter extends CustomPainter
 
       textPainter.text = TextSpan(
         text: '${((maxValue / gridDivisions) * i).round()}',
-        style: GoogleFonts.plusJakartaSans(color: AppTheme.slate400, fontSize: _labelFontSize),
+        style: GoogleFonts.plusJakartaSans(color: AppTheme.trialMutedText, fontSize: _labelFontSize),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - textPainter.width - 12, y - 6));
@@ -209,7 +219,7 @@ class _BarChartPainter extends CustomPainter
   void paint(Canvas canvas, Size size)
   {
     final gridPaint = Paint()
-      ..color = AppTheme.slate200
+      ..color = AppTheme.trialLine
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
@@ -221,25 +231,37 @@ class _BarChartPainter extends CustomPainter
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    final barPaint = Paint()
-      ..color = _barColor
-      ..style = PaintingStyle.fill;
-
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     for (var i = 0; i < barRects.length; i++)
     {
+      final bool hovered = i == hoveredIndex;
+
+      final barPaint = Paint()..style = PaintingStyle.fill;
+
+      // The gradient is built per bar because a shader is measured against the
+      // rectangle it fills: one made for the whole plot would leave every bar
+      // showing whichever slice of the ramp it happens to stand in.
+      if (hovered)
+      {
+        barPaint.color = _hoveredBarColor;
+      }
+      else
+      {
+        barPaint.shader = _barGradient.createShader(barRects[i]);
+      }
+
       canvas.drawRRect(
-        RRect.fromRectAndRadius(barRects[i], const Radius.circular(6)),
+        RRect.fromRectAndRadius(barRects[i], const Radius.circular(8)),
         barPaint,
       );
 
       textPainter.text = TextSpan(
         text: data[i].label,
         style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.slate400,
+          color: hovered ? AppTheme.trialOcean : AppTheme.trialMutedText,
           fontSize: _labelFontSize,
-          fontWeight: FontWeight.w600,
+          fontWeight: hovered ? FontWeight.w700 : FontWeight.w600,
         ),
       );
       textPainter.textAlign = TextAlign.center;

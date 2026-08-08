@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/shared_components.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_dropdown_field.dart';
+import '../../../shared/widgets/app_range_slider.dart';
+import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../models/people_filter_state.dart';
 
 class PeopleFilterDialog extends StatefulWidget
@@ -32,6 +38,14 @@ class PeopleFilterDialog extends StatefulWidget
 
 class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 {
+  // Wide enough for a label over a field, and no wider: the filters are read
+  // one line at a time.
+  static const double _cardWidth = 560;
+
+  // Which card of the filters is on screen, and which way it was reached.
+  int _card = 0;
+  bool _movingForward = true;
+
   late PeopleFilterState _currentState;
 
   final TextEditingController _cityController         = TextEditingController();
@@ -141,38 +155,501 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
+  // A choice among few, inside a filter.
+  //
+  // No chip lit means "any", which is why pressing the lit one switches it off:
+  // unlike a form field — where an answer is changed and not removed — a filter
+  // has to be able to go back to asking nothing. It is also why there is no
+  // "any" chip: it would be an answer saying nothing was answered.
+  Widget _buildChoiceChips<T>({
+    required T? value,
+    required List<(T, String)> options,
+    required ValueChanged<T?> onChanged,
+  })
+  {
+    return Wrap(
+      spacing:    10,
+      runSpacing: 10,
+      children: [
+        for (final (option, label) in options)
+          AppSelectableChip(
+            label: label,
+            selected: value == option,
+            onSelected: (selected) => onChanged(selected ? option : null),
+          ),
+      ],
+    );
+  }
+
   Widget _buildFieldLabel(String text)
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 16),
-      child: Text(
-        text,
-        style: GoogleFonts.plusJakartaSans(
-          color:      AppTheme.primary,
-          fontWeight: FontWeight.w700,
-          fontSize:   14,
-        ),
-      ),
+      child: AppFieldLabel(text),
     );
   }
 
-  Widget _buildSectionTitle(String title)
+  // Not a heading drawn in place: a mark saying "a new piece starts here". The
+  // body is one long list of fields and the pieces are cut out of it at these,
+  // so a section that only shows up for one role does not have to know anything
+  // about the piece it ends up in.
+  Widget _buildSectionTitle(String title) => _SectionBreak(title);
+
+  // A new piece on the same card. The roles and the filters everybody has
+  // belong together — they are what you set before anything else — but they are
+  // two different questions, and a piece each is what says so.
+  Widget _buildPillBreak() => const _PillBreak();
+
+  // Everything between one mark and the next, as a card of its own.
+  //
+  // The roles and the filters everybody has open the run; each role that has
+  // been ticked adds a card of its own after them. Which cards exist therefore
+  // changes as the roles are ticked, which is why the one on screen is clamped
+  // back into range on every build.
+  List<Widget> _cardsOf(List<Widget> parts)
   {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        const Divider(height: 1, thickness: 1, color: AppTheme.border),
-        const SizedBox(height: 16),
-        Text(
-          title,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize:   16,
-            fontWeight: FontWeight.w700,
-            color:      AppTheme.primary,
+    final cards = <Widget>[];
+
+    var pieces = <Widget>[];
+    var current = <Widget>[];
+    String? title;
+
+    void closePiece()
+    {
+      if (current.every((part) => part is SizedBox))
+      {
+        current = [];
+
+        return;
+      }
+
+      final heading = pieces.isEmpty ? title : null;
+
+      pieces.add(AppDialogPill(
+        expand: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (heading != null) ...[
+              Text(
+                heading.toUpperCase(),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.4,
+                  color: AppTheme.trialMutedText,
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+            ...current,
+          ],
+        ),
+      ));
+
+      current = [];
+    }
+
+    void closeCard()
+    {
+      closePiece();
+
+      if (pieces.isEmpty)
+      {
+        return;
+      }
+
+      cards.add(Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < pieces.length; i++) ...[
+            if (i > 0) const SizedBox(height: _pieceGap),
+            // The stack counts the title as 0 and the body as 1, so the pieces
+            // inside the body carry on from there and keep arriving one after
+            // the other rather than all at once.
+            AppDialogPiece(index: 1 + i, named: false, child: pieces[i]),
+          ],
+        ],
+      ));
+
+      pieces = [];
+    }
+
+    for (final part in parts)
+    {
+      if (part is _SectionBreak)
+      {
+        closeCard();
+        title = part.title;
+
+        continue;
+      }
+
+      if (part is _PillBreak)
+      {
+        closePiece();
+
+        continue;
+      }
+
+      current.add(part);
+    }
+
+    closeCard();
+
+    return cards;
+  }
+
+  void _goToCard(int card)
+  {
+    setState(()
+    {
+      _movingForward = card > _card;
+      _card = card;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final roles = _currentState.selectedRoles;
+
+    final bool showParentFilters    = roles.contains('Genitore');
+    final bool showAssociateFilters = roles.isNotEmpty && roles.any((r) => r != 'Genitore');
+    final bool showStudentFilters   = roles.contains('Studente');
+    final bool showStaffFilters     = roles.any((r) => ['Amministratore', 'Docente', 'Psicologo'].contains(r));
+    final bool showTeacherFilters   = roles.contains('Docente');
+    final bool showCourseFilters    = roles.contains('Corsista');
+
+    final bool isFullAgeRange = _currentState.ageRange == null ||
+        (_currentState.ageRange!.start == 5 && _currentState.ageRange!.end == 99);
+
+    final bool isFullSubjectRange = _currentState.taughtSubjectsCount == null ||
+        (_currentState.taughtSubjectsCount!.start == 1 && _currentState.taughtSubjectsCount!.end == 15);
+
+    return AppDialogStack(
+      eyebrow: 'Persone',
+      title: 'Filtri di ricerca',
+      // The card plus an arrow and its gap on either side, so the two stay
+      // beside it rather than dropping underneath.
+      maxWidth: _cardWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap),
+      footer: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'AZZERA',
+            icon: Icons.refresh_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: 52,
+            fontSize: 14,
+            onPressed: _resetFilters,
+          ),
+          primary: AppGradientButton(
+            label: 'APPLICA',
+            icon: Icons.check_rounded,
+            height: 52,
+            fontSize: 14,
+            onPressed: ()
+            {
+              widget.onApply(_currentState);
+              Navigator.of(context).pop();
+            },
           ),
         ),
-      ],
+      ),
+      children: [_buildCarousel([
+                        _buildSectionTitle('Generali'),
+                        _buildFieldLabel('Ruoli'),
+                        Wrap(
+                          spacing:    10,
+                          runSpacing: 10,
+                          children:   _availableRoles.map((role)
+                          {
+                            return AppSelectableChip(
+                              label: role,
+                              selected: _currentState.selectedRoles.contains(role),
+                              onSelected: (val) => _toggleRole(role, val),
+                            );
+                          }).toList(),
+                        ),
+
+                        _buildPillBreak(),
+                        _buildFieldLabel('Città di residenza'),
+                        _AutocompleteField(
+                          controller: _cityController,
+                          hint:       'Es. Thiene',
+                          options:    widget.availableCities,
+                          onChanged:  (val) => setState(()
+                          {
+                            _currentState = _currentState.copyWith(
+                              city:      val,
+                              clearCity: val.isEmpty,
+                            );
+                          }),
+                        ),
+
+                        _buildFieldLabel('Fascia di età'),
+                        const SizedBox(height: 8),
+                        AppRangeSlider(
+                          values:    _currentState.ageRange ?? const RangeValues(5, 99),
+                          min:       5,
+                          max:       99,
+                          divisions: 94,
+                          labels: RangeLabels(
+                            _currentState.ageRange?.start.round().toString() ?? '5',
+                            _currentState.ageRange?.end.round() == 99
+                                ? '99+'
+                                : _currentState.ageRange?.end.round().toString() ?? '99+',
+                          ),
+                          onChanged: (RangeValues values)
+                          {
+                            setState(()
+                            {
+                              _currentState = _currentState.copyWith(ageRange: values);
+                            });
+                          },
+                        ),
+                        Center(
+                          child: Text(
+                            isFullAgeRange
+                                ? 'Tutte le età'
+                                : '${_currentState.ageRange!.start.round()} - ${_currentState.ageRange!.end.round() == 99 ? '99+' : _currentState.ageRange!.end.round()} anni',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize:   14,
+                              color:      AppTheme.trialMutedText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                        if (showParentFilters) ...[
+                          _buildSectionTitle('Filtri Genitore'),
+                          _buildFieldLabel('Numero figli associati'),
+                          _buildChoiceChips<String>(
+                            value: _currentState.childrenCount,
+                            options: const [('1', '1'), ('2', '2'), ('3', '3'), ('4+', '4 o più')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                childrenCount:      val,
+                                clearChildrenCount: val == null,
+                              );
+                            }),
+                          ),
+                        ],
+
+                        if (showAssociateFilters) ...[
+                          _buildSectionTitle('Filtri Associato'),
+                          _buildFieldLabel('Stato collaborazione'),
+                          _buildChoiceChips<bool>(
+                            value: _currentState.isActiveCollaborator,
+                            options: const [(true, 'Attiva'), (false, 'Inattiva')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                isActiveCollaborator: val,
+                                clearCollaborator:    val == null,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Anno di prima iscrizione'),
+                          AppDropdownField<String?>(
+                            hint:    'Qualsiasi anno',
+                            value:   _currentState.enrollmentYear,
+                            options: [
+                              AppDropdownOption(value: null,   label: 'Qualsiasi anno'),
+                              AppDropdownOption(value: '2026', label: '2026'),
+                              AppDropdownOption(value: '2025', label: '2025'),
+                              AppDropdownOption(value: '2024', label: '2024'),
+                              AppDropdownOption(value: '2023', label: '2023'),
+                              AppDropdownOption(value: '2022', label: '2022'),
+                            ],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                enrollmentYear:  val,
+                                clearEnrollment: val == null,
+                              );
+                            }),
+                          ),
+                        ],
+
+                        if (showStudentFilters) ...[
+                          _buildSectionTitle('Filtri Studente'),
+                          _buildFieldLabel('Livello di istruzione'),
+                          _buildChoiceChips<String>(
+                            value: _currentState.educationLevel,
+                            options: const [('Scuola primaria', 'Primaria'),
+                              ('Scuola secondaria di I grado', 'Secondaria di I grado'),
+                              ('Scuola secondaria di II grado', 'Secondaria di II grado')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                educationLevel:      val,
+                                clearEducationLevel: val == null,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Scuola frequentata'),
+                          _AutocompleteField(
+                            controller: _schoolController,
+                            hint:       'Es. Liceo Statale Francesco Corradini',
+                            options:    widget.availableSchools,
+                            onChanged:  (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                schoolName:      val,
+                                clearSchoolName: val.isEmpty,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Classe'),
+                          _buildChoiceChips<String>(
+                            value: _currentState.schoolClass,
+                            options: const [('I', 'I'), ('II', 'II'), ('III', 'III'), ('IV', 'IV'), ('V', 'V')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                schoolClass:      val,
+                                clearSchoolClass: val == null,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Indirizzo di studio'),
+                          _AutocompleteField(
+                            controller: _studyProgramController,
+                            hint:       'Es. Amministrazione finanza e marketing',
+                            options:    widget.availableStudyPrograms,
+                            onChanged:  (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                studyProgram:      val,
+                                clearStudyProgram: val.isEmpty,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Uscita anticipata'),
+                          _buildChoiceChips<bool>(
+                            value: _currentState.earlyExit,
+                            options: const [(true, 'Sì'), (false, 'No')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                earlyExit:      val,
+                                clearEarlyExit: val == null,
+                              );
+                            }),
+                          ),
+                        ],
+
+                        if (showStaffFilters) ...[
+                          _buildSectionTitle('Filtri Staff'),
+                          _buildFieldLabel('Tipo collaborazione'),
+                          _buildChoiceChips<String>(
+                            value: _currentState.collaborationType,
+                            options: const [('Volontario', 'Volontario'), ('Retribuito', 'Retribuito'), ('(FSL (Ex PCTO)', 'PCTO')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                collaborationType:      val,
+                                clearCollaborationType: val == null,
+                              );
+                            }),
+                          ),
+                        ],
+
+                        if (showTeacherFilters) ...[
+                          _buildSectionTitle('Filtri Docente'),
+
+                          _buildFieldLabel('Discipline insegnate'),
+                          _AutocompleteField(
+                            controller:  _subjectController,
+                            hint:        'Es. Aritmetica',
+                            options:     widget.availableSubjects,
+                            onChanged:   (_) {},
+                            onSubmitted: _addSubject,
+                          ),
+                          if (_currentState.taughtSubjects.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing:    8,
+                              runSpacing: 8,
+                              children:   _currentState.taughtSubjects.map((s)
+                              {
+                                return AppDeletableChip(
+                                  label:    s,
+                                  onDelete: () => _removeSubject(s),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+
+                          _buildFieldLabel('Numero materie insegnate'),
+                          const SizedBox(height: 8),
+                          AppRangeSlider(
+                            values:    _currentState.taughtSubjectsCount ?? const RangeValues(1, 15),
+                            min:       1,
+                            max:       15,
+                            divisions: 14,
+                            labels: RangeLabels(
+                              _currentState.taughtSubjectsCount?.start.round().toString() ?? '1',
+                              _currentState.taughtSubjectsCount?.end.round() == 15
+                                  ? '15+'
+                                  : _currentState.taughtSubjectsCount?.end.round().toString() ?? '15+',
+                            ),
+                            onChanged: (RangeValues values)
+                            {
+                              setState(()
+                              {
+                                _currentState = _currentState.copyWith(taughtSubjectsCount: values);
+                              });
+                            },
+                          ),
+                          Center(
+                            child: Text(
+                              isFullSubjectRange
+                                  ? 'Qualsiasi'
+                                  : '${_currentState.taughtSubjectsCount!.start.round()} - ${_currentState.taughtSubjectsCount!.end.round() == 15 ? '15+' : _currentState.taughtSubjectsCount!.end.round()} materie',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize:   14,
+                                color:      AppTheme.trialMutedText,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        if (showCourseFilters) ...[
+                          _buildSectionTitle('Filtri Corsista'),
+                          _buildFieldLabel('Tipo di corso'),
+                          _buildTextField(
+                            _courseTypeController,
+                            'Es. Yoga',
+                            (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                courseType:      val,
+                                clearCourseType: val.isEmpty,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Certificato medico'),
+                          _buildChoiceChips<bool>(
+                            value: _currentState.isMedicalCertificateValid,
+                            options: const [(true, 'Non scaduto'), (false, 'Scaduto')],
+                            onChanged: (val) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                isMedicalCertificateValid: val,
+                                clearMedicalCert:          val == null,
+                              );
+                            }),
+                          ),
+                        ],
+      ])],
     );
   }
 
@@ -183,13 +660,21 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     ValueChanged<String>?  onSubmitted,
   })
   {
-    return Container(
+    return _HoverFieldBox(builder: (hover) => AnimatedContainer(
+      duration: _fieldFade,
+      curve: Curves.easeOut,
       height:     50,
       padding:    const EdgeInsets.only(left: 16, right: 8),
       decoration: BoxDecoration(
-        color:        Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border:       Border.all(color: AppTheme.border, width: 1.5),
+        // The ground, radius and border every field of the app stands on: see
+        // AppTextField, which these cannot simply be replaced by because they
+        // carry their own suggestions underneath.
+        color: _fieldSurface,
+        borderRadius: BorderRadius.circular(_fieldRadius),
+        border: Border.all(
+          color: hover ? AppTheme.trialGold : AppTheme.trialLine,
+          width: _fieldBorder,
+        ),
       ),
       child: Row(
         children: [
@@ -205,14 +690,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
               style:       GoogleFonts.plusJakartaSans(
                 fontSize:   15,
                 fontWeight: FontWeight.w600,
-                color:      Colors.black87,
+                color:      AppTheme.trialInk,
               ),
               decoration: InputDecoration(
                 hintText:    hint,
                 hintStyle:   GoogleFonts.plusJakartaSans(
                   fontSize:   15,
                   fontWeight: FontWeight.w500,
-                  color:      AppTheme.hint,
+                  color:      AppTheme.trialMutedText,
                 ),
                 border:      InputBorder.none,
                 isCollapsed: true,
@@ -245,541 +730,90 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
             ),
         ],
       ),
+    ));
+  }
+
+  Widget _buildCarousel(List<Widget> parts)
+  {
+    final cards = _cardsOf(parts);
+
+    // Ticking a role off can take the card being shown out of existence.
+    final card = _card.clamp(0, cards.length - 1);
+
+    return AppCarouselFrame(
+      index: card,
+      movingForward: _movingForward,
+      maxContentWidth: _cardWidth,
+      canGoBack: card > 0,
+      canGoForward: card < cards.length - 1,
+      onBack: () => _goToCard(card - 1),
+      onForward: () => _goToCard(card + 1),
+      child: cards[card],
     );
   }
+}
+
+// What a field of this dialog is made of. The same numbers AppTextField uses,
+// which is what makes a suggestion box here look like a plain field there.
+const Color _fieldSurface = Color(0xFFFBFDFC);
+const double _fieldRadius = 14;
+const double _fieldBorder = 2;
+
+// The same fade AppTextField uses between resting and focused, so a field here
+// answers at the speed of a field anywhere else.
+const Duration _fieldFade = Duration(milliseconds: 180);
+
+// Air between two pieces of the same card, the same the dialog leaves between
+// its own.
+const double _pieceGap = 20;
+
+// A mark in the body saying that the piece before it has ended. It draws
+// nothing: _pillsOf reads it and cuts.
+// A field that takes the app's gold outline while the pointer is on it, and
+// fades in and out of it. The box it is given already carries the border; this
+// only says when it is gold.
+class _HoverFieldBox extends StatefulWidget
+{
+  final Widget Function(bool hover) builder;
+
+  const _HoverFieldBox({required this.builder});
+
+  @override
+  State<_HoverFieldBox> createState() => _HoverFieldBoxState();
+}
+
+class _HoverFieldBoxState extends State<_HoverFieldBox>
+{
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context)
   {
-    final roles = _currentState.selectedRoles;
-
-    final bool showParentFilters    = roles.contains('Genitore');
-    final bool showAssociateFilters = roles.isNotEmpty && roles.any((r) => r != 'Genitore');
-    final bool showStudentFilters   = roles.contains('Studente');
-    final bool showStaffFilters     = roles.any((r) => ['Amministratore', 'Docente', 'Psicologo'].contains(r));
-    final bool showTeacherFilters   = roles.contains('Docente');
-    final bool showCourseFilters    = roles.contains('Corsista');
-
-    final bool isFullAgeRange = _currentState.ageRange == null ||
-        (_currentState.ageRange!.start == 5 && _currentState.ageRange!.end == 99);
-
-    final bool isFullSubjectRange = _currentState.taughtSubjectsCount == null ||
-        (_currentState.taughtSubjectsCount!.start == 1 && _currentState.taughtSubjectsCount!.end == 15);
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation:       0,
-      child: Container(
-        width:       540,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color:        Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: AppTheme.dialogShadow,
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Filtri di ricerca',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize:   20,
-                      fontWeight: FontWeight.w700,
-                      color:      AppTheme.primary,
-                    ),
-                  ),
-                  StaticHoverIconButton(
-                    icon:       Icons.close,
-                    color:      AppTheme.primary,
-                    hoverColor: AppTheme.iconHover,
-                    onTap:      () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, thickness: 1, color: AppTheme.divider),
-
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: RawScrollbar(
-                  controller:      _scrollController,
-                  thumbVisibility: true,
-                  thickness:       6,
-                  radius:          const Radius.circular(10),
-                  thumbColor:      AppTheme.hint,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding:    const EdgeInsets.only(
-                      left:   32,
-                      right:  32,
-                      bottom: 24,
-                      top:    8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('Ruoli'),
-                        Wrap(
-                          spacing:    10,
-                          runSpacing: 10,
-                          children:   _availableRoles.map((role)
-                          {
-                            return CustomChip(
-                              label:      role,
-                              isSelected: _currentState.selectedRoles.contains(role),
-                              onSelected: (val) => _toggleRole(role, val),
-                            );
-                          }).toList(),
-                        ),
-
-                        _buildSectionTitle('Generali'),
-                        _buildFieldLabel('Città di residenza'),
-                        _AutocompleteField(
-                          controller: _cityController,
-                          hint:       'Es. Thiene',
-                          options:    widget.availableCities,
-                          onChanged:  (val) => setState(()
-                          {
-                            _currentState = _currentState.copyWith(
-                              city:      val,
-                              clearCity: val.isEmpty,
-                            );
-                          }),
-                        ),
-
-                        _buildFieldLabel('Fascia di età'),
-                        const SizedBox(height: 8),
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            activeTrackColor:        AppTheme.primary,
-                            inactiveTrackColor:      AppTheme.border,
-                            thumbColor:              AppTheme.primary,
-                            valueIndicatorColor:     AppTheme.primary,
-                            overlayShape:            SliderComponentShape.noOverlay,
-                            valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
-                              color:      Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          child: RangeSlider(
-                            values:    _currentState.ageRange ?? const RangeValues(5, 99),
-                            min:       5,
-                            max:       99,
-                            divisions: 94,
-                            labels: RangeLabels(
-                              _currentState.ageRange?.start.round().toString() ?? '5',
-                              _currentState.ageRange?.end.round() == 99
-                                  ? '99+'
-                                  : _currentState.ageRange?.end.round().toString() ?? '99+',
-                            ),
-                            onChanged: (RangeValues values)
-                            {
-                              setState(()
-                              {
-                                _currentState = _currentState.copyWith(ageRange: values);
-                              });
-                            },
-                          ),
-                        ),
-                        Center(
-                          child: Text(
-                            isFullAgeRange
-                                ? 'Tutte le età'
-                                : '${_currentState.ageRange!.start.round()} - ${_currentState.ageRange!.end.round() == 99 ? '99+' : _currentState.ageRange!.end.round()} anni',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize:   14,
-                              color:      AppTheme.slate500,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showParentFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Genitore'),
-                                    _buildFieldLabel('Numero figli associati'),
-                                    _DialogDropdownMenu<String?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.childrenCount,
-                                      options: [
-                                        _DropdownOption(value: null, label: 'Qualsiasi'),
-                                        _DropdownOption(value: '1',  label: '1'),
-                                        _DropdownOption(value: '2',  label: '2'),
-                                        _DropdownOption(value: '3',  label: '3'),
-                                        _DropdownOption(value: '4+', label: '4 o più'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          childrenCount:      val,
-                                          clearChildrenCount: val == null,
-                                        );
-                                      }),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showAssociateFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Associato'),
-                                    _buildFieldLabel('Stato collaborazione'),
-                                    _DialogDropdownMenu<bool?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.isActiveCollaborator,
-                                      options: [
-                                        _DropdownOption(value: null,  label: 'Qualsiasi'),
-                                        _DropdownOption(value: true,  label: 'Attiva'),
-                                        _DropdownOption(value: false, label: 'Inattiva'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          isActiveCollaborator: val,
-                                          clearCollaborator:    val == null,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Anno di prima iscrizione'),
-                                    _DialogDropdownMenu<String?>(
-                                      hint:    'Qualsiasi anno',
-                                      value:   _currentState.enrollmentYear,
-                                      options: [
-                                        _DropdownOption(value: null,   label: 'Qualsiasi anno'),
-                                        _DropdownOption(value: '2026', label: '2026'),
-                                        _DropdownOption(value: '2025', label: '2025'),
-                                        _DropdownOption(value: '2024', label: '2024'),
-                                        _DropdownOption(value: '2023', label: '2023'),
-                                        _DropdownOption(value: '2022', label: '2022'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          enrollmentYear:  val,
-                                          clearEnrollment: val == null,
-                                        );
-                                      }),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showStudentFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Studente'),
-                                    _buildFieldLabel('Livello di istruzione'),
-                                    _DialogDropdownMenu<String?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.educationLevel,
-                                      options: [
-                                        _DropdownOption(value: null,                            label: 'Qualsiasi'),
-                                        _DropdownOption(value: 'Scuola primaria',               label: 'Primaria'),
-                                        _DropdownOption(value: 'Scuola secondaria di I grado',  label: 'Secondaria di I grado'),
-                                        _DropdownOption(value: 'Scuola secondaria di II grado', label: 'Secondaria di II grado'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          educationLevel:      val,
-                                          clearEducationLevel: val == null,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Scuola frequentata'),
-                                    _AutocompleteField(
-                                      controller: _schoolController,
-                                      hint:       'Es. Liceo Statale Francesco Corradini',
-                                      options:    widget.availableSchools,
-                                      onChanged:  (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          schoolName:      val,
-                                          clearSchoolName: val.isEmpty,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Classe'),
-                                    _DialogDropdownMenu<String?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.schoolClass,
-                                      options: [
-                                        _DropdownOption(value: null,  label: 'Qualsiasi'),
-                                        _DropdownOption(value: 'I',   label: 'I'),
-                                        _DropdownOption(value: 'II',  label: 'II'),
-                                        _DropdownOption(value: 'III', label: 'III'),
-                                        _DropdownOption(value: 'IV',  label: 'IV'),
-                                        _DropdownOption(value: 'V',   label: 'V'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          schoolClass:      val,
-                                          clearSchoolClass: val == null,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Indirizzo di studio'),
-                                    _AutocompleteField(
-                                      controller: _studyProgramController,
-                                      hint:       'Es. Liceo Classico',
-                                      options:    widget.availableStudyPrograms,
-                                      onChanged:  (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          studyProgram:      val,
-                                          clearStudyProgram: val.isEmpty,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Uscita anticipata'),
-                                    _DialogDropdownMenu<bool?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.earlyExit,
-                                      options: [
-                                        _DropdownOption(value: null,  label: 'Qualsiasi'),
-                                        _DropdownOption(value: true,  label: 'Sì'),
-                                        _DropdownOption(value: false, label: 'No'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          earlyExit:      val,
-                                          clearEarlyExit: val == null,
-                                        );
-                                      }),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showStaffFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Staff'),
-                                    _buildFieldLabel('Tipo collaborazione'),
-                                    _DialogDropdownMenu<String?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.collaborationType,
-                                      options: [
-                                        _DropdownOption(value: null,         label: 'Qualsiasi'),
-                                        _DropdownOption(value: 'Volontario', label: 'Volontario'),
-                                        _DropdownOption(value: 'Retribuito', label: 'Retribuito'),
-                                        _DropdownOption(value: 'PCTO',       label: 'PCTO'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          collaborationType:      val,
-                                          clearCollaborationType: val == null,
-                                        );
-                                      }),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showTeacherFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Docente'),
-
-                                    _buildFieldLabel('Discipline insegnate'),
-                                    _AutocompleteField(
-                                      controller:  _subjectController,
-                                      hint:        'Scrivi la disciplina e premi Invio',
-                                      options:     widget.availableSubjects,
-                                      onChanged:   (_) {},
-                                      onSubmitted: _addSubject,
-                                    ),
-                                    if (_currentState.taughtSubjects.isNotEmpty) ...[
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing:    8,
-                                        runSpacing: 8,
-                                        children:   _currentState.taughtSubjects.map((s)
-                                        {
-                                          return _DeletableChip(
-                                            label:    s,
-                                            onDelete: () => _removeSubject(s),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
-
-                                    _buildFieldLabel('Numero materie insegnate'),
-                                    const SizedBox(height: 8),
-                                    SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor:        AppTheme.primary,
-                                        inactiveTrackColor:      AppTheme.border,
-                                        thumbColor:              AppTheme.primary,
-                                        valueIndicatorColor:     AppTheme.primary,
-                                        overlayShape:            SliderComponentShape.noOverlay,
-                                        valueIndicatorTextStyle: GoogleFonts.plusJakartaSans(
-                                          color:      Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      child: RangeSlider(
-                                        values:    _currentState.taughtSubjectsCount ?? const RangeValues(1, 15),
-                                        min:       1,
-                                        max:       15,
-                                        divisions: 14,
-                                        labels: RangeLabels(
-                                          _currentState.taughtSubjectsCount?.start.round().toString() ?? '1',
-                                          _currentState.taughtSubjectsCount?.end.round() == 15
-                                              ? '15+'
-                                              : _currentState.taughtSubjectsCount?.end.round().toString() ?? '15+',
-                                        ),
-                                        onChanged: (RangeValues values)
-                                        {
-                                          setState(()
-                                          {
-                                            _currentState = _currentState.copyWith(taughtSubjectsCount: values);
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    Center(
-                                      child: Text(
-                                        isFullSubjectRange
-                                            ? 'Qualsiasi'
-                                            : '${_currentState.taughtSubjectsCount!.start.round()} - ${_currentState.taughtSubjectsCount!.end.round() == 15 ? '15+' : _currentState.taughtSubjectsCount!.end.round()} materie',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize:   14,
-                                          color:      AppTheme.slate500,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-
-                        AnimatedSize(
-                          duration:  const Duration(milliseconds: 300),
-                          curve:     Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child:     showCourseFilters
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSectionTitle('Filtri Corsista'),
-                                    _buildFieldLabel('Tipo di corso'),
-                                    _buildTextField(
-                                      _courseTypeController,
-                                      'Es. Yoga',
-                                      (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          courseType:      val,
-                                          clearCourseType: val.isEmpty,
-                                        );
-                                      }),
-                                    ),
-                                    _buildFieldLabel('Certificato medico'),
-                                    _DialogDropdownMenu<bool?>(
-                                      hint:    'Qualsiasi',
-                                      value:   _currentState.isMedicalCertificateValid,
-                                      options: [
-                                        _DropdownOption(value: null,  label: 'Qualsiasi'),
-                                        _DropdownOption(value: true,  label: 'Non scaduto'),
-                                        _DropdownOption(value: false, label: 'Scaduto'),
-                                      ],
-                                      onChanged: (val) => setState(()
-                                      {
-                                        _currentState = _currentState.copyWith(
-                                          isMedicalCertificateValid: val,
-                                          clearMedicalCert:          val == null,
-                                        );
-                                      }),
-                                    ),
-                                  ],
-                                )
-                              : const SizedBox(width: double.infinity),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AnimatedActionButton(
-                      text:       'AZZERA',
-                      icon:       Icons.refresh_rounded,
-                      baseColor:  AppTheme.danger,
-                      hoverColor: AppTheme.dangerHover,
-                      onPressed:  _resetFilters,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: AnimatedActionButton(
-                      text:       'APPLICA',
-                      icon:       Icons.check_circle_outline_rounded,
-                      baseColor:  AppTheme.primary,
-                      hoverColor: AppTheme.primaryHover,
-                      onPressed:  ()
-                      {
-                        widget.onApply(_currentState);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: widget.builder(_hover),
     );
   }
+}
+
+// The lighter of the two marks: it ends a piece without ending the card.
+class _PillBreak extends StatelessWidget
+{
+  const _PillBreak();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+class _SectionBreak extends StatelessWidget
+{
+  final String title;
+
+  const _SectionBreak(this.title);
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 // Local components
@@ -806,11 +840,33 @@ class _AutocompleteField extends StatefulWidget
 
 class _AutocompleteFieldState extends State<_AutocompleteField>
 {
+  bool _isHovered = false;
+
   final FocusNode _focusNode = FocusNode();
+
+  bool _isFocused = false;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    // The gold ring is drawn by this widget rather than by an InputDecoration,
+    // so it has to hear about the focus itself.
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged()
+  {
+    if (_focusNode.hasFocus != _isFocused)
+    {
+      setState(() => _isFocused = _focusNode.hasFocus);
+    }
+  }
 
   @override
   void dispose()
   {
+    _focusNode.removeListener(_onFocusChanged);
     _focusNode.dispose();
     super.dispose();
   }
@@ -857,70 +913,87 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         VoidCallback onFieldSubmitted,
       )
       {
-        return Container(
-          height:     50,
-          padding:    const EdgeInsets.only(left: 16, right: 8),
-          decoration: BoxDecoration(
-            color:        Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border:       Border.all(color: AppTheme.border, width: 1.5),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: textEditingController,
-                  focusNode:  focusNode,
-                  onChanged:  (val)
-                  {
-                    setState(() {});
-                    widget.onChanged(val);
-                  },
-                  // Enter confirms RawAutocomplete's highlighted option (arrow-selected or the first result),
-                  // never the free text, so only an option that really exists in widget.options can be submitted.
-                  onSubmitted: (_) => onFieldSubmitted(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   15,
-                    fontWeight: FontWeight.w600,
-                    color:      Colors.black87,
-                  ),
-                  decoration: InputDecoration(
-                    hintText:    widget.hint,
-                    hintStyle:   GoogleFonts.plusJakartaSans(
-                      fontSize:   15,
-                      fontWeight: FontWeight.w500,
-                      color:      AppTheme.hint,
-                    ),
-                    border:      InputBorder.none,
-                    isCollapsed: true,
-                  ),
-                ),
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: AnimatedContainer(
+            duration: _fieldFade,
+            curve: Curves.easeOut,
+            height:     50,
+            padding:    const EdgeInsets.only(left: 16, right: 8),
+            decoration: BoxDecoration(
+              color: _fieldSurface,
+              borderRadius: BorderRadius.circular(_fieldRadius),
+              border: Border.all(
+                color: _isFocused || _isHovered ? AppTheme.trialGold : AppTheme.trialLine,
+                width: _fieldBorder,
               ),
-              if (textEditingController.text.isNotEmpty)
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: ()
+              boxShadow: [
+                // The ring a focused field opens in this app: a shadow with no
+                // blur, which is what makes it a ring and not a glow.
+                BoxShadow(
+                  color: AppTheme.trialGold.withValues(alpha: _isFocused ? 0.15 : 0),
+                  spreadRadius: _isFocused ? 4 : 0,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: textEditingController,
+                    focusNode:  focusNode,
+                    onChanged:  (val)
                     {
-                      textEditingController.clear();
-                      widget.onChanged('');
                       setState(() {});
+                      widget.onChanged(val);
                     },
-                    child: Container(
-                      padding:    const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color:        AppTheme.danger.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    // Enter confirms RawAutocomplete's highlighted option (arrow-selected or the first result),
+                    // never the free text, so only an option that really exists in widget.options can be submitted.
+                    onSubmitted: (_) => onFieldSubmitted(),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize:   15,
+                      fontWeight: FontWeight.w600,
+                      color:      AppTheme.trialInk,
+                    ),
+                    decoration: InputDecoration(
+                      hintText:    widget.hint,
+                      hintStyle:   GoogleFonts.plusJakartaSans(
+                        fontSize:   15,
+                        fontWeight: FontWeight.w500,
+                        color:      AppTheme.trialMutedText,
                       ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size:  16,
-                        color: AppTheme.danger,
-                      ),
+                      border:      InputBorder.none,
+                      isCollapsed: true,
                     ),
                   ),
                 ),
-            ],
+                if (textEditingController.text.isNotEmpty)
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: ()
+                      {
+                        textEditingController.clear();
+                        widget.onChanged('');
+                        setState(() {});
+                      },
+                      child: Container(
+                        padding:    const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color:        AppTheme.trialDanger.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size:  16,
+                          color: AppTheme.trialDanger,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -930,618 +1003,16 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         Iterable<String> options,
       )
       {
-        return _AutocompleteOptionsList(
+        return AutocompleteOptionsList<String>(
           options:    options,
+          label:      (option) => option,
+          // The list opens in an overlay, where the width of the field under it
+          // does not reach through the constraints: it is the width of the card
+          // this dialog puts its fields in.
+          width:      436,
           onSelected: onSelected,
         );
       },
-    );
-  }
-}
-
-// Fixed height shared by the ListView itemExtent and each item container; the two must match exactly.
-const double _autocompleteOptionItemHeight = 44.0;
-
-// Scrollable suggestion list that follows the keyboard-highlighted item, auto-scrolling when it leaves the visible area.
-// Same pattern as CityOptionsListView (schools_tab.dart), here generic over strings instead of city/province pairs.
-class _AutocompleteOptionsList extends StatefulWidget
-{
-  final Iterable<String>               options;
-  final AutocompleteOnSelected<String> onSelected;
-
-  const _AutocompleteOptionsList({
-    required this.options,
-    required this.onSelected,
-  });
-
-  @override
-  State<_AutocompleteOptionsList> createState() => _AutocompleteOptionsListState();
-}
-
-class _AutocompleteOptionsListState extends State<_AutocompleteOptionsList>
-{
-  // Vertical padding of the ListView (one side), used in the scroll math as the offset before the first item.
-  static const double _verticalPadding = 8;
-
-  final ScrollController _scrollController = ScrollController();
-  int? _lastHighlightedIndex;
-
-  @override
-  void dispose()
-  {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // Bring the highlighted item into view, scrolling only the minimum needed rather than always centering it.
-  void _ensureHighlightedVisible(int index)
-  {
-    if (!_scrollController.hasClients)
-    {
-      return;
-    }
-
-    final itemTop        = _verticalPadding + (index * _autocompleteOptionItemHeight);
-    final itemBottom      = itemTop + _autocompleteOptionItemHeight;
-    final viewportHeight = _scrollController.position.viewportDimension;
-    final visibleTop      = _scrollController.offset;
-    final visibleBottom   = visibleTop + viewportHeight;
-
-    double? target;
-    if (itemTop < visibleTop)
-    {
-      target = itemTop;
-    }
-    else if (itemBottom > visibleBottom)
-    {
-      target = itemBottom - viewportHeight;
-    }
-
-    if (target != null)
-    {
-      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
-      _scrollController.jumpTo(clamped);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    // The arrow-highlighted index; reading it here subscribes to the notifier so this widget rebuilds on every change.
-    final highlightedIndex = AutocompleteHighlightedOption.of(context);
-
-    if (_lastHighlightedIndex != highlightedIndex)
-    {
-      _lastHighlightedIndex = highlightedIndex;
-      // Scheduled after the frame: the scrollable must be laid out before its viewportDimension and maxScrollExtent are known.
-      WidgetsBinding.instance.addPostFrameCallback((_)
-      {
-        if (mounted)
-        {
-          _ensureHighlightedVisible(highlightedIndex);
-        }
-      });
-    }
-
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width:       436,
-          margin:      const EdgeInsets.only(top: 8),
-          constraints: const BoxConstraints(maxHeight: 200),
-          // Clip.antiAlias stops the last highlighted item's rectangular background from covering the rounded corners.
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color:        Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: AppTheme.overlayShadow,
-          ),
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-            child: RawScrollbar(
-              controller:      _scrollController,
-              thumbVisibility: true,
-              thickness:       6,
-              radius:          const Radius.circular(10),
-              thumbColor:      AppTheme.hint,
-              child: ListView.builder(
-                controller:  _scrollController,
-                padding:     const EdgeInsets.symmetric(vertical: _verticalPadding),
-                shrinkWrap:  true,
-                itemExtent:  _autocompleteOptionItemHeight,
-                itemCount:   widget.options.length,
-                itemBuilder: (BuildContext context, int index)
-                {
-                  final String option = widget.options.elementAt(index);
-                  return _AutocompleteOptionTile(
-                    text:          option,
-                    isHighlighted: index == highlightedIndex,
-                    onTap:         () => widget.onSelected(option),
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// A suggestion list item, highlighted on hover or via keyboard arrows (isHighlighted); same visual language as CityOptionTile.
-class _AutocompleteOptionTile extends StatefulWidget
-{
-  final String       text;
-  final bool         isHighlighted;
-  final VoidCallback onTap;
-
-  const _AutocompleteOptionTile({
-    required this.text,
-    required this.isHighlighted,
-    required this.onTap,
-  });
-
-  @override
-  State<_AutocompleteOptionTile> createState() => _AutocompleteOptionTileState();
-}
-
-class _AutocompleteOptionTileState extends State<_AutocompleteOptionTile>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final bool active = widget.isHighlighted || _hover;
-
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit:  (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width:   double.infinity,
-          height:  _autocompleteOptionItemHeight,
-          color:   active ? AppTheme.surfaceHover : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration:   const Duration(milliseconds: 150),
-                width:      2,
-                height:     active ? 16 : 0,
-                decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(2)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: widget.text,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   14,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color:      AppTheme.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeletableChip extends StatefulWidget
-{
-  final String       label;
-  final VoidCallback onDelete;
-
-  const _DeletableChip({
-    required this.label,
-    required this.onDelete
-  });
-
-  @override
-  State<_DeletableChip> createState() => _DeletableChipState();
-}
-
-class _DeletableChipState extends State<_DeletableChip>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit:  (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration:   const Duration(milliseconds: 150),
-        padding:    const EdgeInsets.only(left: 16, right: 8, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          color:        _isHovered ? AppTheme.surfaceHover : Colors.white,
-          borderRadius: BorderRadius.circular(100),
-          border:       Border.all(color: AppTheme.border, width: 1.0),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize:   14,
-                fontWeight: FontWeight.w600,
-                color:      AppTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: widget.onDelete,
-                child: Container(
-                  padding:    const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.danger.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size:  16,
-                    color: AppTheme.danger,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownOption<T>
-{
-  final T?     value;
-  final String label;
-  final bool   isSeparator;
-
-  _DropdownOption({
-    this.value,
-    this.label       = '',
-    this.isSeparator = false
-  });
-}
-
-class _DialogDropdownMenu<T> extends StatefulWidget
-{
-  final String                   hint;
-  final T?                       value;
-  final List<_DropdownOption<T>> options;
-  final ValueChanged<T?>         onChanged;
-
-  const _DialogDropdownMenu({
-    required this.hint,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  @override
-  State<_DialogDropdownMenu<T>> createState() => _DialogDropdownMenuState<T>();
-}
-
-class _DialogDropdownMenuState<T> extends State<_DialogDropdownMenu<T>>
-{
-  final GlobalKey _buttonKey = GlobalKey();
-  OverlayEntry?   _overlayEntry;
-
-  final GlobalKey<_DialogDropdownOverlayState> _menuKey = GlobalKey();
-  bool _isHovered = false;
-
-  void _toggleMenu()
-  {
-    if (_overlayEntry != null)
-    {
-      _closeMenu();
-      return;
-    }
-
-    final renderBox = _buttonKey.currentContext!.findRenderObject() as RenderBox;
-    final size      = renderBox.size;
-    final offset    = renderBox.localToGlobal(Offset.zero);
-    final screenH   = MediaQuery.of(context).size.height;
-
-    final spaceBottom = screenH - offset.dy - size.height;
-    final spaceTop    = offset.dy;
-    final showAbove   = spaceBottom < 250 && spaceTop > spaceBottom;
-
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap:    _closeMenu,
-              child:    Container(),
-            ),
-          ),
-          Positioned(
-            top:    showAbove ? null : offset.dy + size.height + 8,
-            bottom: showAbove ? screenH - offset.dy + 8 : null,
-            left:   offset.dx,
-            width:  size.width,
-            child: _DialogDropdownOverlay<T>(
-              key:          _menuKey,
-              currentValue: widget.value,
-              options:      widget.options,
-              showAbove:    showAbove,
-              onSelected:   (val)
-              {
-                widget.onChanged(val);
-                _closeMenu();
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-    setState(() {});
-  }
-
-  void _closeMenu() async
-  {
-    if (_overlayEntry != null)
-    {
-      await _menuKey.currentState?.hide();
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-      if (mounted)
-      {
-        setState(() {});
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final selectedOption = widget.options.firstWhere(
-      (o) => !o.isSeparator && o.value == widget.value,
-      orElse: () => _DropdownOption(value: widget.value, label: widget.hint),
-    );
-
-    final String displayText = selectedOption.label;
-    final bool   isExpanded  = _overlayEntry != null;
-
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit:  (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: _toggleMenu,
-        child: AnimatedContainer(
-          key:        _buttonKey,
-          duration:   const Duration(milliseconds: 200),
-          height:     50,
-          padding:    const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: _isHovered || isExpanded ? AppTheme.surfaceHover : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _isHovered || isExpanded ? AppTheme.primary : AppTheme.border,
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  displayText,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize:   15,
-                    fontWeight: FontWeight.w600,
-                    color:      Colors.black87,
-                  ),
-                ),
-              ),
-              Icon(
-                isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                color: AppTheme.primary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogDropdownOverlay<T> extends StatefulWidget
-{
-  final T?                       currentValue;
-  final List<_DropdownOption<T>> options;
-  final ValueChanged<T?>         onSelected;
-  final bool                     showAbove;
-
-  const _DialogDropdownOverlay({
-    super.key,
-    required this.currentValue,
-    required this.options,
-    required this.onSelected,
-    this.showAbove = false,
-  });
-
-  @override
-  State<_DialogDropdownOverlay<T>> createState() => _DialogDropdownOverlayState<T>();
-}
-
-class _DialogDropdownOverlayState<T> extends State<_DialogDropdownOverlay<T>>
-{
-  bool                   _expanded         = false;
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState()
-  {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_)
-    {
-      if (mounted)
-      {
-        setState(() => _expanded = true);
-      }
-    });
-  }
-
-  @override
-  void dispose()
-  {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  Future<void> hide() async
-  {
-    if (mounted)
-    {
-      setState(() => _expanded = false);
-    }
-    await Future.delayed(const Duration(milliseconds: 180));
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 250),
-        decoration: BoxDecoration(
-          color:        Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: AppTheme.overlayShadow,
-        ),
-        child: AnimatedSize(
-          duration:  const Duration(milliseconds: 180),
-          curve:     Curves.easeOut,
-          alignment: widget.showAbove ? Alignment.bottomCenter : Alignment.topCenter,
-          child:     _expanded
-              ? ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                  child: RawScrollbar(
-                    controller:      _scrollController,
-                    thumbVisibility: true,
-                    thickness:       6,
-                    radius:          const Radius.circular(10),
-                    thumbColor:      AppTheme.hint,
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      padding:    const EdgeInsets.symmetric(vertical: 8),
-                      child: Column(
-                        mainAxisSize:       MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:           widget.options.map((option)
-                        {
-                          if (option.isSeparator)
-                          {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical:   4.0,
-                              ),
-                              child: Divider(
-                                height:    1,
-                                thickness: 1,
-                                color:     AppTheme.divider,
-                              ),
-                            );
-                          }
-
-                          return _DialogDropdownItem(
-                            text:       option.label,
-                            isSelected: widget.currentValue == option.value,
-                            onTap:      () => widget.onSelected(option.value),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                )
-              : const SizedBox(height: 0, width: double.infinity),
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogDropdownItem extends StatefulWidget
-{
-  final String       text;
-  final bool         isSelected;
-  final VoidCallback onTap;
-
-  const _DialogDropdownItem({
-    required this.text,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  State<_DialogDropdownItem> createState() => _DialogDropdownItemState();
-}
-
-class _DialogDropdownItemState extends State<_DialogDropdownItem>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      cursor:  SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit:  (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width:   double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color:   Colors.transparent,
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration:   const Duration(milliseconds: 150),
-                width:      2,
-                height:     (_hover || widget.isSelected) ? 16 : 0,
-                decoration: BoxDecoration(
-                  color:        AppTheme.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OverflowTooltipText(
-                  text: widget.text,
-                  maxLines: 1,
-                  style:    GoogleFonts.plusJakartaSans(
-                    fontSize:   14,
-                    fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color:      AppTheme.primary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

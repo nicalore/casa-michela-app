@@ -5,11 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
-import '../../shared/widgets/corner_glow.dart';
-import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/password_field.dart';
 import '../../shared/widgets/password_policy_checklist.dart';
-import '../../shared/widgets/shared_components.dart';
+import '../../shared/widgets/app_dialog_footer.dart';
+import '../../shared/widgets/app_dialog_stack.dart';
+import '../../shared/widgets/app_gradient_button.dart';
+import 'widgets/auth_pill_page.dart';
 import '../../shared/widgets/snackbar.dart';
 
 class ForcePasswordChangePage extends StatefulWidget
@@ -22,6 +23,10 @@ class ForcePasswordChangePage extends StatefulWidget
 
 class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 {
+  // The height and type size every dialog of the app gives its buttons.
+  static const double _buttonHeight = 52;
+  static const double _buttonFontSize = 14;
+
   final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -153,96 +158,11 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     }
   }
 
-  Widget _buildHeader()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: 32, right: 32, left: 32, bottom: 16),
-      child: Column(
-        children: [
-          const Icon(Icons.lock_reset_rounded, size: 56, color: AppTheme.primary),
-          const SizedBox(height: 16),
-          Text(
-            'Aggiorna Password',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Al primo accesso o in particolari situazioni è obbligatorio impostare una nuova password.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              color: AppTheme.secondaryText,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForm()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32, top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PasswordField(
-            controller: _currentPasswordController,
-            label: 'Password attuale',
-            hintText: 'Inserisci la password attuale',
-          ),
-          PasswordField(
-            controller: _newPasswordController,
-            label: 'Nuova password',
-            hintText: 'Inserisci nuova password',
-          ),
-          const SizedBox(height: 24),
-          PasswordPolicyChecklist(status: _policyStatus),
-          const SizedBox(height: 8),
-          PasswordField(
-            controller: _confirmPasswordController,
-            label: 'Conferma password',
-            hintText: 'Ripeti nuova password',
-          ),
-          const SizedBox(height: 40),
-          Row(
-            children: [
-              Expanded(
-                child: AnimatedActionButton(
-                  text: _isCancelling ? 'USCITA...' : 'TORNA AL LOGIN',
-                  icon: Icons.logout_rounded,
-                  baseColor: AppTheme.danger,
-                  hoverColor: AppTheme.dangerHover,
-                  onPressed: _isBusy ? () {} : _handleCancel,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: AnimatedActionButton(
-                  text: _isSaving ? 'SALVATAGGIO...' : 'SALVA E ACCEDI',
-                  icon: Icons.login_rounded,
-                  baseColor: AppTheme.primary,
-                  hoverColor: AppTheme.primaryHover,
-                  onPressed: _isBusy ? () {} : _handleSave,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    // The password change is mandatory, so the back gesture is intercepted and
-    // answered with an explanation instead of leaving the page.
+    // The change is mandatory, so the back gesture does not take the user
+    // away: it is intercepted and answered with an explanation.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result)
@@ -256,42 +176,83 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
           );
         }
       },
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: AppTheme.pageBackground,
-          child: Stack(
-            children: [
-              const CornerGlow(corner: GlowCorner.topRight),
-              const CornerGlow(corner: GlowCorner.bottomLeft),
-              const PageWatermark(),
-              Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: AppTheme.dialogShadow,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildHeader(),
-                          const Divider(height: 1, thickness: 1, color: AppTheme.divider),
-                          _buildForm(),
-                        ],
-                      ),
+      child: AuthPillPage(
+        eyebrow: 'Accesso',
+        title: 'Aggiorna password',
+        maxWidth: 560,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'TORNA AL LOGIN',
+            icon: Icons.logout_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            busy: _isCancelling,
+            height: _buttonHeight,
+            fontSize: _buttonFontSize,
+            onPressed: _isBusy ? () {} : _handleCancel,
+          ),
+          primary: AppGradientButton(
+            label: 'SALVA E ACCEDI',
+            icon: Icons.login_rounded,
+            busy: _isSaving,
+            height: _buttonHeight,
+            fontSize: _buttonFontSize,
+            onPressed: _isBusy ? () {} : _handleSave,
+          ),
+        ),
+        children: [
+          AppDialogPill(
+            expand: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lock_reset_rounded, size: 28, color: AppTheme.trialTealDeep),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Al primo accesso, o in particolari situazioni, è obbligatorio '
+                    'impostare una nuova password.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                      color: AppTheme.trialMutedText,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          AppDialogPill(
+            expand: true,
+            child: PasswordField(
+              controller: _currentPasswordController,
+              label: 'Password attuale',
+              hintText: 'Inserisci la password attuale',
+            ),
+          ),
+          AppDialogPill(
+            expand: true,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PasswordField(
+                  controller: _newPasswordController,
+                  label: 'Nuova password',
+                  hintText: 'Inserisci nuova password',
+                ),
+                const SizedBox(height: 16),
+                PasswordPolicyChecklist(status: _policyStatus),
+                PasswordField(
+                  controller: _confirmPasswordController,
+                  label: 'Conferma password',
+                  hintText: 'Ripeti nuova password',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

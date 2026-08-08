@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_carousel_frame.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
@@ -11,6 +14,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../../shared/widgets/tab_layout.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/subject_taxonomy.dart';
@@ -103,30 +107,24 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
   {
     final subjects = _filteredSubjects;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppSearchField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchText = value),
-                hintText: 'Cerca materia ministeriale...',
-              ),
-            ),
-            const SizedBox(width: 24),
-            AppGradientButton(
-              label: 'NUOVA MATERIA',
-              icon: Icons.add_rounded,
-              height: 50,
-              // Half its own height: the shape of the search bar it stands
-              // beside.
-              radius: 25,
-              fontSize: 14,
-              onPressed: () => _showWizard(),
-            ),
-          ],
+    return TabContent(
+      header: [
+        TabHeaderRow(
+          search: AppSearchField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _searchText = value),
+            hintText: 'Cerca materia ministeriale...',
+          ),
+          action: AppGradientButton(
+            label: 'NUOVA MATERIA',
+            icon: Icons.add_rounded,
+            height: 50,
+            // Half its own height: the shape of the search bar it stands
+            // beside.
+            radius: 25,
+            fontSize: 14,
+            onPressed: () => _showWizard(),
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -145,14 +143,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
                   .map((sort) => FilterOption(value: sort, label: sort.label))
                   .toList(),
             ),
-            // What is left of this line arranges the list, what is right of it
-            // shortens it.
-            Container(
-              width: 1,
-              height: 24,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: AppTheme.trialLine,
-            ),
+            const FilterGroupDivider(),
             AppFilterPill<String>.filter(
               prefix: 'Livello',
               hint: 'Tutti i livelli',
@@ -191,27 +182,17 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
           ),
         ),
         const SizedBox(height: 16),
-        // Only the card area scrolls, so header and filters stay pinned.
-        Expanded(
-          child: SingleChildScrollView(
-            child: Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 20,
-                runSpacing: 20,
-                children: subjects.map((subject)
-                {
-                  return MinistrySubjectCard(
-                    subject: subject,
-                    onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
-                    onDelete: () => widget.onDelete(subject),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-        ),
       ],
+      body: EntityCardGrid(
+        children: subjects.map((subject)
+        {
+          return MinistrySubjectCard(
+            subject: subject,
+            onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
+            onDelete: () => widget.onDelete(subject),
+          );
+        }).toList(),
+      ),
     );
   }
 }
@@ -241,14 +222,21 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   static const double _dialogButtonFontSize = 14;
 
   static const int _maxAreas = 3;
-  static const Duration _stepTransition = Duration(milliseconds: 300);
-
-  final PageController _pageController = PageController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _disciplineSearchController = TextEditingController();
 
+  // How wide the card in the carousel is allowed to get, and the stack around
+  // it: the card plus an arrow and a gap on either side.
+  static const double _contentMaxWidth = 640;
+  static const double _stackMaxWidth =
+      _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
+
+  // How tall the list of things to pick can get before it scrolls on its own.
+  static const double _optionsMaxHeight = 300;
+
   int _currentStep = 0;
+  bool _movingForward = true;
   bool _isSaving = false;
   String? _selectedLevel;
   List<String> _selectedAreas = [];
@@ -260,6 +248,10 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   void initState()
   {
     super.initState();
+
+    // The arrow lights up as soon as the name is there: without listening to
+    // the field it would stay dark until something else repainted the dialog.
+    _nameController.addListener(_refresh);
 
     final subject = widget.existingSubject;
 
@@ -276,10 +268,10 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   @override
   void dispose()
   {
+    _nameController.removeListener(_refresh);
     _nameController.dispose();
     _descController.dispose();
     _disciplineSearchController.dispose();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -294,7 +286,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       _selectedAreas.clear();
       _selectedAssociations.clear();
       _currentStep = 0;
-      _pageController.jumpToPage(0);
+      _movingForward = false;
     });
   }
 
@@ -337,47 +329,76 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     });
   }
 
-  bool _validateFirstStep()
+  // Why the first step does not let one move on, where it does not. It returns
+  // the reason instead of shouting it: the arrow goes dark and says so on hover,
+  // so one knows before pressing and not after.
+  String? get _firstStepBlockedReason
   {
     if (_nameController.text.trim().isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true);
-      return false;
+      return 'Scrivi il nome per andare avanti.';
     }
 
     if (_selectedLevel == null)
     {
-      CustomSnackBar.show(context: context, message: 'Seleziona un livello scolastico.', isError: true);
-      return false;
+      return 'Seleziona un livello scolastico per andare avanti.';
     }
 
     if (_selectedAreas.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: "Seleziona almeno un'area di appartenenza.", isError: true);
+      return "Seleziona almeno un'area per andare avanti.";
+    }
+
+    return null;
+  }
+
+  void _refresh()
+  {
+    if (mounted)
+    {
+      setState(() {});
+    }
+  }
+
+  bool _validateFirstStep()
+  {
+    final reason = _firstStepBlockedReason;
+
+    if (reason != null)
+    {
+      CustomSnackBar.show(context: context, message: reason, isError: true);
+
       return false;
     }
 
     return true;
   }
 
-  Future<void> _nextStep() async
+  void _goToStep(int step)
   {
-    if (_currentStep == 0)
+    setState(()
     {
-      if (!_validateFirstStep())
-      {
-        return;
-      }
+      _movingForward = step > _currentStep;
+      _currentStep = step;
+    });
+  }
 
-      setState(() => _currentStep++);
-      _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
+  // Everything is checked from here, whichever phase you are standing on, and
+  // whatever is missing is on the phase this puts you on.
+  Future<void> _submit() async
+  {
+    if (!_validateFirstStep())
+    {
+      _goToStep(0);
 
       return;
     }
 
     if (_selectedAssociations.isEmpty)
     {
+      _goToStep(1);
       CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina interna associata.', isError: true);
+
       return;
     }
 
@@ -420,40 +441,19 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     }
   }
 
-  void _prevStep()
-  {
-    if (_currentStep <= 0)
-    {
-      return;
-    }
-
-    setState(() => _currentStep--);
-    _pageController.animateToPage(_currentStep, duration: _stepTransition, curve: Curves.easeInOut);
-  }
-
   // Small, tracked and muted over what it names, the way the settings cards and
   // the dialogs of this app label a value.
   Widget _buildFieldLabel(String text)
   {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      child: AppFieldLabel(text),
     );
   }
 
   Widget _buildStep1()
   {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: SingleChildScrollView(
+    return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -502,8 +502,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildStep2()
@@ -514,117 +513,104 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
         .where((subject) => _selectedAreas.contains(subject.area) && subject.name.toLowerCase().contains(query))
         .toList();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Seleziona le discipline interne associate',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              color: AppTheme.trialMutedText,
-              fontWeight: FontWeight.w500,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Seleziona le discipline interne associate',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            color: AppTheme.trialMutedText,
+            fontWeight: FontWeight.w500,
           ),
-          const SizedBox(height: 14),
-          AppSearchField(
-            controller: _disciplineSearchController,
-            onChanged: (_) => setState(() {}),
-            hintText: 'Cerca disciplina interna...',
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: availableSubjects.isEmpty
-                ? Center(
-                    child: Text(
-                      'Nessuna disciplina trovata per le aree selezionate.',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.trialMutedText,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: availableSubjects.map((subject)
-                      {
-                        return AppSelectableChip(
-                          label: subject.name,
-                          selected: _selectedAssociations.contains(subject.id),
-                          onSelected: (selected) => setState(()
-                          {
-                            if (selected)
-                            {
-                              _selectedAssociations.add(subject.id);
-                            }
-                            else
-                            {
-                              _selectedAssociations.remove(subject.id);
-                            }
-                          }),
-                        );
-                      }).toList(),
+        ),
+        const SizedBox(height: 14),
+        AppSearchField(
+          controller: _disciplineSearchController,
+          onChanged: (_) => setState(() {}),
+          hintText: 'Cerca disciplina interna...',
+        ),
+        const SizedBox(height: 16),
+        // A ceiling rather than the whole of what is left: the phase is a
+        // piece floating on the page now, and there is no fixed panel height
+        // for it to take a share of. Past this the list scrolls inside it.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
+          child: availableSubjects.isEmpty
+              ? Center(
+                  child: Text(
+                    'Nessuna disciplina trovata per le aree selezionate.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-          ),
-        ],
-      ),
+                )
+              : SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: availableSubjects.map((subject)
+                    {
+                      return AppSelectableChip(
+                        label: subject.name,
+                        selected: _selectedAssociations.contains(subject.id),
+                        onSelected: (selected) => setState(()
+                        {
+                          if (selected)
+                          {
+                            _selectedAssociations.add(subject.id);
+                          }
+                          else
+                          {
+                            _selectedAssociations.remove(subject.id);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final isLastStep = _currentStep == 1;
-
-    return AppDialogShell(
-      // Which step you are on belongs over the title, not inside it: the title
-      // is what you are doing, the eyebrow is where you are in doing it.
+    return AppDialogStack(
       eyebrow: 'Passo ${_currentStep + 1} di 2',
       title: _isEditing ? 'Modifica materia' : 'Nuova materia',
-      width: 650,
-      // Pinned, or the dialog would change height between a step of fields and
-      // a step of chips while you are still working through it.
-      height: 600,
-      footer: AppDialogFooter(
-        secondary: _currentStep > 0
-            ? AppGradientButton(
-                label: 'INDIETRO',
-                icon: Icons.arrow_back_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _prevStep,
-              )
-            : AppGradientButton(
-                label: 'ANNULLA',
-                icon: Icons.close_rounded,
-                gradient: AppTheme.dismissGradient,
-                accent: AppTheme.trialViolet,
-                height: _dialogButtonHeight,
-                fontSize: _dialogButtonFontSize,
-                onPressed: _closeDialog,
-              ),
-        primary: AppGradientButton(
-          label: isLastStep ? (_isEditing ? 'SALVA' : 'CREA') : 'AVANTI',
-          icon: isLastStep ? Icons.check_rounded : Icons.arrow_forward_rounded,
+      onClose: _closeDialog,
+      maxWidth: _stackMaxWidth,
+      footer: AppDialogFooter.single(
+        AppGradientButton(
+          label: _isEditing ? 'SALVA' : 'CREA',
+          icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          onPressed: _nextStep,
+          onPressed: _submit,
         ),
       ),
-      child: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [_buildStep1(), _buildStep2()],
-      ),
+      children: [
+        AppCarouselFrame(
+          index: _currentStep,
+          movingForward: _movingForward,
+          maxContentWidth: _contentMaxWidth,
+          canGoBack: _currentStep > 0,
+          canGoForward: _currentStep == 0,
+          forwardBlockedReason:
+              _currentStep == 0 ? _firstStepBlockedReason : null,
+          onBack: () => _goToStep(0),
+          onForward: () => _goToStep(1),
+          child: AppDialogPill(
+            child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
+          ),
+        ),
+      ],
     );
   }
 }

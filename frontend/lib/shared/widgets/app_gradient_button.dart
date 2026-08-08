@@ -64,6 +64,12 @@ class AppGradientButton extends StatefulWidget
 
   final double radius;
 
+  // The air on either side of the label. The default is what a button standing
+  // on its own in a form wants; one repeated down a card — a row added to each
+  // band of a day — passes less, so that three of them do not weigh more than
+  // what they are adding to.
+  final double horizontalPadding;
+
   // While the action is on its way: a turning ring stands where the icon was and
   // the button stops answering. The label does not change, because a button that
   // renames itself mid-press is a button that also changes width, and these
@@ -81,6 +87,7 @@ class AppGradientButton extends StatefulWidget
     this.height,
     this.fontSize = 17,
     this.radius = _defaultRadius,
+    this.horizontalPadding = _horizontalPadding,
     this.busy = false,
   });
 
@@ -153,13 +160,16 @@ class _AppGradientButtonState extends State<AppGradientButton>
           Icon(widget.icon, size: glyphSize, color: contentColor),
           const SizedBox(width: 8),
         ],
-        // Flexible, so a label too long for the room it was given ends in an
-        // ellipsis instead of overflowing the button it lives in.
+        // Flexible and free to take a second line. A label is what the button
+        // is for, so it is never cut short: "CHIUSURA/APERTURA STRAORDINARIA"
+        // wants some 325 pixels and a phone gives the button 264, and the honest
+        // answer there is two lines rather than an ellipsis in the middle of the
+        // word that says what will happen.
         Flexible(
           child: Text(
             widget.label,
             textAlign: TextAlign.center,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: _labelStyle(contentColor),
           ),
@@ -182,6 +192,15 @@ class _AppGradientButtonState extends State<AppGradientButton>
     final Widget fill = Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(gradient: widget.gradient),
+      // The same inset the accent face below is given. Without it the white
+      // copy had the whole button to itself while the accent one had the
+      // padding taken off it, so a long label came out ellipsised at rest and
+      // whole under the fill — the word appearing to grow as the wave crossed
+      // it.
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.horizontalPadding,
+        vertical: widget.height == null ? _verticalPadding : 0,
+      ),
       // The letters up here are the same letters as underneath, painted a
       // second time in white and cut off at the same place as the ground they
       // sit on, which is what makes the fill look like it is recolouring them
@@ -189,13 +208,26 @@ class _AppGradientButtonState extends State<AppGradientButton>
       child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
 
-    if (t >= 1)
+    // The sweep has to run past the right edge, not stop on it: with the wave
+    // ending exactly at t the last stretch of the button was still under the
+    // fade when t reached 1, and the unmasked fill took over in a single frame
+    // — the jump at the end of the flood.
+    //
+    // So the leading edge is carried a feather's width further, and it is the
+    // solid front behind it that has to arrive at the same moment t does.
+    // Clamping that edge to the right-hand side is what stopped it: from
+    // t = 0.86 onwards the edge sat on 1 and the front froze at 0.84, so the
+    // last sixth of the button stayed under a fade that no longer moved —
+    // half the flood, easeOutCubic being slowest at that end — and then turned
+    // solid in one frame. Unclamped, the front keeps moving to the last frame
+    // and there is nothing left to pop.
+    final double edge = t * (1 + _feather);
+    final double solid = edge - _feather;
+
+    if (solid >= 1)
     {
       return fill;
     }
-
-    final double edge = t;
-    final double solid = math.max(0, edge - _feather);
 
     return ShaderMask(
       blendMode: BlendMode.dstIn,
@@ -203,7 +235,11 @@ class _AppGradientButtonState extends State<AppGradientButton>
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: const [Colors.white, Colors.white, Colors.transparent, Colors.transparent],
-        stops: [0, solid, edge, 1],
+        // Only the stops are held to the gradient: what runs past the right
+        // edge is simply not on the button yet, and the two are still in order
+        // because a clamped edge is 1 and the front it is clamped against is
+        // below it.
+        stops: [0, math.max(0, solid), math.min(edge, 1), 1],
       ).createShader(bounds),
       child: fill,
     );
@@ -275,7 +311,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
                     children: [
                       Padding(
                         padding: EdgeInsets.symmetric(
-                          horizontal: _horizontalPadding,
+                          horizontal: widget.horizontalPadding,
                           vertical: widget.height == null ? _verticalPadding : 0,
                         ),
                         child: child,

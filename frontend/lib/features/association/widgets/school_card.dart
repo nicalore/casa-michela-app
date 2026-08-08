@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_dialog_shell.dart';
+import '../../../shared/widgets/app_catalogue_card.dart';
+import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_entity_chip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/ministry_subject_chip.dart';
-import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/school_item.dart';
 import '../models/study_program_item.dart';
@@ -24,7 +26,10 @@ const List<BoxShadow> _floatingPanelShadow = [
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-class SchoolCard extends StatefulWidget
+// Narrow: a question of one sentence, and the two answers under it.
+const double _confirmWidth = 480;
+
+class SchoolCard extends StatelessWidget
 {
   final SchoolItem school;
   final List<StudyProgramItem> availableStudyPrograms;
@@ -41,31 +46,23 @@ class SchoolCard extends StatefulWidget
     required this.onDelete,
   });
 
-  @override
-  State<SchoolCard> createState() => _SchoolCardState();
-}
-
-class _SchoolCardState extends State<SchoolCard>
-{
-  bool _isHovering = false;
-
-  void _showDetailsDialog()
+  void _showDetailsDialog(BuildContext context)
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'SchoolDetails',
       builder: (dialogContext) => _SchoolDetailsDialogContent(
-        school: widget.school,
-        availableStudyPrograms: widget.availableStudyPrograms,
-        availableMinistrySubjects: widget.availableMinistrySubjects,
+        school: school,
+        availableStudyPrograms: availableStudyPrograms,
+        availableMinistrySubjects: availableMinistrySubjects,
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The reopen callback reuses the card state, not the dialog context
-          // that is about to become invalid.
-          widget.onEditRequested(_showDetailsDialog);
+          // The callback that reopens the details carries the card's context
+          // along, not that of the dialog about to close.
+          onEditRequested(() => _showDetailsDialog(context));
         },
-        onDelete: widget.onDelete,
+        onDelete: onDelete,
       ),
     );
   }
@@ -73,56 +70,14 @@ class _SchoolCardState extends State<SchoolCard>
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: _showDetailsDialog,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: 360,
-          height: 140,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            // Gold under the pointer, the same mark a module card takes on the
-            // dashboard and a document row in the settings.
-            border: Border.all(
-              color: _isHovering ? AppTheme.trialGold : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: AppTheme.cardShadow,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OverflowTooltipText(
-                text: widget.school.name,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialOcean,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 4),
-              OverflowTooltipText(
-                text: '${widget.school.city} (${widget.school.province})',
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // The name and where it is. There is nothing else about a school needed to
+    // recognise it in a list: two of the same name are told apart by the city.
+    return AppCatalogueCard(
+      title: school.name,
+      details: [
+        CatalogueDetail('${school.city} (${school.province})'),
+      ],
+      onTap: () => _showDetailsDialog(context),
     );
   }
 }
@@ -151,10 +106,12 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     showBlurredDialog<void>(
       context: context,
       barrierLabel: 'ConfirmSchoolDeletion',
-      builder: (confirmContext) => AppDialogShell(
+      builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        width: 460,
+        // ANNULLA is already the way out of this one.
+        showClose: false,
+        maxWidth: _confirmWidth,
         footer: AppDialogFooter(
           secondary: AppGradientButton(
             label: 'ANNULLA',
@@ -180,27 +137,28 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             },
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: 'La scuola '),
-                TextSpan(
-                  text: school.name,
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-                ),
-                const TextSpan(text: ' verrà eliminata definitivamente.'),
-              ],
-            ),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              height: 1.45,
-              color: AppTheme.trialInk,
+        children: [
+          AppDialogPill(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'La scuola '),
+                  TextSpan(
+                    text: school.name,
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' verrà eliminata definitivamente.'),
+                ],
+              ),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: AppTheme.trialInk,
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -215,50 +173,31 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       orElse: () => throw Exception('Percorso non trovato nei dati caricati'),
     );
 
-    showGeneralDialog(
+    // Through the same door as every other dialog of the app, which is what
+    // blurs what is behind it. It used to open its own way, with a transparent
+    // barrier and no blur, so that the school it came from stayed readable
+    // underneath — and once that school became a handful of floating pieces
+    // itself, the two sets of pieces read as one heap. Blurred, the school is
+    // still there and plainly behind.
+    showBlurredDialog<void>(
       context: context,
-      barrierDismissible: true,
       barrierLabel: 'ReadOnlyProgramDetails',
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 240),
-      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
-      transitionBuilder: (context, animation, secondaryAnimation, child)
-      {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutBack,
-              reverseCurve: Curves.easeIn,
-            ),
-            // Placed by the dialog itself, which is the only place it can be
-            // done: see the note on AppDialogShell.alignment.
-            child: _ReadOnlyStudyProgramDialogContent(
-              program: fullProgram,
-              availableMinistrySubjects: availableMinistrySubjects,
-            ),
-          ),
-        );
-      },
+      builder: (_) => _ReadOnlyStudyProgramDialogContent(
+        program: fullProgram,
+        availableMinistrySubjects: availableMinistrySubjects,
+      ),
     );
   }
 
   // Small, tracked and muted over the value it names: the same pairing the
   // settings cards use, and the same the top bar uses over a role.
-  Widget _buildFieldLabel(String text)
+  // The first label of a piece sits at its top edge; the ones after it open a
+  // gap from what they follow.
+  Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      padding: EdgeInsets.only(bottom: 6, top: first ? 0 : 20),
+      child: AppFieldLabel(text),
     );
   }
 
@@ -273,11 +212,10 @@ class _SchoolDetailsDialogContent extends StatelessWidget
   {
     final hasCode = school.mechanographicCode != null && school.mechanographicCode!.isNotEmpty;
 
-    return AppDialogShell(
+    return AppDialogStack(
       eyebrow: 'Scuola',
       title: school.name,
-      width: 600,
-      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      maxWidth: 600,
       // Selection stops at the body: the buttons underneath are not text you
       // would ever want to drag a cursor through.
       footer: AppDialogFooter(
@@ -298,50 +236,64 @@ class _SchoolDetailsDialogContent extends StatelessWidget
           onPressed: onEditRequested,
         ),
       ),
-      child: SelectionArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 8),
+      children: [
+        AppDialogPill(
+          expand: true,
+          child: SelectionArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildFieldLabel('Città', first: true),
+                          Text(school.city, style: _valueStyle),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildFieldLabel('Provincia', first: true),
+                          Text(school.province, style: _valueStyle),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                _buildFieldLabel('Codice meccanografico'),
+                Text(
+                  hasCode ? school.mechanographicCode! : 'Non presente',
+                  style: hasCode
+                      ? _valueStyle
+                      : _valueStyle.copyWith(
+                          color: AppTheme.trialMutedText,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // The programmes a school runs are not one of its fields: they are the
+        // other things it is tied to, and they get a piece of their own.
+        AppDialogPill(
+          expand: true,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('Città'),
-                        Text(school.city, style: _valueStyle),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('Provincia'),
-                        Text(school.province, style: _valueStyle),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              _buildFieldLabel('Codice meccanografico'),
-              Text(
-                hasCode ? school.mechanographicCode! : 'Non presente',
-                style: hasCode
-                    ? _valueStyle
-                    : _valueStyle.copyWith(
-                        color: AppTheme.trialMutedText,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w500,
-                      ),
-              ),
-              _buildFieldLabel('Percorsi di studio attivi'),
+              _buildFieldLabel('Percorsi di studio attivi', first: true),
               if (school.studyPrograms.isEmpty)
                 Text(
                   'Nessun percorso associato a questa scuola.',
@@ -370,7 +322,7 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -387,19 +339,13 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
 
   // Small, tracked and muted over the value it names: the same pairing the
   // settings cards use, and the same the top bar uses over a role.
-  Widget _buildFieldLabel(String text)
+  // The first label of a piece sits at its top edge; the ones after it open a
+  // gap from what they follow.
+  Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6, top: 20),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.plusJakartaSans(
-          color: AppTheme.trialMutedText,
-          fontWeight: FontWeight.w600,
-          fontSize: 10,
-          letterSpacing: 1.4,
-        ),
-      ),
+      padding: EdgeInsets.only(bottom: 6, top: first ? 0 : 20),
+      child: AppFieldLabel(text),
     );
   }
 
@@ -414,56 +360,67 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
   {
     final hasDescription = program.description.isNotEmpty;
 
-    return AppDialogShell(
+    return AppDialogStack(
       eyebrow: 'Percorso di studio',
       title: program.name,
-      maxHeight: MediaQuery.of(context).size.height * 0.85,
+      maxWidth: 560,
       // To the right of centre, so the school details it was opened from stay
       // readable behind it rather than being covered up.
       alignment: const Alignment(0.5, 0),
-      shadow: _floatingPanelShadow,
-      child: SelectionArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 32, right: 32, bottom: 32),
+      children: [
+        AppDialogPill(
+          shadow: _floatingPanelShadow,
+          child: SelectionArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Livello', first: true),
+                            Text(schoolLevelLabel(program.level), style: _valueStyle),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildFieldLabel('Anni di corso', first: true),
+                            Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildFieldLabel('Descrizione'),
+                  Text(
+                    hasDescription ? program.description : 'Nessuna descrizione fornita.',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                      color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
+                      fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        AppDialogPill(
+          shadow: _floatingPanelShadow,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('Livello'),
-                        Text(schoolLevelLabel(program.level), style: _valueStyle),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildFieldLabel('Anni di corso'),
-                        Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              _buildFieldLabel('Descrizione'),
-              Text(
-                hasDescription ? program.description : 'Nessuna descrizione fornita.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
-                  color: hasDescription ? AppTheme.trialInk : AppTheme.trialMutedText,
-                  fontStyle: hasDescription ? FontStyle.normal : FontStyle.italic,
-                ),
-              ),
-              _buildFieldLabel('Materie ministeriali incluse'),
+              _buildFieldLabel('Materie ministeriali incluse', first: true),
               if (program.ministrySubjects.isEmpty)
                 Text(
                   'Nessuna materia associata.',
@@ -492,7 +449,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
