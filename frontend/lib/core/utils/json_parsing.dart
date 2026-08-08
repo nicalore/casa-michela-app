@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 // Parsing helpers shared by the model layer. They exist to keep the JSON quirks
 // of the backend in one place rather than repeated in every fromJson.
 
@@ -6,6 +8,38 @@
 DateTime? parseDate(Object? value)
 {
   return value == null ? null : DateTime.parse(value as String);
+}
+
+/// Parses a Python `time` field, serialized as "HH:MM:SS" (seconds are
+/// ignored: the backend never carries sub-minute precision).
+TimeOfDay parseTimeOfDay(Object? value)
+{
+  final parts = (value as String).split(':');
+  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+}
+
+/// Same as [parseTimeOfDay], but keeps null distinct: an opening_day row with
+/// no time at all represents a full-day closure.
+TimeOfDay? parseOptionalTimeOfDay(Object? value)
+{
+  return value == null ? null : parseTimeOfDay(value);
+}
+
+/// Formats a TimeOfDay back into the "HH:MM:SS" string the backend expects.
+String formatTimeOfDay(TimeOfDay time)
+{
+  final hour = time.hour.toString().padLeft(2, '0');
+  final minute = time.minute.toString().padLeft(2, '0');
+  return '$hour:$minute:00';
+}
+
+/// Formats a DateTime's date component into the "YYYY-MM-DD" string the
+/// backend expects for a Python `date` field.
+String formatDateOnly(DateTime date)
+{
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
 }
 
 /// Parses a value whose absolute instant matters, such as an optimistic
