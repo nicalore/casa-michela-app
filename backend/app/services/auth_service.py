@@ -65,25 +65,49 @@ _EMAIL_LOGO_URL: Final[str] = (
     "logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100"
 )
 
+# The app's colours, written out by hand because an email cannot read the theme.
+# When they change over there, they change here.
+_INK: Final[str] = "#123A5E"
+_TEAL: Final[str] = "#0B6478"
+_PAPER: Final[str] = "#F5FAF9"
+_LINE: Final[str] = "#DDE8E6"
+_MUTED: Final[str] = "#5B7280"
+_BODY: Final[str] = "#122438"
+
+# The same shape as the app's own dialogs. The styles sit on the elements
+# themselves because email clients guarantee nothing more than that.
 _EMAIL_TEMPLATE: Final[str] = """
-<div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;">
-    <div style="text-align: center; margin-bottom: 30px;">
-        <img src="{logo_url}" alt="Associazione Casa Michela" style="width: 120px; height: auto;" />
-        <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;"> Associazione Casa Michela </p>
+<div style="margin: 0; padding: 32px 16px; background-color: {paper};
+            font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;
+                border-radius: 28px; border: 1px solid {line};
+                padding: 40px 40px 32px 40px; color: {body}; line-height: 1.6;">
+        <div style="text-align: center; margin-bottom: 28px;">
+            <img src="{logo_url}" alt="Associazione Casa Michela" style="width: 96px; height: auto;" />
+            <p style="margin: 14px 0 0 0; color: {muted}; font-size: 11px;
+                      font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;">
+                Associazione Casa Michela
+            </p>
+        </div>
+        <h2 style="margin: 0 0 20px 0; color: {ink}; font-size: 24px; font-weight: 700;
+                   line-height: 1.25;"> {heading} </h2>
+        <p style="margin: 0 0 14px 0;">Ciao,</p>
+        {body_html}
+        <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {line};
+                  color: {muted}; font-size: 14px;">
+            A presto,<br>
+            <strong style="color: {ink};">Associazione Casa Michela</strong>
+        </p>
     </div>
-    <h2 style="color: #003C82;"> {heading} </h2>
-    <p>Ciao,</p>
-    {body}
-    <p>A presto,<br>
-    <strong>Associazione Casa Michela</strong></p>
 </div>
 """
 
 _ACCOUNT_LOCKED_EMAIL_BODY: Final[str] = """
     <p>Per proteggere il tuo account, abbiamo temporaneamente bloccato l'accesso a seguito di ripetuti tentativi di autenticazione non riusciti.</p>
     <p>Potrai effettuare nuovamente l'accesso a partire dal seguente momento:</p>
-    <div style="text-align: center; margin: 30px 0;">
-        <strong>{unlock_time}</strong>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px; text-align: center;">
+        <strong style="color: {ink}; font-size: 17px;">{unlock_time}</strong>
     </div>
     <p>Se sei stato tu a effettuare questi tentativi, attendi lo scadere del blocco prima di riprovare ad accedere.</p>
     <p>Se invece ritieni che qualcuno abbia tentato di accedere al tuo account, ti invitiamo a rispondere a questa email o a contattare l'Associazione il prima possibile.</p>
@@ -97,11 +121,17 @@ _PASSWORD_CHANGED_EMAIL_BODY: Final[str] = """
 _PASSWORD_RESET_EMAIL_BODY: Final[str] = """
     <p>Hai richiesto di reimpostare la password del tuo account.</p>
     <p>Per procedere, clicca sul pulsante qui sotto:</p>
-    <div style="text-align: center; margin: 30px 0;">
-        <a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background-color: #003C82; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;"> Reimposta Password </a>
+    <div style="text-align: center; margin: 28px 0;">
+        <a href="{reset_link}"
+           style="display: inline-block; padding: 15px 30px; background-color: {teal};
+                  color: #ffffff; text-decoration: none; border-radius: 26px;
+                  font-weight: 700; font-size: 14px; letter-spacing: 0.6px;
+                  text-transform: uppercase;"> Reimposta password </a>
     </div>
     <p>Se il pulsante non funziona, copia e incolla il seguente link nel browser:</p>
-    <p style="word-break: break-all;"><a href="{reset_link}">{reset_link}</a></p>
+    <p style="word-break: break-all;">
+        <a href="{reset_link}" style="color: {teal};">{reset_link}</a>
+    </p>
     <p>Per motivi di sicurezza, la richiesta sarà valida per <strong>1 ora</strong>. Trascorso questo tempo, dovrai effettuarne una nuova.</p>
     <p>Se hai bisogno di assistenza o riscontri qualche problema, rispondi a questa email oppure contatta direttamente l'Associazione.</p>
 """
@@ -155,7 +185,12 @@ class AuthService:
                     "html": _EMAIL_TEMPLATE.format(
                         logo_url=_EMAIL_LOGO_URL,
                         heading=heading,
-                        body=body,
+                        body_html=body,
+                        paper=_PAPER,
+                        line=_LINE,
+                        ink=_INK,
+                        muted=_MUTED,
+                        body=_BODY,
                     ),
                 }
             )
@@ -177,8 +212,13 @@ class AuthService:
         self._send_email(
             recipient=account.person.email,
             subject="Account temporaneamente bloccato - Associazione Casa Michela",
-            heading="Account Temporaneamente Bloccato",
-            body=_ACCOUNT_LOCKED_EMAIL_BODY.format(unlock_time=unlock_time),
+            heading="Account temporaneamente bloccato",
+            body=_ACCOUNT_LOCKED_EMAIL_BODY.format(
+                unlock_time=unlock_time,
+                paper=_PAPER,
+                line=_LINE,
+                ink=_INK,
+            ),
         )
 
     def _send_password_changed_email(self, account: Account) -> None:
@@ -187,17 +227,17 @@ class AuthService:
 
         self._send_email(
             recipient=account.person.email,
-            subject="Conferma Modifica Password - Associazione Casa Michela",
-            heading="Password Modificata",
+            subject="Conferma modifica password - Associazione Casa Michela",
+            heading="Password modificata",
             body=_PASSWORD_CHANGED_EMAIL_BODY,
         )
 
     def _send_password_reset_email(self, account: Account, reset_link: str) -> None:
         self._send_email(
             recipient=account.person.email,
-            subject="Recupero Password - Associazione Casa Michela",
-            heading="Recupero Password",
-            body=_PASSWORD_RESET_EMAIL_BODY.format(reset_link=reset_link),
+            subject="Recupero password - Associazione Casa Michela",
+            heading="Recupero password",
+            body=_PASSWORD_RESET_EMAIL_BODY.format(reset_link=reset_link, teal=_TEAL),
         )
 
     async def _create_session(self, account: Account, now: datetime) -> AuthResult:

@@ -18,6 +18,29 @@ COURSE_TYPE_LABELS: Final[dict[str, str]] = {
     "PILATES": "Pilates",
 }
 
+BOOKING_TAG_LABELS: Final[dict[str, str]] = {
+    "ORAL_TEST": "Preparazione interrogazione",
+    "WRITTEN_TEST": "Preparazione verifica",
+    "HOMEWORK": "Compiti",
+    "ENRICHMENT": "Potenziamento",
+    "OUTLINES": "Schemi",
+    "EXAM_PREPARATION": "Preparazione esami",
+    "CERTIFICATION": "Preparazione certificazione",
+    "STUDY": "Studio",
+}
+
+TEACHER_PREFERENCE_TYPE_LABELS: Final[dict[str, str]] = {
+    "PREFERRED": "Preferito",
+    "NOT_PREFERRED": "Non preferito",
+}
+
+# Reads as a complement inside a sentence ("non è aperta in presenza"), which is
+# how every message naming a mode is built.
+OPENING_MODE_LABELS: Final[dict[str, str]] = {
+    "presence": "in presenza",
+    "online": "online",
+}
+
 ROMAN_NUMERAL_BY_GRADE: Final[dict[int, str]] = {
     1: "I",
     2: "II",
@@ -32,33 +55,53 @@ GRADE_BY_ROMAN_NUMERAL: Final[dict[str, int]] = {
 }
 
 
+# Unknown codes are returned unchanged, which keeps every translation
+# idempotent over values that already carry their label.
+def _translate(value: str, labels: dict[str, str]) -> str:
+    return labels.get(value, value)
+
+
+def _translate_optional(value: str | None, labels: dict[str, str]) -> str | None:
+    if not value:
+        return None
+
+    return _translate(value, labels)
+
+
 def education_level_label(level: str) -> str:
-    return EDUCATION_LEVEL_LABELS.get(level, level)
+    return _translate(level, EDUCATION_LEVEL_LABELS)
 
 
 def translate_education_level(level: str | None) -> str | None:
-    if not level:
-        return None
-
-    return education_level_label(level)
+    return _translate_optional(level, EDUCATION_LEVEL_LABELS)
 
 
 def translate_collaboration_type(collaboration_type: str | None) -> str | None:
-    if not collaboration_type:
-        return None
-
-    return COLLABORATION_TYPE_LABELS.get(collaboration_type, collaboration_type)
+    return _translate_optional(collaboration_type, COLLABORATION_TYPE_LABELS)
 
 
 def course_type_label(course_type: str) -> str:
-    return COURSE_TYPE_LABELS.get(course_type, course_type)
+    return _translate(course_type, COURSE_TYPE_LABELS)
 
 
 def translate_course_type(course_type: str | None) -> str | None:
-    if not course_type:
-        return None
+    return _translate_optional(course_type, COURSE_TYPE_LABELS)
 
-    return course_type_label(course_type)
+
+def booking_tag_label(tag: str) -> str:
+    return _translate(tag, BOOKING_TAG_LABELS)
+
+
+def translate_booking_tag(tag: str | None) -> str | None:
+    return _translate_optional(tag, BOOKING_TAG_LABELS)
+
+
+def teacher_preference_type_label(preference_type: str) -> str:
+    return _translate(preference_type, TEACHER_PREFERENCE_TYPE_LABELS)
+
+
+def opening_mode_label(mode: str) -> str:
+    return _translate(mode, OPENING_MODE_LABELS)
 
 
 def roman_numeral(grade: int) -> str:

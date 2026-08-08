@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
+import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
@@ -8,34 +9,46 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import 'models/association_subject_item.dart';
 import 'models/ministry_subject_item.dart';
 import 'models/school_item.dart';
+import 'models/service_item.dart';
 import 'models/study_program_item.dart';
 import 'models/weekly_template_item.dart';
 import 'tabs/association_subjects_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
-import 'tabs/orari_in_presenza_tab.dart';
-import 'tabs/orari_online_tab.dart';
+import 'tabs/presence_hours_tab.dart';
+import 'tabs/online_hours_tab.dart';
 import 'tabs/schools_tab.dart';
+import 'tabs/services_tab.dart';
 import 'tabs/study_programs_tab.dart';
 
-const int _schoolsContentIndex = 0;
+const int _servicesContentIndex = 0;
 const int _associationSubjectsContentIndex = 1;
 const int _ministrySubjectsContentIndex = 2;
 const int _studyProgramsContentIndex = 3;
-const int _orariInPresenzaContentIndex = 4;
-const int _orariOnlineContentIndex = 5;
+const int _schoolsContentIndex = 4;
+const int _presenceHoursContentIndex = 5;
+const int _onlineHoursContentIndex = 6;
 
 // The order here is the order of the IndexedStack below, and the constants
 // above are the indices into both.
 const List<RailGroup> _sections = [
-  RailGroup(entries: ['Scuole']),
+  // The schools sit with the teaching, after the study programmes: a school is
+  // made of programmes, and looking for them on their own at the top found
+  // nobody.
   RailGroup(
     title: 'Didattica',
-    entries: ['Discipline interne', 'Materie ministeriali', 'Percorsi di studio'],
+    entries: [
+      'Servizi',
+      'Discipline interne',
+      'Materie ministeriali',
+      'Percorsi di studio',
+      'Scuole',
+    ],
   ),
   RailGroup(title: 'Orari', entries: ['In presenza', 'Online']),
 ];
@@ -48,11 +61,12 @@ class AssociationPage extends StatefulWidget
   State<AssociationPage> createState() => _AssociationPageState();
 }
 
-class _AssociationPageState extends State<AssociationPage>
+class _AssociationPageState extends State<AssociationPage> with DestinationRefresh
 {
   final ApiService _apiService = ApiService();
 
-  int _selectedSection = _schoolsContentIndex;
+  // The page opens on the first entry of the rail, which is now the services.
+  int _selectedSection = _servicesContentIndex;
 
   // Records which sections have been opened: once visited a section stays
   // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
@@ -66,6 +80,7 @@ class _AssociationPageState extends State<AssociationPage>
   List<StudyProgramItem> _studyPrograms = [];
   List<MinistrySubjectItem> _ministrySubjects = [];
   List<AssociationSubjectItem> _associationSubjects = [];
+  List<ServiceItem> _services = [];
   List<WeeklyTemplateItem> _weeklyTemplates = [];
 
   @override
@@ -76,7 +91,17 @@ class _AssociationPageState extends State<AssociationPage>
     _loadAllData();
   }
 
-  Future<void> _loadAllData() async
+  // The page is not taken down when you walk away from it, so it asks for its
+  // data again on the way back. Under its breath: what is on screen stays on
+  // screen until the answer arrives.
+  @override
+  void onDestinationShown() => _loadAllData(quiet: true);
+
+  // Quiet means asked for again rather than asked for the first time: the page
+  // is already showing what it loaded when it was opened, so a failure leaves it
+  // standing and says nothing instead of raising an error over a page that is
+  // perfectly readable.
+  Future<void> _loadAllData({bool quiet = false}) async
   {
     try
     {
@@ -85,6 +110,7 @@ class _AssociationPageState extends State<AssociationPage>
         _apiService.getStudyPrograms(),
         _apiService.getMinistrySubjects(),
         _apiService.getAssociationSubjects(),
+        _apiService.getServices(),
         _apiService.getWeeklyTemplates(),
       ]);
 
@@ -99,7 +125,8 @@ class _AssociationPageState extends State<AssociationPage>
         _studyPrograms = results[1] as List<StudyProgramItem>;
         _ministrySubjects = results[2] as List<MinistrySubjectItem>;
         _associationSubjects = results[3] as List<AssociationSubjectItem>;
-        _weeklyTemplates = results[4] as List<WeeklyTemplateItem>;
+        _services = results[4] as List<ServiceItem>;
+        _weeklyTemplates = results[5] as List<WeeklyTemplateItem>;
         _isLoading = false;
       });
     }
@@ -111,7 +138,11 @@ class _AssociationPageState extends State<AssociationPage>
       }
 
       setState(() => _isLoading = false);
-      CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
+
+      if (!quiet)
+      {
+        CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
+      }
     }
   }
 
@@ -190,7 +221,83 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // --- Discipline interne (AssociationSubject) ---------------------------
+  // --- Services ----------------------------------------------------------
+  // Nothing is denormalized onto a service and nothing hangs off one yet, so
+  // none of these trigger a cascade refresh.
+
+  Future<bool> _executeCreateService(String name, String description, Function(String) onError) async
+  {
+    try
+    {
+      final created = await _apiService.createService(name, description);
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _services = [..._services, created]);
+      CustomSnackBar.show(context: context, message: 'Servizio creato con successo!', isError: false);
+
+      return true;
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+      return false;
+    }
+  }
+
+  // A service is identified by its name, so an edit changing it replaces the row
+  // whose name was the previous one: originalName is the key, name is the new
+  // value.
+  Future<bool> _executeEditService(String originalName, String name, String description, Function(String) onError) async
+  {
+    try
+    {
+      final updated = await _apiService.updateService(originalName, name, description);
+
+      if (!mounted)
+      {
+        return true;
+      }
+
+      setState(() => _services = _services.map((s) => s.name == originalName ? updated : s).toList());
+      CustomSnackBar.show(context: context, message: 'Servizio modificato con successo!', isError: false);
+
+      return true;
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+      return false;
+    }
+  }
+
+  Future<void> _executeDeleteService(ServiceItem item) async
+  {
+    try
+    {
+      await _apiService.deleteService(item.name);
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(() => _services = _services.where((s) => s.name != item.name).toList());
+      CustomSnackBar.show(context: context, message: 'Servizio eliminato con successo!', isError: false);
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+  }
+
+  // --- Association subjects ----------------------------------------------
 
   Future<bool> _executeCreateAssociationSubject(String name, String area, String description, Function(String) onError) async
   {
@@ -263,7 +370,7 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // --- Materie ministeriali (MinistrySubject) ----------------------------
+  // --- Ministry subjects -------------------------------------------------
 
   Future<bool> _executeCreateMinistrySubject(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
   {
@@ -349,14 +456,15 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // --- Percorsi di studio (StudyProgram) ---------------------------------
+  // --- Study programs ----------------------------------------------------
 
-  Future<bool> _executeCreateStudyProgram(String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
+  Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
   {
     try
     {
       final created = await _apiService.createStudyProgram(
         name: name,
+        sector: sector,
         level: level,
         minYear: minYear,
         maxYear: maxYear,
@@ -381,13 +489,14 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  Future<bool> _executeEditStudyProgram(int id, String name, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
+  Future<bool> _executeEditStudyProgram(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
   {
     try
     {
       final updated = await _apiService.updateStudyProgram(
         id: id,
         name: name,
+        sector: sector,
         level: level,
         minYear: minYear,
         maxYear: maxYear,
@@ -437,11 +546,11 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // --- Scuole (School) ---------------------------------------------------
+  // --- Schools -----------------------------------------------------------
   // The school sits at the top of the denormalization chain, so its edit and
   // delete do not trigger any cascade refresh.
 
-  Future<bool> _executeCreateSchool(String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) async
+  Future<bool> _executeCreateSchool(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) async
   {
     try
     {
@@ -449,7 +558,7 @@ class _AssociationPageState extends State<AssociationPage>
         code: code,
         name: name,
         city: city,
-        province: prov,
+        province: provinceCode,
         studyProgramIds: programIds,
       );
 
@@ -470,7 +579,7 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  Future<bool> _executeEditSchool(int id, String? code, String name, String city, String prov, List<int> programIds, Function(String) onError) async
+  Future<bool> _executeEditSchool(int id, String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) async
   {
     try
     {
@@ -479,7 +588,7 @@ class _AssociationPageState extends State<AssociationPage>
         code: code,
         name: name,
         city: city,
-        province: prov,
+        province: provinceCode,
         studyProgramIds: programIds,
       );
 
@@ -533,20 +642,18 @@ class _AssociationPageState extends State<AssociationPage>
   {
     if (_isLoading)
     {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
-    return IndexedStack(
+    return PageSections(
       index: _selectedSection,
       children: [
-        _visitedSections.contains(_schoolsContentIndex)
-            ? SchoolsTab(
-                schools: _schools,
-                studyPrograms: _studyPrograms,
-                ministrySubjects: _ministrySubjects,
-                onCreate: _executeCreateSchool,
-                onEdit: _executeEditSchool,
-                onDelete: _executeDeleteSchool,
+        _visitedSections.contains(_servicesContentIndex)
+            ? ServicesTab(
+                services: _services,
+                onCreate: _executeCreateService,
+                onEdit: _executeEditService,
+                onDelete: _executeDeleteService,
               )
             : const SizedBox.shrink(),
         _visitedSections.contains(_associationSubjectsContentIndex)
@@ -576,14 +683,33 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteStudyProgram,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_orariInPresenzaContentIndex)
-            ? OrariInPresenzaTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
+        _visitedSections.contains(_schoolsContentIndex)
+            ? SchoolsTab(
+                schools: _schools,
+                studyPrograms: _studyPrograms,
+                ministrySubjects: _ministrySubjects,
+                onCreate: _executeCreateSchool,
+                onEdit: _executeEditSchool,
+                onDelete: _executeDeleteSchool,
+              )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_orariOnlineContentIndex)
-            ? OrariOnlineTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
+        _visitedSections.contains(_presenceHoursContentIndex)
+            ? PresenceHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
+            : const SizedBox.shrink(),
+        _visitedSections.contains(_onlineHoursContentIndex)
+            ? OnlineHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),
       ],
     );
+  }
+
+  void _selectSection(int index)
+  {
+    setState(()
+    {
+      _selectedSection = index;
+      _visitedSections.add(index);
+    });
   }
 
   @override
@@ -595,6 +721,9 @@ class _AssociationPageState extends State<AssociationPage>
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
+          final size = AppBreakpoints.fromWidth(width);
+          final margin = AppBreakpoints.pageMargin(size);
+
           return Container(
             width: width,
             height: height,
@@ -624,10 +753,10 @@ class _AssociationPageState extends State<AssociationPage>
                     // The top inset clears the bar floating above the page: it
                     // is laid over the content rather than in the column with
                     // it, so the room it needs has to be left here.
-                    padding: const EdgeInsets.only(
-                      left: 40,
-                      right: 40,
-                      top: AppTopBar.contentTopInset,
+                    padding: EdgeInsets.only(
+                      left: margin,
+                      right: margin,
+                      top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
                     // Stretched, so the content keeps being handed the full
@@ -636,28 +765,61 @@ class _AssociationPageState extends State<AssociationPage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: AppSectionRail(
-                            title: 'Associazione',
-                            groups: _sections,
-                            selectedIndex: _selectedSection,
-                            onSelected: (index) => setState(()
-                            {
-                              _selectedSection = index;
-                              _visitedSections.add(index);
-                            }),
+                        // The rail steps aside below the breakpoint. Two hundred
+                        // and seventy pixels of a phone cannot go to a column of
+                        // section names, and the drawer behind the bar is
+                        // already holding them.
+                        if (size.hasRail) ...[
+                          Align(
+                            alignment: Alignment.topLeft,
+                            // First out and first back in on a change of page:
+                            // the rail is what frames the content beside it.
+                            child: PageTransitionItem(
+                              slot: PageTransitionItem.frame,
+                              child: AppSectionRail(
+                                title: 'Associazione',
+                                groups: _sections,
+                                selectedIndex: _selectedSection,
+                                onSelected: _selectSection,
+                              ),
+                            ),
                           ),
+                          const SizedBox(width: AppSectionRail.gap),
+                        ],
+                        Expanded(
+                          child: size.isCompact
+                              // What the rail was saying about where you are has
+                              // to keep being said: the module quietly, over the
+                              // section you are in.
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    PageTransitionItem(
+                                      slot: PageTransitionItem.frame,
+                                      child: AppSectionHeading(
+                                        module: 'Associazione',
+                                        section: railEntryAt(_sections, _selectedSection),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Expanded(child: _buildSectionContent()),
+                                  ],
+                                )
+                              : _buildSectionContent(),
                         ),
-                        const SizedBox(width: AppSectionRail.gap),
-                        Expanded(child: _buildSectionContent()),
                       ],
                     ),
                   ),
                 ),
                 // Last in the stack, so the bar and the menu it opens stay above
                 // the page.
-                const AppTopBar(currentRoute: '/association'),
+                AppTopBar(
+                  currentRoute: '/association',
+                  sectionTitle: 'Associazione',
+                  sectionGroups: _sections,
+                  selectedSection: _selectedSection,
+                  onSectionSelected: _selectSection,
+                ),
               ],
             ),
           );

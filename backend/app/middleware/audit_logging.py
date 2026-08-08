@@ -18,19 +18,40 @@ LOG_DIR: Final[str] = os.path.dirname(LOG_FILE_TEMPLATE)
 _ROME_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
 _ANONYMOUS_USER: Final[str] = "anonymous"
+_BEARER_PREFIX: Final[str] = "Bearer "
 
 _ACCOUNT_LOCKED_STATUS: Final[int] = 423
+
+_SUCCESS_STATUS: Final[str] = "Success"
+_FAILURE_STATUS: Final[str] = "Failure"
 
 _BODY_METHODS: Final[frozenset[str]] = frozenset({"POST", "PUT", "PATCH"})
 _UPDATE_METHODS: Final[frozenset[str]] = frozenset({"PUT", "PATCH"})
 
+_LOGIN_PATH: Final[str] = "/auth/login"
+
+_AUTH_OPERATIONS: Final[dict[str, str]] = {
+    _LOGIN_PATH: "Authentication",
+    "/auth/logout": "Logout",
+    "/auth/change-password": "Password Change",
+    "/auth/request-password-reset": "Password Reset Request",
+    "/auth/reset-password": "Password Reset",
+}
+
 _ENTITY_TYPES: Final[dict[str, str]] = {
     "/subjects": "Subject",
     "/schools": "School",
+    "/services": "Service",
     "/study-programs": "Study program",
     "/teaching-offerings": "Teaching offering",
     "/association-subjects": "Association subject",
     "/ministry-subjects": "Ministry subject",
+    "/availabilities": "Availability",
+    "/presences": "Presence",
+    "/bookings": "Booking",
+    "/lesson-requests": "Lesson request",
+    "/opening-days": "Opening day",
+    "/weekly-templates": "Weekly template",
 }
 
 if LOG_DIR:
@@ -77,9 +98,22 @@ def log_audit_operation(
     logger.info(message)
 
 
+def _match_by_path_fragment(path: str, values: dict[str, str]) -> str | None:
+    return next(
+        (value for fragment, value in values.items() if fragment in path),
+        None,
+    )
+
+
+def _path_segment(path: str, index: int) -> str:
+    segments = path.split("/")
+
+    return segments[index] if len(segments) > index else ""
+
+
+# The signature is deliberately not verified: the payload is only used to label
+# audit entries, never to grant access.
 def _decode_unverified(token: str) -> dict[str, Any]:
-    # The signature is deliberately not verified: the payload is only used to
-    # label audit entries, never to grant access.
     return jwt.decode(token, options={"verify_signature": False})
 
 
@@ -114,68 +148,145 @@ async def _resolve_tax_code_from_db(
         return fallback
 
 
-async def extract_user_id(request: Request) -> str:
+def _bearer_token(request: Request) -> str | None:
     authorization = request.headers.get("Authorization")
 
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
+    if not authorization or not authorization.startswith(_BEARER_PREFIX):
+        return None
 
+    return authorization.split(" ")[1]
+
+
+def _token_subject(token: str | None) -> str | None:
+    if not token:
+        return None
+
+    return str(_decode_unverified(token).get("sub", _ANONYMOUS_USER))
+
+
+# Reading the body consumes the ASGI stream: re-inject it so that the
+# downstream handlers can still read the request payload.
+def _reinject_body(request: Request, body: bytes) -> None:
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": body}
+
+    request._receive = receive
+
+
+async def _user_id_from_auth_payload(
+    path: str,
+    payload: dict[str, Any],
+) -> str | None:
+    if _LOGIN_PATH in path:
+        username = payload.get("username")
+
+        return await _resolve_tax_code_from_db(username=username) if username else None
+
+    if "/auth/logout" in path or "/auth/change-password" in path:
+        return _token_subject(payload.get("refresh_token"))
+
+    if "/auth/request-password-reset" in path:
+        email = payload.get("email")
+
+        return await _resolve_tax_code_from_db(email=email) if email else None
+
+    if "/auth/reset-password" in path:
+        return _token_subject(payload.get("token"))
+
+    return None
+
+
+async def extract_user_id(request: Request) -> str:
+    token = _bearer_token(request)
+
+    if token:
         try:
             return str(_decode_unverified(token).get("sub", _ANONYMOUS_USER))
 
         except Exception:
             pass
 
-    user_id = _ANONYMOUS_USER
-
     try:
         body = await request.body()
 
         if body:
-            # Reading the body consumes the ASGI stream: re-inject it so that
-            # the downstream handlers can still read the request payload.
-            async def receive() -> dict[str, Any]:
-                return {"type": "http.request", "body": body}
+            _reinject_body(request, body)
 
-            request._receive = receive
+            user_id = await _user_id_from_auth_payload(
+                request.url.path,
+                json.loads(body),
+            )
 
-            payload = json.loads(body)
-            path = request.url.path
-
-            if "/auth/login" in path:
-                username = payload.get("username")
-
-                if username:
-                    user_id = await _resolve_tax_code_from_db(username=username)
-
-            elif "/auth/logout" in path or "/auth/change-password" in path:
-                refresh_token = payload.get("refresh_token")
-
-                if refresh_token:
-                    user_id = _decode_unverified(refresh_token).get(
-                        "sub",
-                        _ANONYMOUS_USER,
-                    )
-
-            elif "/auth/request-password-reset" in path:
-                email = payload.get("email")
-
-                if email:
-                    user_id = await _resolve_tax_code_from_db(email=email)
-
-            elif "/auth/reset-password" in path:
-                reset_token = payload.get("token")
-
-                if reset_token:
-                    user_id = _decode_unverified(reset_token).get(
-                        "sub",
-                        _ANONYMOUS_USER,
-                    )
+            if user_id is not None:
+                return user_id
 
     except Exception:
         pass
 
-    return str(user_id)
+    return _ANONYMOUS_USER
+
+
+# The streaming body can be consumed only once: buffer it and rebuild the
+# response, otherwise the client would receive an empty payload.
+async def _buffer_response(response: Response) -> tuple[bytes, Response]:
+    body = b"".join([section async for section in response.body_iterator])
+
+    return body, Response(
+        content=body,
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type=response.media_type,
+    )
+
+
+def _resolve_people_operation(
+    method: str,
+    path: str,
+    status: str,
+    response_body: bytes,
+) -> tuple[str | None, str]:
+    if method == "POST":
+        target = (
+            _extract_response_field(response_body, "tax_code")
+            if status == _SUCCESS_STATUS
+            else ""
+        )
+
+        return "Person creation", target
+
+    if method in _UPDATE_METHODS:
+        return "Person modification", _path_segment(path, 2)
+
+    return None, ""
+
+
+def _resolve_entity_operation(
+    method: str,
+    path: str,
+    status: str,
+    response_body: bytes,
+) -> tuple[str | None, str]:
+    entity_type = _match_by_path_fragment(path, _ENTITY_TYPES)
+
+    if entity_type is None:
+        return None, ""
+
+    if method == "POST":
+        target = (
+            _extract_response_field(response_body, "id")
+            if status == _SUCCESS_STATUS
+            else ""
+        )
+
+        return f"{entity_type} creation", target
+
+    if method in _UPDATE_METHODS:
+        return f"{entity_type} modification", path.split("/")[-1]
+
+    if method == "DELETE":
+        return f"{entity_type} elimination", path.split("/")[-1]
+
+    return None, ""
 
 
 async def audit_logging_middleware(request: Request, call_next: Callable) -> Response:
@@ -186,75 +297,37 @@ async def audit_logging_middleware(request: Request, call_next: Callable) -> Res
     response = await call_next(request)
 
     path = request.url.path
-    operation_type: str | None = None
-    target = ""
-    status = "Success" if response.status_code < 400 else "Failure"
+    status = _SUCCESS_STATUS if response.status_code < 400 else _FAILURE_STATUS
     response_body = b""
 
-    # The streaming body can be consumed only once: buffer it and rebuild the
-    # response, otherwise the client would receive an empty payload.
-    if status == "Success" and request.method in _BODY_METHODS:
-        response_body = b"".join([section async for section in response.body_iterator])
-        response = Response(
-            content=response_body,
-            status_code=response.status_code,
-            headers=dict(response.headers),
-            media_type=response.media_type,
-        )
+    if status == _SUCCESS_STATUS and request.method in _BODY_METHODS:
+        response_body, response = await _buffer_response(response)
 
-    if "/auth/login" in path:
-        operation_type = "Authentication"
+    auth_operation = _match_by_path_fragment(path, _AUTH_OPERATIONS)
+    target = ""
 
-        if response.status_code == _ACCOUNT_LOCKED_STATUS:
+    if auth_operation is not None:
+        operation_type: str | None = auth_operation
+
+        if _LOGIN_PATH in path and response.status_code == _ACCOUNT_LOCKED_STATUS:
             log_audit_operation(user_id, "Account Lockout", "System", target)
-            status = "Failure"
-
-    elif "/auth/logout" in path:
-        operation_type = "Logout"
-
-    elif "/auth/change-password" in path:
-        operation_type = "Password Change"
-
-    elif "/auth/request-password-reset" in path:
-        operation_type = "Password Reset Request"
-
-    elif "/auth/reset-password" in path:
-        operation_type = "Password Reset"
+            status = _FAILURE_STATUS
 
     elif "/people" in path:
-        if request.method == "POST":
-            operation_type = "Person creation"
-
-            if status == "Success":
-                target = _extract_response_field(response_body, "tax_code")
-
-        elif request.method in _UPDATE_METHODS:
-            operation_type = "Person modification"
-            parts = path.split("/")
-
-            if len(parts) > 2:
-                target = parts[2]
-
-    else:
-        entity_type = next(
-            (name for prefix, name in _ENTITY_TYPES.items() if prefix in path),
-            None,
+        operation_type, target = _resolve_people_operation(
+            request.method,
+            path,
+            status,
+            response_body,
         )
 
-        if entity_type:
-            if request.method == "POST":
-                operation_type = f"{entity_type} creation"
-
-                if status == "Success":
-                    target = _extract_response_field(response_body, "id")
-
-            elif request.method in _UPDATE_METHODS:
-                operation_type = f"{entity_type} modification"
-                target = path.split("/")[-1]
-
-            elif request.method == "DELETE":
-                operation_type = f"{entity_type} elimination"
-                target = path.split("/")[-1]
+    else:
+        operation_type, target = _resolve_entity_operation(
+            request.method,
+            path,
+            status,
+            response_body,
+        )
 
     if operation_type:
         log_audit_operation(

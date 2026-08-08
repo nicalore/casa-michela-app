@@ -573,8 +573,13 @@ async def get_student_education_distribution(
         query = query.join(
             SchoolStudyProgram, _ENROLLMENT_TO_PROGRAM_JOIN
         ).join(StudyProgram, SchoolStudyProgram.study_program_id == StudyProgram.id)
+        # The sector lives in a column of its own, and a programme named in a
+        # chart has to be recognisable without the context surrounding it
+        # elsewhere: concat_ws skips the sector where it is null.
         label_column = (
-            StudyProgram.name if distribution_type == "program" else StudyProgram.level
+            func.concat_ws(" | ", StudyProgram.sector, StudyProgram.name)
+            if distribution_type == "program"
+            else StudyProgram.level
         )
 
     if label_column is not None:
@@ -619,7 +624,9 @@ async def get_teacher_subjects_statistics(
             TeachingCompetence.study_program_id,
             AssociationSubject.name.label("subject_name"),
             AssociationSubject.area,
-            StudyProgram.name.label("program_name"),
+            func.concat_ws(" | ", StudyProgram.sector, StudyProgram.name).label(
+                "program_name"
+            ),
         )
         .join(
             AssociationSubject,
@@ -686,7 +693,7 @@ async def get_teacher_subjects_statistics(
                 AssociationSubject.id,
                 AssociationSubject.name,
                 StudyProgram.id,
-                StudyProgram.name,
+                func.concat_ws(" | ", StudyProgram.sector, StudyProgram.name),
             )
             .select_from(MinistryAssociationSubject)
             .join(

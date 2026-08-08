@@ -18,12 +18,12 @@ from app.core.labels import (
     translate_course_type,
     translate_education_level,
 )
+from app.core.optimistic_concurrency import assert_not_stale
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course_participant import CourseParticipant, CourseTypeEnum
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
-from app.models.mixins import UpdatedAtMixin
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
@@ -31,9 +31,11 @@ from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
+from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
 from app.models.teacher import Teacher
+from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person import (
     AdminUpdateData,
@@ -54,6 +56,7 @@ from app.schemas.person import (
     SchoolEnrollmentResponse,
     StaffUpdateData,
     StudentUpdateData,
+    TeacherProgramResponse,
     TeacherSubjectResponse,
     TeacherUpdateData,
 )
@@ -176,9 +179,10 @@ _MEMBERSHIP_ALREADY_REVOKED_ERROR: Final[str] = (
     "L'iscrizione per l'anno corrente risulta già revocata."
 )
 _EMPTY_COMPETENCES_ERROR: Final[str] = (
-    "Impossibile svuotare le discipline. "
-    "Un docente deve insegnare almeno una materia."
+    "Impossibile svuotare le discipline. Un docente deve insegnare almeno una "
+    "materia o seguire almeno un servizio."
 )
+_UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
 
 _GENERIC_COMMIT_ERROR: Final[str] = "Errore: {error}"
 _RAW_COMMIT_ERROR: Final[str] = "{error}"
@@ -188,9 +192,7 @@ _REPORT_EMAIL_ERROR: Final[str] = "Impossibile inviare la mail tramite Resend: {
 
 _SCHOOL_YEARS_UPDATED_MESSAGE: Final[str] = "Anni scolastici aggiornati con successo!"
 _PARENT_ADDED_MESSAGE: Final[str] = "Genitore aggiunto con successo"
-_PICKUP_UPDATED_MESSAGE: Final[str] = (
-    "Autorizzazione al ritiro aggiornata con successo"
-)
+_PICKUP_UPDATED_MESSAGE: Final[str] = "Autorizzazione al ritiro aggiornata con successo"
 _PARENT_UPDATED_MESSAGE: Final[str] = "Genitore aggiornato con successo"
 _LINK_REMOVED_MESSAGE: Final[str] = "Associazione rimossa con successo"
 _REPORT_SENT_MESSAGE: Final[str] = "Segnalazione inviata correttamente"
@@ -246,11 +248,6 @@ _ADMIN_UNIQUENESS_ERRORS: Final[dict[str, str]] = {
     ),
 }
 
-_STALE_ENTITY_ERROR: Final[str] = (
-    "{entity_label} sono state modificate da un altro utente nel frattempo. "
-    "Ricarica la pagina e riprova."
-)
-
 
 def _admin_role_uniqueness_error_detail(error_message: str) -> str | None:
     for constraint_name, detail in _ADMIN_UNIQUENESS_ERRORS.items():
@@ -258,26 +255,6 @@ def _admin_role_uniqueness_error_detail(error_message: str) -> str | None:
             return detail
 
     return None
-
-
-def _assert_not_stale(
-    entity: UpdatedAtMixin,
-    expected_updated_at: datetime | None,
-    *,
-    entity_label: str,
-) -> None:
-    # A client that sends no expected_updated_at is not blocked, so calls
-    # predating optimistic concurrency keep working.
-    if expected_updated_at is None:
-        return
-
-    stored = entity.updated_at.replace(microsecond=0)
-
-    if stored != expected_updated_at.replace(microsecond=0):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=_STALE_ENTITY_ERROR.format(entity_label=entity_label),
-        )
 
 
 def _latest_enrollment(enrollments: list[SchoolEnrollment]) -> SchoolEnrollment | None:
@@ -294,9 +271,7 @@ def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
     school_class = None
     study_program = None
 
-    student = (
-        child.member_profile.student_profile if child.member_profile else None
-    )
+    student = child.member_profile.student_profile if child.member_profile else None
 
     if student is not None:
         latest = _latest_enrollment(student.school_enrollments)
@@ -310,7 +285,7 @@ def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
                     school_name = school_study_program.school.name
 
                 if school_study_program.study_program:
-                    study_program = school_study_program.study_program.name
+                    study_program = school_study_program.study_program.display_name
 
     return ChildInfoResponse(
         fiscal_code=child.tax_code,
@@ -384,15 +359,12 @@ def _map_teacher_subjects(
                 "subject_id": subject.id,
                 "subject_name": subject.name,
                 "subject_area": subject.area,
-                "study_program_ids": [],
+                "subject_description": subject.description,
                 "study_programs": [],
             }
 
-        subjects_by_id[subject.id]["study_program_ids"].append(
-            competence.study_program.id
-        )
         subjects_by_id[subject.id]["study_programs"].append(
-            competence.study_program.name
+            TeacherProgramResponse.model_validate(competence.study_program)
         )
 
     teacher_subjects = [
@@ -409,6 +381,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
     school_enrollments: list[SchoolEnrollmentResponse] = []
     taught_subjects: list[str] = []
     teacher_subjects: list[TeacherSubjectResponse] = []
+    teacher_services: list[str] = []
 
     is_active_collaborator = None
     enrollment_year = None
@@ -550,7 +523,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
                         school_mechanographic_code=(
                             school_study_program.school.mechanographic_code
                         ),
-                        study_program_name=school_study_program.study_program.name,
+                        study_program_name=school_study_program.study_program.display_name,
                         study_program_id=school_study_program.study_program_id,
                         education_level=translate_education_level(
                             school_study_program.study_program.level
@@ -570,7 +543,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
                         school_name = school_study_program.school.name
 
                     if school_study_program.study_program:
-                        study_program = school_study_program.study_program.name
+                        study_program = school_study_program.study_program.display_name
                         education_level = translate_education_level(
                             school_study_program.study_program.level
                         )
@@ -592,6 +565,9 @@ def _map_person_to_response(person: Person) -> PersonResponse:
                 university_education = teacher.university_education
                 teacher_updated_at = teacher.updated_at
                 taught_subjects, teacher_subjects = _map_teacher_subjects(teacher)
+                teacher_services = sorted(
+                    entry.service_name for entry in teacher.teacher_services
+                )
 
             if staff.psychologist_profile is not None:
                 roles.append(_ROLE_PSYCHOLOGIST)
@@ -639,6 +615,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
         parents=parents or None,
         children=children or None,
         teacher_subjects=teacher_subjects or None,
+        teacher_services=teacher_services or None,
         member_updated_at=member_updated_at,
         student_updated_at=student_updated_at,
         teacher_updated_at=teacher_updated_at,
@@ -687,9 +664,8 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
 
     staff = joinedload(Person.member_profile).joinedload(Member.staff_profile)
 
-    teaching_competences = staff.joinedload(Staff.teacher_profile).joinedload(
-        Teacher.teaching_competences
-    )
+    teacher_profile = staff.joinedload(Staff.teacher_profile)
+    teaching_competences = teacher_profile.joinedload(Teacher.teaching_competences)
 
     return (
         joinedload(Person.account),
@@ -699,14 +675,13 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         .joinedload(ParentalResponsibility.parent)
         .joinedload(Parent.person),
         joinedload(Person.member_profile).joinedload(Member.memberships),
-        joinedload(Person.member_profile).joinedload(
-            Member.course_participant_profile
-        ),
+        joinedload(Person.member_profile).joinedload(Member.course_participant_profile),
         own_enrollments.joinedload(SchoolStudyProgram.school),
         own_enrollments.joinedload(SchoolStudyProgram.study_program),
         staff.joinedload(Staff.administrator_profile),
         teaching_competences.joinedload(TeachingCompetence.association_subject),
         teaching_competences.joinedload(TeachingCompetence.study_program),
+        teacher_profile.joinedload(Teacher.teacher_services),
         staff.joinedload(Staff.psychologist_profile),
         joinedload(Person.member_profile).joinedload(
             Member.psychological_support_profile
@@ -829,7 +804,7 @@ async def _update_member_data(
     member: Member,
     member_data: PersonMembershipsUpdate,
 ) -> None:
-    _assert_not_stale(
+    assert_not_stale(
         member,
         member_data.expected_updated_at,
         entity_label=_MEMBERSHIPS_LABEL,
@@ -862,9 +837,7 @@ async def _update_member_data(
             update_values[field_name] = getattr(member_data, field_name)
 
     await db.execute(
-        update(Member)
-        .where(Member.tax_code == person.tax_code)
-        .values(**update_values)
+        update(Member).where(Member.tax_code == person.tax_code).values(**update_values)
     )
     await db.execute(
         delete(Membership).where(Membership.member_tax_code == person.tax_code)
@@ -923,7 +896,7 @@ async def _sync_student_profile(
     if current_student is not None:
         # Checked before writing any field, otherwise a conflict would still
         # leave partial data behind.
-        _assert_not_stale(
+        assert_not_stale(
             current_student,
             student_data.expected_updated_at,
             entity_label=_SCHOOL_ENROLLMENTS_LABEL,
@@ -1098,7 +1071,7 @@ async def _sync_teacher_profile(
             if teacher_data.competences is not None
             else _TEACHER_DATA_LABEL
         )
-        _assert_not_stale(
+        assert_not_stale(
             existing,
             teacher_data.expected_updated_at,
             entity_label=entity_label,
@@ -1123,25 +1096,68 @@ async def _sync_teacher_profile(
         )
         await db.flush()
 
-    if teacher_data.competences is None:
+    if teacher_data.competences is None and teacher_data.service_names is None:
         return
 
-    await db.execute(
-        delete(TeachingCompetence).where(
-            TeachingCompetence.teacher_tax_code == person.tax_code
+    if teacher_data.competences is not None:
+        await db.execute(
+            delete(TeachingCompetence).where(
+                TeachingCompetence.teacher_tax_code == person.tax_code
+            )
         )
+        await db.flush()
+
+        for competence_data in teacher_data.competences:
+            for study_program_id in competence_data.study_program_ids:
+                db.add(
+                    TeachingCompetence(
+                        teacher_tax_code=person.tax_code,
+                        association_subject_id=competence_data.subject_id,
+                        study_program_id=study_program_id,
+                    )
+                )
+
+    if teacher_data.service_names is not None:
+        await _replace_teacher_services(db, person.tax_code, teacher_data.service_names)
+
+
+# Rewrites a teacher's services after checking they exist: without the check a
+# wrong name would surface as a foreign key violation, that is a 500 or a message
+# that does not name what was wrong.
+async def _replace_teacher_services(
+    db: AsyncSession,
+    tax_code: str,
+    service_names: list[str],
+) -> None:
+    await db.execute(
+        delete(TeacherService).where(TeacherService.teacher_tax_code == tax_code)
     )
     await db.flush()
 
-    for competence_data in teacher_data.competences:
-        for study_program_id in competence_data.study_program_ids:
-            db.add(
-                TeachingCompetence(
-                    teacher_tax_code=person.tax_code,
-                    association_subject_id=competence_data.subject_id,
-                    study_program_id=study_program_id,
-                )
+    unique_names = list(dict.fromkeys(service_names))
+
+    if not unique_names:
+        return
+
+    existing = set(
+        (
+            await db.execute(
+                select(Service.name).where(Service.name.in_(unique_names))
             )
+        )
+        .scalars()
+        .all()
+    )
+    missing = [name for name in unique_names if name not in existing]
+
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
+        )
+
+    for name in unique_names:
+        db.add(TeacherService(teacher_tax_code=tax_code, service_name=name))
 
 
 async def _delete_teacher_profile(db: AsyncSession, person: Person) -> None:
@@ -1149,6 +1165,9 @@ async def _delete_teacher_profile(db: AsyncSession, person: Person) -> None:
         delete(TeachingCompetence).where(
             TeachingCompetence.teacher_tax_code == person.tax_code
         )
+    )
+    await db.execute(
+        delete(TeacherService).where(TeacherService.teacher_tax_code == person.tax_code)
     )
     await db.execute(delete(Teacher).where(Teacher.tax_code == person.tax_code))
 
@@ -1546,7 +1565,7 @@ async def update_person_school_enrollments(
         )
 
     student = member.student_profile
-    _assert_not_stale(
+    assert_not_stale(
         student,
         payload.expected_updated_at,
         entity_label=_SCHOOL_ENROLLMENTS_LABEL,
@@ -1839,7 +1858,7 @@ async def update_person_memberships(
             detail=_NO_MEMBER_PROFILE_ERROR,
         )
 
-    _assert_not_stale(
+    assert_not_stale(
         member,
         payload.expected_updated_at,
         entity_label=_MEMBERSHIPS_LABEL,
@@ -1894,7 +1913,7 @@ async def revoke_person_membership(
             detail=_NO_MEMBER_PROFILE_ERROR,
         )
 
-    _assert_not_stale(
+    assert_not_stale(
         member,
         payload.expected_updated_at,
         entity_label=_MEMBERSHIPS_LABEL,
@@ -1935,7 +1954,9 @@ async def update_teacher_competences(
     payload: PersonTeacherCompetencesUpdate,
     db: DbSession,
 ) -> dict[str, str]:
-    if not payload.competences:
+    # A teacher who only takes on services is still a teacher: what they cannot
+    # be is one who does neither of the two.
+    if not payload.competences and not payload.service_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_EMPTY_COMPETENCES_ERROR,
@@ -1960,7 +1981,7 @@ async def update_teacher_competences(
             detail=_NO_TEACHER_PROFILE_ERROR,
         )
 
-    _assert_not_stale(
+    assert_not_stale(
         teacher,
         payload.expected_updated_at,
         entity_label=_TEACHING_SUBJECTS_LABEL,
@@ -1984,6 +2005,8 @@ async def update_teacher_competences(
                     study_program_id=study_program_id,
                 )
             )
+
+    await _replace_teacher_services(db, person.tax_code, payload.service_names)
 
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 

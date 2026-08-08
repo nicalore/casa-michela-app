@@ -16,7 +16,9 @@ from app.models.constraints import (
 from app.models.mixins import UpdatedAtMixin
 
 if TYPE_CHECKING:
+    from app.models.availability import Availability
     from app.models.staff import Staff
+    from app.models.teacher_service import TeacherService
     from app.models.teaching_competence import TeachingCompetence
 
 
@@ -49,6 +51,16 @@ class Teacher(UpdatedAtMixin, Base):
     )
 
     teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
+        back_populates="teacher",
+        cascade="all, delete-orphan",
+    )
+
+    teacher_services: Mapped[list[TeacherService]] = relationship(
+        back_populates="teacher",
+        cascade="all, delete-orphan",
+    )
+
+    availabilities: Mapped[list[Availability]] = relationship(
         back_populates="teacher",
         cascade="all, delete-orphan",
     )

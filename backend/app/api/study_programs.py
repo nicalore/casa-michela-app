@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from typing import Final
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -102,10 +102,14 @@ async def _assert_name_available(
     db: AsyncSession,
     name: str,
     level: EducationLevelEnum,
+    sector: str | None,
 ) -> None:
+    # The sector is part of the identity: the same programme name under two
+    # different sectors is two different programmes.
     stmt = select(StudyProgram).where(
         StudyProgram.name.ilike(name),
         StudyProgram.level == level,
+        func.coalesce(StudyProgram.sector, "") == (sector or ""),
     )
 
     if (await db.execute(stmt)).scalars().first() is not None:
@@ -163,7 +167,7 @@ async def create_study_program(
             detail=_NO_MINISTRY_SUBJECTS_ERROR,
         )
 
-    await _assert_name_available(db, payload.name, payload.level)
+    await _assert_name_available(db, payload.name, payload.level, payload.sector)
 
     subjects = await _load_ministry_subjects(
         db,
@@ -173,6 +177,7 @@ async def create_study_program(
 
     new_program = StudyProgram(
         name=payload.name,
+        sector=payload.sector,
         description=payload.description,
         level=payload.level,
         min_year=payload.min_year,
@@ -208,8 +213,12 @@ async def update_study_program(
 
     program = await _get_program_or_404(db, program_id, load_subjects=True)
 
-    if program.name.lower() != payload.name.lower() or program.level != payload.level:
-        await _assert_name_available(db, payload.name, payload.level)
+    if (
+        program.name.lower() != payload.name.lower()
+        or program.level != payload.level
+        or (program.sector or "") != (payload.sector or "")
+    ):
+        await _assert_name_available(db, payload.name, payload.level, payload.sector)
 
     subjects = await _load_ministry_subjects(
         db,
@@ -218,6 +227,7 @@ async def update_study_program(
     )
 
     program.name = payload.name
+    program.sector = payload.sector
     program.description = payload.description
     program.level = payload.level
     program.min_year = payload.min_year

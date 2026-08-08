@@ -13,6 +13,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.association_subject import AssociationSubject
     from app.models.ministry_subject import MinistrySubject
+    from app.models.subject_requested import SubjectRequested
 
 
 class MinistryAssociationSubject(Base):
@@ -36,4 +37,8 @@ class MinistryAssociationSubject(Base):
 
     association_subject: Mapped[AssociationSubject] = relationship(
         back_populates="ministry_association_subjects",
+    )
+
+    subjects_requested: Mapped[list[SubjectRequested]] = relationship(
+        back_populates="ministry_association_subject",
     )

@@ -1,12 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
 
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/association/models/association_subject_item.dart';
+import '../features/association/models/opening_day_item.dart';
 import '../features/association/models/school_item.dart';
+import '../features/association/models/service_item.dart';
 import '../features/association/models/study_program_item.dart';
 import '../features/association/models/ministry_subject_item.dart';
+import '../features/association/models/weekly_template_item.dart';
+import '../features/lessons/models/availability_item.dart';
+import '../features/lessons/models/presence_item.dart';
 import '../features/people/models/person_item.dart';
 import '../features/people/models/member_trend_item.dart';
 import '../features/people/models/retention_rate_item.dart';
@@ -18,6 +24,7 @@ import '../features/people/models/teacher_subjects_statistics_item.dart';
 import '../features/people/models/course_distribution_item.dart';
 
 import '../core/config/api_config.dart';
+import '../core/utils/json_parsing.dart';
 import 'auth_state.dart';
 import 'session_service.dart';
 
@@ -117,6 +124,7 @@ ApiService._internal()
   {
     _accessToken  = null;
     _refreshToken = null;
+    lastKnownIdentity = null;
     await SessionService.clear();
   }
 
@@ -286,6 +294,172 @@ ApiService._internal()
     return (response.data as List).map((e) => AssociationSubjectItem.fromJson(e)).toList();
   }
 
+  Future<List<OpeningDayItem>> getOpeningDays({required DateTime dateFrom, required DateTime dateTo, required String mode}) async
+  {
+    final response = await _dio.get(
+      '/opening-days/',
+      queryParameters: {
+        'date_from': formatDateOnly(dateFrom),
+        'date_to': formatDateOnly(dateTo),
+        'mode': mode,
+      },
+    );
+    return (response.data as List).map((e) => OpeningDayItem.fromJson(e)).toList();
+  }
+
+  Future<List<WeeklyTemplateItem>> getWeeklyTemplates() async
+  {
+    final response = await _dio.get('/weekly-templates/');
+    return (response.data as List).map((e) => WeeklyTemplateItem.fromJson(e)).toList();
+  }
+
+  // effectiveFrom is the date the change starts applying to the already
+  // generated calendar. Omitting it leaves opening_days untouched, so the new
+  // hours only show up the next time the calendar is generated.
+  Future<WeeklyTemplateItem> createWeeklyTemplate({
+    required int weekday,
+    required String mode,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    DateTime? effectiveFrom,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post('/weekly-templates/', data: {
+        'weekday': weekday,
+        'mode': mode,
+        'start_time': formatTimeOfDay(startTime),
+        'end_time': formatTimeOfDay(endTime),
+        'effective_from': effectiveFrom != null ? formatDateOnly(effectiveFrom) : null,
+      });
+      return WeeklyTemplateItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della fascia oraria. Riprova più tardi.');
+    }
+  }
+
+  Future<WeeklyTemplateItem> updateWeeklyTemplate({
+    required int id,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    DateTime? effectiveFrom,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put('/weekly-templates/$id', data: {
+        'start_time': formatTimeOfDay(startTime),
+        'end_time': formatTimeOfDay(endTime),
+        'effective_from': effectiveFrom != null ? formatDateOnly(effectiveFrom) : null,
+      });
+      return WeeklyTemplateItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della fascia oraria. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteWeeklyTemplate(int id, {DateTime? effectiveFrom}) async
+  {
+    try
+    {
+      await _dio.delete(
+        '/weekly-templates/$id',
+        queryParameters: effectiveFrom != null ? {'effective_from': formatDateOnly(effectiveFrom)} : null,
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della fascia oraria. Riprova più tardi.');
+    }
+  }
+
+  Future<OpeningDayItem> createOpeningDay({
+    required DateTime date,
+    required String mode,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
+    String? note,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post('/opening-days/', data: {
+        'date': formatDateOnly(date),
+        'mode': mode,
+        'start_time': startTime != null ? formatTimeOfDay(startTime) : null,
+        'end_time': endTime != null ? formatTimeOfDay(endTime) : null,
+        'note': note,
+      });
+      return OpeningDayItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione dell\'apertura. Riprova più tardi.');
+    }
+  }
+
+  Future<OpeningDayItem> updateOpeningDay({
+    required int id,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
+    String? note,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put('/opening-days/$id', data: {
+        'start_time': startTime != null ? formatTimeOfDay(startTime) : null,
+        'end_time': endTime != null ? formatTimeOfDay(endTime) : null,
+        'note': note,
+      });
+      return OpeningDayItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'aggiornamento dell\'apertura. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteOpeningDay(int id) async
+  {
+    try
+    {
+      await _dio.delete('/opening-days/$id');
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione dell\'apertura. Riprova più tardi.');
+    }
+  }
+
+  // Undoes a variation: the days in the range go back to the weekly template's
+  // hours. Server-side because rows written through the API are always flagged
+  // as overrides, so the client cannot put a standard day back on its own — and
+  // plain deletion would leave those days with no hours at all.
+  Future<void> restoreStandardHours({
+    required DateTime dateFrom,
+    required DateTime dateTo,
+    required String mode,
+  }) async
+  {
+    try
+    {
+      await _dio.post('/opening-days/restore-standard', data: {
+        'date_from': formatDateOnly(dateFrom),
+        'date_to': formatDateOnly(dateTo),
+        'mode': mode,
+      });
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante il ripristino dell\'orario standard. Riprova più tardi.');
+    }
+  }
   Future<AssociationSubjectItem> createAssociationSubject(String name, String area, String description) async
   {
     try
@@ -330,11 +504,113 @@ ApiService._internal()
     }
   }
 
+  // A whole day booked in one go: the bands and the lessons of one or both
+  // modes, in a single transaction. It either passes as a whole or not at all,
+  // where writing one presence and one lesson per call left a half-written day
+  // behind on a refusal partway through.
+  Future<List<PresenceItem>> createLessonRequest({
+    required String studentTaxCode,
+    required DateTime date,
+    required List<Map<String, dynamic>> modes,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/lesson-requests/',
+        data: {
+          'student_tax_code': studentTaxCode,
+          'date': formatDateOnly(date),
+          'modes': modes,
+        },
+      );
+
+      return (response.data as List).map((e) => PresenceItem.fromJson(e)).toList();
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della richiesta.');
+    }
+  }
+
+  // Il nome è la chiave di un servizio, e i nomi hanno spazi e accenti: vanno
+  // codificati, altrimenti "Metodo di studio" arriva spezzato nel path.
+  String _servicePath(String name) => '/services/${Uri.encodeComponent(name)}';
+
+  Future<List<ServiceItem>> getServices() async
+  {
+    final response = await _dio.get('/services/');
+    return (response.data as List).map((e) => ServiceItem.fromJson(e)).toList();
+  }
+
+  Future<ServiceItem> createService(String name, String description) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/services/',
+        data: {'name': name, 'description': description},
+      );
+      return ServiceItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione. Riprova più tardi.');
+    }
+  }
+
+  // originalName is which row to rewrite, name is what it will be called
+  // afterwards: the two are the same thing only until a rename.
+  Future<ServiceItem> updateService(String originalName, String name, String description) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        _servicePath(originalName),
+        data: {'name': name, 'description': description},
+      );
+      return ServiceItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+    }
+  }
+
+  Future<void> deleteService(String name) async
+  {
+    try
+    {
+      await _dio.delete(_servicePath(name));
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+    }
+  }
+
+  // The identity the last answer to me() carried, kept so that a page opening
+  // has something to draw its top bar with while its own request is in flight.
+  // It is a memory of what was true a moment ago and nothing more: whoever uses
+  // it asks the server as well and replaces it with the answer. Dropped with the
+  // session, so it cannot outlive the account it belongs to.
+  MeResponse? lastKnownIdentity;
+
   Future<MeResponse> me() async
   {
     final response = await _dio.get('/auth/me');
-    return MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+    final identity = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+    lastKnownIdentity = identity;
+
+    return identity;
   }
+
+  // How many times the profile picture has changed hands in this session. The
+  // picture keeps the same address when it is replaced, so whoever draws it
+  // stamps this on the URL to tell the browser cache that the bytes behind that
+  // address are not the ones it is holding.
+  int profileImageVersion = 0;
 
   Future<String> uploadProfileImage(List<int> bytes, String fileName) async
   {
@@ -345,6 +621,9 @@ ApiService._internal()
     try
     {
       final response = await _dio.post('/auth/profile-image', data: formData);
+
+      profileImageVersion++;
+
       return response.data['profile_image_url'];
     }
     on DioException catch (e)
@@ -359,6 +638,8 @@ ApiService._internal()
     try
     {
       await _dio.delete('/auth/profile-image');
+
+      profileImageVersion++;
     }
     on DioException catch (e)
     {
@@ -482,6 +763,7 @@ ApiService._internal()
     return (response.data as List).map((e) => StudyProgramItem(
       id:               e['id'],
       name:             e['name'],
+      sector:           e['sector'],
       description:      e['description'] ?? '',
       level:            e['level'],
       minYear:          e['min_year'],
@@ -492,17 +774,14 @@ ApiService._internal()
               id:                  m['id'],
               name:                m['name'],
               associationSubjects: m['association_subjects'] != null
-                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(
-                      id:   a['id'],
-                      name: a['name'],
-                    )).toList()
+                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
                   : [],
             )).toList()
           : [],
     )).toList();
   }
 
-  Future<StudyProgramItem> createStudyProgram({required String name, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
+  Future<StudyProgramItem> createStudyProgram({required String name, required String? sector, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
   {
     try
     {
@@ -510,6 +789,7 @@ ApiService._internal()
         '/study-programs/',
         data: {
           'name':                 name,
+          'sector':               sector,
           'description':          description,
           'level':                level,
           'min_year':             minYear,
@@ -521,6 +801,7 @@ ApiService._internal()
       return StudyProgramItem(
         id:               response.data['id'],
         name:             response.data['name'],
+        sector:           response.data['sector'],
         description:      response.data['description'] ?? '',
         level:            response.data['level'],
         minYear:          response.data['min_year'],
@@ -531,10 +812,7 @@ ApiService._internal()
                 id:                  m['id'],
                 name:                m['name'],
                 associationSubjects: m['association_subjects'] != null
-                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(
-                        id:   a['id'],
-                        name: a['name'],
-                      )).toList()
+                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
                     : [],
               )).toList()
             : [],
@@ -546,7 +824,7 @@ ApiService._internal()
     }
   }
 
-  Future<StudyProgramItem> updateStudyProgram({required int id, required String name, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
+  Future<StudyProgramItem> updateStudyProgram({required int id, required String name, required String? sector, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
   {
     try
     {
@@ -554,6 +832,7 @@ ApiService._internal()
         '/study-programs/$id',
         data: {
           'name':                 name,
+          'sector':               sector,
           'description':          description,
           'level':                level,
           'min_year':             minYear,
@@ -565,6 +844,7 @@ ApiService._internal()
       return StudyProgramItem(
         id:               response.data['id'],
         name:             response.data['name'],
+        sector:           response.data['sector'],
         description:      response.data['description'] ?? '',
         level:            response.data['level'],
         minYear:          response.data['min_year'],
@@ -575,10 +855,7 @@ ApiService._internal()
                 id:                  m['id'],
                 name:                m['name'],
                 associationSubjects: m['association_subjects'] != null
-                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption(
-                        id:   a['id'],
-                        name: a['name'],
-                      )).toList()
+                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
                     : [],
               )).toList()
             : [],
@@ -614,10 +891,7 @@ ApiService._internal()
       description:         e['description'],
       createdAt:           DateTime.parse(e['created_at']),
       associationSubjects: e['association_subjects'] != null
-          ? (e['association_subjects'] as List).map((a) => AssociationSubjectOption(
-              id:   a['id'],
-              name: a['name'],
-            )).toList()
+          ? (e['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
           : [],
     )).toList();
   }
@@ -645,7 +919,7 @@ ApiService._internal()
         description:         response.data['description'],
         createdAt:           DateTime.parse(response.data['created_at']),
         associationSubjects: response.data['association_subjects'] != null
-            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption(id: a['id'], name: a['name'])).toList()
+            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
             : [],
       );
     }
@@ -678,7 +952,7 @@ ApiService._internal()
         description:         response.data['description'],
         createdAt:           DateTime.parse(response.data['created_at']),
         associationSubjects: response.data['association_subjects'] != null
-            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption(id: a['id'], name: a['name'])).toList()
+            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
             : [],
       );
     }
@@ -1089,6 +1363,7 @@ ApiService._internal()
   Future<void> updateTeacherCompetences(
     String taxCode,
     List<Map<String, dynamic>> competences,
+    List<String> serviceNames,
     DateTime? expectedUpdatedAt,
   ) async
   {
@@ -1098,6 +1373,7 @@ ApiService._internal()
         '/people/$taxCode/teacher-competences',
         data: {
           'competences': competences,
+          'service_names': serviceNames,
           if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );
@@ -1161,6 +1437,237 @@ ApiService._internal()
         return false;
       }
       throw Exception(e.response?.data['detail'] ?? 'Errore durante la verifica del codice fiscale. Riprova più tardi.');
+    }
+  }
+
+  // --- Availabilities -----------------------------------------------------
+
+  Future<List<AvailabilityItem>> getAvailabilities() async
+  {
+    final response = await _dio.get('/availabilities/');
+    return (response.data as List).map((e) => AvailabilityItem.fromJson(e)).toList();
+  }
+
+  Future<AvailabilityItem> createAvailability({
+    required String teacherTaxCode,
+    required DateTime date,
+    required String mode,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/availabilities/',
+        data: {
+          'teacher_tax_code': teacherTaxCode,
+          'date':             formatDateOnly(date),
+          'mode':             mode,
+          'start_time':       formatTimeOfDay(startTime),
+          'end_time':         formatTimeOfDay(endTime),
+        },
+      );
+      return AvailabilityItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della disponibilità. Riprova più tardi.');
+    }
+  }
+
+  Future<AvailabilityItem> updateAvailability({
+    required int id,
+    required String teacherTaxCode,
+    required DateTime date,
+    required String mode,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required DateTime expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/availabilities/$id',
+        data: {
+          'teacher_tax_code':    teacherTaxCode,
+          'date':                formatDateOnly(date),
+          'mode':                mode,
+          'start_time':          formatTimeOfDay(startTime),
+          'end_time':            formatTimeOfDay(endTime),
+          'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+      return AvailabilityItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della disponibilità. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteAvailability(int id) async
+  {
+    try
+    {
+      await _dio.delete('/availabilities/$id');
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della disponibilità. Riprova più tardi.');
+    }
+  }
+
+  // --- Lesson requests (Presence + Booking) -----------------------------
+
+  Future<List<PresenceItem>> getPresences() async
+  {
+    final response = await _dio.get('/presences/');
+    return (response.data as List).map((e) => PresenceItem.fromJson(e)).toList();
+  }
+
+  // Used to refresh a single presence after a booking mutation: bookings are
+  // nested read-only inside PresenceResponse, so there is no dedicated
+  // endpoint to patch just that list in place.
+  Future<PresenceItem> getPresence(int id) async
+  {
+    final response = await _dio.get('/presences/$id');
+    return PresenceItem.fromJson(response.data);
+  }
+
+  // No booker_tax_code sent on either call: every Lezioni request is made by
+  // a logged-in admin, and the backend already defaults an absent booker to
+  // the calling identity on create, and leaves it untouched on update.
+  Future<PresenceItem> createPresence({
+    required String studentTaxCode,
+    required DateTime date,
+    required String mode,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/presences/',
+        data: {
+          'student_tax_code': studentTaxCode,
+          'date':             formatDateOnly(date),
+          'mode':             mode,
+          'start_time':       formatTimeOfDay(startTime),
+          'end_time':         formatTimeOfDay(endTime),
+        },
+      );
+      return PresenceItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della richiesta. Riprova più tardi.');
+    }
+  }
+
+  Future<PresenceItem> updatePresence({
+    required int id,
+    required String studentTaxCode,
+    required DateTime date,
+    required String mode,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required DateTime expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/presences/$id',
+        data: {
+          'student_tax_code':    studentTaxCode,
+          'date':                formatDateOnly(date),
+          'mode':                mode,
+          'start_time':          formatTimeOfDay(startTime),
+          'end_time':            formatTimeOfDay(endTime),
+          'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+      return PresenceItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della richiesta. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deletePresence(int id) async
+  {
+    try
+    {
+      await _dio.delete('/presences/$id');
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della richiesta. Riprova più tardi.');
+    }
+  }
+
+  // [subject] is the whole requested lesson, as SubjectRequestDraft.toJson()
+  // writes it: the kind of request with whatever belongs to it, the duration,
+  // the tags, the topic, the notes and the two teacher lists.
+  //
+  // Whole and not piecemeal, because the backend treats these as a complete
+  // write: what does not reach it is cleared rather than left as it was.
+  Future<void> createBooking({
+    required int presenceId,
+    required Map<String, dynamic> subject,
+  }) async
+  {
+    try
+    {
+      await _dio.post(
+        '/bookings/',
+        data: {
+          'presence_id': presenceId,
+          ...subject,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'aggiunta della materia. Riprova più tardi.');
+    }
+  }
+
+  Future<void> updateBooking({
+    required int id,
+    required Map<String, dynamic> subject,
+    required DateTime expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/bookings/$id',
+        data: {
+          ...subject,
+          'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della materia. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteBooking(int id) async
+  {
+    try
+    {
+      await _dio.delete('/bookings/$id');
+    }
+    on DioException catch (e)
+    {
+      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
   }
 }

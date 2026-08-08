@@ -10,9 +10,20 @@ _MISSING_CONSENTS_ERROR: Final[str] = (
 )
 
 _MANDATORY_PSYCH_MEETINGS_ERROR: Final[str] = (
-    "In presenza di una certificazione (DSA/BES/ADHD/Altro) è "
-    "necessario prendere atto dei 2 incontri obbligatori con "
+    "È necessario prendere atto dei due incontri obbligatori con "
     "lo psicologo."
+)
+
+# Field name paired with how it is named back to whoever left it unticked.
+_MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
+    ("statute_acknowledged", "presa visione dello Statuto"),
+    ("regulation_acknowledged", "accettazione del Regolamento"),
+    ("video_surveillance_acknowledged", "consapevolezza della videosorveglianza"),
+    (
+        "special_category_data_consent",
+        "consenso al trattamento dei dati particolari",
+    ),
+    ("newsletter_consent", "consenso alla ricezione dei notiziari periodici"),
 )
 
 
@@ -60,22 +71,11 @@ class WizardMemberData(BaseModel):
 
     @model_validator(mode="after")
     def _check_mandatory_consents(self) -> Self:
-        missing: list[str] = []
-
-        if not self.statute_acknowledged:
-            missing.append("presa visione dello Statuto")
-
-        if not self.regulation_acknowledged:
-            missing.append("accettazione del Regolamento")
-
-        if not self.video_surveillance_acknowledged:
-            missing.append("consapevolezza della videosorveglianza")
-
-        if not self.special_category_data_consent:
-            missing.append("consenso al trattamento dei dati particolari")
-
-        if not self.newsletter_consent:
-            missing.append("consenso alla ricezione dei notiziari periodici")
+        missing = [
+            label
+            for field_name, label in _MANDATORY_CONSENTS
+            if not getattr(self, field_name)
+        ]
 
         if missing:
             raise ValueError(
@@ -104,6 +104,10 @@ class WizardTeacherData(BaseModel):
     school_education: str | None = None
     university_education: str | None = None
     competences: list[WizardTeachingCompetence] = Field(default_factory=list)
+
+    # The services the teacher can take on. No study programme: a service is
+    # the same whoever asks for it.
+    service_names: list[str] = Field(default_factory=list)
 
 
 class WizardCourseParticipantData(BaseModel):

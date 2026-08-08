@@ -10,7 +10,7 @@ from sqlalchemy import (
 )
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.association_subject import SubjectAreaEnum
@@ -69,18 +69,33 @@ class MinistrySubject(CreatedAtMixin, Base):
 
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
+    # Both association tables are reachable as entities and through a
+    # many-to-many shortcut: `overlaps` declares the two views of the same rows
+    # as intentional and changes nothing at runtime.
     study_program_subjects: Mapped[list[StudyProgramSubject]] = relationship(
         back_populates="ministry_subject",
         cascade="all, delete-orphan",
+        overlaps="ministry_subjects,study_programs",
     )
 
-    ministry_association_subjects: Mapped[list[MinistryAssociationSubject]] = relationship(
-        back_populates="ministry_subject",
-        cascade="all, delete-orphan",
+    ministry_association_subjects: Mapped[list[MinistryAssociationSubject]] = (
+        relationship(
+            back_populates="ministry_subject",
+            cascade="all, delete-orphan",
+            overlaps="association_subjects,ministry_subjects",
+        )
     )
 
     association_subjects = relationship(
         "AssociationSubject",
         secondary="ministry_association_subjects",
-        backref="ministry_subjects",
+        backref=backref(
+            "ministry_subjects",
+            overlaps=(
+                "association_subject,ministry_association_subjects,ministry_subject"
+            ),
+        ),
+        overlaps=(
+            "association_subject,ministry_association_subjects,ministry_subject"
+        ),
     )

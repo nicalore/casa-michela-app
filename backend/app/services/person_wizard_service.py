@@ -1,6 +1,7 @@
 from typing import Final
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.labels import GRADE_BY_ROMAN_NUMERAL
@@ -14,9 +15,11 @@ from app.models.person import Person
 from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.school_enrollment import SchoolEnrollment
+from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
 from app.models.teacher import Teacher
+from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person_wizard import PersonWizardPayload
 from app.services.role_service import RoleService
@@ -56,7 +59,39 @@ _PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
     "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
 )
 
+_UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
+
 _DEFAULT_GRADE: Final[int] = 1
+
+
+# Attaches the services to a freshly created teacher, checking they exist:
+# without the check a wrong name would surface as a foreign key violation, that
+# is a 500 instead of a message naming what was wrong.
+async def _add_teacher_services(
+    db: AsyncSession,
+    tax_code: str,
+    service_names: list[str],
+) -> None:
+    unique_names = list(dict.fromkeys(service_names))
+
+    if not unique_names:
+        return
+
+    existing = set(
+        (await db.execute(select(Service.name).where(Service.name.in_(unique_names))))
+        .scalars()
+        .all()
+    )
+    missing = [name for name in unique_names if name not in existing]
+
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
+        )
+
+    for name in unique_names:
+        db.add(TeacherService(teacher_tax_code=tax_code, service_name=name))
 
 
 async def create_person_from_wizard(
@@ -267,6 +302,12 @@ async def create_person_from_wizard(
                                 study_program_id=study_program_id,
                             )
                         )
+
+                await _add_teacher_services(
+                    db,
+                    person.tax_code,
+                    teacher_data.service_names,
+                )
 
     for minor in payload.relationships.minors_tax_codes:
         db.add(

@@ -21,6 +21,7 @@ from app.models.mixins import UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.member import Member
+    from app.models.presence import Presence
     from app.models.school_enrollment import SchoolEnrollment
 
 
@@ -83,5 +84,11 @@ class Student(UpdatedAtMixin, Base):
 
     school_enrollments: Mapped[list[SchoolEnrollment]] = relationship(
         back_populates="student",
+        cascade="all, delete-orphan",
+    )
+
+    presences: Mapped[list[Presence]] = relationship(
+        back_populates="student",
+        foreign_keys="[Presence.student_tax_code]",
         cascade="all, delete-orphan",
     )

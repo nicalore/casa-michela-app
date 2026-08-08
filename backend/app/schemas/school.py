@@ -7,14 +7,23 @@ class SchoolStudyProgramOption(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    name: str
+
+    # The full name, sector included: here the programme is named inside a
+    # school's list, where the bare name does not say which branch it belongs to.
+    name: str = Field(validation_alias="display_name")
+
     level: str
 
 
 class SchoolBase(BaseModel):
     name: str = Field(..., min_length=1, description="Nome della scuola")
     city: str = Field(..., min_length=1, description="Città della scuola")
-    province: str = Field(..., min_length=2, max_length=2, description="Provincia (es. VI)")
+    province: str = Field(
+        ...,
+        min_length=2,
+        max_length=2,
+        description="Provincia (es. VI)",
+    )
     mechanographic_code: str | None = Field(
         default=None,
         max_length=100,

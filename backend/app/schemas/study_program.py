@@ -17,6 +17,11 @@ class MinistrySubjectOption(BaseModel):
 
 class StudyProgramBase(BaseModel):
     name: StrippedStr = Field(..., min_length=1)
+
+    # The sector the programme belongs to. Absent where none exists, since
+    # primary and middle school have no branches.
+    sector: OptionalCleanStr = Field(None, max_length=100)
+
     description: OptionalCleanStr = Field(None, max_length=1000)
     level: EducationLevelEnum
     min_year: int = Field(..., ge=1)

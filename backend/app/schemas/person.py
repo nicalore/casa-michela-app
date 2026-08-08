@@ -1,6 +1,20 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.study_program import EducationLevelEnum
+
+
+class PersonOption(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    tax_code: str
+    first_name: str
+    last_name: str
+
+    # The face too, and not only the name: wherever this option stands for a
+    # person, the reader recognises them by it long before they read a tax code.
+    profile_image_url: str | None = None
 
 
 class MembershipResponse(BaseModel):
@@ -26,7 +40,7 @@ class SchoolEnrollmentResponse(BaseModel):
     education_level: str
 
 
-class ParentInfoResponse(BaseModel):
+class _RelatedPersonResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     fiscal_code: str
@@ -46,39 +60,20 @@ class ParentInfoResponse(BaseModel):
     city: str | None = None
     birth_date: date | None = None
 
-    # Scoped to the ParentalResponsibility row linking this parent to the
-    # person the list is built for, not a property of the parent.
+    # Scoped to the ParentalResponsibility row linking the two people, not a
+    # property of either of them.
     authorized_pickup: bool = True
     pickup_restriction_reason: str | None = None
 
 
-class ChildInfoResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class ParentInfoResponse(_RelatedPersonResponse):
+    pass
 
-    fiscal_code: str
-    first_name: str
-    last_name: str
-    gender: str | None = None
-    email: str | None = None
-    phone: str | None = None
-    birth_city: str | None = None
-    birth_nation: str | None = None
-    birth_province: str | None = None
-    residence_type: str | None = None
-    residence_address: str | None = None
-    residence_street_number: str | None = None
-    residence_province: str | None = None
-    postal_code: str | None = None
-    city: str | None = None
-    birth_date: date | None = None
+
+class ChildInfoResponse(_RelatedPersonResponse):
     school_name: str | None = None
     school_class: str | None = None
     study_program: str | None = None
-
-    # Scoped to the ParentalResponsibility row linking this child to the
-    # parent the list is built for, not a property of the child.
-    authorized_pickup: bool = True
-    pickup_restriction_reason: str | None = None
 
 
 class GeneralDataUpdate(BaseModel):
@@ -119,6 +114,10 @@ class TeacherUpdateData(BaseModel):
     school_education: str | None = None
     university_education: str | None = None
     competences: list[TeacherCompetenceUpdateItem] | None = None
+
+    # The services the teacher can take on. No study programme: a service is
+    # the same whoever asks for it.
+    service_names: list[str] | None = None
     expected_updated_at: datetime | None = None
 
 
@@ -224,18 +223,31 @@ class ParentUpdatePayload(BaseModel):
     pickup_restriction_reason: str | None = None
 
 
+# A programme a teacher is competent on. Broken into parts rather than the
+# single composed string, so the client can group them by level and sector
+# without parsing the name back apart.
+class TeacherProgramResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    sector: str | None = None
+    level: EducationLevelEnum
+
+
 class TeacherSubjectResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     subject_id: int
     subject_name: str
     subject_area: str
-    study_program_ids: list[int]
-    study_programs: list[str]
+    subject_description: str | None = None
+    study_programs: list[TeacherProgramResponse]
 
 
 class PersonTeacherCompetencesUpdate(BaseModel):
     competences: list[TeacherCompetenceUpdateItem]
+    service_names: list[str] = Field(default_factory=list)
     expected_updated_at: datetime | None = None
 
 
@@ -313,3 +325,7 @@ class PersonResponse(BaseModel):
     parents: list[ParentInfoResponse] | None = None
     children: list[ChildInfoResponse] | None = None
     teacher_subjects: list[TeacherSubjectResponse] | None = None
+
+    # Kept out of taught_subjects, which are the disciplines: a service is not
+    # a subject, and the two are named differently wherever they are shown.
+    teacher_services: list[str] | None = None
