@@ -10,6 +10,11 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_entity_chip.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_dialog_stack.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
 
@@ -695,11 +700,10 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     {
       if (mounted) 
       {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:         Text('Errore durante il caricamento: $e'),
-            backgroundColor: AppTheme.trialDanger,
-          ),
+        CustomSnackBar.show(
+          context: context,
+          message: 'Errore durante il caricamento dell\'immagine.',
+          isError: true,
         );
       }
     } 
@@ -716,51 +720,52 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     }
   }
 
-  // Styled to match the confirmation dialog in PersonParentsTab (removing a
-  // parental responsibility): same shape, colors and button style, with no
-  // hover overlay.
+  // The same window as every other question the app asks — the one in
+  // PersonParentsTab is the nearest relative: title, the sentence, the two
+  // answers, each arriving on its own beat over the blurred page. It was the
+  // last AlertDialog left in the app, and an AlertDialog has none of that: one
+  // white panel, arriving whole.
   Future<void> _confirmAndDeleteImage() async
   {
-    final bool? confirmed = await showDialog<bool>(
+    final bool? confirmed = await showBlurredDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Rimuovi Foto Profilo',
-          style: GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w700,
-            color:      AppTheme.trialOcean,
+      barrierLabel: 'ConfirmProfileImageRemoval',
+      builder: (dialogContext) => AppDialogStack(
+        eyebrow: 'Foto profilo',
+        title: 'Confermi?',
+        // ANNULLA is already the way out of this one.
+        showClose: false,
+        maxWidth: 520,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label:     'ANNULLA',
+            icon:      Icons.close_rounded,
+            gradient:  AppTheme.dismissGradient,
+            accent:    AppTheme.trialViolet,
+            height:    52,
+            fontSize:  14,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          primary: AppGradientButton(
+            label:     'RIMUOVI',
+            icon:      Icons.delete_outline_rounded,
+            gradient:  AppTheme.dangerGradient,
+            accent:    AppTheme.trialDanger,
+            height:    52,
+            fontSize:  14,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
           ),
         ),
-        content: Text(
-          'La foto verrà eliminata definitivamente. Potrai sempre caricarne una nuova in seguito.',
-          style: GoogleFonts.plusJakartaSans(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            style: ButtonStyle(
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, false),
+        children: [
+          AppDialogPill(
             child: Text(
-              'ANNULLA',
+              'La foto verrà eliminata definitivamente. '
+              'Potrai sempre caricarne una nuova in seguito.',
               style: GoogleFonts.plusJakartaSans(
-                color:      AppTheme.trialMutedText,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          TextButton(
-            style: ButtonStyle(
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
-              'RIMUOVI',
-              style: GoogleFonts.plusJakartaSans(
-                color:      AppTheme.trialDanger,
-                fontWeight: FontWeight.w700,
+                fontSize:   16,
+                fontWeight: FontWeight.w500,
+                height:     1.45,
+                color:      AppTheme.trialInk,
               ),
             ),
           ),
@@ -768,7 +773,7 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       ),
     );
 
-    if (confirmed != true) 
+    if (confirmed != true)
     {
       return;
     }
@@ -793,11 +798,10 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     {
       if (mounted) 
       {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:         Text('Errore durante la rimozione: $e'),
-            backgroundColor: AppTheme.trialDanger,
-          ),
+        CustomSnackBar.show(
+          context: context,
+          message: 'Errore durante la rimozione dell\'immagine.',
+          isError: true,
         );
       }
     } 

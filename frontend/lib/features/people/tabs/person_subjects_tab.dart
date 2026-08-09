@@ -783,17 +783,29 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
           selectedServices: _selectedServices,
           isLoading: _isLoadingData,
           onChanged: () => setState(() {}),
-          builder: (context, filters, list) => AppDialogPiece(
-            index: 1,
-            named: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppDialogPill(expand: true, child: filters),
-                const SizedBox(height: 26),
-                Flexible(child: AppDialogPill(expand: true, child: list)),
-              ],
-            ),
+          // Two pieces standing in the room of one child, and a beat each: the
+          // stack counts the title 0 and this child 1, so the filters take that
+          // beat and the list comes after them. Under a single piece the two
+          // arrived together, which is not what the windows next door do — the
+          // minors and the parents hand the stack the same two pills as two
+          // children and they arrive one after the other.
+          builder: (context, filters, list) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppDialogPiece(
+                index: 1,
+                named: false,
+                child: AppDialogPill(expand: true, child: filters),
+              ),
+              const SizedBox(height: 26),
+              Flexible(
+                child: AppDialogPiece(
+                  index: 2,
+                  named: false,
+                  child: AppDialogPill(expand: true, child: list),
+                ),
+              ),
+            ],
           ),
         ),
       ],

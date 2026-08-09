@@ -14,11 +14,38 @@ const double _pieceGap = 26;
 const double _windowMargin = 16;
 
 // How far apart in time the pieces arrive, as a fraction of the whole
-// transition, and how long each one takes. They come in from the top down; on
-// the way out the order reverses on its own, which is what an interval does
+// transition, and how long each one takes. Each one comes up where it stands;
+// on the way out the order reverses on its own, which is what an interval does
 // when the animation runs backwards.
-const double _staggerStep = 0.13;
-const double _staggerSpan = 0.62;
+//
+// The two are tied together by the clamp below: a piece may not start so late
+// that its own span runs past the end of the transition, so the last beat there
+// can be is 1 - span, and every piece from there on shares it. At a span of .62
+// that ceiling was .38, which the third piece already passed — so a window of
+// four pieces had three beats and a window of six had four, every one of them
+// 31ms apart on a transition of 240. That is not a delay anybody can see, and
+// it is why the effect only ever showed on the longest windows in the app.
+//
+// A step of .11 against a span of .54 puts the ceiling at .46, which the sixth
+// piece is the first to reach: a title, four pieces of body and a footer all
+// keep a beat of their own, and that is every window of the app. Past six they
+// share the last beat, which is the only honest thing left to do — a piece that
+// started later than that could not finish before the window had.
+const double _staggerStep = 0.11;
+const double _staggerSpan = 0.54;
+
+// How small a piece starts, and ends again on the way out. It grows about its
+// own centre, which is the whole of the difference from the scale that used to
+// sit on the stack: that one grew the window from a point, and a point has one
+// place — every card, wherever it was going to end up, came out of the middle
+// of the screen and travelled to its seat. On the piece the same zoom keeps the
+// piece where it belongs, and a card at the foot of the window grows at the
+// foot of the window.
+//
+// Nothing translates any more. A piece is only ever where it will be, so the
+// room it is going to occupy is never empty while it crosses the screen to get
+// there, and the delay between the beats is left as the only thing moving.
+const double _pieceScale = 0.92;
 
 // Room kept around the scrolling middle so the shadows of the pieces inside it
 // are not cut off where the viewport clips.
@@ -412,16 +439,28 @@ class AppDialogPiece extends StatelessWidget
       reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
     );
 
+    // The overshoot the window used to do as a whole, on this piece's beat. It
+    // is kept off the fade because easeOutBack goes past 1 on its way to
+    // settling, and an opacity may not.
+    final pop = CurvedAnimation(
+      parent: route,
+      curve: Interval(start, start + _staggerSpan, curve: Curves.easeOutBack),
+      reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
+    );
+
+    // Fading and growing in place, and travelling nowhere. The way out is the
+    // same thing backwards: a piece shrinks and fades where it stands rather
+    // than being drawn back to the middle of the screen.
     return FadeTransition(
       // Named so a test can ask a piece how far along it is, which is the only
       // way to see an order that exists in time rather than in space.
       key: named ? ValueKey('appDialogPiece$index') : null,
       opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, -0.12),
-          end: Offset.zero,
-        ).animate(animation),
+      // Centred by default, and it must stay that way: about any other corner
+      // the piece would slide as it grew, which is the travelling this is here
+      // to be rid of.
+      child: ScaleTransition(
+        scale: Tween<double>(begin: _pieceScale, end: 1).animate(pop),
         child: child,
       ),
     );

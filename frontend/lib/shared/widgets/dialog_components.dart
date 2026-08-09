@@ -7,9 +7,20 @@ import '../../core/theme/app_theme.dart';
 
 const double _dialogBlurSigma = 8.0;
 
-// Opens a dialog with the blur, fade and scale transition shared by every
-// wizard of the app. The child is built inside transitionBuilder, so it keeps
-// the same construction semantics as a plain showGeneralDialog.
+// Opens a dialog behind the blur shared by every wizard of the app. The child is
+// built inside transitionBuilder, so it keeps the same construction semantics as
+// a plain showGeneralDialog.
+//
+// The blur is all that is done to the window as a whole. The fade and the scale
+// that used to be here as well were one movement over everything at once, and
+// against that the pieces arriving one after the other could not be seen — the
+// eye reads the single movement and stops there. Worse, the scale grew the whole
+// stack from a point, so every card came out of the middle of the screen however
+// far from the middle it was going to sit.
+//
+// Both now belong to the piece, on the piece's own beat and about the piece's
+// own centre: the same zoom and the same dissolve, with nowhere to travel from.
+// See AppDialogPiece.
 Future<T?> showBlurredDialog<T>({
   required BuildContext context,
   required String barrierLabel,
@@ -19,9 +30,14 @@ Future<T?> showBlurredDialog<T>({
   // meant for a field that landed a few pixels short would throw the whole edit
   // away. They close by their own X or by the button that says so.
   bool barrierDismissible = false,
-  // Longer for a dialog that brings its pieces in one after the other and needs
-  // the room to do it.
-  Duration transitionDuration = const Duration(milliseconds: 240),
+  // The room the pieces need to arrive one at a time and be seen doing it. The
+  // beats are .11 of this apart, which is 62ms here against the 31ms of the 240
+  // this used to be — and 31ms is two frames, which is the width of a stutter
+  // rather than of a delay.
+  //
+  // It is the way out as well — showGeneralDialog has no separate duration for
+  // the reverse — and the pieces leave in the order they came, topmost last.
+  Duration transitionDuration = const Duration(milliseconds: 560),
 })
 {
   return showGeneralDialog<T>(
@@ -37,17 +53,7 @@ Future<T?> showBlurredDialog<T>({
 
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-        child: FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutBack,
-              reverseCurve: Curves.easeIn,
-            ),
-            child: builder(context),
-          ),
-        ),
+        child: builder(context),
       );
     },
   );
