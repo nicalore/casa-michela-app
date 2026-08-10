@@ -18,6 +18,11 @@ from app.models.subject_requested import SubjectRequested
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import BookingBase, BookingCreate, BookingUpdate
+from app.services.lesson_guard import (
+    assert_booking_band_not_published,
+    assert_bookings_not_scheduled,
+    find_scheduled_booking_ids,
+)
 
 _ENTITY_LABEL: Final[str] = "la prenotazione"
 _NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
@@ -31,6 +36,11 @@ _UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[str] = "La disciplina indicata non esi
 _UNKNOWN_SERVICE_ERROR: Final[str] = 'Il servizio "{name}" non esiste.'
 _CREATE_ERROR: Final[str] = "Errore durante la creazione della prenotazione."
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+
+_SCHEDULED_BOOKING_LOCKED_ERROR: Final[str] = (
+    "Questa prenotazione è già in una lezione: puoi modificarne solo argomento, "
+    "note e tipologia. Rimuovi la lezione per cambiare il resto."
+)
 
 
 class BookingService:
@@ -254,6 +264,63 @@ class BookingService:
 
         return booking
 
+    # Everything the lesson was validated against when it was planned: its
+    # length, whose hours it comes out of, and what it is about.
+    def _scheduling_shape(self, booking: Booking) -> tuple:
+        requested = booking.subjects_requested
+
+        return (
+            booking.duration,
+            booking.presence_id,
+            booking.association_subject_id,
+            booking.service_name,
+            requested[0].ministry_subject_id if requested else None,
+            frozenset(row.association_subject_id for row in requested),
+        )
+
+    def _payload_shape(self, booking: Booking, payload: BookingUpdate) -> tuple:
+        return (
+            payload.duration,
+            payload.presence_id
+            if payload.presence_id is not None
+            else booking.presence_id,
+            payload.association_subject_id,
+            payload.service_name,
+            payload.ministry_subject_id,
+            frozenset(payload.association_subject_ids),
+        )
+
+    # A request that has already been taught cannot be reshaped: the lesson was
+    # checked against its duration, its disciplines and its presence, and moving
+    # any of them now would leave the calendar saying something that was never
+    # true.
+    #
+    # The harmless fields are deliberately still editable. Adding a note to an
+    # hour that is already on the timetable is exactly when somebody wants to.
+    async def _assert_scheduled_edit_allowed(
+        self,
+        booking: Booking,
+        payload: BookingUpdate,
+    ) -> None:
+        scheduled = await find_scheduled_booking_ids(
+            self.repository.session,
+            [booking.id],
+        )
+
+        if not scheduled:
+            return
+
+        await assert_booking_band_not_published(
+            self.repository.session,
+            booking.id,
+        )
+
+        if self._scheduling_shape(booking) != self._payload_shape(booking, payload):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_SCHEDULED_BOOKING_LOCKED_ERROR,
+            )
+
     async def update(
         self,
         identity: IdentityContext,
@@ -267,6 +334,8 @@ class BookingService:
             payload.expected_updated_at,
             entity_label=_ENTITY_LABEL,
         )
+
+        await self._assert_scheduled_edit_allowed(booking, payload)
 
         if (
             payload.presence_id is not None
@@ -310,5 +379,10 @@ class BookingService:
 
     async def delete(self, identity: IdentityContext, booking_id: int) -> None:
         booking = await self.get_owned_or_404(identity, booking_id)
+
+        # The database would refuse this as well, through the RESTRICT that
+        # keeps the calendar; this is here so the answer is a sentence.
+        await assert_bookings_not_scheduled(self.repository.session, [booking.id])
+
         await self.repository.delete(booking)
         await self.repository.commit()

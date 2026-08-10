@@ -36,6 +36,7 @@ from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 if TYPE_CHECKING:
     from app.models.association_subject import AssociationSubject
     from app.models.booking_teacher_preference import BookingTeacherPreference
+    from app.models.lesson_booking import LessonBooking
     from app.models.presence import Presence
     from app.models.service import Service
     from app.models.subject_requested import SubjectRequested
@@ -164,6 +165,16 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
         back_populates="booking",
         cascade="all, delete-orphan",
         order_by="BookingTeacherPreference.teacher_tax_code",
+    )
+
+    # No delete-orphan here, and passive_deletes="all" on purpose. Presences are
+    # deleted through the ORM — by PresenceService and by the day-closing
+    # cleanup — and cascade onto their bookings; a delete-orphan collection
+    # would be loaded on the way (which under async raises) and then deleted,
+    # quietly stepping around the very restriction that keeps the calendar.
+    lesson_bookings: Mapped[list[LessonBooking]] = relationship(
+        back_populates="booking",
+        passive_deletes="all",
     )
 
 
@@ -373,33 +384,6 @@ def _validate_booking_duration_within_presence(
             raise ValueError(_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR)
 
 
-# The disciplines a booking is spent on, as it stands in memory, or None where
-# this flush says nothing about them.
-#
-# Read out of __dict__ rather than off the attribute: an hour whose subjects
-# nobody touched has an unloaded collection there, and asking for it under async
-# is a lazy load in a place that cannot do IO. None means exactly that — nothing
-# was said, so what is stored still holds — and an empty set means a booking that
-# really carries no requested subject, which is every kind but the ministry one.
-#
-# The children are not read back from the database for a booking being rewritten
-# either: the rows a replacement discards are not among session.deleted until the
-# flush proper, so the collection just assigned is the only honest answer.
-def _loaded_disciplines(booking: Booking) -> set[int] | None:
-    if booking.association_subject_id is not None:
-        return {booking.association_subject_id}
-
-    if booking.service_name is not None:
-        return set()
-
-    requested = booking.__dict__.get("subjects_requested")
-
-    if requested is None:
-        return None
-
-    return {row.association_subject_id for row in requested}
-
-
 def _add_minutes(
     totals: dict[int, int],
     disciplines: set[int],
@@ -417,8 +401,8 @@ def _validate_discipline_minutes_within_day(
     _flush_context: object,
     _instances: object,
 ) -> None:
+    from app.models.booking_disciplines import disciplines_of, stored_disciplines
     from app.models.presence import Presence
-    from app.models.subject_requested import SubjectRequested
 
     # Two hours of one discipline in a day is where a lesson stops teaching and
     # starts filling time. Counted per mode, like the day's own budget: the same
@@ -463,65 +447,42 @@ def _validate_discipline_minutes_within_day(
 
         persisted_rows = (
             session.execute(
-                select(
-                    Booking.id,
-                    Booking.duration,
-                    Booking.association_subject_id,
-                ).where(Booking.presence_id.in_(persisted_presence_ids)),
+                select(Booking.id, Booking.duration).where(
+                    Booking.presence_id.in_(persisted_presence_ids),
+                ),
             ).all()
             if persisted_presence_ids
             else []
         )
 
         counted = [
-            (booking_id, duration, association_subject_id)
-            for booking_id, duration, association_subject_id in persisted_rows
+            (booking_id, duration)
+            for booking_id, duration in persisted_rows
             if booking_id not in pending_ids and booking_id not in deleted_booking_ids
         ]
 
-        stored_disciplines: dict[int, set[int]] = {}
-
-        if counted:
-            for booking_id, association_subject_id in session.execute(
-                select(
-                    SubjectRequested.booking_id,
-                    SubjectRequested.association_subject_id,
-                ).where(
-                    SubjectRequested.booking_id.in_(
-                        [booking_id for booking_id, _, _ in counted]
-                    )
-                ),
-            ).all():
-                stored_disciplines.setdefault(booking_id, set()).add(
-                    association_subject_id
-                )
+        stored = stored_disciplines(
+            session,
+            [booking_id for booking_id, _ in counted],
+        )
 
         minutes_by_discipline: dict[int, int] = {}
 
-        for booking_id, duration, association_subject_id in counted:
+        for booking_id, duration in counted:
             _add_minutes(
                 minutes_by_discipline,
-                {association_subject_id}
-                if association_subject_id is not None
-                else stored_disciplines.get(booking_id, set()),
+                stored.get(booking_id, set()),
                 duration,
             )
 
         for booking in day_bookings:
-            disciplines = _loaded_disciplines(booking)
-
-            # Untouched subjects on a booking that already exists: what is stored
-            # is still what it covers.
-            if disciplines is None:
-                disciplines = stored_disciplines.get(booking.id) or set(
-                    session.scalars(
-                        select(SubjectRequested.association_subject_id).where(
-                            SubjectRequested.booking_id == booking.id,
-                        ),
-                    ).all()
-                )
-
-            _add_minutes(minutes_by_discipline, disciplines, booking.duration)
+            # A booking that says nothing about its subjects in this flush is
+            # still covering whatever is stored for it.
+            _add_minutes(
+                minutes_by_discipline,
+                disciplines_of(session, booking, stored=stored),
+                booking.duration,
+            )
 
         if any(
             minutes > _MAX_DISCIPLINE_MINUTES_PER_DAY

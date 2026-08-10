@@ -5,9 +5,12 @@ from sqlalchemy.orm import Session
 _STORED: Final[str] = "stored"
 _PENDING: Final[str] = "pending"
 
-# ("stored", booking_id) for a booking that is already in the database,
-# ("pending", id(booking)) for one being written in this very flush.
-BookingFlushKey = tuple[str, object]
+# ("stored", parent_id) for a parent that is already in the database,
+# ("pending", id(parent)) for one being written in this very flush.
+FlushKey = tuple[str, object]
+
+# The name this pair went by when bookings were the only parent that needed it.
+BookingFlushKey = FlushKey
 
 
 # Rows inserted by the flush about to happen.
@@ -28,36 +31,58 @@ def deleted_instances[T](session: Session, model: type[T]) -> list[T]:
     return [instance for instance in session.deleted if isinstance(instance, model)]
 
 
-# Which Booking a child row belongs to, even before it has been flushed. A child
-# built through the relationship has no booking_id yet, so it falls back on the
-# identity of the Booking object itself — the only thing its siblings share
+# Which parent a child row belongs to, even before it has been flushed. A child
+# built through the relationship has no foreign key yet, so it falls back on the
+# identity of the parent object itself — the only thing its siblings share
 # during this flush. The key is tagged because id() returns an int too, and
 # without the tag a memory address could end up in a WHERE clause.
 #
-# Safe without IO: when booking_id is None the object came from the
-# relationship, so `booking` is already in the instance __dict__ and reading it
+# Safe without IO: when the foreign key is None the object came from the
+# relationship, so the parent is already in the instance __dict__ and reading it
 # triggers no lazy load (which under async would raise MissingGreenlet).
-def booking_flush_key(child: Any) -> BookingFlushKey | None:
-    if child.booking_id is not None:
-        return (_STORED, child.booking_id)
+def parent_flush_key(
+    child: Any,
+    *,
+    id_attr: str,
+    relationship_attr: str,
+) -> FlushKey | None:
+    parent_id = getattr(child, id_attr)
 
-    if child.booking is not None:
-        return (_PENDING, id(child.booking))
+    if parent_id is not None:
+        return (_STORED, parent_id)
+
+    parent = getattr(child, relationship_attr)
+
+    if parent is not None:
+        return (_PENDING, id(parent))
 
     return None
 
 
-def pending_booking_key(booking: Any) -> BookingFlushKey:
-    return (_PENDING, id(booking))
+def booking_flush_key(child: Any) -> FlushKey | None:
+    return parent_flush_key(child, id_attr="booking_id", relationship_attr="booking")
 
 
-def stored_booking_key(booking_id: int) -> BookingFlushKey:
-    return (_STORED, booking_id)
+def lesson_flush_key(child: Any) -> FlushKey | None:
+    return parent_flush_key(child, id_attr="lesson_id", relationship_attr="lesson")
 
 
-# The database id behind a flush key, or None for a brand-new booking: callers
+def pending_key(parent: Any) -> FlushKey:
+    return (_PENDING, id(parent))
+
+
+def stored_key(entity_id: object) -> FlushKey:
+    return (_STORED, entity_id)
+
+
+# The database id behind a flush key, or None for a brand-new parent: callers
 # use it to decide whether there are stored rows to reconcile against at all.
-def stored_booking_id(key: BookingFlushKey) -> int | None:
+def stored_id(key: FlushKey) -> Any | None:
     kind, value = key
 
     return value if kind == _STORED else None
+
+
+pending_booking_key = pending_key
+stored_booking_key = stored_key
+stored_booking_id = stored_id

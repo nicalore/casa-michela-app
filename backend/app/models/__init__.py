@@ -4,7 +4,11 @@ from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_teacher_preference import BookingTeacherPreference
+from app.models.calendar_publication import CalendarPublication
 from app.models.course_participant import CourseParticipant
+from app.models.lesson import Lesson
+from app.models.lesson_booking import LessonBooking
+from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.ministry_association_subject import MinistryAssociationSubject
@@ -17,6 +21,8 @@ from app.models.presence import Presence
 from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.refresh_token import RefreshToken
+from app.models.room import Room
+from app.models.room_supervision import RoomSupervision
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
@@ -27,6 +33,7 @@ from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
+from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.models.weekly_template import WeeklyTemplate
@@ -38,7 +45,11 @@ __all__ = [
     "Availability",
     "Booking",
     "BookingTeacherPreference",
+    "CalendarPublication",
     "CourseParticipant",
+    "Lesson",
+    "LessonBooking",
+    "LessonDiscipline",
     "Member",
     "Membership",
     "MinistryAssociationSubject",
@@ -51,6 +62,8 @@ __all__ = [
     "PsychologicalSupport",
     "Psychologist",
     "RefreshToken",
+    "Room",
+    "RoomSupervision",
     "School",
     "SchoolEnrollment",
     "SchoolStudyProgram",
@@ -61,6 +74,7 @@ __all__ = [
     "StudyProgramSubject",
     "SubjectRequested",
     "Teacher",
+    "TeacherRoomAssignment",
     "TeacherService",
     "TeachingCompetence",
     "WeeklyTemplate",

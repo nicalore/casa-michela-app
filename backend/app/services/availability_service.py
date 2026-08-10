@@ -14,6 +14,11 @@ from app.models.availability import Availability
 from app.models.teacher import Teacher
 from app.repositories.availability_repository import AvailabilityRepository
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
+from app.services.lesson_guard import (
+    assert_availability_not_scheduled,
+    assert_day_has_no_published_lessons,
+    find_availability_lessons,
+)
 from app.services.opening_window import assert_within_opening
 
 _ENTITY_LABEL: Final[str] = "le disponibilità"
@@ -28,6 +33,11 @@ _OUTSIDE_OPENING_ERROR: Final[str] = (
 )
 _OVERLAP_ERROR: Final[str] = (
     "Il docente ha già una disponibilità {mode} che si sovrappone a questo orario."
+)
+
+_LESSON_OUTSIDE_NEW_WINDOW_ERROR: Final[str] = (
+    "Una lezione pianificata ({start} - {end}) resterebbe fuori dalla nuova "
+    "disponibilità: spostala o rimuovila prima."
 )
 
 
@@ -81,6 +91,46 @@ class AvailabilityService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=_OVERLAP_ERROR.format(mode=opening_mode_label(mode)),
             )
+
+    # The calendar is kept as a record, so an availability with lessons on it can
+    # no longer move day or mode: the composite foreign key restricts, and the
+    # database would refuse anyway — but with an integrity error and a generic
+    # message instead of the sentence below.
+    #
+    # Narrowing the hours is the one case the database cannot see, and the one
+    # that matters most: a lesson left outside the new window would still point
+    # at a valid availability while no longer being inside it.
+    async def _assert_lessons_still_fit(
+        self,
+        availability: Availability,
+        payload: AvailabilityUpdate,
+    ) -> None:
+        lessons = await find_availability_lessons(
+            self.repository.session,
+            availability.id,
+        )
+
+        if not lessons:
+            return
+
+        if payload.date != availability.date or payload.mode.value != availability.mode:
+            await assert_availability_not_scheduled(
+                self.repository.session,
+                availability.id,
+            )
+
+        for lesson in lessons:
+            if (
+                lesson.start_time < payload.start_time
+                or lesson.end_time > payload.end_time
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=_LESSON_OUTSIDE_NEW_WINDOW_ERROR.format(
+                        start=lesson.start_time.strftime("%H:%M"),
+                        end=lesson.end_time.strftime("%H:%M"),
+                    ),
+                )
 
     async def _assert_teacher_exists(self, teacher_tax_code: str) -> None:
         teacher = await self.repository.session.scalar(
@@ -215,6 +265,12 @@ class AvailabilityService:
             await self._assert_teacher_exists(payload.teacher_tax_code)
             availability.teacher_tax_code = payload.teacher_tax_code
 
+        await assert_day_has_no_published_lessons(
+            self.repository.session,
+            availability.date,
+        )
+        await self._assert_lessons_still_fit(availability, payload)
+
         if payload.date != availability.date:
             assert_within_booking_window(payload.date)
 
@@ -248,7 +304,20 @@ class AvailabilityService:
 
         return availability
 
+    # Refused for everybody, administrators included: there is no cascade left to
+    # authorise. Whoever wants the availability back deletes its lessons first,
+    # unpublishing the band if it has gone out.
     async def delete(self, identity: IdentityContext, availability_id: int) -> None:
         availability = await self.get_owned_or_404(identity, availability_id)
+
+        await assert_day_has_no_published_lessons(
+            self.repository.session,
+            availability.date,
+        )
+        await assert_availability_not_scheduled(
+            self.repository.session,
+            availability.id,
+        )
+
         await self.repository.delete(availability)
         await self.repository.commit()

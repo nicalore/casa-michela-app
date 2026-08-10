@@ -23,4 +23,12 @@ dependencies = [
 dev = [
     "locust>=2.44.4",
     "ruff>=0.15.14",
+    "pytest>=8.4.0",
+    "pytest-asyncio>=1.0.0",
+    "httpx>=0.28.0",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

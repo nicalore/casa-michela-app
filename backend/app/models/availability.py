@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Time,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +19,7 @@ from app.db.base import Base
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
+    from app.models.lesson import Lesson
     from app.models.teacher import Teacher
 
 
@@ -47,6 +49,11 @@ class Availability(CreatedAtMixin, UpdatedAtMixin, Base):
             "start_time",
             unique=True,
         ),
+        # Trivially satisfied, since id is already the primary key. It exists to
+        # be the target of the lessons' composite foreign key: Postgres wants a
+        # UNIQUE on exactly the columns referenced, and that key is what stops a
+        # lesson's own date and mode from ever drifting from this row's.
+        UniqueConstraint("id", "date", "mode", name="uq_availability_identity"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -71,3 +78,13 @@ class Availability(CreatedAtMixin, UpdatedAtMixin, Base):
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
 
     teacher: Mapped[Teacher] = relationship(back_populates="availabilities")
+
+    # passive_deletes="all" and deliberately not a cascade: when an availability
+    # is deleted the ORM must not touch the lessons at all, neither removing
+    # them nor blanking their foreign key, because the right answer is for the
+    # database to refuse. Loading the collection to find that out would also be
+    # a lazy load inside AvailabilityService.delete, which under async raises.
+    lessons: Mapped[list[Lesson]] = relationship(
+        back_populates="availability",
+        passive_deletes="all",
+    )

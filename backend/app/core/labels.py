@@ -41,6 +41,14 @@ OPENING_MODE_LABELS: Final[dict[str, str]] = {
     "online": "online",
 }
 
+# The three parts of the day the calendar is published in, as the client already
+# names them (frontend/lib/core/utils/time_bucket.dart).
+TIME_BAND_LABELS: Final[dict[str, str]] = {
+    "MORNING": "Mattina",
+    "AFTERNOON": "Pomeriggio",
+    "EVENING": "Sera",
+}
+
 ROMAN_NUMERAL_BY_GRADE: Final[dict[int, str]] = {
     1: "I",
     2: "II",
@@ -102,6 +110,10 @@ def teacher_preference_type_label(preference_type: str) -> str:
 
 def opening_mode_label(mode: str) -> str:
     return _translate(mode, OPENING_MODE_LABELS)
+
+
+def time_band_label(band: str) -> str:
+    return _translate(band, TIME_BAND_LABELS)
 
 
 def roman_numeral(grade: int) -> str:

@@ -14,6 +14,7 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
+from app.services.lesson_guard import assert_presence_not_scheduled
 from app.services.opening_window import assert_within_opening
 
 _ENTITY_LABEL: Final[str] = "la presenza"
@@ -269,6 +270,21 @@ class PresenceService:
             entity_label=_ENTITY_LABEL,
         )
 
+        # Once any of these hours is on the timetable, when and how the pupil is
+        # here can no longer move: narrowing the window would leave a lesson
+        # outside it, and changing the mode or the day would leave it teaching
+        # somebody who is not there.
+        if (
+            payload.date != presence.date
+            or payload.mode.value != presence.mode
+            or payload.start_time != presence.start_time
+            or payload.end_time != presence.end_time
+        ):
+            await assert_presence_not_scheduled(
+                self.repository.session,
+                presence.id,
+            )
+
         if (
             payload.student_tax_code is not None
             and payload.student_tax_code != presence.student_tax_code
@@ -329,5 +345,11 @@ class PresenceService:
 
     async def delete(self, identity: IdentityContext, presence_id: int) -> None:
         presence = await self.get_owned_or_404(identity, presence_id)
+
+        # The cascade onto the bookings would run into the RESTRICT that keeps
+        # the calendar, and fail with an integrity error. Refused here instead,
+        # with a sentence.
+        await assert_presence_not_scheduled(self.repository.session, presence.id)
+
         await self.repository.delete(presence)
         await self.repository.commit()

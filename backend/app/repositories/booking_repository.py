@@ -15,7 +15,9 @@ from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.repositories.base import WritableRepository
 
-_EAGER_LOADER = (
+# Public because the lessons read bookings the same way, and a lesson that
+# loaded them any less fully would answer with half a request.
+BOOKING_EAGER_LOADER = (
     selectinload(Booking.presence),
     selectinload(Booking.subjects_requested)
     .selectinload(SubjectRequested.ministry_association_subject)
@@ -37,7 +39,7 @@ class BookingRepository(WritableRepository[Booking]):
         stmt = (
             select(Booking)
             .join(Booking.presence)
-            .options(*_EAGER_LOADER)
+            .options(*BOOKING_EAGER_LOADER)
             .order_by(Presence.date, Presence.start_time)
         )
 
@@ -64,7 +66,7 @@ class BookingRepository(WritableRepository[Booking]):
         stmt = (
             select(Booking)
             .join(Booking.presence)
-            .options(*_EAGER_LOADER)
+            .options(*BOOKING_EAGER_LOADER)
             .where(Booking.id == booking_id)
         )
 
