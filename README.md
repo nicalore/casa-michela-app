@@ -4,7 +4,7 @@
 
 # Casa Michela Application
 
-Web platform for managing the activities of [Associazione Casa Michela](https://www.casamichela.it) (Thiene, Italy), a non-profit organization that provides after-school tutoring, educational support, and psychological services for students of all ages.
+Web platform for managing the activities of [Associazione Casa Michela](https://www.casamichela.it) (Thiene, Italy), a non-profit organization providing after-school tutoring, educational support, and psychological services to around 300 students and families.
 
 ## OVERVIEW
 
@@ -12,18 +12,31 @@ The project aims to develop a unified web application to support the organizatio
 
 Currently, most operations are handled manually through informal tools such as messaging apps and spreadsheets. This approach leads to inefficiencies, increased risk of errors, and difficulties in managing and accessing data.
 
-The application will introduce a centralized system to manage all aspects of the association in a structured and efficient way, improving coordination between users and reducing manual workload.
+The application introduces a centralized system to manage all aspects of the association in a structured and efficient way, improving coordination between users and reducing manual workload.
 
-## FEATURES (PLANNED)
+## FEATURES
 
 * Lesson booking system for parents
 * Teacher availability management
 * Automatic lesson scheduling based on bookings and teacher availability, with daily calendar generation
 * Payment tracking and management
-* Teacher workload and compensation tracking
+* Teacher workload and salary tracking
 * Role-based access control
 * Psychological session management
 * Course booking system (evening classes)
+
+## PROJECT STATUS & ROADMAP
+
+**Implemented**
+- [x] Identity and access management
+- [x] Booking and availability system (Teachers, Parents, Administrators)
+
+**In progress**
+- [ ] Scheduling algorithm and calendar management
+
+**Planned**
+- [ ] Payment and salary system
+- [ ] Advanced features (courses, psychologists, document management)
 
 ## USER ROLES
 
@@ -55,39 +68,18 @@ The application is designed with a modular structure, including:
 * Notification Service
 * Logging System
 
-## PROJECT STATUS
-
-Current activities include:
-
-* Availability and booking management for Teachers, Parents, and Administrators
-* Automated lessons scheduling
-
-## ROADMAP
-
-* [ ] Identity and access management
-* [ ] Booking and availability system
-* [ ] Scheduling algorithm and calendar management
-* [ ] Release of version 1.0.0
-* [ ] Payment and compensation system
-* [ ] Advanced features (courses, analytics, document management)
-* [ ] Release of version 2.0.0
-
 ## DEPLOYMENT
 
 The system will be accessible via a dedicated subdomain: `app.casamichela.it`.
-
 Deployment will be handled through AWS cloud infrastructure.
 
 ## LICENSE
 
 This project is **source-available**.
-
 The source code is publicly accessible for viewing purposes only. Reuse, modification, or redistribution is not permitted without explicit authorization from the author.
-
 See the [LICENSE.md](LICENSE.md) file for full details.
 
 ## AUTHOR
 
 **Nicolò Calore**
-
 Developed for Associazione Casa Michela
