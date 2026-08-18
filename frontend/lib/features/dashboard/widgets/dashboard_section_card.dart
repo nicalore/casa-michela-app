@@ -16,7 +16,7 @@ class DashboardSectionCard extends StatelessWidget
   final String title;
   final Widget child;
 
-  /// Un comando in alto a destra: «vedi tutte», di solito.
+  // Un comando in alto a destra: «vedi tutte», di solito.
   final Widget? action;
 
   // How tall it is at least. The sections still to come already have the size

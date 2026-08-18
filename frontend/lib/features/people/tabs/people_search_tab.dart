@@ -42,8 +42,8 @@ class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
 
-  /// Drops the search, sorting and filters kept across navigation. Called when
-  /// the caller wants the tab to reopen in its pristine state.
+  // Drops the search, sorting and filters kept across navigation. Called when
+  // the caller wants the tab to reopen in its pristine state.
   static void clearSavedState()
   {
     _PeopleSearchTabState._savedSearchText = '';

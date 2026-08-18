@@ -4,27 +4,20 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-# Which disciplines an hour is spent on. There are three shapes of request and
-# each answers the question differently: a discipline asked on its own is that
-# one discipline, a service is no discipline at all, and a ministry subject is
-# whichever disciplines were requested under it.
-#
-# Both readings live here, in memory and from the database, because three
-# different hooks need them and had begun to keep three copies.
+# Which disciplines an hour is spent on, answered differently by each of the
+# three shapes of request. Both readings — in memory and from the database —
+# live here because three hooks need them.
 
 
 # What the booking says as it stands in this session, or None where nothing in
-# it answers the question and the stored rows still hold.
+# it answers and the stored rows still hold.
 #
-# Read out of __dict__ rather than off the attribute: an hour whose subjects
-# nobody touched has an unloaded collection there, and asking for it under async
-# is a lazy load in a place that cannot do IO. None means exactly that — nothing
-# was said — and an empty set means a booking that really carries no requested
-# subject, which is every shape but the ministry one.
+# Read out of __dict__ and not off the attribute, which under async would be a
+# lazy load where no IO can be done. None means nothing was said; an empty set
+# means a booking that really carries no requested subject.
 #
-# The children are not read back from the database for a booking being rewritten
-# either: the rows a replacement discards are not among session.deleted until
-# the flush proper, so the collection just assigned is the only honest answer.
+# Nor is the database read back for a booking being rewritten: the rows a
+# replacement discards are not among session.deleted until the flush proper.
 def loaded_disciplines(booking: Any) -> set[int] | None:
     if booking.association_subject_id is not None:
         return {booking.association_subject_id}

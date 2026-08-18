@@ -27,61 +27,55 @@ if TYPE_CHECKING:
     from app.models.lesson_discipline import LessonDiscipline
 
 _LESSON_WITHOUT_BOOKING_ERROR: Final[str] = (
-    "Una lezione deve contenere almeno una prenotazione"
+    "Una lezione deve avere almeno una prenotazione"
 )
 
 _DISCIPLINE_NOT_REQUESTED_ERROR: Final[str] = (
-    "Ogni disciplina della lezione deve essere richiesta da almeno una delle "
-    "prenotazioni collegate"
+    "Ogni disciplina della lezione deve essere collegata ad almeno una delle "
+    "prenotazioni"
 )
 
 _BOOKING_NOT_ON_LESSON_SUBJECT_ERROR: Final[str] = (
-    "Ogni prenotazione collegata deve avere almeno una disciplina in comune con "
-    "la lezione"
+    "Ogni prenotazione deve avere almeno una disciplina in comune con la lezione"
 )
 
 _LESSON_WITHOUT_DISCIPLINE_ERROR: Final[str] = (
-    "Una lezione senza discipline può contenere solo richieste di servizio"
+    "Solo i servizi non hanno discipline"
 )
 
 _MODE_MISMATCH_ERROR: Final[str] = (
-    "Tutte le prenotazioni di una lezione devono essere nella stessa modalità "
-    "della lezione"
+    "Una lezione si deve svolgere interamente nella stessa modalità"
 )
 
 _DATE_MISMATCH_ERROR: Final[str] = (
     "Le prenotazioni di una lezione devono essere nello stesso giorno della lezione"
 )
 
-# The band bounds, written the way Postgres wants them for a generated column.
-# They say the same thing as app/core/time_band.py and have to move with it.
+# The same bounds as app/core/time_band.py, and they have to move with it.
 _BAND_EXPRESSION: Final[str] = (
     "CASE WHEN start_time < TIME '13:00' THEN 'MORNING' "
     "WHEN start_time < TIME '19:00' THEN 'AFTERNOON' "
     "ELSE 'EVENING' END"
 )
 
+# A (parent id, child id) pair of a link row this flush is removing.
+_LinkKey = tuple[Any, Any]
 
-# One hour of teaching: a teacher's offer, the requested hours it is spent on,
-# and the disciplines it covers out of everything those hours asked for.
+
+# One hour of teaching: a teacher's offer, the hours it is spent on, and the
+# disciplines it covers out of what those hours asked for.
 #
-# Two modes, and the difference between them is the point. teacher_mode says
-# where the teacher is, and comes from the availability; mode says how the hour
-# reaches the pupils, and comes from their presences. A teacher in the building
-# teaches both the pupils in front of them and the ones on a screen; a teacher
-# at home can only do the latter. That asymmetry is the CHECK below, and it is
-# the reason the two are separate columns rather than one.
+# Two modes because they answer different questions. teacher_mode says where the
+# teacher is, mode says how the hour reaches the pupils, and a teacher at home
+# cannot take a pupil in the room — that asymmetry is lesson_mode_compatible.
 #
-# date and teacher_mode are not a copy that can drift: they are three quarters
-# of a composite foreign key, and the database rejects any row that does not
-# match the availability the lesson hangs off. They are on the row because the
-# calendar of a day is read by day, and because an index cannot reach across two
-# tables. It is the same arrangement subjects_requested uses.
+# date and teacher_mode cannot drift: they are three quarters of a composite
+# foreign key. They are on the row because a day is read by day, and an index
+# cannot reach across two tables.
 #
-# The foreign key restricts rather than cascades: the calendar is kept as a
-# record, so a stored lesson makes its availability neither movable nor
-# deletable. Without onupdate, moving that availability fails loudly instead of
-# dragging the lesson to a day where nothing has been checked.
+# RESTRICT and no onupdate: a stored lesson makes its availability neither
+# movable nor deletable, so moving it fails loudly instead of dragging the
+# lesson to a day nothing has been checked against.
 class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "lessons"
 
@@ -98,8 +92,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
         ),
         CheckConstraint("id > 0", name="positive_lesson_id"),
         CheckConstraint("end_time > start_time", name="lesson_end_after_start"),
-        # Half an hour is the shortest stretch worth teaching in. Logically this
-        # subsumes the check above, which stays because it names a different
+        # Subsumes the check above, which stays because it names a different
         # mistake.
         CheckConstraint(
             "end_time - start_time >= INTERVAL '30 minutes'",
@@ -118,8 +111,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
             "teacher_mode IN ('presence', 'online')",
             name="lesson_teacher_mode_valid",
         ),
-        # A teacher at a screen at home cannot have a pupil sitting in front of
-        # them; a teacher in the building can do either.
+        # A teacher at home cannot have a pupil in front of them.
         CheckConstraint(
             "teacher_mode = 'presence' OR mode = 'online'",
             name="lesson_mode_compatible",
@@ -130,10 +122,8 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
             "AND end_time <= TIME '23:00'",
             name="lesson_within_day",
         ),
-        # A lesson belongs to one part of the day. The end is allowed to touch
-        # its band's end because the bands are half-open: noon to one is all
-        # morning. Publishing happens a band at a time, and half a lesson
-        # published says nothing to anybody.
+        # Half-open, so the end may touch its band's end: noon to one is all
+        # morning. Publishing happens a band at a time.
         CheckConstraint(
             "(start_time < TIME '13:00' AND end_time <= TIME '13:00') "
             "OR (start_time >= TIME '13:00' AND start_time < TIME '19:00' "
@@ -141,17 +131,16 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
             "OR start_time >= TIME '19:00'",
             name="lesson_within_band",
         ),
-        # Two lessons on one availability starting at the same minute are one
-        # lesson entered twice.
-        Index("ux_lesson_slot", "availability_id", "start_time", unique=True),
+        # Deliberately no unique index over (availability_id, start_time): a
+        # teacher taking two pupils from two o'clock is two rows with the same
+        # availability and start, and no natural key separates that from a
+        # double-click. What caps a day is the pupil count in teacher_occupancy.
         Index("ix_lesson_day", "date", "band"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    # Plain Integer and not ForeignKey: the foreign key is the composite one
-    # above, and declaring a single-column one as well would make two of them
-    # towards the same table.
+    # Plain Integer: the foreign key is the composite one above.
     availability_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -164,9 +153,8 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
 
     mode: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    # Computed by the database rather than written by the application: it is a
-    # pure function of start_time, and this way it cannot be wrong. Stored
-    # because an index is built on it and the whole publication turns on it.
+    # A pure function of start_time, so the database computes it. Stored
+    # because an index is built on it.
     band: Mapped[str] = mapped_column(
         String(20),
         Computed(_BAND_EXPRESSION, persisted=True),
@@ -179,11 +167,10 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
 
     availability: Mapped[Availability] = relationship(back_populates="lessons")
 
-    # No room here on purpose: a room belongs to the teacher for the day, not to
-    # the hour. Which one a lesson happens in is read through
-    # teacher_room_assignments, and several teachers share one.
+    # No room here: a room belongs to the teacher for the day, not to the hour.
+    # It is read through teacher_room_assignments.
 
-    # Ordered so that two reads of the same lesson come back the same way.
+    # Ordered so two reads of the same lesson come back the same way.
     lesson_bookings: Mapped[list[LessonBooking]] = relationship(
         back_populates="lesson",
         cascade="all, delete-orphan",
@@ -197,9 +184,29 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
 
-# Every lesson this flush says anything about: the ones being written, plus the
-# ones reached through a link or a discipline being written. Keyed by identity,
-# because a lesson that has no id yet is still one lesson.
+# A related object as this flush leaves it. Read out of __dict__ and not off the
+# attribute: an unloaded attribute would be a lazy load, and under async that
+# cannot do IO.
+def _related[T](
+    session: Session,
+    instance: Any,
+    *,
+    attribute: str,
+    model: type[T],
+    foreign_key: str,
+) -> T | None:
+    related = instance.__dict__.get(attribute)
+
+    if related is not None:
+        return related
+
+    identifier = getattr(instance, foreign_key)
+
+    return session.get(model, identifier) if identifier is not None else None
+
+
+# Every lesson this flush says anything about. Keyed by identity, because a
+# lesson with no id yet is still one lesson.
 def _affected_lessons(session: Session) -> list[Lesson]:
     from app.models.lesson_booking import LessonBooking
     from app.models.lesson_discipline import LessonDiscipline
@@ -210,10 +217,13 @@ def _affected_lessons(session: Session) -> list[Lesson]:
 
     for model in (LessonBooking, LessonDiscipline):
         for child in pending_instances(session, model):
-            lesson = child.__dict__.get("lesson")
-
-            if lesson is None and child.lesson_id is not None:
-                lesson = session.get(Lesson, child.lesson_id)
+            lesson = _related(
+                session,
+                child,
+                attribute="lesson",
+                model=Lesson,
+                foreign_key="lesson_id",
+            )
 
             if lesson is not None:
                 affected[id(lesson)] = lesson
@@ -221,18 +231,13 @@ def _affected_lessons(session: Session) -> list[Lesson]:
     return list(affected.values())
 
 
-# The bookings a lesson is teaching, as this flush leaves it.
-#
-# The collection is read out of __dict__ and not off the attribute: where a
-# service has just reassigned it, that is the truth, because the rows a
-# replacement discards are not in session.deleted yet when this runs, and
-# reading the database would give the old answer. Where nothing was assigned,
-# the attribute would be an unloaded collection, and touching it under async is
-# a lazy load in a place that cannot do IO.
+# The bookings a lesson is teaching, as this flush leaves it. A collection just
+# reassigned is the truth: the rows a replacement discards are not in
+# session.deleted yet, so the database would give the old answer.
 def _linked_bookings(
     session: Session,
     lesson: Lesson,
-    deleted_link_keys: set[tuple[Any, Any]],
+    deleted_link_keys: set[_LinkKey],
 ) -> list[Any]:
     from app.models.booking import Booking
     from app.models.lesson_booking import LessonBooking
@@ -240,18 +245,18 @@ def _linked_bookings(
     links = lesson.__dict__.get("lesson_bookings")
 
     if links is not None:
-        resolved = []
+        resolved = (
+            _related(
+                session,
+                link,
+                attribute="booking",
+                model=Booking,
+                foreign_key="booking_id",
+            )
+            for link in links
+        )
 
-        for link in links:
-            booking = link.__dict__.get("booking")
-
-            if booking is None and link.booking_id is not None:
-                booking = session.get(Booking, link.booking_id)
-
-            if booking is not None:
-                resolved.append(booking)
-
-        return resolved
+        return [booking for booking in resolved if booking is not None]
 
     if lesson.id is None:
         return []
@@ -276,7 +281,7 @@ def _linked_bookings(
 def _lesson_disciplines(
     session: Session,
     lesson: Lesson,
-    deleted_discipline_keys: set[tuple[Any, Any]],
+    deleted_discipline_keys: set[_LinkKey],
 ) -> set[int]:
     from app.models.lesson_discipline import LessonDiscipline
 
@@ -299,14 +304,10 @@ def _lesson_disciplines(
     }
 
 
-# The day a lesson falls on, whether or not its column has been filled in yet.
-#
-# Assigning the availability object does not populate date and teacher_mode
-# straight away: SQLAlchemy synchronises the columns of a composite foreign key
-# while the flush is being processed, which is after this hook has run. So on a
-# brand-new lesson the column is still None and the availability in __dict__ is
-# the only thing that knows.
-def lesson_date(lesson: Lesson) -> date | None:
+# The day a lesson falls on, filled in or not: SQLAlchemy synchronises composite
+# foreign key columns after this hook runs, so on a new lesson the availability
+# in __dict__ is the only thing that knows.
+def _lesson_date(lesson: Lesson) -> date | None:
     if lesson.date is not None:
         return lesson.date
 
@@ -315,7 +316,7 @@ def lesson_date(lesson: Lesson) -> date | None:
     return availability.date if availability is not None else None
 
 
-def _deleted_link_keys(session: Session) -> set[tuple[Any, Any]]:
+def _deleted_link_keys(session: Session) -> set[_LinkKey]:
     from app.models.lesson_booking import LessonBooking
 
     return {
@@ -324,18 +325,22 @@ def _deleted_link_keys(session: Session) -> set[tuple[Any, Any]]:
     }
 
 
+def _deleted_discipline_keys(session: Session) -> set[_LinkKey]:
+    from app.models.lesson_discipline import LessonDiscipline
+
+    return {
+        (row.lesson_id, row.association_subject_id)
+        for row in deleted_instances(session, LessonDiscipline)
+    }
+
+
 # What a lesson teaches has to be something its pupils asked for, and every
-# pupil in it has to be there for something it teaches.
+# pupil has to be there for something it teaches. Both directions, which is what
+# makes a shared hour legitimate: Latin and Greek with one pupil for each is
+# fine, a pupil there for neither is in the wrong room.
 #
-# The rule works in both directions, and the pair is what makes a shared hour
-# legitimate: a lesson on Latin and Greek where one pupil is there for Latin and
-# the other for Greek is fine, while a pupil whose request has nothing to do
-# with either is in the wrong room.
-#
-# The parts of one request may overlap rather than divide: two teachers taking
-# turns on the same discipline is a real arrangement. That their union is
-# exactly what was asked for cannot be required here — in a draft the second
-# half does not exist yet — so it is a condition for publishing instead.
+# That the parts of a request cover all of it cannot be asked here — in a draft
+# the second half does not exist — so it is a condition for publishing.
 @event.listens_for(Session, "before_flush")
 def _validate_lesson_disciplines(
     session: Session,
@@ -343,7 +348,6 @@ def _validate_lesson_disciplines(
     _instances: object,
 ) -> None:
     from app.models.booking_disciplines import disciplines_of
-    from app.models.lesson_discipline import LessonDiscipline
 
     lessons = _affected_lessons(session)
 
@@ -351,10 +355,7 @@ def _validate_lesson_disciplines(
         return
 
     deleted_link_keys = _deleted_link_keys(session)
-    deleted_discipline_keys = {
-        (row.lesson_id, row.association_subject_id)
-        for row in deleted_instances(session, LessonDiscipline)
-    }
+    deleted_discipline_keys = _deleted_discipline_keys(session)
 
     for lesson in lessons:
         bookings = _linked_bookings(session, lesson, deleted_link_keys)
@@ -366,8 +367,7 @@ def _validate_lesson_disciplines(
         requested = [disciplines_of(session, booking) for booking in bookings]
 
         if not taught:
-            # Only a service has no discipline behind it, so an hour on nothing
-            # in particular can hold nothing else.
+            # Only a service has no discipline behind it.
             if any(disciplines for disciplines in requested):
                 raise ValueError(_LESSON_WITHOUT_DISCIPLINE_ERROR)
 
@@ -381,9 +381,8 @@ def _validate_lesson_disciplines(
 
 
 # mode is the one denormalisation no foreign key can keep honest: it comes from
-# the presences of the linked bookings, which are three tables away. A lesson is
-# one hour for the pupils in it, so they are all in it the same way and on the
-# same day.
+# presences three tables away. One hour means all its pupils are in it the same
+# way and on the same day.
 @event.listens_for(Session, "before_flush")
 def _validate_lesson_student_mode(
     session: Session,
@@ -400,13 +399,16 @@ def _validate_lesson_student_mode(
     deleted_link_keys = _deleted_link_keys(session)
 
     for lesson in lessons:
-        day = lesson_date(lesson)
+        day = _lesson_date(lesson)
 
         for booking in _linked_bookings(session, lesson, deleted_link_keys):
-            presence = booking.__dict__.get("presence")
-
-            if presence is None and booking.presence_id is not None:
-                presence = session.get(Presence, booking.presence_id)
+            presence = _related(
+                session,
+                booking,
+                attribute="presence",
+                model=Presence,
+                foreign_key="presence_id",
+            )
 
             if presence is None:
                 continue

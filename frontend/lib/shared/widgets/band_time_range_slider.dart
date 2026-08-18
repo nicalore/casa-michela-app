@@ -7,77 +7,65 @@ import '../../core/utils/week_range.dart';
 import 'app_range_slider.dart';
 import 'app_segmented_switch.dart';
 
-
-// One band of a day, set by dragging its two ends along the band's own window.
+// One band of a day, set by dragging its two ends along the band's own window:
+// the track is the band, and what is picked out of it is the opening.
 //
-// It replaces two dropdowns of quarter hours — twenty-eight of them for the
-// morning alone — which asked for one interval in two separate hunts through a
-// list and never showed how long the opening was or where it fell in the day.
-// Here the track is the band: the morning runs from six to one, and what is
-// picked out of it is the opening.
-//
-// The switch is what says whether the band is open at all. Two empty fields
-// used to mean that, which is a thing that cannot be told from not having got
-// round to filling them in yet.
+// The switch says whether the band is open at all, which two empty fields
+// cannot: those are indistinguishable from not having filled them in yet.
 class BandTimeRangeSlider extends StatelessWidget
 {
   final TimeBucket bucket;
 
-  // Both null when the band is closed. They are never one and not the other:
-  // that is what the switch is for.
+  // Both null when the band is closed, never one and not the other.
   final TimeOfDay? startTime;
   final TimeOfDay? endTime;
 
   final void Function(TimeOfDay? start, TimeOfDay? end) onChanged;
 
-  /// Narrows the track to a window inside the band. The association's own hours
-  /// use the whole band, since that is what they are setting; a teacher's
-  /// availability is offered inside what the association has open, so it passes
-  /// those two ends and cannot be dragged outside them.
+  // Narrows the track to a window inside the band. The association's own hours
+  // use the whole band, since that is what they are setting; a teacher's
+  // availability is offered inside what the association has open, so it passes
+  // those two ends and cannot be dragged outside them.
   final int? windowStartMinutes;
   final int? windowEndMinutes;
 
-  // How far this band can be dragged, where that is not the whole track. The
-  // track is the band, the same for every stretch inside it; the drag limit is
-  // what the neighbouring stretches leave free. Keeping the two apart is what
-  // stops each stretch from being drawn on a scale of its own.
+  // What the neighbouring stretches leave free. Kept apart from the track,
+  // which is the band, or each stretch would be drawn on a scale of its own.
   final int? dragMinMinutes;
   final int? dragMaxMinutes;
 
-  // How short the stretch may be. An opening can be given in quarter hours, a
-  // presence cannot: under half an hour is a pupil arriving and leaving.
+  // An opening can be given in quarter hours, a presence cannot.
   final int minimumMinutes;
 
-  /// Off where the answer cannot be given at all — the association is shut in
-  /// this band. The row stays, greyed, saying so, because a band that vanished
-  /// would leave the day looking shorter than it is.
+  // Where there is a ceiling: a lesson has the minutes left of what was asked
+  // for. Held like the minimum, so the hours follow the hand.
+  final int? maximumMinutes;
+
+  // Off where the association is shut in this band. The row stays greyed: one
+  // that vanished would leave the day looking shorter than it is.
   final bool enabled;
 
-  /// What the row says in place of its hours where the question cannot be
-  /// answered at all — the association is shut in this band.
+  // What the row says in place of its hours where the question cannot be
+  // answered at all — the association is shut in this band.
   final String disabledLabel;
 
-  /// And what it says where it can be answered and has not been. The two are
-  /// the same thing for the association's own hours, which is why it says
-  /// "Chiuso" either way; for a teacher's availability they are not: a band the
-  /// association opens and the teacher did not take is not a closed band.
+  // And where it can be answered and has not been. The same thing for the
+  // association's own hours, not for a teacher's: a band the association opens
+  // and the teacher did not take is not a closed band.
   final String offLabel;
 
-  /// The two sides of the switch. The association's hours are open or closed; a
-  /// teacher's availability is given or not.
+  // The two sides of the switch. The association's hours are open or closed; a
+  // teacher's availability is given or not.
   final String trueLabel;
   final String falseLabel;
 
-  /// What the row is called. Left out, it is the name of the band — which is
-  /// what a band answered once wants. A band made of several stretches names
-  /// itself on the first of them and passes an empty string to the rest: they
-  /// are the same band, and repeating "Pomeriggio" down the card would read as
-  /// three afternoons.
+  // Left out, the name of the band. A band of several stretches names itself on
+  // the first and passes an empty string to the rest: repeating "Pomeriggio"
+  // down the card would read as three afternoons.
   final String? nameOverride;
 
-  /// Put where the switch would be. One stretch among several is taken away on
-  /// its own rather than by turning the whole band off, so it carries a trash
-  /// there instead.
+  // Put where the switch would be: one stretch among several carries a trash
+  // instead, since it is dropped on its own.
   final Widget? trailing;
 
   const BandTimeRangeSlider({
@@ -87,6 +75,7 @@ class BandTimeRangeSlider extends StatelessWidget
     required this.endTime,
     required this.onChanged,
     this.minimumMinutes = kQuarterHour,
+    this.maximumMinutes,
     this.windowStartMinutes,
     this.windowEndMinutes,
     this.dragMinMinutes,
@@ -106,20 +95,16 @@ class BandTimeRangeSlider extends StatelessWidget
 
   double get _bandEnd => (windowEndMinutes ?? bandEndMinutes(bucket)).toDouble();
 
-  // How far the thumbs may reach: what the neighbouring stretches leave free,
-  // or the whole track where there is nobody alongside.
+  // What the neighbours leave free, or the whole track where there is nobody.
   double get _dragStart => (dragMinMinutes?.toDouble() ?? _bandStart).clamp(_bandStart, _bandEnd);
 
   double get _dragEnd => (dragMaxMinutes?.toDouble() ?? _bandEnd).clamp(_dragStart, _bandEnd);
 
-  // A band being opened starts as the whole window. It is one drag away from
-  // anything else, and it is the only default that is never a guess about what
-  // this association's morning looks like.
+  // A band being opened starts as the whole window: one drag from anything
+  // else, and the only default that is not a guess.
   void _toggle(bool open)
   {
-    // Choosing the side already chosen changes nothing. Without this, tapping
-    // "Aperta" on a band that is open threw away the hours set on it and put
-    // the whole band back.
+    // Without this, tapping "Aperta" on an open band threw away its hours.
     if (open == _isOpen)
     {
       return;
@@ -142,8 +127,7 @@ class BandTimeRangeSlider extends StatelessWidget
   {
     return Text(
       nameOverride ?? bandLabel(bucket),
-      // The name of a band is one word and never wraps: broken over two lines
-      // beside the switch it reads as two bands.
+      // One word, never wrapped: over two lines it reads as two bands.
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
@@ -154,7 +138,7 @@ class BandTimeRangeSlider extends StatelessWidget
     );
   }
 
-  // The value, read out in words rather than left to the two ends of the track.
+  // The value in words, rather than left to the two ends of the track.
   Widget _buildValue()
   {
     return Text(
@@ -201,10 +185,8 @@ class BandTimeRangeSlider extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        // The name, the hours and the switch want about 350 between them. Under
-        // that the hours drop to a line of their own rather than being squeezed
-        // between the other two, which is where a range would have started
-        // ellipsising away.
+        // Under about 350 the hours drop to a line of their own rather than
+        // ellipsising between the other two.
         if (constraints.maxWidth < 350)
         {
           return Column(
@@ -234,14 +216,11 @@ class BandTimeRangeSlider extends StatelessWidget
     );
   }
 
-  Widget _buildTrack(BuildContext context)
+  Widget _buildTrack()
   {
-    // Held inside the track whatever comes in. A range slider cannot draw a
-    // handle outside its own two ends and asserts rather than trying, and the
-    // hours handed to it can legitimately fall outside: an availability given
-    // when the association opened at nine, read back on a day it now opens at
-    // ten, is exactly that. What is drawn is what the window can hold; the form
-    // above puts the same clamp on what it will save.
+    // Held inside the track: a RangeSlider asserts on a handle outside its own
+    // ends, and the hours can legitimately fall outside — an availability given
+    // when the place opened at nine, read on a day it opens at ten.
     final start = (_isOpen ? minutesOfTimeOfDay(startTime!).toDouble() : _bandStart)
         .clamp(_bandStart, _bandEnd);
     final end = (_isOpen ? minutesOfTimeOfDay(endTime!).toDouble() : _bandEnd)
@@ -252,44 +231,45 @@ class BandTimeRangeSlider extends StatelessWidget
       values: RangeValues(start, end),
       min: _bandStart,
       max: _bandEnd,
-      // One stop every quarter of an hour, which is the step the hours are
-      // stored at: the handles cannot land anywhere the backend could not
-      // keep.
+      // One stop per quarter hour, the step the hours are stored at.
       divisions: ((_bandEnd - _bandStart) / kQuarterHour).round(),
       labels: RangeLabels(
         formatTimeOfDayShort(timeOfDayFromMinutes(start.toInt())),
         formatTimeOfDayShort(timeOfDayFromMinutes(end.toInt())),
       ),
-      // Closed bands keep their track on screen, greyed: it says the band
-      // exists and is shut, rather than leaving a hole where it was.
-      onChanged: _isOpen && enabled ? (values) => _report(values, start, end) : null,
+      // A closed band keeps its track, greyed, rather than leaving a hole.
+      onChanged: _isOpen && enabled ? (values) => _report(values, start) : null,
     );
   }
 
-  // A band cannot begin and end at the same minute: dragged onto the other end,
-  // a handle stops one stop short of it. RangeSlider stops the two from crossing
-  // on its own but is happy to let them meet, and an opening from nine to nine
-  // is not an opening.
-  void _report(RangeValues values, double previousStart, double previousEnd)
+  // Pinned to exactly [length], giving way at the end nobody is dragging:
+  // whichever thumb has left [previousStart] is the one under the hand.
+  (int, int) _heldAt(int startMinutes, int endMinutes, int length, double previousStart)
   {
-    // Stopped where the free space ends. The slider would let them go — the
-    // track is the whole band — but only what does not tread on the neighbouring
-    // stretch is accepted, and a thumb that is not accepted stays where it was.
+    return startMinutes != previousStart.round()
+        ? (endMinutes - length, endMinutes)
+        : (startMinutes, startMinutes + length);
+  }
+
+  // RangeSlider stops the thumbs from crossing but lets them meet, and an
+  // opening from nine to nine is not an opening.
+  void _report(RangeValues values, double previousStart)
+  {
+    // The track is the whole band, but only what does not tread on the
+    // neighbouring stretch is accepted.
     var startMinutes = values.start.round().clamp(_dragStart.round(), _dragEnd.round());
     var endMinutes = values.end.round().clamp(_dragStart.round(), _dragEnd.round());
 
     if (endMinutes - startMinutes < minimumMinutes)
     {
-      // Whichever one moved is the one being dragged, and the one that gives
-      // way is the other.
-      if (startMinutes != previousStart.round())
-      {
-        startMinutes = endMinutes - minimumMinutes;
-      }
-      else
-      {
-        endMinutes = startMinutes + minimumMinutes;
-      }
+      (startMinutes, endMinutes) = _heldAt(startMinutes, endMinutes, minimumMinutes, previousStart);
+    }
+
+    final ceiling = maximumMinutes;
+
+    if (ceiling != null && endMinutes - startMinutes > ceiling)
+    {
+      (startMinutes, endMinutes) = _heldAt(startMinutes, endMinutes, ceiling, previousStart);
     }
 
     onChanged(
@@ -307,7 +287,7 @@ class BandTimeRangeSlider extends StatelessWidget
     );
 
     return Padding(
-      // Lined up with the ends of the track, which start half a thumb in.
+      // The track starts half a thumb in.
       padding: const EdgeInsets.symmetric(horizontal: kRangeSliderThumbRadius),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -322,10 +302,8 @@ class BandTimeRangeSlider extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // A band that cannot be answered is a line and nothing more. The track
-    // under it would be a control that refuses every hand laid on it, and the
-    // two hours written under its ends would be the hours of an opening that
-    // is not there.
+    // A band that cannot be answered is a line and nothing more: the track
+    // would refuse every hand, over the hours of an opening that is not there.
     if (!enabled)
     {
       return _buildHeader();
@@ -336,7 +314,7 @@ class BandTimeRangeSlider extends StatelessWidget
       children: [
         _buildHeader(),
         const SizedBox(height: 2),
-        _buildTrack(context),
+        _buildTrack(),
         _buildBounds(),
       ],
     );

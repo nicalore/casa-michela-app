@@ -267,9 +267,9 @@ class ChartCard extends StatelessWidget
   final Widget? filters;
   final bool isEmpty;
 
-  /// Shows a spinner in place of the chart, without touching the title or the
-  /// filters above it, so changing this card's own filters does not blank out
-  /// the rest of the page while the new data loads.
+  // Shows a spinner in place of the chart, without touching the title or the
+  // filters above it, so changing this card's own filters does not blank out
+  // the rest of the page while the new data loads.
   final bool isLoading;
 
   final Widget chart;

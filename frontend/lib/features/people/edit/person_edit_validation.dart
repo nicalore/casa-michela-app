@@ -65,7 +65,7 @@ class _Collector
   }
 }
 
-/// Ripulisce i campi come faceva la vecchia convalida, prima di guardarli.
+// Ripulisce i campi come faceva la vecchia convalida, prima di guardarli.
 void tidyForm(PersonEditForm form)
 {
   form.firstNameCtrl.text = form.firstNameCtrl.text.trim();

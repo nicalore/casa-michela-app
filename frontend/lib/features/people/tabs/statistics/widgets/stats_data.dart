@@ -26,8 +26,8 @@ MemberTrendItem? _findPoint(List<MemberTrendItem> data, int year, {int? month})
   return null;
 }
 
-/// Fills the gaps of a trend series with explicit zeros. The backend omits
-/// periods with no members, but a chart needs a continuous sequence.
+// Fills the gaps of a trend series with explicit zeros. The backend omits
+// periods with no members, but a chart needs a continuous sequence.
 List<MemberTrendItem> padTrendData(
   List<MemberTrendItem> rawData,
   String resolution,
@@ -72,7 +72,7 @@ List<FilterOption<String>> resolutionOptions()
   ];
 }
 
-/// Every year with data, most recent first.
+// Every year with data, most recent first.
 List<FilterOption<int>> yearOptions()
 {
   final currentYear = DateTime.now().year;
@@ -82,8 +82,8 @@ List<FilterOption<int>> yearOptions()
       .toList();
 }
 
-/// Months selectable for [selectedYear]. The first year only has data from
-/// [dataStartMonth] on, so offering earlier months would point at nothing.
+// Months selectable for [selectedYear]. The first year only has data from
+// [dataStartMonth] on, so offering earlier months would point at nothing.
 List<FilterOption<int>> monthOptions(int selectedYear)
 {
   final firstMonth = selectedYear == dataStartYear ? dataStartMonth : 1;

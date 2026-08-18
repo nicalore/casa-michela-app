@@ -24,7 +24,7 @@ import 'subject_pick_row.dart';
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-/// The name of a ministry subject, or what to say where none has been chosen.
+// The name of a ministry subject, or what to say where none has been chosen.
 String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String fallback = 'Materia da scegliere'})
 {
   for (final subject in subjects)
@@ -38,7 +38,7 @@ String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String 
   return fallback;
 }
 
-/// The disciplines of a request, by name.
+// The disciplines of a request, by name.
 List<String> disciplineNames(List<MinistrySubjectItem> subjects, SubjectRequestDraft request)
 {
   final names = <String>[];
@@ -62,7 +62,7 @@ List<String> disciplineNames(List<MinistrySubjectItem> subjects, SubjectRequestD
   return names;
 }
 
-/// The names behind a list of tax codes, in the order they were given.
+// The names behind a list of tax codes, in the order they were given.
 List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
 {
   final names = <String>[];
@@ -81,37 +81,37 @@ List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
   return names;
 }
 
-/// A list of subjects asked for, each one a row that opens onto its own window.
-///
-/// The rows are a list and stay a list: what a subject holds is seven things,
-/// and seven things unfolding inside a row pushed every other row off the
-/// bottom of the window. Pressing one opens them in the middle of the screen
-/// instead, where there is room to read them.
+// A list of subjects asked for, each one a row that opens onto its own window.
+//
+// The rows are a list and stay a list: what a subject holds is seven things,
+// and seven things unfolding inside a row pushed every other row off the
+// bottom of the window. Pressing one opens them in the middle of the screen
+// instead, where there is room to read them.
 class SubjectRequestList extends StatelessWidget
 {
   final List<SubjectRequestDraft> requests;
 
-  /// Every subject there is, for naming what is already asked for: a booking
-  /// written before the pupil changed programme still has to say what it is.
+  // Every subject there is, for naming what is already asked for: a booking
+  // written before the pupil changed programme still has to say what it is.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  /// And the ones that may be chosen now — what the pupil's own programme
-  /// teaches. Left out, they are the same.
+  // And the ones that may be chosen now — what the pupil's own programme
+  // teaches. Left out, they are the same.
   final List<MinistrySubjectItem>? offeredSubjects;
 
   final List<PersonItem> teachers;
 
-  /// Said in place of the list where there is nothing in it yet.
+  // Said in place of the list where there is nothing in it yet.
   final String emptyLabel;
 
-  /// Left out where nothing may be added — a way of being there with no hours
-  /// on it has nothing to spend.
+  // Left out where nothing may be added — a way of being there with no hours
+  // on it has nothing to spend.
   final VoidCallback? onAdd;
 
   final void Function(int index) onRemove;
 
-  /// Where the pencil goes: the window that asks a subject a question at a
-  /// time. Left out, the rows only open on what they say.
+  // Where the pencil goes: the window that asks a subject a question at a
+  // time. Left out, the rows only open on what they say.
   final void Function(int index)? onEdit;
 
   const SubjectRequestList({
@@ -165,7 +165,7 @@ class SubjectRequestList extends StatelessWidget
   }
 }
 
-/// One subject asked for: a line that opens onto a card of everything it holds.
+// One subject asked for: a line that opens onto a card of everything it holds.
 class SubjectRequestTile extends StatefulWidget
 {
   final SubjectRequestDraft draft;
@@ -490,22 +490,22 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
 // How tall the teacher list gets before it starts scrolling on its own.
 const double _teacherListMaxHeight = 340;
 
-/// Who the pupil would rather have, or rather not. Searched for by name and
-/// gathered as chips: an association with forty teachers cannot put forty chips
-/// on a form, and the one being looked for is known by name rather than found
-/// by reading the list.
+// Who the pupil would rather have, or rather not. Searched for by name and
+// gathered as chips: an association with forty teachers cannot put forty chips
+// on a form, and the one being looked for is known by name rather than found
+// by reading the list.
 class TeacherPicker extends StatefulWidget
 {
   final String label;
   final IconData icon;
 
-  /// What the field says while it is empty. The same either way: it is a name
-  /// being looked for, whichever of the two lists it is going into.
+  // What the field says while it is empty. The same either way: it is a name
+  // being looked for, whichever of the two lists it is going into.
   final String hint;
 
-  /// The list being written, and the one on the other side of the same
-  /// question: a teacher named here leaves the other rather than standing on
-  /// both.
+  // The list being written, and the one on the other side of the same
+  // question: a teacher named here leaves the other rather than standing on
+  // both.
   final List<String> chosen;
   final List<String> other;
 
@@ -629,7 +629,7 @@ class _TeacherPickerState extends State<TeacherPicker>
         ),
         if (widget.offered.isEmpty)
           Text(
-            'Nessun docente in anagrafica.',
+            'Nessun docente presente nell\'anagrafica.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -646,7 +646,7 @@ class _TeacherPickerState extends State<TeacherPicker>
           AppSearchField(
             controller: _controller,
             hintText: _full
-                ? 'Tre è il massimo: togline uno per cambiarli'
+                ? 'Tre è il massimo: rimuovine uno per cambiarli'
                 : widget.hint,
             onChanged: (value) => setState(() => _query = value),
           ),
@@ -654,8 +654,8 @@ class _TeacherPickerState extends State<TeacherPicker>
           if (_available.isEmpty)
             Text(
               _full
-                  ? 'Hai già scelto i tre che puoi indicare.'
-                  : 'Nessun docente trovato per questa ricerca.',
+                  ? 'Ne hai già scelti tre.'
+                  : 'Nessun docente trovato.',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,

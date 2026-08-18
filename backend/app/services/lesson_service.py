@@ -1,9 +1,12 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, time
-from typing import Final
+from typing import Final, Protocol
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import Select, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped
 
 from app.api.rbac import IdentityContext
 from app.core.integrity import integrity_guard
@@ -19,6 +22,9 @@ from app.models.booking_teacher_preference import (
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
+from app.models.ministry_association_subject import MinistryAssociationSubject
+from app.models.school_enrollment import SchoolEnrollment
+from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.repositories.booking_repository import BOOKING_EAGER_LOADER
@@ -29,6 +35,14 @@ from app.services.lesson_guard import (
     assert_band_not_published,
     assert_bands_not_published,
 )
+from app.services.teacher_occupancy import (
+    MAX_CONCURRENT_STUDENTS,
+    online_cannot_overlap_error,
+    overlaps_an_online_hour,
+    peak_concurrent_students,
+    spans_with,
+    too_many_students_error,
+)
 
 _ENTITY_LABEL: Final[str] = "la lezione"
 _NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
@@ -37,21 +51,16 @@ _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
 
 _AVAILABILITY_NOT_FOUND_ERROR: Final[str] = "Disponibilità non trovata"
 
-_UNKNOWN_BOOKINGS_ERROR: Final[str] = (
-    "Alcune prenotazioni non esistono: {ids}."
-)
+_UNKNOWN_BOOKINGS_ERROR: Final[str] = "Alcune prenotazioni non esistono: {ids}."
 
-_UNKNOWN_DISCIPLINES_ERROR: Final[str] = (
-    "Alcune discipline non esistono: {ids}."
-)
+_UNKNOWN_DISCIPLINES_ERROR: Final[str] = "Alcune discipline non esistono: {ids}."
 
 _OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
-    "La lezione deve stare dentro la disponibilità del docente "
-    "({start} - {end})."
+    "Fuori dalla disponibilità del docente ({start} - {end})."
 )
 
 _MIXED_MODES_ERROR: Final[str] = (
-    "Le prenotazioni di una lezione devono essere tutte nella stessa modalità."
+    "Una lezione si deve svolgere interamente nella stessa modalità."
 )
 
 _TEACHER_AT_HOME_ERROR: Final[str] = (
@@ -63,29 +72,30 @@ _WRONG_DAY_ERROR: Final[str] = (
 )
 
 _OUTSIDE_PRESENCE_ERROR: Final[str] = (
-    "La lezione non rientra nelle ore di {student} ({start} - {end})."
-)
-
-_TEACHER_OVERLAP_ERROR: Final[str] = (
-    "Il docente ha già una lezione che si sovrappone a questo orario."
+    "La lezione non rientra nelle ore di presenza di {student} ({start} - {end})."
 )
 
 _STUDENT_OVERLAP_ERROR: Final[str] = (
-    "Uno studente della lezione è già impegnato in un'altra lezione a "
-    "quest'ora."
+    "Uno studente ha già un'altra lezione a quest'ora."
 )
 
 _MISSING_COMPETENCE_ERROR: Final[str] = (
     "Il docente non ha la competenza per: {subjects}."
 )
 
-_MISSING_SERVICE_ERROR: Final[str] = (
-    "Il docente non eroga il servizio: {services}."
-)
+_MISSING_SERVICE_ERROR: Final[str] = "Il docente non ha la competenza per: {services}."
 
 _NOT_PREFERRED_WARNING: Final[str] = (
     "Il docente {teacher} è indicato come non preferito da {student}."
 )
+
+
+# Every model fetched by id satisfies this; naming it lets the generic helper
+# below read .id without the type checker losing track of the row type. The
+# member is the Mapped column, not a plain int: structural matching compares
+# the declared annotation, and only the instance access unwraps to int.
+class _HasId(Protocol):
+    id: Mapped[int]
 
 
 def _format_time(value: time) -> str:
@@ -99,17 +109,53 @@ def _person_label(person: object) -> str:
     return f"{first} {last}".strip()
 
 
+# Two ways of having no programme to compare against, and the same answer to
+# both: read the discipline alone. Nobody in the hour is enrolled anywhere — an
+# adult taking a language — or the discipline belongs to no programme, which is
+# what an instrument looks like. Refusing either makes the hour unplannable.
+def _lacks_competence(
+    subject: AssociationSubject,
+    *,
+    programmes: set[int],
+    within: set[int],
+    granted: set[tuple[int, int]],
+    any_programme: set[int],
+) -> bool:
+    if not programmes or subject.id not in within:
+        return subject.id not in any_programme
+
+    return any((subject.id, programme) not in granted for programme in programmes)
+
+
+# Gathered once so create and update check the same things in the same order.
+@dataclass(frozen=True)
+class _ValidatedLesson:
+    availability: Availability
+    mode: str
+    bookings: list[Booking]
+    disciplines: list[AssociationSubject]
+    warnings: list[str]
+
+    def links(self) -> list[LessonBooking]:
+        return [LessonBooking(booking=booking) for booking in self.bookings]
+
+    def discipline_rows(self) -> list[LessonDiscipline]:
+        return [
+            LessonDiscipline(association_subject_id=subject.id)
+            for subject in self.disciplines
+        ]
+
+
 class LessonService:
     def __init__(self, repository: LessonRepository) -> None:
         self.repository = repository
 
     @property
-    def session(self):  # noqa: ANN201 - mirrors the other services
+    def session(self) -> AsyncSession:
         return self.repository.session
 
-    # Read as a union of the roles held and not as a switch on one of them: an
-    # account can be a parent and a teacher at once, and a pupil is not the
-    # booker whenever a parent booked for them.
+    # A union of the roles held, not a switch on one: an account can be a parent
+    # and a teacher at once.
     def _visibility_for(self, identity: IdentityContext) -> LessonVisibility:
         if identity.is_admin:
             return LessonVisibility()
@@ -131,6 +177,25 @@ class LessonService:
             published_only=True,
         )
 
+    # In the order asked for, refusing the whole request if any id is unknown.
+    async def _fetch_in_order_or_400[T: _HasId](
+        self,
+        stmt: Select[tuple[T]],
+        identifiers: Sequence[int],
+        *,
+        error: str,
+    ) -> list[T]:
+        found = {row.id: row for row in (await self.session.scalars(stmt)).all()}
+        missing = [value for value in identifiers if value not in found]
+
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error.format(ids=", ".join(str(value) for value in missing)),
+            )
+
+        return [found[value] for value in identifiers]
+
     async def _availability_or_404(self, availability_id: int) -> Availability:
         availability = await self.session.scalar(
             select(Availability).where(Availability.id == availability_id),
@@ -145,32 +210,28 @@ class LessonService:
         return availability
 
     async def _bookings_or_400(self, booking_ids: Sequence[int]) -> list[Booking]:
-        rows = (
-            (
-                await self.session.execute(
-                    select(Booking)
-                    .options(*BOOKING_EAGER_LOADER)
-                    .where(Booking.id.in_(booking_ids)),
-                )
-            )
-            .scalars()
-            .all()
+        return await self._fetch_in_order_or_400(
+            select(Booking)
+            .options(*BOOKING_EAGER_LOADER)
+            .where(Booking.id.in_(booking_ids)),
+            booking_ids,
+            error=_UNKNOWN_BOOKINGS_ERROR,
         )
 
-        found = {booking.id: booking for booking in rows}
-        missing = [
-            booking_id for booking_id in booking_ids if booking_id not in found
-        ]
+    async def _disciplines_or_400(
+        self,
+        association_subject_ids: Sequence[int],
+    ) -> list[AssociationSubject]:
+        if not association_subject_ids:
+            return []
 
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_UNKNOWN_BOOKINGS_ERROR.format(
-                    ids=", ".join(str(value) for value in missing),
-                ),
-            )
-
-        return [found[booking_id] for booking_id in booking_ids]
+        return await self._fetch_in_order_or_400(
+            select(AssociationSubject).where(
+                AssociationSubject.id.in_(association_subject_ids),
+            ),
+            association_subject_ids,
+            error=_UNKNOWN_DISCIPLINES_ERROR,
+        )
 
     def _assert_within_availability(
         self,
@@ -178,10 +239,7 @@ class LessonService:
         start_time: time,
         end_time: time,
     ) -> None:
-        if (
-            start_time < availability.start_time
-            or end_time > availability.end_time
-        ):
+        if start_time < availability.start_time or end_time > availability.end_time:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=_OUTSIDE_AVAILABILITY_ERROR.format(
@@ -190,9 +248,7 @@ class LessonService:
                 ),
             )
 
-    # The lesson's own mode is the pupils': they are all in it the same way. A
-    # teacher in the building can serve either, a teacher at home only the
-    # screen.
+    # The lesson's mode is the pupils': they are all in it the same way.
     async def _resolve_mode(
         self,
         availability: Availability,
@@ -231,10 +287,7 @@ class LessonService:
                     detail=_WRONG_DAY_ERROR.format(student=student),
                 )
 
-            if (
-                start_time < presence.start_time
-                or end_time > presence.end_time
-            ):
+            if start_time < presence.start_time or end_time > presence.end_time:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=_OUTSIDE_PRESENCE_ERROR.format(
@@ -252,27 +305,43 @@ class LessonService:
         self,
         *,
         availability: Availability,
+        mode: str,
         student_tax_codes: set[str],
         start_time: time,
         end_time: time,
         exclude_id: int | None,
     ) -> None:
-        # No filter on mode, and that is where this rule parts company with
-        # AvailabilityService._assert_no_overlap: availabilities may overlap
-        # between the two modes, lessons may not, because nobody teaches two
-        # groups at once.
-        clash = await self.repository.find_teacher_overlap(
+        # Not "is there a clash" but "how many pupils at once", which takes
+        # every overlapping row. No filter on mode, unlike
+        # AvailabilityService._assert_no_overlap: a teacher's attention does not
+        # divide by how each pupil reaches them.
+        overlapping = await self.repository.find_overlapping_teacher_lessons(
             teacher_tax_code=availability.teacher_tax_code,
             day=availability.date,
             start_time=start_time,
             end_time=end_time,
-            exclude_id=exclude_id,
+            exclude_ids=() if exclude_id is None else (exclude_id,),
         )
 
-        if clash is not None:
+        if overlaps_an_online_hour(overlapping, mode=mode):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_TEACHER_OVERLAP_ERROR,
+                detail=online_cannot_overlap_error(),
+            )
+
+        peak = peak_concurrent_students(
+            spans_with(
+                overlapping,
+                start_time=start_time,
+                end_time=end_time,
+                students=len(student_tax_codes),
+            ),
+        )
+
+        if peak > MAX_CONCURRENT_STUDENTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=too_many_students_error(),
             )
 
         busy = await self.repository.find_student_overlap(
@@ -289,80 +358,125 @@ class LessonService:
                 detail=_STUDENT_OVERLAP_ERROR,
             )
 
-    async def _disciplines_or_400(
+    # The current enrolment is the highest start_year, the same tie-break
+    # _latest_enrollment uses in api/people.py. A pupil with none contributes
+    # nothing, and an empty set means "no programme to check against".
+    async def _study_programmes_of(
         self,
-        association_subject_ids: Sequence[int],
-    ) -> list[AssociationSubject]:
-        if not association_subject_ids:
-            return []
+        bookings: Sequence[Booking],
+    ) -> set[int]:
+        tax_codes = {booking.presence.student_tax_code for booking in bookings}
+
+        if not tax_codes:
+            return set()
 
         rows = (
-            (
-                await self.session.execute(
-                    select(AssociationSubject).where(
-                        AssociationSubject.id.in_(association_subject_ids),
-                    ),
-                )
+            await self.session.execute(
+                select(
+                    SchoolEnrollment.student_tax_code,
+                    SchoolEnrollment.study_program_id,
+                    SchoolEnrollment.start_year,
+                ).where(SchoolEnrollment.student_tax_code.in_(tax_codes)),
             )
-            .scalars()
-            .all()
+        ).all()
+
+        latest: dict[str, tuple[int, int]] = {}
+
+        for student_tax_code, study_program_id, start_year in rows:
+            current = latest.get(student_tax_code)
+
+            if current is None or start_year > current[1]:
+                latest[student_tax_code] = (study_program_id, start_year)
+
+        return {programme for programme, _ in latest.values()}
+
+    # A discipline is "of a programme" when the programme teaches a ministry
+    # subject the discipline sits under: study_program -> study_program_subjects
+    # -> ministry_subject -> ministry_association_subjects -> association_subject.
+    #
+    # What is not in it has no programme to be judged against, and its competence
+    # is read on the discipline alone.
+    async def _disciplines_within(
+        self,
+        programmes: set[int],
+        disciplines: Sequence[AssociationSubject],
+    ) -> set[int]:
+        if not programmes or not disciplines:
+            return set()
+
+        rows = await self.session.scalars(
+            select(MinistryAssociationSubject.association_subject_id)
+            .join(
+                StudyProgramSubject,
+                StudyProgramSubject.ministry_subject_id
+                == MinistryAssociationSubject.ministry_subject_id,
+            )
+            .where(
+                StudyProgramSubject.study_program_id.in_(programmes),
+                MinistryAssociationSubject.association_subject_id.in_(
+                    [subject.id for subject in disciplines],
+                ),
+            ),
         )
 
-        found = {subject.id: subject for subject in rows}
-        missing = [
-            subject_id
-            for subject_id in association_subject_ids
-            if subject_id not in found
-        ]
+        return set(rows)
 
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_UNKNOWN_DISCIPLINES_ERROR.format(
-                    ids=", ".join(str(value) for value in missing),
-                ),
-            )
-
-        return [found[subject_id] for subject_id in association_subject_ids]
-
-    # Not a preference but a capability, so a hard refusal. Checked on the pair
-    # (teacher, discipline) alone: teaching_competences is also keyed by study
-    # programme, and a lesson has no way of knowing which one applies without
-    # reading enrolments that may not exist.
-    async def _assert_competences(
+    # A competence is a triple — teacher, discipline, programme — and all three
+    # are read: teaching Matematica for a liceo is not competence for a technical
+    # institute. A group hour on two programmes needs both.
+    #
+    # A capability and not a preference, so a hard refusal.
+    async def _assert_discipline_competences(
         self,
         teacher_tax_code: str,
         disciplines: Sequence[AssociationSubject],
         bookings: Sequence[Booking],
     ) -> None:
-        if disciplines:
-            competent = set(
-                await self.session.scalars(
-                    select(TeachingCompetence.association_subject_id).where(
-                        TeachingCompetence.teacher_tax_code == teacher_tax_code,
-                        TeachingCompetence.association_subject_id.in_(
-                            [subject.id for subject in disciplines],
-                        ),
+        programmes = await self._study_programmes_of(bookings)
+        within = await self._disciplines_within(programmes, disciplines)
+
+        # execute() and not scalars(): the latter would keep the first column
+        # and quietly drop the programme, which is the point of this query.
+        rows = (
+            await self.session.execute(
+                select(
+                    TeachingCompetence.association_subject_id,
+                    TeachingCompetence.study_program_id,
+                ).where(
+                    TeachingCompetence.teacher_tax_code == teacher_tax_code,
+                    TeachingCompetence.association_subject_id.in_(
+                        [subject.id for subject in disciplines],
                     ),
                 ),
             )
+        ).all()
 
-            lacking = [
-                subject.name
-                for subject in disciplines
-                if subject.id not in competent
-            ]
+        granted = {(subject_id, programme) for subject_id, programme in rows}
+        any_programme = {subject_id for subject_id, _ in rows}
 
-            if lacking:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=_MISSING_COMPETENCE_ERROR.format(
-                        subjects=", ".join(sorted(lacking)),
-                    ),
-                )
+        lacking = sorted(
+            subject.name
+            for subject in disciplines
+            if _lacks_competence(
+                subject,
+                programmes=programmes,
+                within=within,
+                granted=granted,
+                any_programme=any_programme,
+            )
+        )
 
-            return
+        if lacking:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_MISSING_COMPETENCE_ERROR.format(subjects=", ".join(lacking)),
+            )
 
+    async def _assert_service_competences(
+        self,
+        teacher_tax_code: str,
+        bookings: Sequence[Booking],
+    ) -> None:
         service_names = {
             booking.service_name
             for booking in bookings
@@ -381,20 +495,35 @@ class LessonService:
             ),
         )
 
-        lacking_services = sorted(service_names - offered)
+        lacking = sorted(service_names - offered)
 
-        if lacking_services:
+        if lacking:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MISSING_SERVICE_ERROR.format(
-                    services=", ".join(lacking_services),
-                ),
+                detail=_MISSING_SERVICE_ERROR.format(services=", ".join(lacking)),
             )
 
+    # An hour on no discipline is a service hour: the two are alternatives.
+    async def _assert_competences(
+        self,
+        teacher_tax_code: str,
+        disciplines: Sequence[AssociationSubject],
+        bookings: Sequence[Booking],
+    ) -> None:
+        if disciplines:
+            await self._assert_discipline_competences(
+                teacher_tax_code,
+                disciplines,
+                bookings,
+            )
+
+            return
+
+        await self._assert_service_competences(teacher_tax_code, bookings)
+
     # NOT_PREFERRED says who the hour should go to last, not who is forbidden
-    # it — see the comment on the model. Refusing outright would make the day
-    # impossible to plan whenever the only competent teacher is the unwanted
-    # one, which is exactly when the office has to be able to decide.
+    # it: refusing would make the day unplannable exactly when the only competent
+    # teacher is the unwanted one.
     async def _not_preferred_warnings(
         self,
         teacher_tax_code: str,
@@ -419,13 +548,10 @@ class LessonService:
         if not flagged:
             return []
 
+        unwanted = [booking for booking in bookings if booking.id in flagged]
         people = await PersonRepository(self.session).get_options(
             [
-                *(
-                    booking.presence.student_tax_code
-                    for booking in bookings
-                    if booking.id in flagged
-                ),
+                *(booking.presence.student_tax_code for booking in unwanted),
                 teacher_tax_code,
             ],
         )
@@ -438,8 +564,7 @@ class LessonService:
                     people.get(booking.presence.student_tax_code),
                 ),
             )
-            for booking in bookings
-            if booking.id in flagged
+            for booking in unwanted
         ]
 
     async def _validate(
@@ -447,7 +572,7 @@ class LessonService:
         payload: LessonCreate | LessonUpdate,
         *,
         exclude_id: int | None,
-    ) -> tuple[Availability, str, list[Booking], list[AssociationSubject], list[str]]:
+    ) -> _ValidatedLesson:
         availability = await self._availability_or_404(payload.availability_id)
 
         # A lesson lives in one band, and a published band is settled.
@@ -470,6 +595,7 @@ class LessonService:
 
         await self._assert_no_overlaps(
             availability=availability,
+            mode=mode,
             student_tax_codes=student_tax_codes,
             start_time=payload.start_time,
             end_time=payload.end_time,
@@ -490,7 +616,13 @@ class LessonService:
             bookings,
         )
 
-        return availability, mode, bookings, disciplines, warnings
+        return _ValidatedLesson(
+            availability=availability,
+            mode=mode,
+            bookings=bookings,
+            disciplines=disciplines,
+            warnings=warnings,
+        )
 
     async def list_for(
         self,
@@ -530,37 +662,27 @@ class LessonService:
         return lesson
 
     async def create(self, payload: LessonCreate) -> tuple[Lesson, list[str]]:
-        availability, mode, bookings, disciplines, warnings = await self._validate(
-            payload,
-            exclude_id=None,
-        )
+        validated = await self._validate(payload, exclude_id=None)
 
-        # The availability is assigned as an object and never as an id: it is the
-        # relationship that fills in date and teacher_mode, which are two thirds
-        # of the composite key.
+        # The availability goes in as an object and never as an id: the
+        # relationship is what fills in date and teacher_mode.
         #
-        # Built and flushed in one go, because the hooks have to see the lesson,
-        # its links and its disciplines together: flushing the lesson alone would
-        # trip the rule that a lesson has at least one booking.
+        # Built and flushed in one go, because the hooks have to see the lesson
+        # with its links and disciplines: alone it has no booking.
         lesson = Lesson(
-            availability=availability,
-            mode=mode,
+            availability=validated.availability,
+            mode=validated.mode,
             start_time=payload.start_time,
             end_time=payload.end_time,
-            lesson_bookings=[
-                LessonBooking(booking=booking) for booking in bookings
-            ],
-            lesson_disciplines=[
-                LessonDiscipline(association_subject_id=subject.id)
-                for subject in disciplines
-            ],
+            lesson_bookings=validated.links(),
+            lesson_disciplines=validated.discipline_rows(),
         )
 
         async with integrity_guard(self.session, _CREATE_ERROR):
             await self.repository.create(lesson)
             await self.repository.commit()
 
-        return await self._reload(lesson.id), warnings
+        return await self._reload(lesson.id), validated.warnings
 
     async def update(
         self,
@@ -582,27 +704,19 @@ class LessonService:
             [(lesson.date, lesson.band)],
         )
 
-        availability, mode, bookings, disciplines, warnings = await self._validate(
-            payload,
-            exclude_id=lesson.id,
-        )
+        validated = await self._validate(payload, exclude_id=lesson.id)
 
-        lesson.availability = availability
-        lesson.mode = mode
+        lesson.availability = validated.availability
+        lesson.mode = validated.mode
         lesson.start_time = payload.start_time
         lesson.end_time = payload.end_time
-        lesson.lesson_bookings = [
-            LessonBooking(booking=booking) for booking in bookings
-        ]
-        lesson.lesson_disciplines = [
-            LessonDiscipline(association_subject_id=subject.id)
-            for subject in disciplines
-        ]
+        lesson.lesson_bookings = validated.links()
+        lesson.lesson_disciplines = validated.discipline_rows()
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
             await self.repository.commit()
 
-        return await self._reload(lesson.id), warnings
+        return await self._reload(lesson.id), validated.warnings
 
     async def delete(self, identity: IdentityContext, lesson_id: int) -> None:
         lesson = await self.get_visible_or_404(identity, lesson_id)
@@ -612,9 +726,8 @@ class LessonService:
         await self.repository.delete(lesson)
         await self.repository.commit()
 
-    # Read back after writing: band is computed by the database and updated_at is
-    # set by it, and reaching for either once the request has left the session
-    # would be IO where none can be done.
+    # band and updated_at are set by the database, and reaching for either after
+    # the request has left the session would be IO where none can be done.
     async def _reload(self, lesson_id: int) -> Lesson:
         lesson = await self.repository.get_by_id(
             lesson_id,

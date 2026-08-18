@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_today_button.dart';
 import '../../../../shared/widgets/carousel_arrow_button.dart';
 import '../../models/opening_day_item.dart';
 import 'calendar_bounds.dart';
 import 'opening_hours_layout.dart';
-import '../../../../core/utils/time_bucket.dart';
 
 class OpeningHoursTableCard extends StatelessWidget
 {
@@ -74,7 +75,7 @@ class OpeningHoursTableCard extends StatelessWidget
     final weekNav = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _TodayButton(onTap: onToday),
+        AppTodayButton(onTap: onToday),
         const SizedBox(width: 12),
         back,
         const SizedBox(width: 8),
@@ -97,7 +98,7 @@ class OpeningHoursTableCard extends StatelessWidget
           ],
         ),
         const SizedBox(height: 12),
-        _TodayButton(onTap: onToday),
+        AppTodayButton(onTap: onToday),
       ],
     );
 
@@ -125,28 +126,28 @@ class OpeningHoursTableCard extends StatelessWidget
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-          // Under the title rather than beside it once the card is narrow:
-          // side by side there is no room left for the week it names.
+              // Under the title rather than beside it once the card is narrow:
+              // side by side there is no room left for the week it names.
               if (!navBeside) ...[
                 narrowNav,
                 const SizedBox(height: 20),
               ],
-          if (!narrow) ...[
-            _buildHeaderRow(),
-            const SizedBox(height: 12),
-          ],
-          AnimatedOpacity(
-            opacity: isLoading ? 0.4 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            child: Column(
-              children: [
-                for (final day in daysOfWeek(weekStart)) ...[
-                  narrow ? _buildNarrowDayRow(day) : _buildDayRow(day),
-                  const SizedBox(height: 8),
-                ],
+              if (!narrow) ...[
+                _buildHeaderRow(),
+                const SizedBox(height: 12),
               ],
-            ),
-          ),
+              AnimatedOpacity(
+                opacity: isLoading ? 0.4 : 1.0,
+                duration: const Duration(milliseconds: 150),
+                child: Column(
+                  children: [
+                    for (final day in daysOfWeek(weekStart)) ...[
+                      narrow ? _buildNarrowDayRow(day) : _buildDayRow(day),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -358,14 +359,14 @@ class OpeningHoursTableCard extends StatelessWidget
     return Text('–', style: GoogleFonts.plusJakartaSans(fontSize: 15, color: AppTheme.trialMutedText));
   }
 
-  /// Closed all day. The tint and the amber are what separate a closure someone
-  /// decided on from a day the weekly template never opens: the ordinary one
-  /// stays in the same grey as the empty cells, so a Sunday reads as
-  /// unremarkable while a Ferragosto stands out.
-  ///
-  /// Neither carries its note any more. The note belongs to the variation, and
-  /// the variations card is where it is read; here it made one row of seven
-  /// twice as tall as the others.
+  // Closed all day. The tint and the amber are what separate a closure someone
+  // decided on from a day the weekly template never opens: the ordinary one
+  // stays in the same grey as the empty cells, so a Sunday reads as
+  // unremarkable while a Ferragosto stands out.
+  //
+  // Neither carries its note any more. The note belongs to the variation, and
+  // the variations card is where it is read; here it made one row of seven
+  // twice as tall as the others.
   Widget _buildClosedRow({required bool isOverride})
   {
     return Container(
@@ -404,66 +405,6 @@ class OpeningHoursTableCard extends StatelessWidget
         fontSize: 15,
         fontWeight: row.isOverride ? FontWeight.w700 : FontWeight.w600,
         color: row.isOverride ? AppTheme.modifiedAccent : AppTheme.trialInk,
-      ),
-    );
-  }
-}
-
-// Deliberately NOT styled like PillTabBar's chips (no fill-to-primary swap
-// on hover, border stays a static slate200 regardless of state): this is a
-// tertiary "jump back" action next to the nav arrows, not another selectable
-// option, so it reads as an outlined icon+text button with a light tint on
-// hover — sized to align vertically with the 44px CarouselArrowButton next to
-// it. The bordered outline (vs. the earlier borderless ghost style) makes it
-// legible as a button rather than plain text.
-class _TodayButton extends StatefulWidget
-{
-  final VoidCallback onTap;
-
-  const _TodayButton({required this.onTap});
-
-  @override
-  State<_TodayButton> createState() => _TodayButtonState();
-}
-
-class _TodayButtonState extends State<_TodayButton>
-{
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            // Same hue at both ends, only alpha animates: fading between two
-            // genuinely different colors (e.g. transparent -> iconHover)
-            // makes AnimatedContainer lerp the RGB channels too, which
-            // flashes a muddy grey partway through instead of a clean fade.
-            color: AppTheme.trialGoldSurface.withValues(alpha: _isHovered ? 1 : 0),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _isHovered ? AppTheme.trialGold : AppTheme.trialLine, width: 1.5),
-          ),
-          child: Center(
-            widthFactor: 1,
-            child: Text(
-                'Oggi',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.trialTealDeep,
-                ),
-            ),
-          ),
-        ),
       ),
     );
   }

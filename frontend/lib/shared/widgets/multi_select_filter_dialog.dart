@@ -29,31 +29,31 @@ const double _optionsListPadding = 8;
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-/// One answer a filter can be given, and what to write on it.
-///
-/// Keyed on a value rather than on the label, because the two are not always
-/// the same thing: ministry subject names repeat across levels and are told
-/// apart by their id, while a discipline taught by a teacher is the word
-/// itself.
+// One answer a filter can be given, and what to write on it.
+//
+// Keyed on a value rather than on the label, because the two are not always
+// the same thing: ministry subject names repeat across levels and are told
+// apart by their id, while a discipline taught by a teacher is the word
+// itself.
 class MultiSelectFilterOption<T extends Object>
 {
   final T value;
   final String label;
 
-  /// Said in small at the end of the row, where two options can be called the
-  /// same: the level of a ministry subject. Most have none.
+  // Said in small at the end of the row, where two options can be called the
+  // same: the level of a ministry subject. Most have none.
   final String? subtitle;
 
   const MultiSelectFilterOption({required this.value, required this.label, this.subtitle});
 }
 
-/// A filter whose answers are too many for a menu: they are searched for and
-/// gathered, several at a time, and what comes back is a count the pill can
-/// wear.
-///
-/// The list in front of you keeps whatever matches at least one of them, which
-/// is what makes it worth choosing more than one — three disciplines is "any of
-/// these three", not "all three at once".
+// A filter whose answers are too many for a menu: they are searched for and
+// gathered, several at a time, and what comes back is a count the pill can
+// wear.
+//
+// The list in front of you keeps whatever matches at least one of them, which
+// is what makes it worth choosing more than one — three disciplines is "any of
+// these three", not "all three at once".
 class MultiSelectFilterDialog<T extends Object> extends StatefulWidget
 {
   final String title;
@@ -323,23 +323,23 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
   }
 }
 
-/// Where the second thing a row says belongs.
-///
-/// A qualifier of a word or two — a province, the level of a subject — goes at
-/// the end of the row, small, where it reads as part of the answer. A line of
-/// its own — the subjects a teacher teaches — goes under the label, because at
-/// the end of the row it would be squeezed into nothing.
+// Where the second thing a row says belongs.
+//
+// A qualifier of a word or two — a province, the level of a subject — goes at
+// the end of the row, small, where it reads as part of the answer. A line of
+// its own — the subjects a teacher teaches — goes under the label, because at
+// the end of the row it would be squeezed into nothing.
 enum AutocompleteSubtitlePlacement
 {
   trailing,
   below,
 }
 
-/// The list that opens under a field with completion. On subjects it carries
-/// options with an id, on cities a city and its province, on teachers a name
-/// and what they teach: what is written on a row is said by the two functions,
-/// and the rest — the shape, the scrolling, the mark under the arrow — is the
-/// same and is written once.
+// The list that opens under a field with completion. On subjects it carries
+// options with an id, on cities a city and its province, on teachers a name
+// and what they teach: what is written on a row is said by the two functions,
+// and the rest — the shape, the scrolling, the mark under the arrow — is the
+// same and is written once.
 class AutocompleteOptionsList<T extends Object> extends StatefulWidget
 {
   final Iterable<T> options;
@@ -628,7 +628,7 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
   }
 }
 
-/// One answer already given to a filter, with the cross that takes it back.
+// One answer already given to a filter, with the cross that takes it back.
 class AppDeletableChip extends StatefulWidget
 {
   final String label;

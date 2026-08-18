@@ -410,32 +410,32 @@ class AutocompleteField<T> extends StatefulWidget
   final String hint;
   final ValueChanged<T> onSelected;
 
-  /// Called when the field is emptied and then loses focus, so the caller
-  /// can clear the actual selection instead of the field silently reverting
-  /// to the last confirmed value.
+  // Called when the field is emptied and then loses focus, so the caller
+  // can clear the actual selection instead of the field silently reverting
+  // to the last confirmed value.
   final VoidCallback? onCleared;
 
-  /// When true, an empty field shows every option instead of none — suited to
-  /// a small fixed option set (e.g. quarter-hour times) meant to be browsed by
-  /// click as well as filtered by typing, unlike a large searched-only list
-  /// (teacher, student) where showing everything unfiltered isn't useful.
+  // When true, an empty field shows every option instead of none — suited to
+  // a small fixed option set (e.g. quarter-hour times) meant to be browsed by
+  // click as well as filtered by typing, unlike a large searched-only list
+  // (teacher, student) where showing everything unfiltered isn't useful.
   final bool showAllOptionsWhenEmpty;
 
-  /// Trailing affordance. Defaults to the magnifier that suits a searched
-  /// list; a caller whose options are a short fixed set to pick from rather
-  /// than search through (times, say) can pass something more apt.
-  ///
-  /// Null leaves the end of the field bare, for a field whose own label and
-  /// placeholder already say that a name is being looked for: the glyph then
-  /// only repeats them.
+  // Trailing affordance. Defaults to the magnifier that suits a searched
+  // list; a caller whose options are a short fixed set to pick from rather
+  // than search through (times, say) can pass something more apt.
+  //
+  // Null leaves the end of the field bare, for a field whose own label and
+  // placeholder already say that a name is being looked for: the glyph then
+  // only repeats them.
   final IconData? icon;
 
-  /// Overrides the default field-label style. Used where the label sits under
-  /// a heading that has to stay visually dominant, so it must not compete.
+  // Overrides the default field-label style. Used where the label sits under
+  // a heading that has to stay visually dominant, so it must not compete.
   final TextStyle? labelStyle;
 
-  /// Lets a caller drive focus, e.g. to jump to the next field once this one
-  /// has a value. When null the field owns its node, as before.
+  // Lets a caller drive focus, e.g. to jump to the next field once this one
+  // has a value. When null the field owns its node, as before.
   final FocusNode? focusNode;
 
   const AutocompleteField({

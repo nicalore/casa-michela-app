@@ -39,10 +39,10 @@ class LessonDayField extends StatelessWidget
   // things are about to be created is said before they are.
   final String Function(int count) summary;
 
-  /// Which days can still be answered. A day that cannot is shown all the same,
-  /// struck through and dead, with [disabledTooltip] saying why: a chip that is
-  /// missing is a question nobody can ask about, while a dead one is an answer
-  /// with a reason. Null leaves every day open.
+  // Which days can still be answered. A day that cannot is shown all the same,
+  // struck through and dead, with [disabledTooltip] saying why: a chip that is
+  // missing is a question nobody can ask about, while a dead one is an answer
+  // with a reason. Null leaves every day open.
   final bool Function(DateTime day)? isEnabled;
 
   final String Function(DateTime day)? disabledTooltip;

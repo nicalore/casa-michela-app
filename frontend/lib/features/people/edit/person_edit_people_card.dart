@@ -47,7 +47,7 @@ class PersonEditPeopleCard extends StatefulWidget
 {
   final List<PersonItem> people;
 
-  /// Chi è scelto, con la sua autorizzazione al ritiro.
+  // Chi è scelto, con la sua autorizzazione al ritiro.
   final Map<String, ParentalRelationshipDraft> selected;
 
   // The name of the person being edited: needed by the pickup question, which

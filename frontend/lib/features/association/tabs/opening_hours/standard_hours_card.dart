@@ -23,13 +23,13 @@ const String _closedLabel = 'Chiuso';
 // labels, spread evenly across the full width of the card.
 class StandardHoursCard extends StatelessWidget
 {
-  /// A day holds at most a morning, an afternoon and an evening band, and the
-  /// card is pinned to a height that clears exactly those three.
+  // A day holds at most a morning, an afternoon and an evening band, and the
+  // card is pinned to a height that clears exactly those three.
   static const int _maxBandsPerDay = 3;
 
   static const double _bandGap = 6;
 
-  /// Weekday (1-7) to the bands in force on the next occurrence of that day.
+  // Weekday (1-7) to the bands in force on the next occurrence of that day.
   final Map<int, List<OpeningDayItem>> scheduleByWeekday;
   final bool isLoading;
 
@@ -207,9 +207,9 @@ class StandardHoursCard extends StatelessWidget
     );
   }
 
-  /// The day's opening bands, earliest first — so they read morning, afternoon,
-  /// evening down the column. Capped at the three the card is sized for: a
-  /// fourth band on one day would push that column past the pinned height.
+  // The day's opening bands, earliest first — so they read morning, afternoon,
+  // evening down the column. Capped at the three the card is sized for: a
+  // fourth band on one day would push that column past the pinned height.
   List<OpeningDayItem> _bandsFor(int weekday)
   {
     final bands = (scheduleByWeekday[weekday] ?? const <OpeningDayItem>[])

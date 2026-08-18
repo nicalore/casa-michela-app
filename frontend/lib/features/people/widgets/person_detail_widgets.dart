@@ -43,11 +43,11 @@ const double kPersonFieldButtonInset =
 const double kPersonDialogButtonHeight = 52;
 const double kPersonDialogButtonFontSize = 14;
 
-/// Placeholder shown wherever a value is missing.
+// Placeholder shown wherever a value is missing.
 const String missingValue = '-';
 
-/// Trims and falls back to [missingValue], so a field made of spaces reads as
-/// absent rather than blank.
+// Trims and falls back to [missingValue], so a field made of spaces reads as
+// absent rather than blank.
 String orDash(String? value)
 {
   final trimmed = value?.trim();
@@ -55,14 +55,14 @@ String orDash(String? value)
   return trimmed == null || trimmed.isEmpty ? missingValue : trimmed;
 }
 
-/// One label and value pair inside a [PersonDetailCard].
+// One label and value pair inside a [PersonDetailCard].
 class DetailRowData
 {
   final String label;
   final String value;
 
-  /// Renders the value masked with a reveal toggle. Used for the fields that
-  /// should not be readable by anyone glancing at the screen.
+  // Renders the value masked with a reveal toggle. Used for the fields that
+  // should not be readable by anyone glancing at the screen.
   final bool isSensitive;
 
   const DetailRowData(this.label, this.value, {this.isSensitive = false});
@@ -120,19 +120,19 @@ class PersonDetailCardPair extends StatelessWidget
   }
 }
 
-/// A card of the person's own values: the badge and heading of every card in the
-/// app, and a column of label and value pairs under the rule.
+// A card of the person's own values: the badge and heading of every card in the
+// app, and a column of label and value pairs under the rule.
 class PersonDetailCard extends StatelessWidget
 {
   final String title;
   final IconData icon;
 
-  /// A null entry renders as an invisible row: it pads the shorter card so the
-  /// visible rows of two cards side by side stay on the same lines.
+  // A null entry renders as an invisible row: it pads the shorter card so the
+  // visible rows of two cards side by side stay on the same lines.
   final List<DetailRowData?> rows;
 
-  /// Width of the label column. Cards with long labels need more room, and the
-  /// two halves of a pair usually differ.
+  // Width of the label column. Cards with long labels need more room, and the
+  // two halves of a pair usually differ.
   final double labelWidth;
 
   const PersonDetailCard({
@@ -270,27 +270,27 @@ class _ObscurableDetailRowState extends State<_ObscurableDetailRow>
   }
 }
 
-/// One of the facts across a card: what it is over what it says.
+// One of the facts across a card: what it is over what it says.
 class PersonFact
 {
   final String label;
   final String value;
 
-  /// Share of the row this one takes. The facts of a card are not the same size
-  /// of thing: the name of a school or of a study programme runs to a line of
-  /// text, while a class is a roman numeral and a repeated year is yes or no.
-  /// Given the row in equal parts, the names wrap to three lines beside columns
-  /// of white.
+  // Share of the row this one takes. The facts of a card are not the same size
+  // of thing: the name of a school or of a study programme runs to a line of
+  // text, while a class is a roman numeral and a repeated year is yes or no.
+  // Given the row in equal parts, the names wrap to three lines beside columns
+  // of white.
   final int flex;
 
-  /// Draws the value in the danger colour. For the one fact on these cards that
-  /// is worth stopping at — a school year repeated.
+  // Draws the value in the danger colour. For the one fact on these cards that
+  // is worth stopping at — a school year repeated.
   final bool highlight;
 
   const PersonFact(this.label, this.value, {this.flex = 1, this.highlight = false});
 
-  /// Under this the column stops being readable, whatever share it was given.
-  /// Wider facts need more of it, which is the whole reason they are wider.
+  // Under this the column stops being readable, whatever share it was given.
+  // Wider facts need more of it, which is the whole reason they are wider.
   double get minWidth => 90 + 30.0 * flex;
 }
 

@@ -17,7 +17,7 @@ class AppDialogFooter extends StatelessWidget
   // between them came out five hundred wide apiece — a button the size of a
   // paragraph. Under it they still split what there is, which is what the
   // narrow windows have always done.
-  static const double _maxWidth = 520;
+  static const double defaultWidth = 520;
 
   static const double _gap = 16;
 
@@ -25,20 +25,31 @@ class AppDialogFooter extends StatelessWidget
   // one answer and the foot of a window with two are plainly the same foot. Let
   // out to the full width, a lone button reads as a banner across the bottom of
   // the window rather than as the thing you press.
-  static const double _singleWidth = (_maxWidth - _gap) / 2;
+  static double _halfOf(double width) => (width - _gap) / 2;
 
   // Absent on a foot with a single button: see the class comment.
   final Widget? secondary;
 
   final Widget primary;
 
+  // What the pair may grow to before they stop sharing the window. The default
+  // is what two answers to a question want, and it is a word each.
+  //
+  // A window whose command is a sentence rather than a word says so and is
+  // given the room: at the default, "RIMUOVI DAL CALENDARIO" is written over
+  // two lines, and a button that takes two lines to name one action reads as
+  // two of them. Passed to the single foot as well, so that the two states of
+  // one window keep the same foot — see [_halfOf].
+  final double maxWidth;
+
   const AppDialogFooter({
     super.key,
     required Widget this.secondary,
     required this.primary,
+    this.maxWidth = defaultWidth,
   });
 
-  const AppDialogFooter.single(this.primary, {super.key}) : secondary = null;
+  const AppDialogFooter.single(this.primary, {super.key, this.maxWidth = defaultWidth}) : secondary = null;
 
   @override
   Widget build(BuildContext context)
@@ -49,7 +60,7 @@ class AppDialogFooter extends StatelessWidget
     {
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _singleWidth),
+          constraints: BoxConstraints(maxWidth: _halfOf(maxWidth)),
           // The buttons fill whatever they are given, and this is what gives
           // them the whole of it: without it the button is only as wide as its
           // own label, and the foot of the window would change width with the
@@ -61,7 +72,7 @@ class AppDialogFooter extends StatelessWidget
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _maxWidth),
+        constraints: BoxConstraints(maxWidth: maxWidth),
         child: Row(
           children: [
             Expanded(child: secondary),

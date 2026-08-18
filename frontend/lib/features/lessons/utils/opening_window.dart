@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/time_bucket.dart';
@@ -35,11 +37,11 @@ class OpeningWindow
   }
 }
 
-/// The association's opening on that day, in that band, in that mode, or null
-/// where it is shut. Rows with no hours are closures and never produce one.
-///
-/// A row is taken as belonging to the band its start falls in, which is how the
-/// association's own table reads them.
+// The association's opening on that day, in that band, in that mode, or null
+// where it is shut. Rows with no hours are closures and never produce one.
+//
+// A row is taken as belonging to the band its start falls in, which is how the
+// association's own table reads them.
 OpeningWindow? openingWindowFor(
   List<OpeningDayItem> openingDays,
   DateTime day,
@@ -47,8 +49,8 @@ OpeningWindow? openingWindowFor(
   TimeBucket bucket,
 )
 {
-  var start = -1;
-  var end = -1;
+  int? start;
+  int? end;
 
   for (final row in openingDays)
   {
@@ -68,21 +70,14 @@ OpeningWindow? openingWindowFor(
     // More than one row in a band is not what the association's editor writes,
     // but nothing stops the calendar from holding it: the widest of them is the
     // honest answer to "when could a teacher be here".
-    final startMinutes = minutesOfTimeOfDay(rowStart);
-    final endMinutes = minutesOfTimeOfDay(rowEnd);
+    final rowStartMinutes = minutesOfTimeOfDay(rowStart);
+    final rowEndMinutes = minutesOfTimeOfDay(rowEnd);
 
-    if (start < 0 || startMinutes < start)
-    {
-      start = startMinutes;
-    }
-
-    if (endMinutes > end)
-    {
-      end = endMinutes;
-    }
+    start = start == null ? rowStartMinutes : min(start, rowStartMinutes);
+    end = end == null ? rowEndMinutes : max(end, rowEndMinutes);
   }
 
-  if (start < 0)
+  if (start == null || end == null)
   {
     return null;
   }
@@ -90,9 +85,9 @@ OpeningWindow? openingWindowFor(
   return OpeningWindow(startMinutes: start, endMinutes: end);
 }
 
-/// The opening shared by every one of those days: a teacher offering the same
-/// hours on three days can only offer what all three have open. Null as soon as
-/// one of them is shut in that band, or where the openings do not overlap.
+// The opening shared by every one of those days: a teacher offering the same
+// hours on three days can only offer what all three have open. Null as soon as
+// one of them is shut in that band, or where the openings do not overlap.
 OpeningWindow? sharedOpeningWindow(
   List<OpeningDayItem> openingDays,
   Iterable<DateTime> days,
@@ -100,8 +95,8 @@ OpeningWindow? sharedOpeningWindow(
   TimeBucket bucket,
 )
 {
-  var start = -1;
-  var end = -1;
+  int? start;
+  int? end;
 
   for (final day in days)
   {
@@ -112,11 +107,11 @@ OpeningWindow? sharedOpeningWindow(
       return null;
     }
 
-    start = start < 0 ? window.startMinutes : (window.startMinutes > start ? window.startMinutes : start);
-    end = end < 0 ? window.endMinutes : (window.endMinutes < end ? window.endMinutes : end);
+    start = start == null ? window.startMinutes : max(start, window.startMinutes);
+    end = end == null ? window.endMinutes : min(end, window.endMinutes);
   }
 
-  if (start < 0 || end - start < kQuarterHour)
+  if (start == null || end == null || end - start < kQuarterHour)
   {
     return null;
   }
@@ -124,7 +119,35 @@ OpeningWindow? sharedOpeningWindow(
   return OpeningWindow(startMinutes: start, endMinutes: end);
 }
 
-/// Whether the association opens at all on that day in that mode.
+// The opening of that band whichever way the association is open.
+//
+// Union and not intersection, and it is the calendar that needs it: the two
+// modes have opening rows of their own — the building from two, the screens
+// from three — and a timeline drawn on what they have in common would leave
+// out the hour a teacher can legitimately be booked in one of them.
+OpeningWindow? unionOpeningWindow(
+  List<OpeningDayItem> openingDays,
+  DateTime day,
+  TimeBucket bucket,
+)
+{
+  final windows = [
+    openingWindowFor(openingDays, day, kPresenceMode, bucket),
+    openingWindowFor(openingDays, day, kOnlineMode, bucket),
+  ].nonNulls.toList();
+
+  if (windows.isEmpty)
+  {
+    return null;
+  }
+
+  return OpeningWindow(
+    startMinutes: windows.map((window) => window.startMinutes).reduce(min),
+    endMinutes: windows.map((window) => window.endMinutes).reduce(max),
+  );
+}
+
+// Whether the association opens at all on that day in that mode.
 bool isOpenOn(List<OpeningDayItem> openingDays, DateTime day, String mode)
 {
   return TimeBucket.values.any((bucket) => openingWindowFor(openingDays, day, mode, bucket) != null);

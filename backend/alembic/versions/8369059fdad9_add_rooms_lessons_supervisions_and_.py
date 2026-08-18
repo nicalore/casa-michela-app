@@ -1,7 +1,7 @@
-"""aggiunge stanze, lezioni, presidi e pubblicazioni del calendario
+"""aggiunge stanze, lezioni, responsabili e pubblicazioni del calendario
 
 Il calendario di una giornata: le lezioni, la stanza in cui ogni docente
-convocato lavora, chi presidia quella stanza e quali fasce sono state
+convocato lavora, chi risponde di quella stanza e quali fasce sono state
 pubblicate.
 
 Le chiavi esterne che reggono una lezione sono in RESTRICT e non in CASCADE,

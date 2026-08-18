@@ -24,7 +24,7 @@ class MembershipItem
     required this.revocation,
   });
 
-  /// Espulsa o dimessa.
+  // Espulsa o dimessa.
   bool get isRevoked => revocation != revocationNone;
 
   factory MembershipItem.fromJson(Map<String, dynamic> json)

@@ -32,17 +32,17 @@ class AvailabilityGroup
 
   int get startMinutes => first.startTime.hour * 60 + first.startTime.minute;
 
-  /// The stretches offered one way, in the order of the day. Empty where the
-  /// teacher did not offer that way at all.
+  // The stretches offered one way, in the order of the day. Empty where the
+  // teacher did not offer that way at all.
   List<AvailabilityItem> slotsFor(String mode)
   {
     return slots.where((slot) => slot.mode == mode).toList();
   }
 }
 
-/// The rows gathered by teacher and day, each group's slots in the order of the
-/// day. The groups themselves come out in no particular order: the tab sorts
-/// them by whatever it is showing them for.
+// The rows gathered by teacher and day, each group's slots in the order of the
+// day. The groups themselves come out in no particular order: the tab sorts
+// them by whatever it is showing them for.
 List<AvailabilityGroup> groupAvailabilities(List<AvailabilityItem> availabilities)
 {
   final byKey = <String, List<AvailabilityItem>>{};
@@ -71,8 +71,8 @@ List<AvailabilityGroup> groupAvailabilities(List<AvailabilityItem> availabilitie
   }).toList();
 }
 
-/// Whether the teacher already stands on that day in that mode, whatever hours
-/// they gave.
+// Whether the teacher already stands on that day in that mode, whatever hours
+// they gave.
 bool hasAvailabilityOn(
   List<AvailabilityItem> availabilities,
   String teacherTaxCode,

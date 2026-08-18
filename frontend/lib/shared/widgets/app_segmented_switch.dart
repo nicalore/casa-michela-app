@@ -8,12 +8,12 @@ import 'app_segmented_tabs.dart';
 const double _height = 36;
 const double _fontSize = 13;
 
-/// Two words and a pill that slides between them.
-///
-/// It is [AppSegmentedTabs] with two segments and a yes-or-no where the index
-/// would be: the same ground, the same pill, the same slide. Written twice they
-/// would drift apart, and a switch that answers differently from the row of
-/// tabs above it reads as two controls rather than one idea.
+// Two words and a pill that slides between them.
+//
+// It is [AppSegmentedTabs] with two segments and a yes-or-no where the index
+// would be: the same ground, the same pill, the same slide. Written twice they
+// would drift apart, and a switch that answers differently from the row of
+// tabs above it reads as two controls rather than one idea.
 class AppSegmentedSwitch extends StatelessWidget
 {
   final bool value;
@@ -24,9 +24,9 @@ class AppSegmentedSwitch extends StatelessWidget
   final String trueLabel;
   final String falseLabel;
 
-  /// See [AppSegmentedTabs.hugContent]. Set where the switch is the whole
-  /// answer of a piece and has to sit in the middle of it rather than at the
-  /// left end of a row it does not need.
+  // See [AppSegmentedTabs.hugContent]. Set where the switch is the whole
+  // answer of a piece and has to sit in the middle of it rather than at the
+  // left end of a row it does not need.
   final bool hugContent;
 
   const AppSegmentedSwitch({

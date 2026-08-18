@@ -40,13 +40,10 @@ def calendar_horizon(today: date) -> date:
     return date(year, 12, 31)
 
 
-# Whether the calendar fails to reach today in at least one mode, which is the
-# state a database that has never been generated is in: the migrations create
-# the tables and seed weekly_templates, they materialise no opening_day at all.
-#
-# A calendar whose last day is already behind us is the same case: it stopped
-# being a calendar, and everything bounded by "the last materialised date" —
-# which is every propagation of the standard hours — silently does nothing.
+# Whether the calendar fails to reach today in at least one mode, which is what
+# a never-generated database looks like: the migrations seed weekly_templates
+# and materialise no opening_day at all. A calendar whose last day is behind us
+# is the same case — every propagation is bounded by that date.
 async def _needs_bootstrap(repository: OpeningDayRepository, today: date) -> bool:
     for mode in _MODES:
         last_generated = await repository.last_generated_date(mode)
@@ -57,16 +54,13 @@ async def _needs_bootstrap(repository: OpeningDayRepository, today: date) -> boo
     return False
 
 
-# Generates from today to the horizon when the calendar does not reach today,
-# exactly as the one-off run of scripts/generate_opening_days does — holidays
-# included, and skipping whatever is already materialised. Returns None when
+# Generates from today to the horizon exactly as scripts/generate_opening_days
+# does, holidays included, skipping what is already materialised. None where
 # there was nothing to do.
 #
-# The generation stays script-only for the yearly run: this is not a second way
-# of producing the calendar, it is the guarantee that a fresh environment has
-# one at all. Without it the association's hours can be saved from the UI, be
-# reported as saved, and reach no day of the calendar, since propagation is
-# bounded by the last materialised date and there is none.
+# Not a second way of producing the calendar but the guarantee that a fresh
+# environment has one: without it the hours can be saved, be reported as saved,
+# and reach no day at all.
 async def bootstrap_calendar(session: AsyncSession) -> GenerationResult | None:
     opening_days = OpeningDayRepository(session)
     today = today_in_rome()
@@ -89,12 +83,10 @@ async def _bound_waiting(session: AsyncSession) -> None:
     await session.execute(text(f"SET statement_timeout = '{_STATEMENT_TIMEOUT}'"))
 
 
-# Startup hook. A calendar that could not be written is a degraded app, not a
-# dead one: the failure is logged and the API serves regardless, because a
-# calendar is one feature and refusing to start takes down all of them.
-#
-# Run detached by the lifespan for the same reason, so nothing about the
-# database — unreachable, locked, slow — can keep the port from opening.
+# Startup hook. A calendar that could not be written is a degraded app and not a
+# dead one, so the failure is logged and the API serves regardless. Run detached
+# by the lifespan for the same reason: nothing about the database can keep the
+# port from opening.
 async def bootstrap_calendar_on_startup() -> None:
     try:
         async with AsyncSessionLocal() as session:

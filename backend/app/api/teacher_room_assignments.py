@@ -127,6 +127,6 @@ async def unassign_room(
     detail = "Assegnazione rimossa"
 
     if shifts:
-        detail = f"{detail} insieme a {shifts} turni di presidio"
+        detail = f"{detail} insieme a {shifts} turni da responsabile"
 
     return {"detail": detail}

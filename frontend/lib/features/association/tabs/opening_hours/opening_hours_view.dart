@@ -47,13 +47,13 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
 {
   static const int _scheduleLookbackDays = 27;
 
-  /// How far ahead a variation counts as upcoming.
+  // How far ahead a variation counts as upcoming.
   static const int _variationsWindowDays = 60;
 
-  /// Fetched past the window's end on purpose: a variation can start inside the
-  /// sixty days and run beyond them, and cutting the rows at the boundary would
-  /// show it ending there. The card drops the groups that start too late, after
-  /// it has read each run whole.
+  // Fetched past the window's end on purpose: a variation can start inside the
+  // sixty days and run beyond them, and cutting the rows at the boundary would
+  // show it ending there. The card drops the groups that start too late, after
+  // it has read each run whole.
   static const int _variationsFetchDays = _variationsWindowDays + 90;
 
   final ApiService _apiService = ApiService();
@@ -62,8 +62,8 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
   bool _isLoadingWeek = true;
   List<OpeningDayItem> _weekOpeningDays = [];
 
-  /// Bumped on every fetch, so an answer that is no longer the current one is
-  /// dropped instead of overwriting fresher data.
+  // Bumped on every fetch, so an answer that is no longer the current one is
+  // dropped instead of overwriting fresher data.
   int _weekRequestId = 0;
   int _variationsRequestId = 0;
 
@@ -74,8 +74,8 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
   bool _isLoadingVariations = true;
   List<OpeningDayItem> _upcomingVariations = [];
 
-  /// Kept beside the data rather than recomputed in build, so the window the
-  /// card filters on is the same one the rows were fetched for.
+  // Kept beside the data rather than recomputed in build, so the window the
+  // card filters on is the same one the rows were fetched for.
   late DateTime _variationsWindowEnd;
 
   // Derived from the same fetch: the hours in force per weekday right now.
@@ -179,14 +179,14 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
     }
   }
 
-  /// The hours in force per weekday as of today, read off the generated
-  /// calendar rather than the templates.
-  ///
-  /// Bounded to the week ahead: a change dated months from now is already in
-  /// the calendar, but it is not today's schedule and must not be shown as
-  /// such. Within that bound it takes the LATEST non-override occurrence of
-  /// each weekday, so the most recent state wins and a holiday on the upcoming
-  /// Monday falls back to the Monday before rather than reading as closed.
+  // The hours in force per weekday as of today, read off the generated
+  // calendar rather than the templates.
+  //
+  // Bounded to the week ahead: a change dated months from now is already in
+  // the calendar, but it is not today's schedule and must not be shown as
+  // such. Within that bound it takes the LATEST non-override occurrence of
+  // each weekday, so the most recent state wins and a holiday on the upcoming
+  // Monday falls back to the Monday before rather than reading as closed.
   Map<int, List<OpeningDayItem>> _deriveCurrentSchedule(List<OpeningDayItem> days, DateTime today)
   {
     final horizon = addDays(today, 6);
@@ -356,7 +356,7 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
             child: Text(
               group.isSingleDay
                   ? 'La variazione di ${group.dateLabel.toLowerCase()} verrà eliminata e il giorno tornerà all\'orario standard.'
-                  : 'La variazione "${group.dateLabel.toLowerCase()}" verrà eliminata e quei giorni torneranno all\'orario standard.',
+                  : 'La variazione "${group.dateLabel.toLowerCase()}" verrà eliminata e i giorni torneranno all\'orario standard.',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -411,11 +411,11 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
     await _reloadAll();
   }
 
-  /// Both fetches, with the cards showing they are reloading meanwhile.
-  ///
-  /// Awaited rather than fired and forgotten: the dialogs close on the back of
-  /// this, and popping while the answers were still in flight left the old
-  /// hours on screen for a beat — which reads as the save not having taken.
+  // Both fetches, with the cards showing they are reloading meanwhile.
+  //
+  // Awaited rather than fired and forgotten: the dialogs close on the back of
+  // this, and popping while the answers were still in flight left the old
+  // hours on screen for a beat — which reads as the save not having taken.
   Future<void> _reloadAll() async
   {
     setState(()

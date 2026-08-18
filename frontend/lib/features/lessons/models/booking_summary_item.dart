@@ -52,8 +52,8 @@ class BookingSummaryItem
     required this.updatedAt,
   });
 
-  /// The disciplines this hour is spent on, whichever way it was asked for. A
-  /// service is spent on none: it is not a lesson about a subject.
+  // The disciplines this hour is spent on, whichever way it was asked for. A
+  // service is spent on none: it is not a lesson about a subject.
   Set<int> get disciplineIds => switch (kind)
   {
     BookingRequestKind.ministrySubject =>

@@ -35,16 +35,16 @@ class PresenceGroup
 
   int get startMinutes => first.startTime.hour * 60 + first.startTime.minute;
 
-  /// The stretches given one way, in the order of the day. Empty where the
-  /// pupil did not ask for that way at all.
+  // The stretches given one way, in the order of the day. Empty where the
+  // pupil did not ask for that way at all.
   List<PresenceItem> slotsFor(String mode)
   {
     return slots.where((slot) => slot.mode == mode).toList();
   }
 
-  /// And what was asked for inside them. A subject hangs off one of the
-  /// stretches of its mode; which one is the timetable's business, not the
-  /// reader's, so they are gathered.
+  // And what was asked for inside them. A subject hangs off one of the
+  // stretches of its mode; which one is the timetable's business, not the
+  // reader's, so they are gathered.
   List<BookingSummaryItem> requestsFor(String mode)
   {
     return [
@@ -64,12 +64,12 @@ class PresenceGroup
     return minutes;
   }
 
-  /// The same reckoning, discipline by discipline: an hour covering three of
-  /// them is an hour of each and not a third apiece, because what it spends of
-  /// a discipline is the whole lesson.
-  ///
-  /// [skip] leaves one row out — the one being rewritten in a window that counts
-  /// its own duration itself. A service is on no discipline and adds to none.
+  // The same reckoning, discipline by discipline: an hour covering three of
+  // them is an hour of each and not a third apiece, because what it spends of
+  // a discipline is the whole lesson.
+  //
+  // [skip] leaves one row out — the one being rewritten in a window that counts
+  // its own duration itself. A service is on no discipline and adds to none.
   Map<int, int> minutesByDiscipline(String mode, {BookingSummaryItem? skip})
   {
     final minutes = <int, int>{};
@@ -106,9 +106,9 @@ class PresenceGroup
   }
 }
 
-/// The rows gathered by pupil and day, each group's slots in the order of the
-/// day. The groups themselves come out in no particular order: the tab sorts
-/// them by whatever it is showing them for.
+// The rows gathered by pupil and day, each group's slots in the order of the
+// day. The groups themselves come out in no particular order: the tab sorts
+// them by whatever it is showing them for.
 List<PresenceGroup> groupPresences(List<PresenceItem> presences)
 {
   final byKey = <String, List<PresenceItem>>{};
@@ -138,8 +138,8 @@ List<PresenceGroup> groupPresences(List<PresenceItem> presences)
   }).toList();
 }
 
-/// Whether the pupil already asked for that day in that mode, whatever hours
-/// they gave.
+// Whether the pupil already asked for that day in that mode, whatever hours
+// they gave.
 bool hasPresenceOn(
   List<PresenceItem> presences,
   String studentTaxCode,

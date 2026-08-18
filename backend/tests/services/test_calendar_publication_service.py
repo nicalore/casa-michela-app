@@ -253,7 +253,7 @@ async def test_a_gap_in_the_cover_stops_publication(db: AsyncSession) -> None:
         await publications(db).publish(await admin(db), AFTERNOON)
 
     assert error.value.status_code == 400
-    assert "non è presidiata" in error.value.detail
+    assert "non ha un responsabile" in error.value.detail
 
 
 # Capacity is optional, so going over it is said and not enforced.

@@ -6,13 +6,9 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import 'page_transition.dart';
 
-// The head of a list page: the field that shortens the list, and the one button
-// that adds to it.
-//
-// Side by side while there is room for both. Below the breakpoint they stack,
-// and the button takes the full width rather than keeping its natural one: a
-// row where the field has been squeezed to its icon so that a button can keep
-// its label is a row that has decided the wrong thing matters.
+// The head of a list page: what shortens the list, and the button that adds to
+// it. Below the breakpoint they stack and the button goes full width, rather
+// than squeezing the field to its icon so the button can keep its label.
 class TabHeaderRow extends StatelessWidget
 {
   static const double _gap = 24;
@@ -57,13 +53,10 @@ class TabHeaderRow extends StatelessWidget
   }
 }
 
-// The body of a list page: what shortens the list, and then the list.
-//
-// On a wide window the head of the page is pinned and only the cards scroll
-// under it. On a narrow one everything scrolls together: stacked, the search
-// field, the button, the filters and the count come to some three hundred
-// pixels, and pinning all of that to the top of a phone leaves the cards a
-// third of the screen to live in.
+// The body of a list page. On a wide window the head is pinned and only the
+// cards scroll; on a narrow one everything scrolls together, since stacked the
+// head is some three hundred pixels and would leave a phone a third of its
+// screen for the cards.
 class TabContent extends StatelessWidget
 {
   final List<Widget> header;
@@ -111,17 +104,12 @@ class TabContent extends StatelessWidget
   }
 }
 
-// The cards of a list page, at the size they were drawn.
+// The cards of a list page, at the size they were drawn: 360 on every window
+// that can hold one. Sharing the leftover between columns bought a third card at
+// 913px and cost every card its proportions.
 //
-// Three hundred and sixty wide is the card, and it stays that on every window
-// that can hold one: filling the row instead — as many columns as fit, the
-// leftover shared between them — bought a third card at 913px of content and
-// cost every card its proportions, which is a bad trade now that the whole page
-// scrolls and a row with air on its right is not a row with something missing.
-//
-// The one exception is a window narrower than a single card. There it takes the
-// width there is, because 360 of card on a 343 screen is not a fixed size, it is
-// seventeen pixels of card hanging off the side of the phone.
+// The exception is a window narrower than one card, where 360 is not a fixed
+// size but seventeen pixels hanging off the side of the phone.
 class EntityCardGrid extends StatelessWidget
 {
   static const double preferredWidth = 360;
@@ -146,15 +134,9 @@ class EntityCardGrid extends StatelessWidget
         // one without every card widget having to be told about the window.
         final width = widthFor(constraints.maxWidth);
 
-        // The whole width of the page, taken on purpose.
-        //
-        // A Wrap left to itself is only as wide as its widest row, and the page
-        // hands it a loose width — the head of a list page is a column aligned
-        // to the start, so nothing below it is stretched. Centred inside its own
-        // width, the block of cards was being centred inside itself, which is to
-        // say not at all: two columns of cards sat against the left edge with a
-        // third column of empty paper beside them, and the wider the window the
-        // more of it there was.
+        // The whole width of the page, on purpose: a Wrap is only as wide as
+        // its widest row and the page hands it a loose width, so centring it
+        // centred the cards inside themselves — which is to say not at all.
         return SizedBox(
           width: constraints.maxWidth,
           child: Wrap(
@@ -180,13 +162,9 @@ class EntityCardGrid extends StatelessWidget
   }
 }
 
-// The rule of the filter row: what is left of it arranges the list, what is
-// right of it shortens it.
-//
-// It only says that along a row. Once the pills have stacked, one below the
-// next, a line between two of them divides nothing from nothing — so on a
-// narrow window it steps out rather than sitting at the end of a row as a
-// stray mark.
+// Left of it arranges the list, right of it shortens it. Only along a row:
+// once the pills have stacked it divides nothing from nothing, so it steps out
+// rather than sitting at the end of a row as a stray mark.
 class FilterGroupDivider extends StatelessWidget
 {
   const FilterGroupDivider({super.key});

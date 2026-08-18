@@ -562,14 +562,14 @@ class _TimeSlotLabel extends StatelessWidget
 
 class _RequestDetailsDialogContent extends StatefulWidget
 {
-  /// The day, listened to rather than copied: a subject written from in here
-  /// lands on the page, and the page hands it back through this.
+  // The day, listened to rather than copied: a subject written from in here
+  // lands on the page, and the page hands it back through this.
   final ValueListenable<PresenceGroup> group;
 
   final List<MinistrySubjectItem> ministrySubjects;
 
-  /// What the pupil's own programme teaches: what may be chosen, as against
-  /// what has to be named.
+  // What the pupil's own programme teaches: what may be chosen, as against
+  // what has to be named.
   final List<MinistrySubjectItem> offeredSubjects;
 
   final List<PersonItem> teachers;
@@ -577,7 +577,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
-  /// Null where the subject is a new one being written.
+  // Null where the subject is a new one being written.
   final Future<bool> Function(BookingSummaryItem existing, SubjectRequestDraft draft) onSaveSubject;
   final void Function(String mode, BookingSummaryItem booking) onDeleteSubject;
 

@@ -30,15 +30,11 @@ const double _verticalPadding = 15;
 const double _pressedScale = 0.99;
 const double _pressedShift = 1;
 
-// The primary button of the app. At rest it is an outline: white, with the
-// accent on the border and on the letters. Under the pointer the brand ramp
-// floods it from the left, taking the letters white as it passes over them, and
-// drains back the same way when the pointer leaves.
+// The primary button. At rest an outline; under the pointer the brand ramp
+// floods it from the left, taking the letters white as it passes.
 //
-// It carries the one action a page is really about — changing the password in
-// the settings, backing out of the role dialog — so it is the loudest thing a
-// surface is allowed to put on itself, and there should never be two of them
-// competing on one screen.
+// It carries the one action a page is really about, so it is the loudest thing
+// a surface may put on itself and there should never be two on one screen.
 class AppGradientButton extends StatefulWidget
 {
   final String label;
@@ -160,11 +156,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
           Icon(widget.icon, size: glyphSize, color: contentColor),
           const SizedBox(width: 8),
         ],
-        // Flexible and free to take a second line. A label is what the button
-        // is for, so it is never cut short: "CHIUSURA/APERTURA STRAORDINARIA"
-        // wants some 325 pixels and a phone gives the button 264, and the honest
-        // answer there is two lines rather than an ellipsis in the middle of the
-        // word that says what will happen.
+        // Free to take a second line: a label is what the button is for, and
+        // the longest of them wants 325 pixels where a phone gives 264.
         Flexible(
           child: Text(
             widget.label,
@@ -192,11 +185,9 @@ class _AppGradientButtonState extends State<AppGradientButton>
     final Widget fill = Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(gradient: widget.gradient),
-      // The same inset the accent face below is given. Without it the white
-      // copy had the whole button to itself while the accent one had the
-      // padding taken off it, so a long label came out ellipsised at rest and
-      // whole under the fill — the word appearing to grow as the wave crossed
-      // it.
+      // The same inset the accent face gets: without it a long label was
+      // ellipsised at rest and whole under the fill, so the word appeared to
+      // grow as the wave crossed it.
       padding: EdgeInsets.symmetric(
         horizontal: widget.horizontalPadding,
         vertical: widget.height == null ? _verticalPadding : 0,
@@ -208,19 +199,13 @@ class _AppGradientButtonState extends State<AppGradientButton>
       child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
 
-    // The sweep has to run past the right edge, not stop on it: with the wave
-    // ending exactly at t the last stretch of the button was still under the
-    // fade when t reached 1, and the unmasked fill took over in a single frame
-    // — the jump at the end of the flood.
+    // The sweep runs past the right edge rather than stopping on it: with the
+    // wave ending exactly at t, the last stretch was still under the fade when
+    // t reached 1 and the unmasked fill took over in one frame.
     //
-    // So the leading edge is carried a feather's width further, and it is the
-    // solid front behind it that has to arrive at the same moment t does.
-    // Clamping that edge to the right-hand side is what stopped it: from
-    // t = 0.86 onwards the edge sat on 1 and the front froze at 0.84, so the
-    // last sixth of the button stayed under a fade that no longer moved —
-    // half the flood, easeOutCubic being slowest at that end — and then turned
-    // solid in one frame. Unclamped, the front keeps moving to the last frame
-    // and there is nothing left to pop.
+    // So the leading edge is carried a feather further and left unclamped: held
+    // to the right-hand side it froze the solid front at 0.84 for the last sixth
+    // of the flood, which then turned solid in a single frame.
     final double edge = t * (1 + _feather);
     final double solid = edge - _feather;
 
@@ -293,19 +278,14 @@ class _AppGradientButtonState extends State<AppGradientButton>
                       ),
                     ],
                   ),
-                  // The label is the only child that counts for layout, so a
-                  // button left to itself comes out the size of its own word.
+                  // The label is the only child that counts for layout.
                   //
-                  // The fill goes over it, not under: it carries its own copy of
-                  // the word in white, and covering the accent one as it travels
-                  // is exactly what makes the letters look like they are turning
-                  // white under the wave. Underneath, the dark letters would
-                  // stay on top of the ramp and nothing would ever turn.
+                  // The fill goes over it and not under, carrying its own copy
+                  // of the word in white: underneath, the dark letters would
+                  // stay on top of the ramp and nothing would turn.
                   //
-                  // It needs no inset of its own either. A Container with a
-                  // border already lays its child inside that border, so the
-                  // fill starts where the outline ends; padding it again is what
-                  // left a white ring between the two.
+                  // No inset of its own — a Container with a border already lays
+                  // its child inside it, and padding again left a white ring.
                   child: Stack(
                     alignment: Alignment.center,
                     children: [

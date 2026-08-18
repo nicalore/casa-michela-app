@@ -9,8 +9,8 @@ class AnimatedActionButton extends StatefulWidget
   final Color hoverColor;
   final VoidCallback onPressed;
 
-  /// 56 suits a dialog footer; page-level actions sit at 50, matching the
-  /// search bar and the "Nuova …" buttons.
+  // 56 suits a dialog footer; page-level actions sit at 50, matching the
+  // search bar and the "Nuova …" buttons.
   final double height;
 
   const AnimatedActionButton({

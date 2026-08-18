@@ -53,7 +53,7 @@ class DashboardStatsSection extends StatelessWidget
   // tall it would be.
   final int columns;
 
-  /// Passati alla card: quanto è alta almeno e se il contenuto riempie.
+  // Passati alla card: quanto è alta almeno e se il contenuto riempie.
   final double minHeight;
   final bool fill;
 

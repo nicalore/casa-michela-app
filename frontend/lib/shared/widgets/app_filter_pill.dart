@@ -29,28 +29,21 @@ const double _clearDisc = _clearIcon + 2 * _clearDiscPadding;
 // Air between the chevron and the disc.
 const double _clearGap = 8;
 
-// How much bigger the disc gets under the pointer, and the room that growth is
-// given on either side of it.
-//
-// A scale paints outside the box it was measured at, and this one is measured
-// inside the ClipRect that opens it sideways with the ground. Without the room
-// reserved here the disc grew straight into that clip and the cross came out
-// with its side shaved off — the one part of a pill whose whole job is to be
-// obviously pressable, and the only part of it that looked broken.
+// How much bigger the disc gets under the pointer, and the room reserved for
+// that growth: a scale paints outside the box it was measured at, and this one
+// sits inside a ClipRect that would shave the cross's side off.
 const double _clearGrowth = 1.12;
 const double _clearHoverRoom = _clearDisc * (_clearGrowth - 1) / 2;
 
 // How much of the pill the label may take when there is room for all of it.
 const double _labelMaxWidth = 210;
 
-// The label is the part of a pill that gives way. Flexible is what lets it: a
-// pill on a card too narrow to hold "Raggruppa per: Livello di istruzione" gives
-// up label rather than running off the card, and where there is room the limit
-// above is what it keeps.
+// The label is the part that gives way, so it is Flexible: a pill too narrow
+// for its words gives up label rather than running off the card.
 //
-// It has to be a flex rather than a measurement, because a card matched to
-// another card's height asks this whole subtree how tall it would be at a given
-// width, and a LayoutBuilder in here could not answer.
+// A flex and not a measurement: a card matched to another's height asks this
+// subtree how tall it would be at a given width, which a LayoutBuilder here
+// could not answer.
 Widget _pillLabel(Widget label)
 {
   return Flexible(
@@ -61,16 +54,11 @@ Widget _pillLabel(Widget label)
   );
 }
 
-// Two things wearing one shape, and they are not the same thing.
+// Two things wearing one shape. A setting always holds a value — a list is
+// always sorted somehow — so it can never be off and has nothing to clear.
 //
-// A setting always holds a value — a list is always sorted somehow — so it can
-// never be "off" and has nothing to clear. It shows what it is set to and stays
-// quiet about it.
-//
-// A filter starts off and, when set, is the reason the list in front of you is
-// shorter than the truth. That deserves to be the loudest thing in the row, so a
-// filter that is on fills with the brand ramp and carries the cross that turns
-// it off again.
+// A filter starts off and, when set, is why the list is shorter than the truth:
+// so one that is on fills with the brand ramp and carries a cross.
 enum _PillKind
 {
   setting,
@@ -339,11 +327,9 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
   }
 }
 
-// A filter whose choices are too many for a menu, so it opens a dialog of its
-// own and comes back with a count. It is the same pill as the others in every
-// visible respect — that is the point: the row must not look like it is made of
-// two different kinds of control just because one of them needs more room to ask
-// its question.
+// A filter whose choices are too many for a menu, so it opens a dialog and
+// comes back with a count. Visibly the same pill as the others, which is the
+// point: the row must not look like two kinds of control.
 class AppCountFilterPill extends StatefulWidget
 {
   final String label;
@@ -481,11 +467,9 @@ class _PillSurface extends StatelessWidget
     )!;
   }
 
-  // The white is written as a ramp of two whites rather than as a plain colour.
-  // It looks like a pointless way to say white, and it is the whole reason the
-  // pill can fill smoothly: a decoration carrying a colour and one carrying a
-  // gradient cannot be interpolated into each other, so a pill that swapped
-  // between the two had nothing to animate through and flashed on the way.
+  // A ramp of two whites and not a plain colour: a decoration carrying a colour
+  // and one carrying a gradient cannot be interpolated, so swapping between them
+  // had nothing to animate through and flashed.
   LinearGradient get _ground
   {
     return LinearGradient(
@@ -578,14 +562,9 @@ class _ClearButtonState extends State<_ClearButton>
         child: Tooltip(
           message: 'Rimuovi il filtro',
           waitDuration: const Duration(milliseconds: 400),
-          // The gap on one side and the room to grow on the other. The disc
-          // grows into the gap on the left, which is wider than it needs, so
-          // only the right has to be paid for.
-          //
-          // The gap is out here rather than inside the scale on purpose: scaled
-          // along with the disc it would drag the disc sideways as it grew, and
-          // what should read as a button swelling under the pointer read as one
-          // shifting away from it.
+          // The disc grows into the left gap, which is wider than it needs, so
+          // only the right is paid for. The gap is outside the scale: scaled
+          // with the disc it dragged it sideways as it grew.
           child: Padding(
             padding: const EdgeInsets.only(left: _clearGap, right: _clearHoverRoom),
             child: AnimatedScale(

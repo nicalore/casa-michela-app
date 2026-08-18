@@ -67,8 +67,8 @@ class ResponsiveDialogButtonsRow extends StatelessWidget
   final Widget secondaryButton;
   final Widget primaryButton;
 
-  /// Width of each button once stacked. Null stretches them to the full width,
-  /// which reads better inside a dialog that is already narrow.
+  // Width of each button once stacked. Null stretches them to the full width,
+  // which reads better inside a dialog that is already narrow.
   final double? stackedButtonWidth;
 
   const ResponsiveDialogButtonsRow({

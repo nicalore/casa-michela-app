@@ -724,8 +724,8 @@ class PersonEditForm
     }
   }
 
-  /// «Coinvolto nelle attività» o «Solo socio». Scegliere il secondo lascia
-  /// cadere i ruoli, come faceva il vecchio AVANTI del primo passaggio.
+  // «Coinvolto nelle attività» o «Solo socio». Scegliere il secondo lascia
+  // cadere i ruoli, come faceva il vecchio AVANTI del primo passaggio.
   void chooseInvolvement(int type)
   {
     involvementType = type;
@@ -738,7 +738,7 @@ class PersonEditForm
     normaliseAssociationAnswer();
   }
 
-  /// Spunta o toglie un ruolo, tenendo dietro le conseguenze.
+  // Spunta o toglie un ruolo, tenendo dietro le conseguenze.
   void toggleRole(String roleId, bool selected)
   {
     if (selected)

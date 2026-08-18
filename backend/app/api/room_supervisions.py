@@ -122,4 +122,4 @@ async def delete_supervision(
 ) -> dict[str, str]:
     await _service(db).delete(supervision_id)
 
-    return {"detail": "Turno di presidio eliminato"}
+    return {"detail": "Responsabilità eliminata"}

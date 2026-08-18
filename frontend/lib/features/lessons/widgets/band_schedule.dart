@@ -7,19 +7,19 @@ import '../../../shared/widgets/band_time_range_slider.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../utils/opening_window.dart';
 
-/// One stretch of hours inside one band, and the row it came from where it was
-/// already stored.
-///
-/// A stretch exists because it was given: there is no such thing as one with no
-/// hours on it. A band nobody answered is an empty list, not a draft holding
-/// two nulls.
+// One stretch of hours inside one band, and the row it came from where it was
+// already stored.
+//
+// A stretch exists because it was given: there is no such thing as one with no
+// hours on it. A band nobody answered is an empty list, not a draft holding
+// two nulls.
 class BandStretch<T>
 {
   TimeOfDay startTime;
   TimeOfDay endTime;
 
-  /// The stored row this stretch is, where it is one already. Null on a stretch
-  /// that has never been saved.
+  // The stored row this stretch is, where it is one already. Null on a stretch
+  // that has never been saved.
   T? existing;
 
   BandStretch({required this.startTime, required this.endTime, this.existing});
@@ -31,20 +31,20 @@ class BandStretch<T>
   int get minutes => endMinutes - startMinutes;
 }
 
-/// A day answered band by band: the three bands, each holding as many stretches
-/// of hours as were given for it.
-///
-/// It is what a teacher's availability in one mode is made of, and what a
-/// pupil's hours in one mode are made of. The two ask different questions —
-/// when can you teach, when are you here — and hold the answer the same way.
+// A day answered band by band: the three bands, each holding as many stretches
+// of hours as were given for it.
+//
+// It is what a teacher's availability in one mode is made of, and what a
+// pupil's hours in one mode are made of. The two ask different questions —
+// when can you teach, when are you here — and hold the answer the same way.
 class BandSchedule<T>
 {
   final Map<TimeBucket, List<BandStretch<T>>> _byBucket = {
     for (final bucket in TimeBucket.values) bucket: <BandStretch<T>>[],
   };
 
-  /// Rows that were stored and are no longer given: they go once the window
-  /// they were edited in is saved.
+  // Rows that were stored and are no longer given: they go once the window
+  // they were edited in is saved.
   final List<T> dropped = [];
 
   List<BandStretch<T>> of(TimeBucket bucket) => _byBucket[bucket]!;
@@ -73,7 +73,7 @@ class BandSchedule<T>
     return minutes;
   }
 
-  /// Every stretch given, band by band, ognuna nell'ordine in cui è stata data.
+  // Every stretch given, band by band, ognuna nell'ordine in cui è stata data.
   Iterable<BandStretch<T>> get all sync*
   {
     for (final bucket in TimeBucket.values)
@@ -115,10 +115,10 @@ class BandSchedule<T>
     }
   }
 
-  /// Given a band, the whole of what the association has open in it: the widest
-  /// answer there is, and the one that has to be narrowed rather than built up
-  /// from nothing. Taken away, the band goes back to being unanswered, with
-  /// however many stretches were on it.
+  // Given a band, the whole of what the association has open in it: the widest
+  // answer there is, and the one that has to be narrowed rather than built up
+  // from nothing. Taken away, the band goes back to being unanswered, with
+  // however many stretches were on it.
   void toggle(TimeBucket bucket, TimeOfDay? start, TimeOfDay? end)
   {
     final stretches = of(bucket);
@@ -138,7 +138,7 @@ class BandSchedule<T>
     stretches.add(BandStretch<T>(startTime: start, endTime: end));
   }
 
-  /// One stretch dragged: only its own two ends move.
+  // One stretch dragged: only its own two ends move.
   void move(TimeBucket bucket, int index, TimeOfDay start, TimeOfDay end)
   {
     of(bucket)[index]
@@ -146,9 +146,9 @@ class BandSchedule<T>
       ..endTime = end;
   }
 
-  /// One more stretch in the same band, filling the first room left in it. The
-  /// whole of the gap, for the same reason a band opens as the whole of its
-  /// opening: it is the widest true answer, and narrowing it is one drag.
+  // One more stretch in the same band, filling the first room left in it. The
+  // whole of the gap, for the same reason a band opens as the whole of its
+  // opening: it is the widest true answer, and narrowing it is one drag.
   void addStretch(TimeBucket bucket, OpeningWindow window)
   {
     final gap = firstGap(bucket, window);
@@ -217,9 +217,9 @@ class BandSchedule<T>
     return (start, end);
   }
 
-  /// The first stretch of the band still free, in the order of the day, or null
-  /// where the opening is spoken for from end to end. A quarter of an hour is
-  /// the least that can be stored, so anything narrower is not room.
+  // The first stretch of the band still free, in the order of the day, or null
+  // where the opening is spoken for from end to end. A quarter of an hour is
+  // the least that can be stored, so anything narrower is not room.
   (int, int)? firstGap(TimeBucket bucket, OpeningWindow window)
   {
     var cursor = window.startMinutes;
@@ -293,12 +293,12 @@ class BandSchedule<T>
     }
   }
 
-  /// What is given has to stay inside what the association has open, and what
-  /// is open changes under the form: a second day added narrows every band to
-  /// what the two days share, and a band the new day is shut in cannot be given
-  /// at all. Rather than leaving hours nobody could save — and that the slider
-  /// cannot even draw — the bands are brought back inside as soon as the window
-  /// moves.
+  // What is given has to stay inside what the association has open, and what
+  // is open changes under the form: a second day added narrows every band to
+  // what the two days share, and a band the new day is shut in cannot be given
+  // at all. Rather than leaving hours nobody could save — and that the slider
+  // cannot even draw — the bands are brought back inside as soon as the window
+  // moves.
   void reconcile(OpeningWindow? Function(TimeBucket bucket) windowFor)
   {
     for (final bucket in TimeBucket.values)
@@ -371,22 +371,22 @@ class BandSchedule<T>
   }
 }
 
-/// The three bands of a day, each with the hours given in it and the room to
-/// give one more.
-///
-/// The field mutates the schedule it is handed and says so through [onChanged],
-/// which is the form's own setState: the answer belongs to the window that
-/// asked for it, not to this row of controls.
+// The three bands of a day, each with the hours given in it and the room to
+// give one more.
+//
+// The field mutates the schedule it is handed and says so through [onChanged],
+// which is the form's own setState: the answer belongs to the window that
+// asked for it, not to this row of controls.
 class BandScheduleField<T> extends StatelessWidget
 {
   final BandSchedule<T> schedule;
 
-  /// What the association has open in that band, or null where it is shut.
+  // What the association has open in that band, or null where it is shut.
   final OpeningWindow? Function(TimeBucket bucket) windowFor;
 
-  /// What a band says where the association is shut in it, and what it says
-  /// where it is open and nobody has answered. The two are different things: a
-  /// band the association opens and nobody took is not a closed band.
+  // What a band says where the association is shut in it, and what it says
+  // where it is open and nobody has answered. The two are different things: a
+  // band the association opens and nobody took is not a closed band.
   final String disabledLabel;
   final String offLabel;
 

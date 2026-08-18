@@ -30,7 +30,7 @@ enum _Step
   // from: a single one is already decided, and a lone discipline or a service
   // has none.
   disciplines(
-    'Quale ambito deve studiare di questa materia?',
+    'Cosa deve studiare di questa materia?',
     'Almeno uno.',
   ),
 
@@ -38,8 +38,8 @@ enum _Step
   // and the step is not taken.
   what(
     'Cosa deve fare durante la lezione?',
-    'Almeno un tipo di lezione. Queste informazioni aiuteranno il docente a '
-    'rendere la lezione più adatta alle esigenze dello studente.',
+    'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere la lezione più '
+        'adatta alle esigenze dello studente.',
   ),
   duration(
     'Quanto deve durare la lezione?',
@@ -93,20 +93,20 @@ const double _stackWidth =
 // topic, and opens straight on the duration.
 class SubjectRequestWizard extends StatefulWidget
 {
-  /// The way of being there this subject is asked for in, said in the eyebrow:
-  /// an hour asked online is a different hour from the same one asked here.
+  // The way of being there this subject is asked for in, said in the eyebrow:
+  // an hour asked online is a different hour from the same one asked here.
   final String mode;
 
-  /// Copied on the way in, so walking away leaves the day exactly as it was.
+  // Copied on the way in, so walking away leaves the day exactly as it was.
   final SubjectRequestDraft draft;
 
-  /// What the pupil's own study programme teaches.
+  // What the pupil's own study programme teaches.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  /// Everyone. A pupil who asks for a teacher the register does not list under
-  /// that discipline is telling the association something it may not know —
-  /// that the teacher covers it, or that they were taught by them last year —
-  /// and a form that hides the name cannot be told it.
+  // Everyone. A pupil who asks for a teacher the register does not list under
+  // that discipline is telling the association something it may not know —
+  // that the teacher covers it, or that they were taught by them last year —
+  // and a form that hides the name cannot be told it.
   final List<PersonItem> teachers;
 
   final bool isEditing;
@@ -120,15 +120,15 @@ class SubjectRequestWizard extends StatefulWidget
   final int? minutesAvailable;
   final int minutesTakenByOthers;
 
-  /// How many minutes the other subjects of this mode have already put on each
-  /// discipline, by discipline id. Two hours a day on one of them is the whole
-  /// of it, and a subject can go over the ceiling without going over the
-  /// pupil's time — three quarters of an hour of Latin on top of an hour and a
-  /// half of it fits inside a morning and still is not allowed.
+  // How many minutes the other subjects of this mode have already put on each
+  // discipline, by discipline id. Two hours a day on one of them is the whole
+  // of it, and a subject can go over the ceiling without going over the
+  // pupil's time — three quarters of an hour of Latin on top of an hour and a
+  // half of it fits inside a morning and still is not allowed.
   final Map<int, int> minutesByDisciplineTakenByOthers;
 
-  /// True where it landed. The window closes on true and stays on false, with
-  /// whatever was said still in it.
+  // True where it landed. The window closes on true and stays on false, with
+  // whatever was said still in it.
   final Future<bool> Function(SubjectRequestDraft draft) onSave;
 
   const SubjectRequestWizard({
@@ -231,8 +231,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     // and is shortened here rather than refused on save.
     if (step == _Step.duration && _exceeds)
     {
-      return 'Le materie chiedono ${formatMinutes(_minutesTaken)}, ma lo '
-          'studente c\'è per ${formatMinutes(widget.minutesAvailable ?? 0)}.';
+      return 'La durata totale delle lezioni è ${formatMinutes(_minutesTaken)}, ma lo studente è '
+          'presente per ${formatMinutes(widget.minutesAvailable ?? 0)}.';
     }
 
     if (step == _Step.duration)

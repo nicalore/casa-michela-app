@@ -42,13 +42,12 @@ if TYPE_CHECKING:
     from app.models.subject_requested import SubjectRequested
 
 _BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR: Final[str] = (
-    "La somma delle durate delle prenotazioni supera il tempo dello studente "
-    "in quel giorno, in quella modalità"
+    "La somma delle durate delle prenotazioni supera la presenza dello studente per "
+    "quel giorno in quella modalità"
 )
 
 _SUBJECTS_ON_WRONG_KIND_ERROR: Final[str] = (
-    "Una richiesta di disciplina singola o di servizio non porta materie "
-    "ministeriali"
+    "Una richiesta di disciplina singola o di servizio non ha materie ministeriali"
 )
 
 _MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
@@ -85,11 +84,10 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
             "duration BETWEEN 30 AND 120 AND duration % 15 = 0",
             name="booking_duration_step",
         ),
-        # An hour is asked for in one of three ways: a ministry subject with its
-        # disciplines (neither column set), a discipline on its own, or a
-        # service. The first two exclude each other here; that the requested
-        # subjects belong to the first case only is held by the hook below,
-        # because a child table cannot be counted inside a CHECK.
+        # Three shapes of request: a ministry subject with its disciplines
+        # (neither column set), a discipline alone, or a service. The two columns
+        # exclude each other here; the child table is held by the hook below,
+        # since a CHECK cannot count rows in one.
         CheckConstraint(
             "num_nonnulls(association_subject_id, service_name) <= 1",
             name="booking_single_request_kind",
@@ -167,26 +165,22 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
         order_by="BookingTeacherPreference.teacher_tax_code",
     )
 
-    # No delete-orphan here, and passive_deletes="all" on purpose. Presences are
-    # deleted through the ORM — by PresenceService and by the day-closing
-    # cleanup — and cascade onto their bookings; a delete-orphan collection
-    # would be loaded on the way (which under async raises) and then deleted,
-    # quietly stepping around the very restriction that keeps the calendar.
+    # No delete-orphan and passive_deletes="all" on purpose: presences cascade
+    # onto their bookings, and a delete-orphan collection would be loaded on the
+    # way — which raises under async — and then delete around the restriction
+    # that keeps the calendar.
     lesson_bookings: Mapped[list[LessonBooking]] = relationship(
         back_populates="booking",
         passive_deletes="all",
     )
 
 
-# Every requested hour is exactly one of the three things that can be asked for.
-# The table CHECK holds the two mutually exclusive columns; what it cannot see
-# is the child table, that is whether the requested subjects are there when they
+# What the CHECK cannot see: whether the requested subjects are there when they
 # are needed and absent when they are not.
 #
-# New bookings only, and deliberately so. On a stored one the old rows that a
-# replacement is discarding are not among the deleted yet when this hook runs:
-# counting them would reject a legitimate edit. Edits go through the services,
-# which rewrite kind and subjects together.
+# New bookings only. On a stored one the rows a replacement discards are not
+# among session.deleted yet, so counting them would reject a legitimate edit;
+# edits go through the services, which rewrite kind and subjects together.
 @event.listens_for(Session, "before_flush")
 def _validate_booking_request_kind(
     session: Session,
@@ -299,12 +293,9 @@ def _validate_booking_duration_within_presence(
 ) -> None:
     from app.models.presence import Presence
 
-    # Deletions only ever shrink a student's booked/present minutes, so they can
-    # never turn a previously valid day invalid: no need to check them.
-    #
-    # Counted per mode and not per day: an hour of Latin asked online cannot be
-    # taught out of the two hours the pupil spends in the building, so the two
-    # budgets are two and never lend to each other.
+    # Deletions only shrink a pupil's minutes and can never turn a valid day
+    # invalid. Counted per mode: an hour asked online cannot be taught out of
+    # the hours spent in the building, so the two budgets never lend.
     pending_presences = pending_instances(session, Presence)
     pending_bookings = pending_instances(session, Booking)
 
@@ -405,12 +396,8 @@ def _validate_discipline_minutes_within_day(
     from app.models.presence import Presence
 
     # Two hours of one discipline in a day is where a lesson stops teaching and
-    # starts filling time. Counted per mode, like the day's own budget: the same
-    # discipline asked online is asked of a different day, and the two never lend
-    # to each other.
-    #
-    # Deletions only ever take minutes off a discipline, so they can never turn a
-    # valid day invalid: as above, they are not a reason to check.
+    # starts filling time. Per mode, like the day's budget, and deletions are
+    # again not a reason to check.
     pending_presences = pending_instances(session, Presence)
     pending_bookings = pending_instances(session, Booking)
 

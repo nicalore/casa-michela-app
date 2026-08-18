@@ -23,55 +23,55 @@ const double _borderWidth = 1.5;
 // Between one row of words and the next, where they have wrapped.
 const double _rowGap = 3;
 
-/// One row, several words, and a white pill that slides to the one chosen.
-///
-/// It is what the app changes view with: the sections of a person's page, the
-/// cards of a step in the person wizard, the two lists of a day in Lezioni.
-/// Pills of the loose kind — the ones that stand apart from each other — say
-/// something else in this app: they are what a filter is set with and what a
-/// few options are picked from, and using the same shape to change page made
-/// two different gestures look like one.
-///
-/// The segments are as wide as the words in them. Equal halves are right for a
-/// yes-or-no, where the two words are a syllable each; a step of the wizard can
-/// hold seven cards from "Docente" to "Sicurezza del minore", and giving each
-/// the width of the longest would make a control wider than the window it
-/// stands in.
-///
-/// More words than the room they are given, and they wrap onto another row. It
-/// used to slide sideways instead, and a row that slides is a row that is cut:
-/// at rest it ended at the edge of the card with a word half in and half out,
-/// which reads as a control that has overrun its card rather than as one with
-/// more in it than fits. Wrapped, the control is never wider than what it was
-/// handed — it is taller — and everything it offers can be seen without moving
-/// anything first.
+// One row, several words, and a white pill that slides to the one chosen.
+//
+// It is what the app changes view with: the sections of a person's page, the
+// cards of a step in the person wizard, the two lists of a day in Lezioni.
+// Pills of the loose kind — the ones that stand apart from each other — say
+// something else in this app: they are what a filter is set with and what a
+// few options are picked from, and using the same shape to change page made
+// two different gestures look like one.
+//
+// The segments are as wide as the words in them. Equal halves are right for a
+// yes-or-no, where the two words are a syllable each; a step of the wizard can
+// hold seven cards from "Docente" to "Sicurezza del minore", and giving each
+// the width of the longest would make a control wider than the window it
+// stands in.
+//
+// More words than the room they are given, and they wrap onto another row. It
+// used to slide sideways instead, and a row that slides is a row that is cut:
+// at rest it ended at the edge of the card with a word half in and half out,
+// which reads as a control that has overrun its card rather than as one with
+// more in it than fits. Wrapped, the control is never wider than what it was
+// handed — it is taller — and everything it offers can be seen without moving
+// anything first.
 class AppSegmentedTabs extends StatefulWidget
 {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  /// The height of the whole control. Tabs stand over a page and take the
-  /// larger of the two; a yes-or-no at the end of a row takes the smaller.
+  // The height of the whole control. Tabs stand over a page and take the
+  // larger of the two; a yes-or-no at the end of a row takes the smaller.
   final double height;
 
   final double fontSize;
 
-  /// The air the control leaves under itself, where it stands over what it
-  /// chooses.
+  // The air the control leaves under itself, where it stands over what it
+  // chooses.
   final EdgeInsets padding;
 
-  /// Off, the control takes all the width it is given and stands at the left of
-  /// it, which is what a row of tabs over a page wants: the pieces below it
-  /// start at the same place it does.
-  ///
-  /// On, it takes only the width of its own words, and whoever holds it decides
-  /// where it goes — a yes-or-no alone on a piece is centred by the column it is
-  /// in, and the piece can then be measured from its widest line instead of
-  /// being stretched to the window by a control two syllables wide.
-  ///
-  /// It still wraps where there is not room for one row: the width asked for is
-  /// a ceiling, not a promise.
+  // Off, the control takes all the width it is given and stands at the left of
+  // it, which is what a row of tabs over a page wants: the pieces below it
+  // start at the same place it does.
+  //
+  // On, it takes only the width of its own words, and whoever holds it decides
+  // where it goes — a yes-or-no alone on a piece is centred by the column it is
+  // in, and the piece can then be measured from its widest line instead of
+  // being stretched to the window by a control two syllables wide.
+  //
+  // It still wraps where there is not room for one row: the width asked for is
+  // a ceiling, not a promise.
   final bool hugContent;
 
   const AppSegmentedTabs({

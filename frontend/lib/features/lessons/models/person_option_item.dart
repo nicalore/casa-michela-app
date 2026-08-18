@@ -1,7 +1,7 @@
 import '../../people/models/person_face.dart';
 
-/// Minimal person reference, mirroring the backend's PersonOption schema:
-/// just enough to display and identify a teacher, student or booker.
+// Minimal person reference, mirroring the backend's PersonOption schema:
+// just enough to display and identify a teacher, student or booker.
 class PersonOptionItem implements PersonFace
 {
   final String taxCode;

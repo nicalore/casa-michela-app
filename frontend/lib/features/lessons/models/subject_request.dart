@@ -1,17 +1,17 @@
 import 'booking_summary_item.dart';
 
-/// One thing a pupil asks for: what, how long, and — where it makes sense —
-/// who they would like to be taught it by, what it is about and anything the
-/// teacher should know before the lesson.
-///
-/// It is a booking before it has been written, and the shape the window that
-/// asks for one works on. The wizard holds a list of these per way of being
-/// there; the card that opens off a day edits one at a time.
-///
-/// Three kinds live in here, and what is worth asking changes with the kind: a
-/// ministry subject has disciplines under it, a discipline asked on its own has
-/// none, and a service has neither those nor a topic nor a tag — "metodo di
-/// studio" is the thing itself, not a lesson about something.
+// One thing a pupil asks for: what, how long, and — where it makes sense —
+// who they would like to be taught it by, what it is about and anything the
+// teacher should know before the lesson.
+//
+// It is a booking before it has been written, and the shape the window that
+// asks for one works on. The wizard holds a list of these per way of being
+// there; the card that opens off a day edits one at a time.
+//
+// Three kinds live in here, and what is worth asking changes with the kind: a
+// ministry subject has disciplines under it, a discipline asked on its own has
+// none, and a service has neither those nor a topic nor a tag — "metodo di
+// studio" is the thing itself, not a lesson about something.
 class SubjectRequestDraft
 {
   BookingRequestKind kind;
@@ -35,24 +35,24 @@ class SubjectRequestDraft
   // hour is often two things at once. Meaningless on a service.
   List<String> tags;
 
-  /// Who the pupil would rather be taught by, at most three. A preference and
-  /// not a booking: who actually teaches the hour is decided when the timetable
-  /// is put together, out of the teachers who offered that day.
+  // Who the pupil would rather be taught by, at most three. A preference and
+  // not a booking: who actually teaches the hour is decided when the timetable
+  // is put together, out of the teachers who offered that day.
   List<String> preferredTeacherTaxCodes;
 
-  /// And who they would rather not. Also at most three, and also a preference:
-  /// it says who the hour should go to last, not who is forbidden it — an
-  /// association with two teachers of a subject cannot honour a veto.
+  // And who they would rather not. Also at most three, and also a preference:
+  // it says who the hour should go to last, not who is forbidden it — an
+  // association with two teachers of a subject cannot honour a veto.
   List<String> excludedTeacherTaxCodes;
 
   // What the lesson is about, in the pupil's own words. Optional, and
   // meaningless on a service.
   String topic;
 
-  /// Anything else the teacher should know before the hour starts. Optional.
+  // Anything else the teacher should know before the hour starts. Optional.
   String notes;
 
-  /// The stored row this is, where it is one already.
+  // The stored row this is, where it is one already.
   BookingSummaryItem? existing;
 
   SubjectRequestDraft({
@@ -74,12 +74,12 @@ class SubjectRequestDraft
         preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[],
         excludedTeacherTaxCodes = excludedTeacherTaxCodes ?? <String>[];
 
-  /// Everything a stored row holds, and not only what a summary shows.
-  ///
-  /// Whoever edits a booking writes back whatever they were handed, so a draft
-  /// built out of half a booking is a booking about to lose the other half —
-  /// its kind, the hours it is made of, what it is about, who was asked for.
-  /// [ministrySubjectName] is the caller's to resolve: the catalogue is theirs.
+  // Everything a stored row holds, and not only what a summary shows.
+  //
+  // Whoever edits a booking writes back whatever they were handed, so a draft
+  // built out of half a booking is a booking about to lose the other half —
+  // its kind, the hours it is made of, what it is about, who was asked for.
+  // [ministrySubjectName] is the caller's to resolve: the catalogue is theirs.
   factory SubjectRequestDraft.fromBooking(
     BookingSummaryItem booking, {
     String? ministrySubjectName,
@@ -103,8 +103,8 @@ class SubjectRequestDraft
     )..ministrySubjectName = ministrySubjectName;
   }
 
-  /// The most teachers a pupil may name on either side of one subject. More
-  /// than three is not a preference any more, it is the whole staff in order.
+  // The most teachers a pupil may name on either side of one subject. More
+  // than three is not a preference any more, it is the whole staff in order.
   static const int maxPreferredTeachers = 3;
 
   // A service has neither topic nor tags, and no kind other than the ministry
@@ -112,10 +112,10 @@ class SubjectRequestDraft
   bool get asksForDisciplines => kind == BookingRequestKind.ministrySubject;
   bool get asksForTopicAndTag => kind != BookingRequestKind.service;
 
-  /// The disciplines this hour is spent on, whichever way it was asked for: the
-  /// ones chosen under a ministry subject, or the single one asked on its own. A
-  /// service is spent on none — it is not a lesson about a subject — so it
-  /// counts against no discipline's daily ceiling.
+  // The disciplines this hour is spent on, whichever way it was asked for: the
+  // ones chosen under a ministry subject, or the single one asked on its own. A
+  // service is spent on none — it is not a lesson about a subject — so it
+  // counts against no discipline's daily ceiling.
   Set<int> get disciplineIds => switch (kind)
   {
     BookingRequestKind.ministrySubject => {...associationSubjectIds},

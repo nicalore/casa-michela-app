@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/date_input_formatters.dart';
 
-/// True for a real gg/mm/aaaa date — rejects both malformed input and
-/// impossible days like 31/02, which DateTime would silently roll over into
-/// the next month.
+// True for a real gg/mm/aaaa date — rejects both malformed input and
+// impossible days like 31/02, which DateTime would silently roll over into
+// the next month.
 bool isValidDateString(String value)
 {
   final parts = value.split('/');
@@ -29,7 +29,7 @@ bool isValidDateString(String value)
   return parsed.year == year && parsed.month == month && parsed.day == day;
 }
 
-/// Only valid on a string isValidDateString has already accepted.
+// Only valid on a string isValidDateString has already accepted.
 DateTime parseDateString(String value)
 {
   final parts = value.split('/');

@@ -13,14 +13,14 @@ final List<int> bookingDurationOptions = [
   for (var minutes = 30; minutes <= 120; minutes += 15) minutes,
 ];
 
-/// The most one pupil may spend on one discipline in a day, in one mode. Two
-/// hours of the same subject in a day is where a lesson stops teaching and
-/// starts filling time; a third asked online on top of two in the building is
-/// two different days' worth of that subject, and stays allowed.
-///
-/// The backend holds the same ceiling and is what actually refuses: this is here
-/// so the window can say so while the day is being written, rather than after
-/// the round trip.
+// The most one pupil may spend on one discipline in a day, in one mode. Two
+// hours of the same subject in a day is where a lesson stops teaching and
+// starts filling time; a third asked online on top of two in the building is
+// two different days' worth of that subject, and stays allowed.
+//
+// The backend holds the same ceiling and is what actually refuses: this is here
+// so the window can say so while the day is being written, rather than after
+// the round trip.
 const int maxDailyMinutesPerDiscipline = 120;
 
 // The kind of hour being asked for, with the name it carries on screen. The

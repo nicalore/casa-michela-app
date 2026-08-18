@@ -34,7 +34,7 @@ import 'program_scope_dialog.dart';
 // flicker rather than as an answer.
 const Duration _selectFade = Duration(milliseconds: 180);
 
-/// What a chosen discipline says about the programmes it covers.
+// What a chosen discipline says about the programmes it covers.
 class CompetenceScope
 {
   final int chosen;
@@ -47,14 +47,14 @@ class CompetenceScope
   String get label => isAll ? 'Tutti i percorsi · $total' : '$chosen di $total percorsi';
 }
 
-/// One discipline in the catalogue.
-///
-/// Ticking it is the whole of the common answer: the caller assigns it to every
-/// programme that teaches it. The scope on the right is both the answer to
-/// "where" and the way to change it — pressed, it opens the programmes. On a row
-/// not yet chosen the same place holds the quiet way in for whoever already
-/// knows they want only some programmes: it opens the picker directly, and
-/// confirming there is what brings the discipline in.
+// One discipline in the catalogue.
+//
+// Ticking it is the whole of the common answer: the caller assigns it to every
+// programme that teaches it. The scope on the right is both the answer to
+// "where" and the way to change it — pressed, it opens the programmes. On a row
+// not yet chosen the same place holds the quiet way in for whoever already
+// knows they want only some programmes: it opens the picker directly, and
+// confirming there is what brings the discipline in.
 class CompetenceRow extends StatefulWidget
 {
   final String name;
@@ -345,7 +345,7 @@ final class ServiceEntry extends CompetenceEntry
   DateTime get createdAt => service.createdAt;
 }
 
-/// Come si ordina il catalogo.
+// Come si ordina il catalogo.
 enum CompetenceSort
 {
   nameAsc('Nome (A-Z)'),

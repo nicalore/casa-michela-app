@@ -4,7 +4,7 @@ from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import date, time
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Exists, Select, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models.availability import Availability
@@ -28,10 +28,21 @@ _EAGER_LOADER = (
 )
 
 
-# Who is allowed to see a lesson, as a set of alternatives rather than a switch
-# on one role: an account can be a parent and a teacher at once, and it should
-# see both its own hours and its children's. Every branch that is None is simply
-# not asked about; an administrator asks about none of them.
+# Correlated on Lesson, so it only makes sense inside a query over it.
+def _taught_by(teacher_tax_code: str) -> Exists:
+    return (
+        select(Availability.id)
+        .where(
+            Availability.id == Lesson.availability_id,
+            Availability.teacher_tax_code == teacher_tax_code,
+        )
+        .exists()
+    )
+
+
+# Alternatives rather than a switch on one role: an account can be a parent and
+# a teacher at once. A branch left None is not asked about, and an administrator
+# asks about none of them.
 @dataclass(frozen=True)
 class LessonVisibility:
     teacher_tax_code: str | None = None
@@ -71,17 +82,10 @@ class LessonRepository(WritableRepository[Lesson]):
         branches = []
 
         if visibility.teacher_tax_code is not None:
-            branches.append(
-                select(Availability.id)
-                .where(
-                    Availability.id == Lesson.availability_id,
-                    Availability.teacher_tax_code == visibility.teacher_tax_code,
-                )
-                .exists(),
-            )
+            branches.append(_taught_by(visibility.teacher_tax_code))
 
-        # The pupil taught and whoever entered the request are two different
-        # people whenever a parent books: both have to be able to see the hour.
+        # Whenever a parent books, the pupil and the booker are two people and
+        # both have to see the hour.
         pupil_branch = []
 
         if visibility.student_tax_codes:
@@ -137,20 +141,9 @@ class LessonRepository(WritableRepository[Lesson]):
             stmt = stmt.where(Lesson.mode == mode)
 
         if teacher_tax_code is not None:
-            stmt = stmt.where(
-                select(Availability.id)
-                .where(
-                    Availability.id == Lesson.availability_id,
-                    Availability.teacher_tax_code == teacher_tax_code,
-                )
-                .exists(),
-            )
+            stmt = stmt.where(_taught_by(teacher_tax_code))
 
-        return (
-            (await self.session.execute(self._visible(stmt, visibility)))
-            .scalars()
-            .all()
-        )
+        return (await self.session.scalars(self._visible(stmt, visibility))).all()
 
     async def get_by_id(
         self,
@@ -162,21 +155,51 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return await self.session.scalar(self._visible(stmt, visibility))
 
-    # A teacher cannot be in two places at once, and here that is meant across
-    # modes as well: availabilities may overlap between being in the building and
-    # being online, lessons may not.
-    async def find_teacher_overlap(
+    # Eager: the callers walk from a lesson to its teacher and its pupils, and
+    # every step would otherwise be a lazy load under async.
+    async def _list_for_day(
+        self,
+        day: date,
+        band: str | None = None,
+    ) -> Sequence[Lesson]:
+        stmt = (
+            select(Lesson)
+            .options(*_EAGER_LOADER)
+            .where(Lesson.date == day)
+            .order_by(Lesson.start_time, Lesson.id)
+        )
+
+        if band is not None:
+            stmt = stmt.where(Lesson.band == band)
+
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_for_band(self, day: date, band: str) -> Sequence[Lesson]:
+        return await self._list_for_day(day, band)
+
+    async def list_for_day(self, day: date) -> Sequence[Lesson]:
+        return await self._list_for_day(day)
+
+    # Everything running into the stretch being written, pupils loaded: the rule
+    # is "how many pupils at once", which the first row found cannot answer.
+    # Across modes, since attention does not divide by how a pupil arrives.
+    async def find_overlapping_teacher_lessons(
         self,
         *,
         teacher_tax_code: str,
         day: date,
         start_time: time,
         end_time: time,
-        exclude_id: int | None = None,
-    ) -> Lesson | None:
+        exclude_ids: Collection[int] = (),
+    ) -> Sequence[Lesson]:
         stmt = (
             select(Lesson)
             .join(Availability, Availability.id == Lesson.availability_id)
+            .options(
+                selectinload(Lesson.lesson_bookings)
+                .selectinload(LessonBooking.booking)
+                .selectinload(Booking.presence),
+            )
             .where(
                 Availability.teacher_tax_code == teacher_tax_code,
                 Lesson.date == day,
@@ -185,10 +208,10 @@ class LessonRepository(WritableRepository[Lesson]):
             )
         )
 
-        if exclude_id is not None:
-            stmt = stmt.where(Lesson.id != exclude_id)
+        if exclude_ids:
+            stmt = stmt.where(Lesson.id.notin_(exclude_ids))
 
-        return await self.session.scalar(stmt)
+        return (await self.session.scalars(stmt)).all()
 
     # Same rule from the other side of the room.
     async def find_student_overlap(
@@ -221,29 +244,6 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return await self.session.scalar(stmt)
 
-    async def list_for_band(self, day: date, band: str) -> Sequence[Lesson]:
-        stmt = (
-            select(Lesson)
-            .options(*_EAGER_LOADER)
-            .where(Lesson.date == day, Lesson.band == band)
-            .order_by(Lesson.start_time, Lesson.id)
-        )
-
-        return (await self.session.execute(stmt)).scalars().all()
-
-    # Eagerly loaded like the band listing: the callers walk from a lesson to
-    # its teacher and to the pupils in it, counting heads in a room, and every
-    # one of those steps would otherwise be a lazy load under async.
-    async def list_for_day(self, day: date) -> Sequence[Lesson]:
-        stmt = (
-            select(Lesson)
-            .options(*_EAGER_LOADER)
-            .where(Lesson.date == day)
-            .order_by(Lesson.start_time, Lesson.id)
-        )
-
-        return (await self.session.execute(stmt)).scalars().all()
-
     async def find_for_availability(
         self,
         availability_id: int,
@@ -254,7 +254,7 @@ class LessonRepository(WritableRepository[Lesson]):
             .order_by(Lesson.start_time)
         )
 
-        return (await self.session.execute(stmt)).scalars().all()
+        return (await self.session.scalars(stmt)).all()
 
     async def find_scheduled_booking_ids(
         self,
@@ -271,8 +271,7 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return set(rows)
 
-    # Which of a presence's bookings are already in a lesson, for the guards
-    # that refuse to let a scheduled request be edited out from under one.
+    # For the guards that refuse to let a scheduled request be edited away.
     async def find_scheduled_booking_ids_for_presence(
         self,
         presence_id: int,
@@ -285,8 +284,7 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return set(rows)
 
-    # Everything already scheduled against these bookings, for the coverage
-    # check: how many minutes and which disciplines each request has been given.
+    # For the coverage check: what each request has been given so far.
     async def list_links_for_bookings(
         self,
         booking_ids: Collection[int],

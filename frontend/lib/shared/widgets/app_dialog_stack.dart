@@ -13,38 +13,14 @@ import 'overflow_tooltip_text.dart';
 const double _pieceGap = 26;
 const double _windowMargin = 16;
 
-// How far apart in time the pieces arrive, as a fraction of the whole
-// transition, and how long each one takes. Each one comes up where it stands;
-// on the way out the order reverses on its own, which is what an interval does
-// when the animation runs backwards.
-//
-// The two are tied together by the clamp below: a piece may not start so late
-// that its own span runs past the end of the transition, so the last beat there
-// can be is 1 - span, and every piece from there on shares it. At a span of .62
-// that ceiling was .38, which the third piece already passed — so a window of
-// four pieces had three beats and a window of six had four, every one of them
-// 31ms apart on a transition of 240. That is not a delay anybody can see, and
-// it is why the effect only ever showed on the longest windows in the app.
-//
-// A step of .11 against a span of .54 puts the ceiling at .46, which the sixth
-// piece is the first to reach: a title, four pieces of body and a footer all
-// keep a beat of their own, and that is every window of the app. Past six they
-// share the last beat, which is the only honest thing left to do — a piece that
-// started later than that could not finish before the window had.
+// Each piece starts a beat later than the one before, as a fraction of the
+// transition. The clamp below caps the last beat at 1 - span, so past six
+// pieces they share it: one starting later could not finish before the window.
 const double _staggerStep = 0.11;
 const double _staggerSpan = 0.54;
 
-// How small a piece starts, and ends again on the way out. It grows about its
-// own centre, which is the whole of the difference from the scale that used to
-// sit on the stack: that one grew the window from a point, and a point has one
-// place — every card, wherever it was going to end up, came out of the middle
-// of the screen and travelled to its seat. On the piece the same zoom keeps the
-// piece where it belongs, and a card at the foot of the window grows at the
-// foot of the window.
-//
-// Nothing translates any more. A piece is only ever where it will be, so the
-// room it is going to occupy is never empty while it crosses the screen to get
-// there, and the delay between the beats is left as the only thing moving.
+// How small a piece starts. It grows about its own centre and never translates,
+// so a card at the foot of the window grows at the foot of the window.
 const double _pieceScale = 0.92;
 
 // Room kept around the scrolling middle so the shadows of the pieces inside it
@@ -57,24 +33,27 @@ const double _pillPadding = 28;
 // The round close standing off the title pill.
 const double _closeSize = 44;
 
-// A dialog made of separate pieces floating over the blurred page, instead of
-// one white panel holding everything. What belongs together is a piece; the
-// paper between the pieces is the page, and it is left to show through.
+// Under this, a dialog head cannot afford both the face and symmetrical room
+// for the close. From what a title needs, not from a device: 214 for the close
+// and the face, 58 of pill insets, 180 for the words. See _buildTitleRow.
+const double _titleRowRoom = 460;
+
+// A dialog made of separate pieces over the blurred page, rather than one white
+// panel. What belongs together is a piece, and the page shows between them.
 //
-// This is what every window of the app is built from. It takes a list of bodies
-// rather than one, and that is the difference the arrangement rests on: a
-// panel that took a single body left a window with two things to say running
-// them together behind one sheet.
+// It takes a list of bodies and not one: that is what the arrangement rests on.
 class AppDialogStack extends StatelessWidget
 {
   final String eyebrow;
   final String title;
 
-  // Something standing to the left of the two lines of the title, where the
-  // title is a person: the face of whoever the window is about. It is read
-  // before the name is, so it belongs beside it and not further down among the
-  // facts.
+  // The face of whoever the window is about, where the title is a person. It is
+  // read before the name, so it belongs beside it.
   final Widget? leading;
+
+  // The one or two facts the window is bounded by. In the title's own piece:
+  // they are read with the name, not after it.
+  final Widget? subtitle;
 
   // Each one floats on its own, in the order given, with air between them.
   final List<Widget> children;
@@ -89,24 +68,14 @@ class AppDialogStack extends StatelessWidget
   // that what it was opened from stays visible behind it.
   final Alignment alignment;
 
-  // The cross is how you leave a window, and it is on by default because every
-  // window can be left. What turns it off is a window that is itself a question
-  // — throw this away? leave without saving? — where the two buttons at the
-  // foot are the two answers and one of them happens to be "no". A cross there
-  // would be a third way of saying the same "no", offered in a different place.
-  //
-  // It cannot be read off the footer: a details window has two buttons down
-  // there too and neither of them answers anything.
+  // Off only for a window that is itself a question, where the two buttons at
+  // the foot are the answers and a cross would be a third way of saying "no".
+  // It cannot be read off the footer: a details window has two buttons too.
   final bool showClose;
 
-  // What the cross does. Left out it simply closes the window, which is what
-  // nearly all of them want.
-  //
-  // A window with something to ask before it goes passes its own way out here —
-  // the edit wizard checks for unsaved work first, a wizard opened to edit a row
-  // tells the page behind it to let the row go. That errand used to hang off the
-  // ANNULLA at the foot, and when the ANNULLA went the errand would have gone
-  // with it: the cross has to be the same way out, not merely another one.
+  // Left out it simply closes. A window with something to ask before it goes —
+  // unsaved work, a row to release — passes its own way out here: the cross has
+  // to be the same way out and not merely another one.
   final VoidCallback? onClose;
 
   // Set where the last piece is a list: everything above it stays put and only
@@ -120,6 +89,7 @@ class AppDialogStack extends StatelessWidget
     required this.title,
     required this.children,
     this.leading,
+    this.subtitle,
     this.footer,
     this.maxWidth = 720,
     this.alignment = Alignment.center,
@@ -130,23 +100,13 @@ class AppDialogStack extends StatelessWidget
 
   Widget _buildTitleRow(BuildContext context)
   {
-    // One line each, and the pill measured from them: a title is read as a
-    // name, and a name broken across two lines reads as two things. The pill
-    // takes the width the words need and no more, which is why both lines are
-    // measured by their longest — the usual measure hands a paragraph the whole
-    // of the room it was allowed, and the pill would come out stretched to the
-    // window with the words sitting at one end of it.
+    // One line each, measured by their longest: the usual measure hands a
+    // paragraph all the room it was allowed, and the pill would come out
+    // stretched with the words at one end of it.
     //
-    // The room the title gets is the window rather than the width the caller
-    // asked for its pieces: a filter window is 520 wide and its own name did
-    // not fit in that, which is what used to fold "Filtra per disciplina
-    // interna" onto a second line. See the piece widths in build().
-    //
-    // Narrower than the words even so — a phone, a name of a school with its
-    // town in it — and the title is cut with the tooltip carrying the rest, the
-    // same answer the cards of the app give. Cut and silent it stopped saying
-    // which of them had been opened, which is the one question a title is there
-    // to answer.
+    // The room is the window and not the width the caller asked for its pieces,
+    // which is regularly narrower than the name. Narrower than the words even
+    // so, the title is cut with the tooltip carrying the rest.
     final Widget heading = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,20 +135,31 @@ class AppDialogStack extends StatelessWidget
             color: AppTheme.trialOcean,
           ),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          subtitle!,
+        ],
       ],
     );
 
+    // On a phone the close answered on both sides plus the face leave the words
+    // thirty-nine pixels, which is not a narrow heading but a heading one letter
+    // wide and taller than the window.
+    //
+    // So below this the face steps out and the close is answered on its own side
+    // only: the name is written again in the eyebrow just above.
+    final bool tight = MediaQuery.sizeOf(context).width < _titleRowRoom;
+    final bool besideAFace = leading != null && !tight;
+
     final Widget pill = AppDialogPill(
-      // A round face wants the same air all around it, so where there is one
-      // the left inset comes in to meet it and the pill is a touch shallower:
-      // the two lines of words are shorter than the circle beside them, and
-      // kept at the old height the pill grew a band of white under them.
-      padding: leading == null
-          ? const EdgeInsets.fromLTRB(36, 22, 36, 24)
-          : const EdgeInsets.fromLTRB(22, 20, 36, 20),
-      child: leading == null
-          ? heading
-          : Row(
+      // A round face wants the same air all round, and the two lines beside it
+      // are shorter than the circle: at the old height the pill grew a band of
+      // white under them.
+      padding: besideAFace
+          ? const EdgeInsets.fromLTRB(22, 20, 36, 20)
+          : EdgeInsets.fromLTRB(tight ? 20 : 36, 22, tight ? 20 : 36, 24),
+      child: besideAFace
+          ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 leading!,
@@ -197,7 +168,8 @@ class AppDialogStack extends StatelessWidget
                 // rather than pushing the face out of the pill.
                 Flexible(child: heading),
               ],
-            ),
+            )
+          : heading,
     );
 
     if (!showClose)
@@ -210,8 +182,11 @@ class AppDialogStack extends StatelessWidget
       children: [
         Padding(
           // Room for the close at the right end, kept on both sides so the pill
-          // stays centred on the stack rather than on what is left of it.
-          padding: const EdgeInsets.symmetric(horizontal: _closeSize + 16),
+          // stays centred on the stack rather than on what is left of it — until
+          // the window is too narrow to buy that symmetry twice.
+          padding: tight
+              ? const EdgeInsets.only(right: _closeSize + 8)
+              : const EdgeInsets.symmetric(horizontal: _closeSize + 16),
           child: pill,
         ),
         Positioned(
@@ -227,14 +202,9 @@ class AppDialogStack extends StatelessWidget
     );
   }
 
-  // The pieces between the title and the footer.
-  //
-  // Normally they scroll together: a window taller than the screen is scrolled
-  // as one, pieces and paper included. A window whose last piece is a list is
-  // built the other way round — everything above it stays where it is and only
-  // the list moves, which is what fillLast asks for. What scrolls inside that
-  // last piece is the caller's business; all this does is hand it the height
-  // that is left.
+  // The pieces between the title and the footer. Normally they scroll as one,
+  // paper included; under [fillLast] everything above the last piece stays put
+  // and that piece is handed the height that is left.
   List<Widget> _buildBody(double width)
   {
     if (!fillLast)
@@ -242,10 +212,8 @@ class AppDialogStack extends StatelessWidget
       return [
         Flexible(
           child: _atMost(width, SingleChildScrollView(
-            // The scroll view must not answer for the paper around the pieces:
-            // its own default is opaque, which would swallow every tap in the
-            // gaps — and a tap on the gaps reaching the barrier is the whole
-            // idea of a dialog made of separate pieces.
+            // The default is opaque, which would swallow every tap in the
+            // gaps — and a tap on the gaps reaching the barrier is the idea.
             hitTestBehavior: HitTestBehavior.deferToChild,
             padding: const EdgeInsets.all(_shadowRoom),
             child: Column(
@@ -301,76 +269,58 @@ class AppDialogStack extends StatelessWidget
       // What Dialog used to do for us: lift the stack off a keyboard that has
       // taken the bottom of the screen.
       padding: EdgeInsets.only(bottom: keyboard),
-      // Full screen on purpose. The BackdropFilter of showBlurredDialog sizes
-      // itself to its child, so a stack that shrink-wrapped here would blur only
-      // the rectangle the pieces happen to occupy.
-      // A dialog on its way out answers to nothing any more. It takes a quarter
-      // of a second to fade, and for that long its buttons stay drawn where they
-      // were: a second tap — a double click, or impatience — used to land on a
-      // dialog already gone, closing whatever was left underneath or redoing what
-      // the first tap had already done.
-      //
-      // isCurrent is true only while this dialog is the topmost one, and turns
-      // false the instant it starts leaving. It lives here and not on every
-      // button because it is a property of the dialog, and remembering it at
-      // every one of the buttons is the same as not remembering it.
+      // A dialog on its way out answers to nothing: for the quarter second it
+      // takes to fade, its buttons are still drawn where they were.
       child: _WhileItIsThere(
+        // Full screen on purpose. The BackdropFilter of showBlurredDialog sizes
+        // itself to its child, so a stack that shrink-wrapped here would blur
+        // only the rectangle the pieces happen to occupy.
         child: Align(
-        alignment: alignment,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            // Never the full width of the window: the pieces at the top and the
-            // bottom are outside the scrolling middle and have no padding of
-            // their own, so without this the round close button and the buttons
-            // would stand against the edge of the screen with their shadows cut
-            // off by it.
-            //
-            // The room, and not maxWidth, because that one is what the pieces
-            // are worth and not what the window is: the title is a name and
-            // takes the width of its own words, which are regularly longer than
-            // the 520 a filter window gives what it holds. It is capped below,
-            // piece by piece.
-            maxWidth: room,
-            // Measured against the window rather than against the constraints
-            // coming down, because those are unbounded wherever this is pumped
-            // inside a scroll view, and the Flexible below would have nothing
-            // to be flexible in.
-            maxHeight: window.height - keyboard - 2 * _windowMargin,
-          ),
-          // Transparent on purpose, and load-bearing twice: text outside a
-          // Material is painted with the yellow underline of an unstyled
-          // paragraph, which is what the two buttons at the foot were wearing —
-          // and a transparent Material, unlike an opaque one, does not answer
-          // the hit test, so the paper between the pieces stays paper.
-          child: Material(
-            type: MaterialType.transparency,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                AppDialogPiece(index: 0, child: _buildTitleRow(context)),
-                const SizedBox(height: _pieceGap),
-                ..._buildBody(pieceWidth),
-                if (footer != null) ...[
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              // Never the full width: the top and bottom pieces are outside the
+              // scrolling middle and have no padding of their own.
+              //
+              // The room and not maxWidth, which is what the pieces are worth
+              // and not what the window is. Capped below, piece by piece.
+              maxWidth: room,
+              // Against the window and not the incoming constraints, which are
+              // unbounded inside a scroll view.
+              maxHeight: window.height - keyboard - 2 * _windowMargin,
+            ),
+            // Load-bearing twice: text outside a Material wears the yellow
+            // underline of an unstyled paragraph, and a transparent Material,
+            // unlike an opaque one, does not answer the hit test.
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  AppDialogPiece(index: 0, child: _buildTitleRow(context)),
                   const SizedBox(height: _pieceGap),
-                  _atMost(
-                    pieceWidth,
-                    AppDialogPiece(index: children.length + 1, child: footer!),
-                  ),
+                  ..._buildBody(pieceWidth),
+                  if (footer != null) ...[
+                    const SizedBox(height: _pieceGap),
+                    _atMost(
+                      pieceWidth,
+                      AppDialogPiece(index: children.length + 1, child: footer!),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
   }
 }
 
-// Answers to a tap only while the dialog holding it is still the topmost one.
-// Outside a dialog — the login page uses this same stack — there is nothing to
-// switch off and it lets everything through.
+// Answers to a tap only while its dialog is the topmost one. Here and not on
+// every button, because it is a property of the dialog. Outside a dialog it
+// lets everything through.
 class _WhileItIsThere extends StatelessWidget
 {
   final Widget child;
@@ -399,11 +349,8 @@ class _WhileItIsThere extends StatelessWidget
   }
 }
 
-// A piece arriving on its own beat: the title first, then whatever is under it,
-// the footer last. The route's own animation drives it, so closing plays the
-// same thing backwards without a second controller to keep in step — and a
-// dialog that builds its own pieces deeper down, as the filters do inside a
-// card, can carry the count on rather than having them all arrive at once.
+// A piece arriving on its own beat: title first, footer last. Driven by the
+// route's own animation, so closing plays it backwards for free.
 class AppDialogPiece extends StatelessWidget
 {
   final int index;
@@ -467,14 +414,11 @@ class AppDialogPiece extends StatelessWidget
   }
 }
 
-// One floating piece of a dialog: the title, a field or two, a card of content.
+// One floating piece: the title, a field or two, a card of content.
 //
-// The Material inside it is doing two jobs at once. It is the ancestor the text
-// fields go looking for, which used to come from the Dialog this layout no
-// longer has; and it absorbs the tap, so that a tap on a piece stays in the
-// piece while a tap on the paper between two of them travels through to the
-// barrier and closes the window. Nothing may wrap the stack in a second one, or
-// the gaps stop being gaps.
+// Its Material does two jobs — it is the ancestor the text fields look for, and
+// it absorbs the tap so a tap on the paper between pieces reaches the barrier.
+// Nothing may wrap the stack in a second one, or the gaps stop being gaps.
 class AppDialogPill extends StatelessWidget
 {
   final Widget child;
@@ -482,9 +426,7 @@ class AppDialogPill extends StatelessWidget
   final double radius;
 
   // Set where several pieces stand one over the other and reading them as one
-  // window matters more than each being as wide as what it holds: the values of
-  // a school and the programmes under them are the same window, and a narrower
-  // second piece read as a footnote to the first.
+  // window matters more than each being as wide as what it holds.
   final bool expand;
 
   // Surfaces take the deeper of the two shadows and round controls the lighter

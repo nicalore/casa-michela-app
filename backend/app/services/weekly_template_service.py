@@ -47,15 +47,10 @@ class WeeklyTemplateService:
 
         return template
 
-    # How far propagation reaches: the last already generated date. The calendar
-    # horizon belongs to generate_opening_days, which materialises a year at a
-    # time taking the holidays into account. A change to the standard hours
-    # updates the days already materialised, it does not invent new ones beyond
-    # that horizon — those would be days the script never produced and, with
-    # that year's holidays never seeded, would come out open on holidays too.
-    #
-    # Beyond the horizon nothing needs doing: the next generation already reads
-    # the updated weekly templates.
+    # Propagation reaches the last generated date and no further: the horizon
+    # belongs to generate_opening_days, and days invented past it would come out
+    # open on holidays never seeded. Beyond it nothing needs doing — the next
+    # generation already reads the updated templates.
     async def _propagation_horizon(self, mode: str) -> date | None:
         return await self.opening_day_repository.last_generated_date(mode)
 
@@ -83,14 +78,11 @@ class WeeklyTemplateService:
 
         return dates
 
-    # Rewrites from the templates the days of that weekday, from that date on.
+    # Rewrites the days of that weekday from that date on.
     #
-    # Rewriting the whole day, instead of patching the rows a change is
-    # recognised by, is what keeps the calendar unable to say anything the
-    # templates do not: a band that changed its start time used to leave its own
-    # old rows behind, and nothing picked them up again. It is also idempotent
-    # and cannot violate the unique index, since whatever was there has already
-    # been deleted by the time the rows are reinserted.
+    # The whole day and not the rows a change is recognised by: a band that
+    # changed its start time used to leave its old rows behind. Idempotent too,
+    # since whatever was there is deleted before the reinsert.
     #
     # Overrides stay untouched: holidays, closures and extraordinary openings do
     # not come from the templates and take precedence.
@@ -235,12 +227,10 @@ class WeeklyTemplateService:
         mode = template.mode
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
-            # Moving a band onto a time held by another row of the same day
-            # means overwriting it: that row, and the rows it already
-            # materialised, has to be withdrawn first, or the unique constraint
-            # is hit. Withdrawn without an effective date, because the reconcile
-            # below rewrites the day anyway and doing it twice would write a
-            # first version based on the not-yet-updated template.
+            # Moving a band onto a time another row of the same day holds
+            # overwrites it, so that row has to be withdrawn first or the unique
+            # constraint is hit. Without an effective date, since the reconcile
+            # below rewrites the day anyway.
             if payload.start_time != old_start_time:
                 clashing = await self.repository.get_by_slot(
                     weekday, mode, payload.start_time

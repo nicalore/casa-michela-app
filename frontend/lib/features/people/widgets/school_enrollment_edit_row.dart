@@ -47,7 +47,7 @@ final Map<String, int> kGradeNumbers = {
   for (final entry in kGradeLabels.entries) entry.value: entry.key,
 };
 
-/// Start year of the running school year.
+// Start year of the running school year.
 int currentSchoolYearStart()
 {
   final now = DateTime.now();
@@ -113,7 +113,7 @@ List<String> programNamesFor(SchoolItem? school, List<StudyProgramItem> allProgr
   return names;
 }
 
-/// Un anno scolastico, con i suoi quattro campi e la sua cascata.
+// Un anno scolastico, con i suoi quattro campi e la sua cascata.
 class SchoolEnrollmentEditRow extends StatelessWidget
 {
   final SchoolEnrollmentRowData row;
@@ -813,9 +813,9 @@ class __CompactTextFieldState extends State<_CompactTextField>
   }
 }
 
-/// Free-text field with a filtered, tappable suggestions list, used to pick a
-/// school by typing its name instead of scrolling a dropdown: school names are
-/// often too long for a fixed-width dropdown button to show in full.
+// Free-text field with a filtered, tappable suggestions list, used to pick a
+// school by typing its name instead of scrolling a dropdown: school names are
+// often too long for a fixed-width dropdown button to show in full.
 
 class _SchoolAutocompleteField extends StatefulWidget
 {
@@ -825,9 +825,9 @@ class _SchoolAutocompleteField extends StatefulWidget
   final String? errorText;
   final ValueChanged<String> onSelected;
 
-  /// Called when the field is emptied and then loses focus, so the caller can
-  /// clear the row's actual selection instead of the field silently reverting
-  /// to the last confirmed value.
+  // Called when the field is emptied and then loses focus, so the caller can
+  // clear the row's actual selection instead of the field silently reverting
+  // to the last confirmed value.
   final VoidCallback onCleared;
 
   const _SchoolAutocompleteField({

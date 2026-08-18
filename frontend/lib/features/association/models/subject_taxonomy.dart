@@ -35,9 +35,9 @@ class SchoolLevel
   final String value;
   final String label;
 
-  /// Drops the redundant "Scuola" prefix, for places where the surrounding
-  /// context already says these are school levels (the selection chips and the
-  /// level filter). Keeps the three options on a single row.
+  // Drops the redundant "Scuola" prefix, for places where the surrounding
+  // context already says these are school levels (the selection chips and the
+  // level filter). Keeps the three options on a single row.
   final String compactLabel;
 
   final String shortLabel;

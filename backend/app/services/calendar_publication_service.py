@@ -54,7 +54,7 @@ _TEACHER_WITHOUT_ROOM_ERROR: Final[str] = (
 )
 
 _UNWATCHED_ROOM_ERROR: Final[str] = (
-    "La stanza {room} non è presidiata dalle {start} alle {end}."
+    "La stanza {room} non ha un responsabile dalle {start} alle {end}."
 )
 
 # How many names to put in a message before it stops being a message.

@@ -40,15 +40,12 @@ double _topMarginFor(AppWindowSize size) => size.isCompact ? _compactTopMargin :
 
 double _barHeightFor(AppWindowSize size) => size.isCompact ? _compactBarHeight : _barHeight;
 
-// The shell every page of the app wears: the wordmark, the destinations and the
-// identity block, plus the menu that opens under it. It is a Positioned.fill and
-// therefore belongs to a Stack, laid over the page content; outside the bar and
-// the open menu it is transparent to the pointer, so what sits underneath keeps
-// working.
+// The shell every page wears: the wordmark, the destinations and the identity
+// block, plus the menu under it. A Positioned.fill, so it belongs to a Stack and
+// is transparent to the pointer outside the bar and the open menu.
 //
-// The identity it shows, the menu, the role switch and the logout all live here
-// rather than in the pages, so a page joins the shell with one line and cannot
-// end up with a bar that behaves differently from the others.
+// The identity, the menu, the role switch and the logout live here and not in
+// the pages, so no page can end up with a bar that behaves differently.
 class AppTopBar extends StatefulWidget
 {
   // Room a page has to leave itself at the top. The bar floats over the page
@@ -141,11 +138,9 @@ class _AppTopBarState extends State<AppTopBar>
   {
     super.initState();
 
-    // What the page handed over, or failing that the identity the app saw last.
-    // The bar is drawn on the first frame either way, which is what lets a step
-    // between two destinations leave it standing: a bar waiting for its own
-    // request would blink out in the middle of the handover and take the
-    // illusion with it.
+    // What the page handed over, or the identity the app saw last: either way
+    // the bar is drawn on the first frame, so a step between destinations leaves
+    // it standing instead of blinking out mid-handover.
     _user = widget.user ?? _apiService.lastKnownIdentity;
 
     // Asked for all the same, because what is above is a memory and may be a
@@ -289,12 +284,10 @@ class _AppTopBarState extends State<AppTopBar>
         ? url
         : '${ApiConfig.baseUrl}$url';
 
-    // The query parameter defeats the browser cache, so a freshly uploaded
-    // picture replaces the old one instead of showing the stale copy. It counts
-    // the changes of picture rather than the time, so the URL is the same on
-    // every page of the app: stamped with the moment the bar was built, each
-    // page would ask for the same image again under a name the cache had never
-    // seen, and the face would blink on every navigation.
+    // Defeats the browser cache so a freshly uploaded picture replaces the old
+    // one. It counts changes of picture and not time, so the URL is the same on
+    // every page: stamped with the build moment, the face blinked on every
+    // navigation.
     return '$absoluteUrl?v=${_apiService.profileImageVersion}';
   }
 
@@ -392,15 +385,12 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  // Two lines locked to one width. Each is scaled to fill the box rather than
-  // set at a chosen size, which is the only way to make two different words end
-  // flush: type set at a fixed size ends where the letters happen to end.
+  // Two lines locked to one width, each scaled to fill the box rather than set
+  // at a size: type at a fixed size ends where the letters happen to end.
   //
-  // Because the scale is what makes them equal, the size written below only
-  // decides the ratio between the two lines, not how big they come out. The
-  // upper line is uppercase and tracked so it needs more width per letter and
-  // therefore lands smaller once fitted, which is what keeps it subordinate to
-  // the name under it.
+  // So the sizes below decide only the ratio between the lines. The upper one is
+  // uppercase and tracked, needs more width per letter, and therefore lands
+  // smaller — which is what keeps it subordinate.
   Widget _buildWordmark()
   {
     return SizedBox(
@@ -430,11 +420,9 @@ class _AppTopBarState extends State<AppTopBar>
               'Casa Michela',
               maxLines: 1,
               softWrap: false,
-              // The same weight and the same colour as the role at the other
-              // end, so the two ends of the bar carry equal weight. They cannot
-              // mirror each other in shape: that end finishes on a 54px circle
-              // that you can click, this one is a mark that does nothing. What
-              // can be made equal is how loudly they speak.
+              // The same weight and colour as the role at the other end. They
+              // cannot mirror each other in shape — that end is a clickable
+              // circle, this one a mark that does nothing.
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -528,12 +516,9 @@ class _AppTopBarState extends State<AppTopBar>
   // destinations along the middle, who you are on the other.
   Widget _buildWideBar(AppWindowSize size, String? imageUrl)
   {
-    // On the middle width the bar stops reserving equal ends. Two hundred and
-    // ninety pixels a side is what centres the destinations on a wide bar, and
-    // it is also what leaves them 348 of the 928 there are at 1024 — half of
-    // what the six words need. Here the mark and the role take the width they
-    // actually are, the destinations take everything else, and the two gutters
-    // keep them from ever touching either.
+    // On the middle width the bar stops reserving equal ends: the 290 a side
+    // that centres the destinations on a wide bar leaves them half of what six
+    // words need at 1024. Here each end takes the width it actually is.
     if (size == AppWindowSize.medium)
     {
       return Row(
@@ -729,14 +714,10 @@ class _AppTopBarState extends State<AppTopBar>
 
           return Stack(
             children: [
-              // A sheet over the whole page that catches the next tap and closes
-              // whatever is open with it. It is always here and merely stops
-              // listening when nothing is: a child appearing at the head of the
-              // list shifts the ones below it by one, and Flutter, which pairs
-              // children with their elements by position, would tear the bar and
-              // the menu down and build them again on every open. That is what
-              // cost the menu its opening animation and reset the underline
-              // under whichever destination you were on.
+              // A sheet catching the next tap. Always here and merely deaf
+              // when nothing is open: a child appearing at the head of the list
+              // shifts the rest by one, and Flutter pairs children with elements
+              // by position — which rebuilt the bar on every open.
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !(_isMenuOpen || _isDrawerOpen),

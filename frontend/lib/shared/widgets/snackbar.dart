@@ -8,12 +8,33 @@ const Duration _enterDuration = Duration(milliseconds: 450);
 const Duration _exitDuration = Duration(milliseconds: 250);
 const Duration _defaultVisibleDuration = Duration(seconds: 5);
 
+// A banner that stays up until somebody takes it down.
+//
+// For the ones a gesture in flight raises: the sentence is true for as long as
+// the pointer is where it is, and one that faded out on its own would leave a
+// refusal on screen for five seconds and then a wrong place with nothing said
+// about it. [CustomSnackBar.dismiss] is what ends these.
+const Duration kUntilDismissed = Duration(days: 1);
+
 // The banner starts one and a half times its own height below the resting
 // position, so the easeOutBack overshoot stays outside the viewport.
 const Offset _enterOffset = Offset(0, 1.5);
 
 const double _bottomMargin = 24;
 const double _horizontalMargin = 20;
+
+// The three things a banner can be.
+//
+// A warning is not an error and not a confirmation: the calendar answers a save
+// that went through with something the server thought worth saying — a teacher
+// somebody named as not preferred, a room over its capacity — and neither of
+// the two existing tones can carry that without lying about it.
+enum SnackBarTone
+{
+  info,
+  warning,
+  error,
+}
 
 class _SnackBarStyle
 {
@@ -46,16 +67,44 @@ class _SnackBarStyle
     textColor: const Color(0xFF002244),
     icon: Icons.check_circle_rounded,
   );
+
+  // The two colours the app already gives to a value that deviates from what
+  // was expected, which is exactly what a warning is.
+  static final _SnackBarStyle warning = _SnackBarStyle(
+    background: AppTheme.modifiedAccentSurface,
+    border: AppTheme.modifiedAccent.withValues(alpha: 0.25),
+    iconColor: AppTheme.modifiedAccent,
+    textColor: AppTheme.modifiedAccent,
+    icon: Icons.warning_amber_rounded,
+  );
+
+  static _SnackBarStyle of(SnackBarTone tone)
+  {
+    return switch (tone)
+    {
+      SnackBarTone.info => info,
+      SnackBarTone.warning => warning,
+      SnackBarTone.error => error,
+    };
+  }
 }
 
 abstract final class CustomSnackBar
 {
   static OverlayEntry? _currentOverlayEntry;
 
+  // The banner currently up, reachable so that its clock can be restarted
+  // without rebuilding it. See [keepShowing].
+  static GlobalKey<_SnackBarAnimationWidgetState>? _currentKey;
+
+  // [tone] wins where it is given; [isError] is what the forty call sites
+  // written before there were three tones still say, and it keeps meaning what
+  // it meant.
   static void show({
     required BuildContext context,
     required String message,
     bool isError = false,
+    SnackBarTone? tone,
     Duration duration = _defaultVisibleDuration,
   })
   {
@@ -69,10 +118,13 @@ abstract final class CustomSnackBar
     final overlay = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
 
+    final key = GlobalKey<_SnackBarAnimationWidgetState>();
+
     entry = OverlayEntry(
       builder: (context) => _SnackBarAnimationWidget(
+        key: key,
         message: message,
-        isError: isError,
+        tone: tone ?? (isError ? SnackBarTone.error : SnackBarTone.info),
         duration: duration,
         // The identity check matters: a newer snackbar may have replaced this
         // entry while it was fading out, and it must not be removed twice.
@@ -82,32 +134,61 @@ abstract final class CustomSnackBar
           {
             entry.remove();
             _currentOverlayEntry = null;
+            _currentKey = null;
           }
         },
       ),
     );
 
     _currentOverlayEntry = entry;
+    _currentKey = key;
     overlay.insert(entry);
+  }
+
+  // Puts the standard clock back on the banner that is already up, and touches
+  // nothing else about it.
+  //
+  // For a sentence that was raised by a gesture and outlives it: it has been on
+  // screen for as long as the pointer was in the wrong place, and now that the
+  // gesture is over it should go a few seconds later. Showing it again would say
+  // the same thing while replaying the entrance animation — under the eye of
+  // somebody in the middle of reading it.
+  //
+  // Answers false where there is no banner up to keep, and then the caller has
+  // to [show] one.
+  static bool keepShowing()
+  {
+    final state = _currentKey?.currentState;
+
+    if (state == null)
+    {
+      return false;
+    }
+
+    state.keepFor(_defaultVisibleDuration);
+
+    return true;
   }
 
   static void dismiss()
   {
     _currentOverlayEntry?.remove();
     _currentOverlayEntry = null;
+    _currentKey = null;
   }
 }
 
 class _SnackBarAnimationWidget extends StatefulWidget
 {
   final String message;
-  final bool isError;
+  final SnackBarTone tone;
   final Duration duration;
   final VoidCallback onDismissed;
 
   const _SnackBarAnimationWidget({
+    super.key,
     required this.message,
-    required this.isError,
+    required this.tone,
     required this.duration,
     required this.onDismissed,
   });
@@ -154,6 +235,13 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
     _dismissTimer = Timer(widget.duration, _startExitAnimation);
   }
 
+  // Start the clock again, leaving the banner exactly as it is on screen.
+  void keepFor(Duration duration)
+  {
+    _dismissTimer?.cancel();
+    _dismissTimer = Timer(duration, _startExitAnimation);
+  }
+
   @override
   void dispose()
   {
@@ -177,7 +265,7 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
   @override
   Widget build(BuildContext context)
   {
-    final style = widget.isError ? _SnackBarStyle.error : _SnackBarStyle.info;
+    final style = _SnackBarStyle.of(widget.tone);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Positioned(

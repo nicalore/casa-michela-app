@@ -44,7 +44,7 @@ class ExtraordinaryHoursDialog extends StatefulWidget
   // that varies nothing. See [_variesNothing].
   final List<WeeklyTemplateItem> standardTemplates;
 
-  /// The variation being edited, or null when creating a new one.
+  // The variation being edited, or null when creating a new one.
   final VariationGroup? initial;
 
   const ExtraordinaryHoursDialog({
@@ -255,13 +255,13 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
     if (!isValidDateString(fromDate))
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci una data "Dal" valida.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Inserisci una data di inizio valida.', isError: true);
       return false;
     }
 
     if (!isValidDateString(toDate))
     {
-      CustomSnackBar.show(context: context, message: 'Inserisci una data "Al" valida.', isError: true);
+      CustomSnackBar.show(context: context, message: 'Inserisci una data di fine valida.', isError: true);
       return false;
     }
 
@@ -269,7 +269,7 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'La data "Al" deve essere uguale o successiva alla data "Dal".',
+        message: 'La data di fine deve essere uguale o successiva alla data di inizio.',
         isError: true,
       );
       return false;
@@ -320,9 +320,9 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return TimeBucket.values.any((b) => _bands[b]!.start != null && _bands[b]!.end != null);
   }
 
-  /// Puts back the standard hours on the days the edit no longer covers, at
-  /// either end of the original span. Returns false if any of it failed, in
-  /// which case the caller stops rather than writing a half-moved variation.
+  // Puts back the standard hours on the days the edit no longer covers, at
+  // either end of the original span. Returns false if any of it failed, in
+  // which case the caller stops rather than writing a half-moved variation.
   Future<bool> _releaseDroppedDays(DateTime startDate, DateTime endDate, List<String> errors) async
   {
     final initial = widget.initial;
@@ -538,8 +538,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
           const SizedBox(height: 8),
           AppTextField(
             controller: _noteCtrl,
-            label: 'Nota (facoltativa)',
-            hintText: 'Es. evento speciale',
+            label: 'Nota (opzionale)',
+            hintText: 'Es. Riunione',
             textCapitalization: TextCapitalization.sentences,
           ),
         ],
@@ -575,7 +575,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
           Text(
             _isOpen
                 ? 'I giorni scelti apriranno con questi orari.'
-                : 'Con tutte e tre le fasce chiuse, nei giorni scelti l\'associazione risulta chiusa.',
+                : 'Se tutte e tre le fasce orarie sono chiuse, l\'Associazione sarà chiusa per quel '
+                    'giorno.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w500,

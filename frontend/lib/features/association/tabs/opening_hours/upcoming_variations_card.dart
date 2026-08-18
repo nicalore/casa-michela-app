@@ -18,53 +18,53 @@ import 'variation_group.dart';
 // something measured at layout time.
 class UpcomingVariationsCard extends StatelessWidget
 {
-  /// Tall enough for the action buttons, which are the tallest thing on the
-  /// headline row.
+  // Tall enough for the action buttons, which are the tallest thing on the
+  // headline row.
   static const double _headlineHeight = 36.0;
 
-  /// Reserved on every row, note or no note: rows that changed height with
-  /// their content made the list ragged and moved the ones below whenever a
-  /// note was added or removed.
+  // Reserved on every row, note or no note: rows that changed height with
+  // their content made the list ragged and moved the ones below whenever a
+  // note was added or removed.
   static const double _noteHeight = 24.0;
 
-  /// Only paid when the hours drop below the date instead of sharing its line.
+  // Only paid when the hours drop below the date instead of sharing its line.
   static const double _hoursHeight = 24.0;
 
-  /// Breathing room past the longest date on screen, and the bounds the
-  /// measured column is held between: enough that a single short date does not
-  /// pull the hours right up against it, capped so one long span cannot push
-  /// them off the row.
+  // Breathing room past the longest date on screen, and the bounds the
+  // measured column is held between: enough that a single short date does not
+  // pull the hours right up against it, capped so one long span cannot push
+  // them off the row.
   static const double _dateColumnPadding = 16.0;
   static const double _minDateColumn = 130.0;
   static const double _maxDateColumn = 280.0;
 
-  /// What the three band columns need before the row stops being worth keeping
-  /// on one line — a time range is about 92 wide, so this leaves each of them a
-  /// little room either side.
+  // What the three band columns need before the row stops being worth keeping
+  // on one line — a time range is about 92 wide, so this leaves each of them a
+  // little room either side.
   static const double _minHoursWidth = 3 * 108.0;
 
-  /// Labels + rule + the gap under them. Only drawn where the rows really do
-  /// share three columns, which is the one-line layout.
+  // Labels + rule + the gap under them. Only drawn where the rows really do
+  // share three columns, which is the one-line layout.
   static const double _hoursHeaderHeight = 40.0;
 
-  /// Generous on purpose: variations are read one at a time, and packing them
-  /// tight turned the card into a wall of dates.
+  // Generous on purpose: variations are read one at a time, and packing them
+  // tight turned the card into a wall of dates.
   static const double _groupGap = 20.0;
 
   static const double _availableHeight = kUpcomingVariationsCardHeight - kHoursCardChrome;
 
   final List<OpeningDayItem> upcomingVariations;
 
-  /// Last day a variation may start on to count as upcoming. Rows past it are
-  /// still fed in, so a run that begins inside the window and carries on
-  /// beyond it keeps its real end date.
+  // Last day a variation may start on to count as upcoming. Rows past it are
+  // still fed in, so a run that begins inside the window and carries on
+  // beyond it keeps its real end date.
   final DateTime windowEnd;
 
   final bool isLoading;
 
-  /// Both act on a whole group — the run of days it covers — never on the one
-  /// row that happens to have been clicked. Not called for public holidays,
-  /// which carry no buttons.
+  // Both act on a whole group — the run of days it covers — never on the one
+  // row that happens to have been clicked. Not called for public holidays,
+  // which carry no buttons.
   final ValueChanged<VariationGroup> onEdit;
   final ValueChanged<VariationGroup> onDelete;
 
@@ -145,8 +145,8 @@ class UpcomingVariationsCard extends StatelessWidget
     );
   }
 
-  /// The groups that fit the pinned height, in order. Every row is the same
-  /// height, so this is a division rather than a running total.
+  // The groups that fit the pinned height, in order. Every row is the same
+  // height, so this is a division rather than a running total.
   List<VariationGroup> _visible(List<VariationGroup> groups, bool stackHours)
   {
     final free = _availableHeight - (stackHours ? 0 : _hoursHeaderHeight);
@@ -156,20 +156,20 @@ class UpcomingVariationsCard extends StatelessWidget
     return groups.take(math.max(fit, 0)).toList();
   }
 
-  /// One height for every row, whatever it holds: the note line is reserved
-  /// even when empty, and the hours line only exists in the stacked layout.
+  // One height for every row, whatever it holds: the note line is reserved
+  // even when empty, and the hours line only exists in the stacked layout.
   double _rowHeight(bool stackHours)
   {
     return _headlineHeight + (stackHours ? _hoursHeight : 0) + _noteHeight;
   }
 
-  /// Width the date column needs for the longest label actually on screen.
-  ///
-  /// Measured rather than taken as a share of the row: a proportional column
-  /// has to be sized for the worst case ("Dal 25 settembre al 6 ottobre"), and
-  /// left a gulf between the date and the hours on every row that did not
-  /// happen to be that long. Every row uses the one width, so the columns still
-  /// line up down the card.
+  // Width the date column needs for the longest label actually on screen.
+  //
+  // Measured rather than taken as a share of the row: a proportional column
+  // has to be sized for the worst case ("Dal 25 settembre al 6 ottobre"), and
+  // left a gulf between the date and the hours on every row that did not
+  // happen to be that long. Every row uses the one width, so the columns still
+  // line up down the card.
   double _dateColumnWidth(List<VariationGroup> groups, TextScaler textScaler)
   {
     var widest = 0.0;
@@ -190,8 +190,8 @@ class UpcomingVariationsCard extends StatelessWidget
     return (widest + _dateColumnPadding).clamp(_minDateColumn, _maxDateColumn);
   }
 
-  /// The width below which the row can no longer carry date, hours and buttons
-  /// on one line.
+  // The width below which the row can no longer carry date, hours and buttons
+  // on one line.
   double _oneLineWidth(double dateWidth)
   {
     return VariationRow.leadingWidth +
@@ -213,19 +213,19 @@ class UpcomingVariationsCard extends StatelessWidget
 // a glance which part of the day each variation touches.
 class VariationRow extends StatelessWidget
 {
-  /// Reserved even where the buttons are not drawn, so a holiday's hours stay
-  /// in the same columns as every other row's.
+  // Reserved even where the buttons are not drawn, so a holiday's hours stay
+  // in the same columns as every other row's.
   static const double actionsWidth = 72;
 
-  /// Kept at zero now that the rows carry no mark of their own: every variation
-  /// in this card is a variation, and a flag beside each one said only that.
-  /// The constant stays because the header and the note line measure their
-  /// indent from it.
+  // Kept at zero now that the rows carry no mark of their own: every variation
+  // in this card is a variation, and a flag beside each one said only that.
+  // The constant stays because the header and the note line measure their
+  // indent from it.
   static const double leadingWidth = 0;
 
   static const double columnGap = 24;
 
-  /// Shared with the card, which measures the date column against it.
+  // Shared with the card, which measures the date column against it.
   static final TextStyle dateStyle = GoogleFonts.plusJakartaSans(
     fontSize: 16,
     fontWeight: FontWeight.w700,
@@ -234,12 +234,12 @@ class VariationRow extends StatelessWidget
 
   final VariationGroup group;
 
-  /// Measured by the card over every row, so the hours start at the same place
-  /// on all of them without a short date leaving a gap in front of them.
+  // Measured by the card over every row, so the hours start at the same place
+  // on all of them without a short date leaving a gap in front of them.
   final double dateWidth;
 
-  /// True when the row is too narrow to hold date, hours and actions on one
-  /// line, so the hours take a line of their own underneath.
+  // True when the row is too narrow to hold date, hours and actions on one
+  // line, so the hours take a line of their own underneath.
   final bool stackHours;
 
   final double headlineHeight;
@@ -439,12 +439,12 @@ class VariationRow extends StatelessWidget
     );
   }
 
-  /// The day's bands in their morning/afternoon/evening columns.
-  ///
-  /// Falls back to filling the columns left to right when the bands do not map
-  /// cleanly — one outside 06:00-23:00, or two landing in the same band, both
-  /// only reachable through data older than those bounds. Position then stops
-  /// meaning anything, but nothing is dropped, which matters more.
+  // The day's bands in their morning/afternoon/evening columns.
+  //
+  // Falls back to filling the columns left to right when the bands do not map
+  // cleanly — one outside 06:00-23:00, or two landing in the same band, both
+  // only reachable through data older than those bounds. Position then stops
+  // meaning anything, but nothing is dropped, which matters more.
   List<OpeningDayItem?> _bandSlots()
   {
     final slots = List<OpeningDayItem?>.filled(TimeBucket.values.length, null);

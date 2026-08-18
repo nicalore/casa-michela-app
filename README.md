@@ -4,7 +4,7 @@
 
 # Casa Michela Application
 
-Web platform for managing the activities of [Associazione Casa Michela](https://www.casamichela.it) (Thiene, Italy), a non-profit organization providing after-school tutoring, educational support, and psychological services to around 300 students and families.
+Web platform for managing the activities of [Associazione Casa Michela](https://www.casamichela.it) (Thiene, Italy), a non-profit organization providing after-school tutoring, educational support, and psychological services to students of all ages.
 
 ## OVERVIEW
 
@@ -28,15 +28,15 @@ The application introduces a centralized system to manage all aspects of the ass
 ## PROJECT STATUS & ROADMAP
 
 **Implemented**
-- [x] Identity and access management
-- [x] Booking and availability system (Teachers, Parents, Administrators)
+* Identity and access management
+* Booking and availability system (Teachers, Parents, Administrators)
 
 **In progress**
-- [ ] Scheduling algorithm and calendar management
+* Scheduling algorithm and calendar management
 
 **Planned**
-- [ ] Payment and salary system
-- [ ] Advanced features (courses, psychologists, document management)
+* Payment and salary system
+* Advanced features (courses, psychologists, document management)
 
 ## USER ROLES
 

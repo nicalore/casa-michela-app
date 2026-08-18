@@ -103,7 +103,7 @@ async def test_a_discipline_nobody_asked_for_is_refused(db: AsyncSession) -> Non
 
     db.add(_lesson(availability, [booking], [latin.id, physics.id]))
 
-    with pytest.raises(ValueError, match="richiesta"):
+    with pytest.raises(ValueError, match="collegata"):
         await db.flush()
 
 

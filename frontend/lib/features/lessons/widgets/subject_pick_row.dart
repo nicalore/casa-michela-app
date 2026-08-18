@@ -24,15 +24,15 @@ const double rowHeight = 68;
 // The one for rows carrying a face: the circle plus the room around it.
 const double rowHeightWithAvatar = 76;
 
-/// One subject in the catalogue, ticked or not.
-///
-/// The shape a discipline has in the anagrafica, where a teacher's competences
-/// are picked: the tick, the name, and under it what qualifies it. Here the
-/// second line is the parts of the subject that were chosen, and the control on
-/// the right is both the answer to "which parts" and the way to change it.
-///
-/// A subject made of one discipline has nothing to qualify: ticking it is the
-/// whole answer, and the row carries neither a second line nor a control.
+// One subject in the catalogue, ticked or not.
+//
+// The shape a discipline has in the anagrafica, where a teacher's competences
+// are picked: the tick, the name, and under it what qualifies it. Here the
+// second line is the parts of the subject that were chosen, and the control on
+// the right is both the answer to "which parts" and the way to change it.
+//
+// A subject made of one discipline has nothing to qualify: ticking it is the
+// whole answer, and the row carries neither a second line nor a control.
 class SubjectPickRow extends StatefulWidget
 {
   final String name;
@@ -45,8 +45,8 @@ class SubjectPickRow extends StatefulWidget
 
   final bool selected;
 
-  /// False where the subject is made of a single discipline: there is nothing
-  /// to open.
+  // False where the subject is made of a single discipline: there is nothing
+  // to open.
   final bool hasChoice;
 
   // Something to put before the tick: a teacher's photo, where the row names
@@ -203,19 +203,19 @@ class _TuneButtonState extends State<_TuneButton>
   }
 }
 
-/// Which parts of one subject, asked in a window of its own.
-///
-/// It opens by itself the moment a subject with more than one part is ticked:
-/// the question belongs to that subject, and asking it on a card further along
-/// meant walking the same list of subjects a second time.
+// Which parts of one subject, asked in a window of its own.
+//
+// It opens by itself the moment a subject with more than one part is ticked:
+// the question belongs to that subject, and asking it on a card further along
+// meant walking the same list of subjects a second time.
 class SubjectDisciplinesDialog extends StatefulWidget
 {
   final MinistrySubjectItem subject;
   final Set<int> chosen;
 
-  /// What comes back. Empty is not one of the answers: a subject with no parts
-  /// chosen is a subject that was not asked for, and the tick on the row is how
-  /// that is said.
+  // What comes back. Empty is not one of the answers: a subject with no parts
+  // chosen is a subject that was not asked for, and the tick on the row is how
+  // that is said.
   final ValueChanged<Set<int>> onConfirmed;
 
   const SubjectDisciplinesDialog({
@@ -239,8 +239,7 @@ class _SubjectDisciplinesDialogState extends State<SubjectDisciplinesDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'Scegli almeno una disciplina, oppure annulla per non chiedere '
-            'questa materia.',
+        message: 'Scegli almeno una disciplina.',
         isError: true,
       );
 

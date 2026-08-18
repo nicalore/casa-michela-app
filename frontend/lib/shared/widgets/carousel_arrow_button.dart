@@ -59,7 +59,7 @@ class _CarouselArrowButtonState extends State<CarouselArrowButton>
           height: widget.size,
           decoration: BoxDecoration(
             color: widget.isDisabled
-                ? AppTheme.closedSurface
+                ? AppTheme.arrowDisabledSurface
                 : (_isHovered ? widget.hoverColor : Colors.white),
             shape: BoxShape.circle,
             boxShadow: widget.isDisabled ? null : AppTheme.cardShadow,

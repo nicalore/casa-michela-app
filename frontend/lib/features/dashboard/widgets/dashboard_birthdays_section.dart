@@ -98,7 +98,7 @@ class DashboardBirthdaysSection extends StatelessWidget
   // its own would stretch the whole row it sits in.
   final int maxRows;
 
-  /// Passati alla card: quanto è alta almeno e se il contenuto riempie.
+  // Passati alla card: quanto è alta almeno e se il contenuto riempie.
   final double minHeight;
   final bool fill;
 

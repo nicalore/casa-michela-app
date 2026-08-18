@@ -37,8 +37,8 @@ _LESSON_PARTS_EXCEED_BOOKING_ERROR: Final[str] = (
 )
 
 _LESSON_PARTS_ACROSS_BANDS_ERROR: Final[str] = (
-    "Le due parti di una prenotazione devono stare nella stessa fascia della "
-    "giornata: mattino, pomeriggio e sera si pubblicano separatamente"
+    "Le lezioni di una prenotazione devono trovarsi nella stessa fascia oraria: "
+    "mattino, pomeriggio e sera si pubblicano separatamente"
 )
 
 

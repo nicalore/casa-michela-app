@@ -15,17 +15,12 @@ const double _nameLineHeight = _nameFontSize * _nameHeightFactor;
 // Past this a name is not being read any more, it is being decoded.
 const int _maxNameLines = 3;
 
-// A person, the way the association cards elsewhere are drawn: white, rounded,
-// a gold outline under the pointer.
+// A person, drawn like the association cards: white, rounded, a gold outline
+// under the pointer.
 //
-// It used to lie on its side — the picture on the left, the name and the roles
-// in a column beside it — at 420 wide. Standing it up costs nothing in size (the
-// picture and the type are the same) and gives the name the whole width instead
-// of the 276 that were left after the picture, which is what a long name needs.
-//
-// Narrower also means the rail no longer costs a column: four of these fit on a
-// 1440 window with the rail beside them, where four of the old ones needed 1740
-// against the 1088 there are.
+// Upright rather than on its side, which gives the name the whole width instead
+// of what is left beside the picture, and is narrow enough that four fit on a
+// 1440 window with the rail beside them.
 class PersonCard extends StatefulWidget
 {
   // The narrowest it is ever drawn, and the width the grid falls back to.
@@ -34,12 +29,8 @@ class PersonCard extends StatefulWidget
   // Past this a card is more air than person.
   static const double maxWidth = 420;
 
-  // Room for a name on two lines over two rows of roles, or three lines over
-  // one row. A shorter name simply leaves more air.
-  //
-  // The figure is the worst case added up: portrait, gap, three lines of name,
-  // gap, one row of roles, plus padding and border. Below it there is no going
-  // without taking a line off the name or shrinking the portrait.
+  // Room for a name on two lines over two rows of roles, or three over one.
+  // The worst case added up: below it, something has to give.
   static const double height = 230;
 
   // Kept at its size: it is the first thing looked at on a person's card, and
@@ -151,16 +142,12 @@ class _PersonCardState extends State<PersonCard>
             children: [
               _buildAvatar(),
               const SizedBox(height: 10),
-              // The name takes the room between the picture and the roles and
-              // stands in the middle of it, which pins the roles to the foot of
-              // every card: a row of them lines up whether a name took one line
-              // or three.
+              // The name stands in the middle of the room between the picture
+              // and the roles, which pins the roles to the foot of every card.
               //
-              // How many lines it may take is worked out from that room rather
-              // than fixed, so a name is shown as far as it goes and the
-              // ellipsis is the last resort. Fixed at two, a card whose roles
-              // had taken a second row was left with space for one and a half,
-              // and the second line of the name came out sliced through the
+              // How many lines it may take is worked out from that room and not
+              // fixed: fixed at two, a card whose roles took a second row had
+              // space for one and a half and sliced the name through the
               // middle.
               Expanded(
                 child: LayoutBuilder(
@@ -185,15 +172,10 @@ class _PersonCardState extends State<PersonCard>
                 ),
               ),
               const SizedBox(height: 10),
-              // Two rows of them: one row holds two chips, and a person here is
-              // commonly three things — a parent who teaches and sits on the
-              // board. Green, like the roles in the settings and every other
-              // chip in the app that names something a thing is tied to.
-              //
-              // Set the way the rest of the app sets them, one size smaller
-              // than they used to be here: the card gains in height and the
-              // roles gain in number, because shorter ones fit one more per row
-              // before the overflow counter takes over.
+              // Two rows: a row holds two chips and a person here is commonly
+              // three things. Green, like every chip that names something a
+              // thing is tied to, and one size smaller than they were — which
+              // fits one more per row before the overflow counter.
               RoleChipsRow(
                 roles: processedRoles,
                 centered: true,

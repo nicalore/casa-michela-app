@@ -50,8 +50,8 @@ DateTime _addDays(DateTime date, int days)
   return DateTime(date.year, date.month, date.day + days);
 }
 
-/// Every date from today through the furthest currently unlocked day,
-/// inclusive. Always non-empty (3 to 10 days, depending on when [now] falls).
+// Every date from today through the furthest currently unlocked day,
+// inclusive. Always non-empty (3 to 10 days, depending on when [now] falls).
 List<DateTime> computeAvailableDays(DateTime now)
 {
   final today = _dateOnly(now);
@@ -79,9 +79,9 @@ List<DateTime> computeAvailableDays(DateTime now)
   return days;
 }
 
-/// "GiornoSettimana numero mese", e.g. "Sabato 25 luglio". No locale data is
-/// initialized anywhere in this app, so DateFormat with a locale argument
-/// would throw at runtime — these names are a plain manual lookup instead.
+// "GiornoSettimana numero mese", e.g. "Sabato 25 luglio". No locale data is
+// initialized anywhere in this app, so DateFormat with a locale argument
+// would throw at runtime — these names are a plain manual lookup instead.
 String formatAvailableDayLabel(DateTime date)
 {
   final weekday = _weekdayNames[date.weekday - 1];
@@ -90,9 +90,9 @@ String formatAvailableDayLabel(DateTime date)
   return '$weekday ${date.day} $month';
 }
 
-/// "Lun 3 ago" — the same day, said short enough for a chip. The full label
-/// names the day where there is room for it; a row of ten of those would wrap
-/// three times over.
+// "Lun 3 ago" — the same day, said short enough for a chip. The full label
+// names the day where there is room for it; a row of ten of those would wrap
+// three times over.
 String formatAvailableDayShortLabel(DateTime date)
 {
   final weekday = _weekdayNames[date.weekday - 1].substring(0, 3);

@@ -10,16 +10,16 @@ import '../../../core/theme/app_theme.dart';
 // every "here is something this thing is tied to" chip of the app wears.
 const Color _chipBackground = Color(0xFFE8F7F5);
 
-/// Role chips packed into the width there is, with whatever did not fit
-/// replaced by a "+N" chip whose tooltip lists the hidden ones.
-///
-/// One row by default. Given more, the chips run on to the next one instead of
-/// disappearing behind the counter: on the cards of the people list a single row
-/// holds two of them, and a person is commonly three things.
-///
-/// The chip metrics differ between call sites (card, detail header, wizard), so
-/// they are exposed as parameters while the overflow-measurement algorithm is
-/// shared.
+// Role chips packed into the width there is, with whatever did not fit
+// replaced by a "+N" chip whose tooltip lists the hidden ones.
+//
+// One row by default. Given more, the chips run on to the next one instead of
+// disappearing behind the counter: on the cards of the people list a single row
+// holds two of them, and a person is commonly three things.
+//
+// The chip metrics differ between call sites (card, detail header, wizard), so
+// they are exposed as parameters while the overflow-measurement algorithm is
+// shared.
 class RoleChipsRow extends StatelessWidget
 {
   final List<String> roles;
@@ -29,24 +29,24 @@ class RoleChipsRow extends StatelessWidget
   final double borderRadius;
   final double spacing;
 
-  /// Slack kept against sub-pixel rounding, so a chip is dropped rather than
-  /// risking a few-pixel overflow.
+  // Slack kept against sub-pixel rounding, so a chip is dropped rather than
+  // risking a few-pixel overflow.
   final double safetyMargin;
 
-  /// Applies the ambient text scaler while measuring. The offline TextPainter
-  /// ignores it by default, which underestimates the width and causes overflow
-  /// when the system text scale is not 1.0.
+  // Applies the ambient text scaler while measuring. The offline TextPainter
+  // ignores it by default, which underestimates the width and causes overflow
+  // when the system text scale is not 1.0.
   final bool applyTextScaler;
 
-  /// Wraps the row in a horizontal scroll view aligned to one side, instead of
-  /// an unbounded plain row.
+  // Wraps the row in a horizontal scroll view aligned to one side, instead of
+  // an unbounded plain row.
   final bool scrollable;
   final bool centered;
 
-  /// How many rows the chips may take before the rest become the "+N".
+  // How many rows the chips may take before the rest become the "+N".
   final int maxLines;
 
-  /// Between one row of chips and the next.
+  // Between one row of chips and the next.
   final double runSpacing;
 
   const RoleChipsRow({

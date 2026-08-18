@@ -54,12 +54,8 @@ const double _dialogButtonFontSize = 14;
 // through to reach the arrows.
 const double _subjectListMaxHeight = 380;
 
-// One column of fields, and the frame around it once the phase can be carried
-// forward: the card plus an arrow and a gap on either side.
-//
-// The whole dialog's size is taken from the "who and when" card, the one that
-// needs it most, and is kept by the pill above and the other questions too. Only
-// the two-modes card sits narrower.
+// The dialog's size is taken from the "who and when" card, the one that needs
+// it most, and kept by everything else. Only the two-modes card sits narrower.
 const double _wizardMaxWidth = 820;
 const double _stackMaxWidth =
     _wizardMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
@@ -91,11 +87,9 @@ class BookingsTab extends StatefulWidget
   // on is a day nobody can be present.
   final List<OpeningDayItem> openingDays;
 
-  // The switch stands in this tab's own toolbar, but what it chooses is which
-  // tab you are in — so it is the page that holds the answer, the page that
-  // hears the click, and the page that says here which side it landed on. Named
-  // by this tab instead, the switch would be a different one on each of the two
-  // and its pill would never have anywhere to slide from.
+  // The switch stands in this toolbar but chooses which tab you are in, so the
+  // page holds the answer: named by the tab, it would be a different switch on
+  // each of the two and its pill would have nowhere to slide from.
   final LessonsDayView view;
   final ValueChanged<LessonsDayView> onViewSelected;
 
@@ -472,15 +466,10 @@ class _BookingsTabState extends State<BookingsTab>
   }
 }
 
-// The cards of the window, in the order they are asked: when the pupil is
-// there, what they want to do, and then one card per question over everything
-// they asked for — how long, with whom, about what. Asked the other way round,
-// a day with three subjects on it would be three times the same three
-// questions.
-// The questions, in the order they are asked: who and when first, then which
-// way of being there, and from then on one mode at a time to the end — its hours
-// and then what to do inside them. Answering for one mode and starting over for
-// the other keeps together the two questions speaking of the same thing.
+// The questions in the order they are asked: who and when, then which way of
+// being there, then one mode at a time to the end — its hours and what to do
+// inside them. One mode at a time keeps together the questions speaking of the
+// same thing.
 enum _WizardCard
 {
   who(
@@ -502,7 +491,7 @@ enum _WizardCard
   ),
   onlineHours(
     'Quando può essere presente online?',
-    'GLi orari in cui lo studente è disponibile per essere seguito a distanza.',
+    'Gli orari in cui lo studente è disponibile per essere seguito a distanza.',
   ),
   onlineSubjects(
     'Che lezioni vuole fare online?',
@@ -604,11 +593,8 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     for (final mode in const [kPresenceMode, kOnlineMode]) mode: <SubjectRequestDraft>[],
   };
 
-  // Which way of being there: one of the two, or both. Asked first because it
-  // decides which questions come after.
-  //
-  // Where the association opens in one mode only there is nothing to ask and the
-  // question disappears: the mode is the one it is.
+  // One of the two, or both. Asked first because it decides what comes after,
+  // and skipped where the association opens in one mode only.
   final Set<String> _selectedModes = {};
 
   // Which of the three categories is being looked at, per mode: whoever is
@@ -801,11 +787,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       // already chosen, instead of starting empty.
       _selectedModes.add(presence.mode);
 
-      // The whole row and not the four fields this window happens to show: a
-      // save from here rewrites every booking of the day, and one read back
-      // half would go back to the server with its kind, its tags, its topic and
-      // the teachers it named all emptied — an edit to the hours quietly
-      // throwing away everything that was asked.
+      // The whole row and not the four fields this window shows: a save here
+      // rewrites every booking of the day, and one read back half would return
+      // with its kind, tags, topic and named teachers emptied.
       for (final booking in presence.bookings)
       {
         _requests[presence.mode]!.add(SubjectRequestDraft.fromBooking(
@@ -899,7 +883,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       case _WizardCard.onlineSubjects:
         if (_requests[kOnlineMode]!.isEmpty)
         {
-          return 'Scegli almeno una materia online per andare avanti.';
+          return 'Scegli almeno una materia per andare avanti.';
         }
     }
 
@@ -928,13 +912,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     return minutes;
   }
 
-  // How long this mode's day is on each discipline. An hour covering three
-  // disciplines is an hour of each of them and not twenty minutes apiece: what
-  // it costs the pupil is the hour, what it spends of a discipline is the whole
-  // lesson.
-  //
-  // [skip] leaves one request out — the one being rewritten in the window that
-  // asked for this, which counts its own duration itself.
+  // An hour covering three disciplines is an hour of each and not twenty
+  // minutes apiece. [skip] leaves out the request being rewritten, which counts
+  // its own duration itself.
   Map<int, int> _minutesByDiscipline(String mode, {SubjectRequestDraft? skip})
   {
     final minutes = <int, int>{};
@@ -1002,14 +982,14 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         _hours[kOnlineMode]!.isNotEmpty &&
         _requests[kOnlineMode]!.isEmpty)
     {
-      refuse('Scegli almeno una materia online: le ore online servono a quello.');
+      refuse('Scegli almeno una materia online.');
 
       return false;
     }
 
     if (_modes.every((mode) => _hours[mode]!.isEmpty))
     {
-      refuse('Indica almeno una fascia oraria, in presenza o online.');
+      refuse('Indica almeno una fascia oraria, in presenza od online.');
 
       return false;
     }
@@ -1026,8 +1006,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
 
       if (_hours[mode]!.isEmpty)
       {
-        refuse('Hai chiesto delle materie $label senza indicare quando: '
-            'aggiungi le fasce orarie $label oppure togli le materie.');
+        refuse('Hai chiesto delle materie $label senza indicare le fasce orarie.');
 
         return false;
       }
@@ -1036,8 +1015,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       {
         if (!request.isComplete)
         {
-          refuse('Indica la durata di ${request.displayName} '
-              '($label): una materia senza ore non è una richiesta.');
+          refuse('Indica la durata di ${request.displayName} ($label).');
 
           return false;
         }
@@ -1047,8 +1025,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         // prepares against.
         if (request.asksForTopicAndTag && request.tags.isEmpty)
         {
-          refuse('Indica il tipo di lezione di ${request.displayName} '
-              '($label): almeno una scelta.');
+          refuse('Indica il tipo di lezione di ${request.displayName} ($label).');
 
           return false;
         }
@@ -1063,10 +1040,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       {
         if (entry.value > maxDailyMinutesPerDiscipline)
         {
-          refuse('${_disciplineName(entry.key)} ($label): '
-              '${formatMinutes(entry.value)} in un giorno. Su una stessa '
-              'disciplina non si può andare oltre '
-              '${formatMinutes(maxDailyMinutesPerDiscipline)}.');
+          refuse('${_disciplineName(entry.key)} ($label): ${formatMinutes(entry.value)} in un '
+              'giorno. Non si possono richiedere più di '
+              '${formatMinutes(maxDailyMinutesPerDiscipline)} minuti al giorno per una disciplina.');
 
           return false;
         }
@@ -1077,8 +1053,8 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
 
       if (asked > given)
       {
-        refuse('Le materie $label chiedono ${formatMinutes(asked)}, '
-            'ma lo studente c\'è per ${formatMinutes(given)}.');
+        refuse('Il totale delle ore di lezione richieste supera il tempo di permanenza dello '
+            'studente in Associazione.');
 
         return false;
       }
@@ -1492,18 +1468,14 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
 
 
 
-  // What the pupil wants to do: the catalogue of their own programme, ticked
-  // one subject at a time.
+  // The catalogue of the pupil's own programme, ticked one subject at a time.
+  // Which parts is asked the moment the subject is ticked, in a window of its
+  // own: asked on a later card it made you walk the list again without the
+  // thought that had picked them.
   //
-  // Which parts of a subject is asked the moment that subject is ticked, in a
-  // window of its own — the question belongs to it, and asked on a card further
-  // along it made you walk the same list a second time without the thought that
-  // had picked them. A subject made of a single part has nothing to ask: the
-  // tick is the whole answer.
-  // The disciplines offered on their own: everything in the catalogue except
-  // what the pupil already finds under their own ministry subjects. Without that
-  // cut the first two categories would partly say the same thing, and the same
-  // discipline could be asked for twice by two different routes.
+  // The disciplines offered on their own leave out what the pupil already finds
+  // under their ministry subjects, or the same one could be asked for twice by
+  // two routes.
   List<AssociationSubjectItem> get _standaloneDisciplines
   {
     final covered = <int>{
@@ -1520,7 +1492,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
   {
     if (_selectedStudentTaxCode == null)
     {
-      return _buildHint('Scegli prima lo studente: le materie sono quelle del suo percorso.');
+      return _buildHint('Scegli prima lo studente.');
     }
 
     final category = _subjectCategory[mode] ?? 0;
@@ -1562,13 +1534,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     );
   }
 
-  // What to say under the name of an entry already chosen: the disciplines
-  // where there were some to choose from, and the duration. A lone discipline
-  // and a service have no parts, so only the duration is left.
-  //
-  // "Where there were some to choose from" looks at how many the subject has,
-  // not at how many were taken: one picked out of three is still an answer, and
-  // it is the one whoever rereads the card wants to see.
+  // Under an entry already chosen: the disciplines where there were some to
+  // choose from, and the duration. Measured on how many the subject has and not
+  // on how many were taken — one out of three is still an answer.
   String _summaryOf(SubjectRequestDraft request)
   {
     final parts = <String>[];
@@ -1716,7 +1684,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     if (all.isEmpty)
     {
       return _buildEmptyCategory(
-        'Tutte le discipline a catalogo sono già sotto le materie dello studente.',
+        'Tutte le discipline sono già sotto le materie dello studente.',
       );
     }
 
@@ -1784,7 +1752,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
   {
     if (widget.services.isEmpty)
     {
-      return _buildEmptyCategory('Nessun servizio a catalogo.');
+      return _buildEmptyCategory('Nessun servizio disponibile.');
     }
 
     return Column(
@@ -1961,13 +1929,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     }
   }
 
-  // The cards of the window, in the order they are asked. The four that follow
-  // the choice only exist once something has been chosen: a card asking which
-  // parts of nothing, or how long nothing should last, is a card with nothing
-  // on it.
-  // The modes the association opens in on every chosen day. Across several days
-  // the intersection is what counts: a mode present on only one of them cannot
-  // be promised for the day being booked.
+  // The modes the association opens in on every chosen day. The intersection
+  // across days: a mode present on only one cannot be promised for the day
+  // being booked.
   List<String> get _openModesOnSelected
   {
     if (_days.isEmpty)
@@ -2120,16 +2084,9 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         ),
       ),
       children: [
-        // Who and when stays put at the top: it is the same question whichever
-        // way of being there you are looking at, and walking between the two
-        // cards below must not carry it away.
-        // Who and when is the first card rather than a piece standing over all
-        // the others: it is answered once and never looked at again, and left
-        // up there it took a third of the window for the whole of the way
-        // through.
-        // The question being answered, with a line below saying how to answer
-        // it: in a pill of its own above the carousel, as in the person creation
-        // wizard.
+        // Who and when is the first card and not a piece standing over the
+        // others: it is answered once and never looked at again, and left up
+        // there it took a third of the window all the way through.
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: _wizardMaxWidth),

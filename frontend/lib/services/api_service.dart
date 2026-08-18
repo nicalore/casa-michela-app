@@ -2,31 +2,114 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 
-import '../features/auth/models/login_response.dart';
-import '../features/auth/models/me_response.dart';
+import '../core/config/api_config.dart';
+import '../core/utils/json_parsing.dart';
 import '../features/association/models/association_subject_item.dart';
+import '../features/association/models/ministry_subject_item.dart';
 import '../features/association/models/opening_day_item.dart';
+import '../features/association/models/room_item.dart';
 import '../features/association/models/school_item.dart';
 import '../features/association/models/service_item.dart';
 import '../features/association/models/study_program_item.dart';
-import '../features/association/models/ministry_subject_item.dart';
 import '../features/association/models/weekly_template_item.dart';
+import '../features/auth/models/login_response.dart';
+import '../features/auth/models/me_response.dart';
 import '../features/lessons/models/availability_item.dart';
+import '../features/lessons/models/lesson_item.dart';
 import '../features/lessons/models/presence_item.dart';
-import '../features/people/models/person_item.dart';
-import '../features/people/models/member_trend_item.dart';
-import '../features/people/models/retention_rate_item.dart';
-import '../features/people/models/current_totals_item.dart';
-import '../features/people/models/city_distribution_item.dart';
+import '../features/lessons/models/room_supervision_item.dart';
+import '../features/lessons/models/teacher_room_assignment_item.dart';
 import '../features/people/models/age_distribution_item.dart';
-import '../features/people/models/education_distribution_item.dart';
-import '../features/people/models/teacher_subjects_statistics_item.dart';
+import '../features/people/models/city_distribution_item.dart';
 import '../features/people/models/course_distribution_item.dart';
-
-import '../core/config/api_config.dart';
-import '../core/utils/json_parsing.dart';
+import '../features/people/models/current_totals_item.dart';
+import '../features/people/models/education_distribution_item.dart';
+import '../features/people/models/member_trend_item.dart';
+import '../features/people/models/person_item.dart';
+import '../features/people/models/retention_rate_item.dart';
+import '../features/people/models/teacher_subjects_statistics_item.dart';
 import 'auth_state.dart';
 import 'session_service.dart';
+
+// Three models of the association carry no fromJson of their own, unlike every
+// other model in the app, so their parsing lives here. One function each rather
+// than the same block written out in the list, the create and the update: three
+// copies of a shape are three places to forget a field.
+//
+// Untyped on purpose, the way the call sites were: a cast added here would be a
+// new way to fail on a payload that used to get through.
+
+List<AssociationSubjectOption> _associationSubjectOptions(dynamic value)
+{
+  return value == null
+      ? []
+      : (value as List)
+          .map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>))
+          .toList();
+}
+
+SchoolStudyProgramOption _schoolStudyProgramOption(dynamic json)
+{
+  return SchoolStudyProgramOption(
+    id: json['id'],
+    name: json['name'],
+    level: json['level'] ?? '',
+  );
+}
+
+SchoolItem _schoolFromJson(dynamic json)
+{
+  return SchoolItem(
+    id: json['id'],
+    mechanographicCode: json['mechanographic_code'],
+    name: json['name'],
+    city: json['city'],
+    province: json['province'],
+    createdAt: DateTime.parse(json['created_at']),
+    studyPrograms: json['study_programs'] != null
+        ? (json['study_programs'] as List).map(_schoolStudyProgramOption).toList()
+        : [],
+  );
+}
+
+MinistrySubjectOption _ministrySubjectOption(dynamic json)
+{
+  return MinistrySubjectOption(
+    id: json['id'],
+    name: json['name'],
+    associationSubjects: _associationSubjectOptions(json['association_subjects']),
+  );
+}
+
+StudyProgramItem _studyProgramFromJson(dynamic json)
+{
+  return StudyProgramItem(
+    id: json['id'],
+    name: json['name'],
+    sector: json['sector'],
+    description: json['description'] ?? '',
+    level: json['level'],
+    minYear: json['min_year'],
+    maxYear: json['max_year'],
+    createdAt: DateTime.parse(json['created_at']),
+    ministrySubjects: json['ministry_subjects'] != null
+        ? (json['ministry_subjects'] as List).map(_ministrySubjectOption).toList()
+        : [],
+  );
+}
+
+MinistrySubjectItem _ministrySubjectFromJson(dynamic json)
+{
+  return MinistrySubjectItem(
+    id: json['id'],
+    name: json['name'],
+    level: json['level'],
+    areas: (json['area'] as List).cast<String>(),
+    description: json['description'],
+    createdAt: DateTime.parse(json['created_at']),
+    associationSubjects: _associationSubjectOptions(json['association_subjects']),
+  );
+}
 
 class ApiService
 {
@@ -47,91 +130,121 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
-ApiService._internal()
-{
-  final options = BaseOptions(
-    baseUrl:        ApiConfig.baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  );
+  ApiService._internal()
+  {
+    final options = BaseOptions(
+      baseUrl: ApiConfig.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    );
 
-  _dio      = Dio(options);
-  _tokenDio = Dio(options);
+    _dio = Dio(options);
+    _tokenDio = Dio(options);
 
-  _dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler)
-      {
-        if (_accessToken != null)
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler)
         {
-          options.headers['Authorization'] = 'Bearer $_accessToken';
-        }
-        return handler.next(options);
-      },
-      onError: (error, handler) async
-      {
-        final statusCode = error.response?.statusCode;
-
-        if (statusCode != 401 || _refreshToken == null)
-        {
-          return handler.next(error);
-        }
-
-        if (_isRefreshing)
-        {
-          return handler.next(error);
-        }
-
-        _isRefreshing = true;
-
-        try
-        {
-          await _performTokenRefresh();
-
-          final requestOptions = error.requestOptions;
-          requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
-          
-          if (requestOptions.data is Map &&
-              (requestOptions.data as Map).containsKey('refresh_token'))
+          if (_accessToken != null)
           {
-            (requestOptions.data as Map)['refresh_token'] = _refreshToken;
+            options.headers['Authorization'] = 'Bearer $_accessToken';
           }
 
-          final retryResponse = await _dio.fetch(requestOptions);
-          return handler.resolve(retryResponse);
-        }
-        catch (_)
+          return handler.next(options);
+        },
+        onError: (error, handler) async
         {
-          await _clearSession();
-          authState.value = AuthState.unauthenticated;
-          return handler.next(error);
-        }
-        finally
-        {
-          _isRefreshing = false;
-        }
-      },
-    ),
-  );
-}
+          // A refresh already in flight is not waited on: the call that hit the
+          // 401 fails, and whatever raised it retries once the session is back.
+          if (error.response?.statusCode != 401 || _refreshToken == null || _isRefreshing)
+          {
+            return handler.next(error);
+          }
+
+          _isRefreshing = true;
+
+          try
+          {
+            await _performTokenRefresh();
+
+            final requestOptions = error.requestOptions;
+            requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
+
+            // The refresh call carries the old token in its own body, so
+            // replaying it verbatim would send the one just spent.
+            if (requestOptions.data is Map &&
+                (requestOptions.data as Map).containsKey('refresh_token'))
+            {
+              (requestOptions.data as Map)['refresh_token'] = _refreshToken;
+            }
+
+            final retryResponse = await _dio.fetch(requestOptions);
+
+            return handler.resolve(retryResponse);
+          }
+          catch (_)
+          {
+            await _clearSession();
+            authState.value = AuthState.unauthenticated;
+
+            return handler.next(error);
+          }
+          finally
+          {
+            _isRefreshing = false;
+          }
+        },
+      ),
+    );
+  }
 
   bool get isAuthenticated
   {
     return _accessToken != null && _refreshToken != null;
   }
 
+  // The sentence the server sent with its refusal, or [fallback] where it sent
+  // none — a timeout, or anything that never reached the API's own handler.
+  //
+  // Every call in this file ends a `on DioException` this way, so how a refusal
+  // is unwrapped is decided here once instead of at seventy-five call sites.
+  // [Never] is what lets it stand alone in a catch: the analyzer knows nothing
+  // follows it, so the caller needs no unreachable return after it.
+  Never _refused(DioException error, String fallback)
+  {
+    throw Exception(error.response?.data['detail'] ?? fallback);
+  }
+
+  // Takes the pair of tokens a login or a refresh came back with, stores them,
+  // and moves the app to whatever state the account is in.
+  //
+  // The mandatory password reset is decided here and nowhere else, so it is
+  // read at the same point however a valid token was obtained.
+  Future<void> _adoptSession(LoginResponse loginResponse) async
+  {
+    _accessToken = loginResponse.accessToken;
+    _refreshToken = loginResponse.refreshToken;
+
+    await SessionService.saveTokens(
+      accessToken: loginResponse.accessToken,
+      refreshToken: loginResponse.refreshToken,
+    );
+
+    authState.value = loginResponse.passwordResetRequired
+        ? AuthState.passwordChangeRequired
+        : AuthState.authenticated;
+  }
+
   Future<void> _clearSession() async
   {
-    _accessToken  = null;
+    _accessToken = null;
     _refreshToken = null;
     lastKnownIdentity = null;
     await SessionService.clear();
   }
 
-  // Refreshes the token and updates authState from the current account state
-  // (including the mandatory password reset). Used both by the 401 interceptor
-  // and by restoreSession(), so the password_reset_required check always runs
-  // at the exact same point regardless of how a valid token was obtained.
+  // Trades the refresh token for a fresh pair. Used both by the 401 interceptor
+  // and by [restoreSession].
   Future<LoginResponse> _performTokenRefresh() async
   {
     final refreshResponse = await _tokenDio.post(
@@ -141,24 +254,14 @@ ApiService._internal()
 
     final loginResponse = LoginResponse.fromJson(refreshResponse.data);
 
-    _accessToken  = loginResponse.accessToken;
-    _refreshToken = loginResponse.refreshToken;
-
-    await SessionService.saveTokens(
-      accessToken:  loginResponse.accessToken,
-      refreshToken: loginResponse.refreshToken,
-    );
-
-    authState.value = loginResponse.passwordResetRequired
-        ? AuthState.passwordChangeRequired
-        : AuthState.authenticated;
+    await _adoptSession(loginResponse);
 
     return loginResponse;
   }
 
   Future<bool> restoreSession() async
   {
-    _accessToken  = await SessionService.getAccessToken();
+    _accessToken = await SessionService.getAccessToken();
     _refreshToken = await SessionService.getRefreshToken();
 
     if (_accessToken == null || _refreshToken == null)
@@ -189,17 +292,7 @@ ApiService._internal()
 
     final loginResponse = LoginResponse.fromJson(response.data);
 
-    _accessToken  = loginResponse.accessToken;
-    _refreshToken = loginResponse.refreshToken;
-
-    await SessionService.saveTokens(
-      accessToken:  loginResponse.accessToken,
-      refreshToken: loginResponse.refreshToken,
-    );
-
-    authState.value = loginResponse.passwordResetRequired
-        ? AuthState.passwordChangeRequired
-        : AuthState.authenticated;
+    await _adoptSession(loginResponse);
 
     return loginResponse;
   }
@@ -230,8 +323,8 @@ ApiService._internal()
         '/auth/change-password',
         data: {
           'current_password': currentPassword,
-          'new_password':     newPassword,
-          'refresh_token':    _refreshToken,
+          'new_password': newPassword,
+          'refresh_token': _refreshToken,
         },
       );
 
@@ -242,7 +335,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante il cambio password. Riprova più tardi.');
+      _refused(e, 'Errore durante il cambio password. Riprova più tardi.');
     }
   }
 
@@ -254,7 +347,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la richiesta di recupero password. Riprova più tardi.');
+      _refused(e, 'Errore durante la richiesta di recupero password. Riprova più tardi.');
     }
   }
 
@@ -269,7 +362,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la reimpostazione della password. Riprova più tardi.');
+      _refused(e, 'Errore durante la reimpostazione della password. Riprova più tardi.');
     }
   }
 
@@ -284,14 +377,14 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Token non valido o scaduto.');
+      _refused(e, 'Token non valido o scaduto.');
     }
   }
 
   Future<List<AssociationSubjectItem>> getAssociationSubjects() async
   {
     final response = await _dio.get('/association-subjects/');
-    return (response.data as List).map((e) => AssociationSubjectItem.fromJson(e)).toList();
+    return parseList(response.data, AssociationSubjectItem.fromJson);
   }
 
   Future<List<OpeningDayItem>> getOpeningDays({required DateTime dateFrom, required DateTime dateTo, required String mode}) async
@@ -304,13 +397,13 @@ ApiService._internal()
         'mode': mode,
       },
     );
-    return (response.data as List).map((e) => OpeningDayItem.fromJson(e)).toList();
+    return parseList(response.data, OpeningDayItem.fromJson);
   }
 
   Future<List<WeeklyTemplateItem>> getWeeklyTemplates() async
   {
     final response = await _dio.get('/weekly-templates/');
-    return (response.data as List).map((e) => WeeklyTemplateItem.fromJson(e)).toList();
+    return parseList(response.data, WeeklyTemplateItem.fromJson);
   }
 
   // effectiveFrom is the date the change starts applying to the already
@@ -337,7 +430,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione della fascia oraria. Riprova più tardi.');
     }
   }
 
@@ -359,7 +452,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della fascia oraria. Riprova più tardi.');
     }
   }
 
@@ -374,7 +467,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della fascia oraria. Riprova più tardi.');
     }
   }
 
@@ -399,7 +492,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione dell\'apertura. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione dell\'apertura. Riprova più tardi.');
     }
   }
 
@@ -421,7 +514,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'aggiornamento dell\'apertura. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'aggiornamento dell\'apertura. Riprova più tardi.');
     }
   }
 
@@ -433,7 +526,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione dell\'apertura. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione dell\'apertura. Riprova più tardi.');
     }
   }
 
@@ -457,7 +550,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante il ripristino dell\'orario standard. Riprova più tardi.');
+      _refused(e, 'Errore durante il ripristino dell\'orario standard. Riprova più tardi.');
     }
   }
   Future<AssociationSubjectItem> createAssociationSubject(String name, String area, String description) async
@@ -472,7 +565,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
     }
   }
 
@@ -488,7 +581,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      _refused(e, 'Errore durante la modifica.');
     }
   }
 
@@ -500,7 +593,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      _refused(e, 'Errore durante l\'eliminazione.');
     }
   }
 
@@ -525,11 +618,11 @@ ApiService._internal()
         },
       );
 
-      return (response.data as List).map((e) => PresenceItem.fromJson(e)).toList();
+      return parseList(response.data, PresenceItem.fromJson);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della richiesta.');
+      _refused(e, 'Errore durante la creazione della richiesta.');
     }
   }
 
@@ -540,7 +633,7 @@ ApiService._internal()
   Future<List<ServiceItem>> getServices() async
   {
     final response = await _dio.get('/services/');
-    return (response.data as List).map((e) => ServiceItem.fromJson(e)).toList();
+    return parseList(response.data, ServiceItem.fromJson);
   }
 
   Future<ServiceItem> createService(String name, String description) async
@@ -555,7 +648,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
     }
   }
 
@@ -573,7 +666,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica.');
+      _refused(e, 'Errore durante la modifica.');
     }
   }
 
@@ -585,7 +678,205 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione.');
+      _refused(e, 'Errore durante l\'eliminazione.');
+    }
+  }
+
+  Future<List<RoomItem>> getRooms() async
+  {
+    final response = await _dio.get('/rooms/');
+
+    return parseList(response.data, RoomItem.fromJson);
+  }
+
+  // The capacity travels as null where it was left blank, and not as zero: the
+  // backend refuses a zero, and a room nobody has counted is not a room with no
+  // seats in it.
+  Future<RoomItem> createRoom({required String name, required String description, int? capacity}) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/rooms/',
+        data: {'name': name, 'description': description, 'capacity': capacity},
+      );
+
+      return RoomItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la creazione della stanza. Riprova più tardi.');
+    }
+  }
+
+  Future<RoomItem> updateRoom({required int id, required String name, required String description, int? capacity}) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/rooms/$id',
+        data: {'name': name, 'description': description, 'capacity': capacity},
+      );
+
+      return RoomItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica della stanza.');
+    }
+  }
+
+  Future<void> deleteRoom(int id) async
+  {
+    try
+    {
+      await _dio.delete('/rooms/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione della stanza.');
+    }
+  }
+
+  // --- Teacher room assignments ---------------------------------------------
+
+  // A day at a time and never a range: rooms are handed out once a day's
+  // lessons are settled, and the window that does it is looking at one day.
+
+  String _assignmentPath(DateTime day, String teacherTaxCode)
+  {
+    return '/teacher-room-assignments/${formatDateOnly(day)}/$teacherTaxCode';
+  }
+
+  Future<List<TeacherRoomAssignmentItem>> getTeacherRoomAssignments(DateTime day) async
+  {
+    final response = await _dio.get(
+      '/teacher-room-assignments/',
+      queryParameters: {'day': formatDateOnly(day)},
+    );
+
+    return parseList(response.data, TeacherRoomAssignmentItem.fromJson);
+  }
+
+  Future<TeacherRoomAssignmentItem> assignTeacherRoom({
+    required DateTime day,
+    required String teacherTaxCode,
+    required int roomId,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/teacher-room-assignments/',
+        data: {
+          'date': formatDateOnly(day),
+          'teacher_tax_code': teacherTaxCode,
+          'room_id': roomId,
+        },
+      );
+
+      return TeacherRoomAssignmentItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'assegnazione della stanza.');
+    }
+  }
+
+  // Moving a teacher to another room, not writing a second assignment: there is
+  // one room per teacher per day, and the supervision shifts follow the teacher
+  // across by cascade.
+  Future<TeacherRoomAssignmentItem> moveTeacherRoom({
+    required DateTime day,
+    required String teacherTaxCode,
+    required int roomId,
+    DateTime? expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        _assignmentPath(day, teacherTaxCode),
+        data: {
+          'room_id': roomId,
+          'expected_updated_at': expectedUpdatedAt?.toIso8601String(),
+        },
+      );
+
+      return TeacherRoomAssignmentItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante lo spostamento di stanza.');
+    }
+  }
+
+  Future<void> unassignTeacherRoom({required DateTime day, required String teacherTaxCode}) async
+  {
+    try
+    {
+      await _dio.delete(_assignmentPath(day, teacherTaxCode));
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la rimozione dell\'assegnazione.');
+    }
+  }
+
+  // --- Room supervisions ----------------------------------------------------
+
+  // Written and thrown away rather than moved: a shift is a stretch of hours and
+  // nothing else, so changing who covers what is the same work either way, and
+  // there is no third verb here for that reason.
+
+  Future<List<RoomSupervisionItem>> getRoomSupervisions(DateTime day) async
+  {
+    final response = await _dio.get(
+      '/room-supervisions/',
+      queryParameters: {'day': formatDateOnly(day)},
+    );
+
+    return parseList(response.data, RoomSupervisionItem.fromJson);
+  }
+
+  Future<RoomSupervisionItem> createRoomSupervision({
+    required DateTime day,
+    required String teacherTaxCode,
+    required int roomId,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/room-supervisions/',
+        data: {
+          'date': formatDateOnly(day),
+          'teacher_tax_code': teacherTaxCode,
+          'room_id': roomId,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
+        },
+      );
+
+      return RoomSupervisionItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'assegnazione del responsabile.');
+    }
+  }
+
+  Future<void> deleteRoomSupervision(int id) async
+  {
+    try
+    {
+      await _dio.delete('/room-supervisions/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la rimozione del responsabile.');
     }
   }
 
@@ -628,7 +919,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante il caricamento dell\'immagine.');
+      _refused(e, 'Errore durante il caricamento dell\'immagine.');
     }
   }
 
@@ -643,7 +934,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la rimozione dell\'immagine.');
+      _refused(e, 'Errore durante la rimozione dell\'immagine.');
     }
   }
 
@@ -651,21 +942,7 @@ ApiService._internal()
   {
     final response = await _dio.get('/schools/');
 
-    return (response.data as List).map((e) => SchoolItem(
-      id:                 e['id'],
-      mechanographicCode: e['mechanographic_code'],
-      name:               e['name'],
-      city:               e['city'],
-      province:           e['province'],
-      createdAt:          DateTime.parse(e['created_at']),
-      studyPrograms:      e['study_programs'] != null
-          ? (e['study_programs'] as List).map((p) => SchoolStudyProgramOption(
-              id:    p['id'],
-              name:  p['name'],
-              level: p['level'] ?? '',
-            )).toList()
-          : [],
-    )).toList();
+    return parseList(response.data, _schoolFromJson);
   }
 
   Future<SchoolItem> createSchool({String? code, required String name, required String city, required String province, required List<int> studyProgramIds}) async
@@ -677,32 +954,18 @@ ApiService._internal()
         data: {
           // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
-          'name':                name,
-          'city':                city,
-          'province':            province,
-          'study_program_ids':   studyProgramIds,
+          'name': name,
+          'city': city,
+          'province': province,
+          'study_program_ids': studyProgramIds,
         },
       );
 
-      return SchoolItem(
-        id:                 response.data['id'],
-        mechanographicCode: response.data['mechanographic_code'],
-        name:               response.data['name'],
-        city:               response.data['city'],
-        province:           response.data['province'],
-        createdAt:          DateTime.parse(response.data['created_at']),
-        studyPrograms:      response.data['study_programs'] != null
-            ? (response.data['study_programs'] as List).map((p) => SchoolStudyProgramOption(
-                id:    p['id'],
-                name:  p['name'],
-                level: p['level'] ?? '',
-              )).toList()
-            : [],
-      );
+      return _schoolFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della scuola. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione della scuola. Riprova più tardi.');
     }
   }
 
@@ -715,32 +978,18 @@ ApiService._internal()
         data: {
           // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
-          'name':                name,
-          'city':                city,
-          'province':            province,
-          'study_program_ids':   studyProgramIds,
+          'name': name,
+          'city': city,
+          'province': province,
+          'study_program_ids': studyProgramIds,
         },
       );
 
-      return SchoolItem(
-        id:                 response.data['id'],
-        mechanographicCode: response.data['mechanographic_code'],
-        name:               response.data['name'],
-        city:               response.data['city'],
-        province:           response.data['province'],
-        createdAt:          DateTime.parse(response.data['created_at']),
-        studyPrograms:      response.data['study_programs'] != null
-            ? (response.data['study_programs'] as List).map((p) => SchoolStudyProgramOption(
-                id:    p['id'],
-                name:  p['name'],
-                level: p['level'] ?? '',
-              )).toList()
-            : [],
-      );
+      return _schoolFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della scuola. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della scuola. Riprova più tardi.');
     }
   }
 
@@ -752,7 +1001,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della scuola. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della scuola. Riprova più tardi.');
     }
   }
 
@@ -760,25 +1009,7 @@ ApiService._internal()
   {
     final response = await _dio.get('/study-programs/');
 
-    return (response.data as List).map((e) => StudyProgramItem(
-      id:               e['id'],
-      name:             e['name'],
-      sector:           e['sector'],
-      description:      e['description'] ?? '',
-      level:            e['level'],
-      minYear:          e['min_year'],
-      maxYear:          e['max_year'],
-      createdAt:        DateTime.parse(e['created_at']),
-      ministrySubjects: e['ministry_subjects'] != null
-          ? (e['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
-              id:                  m['id'],
-              name:                m['name'],
-              associationSubjects: m['association_subjects'] != null
-                  ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-                  : [],
-            )).toList()
-          : [],
-    )).toList();
+    return parseList(response.data, _studyProgramFromJson);
   }
 
   Future<StudyProgramItem> createStudyProgram({required String name, required String? sector, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
@@ -788,39 +1019,21 @@ ApiService._internal()
       final response = await _dio.post(
         '/study-programs/',
         data: {
-          'name':                 name,
-          'sector':               sector,
-          'description':          description,
-          'level':                level,
-          'min_year':             minYear,
-          'max_year':             maxYear,
+          'name': name,
+          'sector': sector,
+          'description': description,
+          'level': level,
+          'min_year': minYear,
+          'max_year': maxYear,
           'ministry_subject_ids': ministrySubjectIds,
         },
       );
 
-      return StudyProgramItem(
-        id:               response.data['id'],
-        name:             response.data['name'],
-        sector:           response.data['sector'],
-        description:      response.data['description'] ?? '',
-        level:            response.data['level'],
-        minYear:          response.data['min_year'],
-        maxYear:          response.data['max_year'],
-        createdAt:        DateTime.parse(response.data['created_at']),
-        ministrySubjects: response.data['ministry_subjects'] != null
-            ? (response.data['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
-                id:                  m['id'],
-                name:                m['name'],
-                associationSubjects: m['association_subjects'] != null
-                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-                    : [],
-              )).toList()
-            : [],
-      );
+      return _studyProgramFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione del percorso. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione del percorso. Riprova più tardi.');
     }
   }
 
@@ -831,39 +1044,21 @@ ApiService._internal()
       final response = await _dio.put(
         '/study-programs/$id',
         data: {
-          'name':                 name,
-          'sector':               sector,
-          'description':          description,
-          'level':                level,
-          'min_year':             minYear,
-          'max_year':             maxYear,
+          'name': name,
+          'sector': sector,
+          'description': description,
+          'level': level,
+          'min_year': minYear,
+          'max_year': maxYear,
           'ministry_subject_ids': ministrySubjectIds,
         },
       );
 
-      return StudyProgramItem(
-        id:               response.data['id'],
-        name:             response.data['name'],
-        sector:           response.data['sector'],
-        description:      response.data['description'] ?? '',
-        level:            response.data['level'],
-        minYear:          response.data['min_year'],
-        maxYear:          response.data['max_year'],
-        createdAt:        DateTime.parse(response.data['created_at']),
-        ministrySubjects: response.data['ministry_subjects'] != null
-            ? (response.data['ministry_subjects'] as List).map((m) => MinistrySubjectOption(
-                id:                  m['id'],
-                name:                m['name'],
-                associationSubjects: m['association_subjects'] != null
-                    ? (m['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-                    : [],
-              )).toList()
-            : [],
-      );
+      return _studyProgramFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica del percorso. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica del percorso. Riprova più tardi.');
     }
   }
 
@@ -875,7 +1070,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione del percorso. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione del percorso. Riprova più tardi.');
     }
   }
 
@@ -883,17 +1078,7 @@ ApiService._internal()
   {
     final response = await _dio.get('/ministry-subjects/');
 
-    return (response.data as List).map((e) => MinistrySubjectItem(
-      id:                  e['id'],
-      name:                e['name'],
-      level:               e['level'],
-      areas:               (e['area'] as List).cast<String>(),
-      description:         e['description'],
-      createdAt:           DateTime.parse(e['created_at']),
-      associationSubjects: e['association_subjects'] != null
-          ? (e['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-          : [],
-    )).toList();
+    return parseList(response.data, _ministrySubjectFromJson);
   }
 
   Future<MinistrySubjectItem> createMinistrySubject({required String name, required String level, required List<String> areas, required String description, required List<int> associationSubjectIds}) async
@@ -903,29 +1088,19 @@ ApiService._internal()
       final response = await _dio.post(
         '/ministry-subjects/',
         data: {
-          'name':                    name,
-          'level':                   level,
-          'area':                    areas,
-          'description':             description,
+          'name': name,
+          'level': level,
+          'area': areas,
+          'description': description,
           'association_subject_ids': associationSubjectIds,
         },
       );
 
-      return MinistrySubjectItem(
-        id:                  response.data['id'],
-        name:                response.data['name'],
-        level:               response.data['level'],
-        areas:               (response.data['area'] as List).cast<String>(),
-        description:         response.data['description'],
-        createdAt:           DateTime.parse(response.data['created_at']),
-        associationSubjects: response.data['association_subjects'] != null
-            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-            : [],
-      );
+      return _ministrySubjectFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione della materia. Riprova più tardi.');
     }
   }
 
@@ -936,29 +1111,19 @@ ApiService._internal()
       final response = await _dio.put(
         '/ministry-subjects/$id',
         data: {
-          'name':                    name,
-          'level':                   level,
-          'area':                    areas,
-          'description':             description,
+          'name': name,
+          'level': level,
+          'area': areas,
+          'description': description,
           'association_subject_ids': associationSubjectIds,
         },
       );
 
-      return MinistrySubjectItem(
-        id:                  response.data['id'],
-        name:                response.data['name'],
-        level:               response.data['level'],
-        areas:               (response.data['area'] as List).cast<String>(),
-        description:         response.data['description'],
-        createdAt:           DateTime.parse(response.data['created_at']),
-        associationSubjects: response.data['association_subjects'] != null
-            ? (response.data['association_subjects'] as List).map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>)).toList()
-            : [],
-      );
+      return _ministrySubjectFromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della materia. Riprova più tardi.');
     }
   }
 
@@ -970,14 +1135,14 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
   }
 
   Future<List<PersonItem>> getPeople() async
   {
     final response = await _dio.get('/people/');
-    return (response.data as List).map((json) => PersonItem.fromJson(json)).toList();
+    return parseList(response.data, PersonItem.fromJson);
   }
 
   Future<PersonItem> getPerson(String fiscalCode) async
@@ -1005,7 +1170,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.');
     }
   }
 
@@ -1030,7 +1195,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
     }
   }
 
@@ -1045,7 +1210,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile inviare la segnalazione. Riprova più tardi.');
+      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
     }
   }
 
@@ -1069,7 +1234,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
     }
   }
 
@@ -1087,7 +1252,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.');
     }
   }
 
@@ -1109,7 +1274,7 @@ ApiService._internal()
   }
   on DioException catch (e)
   {
-    throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
+    _refused(e, 'Errore imprevisto durante l\'aggiornamento degli anni scolastici. Riprova più tardi.');
   }
 }
 
@@ -1133,7 +1298,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -1158,7 +1323,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -1170,7 +1335,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -1183,7 +1348,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali attuali. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare i totali attuali. Riprova più tardi.');
     }
   }
 
@@ -1203,7 +1368,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend degli iscritti. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il trend degli iscritti. Riprova più tardi.');
     }
   }
 
@@ -1223,7 +1388,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend dei collaboratori. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il trend dei collaboratori. Riprova più tardi.');
     }
   }
 
@@ -1236,7 +1401,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di fidelizzazione. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il tasso di fidelizzazione. Riprova più tardi.');
     }
   }
 
@@ -1249,7 +1414,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il tasso di fidelizzazione collaboratori. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il tasso di fidelizzazione collaboratori. Riprova più tardi.');
     }
   }
 
@@ -1262,7 +1427,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare i totali del ruolo. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare i totali del ruolo. Riprova più tardi.');
     }
   }
 
@@ -1283,7 +1448,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend del ruolo. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il trend del ruolo. Riprova più tardi.');
     }
   }
 
@@ -1304,7 +1469,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare il trend collaboratori del ruolo. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare il trend collaboratori del ruolo. Riprova più tardi.');
     }
   }
 
@@ -1317,7 +1482,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la fidelizzazione del ruolo. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la fidelizzazione del ruolo. Riprova più tardi.');
     }
   }
 
@@ -1330,7 +1495,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la fidelizzazione collaboratori. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la fidelizzazione collaboratori. Riprova più tardi.');
     }
   }
 
@@ -1343,7 +1508,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per città. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la distribuzione per città. Riprova più tardi.');
     }
   }
 
@@ -1356,7 +1521,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione per età. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la distribuzione per età. Riprova più tardi.');
     }
   }
 
@@ -1380,7 +1545,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore imprevisto. Riprova più tardi.');
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
   }
 
@@ -1393,7 +1558,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione scolastica. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la distribuzione scolastica. Riprova più tardi.');
     }
   }
 
@@ -1406,7 +1571,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare le statistiche sulle materie dei docenti. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare le statistiche sulle materie dei docenti. Riprova più tardi.');
     }
   }
 
@@ -1419,7 +1584,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Impossibile recuperare la distribuzione dei corsi. Riprova più tardi.');
+      _refused(e, 'Impossibile recuperare la distribuzione dei corsi. Riprova più tardi.');
     }
   }
 
@@ -1436,16 +1601,26 @@ ApiService._internal()
       {
         return false;
       }
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la verifica del codice fiscale. Riprova più tardi.');
+      _refused(e, 'Errore durante la verifica del codice fiscale. Riprova più tardi.');
     }
   }
 
   // --- Availabilities -----------------------------------------------------
 
-  Future<List<AvailabilityItem>> getAvailabilities() async
+  // The whole list where no dates are given, which is what the lessons page asks
+  // for when it opens. A range is for one day at a time: the calendar can be
+  // walked past the booking window, and out there the day has to be fetched.
+  Future<List<AvailabilityItem>> getAvailabilities({DateTime? dateFrom, DateTime? dateTo}) async
   {
-    final response = await _dio.get('/availabilities/');
-    return (response.data as List).map((e) => AvailabilityItem.fromJson(e)).toList();
+    final response = await _dio.get(
+      '/availabilities/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, AvailabilityItem.fromJson);
   }
 
   Future<AvailabilityItem> createAvailability({
@@ -1462,17 +1637,17 @@ ApiService._internal()
         '/availabilities/',
         data: {
           'teacher_tax_code': teacherTaxCode,
-          'date':             formatDateOnly(date),
-          'mode':             mode,
-          'start_time':       formatTimeOfDay(startTime),
-          'end_time':         formatTimeOfDay(endTime),
+          'date': formatDateOnly(date),
+          'mode': mode,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
         },
       );
       return AvailabilityItem.fromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della disponibilità. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione della disponibilità. Riprova più tardi.');
     }
   }
 
@@ -1491,11 +1666,11 @@ ApiService._internal()
       final response = await _dio.put(
         '/availabilities/$id',
         data: {
-          'teacher_tax_code':    teacherTaxCode,
-          'date':                formatDateOnly(date),
-          'mode':                mode,
-          'start_time':          formatTimeOfDay(startTime),
-          'end_time':            formatTimeOfDay(endTime),
+          'teacher_tax_code': teacherTaxCode,
+          'date': formatDateOnly(date),
+          'mode': mode,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
           'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );
@@ -1503,7 +1678,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della disponibilità. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della disponibilità. Riprova più tardi.');
     }
   }
 
@@ -1515,16 +1690,23 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della disponibilità. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della disponibilità. Riprova più tardi.');
     }
   }
 
   // --- Lesson requests (Presence + Booking) -----------------------------
 
-  Future<List<PresenceItem>> getPresences() async
+  Future<List<PresenceItem>> getPresences({DateTime? dateFrom, DateTime? dateTo}) async
   {
-    final response = await _dio.get('/presences/');
-    return (response.data as List).map((e) => PresenceItem.fromJson(e)).toList();
+    final response = await _dio.get(
+      '/presences/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, PresenceItem.fromJson);
   }
 
   // Used to refresh a single presence after a booking mutation: bookings are
@@ -1553,17 +1735,17 @@ ApiService._internal()
         '/presences/',
         data: {
           'student_tax_code': studentTaxCode,
-          'date':             formatDateOnly(date),
-          'mode':             mode,
-          'start_time':       formatTimeOfDay(startTime),
-          'end_time':         formatTimeOfDay(endTime),
+          'date': formatDateOnly(date),
+          'mode': mode,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
         },
       );
       return PresenceItem.fromJson(response.data);
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la creazione della richiesta. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione della richiesta. Riprova più tardi.');
     }
   }
 
@@ -1582,11 +1764,11 @@ ApiService._internal()
       final response = await _dio.put(
         '/presences/$id',
         data: {
-          'student_tax_code':    studentTaxCode,
-          'date':                formatDateOnly(date),
-          'mode':                mode,
-          'start_time':          formatTimeOfDay(startTime),
-          'end_time':            formatTimeOfDay(endTime),
+          'student_tax_code': studentTaxCode,
+          'date': formatDateOnly(date),
+          'mode': mode,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
           'expected_updated_at': expectedUpdatedAt.toIso8601String(),
         },
       );
@@ -1594,7 +1776,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della richiesta. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della richiesta. Riprova più tardi.');
     }
   }
 
@@ -1606,7 +1788,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della richiesta. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della richiesta. Riprova più tardi.');
     }
   }
 
@@ -1633,7 +1815,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'aggiunta della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'aggiunta della materia. Riprova più tardi.');
     }
   }
 
@@ -1655,7 +1837,7 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante la modifica della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica della materia. Riprova più tardi.');
     }
   }
 
@@ -1667,7 +1849,116 @@ ApiService._internal()
     }
     on DioException catch (e)
     {
-      throw Exception(e.response?.data['detail'] ?? 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
+  }
+
+  // --- Lessons ------------------------------------------------------------
+
+  // The whole booking window in one answer, the way the availabilities and the
+  // presences beside it are asked for: the calendar walks its days without
+  // going back to the network, and what it draws is the same three lists.
+  Future<List<LessonItem>> getLessons({DateTime? dateFrom, DateTime? dateTo}) async
+  {
+    final response = await _dio.get(
+      '/lessons/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, LessonItem.fromJson);
+  }
+
+  // The bookings and the disciplines travel as whole lists on both the create
+  // and the update: a lesson is written entire, and what does not reach the
+  // server is unlinked rather than left as it was.
+  Future<LessonItem> createLesson({
+    required int availabilityId,
+    required List<int> bookingIds,
+    required List<int> associationSubjectIds,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/lessons/',
+        data: {
+          'availability_id': availabilityId,
+          'booking_ids': bookingIds,
+          'association_subject_ids': associationSubjectIds,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
+        },
+      );
+
+      return LessonItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la creazione della lezione. Riprova più tardi.');
+    }
+  }
+
+  // Moving a lesson to another teacher is a change of availability and nothing
+  // else: the identity of the hour is the row, not the person on it.
+  Future<LessonItem> updateLesson({
+    required int id,
+    required int availabilityId,
+    required List<int> bookingIds,
+    required List<int> associationSubjectIds,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required DateTime expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/lessons/$id',
+        data: {
+          'availability_id': availabilityId,
+          'booking_ids': bookingIds,
+          'association_subject_ids': associationSubjectIds,
+          'start_time': formatTimeOfDay(startTime),
+          'end_time': formatTimeOfDay(endTime),
+          'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+
+      return LessonItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica della lezione. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteLesson(int id) async
+  {
+    try
+    {
+      await _dio.delete('/lessons/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione della lezione. Riprova più tardi.');
+    }
+  }
+}
+
+// Formats a date only where there is one, so that an absent filter can be
+// dropped from the query with the null-aware spread instead of being spelled
+// out over three lines above every call.
+extension _OptionalDate on DateTime?
+{
+  String? let(String Function(DateTime) format)
+  {
+    final value = this;
+
+    return value == null ? null : format(value);
   }
 }

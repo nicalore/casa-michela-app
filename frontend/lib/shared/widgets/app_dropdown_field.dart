@@ -15,9 +15,9 @@ const double _fieldBorder = 2;
 const double _menuRadius = 16;
 const double _scrollbarLane = 10;
 
-/// One row of a dropdown: what it stands for, and what is written on it. A
-/// separator is a line with nothing behind it, for telling one group of answers
-/// from the next.
+// One row of a dropdown: what it stands for, and what is written on it. A
+// separator is a line with nothing behind it, for telling one group of answers
+// from the next.
 class AppDropdownOption<T>
 {
   final T?     value;
@@ -31,13 +31,13 @@ class AppDropdownOption<T>
   });
 }
 
-/// A field that opens its answers under itself.
-///
-/// The app's other way of asking — a field that opens a window with a search in
-/// it — is what a long list needs: a school, a person, a discipline out of
-/// hundreds. Where the answers are ten and they all fit under the field, that
-/// window is a room to walk into and back out of for something that could have
-/// been a glance.
+// A field that opens its answers under itself.
+//
+// The app's other way of asking — a field that opens a window with a search in
+// it — is what a long list needs: a school, a person, a discipline out of
+// hundreds. Where the answers are ten and they all fit under the field, that
+// window is a room to walk into and back out of for something that could have
+// been a glance.
 class AppDropdownField<T> extends StatefulWidget
 {
   final String                   hint;

@@ -55,8 +55,8 @@ const int _defaultRenewalPeriodDays = 30;
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 
-/// A membership counts as running until the renewal window after its end date has
-/// passed, not on the end date itself.
+// A membership counts as running until the renewal window after its end date has
+// passed, not on the end date itself.
 bool _isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays)
 {
   return DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));

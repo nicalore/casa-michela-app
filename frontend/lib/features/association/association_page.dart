@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
+import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/error_message.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
@@ -14,14 +14,16 @@ import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import 'models/association_subject_item.dart';
 import 'models/ministry_subject_item.dart';
+import 'models/room_item.dart';
 import 'models/school_item.dart';
 import 'models/service_item.dart';
 import 'models/study_program_item.dart';
 import 'models/weekly_template_item.dart';
 import 'tabs/association_subjects_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
-import 'tabs/presence_hours_tab.dart';
 import 'tabs/online_hours_tab.dart';
+import 'tabs/presence_hours_tab.dart';
+import 'tabs/rooms_tab.dart';
 import 'tabs/schools_tab.dart';
 import 'tabs/services_tab.dart';
 import 'tabs/study_programs_tab.dart';
@@ -31,8 +33,9 @@ const int _associationSubjectsContentIndex = 1;
 const int _ministrySubjectsContentIndex = 2;
 const int _studyProgramsContentIndex = 3;
 const int _schoolsContentIndex = 4;
-const int _presenceHoursContentIndex = 5;
-const int _onlineHoursContentIndex = 6;
+const int _roomsContentIndex = 5;
+const int _presenceHoursContentIndex = 6;
+const int _onlineHoursContentIndex = 7;
 
 // The order here is the order of the IndexedStack below, and the constants
 // above are the indices into both.
@@ -50,6 +53,9 @@ const List<RailGroup> _sections = [
       'Scuole',
     ],
   ),
+  // On its own between the teaching and the hours: a room is neither, and one
+  // entry does not need a heading over it to say what it is.
+  RailGroup(entries: ['Stanze']),
   RailGroup(title: 'Orari', entries: ['In presenza', 'Online']),
 ];
 
@@ -61,7 +67,8 @@ class AssociationPage extends StatefulWidget
   State<AssociationPage> createState() => _AssociationPageState();
 }
 
-class _AssociationPageState extends State<AssociationPage> with DestinationRefresh
+class _AssociationPageState extends State<AssociationPage>
+    with DestinationRefresh, EntityWrites
 {
   final ApiService _apiService = ApiService();
 
@@ -81,6 +88,7 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
   List<MinistrySubjectItem> _ministrySubjects = [];
   List<AssociationSubjectItem> _associationSubjects = [];
   List<ServiceItem> _services = [];
+  List<RoomItem> _rooms = [];
   List<WeeklyTemplateItem> _weeklyTemplates = [];
 
   @override
@@ -111,6 +119,7 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
         _apiService.getMinistrySubjects(),
         _apiService.getAssociationSubjects(),
         _apiService.getServices(),
+        _apiService.getRooms(),
         _apiService.getWeeklyTemplates(),
       ]);
 
@@ -126,7 +135,8 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
         _ministrySubjects = results[2] as List<MinistrySubjectItem>;
         _associationSubjects = results[3] as List<AssociationSubjectItem>;
         _services = results[4] as List<ServiceItem>;
-        _weeklyTemplates = results[5] as List<WeeklyTemplateItem>;
+        _rooms = results[5] as List<RoomItem>;
+        _weeklyTemplates = results[6] as List<WeeklyTemplateItem>;
         _isLoading = false;
       });
     }
@@ -150,319 +160,171 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
   // example MinistrySubjectItem.associationSubjects), received from the backend
   // at fetch time. That copy is not updated by a standalone edit or delete, so
   // after such an operation the level above is refetched to make the nested
-  // copy fresh again. These refresh failures are swallowed on purpose: the
-  // primary operation already succeeded and must not be reported as failed.
+  // copy fresh again.
 
-  Future<void> _refreshMinistrySubjects() async
+  // Refetches one level of the catalogue.
+  //
+  // The failure is swallowed on purpose: the write that made this necessary has
+  // already gone through, and a stale nested copy is no reason to tell whoever
+  // asked that their operation failed.
+  Future<void> _refresh<T>(Future<List<T>> Function() fetch, void Function(List<T>) apply) async
   {
     try
     {
-      final refreshed = await _apiService.getMinistrySubjects();
+      final refreshed = await fetch();
 
       if (mounted)
       {
-        setState(() => _ministrySubjects = refreshed);
+        setState(() => apply(refreshed));
       }
     }
-    catch (e)
+    catch (_)
     {
-      // Intentionally ignored, see the note above.
+      // See above.
     }
   }
 
-  Future<void> _refreshStudyPrograms() async
+  Future<void> _refreshMinistrySubjects()
   {
-    try
-    {
-      final refreshed = await _apiService.getStudyPrograms();
-
-      if (mounted)
-      {
-        setState(() => _studyPrograms = refreshed);
-      }
-    }
-    catch (e)
-    {
-      // Intentionally ignored, see the note above.
-    }
+    return _refresh(_apiService.getMinistrySubjects, (rows) => _ministrySubjects = rows);
   }
 
-  Future<void> _refreshSchools() async
+  Future<void> _refreshStudyPrograms()
   {
-    try
-    {
-      final refreshed = await _apiService.getSchools();
-
-      if (mounted)
-      {
-        setState(() => _schools = refreshed);
-      }
-    }
-    catch (e)
-    {
-      // Intentionally ignored, see the note above.
-    }
+    return _refresh(_apiService.getStudyPrograms, (rows) => _studyPrograms = rows);
   }
 
-  Future<void> _refreshWeeklyTemplates() async
+  Future<void> _refreshSchools()
   {
-    try
-    {
-      final refreshed = await _apiService.getWeeklyTemplates();
+    return _refresh(_apiService.getSchools, (rows) => _schools = rows);
+  }
 
-      if (mounted)
-      {
-        setState(() => _weeklyTemplates = refreshed);
-      }
-    }
-    catch (e)
-    {
-      // Intentionally ignored, see the note above.
-    }
+  Future<void> _refreshWeeklyTemplates()
+  {
+    return _refresh(_apiService.getWeeklyTemplates, (rows) => _weeklyTemplates = rows);
   }
 
   // --- Services ----------------------------------------------------------
   // Nothing is denormalized onto a service and nothing hangs off one yet, so
   // none of these trigger a cascade refresh.
 
-  Future<bool> _executeCreateService(String name, String description, Function(String) onError) async
+  Future<bool> _executeCreateService(String name, String description, Function(String) onError)
   {
-    try
-    {
-      final created = await _apiService.createService(name, description);
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _services = [..._services, created]);
-      CustomSnackBar.show(context: context, message: 'Servizio creato con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+    return write(
+      call: () => _apiService.createService(name, description),
+      apply: (created) => _services = [..._services, created],
+      done: 'Servizio creato con successo!',
+      onError: onError,
+    );
   }
 
   // A service is identified by its name, so an edit changing it replaces the row
   // whose name was the previous one: originalName is the key, name is the new
   // value.
-  Future<bool> _executeEditService(String originalName, String name, String description, Function(String) onError) async
+  Future<bool> _executeEditService(String originalName, String name, String description, Function(String) onError)
   {
-    try
-    {
-      final updated = await _apiService.updateService(originalName, name, description);
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _services = _services.map((s) => s.name == originalName ? updated : s).toList());
-      CustomSnackBar.show(context: context, message: 'Servizio modificato con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+    return write(
+      call: () => _apiService.updateService(originalName, name, description),
+      apply: (updated) => _services = _services.map((s) => s.name == originalName ? updated : s).toList(),
+      done: 'Servizio modificato con successo!',
+      onError: onError,
+    );
   }
 
-  Future<void> _executeDeleteService(ServiceItem item) async
+  Future<void> _executeDeleteService(ServiceItem item)
   {
-    try
-    {
-      await _apiService.deleteService(item.name);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(() => _services = _services.where((s) => s.name != item.name).toList());
-      CustomSnackBar.show(context: context, message: 'Servizio eliminato con successo!', isError: false);
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
-      }
-    }
+    return erase(
+      call: () => _apiService.deleteService(item.name),
+      apply: () => _services = _services.where((s) => s.name != item.name).toList(),
+      done: 'Servizio eliminato con successo!',
+    );
   }
 
   // --- Association subjects ----------------------------------------------
 
-  Future<bool> _executeCreateAssociationSubject(String name, String area, String description, Function(String) onError) async
+  Future<bool> _executeCreateAssociationSubject(String name, String area, String description, Function(String) onError)
   {
-    try
-    {
-      final created = await _apiService.createAssociationSubject(name, area, description);
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _associationSubjects = [..._associationSubjects, created]);
-      CustomSnackBar.show(context: context, message: 'Disciplina interna creata con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+    return write(
+      call: () => _apiService.createAssociationSubject(name, area, description),
+      apply: (created) => _associationSubjects = [..._associationSubjects, created],
+      done: 'Disciplina interna creata con successo!',
+      onError: onError,
+    );
   }
 
-  Future<bool> _executeEditAssociationSubject(int id, String name, String area, String description, Function(String) onError) async
+  Future<bool> _executeEditAssociationSubject(int id, String name, String area, String description, Function(String) onError)
   {
-    try
-    {
-      final updated = await _apiService.updateAssociationSubject(id, name, area, description);
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _associationSubjects = _associationSubjects.map((s) => s.id == id ? updated : s).toList());
-      CustomSnackBar.show(context: context, message: 'Disciplina interna modificata con successo!', isError: false);
-      await _refreshMinistrySubjects();
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+    return write(
+      call: () => _apiService.updateAssociationSubject(id, name, area, description),
+      apply: (updated) => _associationSubjects = _associationSubjects.map((s) => s.id == id ? updated : s).toList(),
+      done: 'Disciplina interna modificata con successo!',
+      onError: onError,
+      cascade: _refreshMinistrySubjects,
+    );
   }
 
-  Future<void> _executeDeleteAssociationSubject(AssociationSubjectItem item) async
+  Future<void> _executeDeleteAssociationSubject(AssociationSubjectItem item)
   {
-    try
-    {
-      await _apiService.deleteAssociationSubject(item.id);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(() => _associationSubjects = _associationSubjects.where((s) => s.id != item.id).toList());
-      CustomSnackBar.show(context: context, message: 'Disciplina interna eliminata con successo!', isError: false);
-      await _refreshMinistrySubjects();
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
-      }
-    }
+    return erase(
+      call: () => _apiService.deleteAssociationSubject(item.id),
+      apply: () => _associationSubjects = _associationSubjects.where((s) => s.id != item.id).toList(),
+      done: 'Disciplina interna eliminata con successo!',
+      cascade: _refreshMinistrySubjects,
+    );
   }
 
   // --- Ministry subjects -------------------------------------------------
 
-  Future<bool> _executeCreateMinistrySubject(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
+  Future<bool> _executeCreateMinistrySubject(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError)
   {
-    try
-    {
-      final created = await _apiService.createMinistrySubject(
+    return write(
+      call: () => _apiService.createMinistrySubject(
         name: name,
         level: level,
         areas: areas,
         description: description,
         associationSubjectIds: associationIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _ministrySubjects = [..._ministrySubjects, created]);
-      CustomSnackBar.show(context: context, message: 'Materia ministeriale creata con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (created) => _ministrySubjects = [..._ministrySubjects, created],
+      done: 'Materia ministeriale creata con successo!',
+      onError: onError,
+    );
   }
 
-  Future<bool> _executeEditMinistrySubject(int id, String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) async
+  Future<bool> _executeEditMinistrySubject(int id, String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError)
   {
-    try
-    {
-      final updated = await _apiService.updateMinistrySubject(
+    return write(
+      call: () => _apiService.updateMinistrySubject(
         id: id,
         name: name,
         level: level,
         areas: areas,
         description: description,
         associationSubjectIds: associationIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _ministrySubjects = _ministrySubjects.map((s) => s.id == id ? updated : s).toList());
-      CustomSnackBar.show(context: context, message: 'Materia ministeriale modificata con successo!', isError: false);
-      await _refreshStudyPrograms();
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (updated) => _ministrySubjects = _ministrySubjects.map((s) => s.id == id ? updated : s).toList(),
+      done: 'Materia ministeriale modificata con successo!',
+      onError: onError,
+      cascade: _refreshStudyPrograms,
+    );
   }
 
-  Future<void> _executeDeleteMinistrySubject(MinistrySubjectItem item) async
+  Future<void> _executeDeleteMinistrySubject(MinistrySubjectItem item)
   {
-    try
-    {
-      await _apiService.deleteMinistrySubject(item.id);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(() => _ministrySubjects = _ministrySubjects.where((s) => s.id != item.id).toList());
-      CustomSnackBar.show(context: context, message: 'Materia ministeriale eliminata con successo!', isError: false);
-      await _refreshStudyPrograms();
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
-      }
-    }
+    return erase(
+      call: () => _apiService.deleteMinistrySubject(item.id),
+      apply: () => _ministrySubjects = _ministrySubjects.where((s) => s.id != item.id).toList(),
+      done: 'Materia ministeriale eliminata con successo!',
+      cascade: _refreshStudyPrograms,
+    );
   }
 
   // --- Study programs ----------------------------------------------------
 
-  Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
+  Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError)
   {
-    try
-    {
-      final created = await _apiService.createStudyProgram(
+    return write(
+      call: () => _apiService.createStudyProgram(
         name: name,
         sector: sector,
         level: level,
@@ -470,30 +332,17 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
         maxYear: maxYear,
         description: description,
         ministrySubjectIds: subjectIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _studyPrograms = [..._studyPrograms, created]);
-      CustomSnackBar.show(context: context, message: 'Percorso creato con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (created) => _studyPrograms = [..._studyPrograms, created],
+      done: 'Percorso creato con successo!',
+      onError: onError,
+    );
   }
 
-  Future<bool> _executeEditStudyProgram(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) async
+  Future<bool> _executeEditStudyProgram(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError)
   {
-    try
-    {
-      final updated = await _apiService.updateStudyProgram(
+    return write(
+      call: () => _apiService.updateStudyProgram(
         id: id,
         name: name,
         sector: sector,
@@ -502,134 +351,102 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
         maxYear: maxYear,
         description: description,
         ministrySubjectIds: subjectIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _studyPrograms = _studyPrograms.map((p) => p.id == id ? updated : p).toList());
-      CustomSnackBar.show(context: context, message: 'Percorso modificato con successo!', isError: false);
-      await _refreshSchools();
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (updated) => _studyPrograms = _studyPrograms.map((p) => p.id == id ? updated : p).toList(),
+      done: 'Percorso modificato con successo!',
+      onError: onError,
+      cascade: _refreshSchools,
+    );
   }
 
-  Future<void> _executeDeleteStudyProgram(StudyProgramItem item) async
+  Future<void> _executeDeleteStudyProgram(StudyProgramItem item)
   {
-    try
-    {
-      await _apiService.deleteStudyProgram(item.id);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(() => _studyPrograms = _studyPrograms.where((p) => p.id != item.id).toList());
-      CustomSnackBar.show(context: context, message: 'Percorso eliminato con successo!', isError: false);
-      await _refreshSchools();
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
-      }
-    }
+    return erase(
+      call: () => _apiService.deleteStudyProgram(item.id),
+      apply: () => _studyPrograms = _studyPrograms.where((p) => p.id != item.id).toList(),
+      done: 'Percorso eliminato con successo!',
+      cascade: _refreshSchools,
+    );
   }
 
   // --- Schools -----------------------------------------------------------
   // The school sits at the top of the denormalization chain, so its edit and
   // delete do not trigger any cascade refresh.
 
-  Future<bool> _executeCreateSchool(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) async
+  Future<bool> _executeCreateSchool(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError)
   {
-    try
-    {
-      final created = await _apiService.createSchool(
+    return write(
+      call: () => _apiService.createSchool(
         code: code,
         name: name,
         city: city,
         province: provinceCode,
         studyProgramIds: programIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _schools = [..._schools, created]);
-      CustomSnackBar.show(context: context, message: 'Scuola creata con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (created) => _schools = [..._schools, created],
+      done: 'Scuola creata con successo!',
+      onError: onError,
+    );
   }
 
-  Future<bool> _executeEditSchool(int id, String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) async
+  Future<bool> _executeEditSchool(int id, String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError)
   {
-    try
-    {
-      final updated = await _apiService.updateSchool(
+    return write(
+      call: () => _apiService.updateSchool(
         id: id,
         code: code,
         name: name,
         city: city,
         province: provinceCode,
         studyProgramIds: programIds,
-      );
-
-      if (!mounted)
-      {
-        return true;
-      }
-
-      setState(() => _schools = _schools.map((s) => s.id == id ? updated : s).toList());
-      CustomSnackBar.show(context: context, message: 'Scuola modificata con successo!', isError: false);
-
-      return true;
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
+      ),
+      apply: (updated) => _schools = _schools.map((s) => s.id == id ? updated : s).toList(),
+      done: 'Scuola modificata con successo!',
+      onError: onError,
+    );
   }
 
-  Future<void> _executeDeleteSchool(SchoolItem item) async
+  Future<void> _executeDeleteSchool(SchoolItem item)
   {
-    try
-    {
-      await _apiService.deleteSchool(item.id);
+    return erase(
+      call: () => _apiService.deleteSchool(item.id),
+      apply: () => _schools = _schools.where((s) => s.id != item.id).toList(),
+      done: 'Scuola eliminata con successo!',
+    );
+  }
 
-      if (!mounted)
-      {
-        return;
-      }
+  // --- Rooms -------------------------------------------------------------
+  // Nothing is denormalized onto a room, and what hangs off one — the days it
+  // has been assigned for — is what stops it from being deleted rather than
+  // something to refresh afterwards. So none of these trigger a cascade.
 
-      setState(() => _schools = _schools.where((s) => s.id != item.id).toList());
-      CustomSnackBar.show(context: context, message: 'Scuola eliminata con successo!', isError: false);
-    }
-    catch (e)
-    {
-      if (mounted)
-      {
-        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
-      }
-    }
+  Future<bool> _executeCreateRoom(String name, int? capacity, String description, Function(String) onError)
+  {
+    return write(
+      call: () => _apiService.createRoom(name: name, description: description, capacity: capacity),
+      apply: (created) => _rooms = [..._rooms, created],
+      done: 'Stanza creata con successo!',
+      onError: onError,
+    );
+  }
+
+  Future<bool> _executeEditRoom(int id, String name, int? capacity, String description, Function(String) onError)
+  {
+    return write(
+      call: () => _apiService.updateRoom(id: id, name: name, description: description, capacity: capacity),
+      apply: (updated) => _rooms = _rooms.map((r) => r.id == id ? updated : r).toList(),
+      done: 'Stanza modificata con successo!',
+      onError: onError,
+    );
+  }
+
+  Future<void> _executeDeleteRoom(RoomItem item)
+  {
+    return erase(
+      call: () => _apiService.deleteRoom(item.id),
+      apply: () => _rooms = _rooms.where((r) => r.id != item.id).toList(),
+      done: 'Stanza eliminata con successo!',
+    );
   }
 
   // IndexedStack keeps the state of already visited sections alive: the
@@ -691,6 +508,14 @@ class _AssociationPageState extends State<AssociationPage> with DestinationRefre
                 onCreate: _executeCreateSchool,
                 onEdit: _executeEditSchool,
                 onDelete: _executeDeleteSchool,
+              )
+            : const SizedBox.shrink(),
+        _visitedSections.contains(_roomsContentIndex)
+            ? RoomsTab(
+                rooms: _rooms,
+                onCreate: _executeCreateRoom,
+                onEdit: _executeEditRoom,
+                onDelete: _executeDeleteRoom,
               )
             : const SizedBox.shrink(),
         _visitedSections.contains(_presenceHoursContentIndex)

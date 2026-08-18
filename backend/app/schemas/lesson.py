@@ -12,7 +12,7 @@ from app.schemas.room import RoomOption
 from app.schemas.validators import TimeBandMixin
 
 _NO_BOOKING_ERROR: Final[str] = (
-    "Una lezione deve contenere almeno una prenotazione."
+    "Una lezione deve avere almeno una prenotazione."
 )
 
 

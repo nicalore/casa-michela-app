@@ -41,14 +41,14 @@ class AppSelectableChip extends StatefulWidget
   final bool selected;
   final ValueChanged<bool> onSelected;
 
-  /// Off where the answer exists but cannot be given — a day a teacher is
-  /// already down for. It stays in the row, greyed and unpickable, because a
-  /// missing chip is a question you cannot ask about, while a dead one is an
-  /// answer with a reason.
+  // Off where the answer exists but cannot be given — a day a teacher is
+  // already down for. It stays in the row, greyed and unpickable, because a
+  // missing chip is a question you cannot ask about, while a dead one is an
+  // answer with a reason.
   final bool enabled;
 
-  /// Why it is off, said on hover. Reaches nobody where the chip is on, so it
-  /// is only worth passing with [enabled] false.
+  // Why it is off, said on hover. Reaches nobody where the chip is on, so it
+  // is only worth passing with [enabled] false.
   final String? disabledTooltip;
 
   const AppSelectableChip({

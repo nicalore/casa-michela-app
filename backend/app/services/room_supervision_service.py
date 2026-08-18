@@ -19,14 +19,14 @@ from app.schemas.room_supervision import (
 )
 
 _ENTITY_LABEL: Final[str] = "il turno"
-_NOT_FOUND_ERROR: Final[str] = "Turno di presidio non trovato"
+_NOT_FOUND_ERROR: Final[str] = "Turno da responsabile non trovato"
 _CREATE_ERROR: Final[str] = (
     "Il docente non ha questa stanza assegnata in questa giornata."
 )
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
 
 _NOT_ASSIGNED_ERROR: Final[str] = (
-    "Solo un docente assegnato a questa stanza può presidiarla."
+    "Solo un docente assegnato a questa stanza può esserne responsabile."
 )
 
 _OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
@@ -35,7 +35,7 @@ _OUTSIDE_AVAILABILITY_ERROR: Final[str] = (
 )
 
 _OVERLAPPING_SHIFT_ERROR: Final[str] = (
-    "Il docente ha già un turno di presidio sovrapposto a quest'orario."
+    "Il docente ha già un turno da responsabile sovrapposto a quest'orario."
 )
 
 
@@ -106,7 +106,7 @@ class RoomSupervisionService:
             detail=_OUTSIDE_AVAILABILITY_ERROR,
         )
 
-    # Across the whole day and not within one room: nobody presides over two
+    # Across the whole day and not within one room: nobody answers for two
     # rooms at the same time.
     async def _assert_no_overlap(
         self,

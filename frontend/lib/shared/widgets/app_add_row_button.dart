@@ -13,10 +13,10 @@ class AppAddRowButton extends StatelessWidget
   final String label;
   final VoidCallback onTap;
 
-  /// Smaller, for where the button is not the only one on the card: a day has
-  /// three bands and each can be given another stretch of hours, and three
-  /// buttons at the ordinary size weigh more than the three questions they
-  /// stand under. Same shape, same ramp, two thirds of the room.
+  // Smaller, for where the button is not the only one on the card: a day has
+  // three bands and each can be given another stretch of hours, and three
+  // buttons at the ordinary size weigh more than the three questions they
+  // stand under. Same shape, same ramp, two thirds of the room.
   final bool dense;
 
   const AppAddRowButton({

@@ -17,14 +17,14 @@ enum PersonEditPurpose
   // A person who already exists.
   edit,
 
-  /// Una persona nuova, con tutte le sue domande.
+  // Una persona nuova, con tutte le sue domande.
   create,
 
   // A parent created on the fly while registering their child: the role is
   // already decided, and the ties are held by the dialog one arrived from.
   createParent,
 
-  /// Un minore creato al volo mentre si registra il suo genitore.
+  // Un minore creato al volo mentre si registra il suo genitore.
   createMinor,
 }
 
@@ -194,7 +194,7 @@ PersonEditStep _personalInfoStep(PersonEditForm form, {required bool revoked})
   );
 }
 
-/// I passaggi da mostrare, nell'ordine.
+// I passaggi da mostrare, nell'ordine.
 List<PersonEditStep> buildEditSteps(
   PersonEditForm form, {
   PersonEditPurpose purpose = PersonEditPurpose.edit,

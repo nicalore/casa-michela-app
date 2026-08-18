@@ -16,8 +16,8 @@ import 'person_detail_widgets.dart';
 // searching a list you can already see is a control that does nothing.
 const int _searchFrom = 12;
 
-/// A programme as the picker reads it: which group it belongs to, and the name
-/// it keeps once the group has said the rest.
+// A programme as the picker reads it: which group it belongs to, and the name
+// it keeps once the group has said the rest.
 class _ScopedProgram
 {
   final StudyProgramItem program;
@@ -28,25 +28,25 @@ class _ScopedProgram
   String get label => program.name;
 }
 
-/// Where a discipline is taught, chosen programme by programme.
-///
-/// The list used to be a flat wrap of chips carrying the whole name of every
-/// programme — ten of them, each wrapping onto three lines, for a discipline as
-/// common as Italian grammar. Here they are gathered by school level and by
-/// sector, so that a row carries only what tells it apart from its neighbours.
-///
-/// The sector is a field of the programme. An earlier draft read it out of the
-/// name, splitting on the bar somebody had typed there by habit: it worked on
-/// the data at hand and would have quietly stopped grouping anything the day
-/// someone wrote a name their own way.
+// Where a discipline is taught, chosen programme by programme.
+//
+// The list used to be a flat wrap of chips carrying the whole name of every
+// programme — ten of them, each wrapping onto three lines, for a discipline as
+// common as Italian grammar. Here they are gathered by school level and by
+// sector, so that a row carries only what tells it apart from its neighbours.
+//
+// The sector is a field of the programme. An earlier draft read it out of the
+// name, splitting on the bar somebody had typed there by habit: it worked on
+// the data at hand and would have quietly stopped grouping anything the day
+// someone wrote a name their own way.
 class ProgramScopeDialog extends StatefulWidget
 {
   final String subjectName;
   final List<StudyProgramItem> programs;
   final Set<int> initialSelected;
 
-  /// Called with the chosen ids on confirm. An empty set means the discipline is
-  /// being given up: the caller decides what that means.
+  // Called with the chosen ids on confirm. An empty set means the discipline is
+  // being given up: the caller decides what that means.
   final ValueChanged<Set<int>> onSave;
 
   const ProgramScopeDialog({

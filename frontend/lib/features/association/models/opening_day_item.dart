@@ -11,10 +11,10 @@ class OpeningDayItem
   final TimeOfDay? endTime;
   final bool isOverride;
 
-  /// Whether this row is a public holiday the calendar generation seeded on its
-  /// own (Natale, Pasqua, ...). Computed server-side — the table has no column
-  /// for it, holidays being stored as ordinary overrides — and used to leave
-  /// the recurring closures out of the edit/delete actions on variations.
+  // Whether this row is a public holiday the calendar generation seeded on its
+  // own (Natale, Pasqua, ...). Computed server-side — the table has no column
+  // for it, holidays being stored as ordinary overrides — and used to leave
+  // the recurring closures out of the edit/delete actions on variations.
   final bool isHoliday;
   final String? note;
   final DateTime createdAt;

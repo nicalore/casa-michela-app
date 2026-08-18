@@ -4,9 +4,12 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.availability import Availability
+from app.models.booking import Booking
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
+from app.models.presence import Presence
 from tests.factories import (
     make_availability,
     make_booking,
@@ -17,6 +20,8 @@ from tests.factories import (
 
 DAY = date(2026, 9, 15)
 
+_Scene = tuple[Availability, Booking, Presence]
+
 
 async def _scene(
     db: AsyncSession,
@@ -25,7 +30,7 @@ async def _scene(
     student_mode: str = "presence",
     presence_start: time = time(14),
     presence_end: time = time(19),
-):
+) -> _Scene:
     teacher = await make_teacher(db)
     student = await make_student(db)
     availability = await make_availability(db, teacher, day=DAY, mode=teacher_mode)
@@ -42,10 +47,32 @@ async def _scene(
     return availability, booking, presence
 
 
-# The lesson teaches whatever the booking asked for: anything less would trip
-# the rule that every pupil in an hour is there for something it covers, which
-# is not what these tests are about.
-def _lesson(availability, booking, start: time, end: time, *, mode: str = "presence"):
+# Both ends widened, or the lesson falls outside the availability rather than
+# outside the rule being tested.
+async def _wide_scene(db: AsyncSession) -> _Scene:
+    availability, booking, presence = await _scene(
+        db,
+        presence_start=time(6),
+        presence_end=time(22),
+    )
+
+    availability.start_time = time(6)
+    availability.end_time = time(22)
+    await db.flush()
+
+    return availability, booking, presence
+
+
+# Whatever the booking asked for: less would trip a rule these tests are not
+# about.
+def _lesson(
+    availability: Availability,
+    booking: Booking,
+    start: time,
+    end: time,
+    *,
+    mode: str = "presence",
+) -> Lesson:
     return Lesson(
         availability=availability,
         mode=mode,
@@ -59,7 +86,7 @@ def _lesson(availability, booking, start: time, end: time, *, mode: str = "prese
 
 
 async def test_a_plain_lesson_is_accepted(db: AsyncSession) -> None:
-    availability, booking, presence = await _scene(db)
+    availability, booking, _ = await _scene(db)
 
     db.add(_lesson(availability, booking, time(15), time(16)))
     await db.flush()
@@ -78,7 +105,7 @@ async def test_impossible_hours_are_refused(
     start: time,
     end: time,
 ) -> None:
-    availability, booking, presence = await _scene(db)
+    availability, booking, _ = await _scene(db)
 
     db.add(_lesson(availability, booking, start, end))
 
@@ -101,14 +128,7 @@ async def test_the_band_follows_the_start_time(
     end: time,
     expected: str,
 ) -> None:
-    availability, booking, presence = await _scene(
-        db,
-        presence_start=time(6),
-        presence_end=time(22),
-    )
-    availability.start_time = time(6)
-    availability.end_time = time(22)
-    await db.flush()
+    availability, booking, _ = await _wide_scene(db)
 
     lesson = _lesson(availability, booking, start, end)
     db.add(lesson)
@@ -118,17 +138,9 @@ async def test_the_band_follows_the_start_time(
     assert lesson.band == expected
 
 
-# Noon to one is entirely morning; half past twelve to half past one is not
-# anything, because a band is the unit the calendar is published in.
+# Noon to one is all morning; half past twelve to half past one is nothing.
 async def test_a_lesson_may_not_straddle_two_bands(db: AsyncSession) -> None:
-    availability, booking, presence = await _scene(
-        db,
-        presence_start=time(6),
-        presence_end=time(22),
-    )
-    availability.start_time = time(6)
-    availability.end_time = time(22)
-    await db.flush()
+    availability, booking, _ = await _wide_scene(db)
 
     db.add(_lesson(availability, booking, time(12, 30), time(13, 30)))
 
@@ -136,23 +148,20 @@ async def test_a_lesson_may_not_straddle_two_bands(db: AsyncSession) -> None:
         await db.flush()
 
 
-# The test that justifies the composite foreign key: a lesson cannot claim a day
-# its availability does not have.
+# What justifies the composite foreign key.
 async def test_a_lesson_cannot_disagree_with_its_availability(
     db: AsyncSession,
 ) -> None:
     availability, _, _ = await _scene(db)
 
-    # The pupil's hours are on the sixteenth, so is the lesson, and the hook
-    # that compares the two is satisfied. The availability is on the fifteenth,
-    # and only the composite foreign key can notice.
+    # Pupil and lesson agree on the sixteenth, so the hook is satisfied. The
+    # availability is on the fifteenth, and only the foreign key can notice.
     other_day = date(2026, 9, 16)
     student = await make_student(db)
     presence = await make_presence(db, student, day=other_day)
     booking = await make_booking(db, presence)
 
-    # Built column by column and not through the relationship, which is the only
-    # way to state a day the availability does not have.
+    # Column by column: the only way to state a day the availability has not.
     db.add(
         Lesson(
             availability_id=availability.id,
@@ -176,7 +185,7 @@ async def test_a_lesson_cannot_disagree_with_its_availability(
 
 # A teacher at a screen at home cannot have a pupil sitting in front of them.
 async def test_a_teacher_at_home_cannot_teach_in_person(db: AsyncSession) -> None:
-    availability, booking, presence = await _scene(db, teacher_mode="online")
+    availability, booking, _ = await _scene(db, teacher_mode="online")
 
     db.add(_lesson(availability, booking, time(15), time(16)))
 
@@ -184,16 +193,18 @@ async def test_a_teacher_at_home_cannot_teach_in_person(db: AsyncSession) -> Non
         await db.flush()
 
 
-# The other way round is the whole point of keeping two modes: someone in the
-# building teaches whoever is on a screen.
+# The other way round is the point of keeping two modes.
 async def test_a_teacher_in_the_building_may_teach_online(db: AsyncSession) -> None:
-    availability, booking, presence = await _scene(db, student_mode="online")
+    availability, booking, _ = await _scene(db, student_mode="online")
 
     db.add(_lesson(availability, booking, time(15), time(16), mode="online"))
     await db.flush()
 
 
-async def test_one_availability_cannot_start_two_lessons_at_once(
+# A teacher taking two pupils from three o'clock, one each, is this shape and
+# the database has to let it through. What caps the day is the pupil count, in
+# the service, because no CHECK can count rows in another table.
+async def test_one_availability_may_start_two_lessons_at_once(
     db: AsyncSession,
 ) -> None:
     availability, booking, presence = await _scene(db)
@@ -203,6 +214,4 @@ async def test_one_availability_cannot_start_two_lessons_at_once(
     await db.flush()
 
     db.add(_lesson(availability, other, time(15), time(16)))
-
-    with pytest.raises(IntegrityError):
-        await db.flush()
+    await db.flush()
