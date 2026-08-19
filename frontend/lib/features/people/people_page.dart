@@ -52,13 +52,9 @@ class PeoplePage extends StatefulWidget
   State<PeoplePage> createState() => _PeoplePageState();
 }
 
-class _PeoplePageState extends State<PeoplePage>
+class _PeoplePageState extends State<PeoplePage> with SectionVisits
 {
   int _selectedSection = 0;
-
-  // Tracks which sections have been opened: once visited a section stays
-  // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
-  final Set<int> _visitedSections = {};
 
   // Held from here on, because in dispose the context can no longer be asked
   // for it.
@@ -68,7 +64,7 @@ class _PeoplePageState extends State<PeoplePage>
   void initState()
   {
     super.initState();
-    _visitedSections.add(_selectedSection);
+    visitedSections.add(_selectedSection);
   }
 
   @override
@@ -106,18 +102,14 @@ class _PeoplePageState extends State<PeoplePage>
       index: _selectedSection,
       children: [
         for (var index = 0; index < _sectionContents.length; index++)
-          if (_visitedSections.contains(index)) _sectionContents[index] else const SizedBox.shrink(),
+          if (visitedSections.contains(index)) _sectionContents[index] else const SizedBox.shrink(),
       ],
     );
   }
 
   void _selectSection(int index)
   {
-    setState(()
-    {
-      _selectedSection = index;
-      _visitedSections.add(index);
-    });
+    openSection(index, () => _selectedSection = index);
   }
 
   @override

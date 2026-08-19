@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -19,17 +20,30 @@ const Duration _pageTransition = Duration(milliseconds: 1200);
 // The timeline of a shell step, in fractions of the whole: the page leaving
 // empties first, the page arriving fills in after, and in the middle the two
 // identical backgrounds are crossfaded so the shell never appears to move.
+//
+// [_slotDelay] is the wait between the first slot and the second, and every
+// slot after that waits [_slotDecay] of what the one before it did. A flat wait
+// per slot has to be capped somewhere or the last card would still be leaving
+// after the new page had arrived, and everything past that cap then moves in one
+// block — on a grid, every row but the first. Shortening the wait instead of
+// stopping it leaves the head of the page the run-up it was drawn with and still
+// gives the twentieth card a beat of its own.
 const double _slotDelay = 0.038;
-const int _lastDelayedSlot = 6;
+const double _slotDecay = 0.85;
 
 const double _exitSpan = 0.22;
 const double _enterStart = 0.40;
 const double _enterSpan = 0.32;
 
-// Where each half of the timeline is done: the last slot to be delayed, plus
-// the span that slot is given.
-const double _exitEnd = _lastDelayedSlot * _slotDelay + _exitSpan;
-const double _enterEnd = _enterStart + _lastDelayedSlot * _slotDelay + _enterSpan;
+// The whole of the wait, summed over every slot there could ever be. It is what
+// the geometric series above converges to, so no count of cards can push the
+// arriving page past the end of its own step.
+const double _slotSpread = _slotDelay / (1 - _slotDecay);
+
+// Where each half of the timeline is done: the longest any slot waits, plus the
+// span it is given.
+const double _exitEnd = _slotSpread + _exitSpan;
+const double _enterEnd = _enterStart + _slotSpread + _enterSpan;
 
 // The turn of a step made in place — see [_HandoverState._held]. With a single
 // child the two halves cannot overlap: it has to be empty before what it shows
@@ -103,6 +117,19 @@ class PageTransitionItem extends StatelessWidget
 
   // The first of the cards. The ones after it follow, one slot each.
   static const int list = 2;
+
+  // Where a card of a grid falls in the wave. Counted straight along the list a
+  // row would be four slots wide and the row under it would start four slots
+  // late, so by the second screenful the whole page is moving on one beat.
+  // Adding the row to the column sends the wave down the diagonal instead: a row
+  // keeps the run-up along it that it was drawn with, and the row beneath simply
+  // comes in one slot behind.
+  static int gridSlot(int index, int columns)
+  {
+    final int across = columns < 1 ? 1 : columns;
+
+    return list + index ~/ across + index % across;
+  }
 
   final int slot;
   final Widget child;
@@ -182,9 +209,19 @@ List<Widget> pageTransitionBlocks(List<Widget> children)
 // over the field and filters above the list.
 class PageTransitionScrollView extends StatelessWidget
 {
-  final Widget child;
+  // What scrolls, described whole. Null where [slivers] was given instead.
+  final Widget? child;
 
-  const PageTransitionScrollView({super.key, required this.child});
+  // What scrolls, described a screenful at a time. A catalogue is the reason
+  // this way in exists: a page laid out as one box has to describe and lay out
+  // every card it holds, and during a step each of those is also a layer to
+  // composite — three hundred of them for the two dozen anyone can see.
+  final List<Widget>? slivers;
+
+  const PageTransitionScrollView({super.key, required Widget this.child}) : slivers = null;
+
+  const PageTransitionScrollView.slivers({super.key, required List<Widget> this.slivers})
+      : child = null;
 
   @override
   Widget build(BuildContext context)
@@ -194,12 +231,13 @@ class PageTransitionScrollView extends StatelessWidget
     final bool opening = scope != null && scope.moving && scope.axis == Axis.horizontal;
     final double overhang = opening ? MediaQuery.sizeOf(context).width : 0;
 
+    final List<Widget>? slivers = this.slivers;
+
     return ClipRect(
       clipper: _SidewaysClip(overhang),
-      child: SingleChildScrollView(
-        clipBehavior: Clip.none,
-        child: child,
-      ),
+      child: slivers == null
+          ? SingleChildScrollView(clipBehavior: Clip.none, child: child!)
+          : CustomScrollView(clipBehavior: Clip.none, slivers: slivers),
     );
   }
 }
@@ -223,11 +261,24 @@ class _SidewaysClip extends CustomClipper<Rect>
 // 1 once it is done.
 double _slotProgress(double progress, int slot, {required bool leaving})
 {
-  final int delayed = slot.clamp(0, _lastDelayedSlot);
-  final double start = (leaving ? 0.0 : _enterStart) + delayed * _slotDelay;
+  final double start = (leaving ? 0.0 : _enterStart) + _slotWait(slot);
   final double span = leaving ? _exitSpan : _enterSpan;
 
   return ((progress - start) / span).clamp(0.0, 1.0);
+}
+
+// How long a slot waits before its turn comes: the run of [_slotDelay] decayed
+// by [_slotDecay] each step, which is the same as this closed form. It rises
+// towards [_slotSpread] and never reaches it, so every slot is behind the one
+// before it however far down the page it sits.
+double _slotWait(int slot)
+{
+  if (slot <= 0)
+  {
+    return 0;
+  }
+
+  return _slotSpread * (1 - math.pow(_slotDecay, slot));
 }
 
 double _exitOffset(double elapsed, double travel)
@@ -543,9 +594,18 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
                 ? arriving && !covered
                 : _DestinationScope.of(context),
             child: _PageTransitionScope(
-              progress: outer?.progress ?? (inPlace ? _reentryProgress(progress) : progress),
-              leaving: outer?.leaving ?? (inPlace ? emptying : leaving),
-              axis: outer?.axis ?? widget.axis,
+              // A child nobody can see is told the step is over rather than how
+              // far along it is. Every section of a page is mounted at once, and
+              // a scope that ticks is one every element under it depends on: the
+              // page being read would be rebuilt on each frame together with the
+              // seven put away behind it, which is most of the cost of a step
+              // spent on pixels that are not drawn. Held still, they are not
+              // rebuilt at all, and at rest the numbers below say the same thing.
+              progress: onScreen
+                  ? (outer?.progress ?? (inPlace ? _reentryProgress(progress) : progress))
+                  : 1,
+              leaving: onScreen && (outer?.leaving ?? (inPlace ? emptying : leaving)),
+              axis: onScreen ? (outer?.axis ?? widget.axis) : widget.axis,
               child: Opacity(
                 opacity: opacity,
                 child: emptying ? _held! : widget.children[index],
@@ -588,6 +648,48 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
         );
       },
     );
+  }
+}
+
+// For a page whose sections are built the first time they are asked for and
+// kept from then on.
+//
+// That first build is the heaviest frame of a step by a long way: a catalogue is
+// a hundred cards, and describing a hundred cards for the first time does not
+// fit inside a frame. Left where it falls it lands in the middle of the step,
+// which is the one moment of the page where a dropped frame is the whole point
+// of what is being watched. So it is moved off it: the section is mounted
+// offstage on one frame, and the rail steps on the next. The cost is a frame
+// nobody is looking at, against a stutter in an animation everybody is.
+mixin SectionVisits<T extends StatefulWidget> on State<T>
+{
+  // The sections that have been opened, and so are built. Read by the page to
+  // decide which of its children are real and which are still a placeholder.
+  final Set<int> visitedSections = {};
+
+  // Open [index], with [show] recording it as the section now being read.
+  // Somewhere that has been open before has nothing left to build, and steps
+  // straight away.
+  void openSection(int index, VoidCallback show)
+  {
+    if (!visitedSections.add(index))
+    {
+      setState(show);
+
+      return;
+    }
+
+    // This frame only mounts what the next one will step to: nothing about what
+    // is on screen changes yet.
+    setState(() {});
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        setState(show);
+      }
+    });
   }
 }
 

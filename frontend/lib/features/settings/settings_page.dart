@@ -34,13 +34,16 @@ class SettingsPage extends StatefulWidget
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage>
+class _SettingsPageState extends State<SettingsPage> with SectionVisits
 {
   int _selectedSection = _personalProfileIndex;
 
-  // Tracks which sections have been opened: once visited a section stays
-  // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
-  final Set<int> _visitedSections = {_personalProfileIndex};
+  @override
+  void initState()
+  {
+    super.initState();
+    visitedSections.add(_selectedSection);
+  }
 
   // The two profile sections are one tab showing one half or the other, so the
   // rail's four entries stand over three children. Keeping them a single tab is
@@ -48,18 +51,14 @@ class _SettingsPageState extends State<SettingsPage>
   bool get _showingProfile => _selectedSection <= _associationProfileIndex;
 
   bool get _profileVisited =>
-      _visitedSections.contains(_personalProfileIndex) ||
-      _visitedSections.contains(_associationProfileIndex);
+      visitedSections.contains(_personalProfileIndex) ||
+      visitedSections.contains(_associationProfileIndex);
 
   int get _stackIndex => _showingProfile ? 0 : _selectedSection - 1;
 
   void _selectSection(int index)
   {
-    setState(()
-    {
-      _selectedSection = index;
-      _visitedSections.add(index);
-    });
+    openSection(index, () => _selectedSection = index);
   }
 
   @override
@@ -161,10 +160,10 @@ class _SettingsPageState extends State<SettingsPage>
                                               : ProfileSection.personal,
                                         )
                                       : const SizedBox.shrink(),
-                                  _visitedSections.contains(_accountIndex)
+                                  visitedSections.contains(_accountIndex)
                                       ? const AccountTab()
                                       : const SizedBox.shrink(),
-                                  _visitedSections.contains(_infoIndex)
+                                  visitedSections.contains(_infoIndex)
                                       ? const InfoTab()
                                       : const SizedBox.shrink(),
                                 ],

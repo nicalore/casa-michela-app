@@ -68,16 +68,12 @@ class AssociationPage extends StatefulWidget
 }
 
 class _AssociationPageState extends State<AssociationPage>
-    with DestinationRefresh, EntityWrites
+    with SectionVisits, DestinationRefresh, EntityWrites
 {
   final ApiService _apiService = ApiService();
 
   // The page opens on the first entry of the rail, which is now the services.
   int _selectedSection = _servicesContentIndex;
-
-  // Records which sections have been opened: once visited a section stays
-  // mounted in the IndexedStack. Reset only when GoRouter destroys this page.
-  final Set<int> _visitedSections = {};
 
   // Single source of truth for the entities shared across tabs, loaded once
   // when the page opens. Every setState here propagates to the frozen tabs in
@@ -95,7 +91,7 @@ class _AssociationPageState extends State<AssociationPage>
   void initState()
   {
     super.initState();
-    _visitedSections.add(_selectedSection);
+    visitedSections.add(_selectedSection);
     _loadAllData();
   }
 
@@ -465,7 +461,7 @@ class _AssociationPageState extends State<AssociationPage>
     return PageSections(
       index: _selectedSection,
       children: [
-        _visitedSections.contains(_servicesContentIndex)
+        visitedSections.contains(_servicesContentIndex)
             ? ServicesTab(
                 services: _services,
                 onCreate: _executeCreateService,
@@ -473,7 +469,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteService,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_associationSubjectsContentIndex)
+        visitedSections.contains(_associationSubjectsContentIndex)
             ? AssociationSubjectsTab(
                 associationSubjects: _associationSubjects,
                 onCreate: _executeCreateAssociationSubject,
@@ -481,7 +477,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteAssociationSubject,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_ministrySubjectsContentIndex)
+        visitedSections.contains(_ministrySubjectsContentIndex)
             ? MinistrySubjectsTab(
                 ministrySubjects: _ministrySubjects,
                 associationSubjects: _associationSubjects,
@@ -490,7 +486,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteMinistrySubject,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_studyProgramsContentIndex)
+        visitedSections.contains(_studyProgramsContentIndex)
             ? StudyProgramsTab(
                 studyPrograms: _studyPrograms,
                 ministrySubjects: _ministrySubjects,
@@ -500,7 +496,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteStudyProgram,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_schoolsContentIndex)
+        visitedSections.contains(_schoolsContentIndex)
             ? SchoolsTab(
                 schools: _schools,
                 studyPrograms: _studyPrograms,
@@ -510,7 +506,7 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteSchool,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_roomsContentIndex)
+        visitedSections.contains(_roomsContentIndex)
             ? RoomsTab(
                 rooms: _rooms,
                 onCreate: _executeCreateRoom,
@@ -518,10 +514,10 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteRoom,
               )
             : const SizedBox.shrink(),
-        _visitedSections.contains(_presenceHoursContentIndex)
+        visitedSections.contains(_presenceHoursContentIndex)
             ? PresenceHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),
-        _visitedSections.contains(_onlineHoursContentIndex)
+        visitedSections.contains(_onlineHoursContentIndex)
             ? OnlineHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),
       ],
@@ -530,11 +526,7 @@ class _AssociationPageState extends State<AssociationPage>
 
   void _selectSection(int index)
   {
-    setState(()
-    {
-      _selectedSection = index;
-      _visitedSections.add(index);
-    });
+    openSection(index, () => _selectedSection = index);
   }
 
   @override

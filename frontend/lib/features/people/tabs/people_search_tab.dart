@@ -373,43 +373,49 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
   Widget _buildResultList(List<PersonItem> people)
   {
     return Expanded(
-      child: PageTransitionScrollView(
-        child: LayoutBuilder(
-          builder: (context, constraints)
-          {
-            // Four to a row wherever four fit, and the row shared out between
-            // them rather than packed with as many as will go: at 1920 that is
-            // six narrow cards or four roomy ones, and four of a person is
-            // easier to read than six.
-            //
-            // Narrower windows drop a column at a time, and past the widest a
-            // card is allowed to be the row simply centres what is left over.
-            final columns = _columnsFor(constraints.maxWidth);
-            final width = ((constraints.maxWidth - _cardGap * (columns - 1)) / columns)
-                .clamp(PersonCard.minWidth, PersonCard.maxWidth);
+      // A row at a time, not the whole register at once: everybody the
+      // association has ever had is a long list, and described whole it is also
+      // that many boxes to move and compose on every frame of a step.
+      child: PageTransitionScrollView.slivers(
+        slivers: [
+          SliverLayoutBuilder(
+            builder: (context, constraints)
+            {
+              final available = constraints.crossAxisExtent;
 
-            return Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: _cardGap,
-                runSpacing: _cardGap,
-                children: [
-                  // One box per card, so on a page change they leave and come
-                  // back one after another rather than all at once.
-                  for (var i = 0; i < people.length; i++)
-                    PageTransitionItem(
-                      slot: PageTransitionItem.list + i,
-                      child: PersonCard(
-                        person: people[i],
-                        width: width,
-                        onTap: () => context.go('/people/${people[i].fiscalCode}'),
-                      ),
+              // Four to a row wherever four fit, and the row shared out between
+              // them rather than packed with as many as will go: at 1920 that is
+              // six narrow cards or four roomy ones, and four of a person is
+              // easier to read than six.
+              //
+              // Narrower windows drop a column at a time, and past the widest a
+              // card is allowed to be the row simply centres what is left over.
+              final columns = _columnsFor(available);
+              final width = ((available - _cardGap * (columns - 1)) / columns)
+                  .clamp(PersonCard.minWidth, PersonCard.maxWidth);
+
+              // Past the widest a card may be, the row has room for more than
+              // the count above asked for and takes it. What decides which row a
+              // card lands on — and so when it moves on a change of page — is
+              // how many actually fit, not how many were aimed at.
+              final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
+
+              return CardRows(
+                cards: [
+                  for (final person in people)
+                    PersonCard(
+                      person: person,
+                      width: width,
+                      onTap: () => context.go('/people/${person.fiscalCode}'),
                     ),
                 ],
-              ),
-            );
-          },
-        ),
+                cardWidth: width,
+                perRow: fitting < 1 ? 1 : fitting,
+                gap: _cardGap,
+              );
+            },
+          ),
+        ],
       ),
     );
   }

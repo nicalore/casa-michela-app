@@ -76,6 +76,17 @@ class TabContent extends StatelessWidget
     ];
   }
 
+  // A grid knows how to give itself out a row at a time, which is what keeps a
+  // catalogue of three hundred from being described whole for the two dozen rows
+  // anyone can see. Everything else a tab puts here — the sentence a day with
+  // nothing in it shows — is one box and goes in as one.
+  Widget get _body
+  {
+    final Widget body = this.body;
+
+    return body is EntityCardGrid ? body.sliver : SliverToBoxAdapter(child: body);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -84,11 +95,16 @@ class TabContent extends StatelessWidget
       {
         if (AppBreakpoints.fromWidth(constraints.maxWidth).isCompact)
         {
-          return PageTransitionScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [..._head, body],
-            ),
+          return PageTransitionScrollView.slivers(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _head,
+                ),
+              ),
+              _body,
+            ],
           );
         }
 
@@ -96,7 +112,7 @@ class TabContent extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ..._head,
-            Expanded(child: PageTransitionScrollView(child: body)),
+            Expanded(child: PageTransitionScrollView.slivers(slivers: [_body])),
           ],
         );
       },
@@ -124,35 +140,60 @@ class EntityCardGrid extends StatelessWidget
     return math.min(preferredWidth, available);
   }
 
+  // How many fit on a row, which is what tells a card which row it is on and so
+  // when its turn to move comes. Worked out the way a Wrap works it out, because
+  // that is the layout this is standing in for.
+  static int columnsFor(double available)
+  {
+    final int columns = ((available + gap) / (widthFor(available) + gap)).floor();
+
+    return columns < 1 ? 1 : columns;
+  }
+
+  // The grid handed to a scroll view a row at a time.
+  Widget get sliver
+  {
+    return SliverLayoutBuilder(
+      builder: (context, constraints)
+      {
+        final double available = constraints.crossAxisExtent;
+
+        return CardRows(
+          cards: children,
+          cardWidth: widthFor(available),
+          perRow: columnsFor(available),
+        );
+      },
+    );
+  }
+
+  // The same grid as a plain box, for the few places that hold one inside a
+  // column of other things rather than handing it a scroll view of its own.
   @override
   Widget build(BuildContext context)
   {
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        // Tight, so a card built at its own fixed width is brought down to this
-        // one without every card widget having to be told about the window.
-        final width = widthFor(constraints.maxWidth);
+        final double available = constraints.maxWidth;
+        final double width = widthFor(available);
+        final int columns = columnsFor(available);
+        final int rows = CardRows.rowsFor(children.length, columns);
 
-        // The whole width of the page, on purpose: a Wrap is only as wide as
-        // its widest row and the page hands it a loose width, so centring it
-        // centred the cards inside themselves — which is to say not at all.
+        // The whole width of the page, on purpose: the rows are centred within
+        // it, and a box only as wide as its widest row would centre the cards
+        // inside themselves — which is to say not at all.
         return SizedBox(
-          width: constraints.maxWidth,
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: gap,
-            runSpacing: gap,
+          width: available,
+          child: Column(
             children: [
-              // One slot per card, so that on a change of page they leave and
-              // come back one after the next rather than as a wall.
-              for (var i = 0; i < children.length; i++)
-                SizedBox(
-                  width: width,
-                  child: PageTransitionItem(
-                    slot: PageTransitionItem.list + i,
-                    child: children[i],
-                  ),
+              for (var row = 0; row < rows; row++)
+                CardRows.row(
+                  children,
+                  row,
+                  perRow: columns,
+                  cardWidth: width,
+                  last: row == rows - 1,
                 ),
             ],
           ),
@@ -182,6 +223,107 @@ class FilterGroupDivider extends StatelessWidget
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       color: AppTheme.trialLine,
+    );
+  }
+}
+
+// The cards of a list page handed to a scroll view a row at a time.
+//
+// Described in one piece — as a Wrap, which is what this replaced — a catalogue
+// builds, lays out and, for as long as a step is running, composites every card
+// it holds, for the handful of rows anybody can see. A hundred and nine of them
+// was ninety-odd layers on every frame of a step, for two dozen on screen. Here
+// the rows are described as they come into view, and a list of three hundred
+// costs what a list of thirty does.
+//
+// Rows and not cells: a row has no height anyone knows in advance, and a
+// SliverList is the one lazy list that does not ask for one.
+class CardRows extends StatelessWidget
+{
+  final List<Widget> cards;
+
+  // What a card is brought down to, and how many of them share a row. Worked out
+  // by whoever is placing the grid, since a catalogue and the register of people
+  // do not size their cards the same way.
+  final double cardWidth;
+  final int perRow;
+
+  final double gap;
+
+  const CardRows({
+    super.key,
+    required this.cards,
+    required this.cardWidth,
+    required this.perRow,
+    this.gap = EntityCardGrid.gap,
+  });
+
+  static int rowsFor(int count, int perRow) => perRow < 1 ? 0 : (count + perRow - 1) ~/ perRow;
+
+  // One row of the grid, centred in the page the way a Wrap centres each of its
+  // runs: a last row holding a single card puts it in the middle and not against
+  // the left edge, which is where it has always sat.
+  static Widget row(
+    List<Widget> cards,
+    int row, {
+    required int perRow,
+    required double cardWidth,
+    required bool last,
+    double gap = EntityCardGrid.gap,
+  })
+  {
+    final int start = row * perRow;
+    final int end = math.min(start + perRow, cards.length);
+
+    return Padding(
+      // Between the rows and not after the last, which is the runSpacing a Wrap
+      // would have put there.
+      padding: EdgeInsets.only(bottom: last ? 0 : gap),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        // The top of the row, as in a Wrap: where two cards of a row are not the
+        // same height they hang from the same line rather than sitting on it.
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = start; i < end; i++) ...[
+            if (i > start) SizedBox(width: gap),
+            // Tight, so a card built at its own fixed width is brought down to
+            // this one without every card widget having to be told about the
+            // window.
+            SizedBox(
+              width: cardWidth,
+              child: PageTransitionItem(
+                // One slot per card, so that on a change of page they leave and
+                // come back one after the next rather than as a wall. Counted
+                // across the grid rather than along the list, so the rows below
+                // the first carry the run-up too.
+                slot: PageTransitionItem.gridSlot(i, perRow),
+                child: cards[i],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final int rows = rowsFor(cards.length, perRow);
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => row(
+          cards,
+          index,
+          perRow: perRow,
+          cardWidth: cardWidth,
+          last: index == rows - 1,
+          gap: gap,
+        ),
+        childCount: rows,
+      ),
     );
   }
 }
