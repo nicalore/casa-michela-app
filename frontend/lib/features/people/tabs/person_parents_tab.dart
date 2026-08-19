@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -359,7 +360,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
           icon: Icons.alternate_email_rounded,
           rows: [
             DetailRowData('Email', orDash(parent.email)),
-            DetailRowData('Telefono', orDash(parent.phoneNumber)),
+            DetailRowData('Telefono', orDash(formatPhoneNumber(parent.phoneNumber))),
             null,
           ],
         ),

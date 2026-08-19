@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/phone_number.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
@@ -388,7 +389,9 @@ class PersonEditForm
     postalCodeCtrl.text = person.zipCode ?? '';
 
     emailCtrl.text = person.email ?? '';
-    phoneCtrl.text = person.phoneNumber ?? '';
+    // Spaced on the way in, the way it is read everywhere else. What is sent
+    // back is the run of digits: see [barePhoneNumber] at the payloads below.
+    phoneCtrl.text = formatPhoneNumber(person.phoneNumber);
 
     final Set<String> roles = person.roles.map((role) => role.toUpperCase()).toSet();
     selectedRoles
@@ -478,7 +481,7 @@ class PersonEditForm
     psychMeetingsAcknowledgedValue = person.mandatoryPsychMeetingsAcknowledged ?? false;
 
     emergencyContactNameCtrl.text = person.emergencyContactName ?? '';
-    emergencyContactPhoneCtrl.text = person.emergencyContactPhone ?? '';
+    emergencyContactPhoneCtrl.text = formatPhoneNumber(person.emergencyContactPhone);
     allergiesCtrl.text = person.allergiesNotes ?? '';
     medicationsCtrl.text = person.medicationsNotes ?? '';
 
@@ -950,7 +953,7 @@ class PersonEditForm
             ? emergencyContactNameCtrl.text.trim()
             : null,
         'emergency_contact_phone': minor && emergencyContactPhoneCtrl.text.isNotEmpty
-            ? emergencyContactPhoneCtrl.text.trim()
+            ? barePhoneNumber(emergencyContactPhoneCtrl.text)
             : null,
         'allergies_notes':
             minor && allergiesCtrl.text.isNotEmpty ? allergiesCtrl.text.trim() : null,
@@ -1066,7 +1069,7 @@ class PersonEditForm
         'residence_province': residenceProvinceCtrl.text.trim().toUpperCase(),
         'postal_code': postalCodeCtrl.text.trim(),
         'email': emailCtrl.text.trim(),
-        'phone': phoneCtrl.text.replaceAll(' ', ''),
+        'phone': barePhoneNumber(phoneCtrl.text),
       },
       'roles': finalRoles,
       'member_data': memberData,
@@ -1148,7 +1151,7 @@ class PersonEditForm
             ? emergencyContactNameCtrl.text.trim()
             : null,
         'emergency_contact_phone': emergencyContactPhoneCtrl.text.isNotEmpty
-            ? emergencyContactPhoneCtrl.text.trim()
+            ? barePhoneNumber(emergencyContactPhoneCtrl.text)
             : null,
         'allergies_notes': allergiesCtrl.text.isNotEmpty ? allergiesCtrl.text.trim() : null,
         'medications_notes': medicationsCtrl.text.isNotEmpty ? medicationsCtrl.text.trim() : null,
@@ -1262,7 +1265,7 @@ class PersonEditForm
         'residence_province': residenceProvinceCtrl.text.trim().toUpperCase(),
         'postal_code': postalCodeCtrl.text.trim(),
         'email': emailCtrl.text.trim(),
-        'phone': phoneCtrl.text.replaceAll(' ', ''),
+        'phone': barePhoneNumber(phoneCtrl.text),
       },
       'roles': finalRoles,
       'member_data': memberData,

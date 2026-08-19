@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'person_edit_form.dart';
 
-// The steps of the edit dialog, as data rather than as a chain of ifs.
-//
-// The order used to live inside the forward button: eight blocks deciding which
-// step came next, plus two counters for the cards inside two of them, plus a
-// separate chain to know which was the last. Changing a role meant keeping three
-// of those places in mind. Here the steps are a list computed from the roles,
+// The steps of the edit dialog as data rather than a chain of ifs: the order
+// used to live inside the forward button, across eight blocks plus two counters
+// plus a chain to find the last one. Here it is a list computed from the roles,
 // and moving is arithmetic on an index.
 
 // What the dialog is for. The cards are the same; what changes is which
@@ -159,10 +156,9 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     cards.add(const PersonEditCard(PersonEditCardId.minorSafety, label: 'Sicurezza del minore'));
   }
 
-  // Last, because they are what one accepts after seeing everything else. On
-  // creation there are five: three declarations to sign and two consents to give
-  // or refuse. Afterwards the two remain, changeable at any time — a consent
-  // that cannot be withdrawn is not a consent.
+  // Last, because they are accepted after seeing everything else. Five on
+  // creation, two afterwards and changeable at any time: a consent that cannot
+  // be withdrawn is not a consent.
   if (!onlyParent)
   {
     cards.add(const PersonEditCard(PersonEditCardId.consents, label: 'Consensi'));
@@ -200,17 +196,12 @@ List<PersonEditStep> buildEditSteps(
   PersonEditPurpose purpose = PersonEditPurpose.edit,
 })
 {
-  // Expelled or resigned: the personal details remain and nothing else.
+  // Expelled or resigned: the personal details remain and nothing else. Roles,
+  // memberships and consents all hold for somebody part of the association, and
+  // editing them would rewrite a relationship already closed — while an address
+  // is theirs and is still wrong after an expulsion.
   //
-  // Roles, memberships, payments, consents, subjects taught all hold for someone
-  // who is part of the association, and this person no longer is — offering them
-  // for editing would be offering to rewrite a relationship that has been
-  // closed. The personal details, by contrast, are theirs and not the
-  // association's, and have to stay right regardless: a wrong address is still
-  // wrong after an expulsion.
-  //
-  // It does not touch creation: a person born here has no last membership to
-  // revoke yet.
+  // Creation is untouched: a person born here has no membership to revoke.
   if (form.person?.isMembershipRevoked ?? false)
   {
     return [_personalInfoStep(form, revoked: true)];
@@ -307,15 +298,12 @@ List<PersonEditStep> buildEditSteps(
   return steps;
 }
 
-// Whether the step has had its answer.
+// Whether the step has had its answer. The three multiple-choice questions start
+// without one, so the forward arrow is off until they are answered rather than
+// letting through an answer nobody gave.
 //
-// The three multiple-choice questions start without one: a new person is neither
-// involved nor a member only, has no roles, and a parent has not said yet
-// whether they join too. Until they answer, the forward arrow is off, instead of
-// letting through an answer nobody gave — which is what the default ticks did.
-//
-// The other steps are fields to write: those are checked on pressing the arrow,
-// which is the moment what is missing can be named.
+// The other steps are fields to write, checked on pressing the arrow, which is
+// the moment what is missing can be named.
 bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
 {
   return switch (id)

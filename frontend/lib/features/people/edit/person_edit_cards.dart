@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -955,9 +956,10 @@ class ContactsCard extends StatelessWidget
     final Widget phoneValue = AppTextField(
       controller: ctx.form.phoneCtrl,
       label: 'Telefono',
-      hintText: 'Es. 3331234567',
+      hintText: 'Es. 333 123 4567',
       errorText: ctx.errors['telefono'],
       keyboardType: TextInputType.phone,
+      inputFormatters: const [PhoneInputFormatter()],
       onChanged: (_) => ctx.clearError('telefono'),
     );
 
@@ -1438,9 +1440,10 @@ class MinorSafetyCard extends StatelessWidget
         AppTextField(
           controller: ctx.form.emergencyContactPhoneCtrl,
           label: 'Telefono emergenza',
-          hintText: 'Es. 3331234567',
+          hintText: 'Es. 333 123 4567',
           errorText: ctx.errors['contattoEmergenzaTelefono'],
           keyboardType: TextInputType.phone,
+          inputFormatters: const [PhoneInputFormatter()],
           onChanged: (_) => ctx.clearError('contattoEmergenzaTelefono'),
         ),
         AppTextField(

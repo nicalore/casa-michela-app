@@ -348,6 +348,7 @@ class _RoomWizardDialogState extends State<_RoomWizardDialog>
                 label: 'Nome',
                 hintText: 'Es. Stanza di Aldo',
                 textCapitalization: TextCapitalization.sentences,
+                nothingAbove: true,
               ),
               AppTextField(
                 controller: _capacityController,

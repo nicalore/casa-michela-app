@@ -8,10 +8,8 @@ import '../../features/dashboard/dashboard_modules.dart';
 const double _fontSize = 17;
 const double _itemGap = 22;
 
-// The same row, set tighter. On the middle width the six destinations, the mark
-// and the role no longer fit at full size, and type set smaller reads better
-// than type scaled down: the scale shrinks the spaces along with the letters,
-// while this keeps the words apart and only makes them a little quieter.
+// The same row, set tighter for the middle width. Type set smaller beats type
+// scaled down: a scale shrinks the spaces along with the letters.
 const double _denseFontSize = 15;
 const double _denseItemGap = 14;
 const double _underlineHeight = 3;
@@ -72,23 +70,17 @@ class AppTopNav extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Where the app is, asked of the router rather than of the page.
+    // Where the app is, asked of the router and not of the page.
     //
-    // Every destination of the shell carries a bar of its own, and a bar told
-    // the route of the page it belongs to never learns that page has been left:
-    // it went out in the crossfade with the mark still under its word, while the
-    // bar arriving came up with the new mark already drawn. That is the whole of
-    // the "it vanishes and comes back" — two pictures where there should be one
-    // movement.
+    // Every destination carries a bar of its own, and one told its own route
+    // never learns the page was left: it went out in the crossfade with the mark
+    // still under its word while the bar arriving came up with the new one
+    // drawn — two pictures where there should be one movement.
     //
-    // Read from the router, every bar in the tree answers the same thing at the
-    // same moment: the mark closes under the word you are leaving and opens
-    // under the one you picked, the way the rail hands a section over, and the
-    // crossfade between the two bars has nothing left to give away.
+    // Read from the router, every bar answers the same thing at the same moment.
     //
-    // It is the delegate that is listened to and not the router: GoRouter.of
-    // hands the router over without making anybody a dependent of it, so nothing
-    // here would be rebuilt when the location changes.
+    // The delegate is listened to and not the router: GoRouter.of makes nobody a
+    // dependent, so nothing here would rebuild when the location changes.
     final GoRouterDelegate delegate = GoRouter.of(context).routerDelegate;
 
     return ListenableBuilder(
@@ -150,12 +142,9 @@ class _NavEntryState extends State<_NavEntry>
     final enabled = route != null;
     final underlined = widget.current || (_hover && enabled);
 
-    // The word is laid out first and the line is stretched to whatever width it
-    // turned out to be. Measuring the word instead, with an IntrinsicWidth, is
-    // what used to clip these labels: the intrinsic width is worked out once
-    // and then imposed as a tight constraint, so when the real font arrived
-    // from the network after the first layout the text no longer fitted the
-    // width its stand-in had asked for, and the last letters were cut off.
+    // The word is laid out first and the line stretched to it. An IntrinsicWidth
+    // imposes a width worked out once, so when the real font arrived after the
+    // first layout the text no longer fitted and the last letters were cut.
     final Widget entry = Stack(
       children: [
         Padding(
@@ -181,9 +170,7 @@ class _NavEntryState extends State<_NavEntry>
             ),
           ),
         ),
-        // The line opens from the middle and closes back into it, the same way
-        // the vertical bar grows out of the centre of a menu entry. It is
-        // squeezed by a transform and not by a width, so it takes no part in
+        // Squeezed by a transform and not by a width, so it takes no part in
         // layout and the row cannot move as the line comes and goes.
         Positioned(
           left: 0,

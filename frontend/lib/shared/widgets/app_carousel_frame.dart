@@ -6,17 +6,13 @@ import 'carousel_arrow_button.dart';
 
 const Duration _transition = Duration(milliseconds: 300);
 
-// One card at a time between two arrows: the days of a week in the standard
-// hours, the phases of a variation in the extraordinary ones.
+// One card at a time between two arrows. The arrows sit beside the card while
+// there is room and drop underneath when there is not, since a phone giving a
+// hundred and seventy pixels to two buttons has nothing left for the card.
 //
-// The arrows sit beside the card while there is room for them there, and drop
-// underneath it when there is not — a phone that gave a hundred and seventy
-// pixels of its width to two buttons would have nothing left for the card they
-// are turning.
-//
-// The frame owns the change of card as well as the arrows, because the two are
-// one movement: the card that arrives slides in from the side it came from, and
-// the frame takes its height along the way.
+// The frame owns the change of card as well as the arrows, because they are one
+// movement: the card slides in from the side it came from and the frame takes
+// its height along the way.
 class AppCarouselFrame extends StatelessWidget
 {
   static const double arrowSize = 64;
@@ -38,10 +34,8 @@ class AppCarouselFrame extends StatelessWidget
 
   final Widget child;
 
-  // What sits above the card and moves with it, but that the arrows do not
-  // count. The arrows turn the card, so centring them on header plus card left
-  // them above the centre of what they turn. Passed here rather than inside
-  // [child], it travels with the card and stays out of the reckoning.
+  // Above the card and moving with it, but not counted by the arrows: they turn
+  // the card, and centring them on header plus card put them too high.
   final Widget? header;
 
   // How wide the card is allowed to get. The frame is this plus an arrow and a
@@ -83,12 +77,9 @@ class AppCarouselFrame extends StatelessWidget
       layoutBuilder: (currentChild, previousChildren) => Stack(
         alignment: Alignment.topCenter,
         children: [
-          // Laid over rather than laid out: a Stack takes its size from the
-          // children that are not positioned, so the frame is as tall as the
-          // card arriving and not as tall as the taller of the two. Sized by
-          // both, a step back kept the height of the card being left until the
-          // transition ended and then dropped it all at once — which is the
-          // jump the buttons underneath were making.
+          // Laid over rather than laid out: a Stack sizes to its unpositioned
+          // children, so the frame is as tall as the card arriving. Sized by
+          // both, a step back held the old height and dropped it all at once.
           for (final previous in previousChildren)
             Positioned(top: 0, left: 0, right: 0, child: previous),
           ?currentChild,
@@ -183,10 +174,8 @@ class AppCarouselFrame extends StatelessWidget
                 ],
               );
 
-        // As wide as the card and not as the frame: the header belongs to the
-        // card's column, not above the arrows too. How wide the card gets is
-        // whatever the arrows leave it, which below a certain width is
-        // everything, because there they drop underneath.
+        // As wide as the card and not the frame: the header belongs to the
+        // card's column. The card gets whatever the arrows leave it.
         final double cardWidth = compact
             ? constraints.maxWidth
             : min(maxContentWidth, constraints.maxWidth - 2 * (arrowSize + gap));

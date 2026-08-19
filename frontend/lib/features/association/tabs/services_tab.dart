@@ -301,6 +301,7 @@ class _ServiceWizardDialogState extends State<_ServiceWizardDialog>
                 label: 'Nome',
                 hintText: 'Es. Metodo di studio',
                 textCapitalization: TextCapitalization.sentences,
+                nothingAbove: true,
               ),
               AppTextField(
                 controller: _descController,

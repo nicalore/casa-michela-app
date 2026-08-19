@@ -1,3 +1,4 @@
+import '../../../core/utils/phone_number.dart';
 import '../models/person_item.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
@@ -85,7 +86,10 @@ void tidyForm(PersonEditForm form)
   form.residenceProvinceCtrl.text = form.residenceProvinceCtrl.text.trim().toUpperCase();
   form.postalCodeCtrl.text = form.postalCodeCtrl.text.trim();
   form.emailCtrl.text = form.emailCtrl.text.trim();
-  form.phoneCtrl.text = form.phoneCtrl.text.replaceAll(' ', '');
+  // Spaced rather than stripped: it is how the number is written everywhere
+  // it is read, and the payload takes the digits out of it on the way to the
+  // server.
+  form.phoneCtrl.text = formatPhoneNumber(form.phoneCtrl.text);
 
   form.certificateExpirationCtrl.text = form.certificateExpirationCtrl.text.trim();
   form.ibanCtrl.text = form.ibanCtrl.text.replaceAll(' ', '').toUpperCase();
@@ -95,7 +99,7 @@ void tidyForm(PersonEditForm form)
   form.otherPaymentMethodCtrl.text = form.otherPaymentMethodCtrl.text.trim();
   form.otherCertificationCtrl.text = form.otherCertificationCtrl.text.trim();
   form.emergencyContactNameCtrl.text = form.emergencyContactNameCtrl.text.trim();
-  form.emergencyContactPhoneCtrl.text = form.emergencyContactPhoneCtrl.text.trim();
+  form.emergencyContactPhoneCtrl.text = formatPhoneNumber(form.emergencyContactPhoneCtrl.text);
 }
 
 // Checks everything the dialog asks for, in the order of the steps.
@@ -284,7 +288,9 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add('telefono', 'Campo obbligatorio', PersonEditCardId.contacts);
   }
-  else if (!RegExp(r'^\+?[0-9]+$').hasMatch(form.phoneCtrl.text))
+  // The digits, not what they were written with: a number given as
+  // 333 111 2222 is the number 3331112222 and no less valid for being legible.
+  else if (!RegExp(r'^\+?[0-9]+$').hasMatch(barePhoneNumber(form.phoneCtrl.text)))
   {
     collector.add('telefono', 'Formato telefono non valido', PersonEditCardId.contacts);
   }

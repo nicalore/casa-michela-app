@@ -31,18 +31,6 @@ def upgrade() -> None:
         """
     )
 
-    # Solo dove lo spoglio lascia davvero un nome: una riga chiamata
-    # "Liceo classico |" resterebbe senza nome, e il vincolo di non vuoto la
-    # rifiuterebbe.
-    op.execute(
-        f"""
-        UPDATE study_programs
-        SET name = btrim(split_part(name, '{_SEPARATOR}', 2))
-        WHERE sector IS NOT NULL
-          AND btrim(split_part(name, '{_SEPARATOR}', 2)) <> ''
-        """
-    )
-
     op.create_check_constraint(
         "study_program_sector_not_blank",
         "study_programs",
@@ -54,10 +42,24 @@ def upgrade() -> None:
         "sector IS NULL OR sector = btrim(sector)",
     )
 
+    # I vincoli vanno scambiati PRIMA di accorciare i nomi: senza il settore
+    # dentro name, (level, name) non è più una chiave.
     op.drop_constraint("uq_level_program_name", "study_programs", type_="unique")
     op.execute(
         "CREATE UNIQUE INDEX uq_level_sector_program_name "
         "ON study_programs (level, coalesce(sector, ''), name)"
+    )
+
+    # Solo dove lo spoglio lascia davvero un nome: una riga chiamata
+    # "Liceo classico |" resterebbe senza nome, e il vincolo di non vuoto la
+    # rifiuterebbe.
+    op.execute(
+        f"""
+        UPDATE study_programs
+        SET name = btrim(split_part(name, '{_SEPARATOR}', 2))
+        WHERE sector IS NOT NULL
+          AND btrim(split_part(name, '{_SEPARATOR}', 2)) <> ''
+        """
     )
 
 

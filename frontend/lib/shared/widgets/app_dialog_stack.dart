@@ -195,6 +195,7 @@ class AppDialogStack extends StatelessWidget
             icon: Icons.close_rounded,
             hoverColor: AppTheme.trialGoldSurface,
             hoverIconColor: AppTheme.trialTealDeep,
+            hoverBorderColor: AppTheme.trialGold,
             onTap: onClose ?? () => Navigator.of(context).pop(),
           ),
         ),

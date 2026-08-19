@@ -22,6 +22,15 @@ class CarouselArrowButton extends StatefulWidget
   final Color hoverColor;
   final Color hoverIconColor;
 
+  // The outline it draws round itself under the pointer. Given for a close,
+  // which answers with the pale gold and would otherwise be the one round
+  // control in the app that lights up without one: everything pressable here
+  // takes the gold ring, and a fill on its own reads as a hover half done.
+  //
+  // Left out for an arrow, which reverses itself into the brand colour — a ring
+  // round that is a second answer to a question already answered.
+  final Color? hoverBorderColor;
+
   final double size;
   final double iconSize;
 
@@ -32,6 +41,7 @@ class CarouselArrowButton extends StatefulWidget
     this.isDisabled = false,
     this.hoverColor = AppTheme.trialTealDeep,
     this.hoverIconColor = Colors.white,
+    this.hoverBorderColor,
     this.size = defaultSize,
     this.iconSize = defaultIconSize,
   });
@@ -43,6 +53,21 @@ class CarouselArrowButton extends StatefulWidget
 class _CarouselArrowButtonState extends State<CarouselArrowButton>
 {
   bool _isHovered = false;
+
+  // Always drawn, transparent while the pointer is away: a border appearing out
+  // of nothing would move the glyph two pixels at the moment of the hover, and
+  // there is nothing to animate between a border and none.
+  Border? get _border
+  {
+    final color = widget.hoverBorderColor;
+
+    if (color == null || widget.isDisabled)
+    {
+      return null;
+    }
+
+    return Border.all(color: _isHovered ? color : color.withValues(alpha: 0), width: 2);
+  }
 
   @override
   Widget build(BuildContext context)
@@ -62,6 +87,7 @@ class _CarouselArrowButtonState extends State<CarouselArrowButton>
                 ? AppTheme.arrowDisabledSurface
                 : (_isHovered ? widget.hoverColor : Colors.white),
             shape: BoxShape.circle,
+            border: _border,
             boxShadow: widget.isDisabled ? null : AppTheme.cardShadow,
           ),
           child: Icon(

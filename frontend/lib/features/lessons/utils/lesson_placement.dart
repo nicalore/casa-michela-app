@@ -279,10 +279,18 @@ class BookingDragPayload extends CalendarDragPayload
   // down. See [SchedulableBooking.proposedMinutesFor].
   final int minutes;
 
+  // The whole card came away, and not one of its chips. Said outright rather
+  // than read off [disciplineIds]: a request for a single discipline carries
+  // the same set either way, and the two gestures do not mean the same thing
+  // when they land on an hour the request already has — the card brings its
+  // unplanned minutes with it, a chip only brings the subject.
+  final bool isWholeRequest;
+
   const BookingDragPayload({
     required this.entry,
     required this.disciplineIds,
     required this.minutes,
+    this.isWholeRequest = false,
   });
 
   bool get isSingleDiscipline => disciplineIds.length == 1;
@@ -1161,22 +1169,45 @@ LessonPlacement planDrop(CalendarDayIndex index, BookingDragPayload drag, String
     );
   }
 
-  // Let go on an hour this request already has: it keeps its place and length
-  // and comes out covering one subject more. The only thing a discipline can do
-  // once both hours exist.
+  // Let go on an hour this request already has: it keeps its place and comes out
+  // covering one subject more. The only thing a discipline can do once both
+  // hours exist.
+  //
+  // The whole card brings its minutes along with its subjects — what is still
+  // unplanned goes into the hour it lands on, as far as the room after it
+  // allows. A single chip only ever joins: its minutes are the hour's already.
   final host = _hostAt(lane, entry, startMinutes);
 
   if (host != null)
   {
-    return validatePlacement(
-      index: index,
-      teacherTaxCode: teacherTaxCode,
-      startMinutes: host.startMinutes,
-      endMinutes: host.endMinutes,
-      bookings: [entry],
-      disciplineIds: {...host.disciplineIds, ...drag.disciplineIds},
-      lessonId: host.id,
-    ).as(LessonPlacementKind.join);
+    final joined = {...host.disciplineIds, ...drag.disciplineIds};
+    final grown = drag.isWholeRequest ? _grownEnd(index, lane, entry, host, drag.minutes) : host.endMinutes;
+
+    LessonPlacement join(int endMinutes)
+    {
+      return validatePlacement(
+        index: index,
+        teacherTaxCode: teacherTaxCode,
+        startMinutes: host.startMinutes,
+        endMinutes: endMinutes,
+        bookings: [entry],
+        disciplineIds: joined,
+        lessonId: host.id,
+      ).as(LessonPlacementKind.join);
+    }
+
+    final placement = join(grown);
+
+    // Growing can be refused for reasons the room does not know about: the
+    // pupil booked elsewhere over those minutes, a second hour of the teacher's
+    // stacked on this one. The subjects can still be given, so the hour keeps
+    // the length it had rather than the whole gesture being turned down.
+    if (placement.isValid || grown == host.endMinutes)
+    {
+      return placement;
+    }
+
+    return join(host.endMinutes);
   }
 
   final ceiling = _roomAt(index, lane, entry, startMinutes);
@@ -1210,9 +1241,25 @@ LessonItem? _hostAt(TeacherLane lane, SchedulableBooking entry, int startMinutes
   return null;
 }
 
+// How far the hour a whole request lands on can be stretched to swallow the
+// minutes that request has not planned yet. Its own end wherever there is no
+// room for them: the subjects still join, and an hour with nowhere to grow is
+// not a reason to refuse the drop.
+int _grownEnd(CalendarDayIndex index, TeacherLane lane, SchedulableBooking entry, LessonItem host, int minutes)
+{
+  final ceiling = _roomAt(index, lane, entry, host.startMinutes, ignoring: host.id);
+  final grown = snapQuarterDown(math.min(host.minutes + minutes, ceiling));
+
+  return grown > host.minutes ? host.startMinutes + grown : host.endMinutes;
+}
+
 // The most minutes available from [startMinutes] onwards, before anything is
 // judged: whichever of the four boundaries comes first.
-int _roomAt(CalendarDayIndex index, TeacherLane lane, SchedulableBooking entry, int startMinutes)
+//
+// [ignoring] is the hour being stretched, which stands in its own way: it
+// begins where the stretch begins, and left in the count it would allow nothing
+// at all.
+int _roomAt(CalendarDayIndex index, TeacherLane lane, SchedulableBooking entry, int startMinutes, {int? ignoring})
 {
   var ceiling = index.bandEnd - startMinutes;
 
@@ -1235,6 +1282,11 @@ int _roomAt(CalendarDayIndex index, TeacherLane lane, SchedulableBooking entry, 
 
   for (final lesson in lane.lessons)
   {
+    if (lesson.id == ignoring)
+    {
+      continue;
+    }
+
     if (lesson.startMinutes >= startMinutes && lesson.startMinutes - startMinutes < ceiling)
     {
       ceiling = lesson.startMinutes - startMinutes;

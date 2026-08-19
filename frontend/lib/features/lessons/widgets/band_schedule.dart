@@ -7,12 +7,9 @@ import '../../../shared/widgets/band_time_range_slider.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../utils/opening_window.dart';
 
-// One stretch of hours inside one band, and the row it came from where it was
-// already stored.
-//
-// A stretch exists because it was given: there is no such thing as one with no
-// hours on it. A band nobody answered is an empty list, not a draft holding
-// two nulls.
+// One stretch of hours inside one band, and the row it came from. A stretch
+// exists because it was given: a band nobody answered is an empty list, not a
+// draft holding two nulls.
 class BandStretch<T>
 {
   TimeOfDay startTime;
@@ -31,12 +28,8 @@ class BandStretch<T>
   int get minutes => endMinutes - startMinutes;
 }
 
-// A day answered band by band: the three bands, each holding as many stretches
-// of hours as were given for it.
-//
-// It is what a teacher's availability in one mode is made of, and what a
-// pupil's hours in one mode are made of. The two ask different questions —
-// when can you teach, when are you here — and hold the answer the same way.
+// A day answered band by band. Both a teacher's availability and a pupil's
+// hours are made of this: two different questions held the same way.
 class BandSchedule<T>
 {
   final Map<TimeBucket, List<BandStretch<T>>> _byBucket = {
@@ -115,10 +108,8 @@ class BandSchedule<T>
     }
   }
 
-  // Given a band, the whole of what the association has open in it: the widest
-  // answer there is, and the one that has to be narrowed rather than built up
-  // from nothing. Taken away, the band goes back to being unanswered, with
-  // however many stretches were on it.
+  // The whole of what the association has open in that band: the widest answer,
+  // to be narrowed rather than built up from nothing.
   void toggle(TimeBucket bucket, TimeOfDay? start, TimeOfDay? end)
   {
     final stretches = of(bucket);
@@ -158,11 +149,9 @@ class BandSchedule<T>
       return;
     }
 
-    // At the end, where it was asked for. The gap filled can fall before an
-    // hour already given, but putting it above would push the hour being looked
-    // at down a row, and the new row would appear somewhere other than where one
-    // pressed. The stretches stay in the order they were given, even when that
-    // is not the clock's.
+    // At the end, where it was asked for: putting it in clock order would push
+    // the row being looked at down and open the new one elsewhere. The stretches
+    // stay in the order they were given.
     of(bucket).add(
       BandStretch<T>(
         startTime: timeOfDayFromMinutes(gap.$1),
@@ -176,15 +165,12 @@ class BandSchedule<T>
     _drop(of(bucket).removeAt(index));
   }
 
-// What a stretch may be dragged across: the room between the one before it and
-// the one after, inside the association's opening. Two stretches of the same
-// band cannot be made to overlap, because neither can be dragged as far as the
-// other — the rule is the shape of the control rather than a refusal at the end
-// of the form.
+// The room between the stretch before and the one after, inside the opening:
+// two stretches cannot be made to overlap because neither can be dragged that
+// far, so the rule is the shape of the control and not a refusal at the end.
 //
-// Which comes before and which after is read off the clock and not off the list:
-// the stretches sit in the order they were given, so the row above may well be
-// the late-afternoon one.
+// Before and after are read off the clock and not the list, whose order is the
+// order the stretches were given in.
   (int, int) boundsAt(TimeBucket bucket, OpeningWindow window, int index)
   {
     final stretches = of(bucket);
@@ -245,17 +231,13 @@ class BandSchedule<T>
     return null;
   }
 
-  // Two stretches that read as one become one: 14-15 and 15-17 are 14-17, and
-  // are saved that way instead of as two rows saying the same thing in pieces.
+  // Two stretches that read as one become one: 14-15 and 15-17 are saved as
+  // 14-17. Only within a band, which is why it happens here — an afternoon
+  // ending where the evening begins stays two things.
   //
-  // Only within the same band, which is why this work happens here: the
-  // stretches are already split by band, and an afternoon ending when the
-  // evening begins stays two things, because the association keeps them apart.
-  //
-  // Of the two the first stays, where it already sits in the list: what merges
-  // are the hours, not the order they were given in. If the surviving row was
-  // not saved and the departing one was, it takes the saved row over and
-  // stretches it, instead of deleting one to rewrite an identical other.
+  // The first stays where it sits in the list: what merges are the hours. If it
+  // was unsaved and the departing one was saved, it takes that row over rather
+  // than deleting one to rewrite an identical other.
   void fuse()
   {
     for (final bucket in TimeBucket.values)
@@ -293,12 +275,9 @@ class BandSchedule<T>
     }
   }
 
-  // What is given has to stay inside what the association has open, and what
-  // is open changes under the form: a second day added narrows every band to
-  // what the two days share, and a band the new day is shut in cannot be given
-  // at all. Rather than leaving hours nobody could save — and that the slider
-  // cannot even draw — the bands are brought back inside as soon as the window
-  // moves.
+  // What is open changes under the form: a second day narrows every band to
+  // what the two share. Rather than leaving hours nobody could save — and the
+  // slider cannot draw — the bands are brought back inside at once.
   void reconcile(OpeningWindow? Function(TimeBucket bucket) windowFor)
   {
     for (final bucket in TimeBucket.values)
@@ -324,12 +303,9 @@ class BandSchedule<T>
         continue;
       }
 
-      // Walked in the order of the day, each stretch held after the one before
-      // it: hours squeezed by a narrower window must not end up running over
-      // each other, which is exactly what clamping them one by one would do.
-      //
-      // Walked on the clock, though, and not on the list: what narrows are the
-      // hours, while the rows stay where the user put them.
+      // Each stretch held after the one before it, or hours squeezed by a
+      // narrower window run over each other. On the clock and not on the list:
+      // the rows stay where the user put them.
       final gone = Set<BandStretch<T>>.identity();
       var cursor = window.startMinutes;
 
@@ -340,10 +316,8 @@ class BandSchedule<T>
 
         if (end - start < kQuarterHour)
         {
-          // The one stretch of a band squeezed to nothing becomes the whole of
-          // what is left open: that is the answer the band would be given if it
-          // were answered now. Where there are others, there is simply no room
-          // left for this one and it goes.
+          // A band's only stretch squeezed to nothing becomes the whole of what
+          // is left open. Where there are others, this one simply goes.
           if (stretches.length == 1)
           {
             stretch
@@ -371,12 +345,8 @@ class BandSchedule<T>
   }
 }
 
-// The three bands of a day, each with the hours given in it and the room to
-// give one more.
-//
-// The field mutates the schedule it is handed and says so through [onChanged],
-// which is the form's own setState: the answer belongs to the window that
-// asked for it, not to this row of controls.
+// The three bands of a day. The field mutates the schedule it is handed and says
+// so through [onChanged]: the answer belongs to the window, not to this row.
 class BandScheduleField<T> extends StatelessWidget
 {
   final BandSchedule<T> schedule;
@@ -445,12 +415,9 @@ class BandScheduleField<T> extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The band's own row is always the first child of the same column,
-        // whether it is shut, unanswered or holding hours. Answering it changes
-        // what stands under it — a track, a button — and if that turned the row
-        // itself into a different place in the tree, the switch would be built
-        // again from nothing on every answer and its pill would appear on the
-        // other side rather than sliding there.
+        // Always the first child of the same column, whatever the band is:
+        // otherwise answering it moves the row in the tree, the switch is built
+        // again from nothing, and its pill appears rather than slides.
         _buildStretch(bucket, window, 0),
         for (var index = 1; index < stretches.length; index++) ...[
           const SizedBox(height: 14),
@@ -473,10 +440,8 @@ class BandScheduleField<T> extends StatelessWidget
     );
   }
 
-  // One row of a band: the association shut in it, the band open and not taken,
-  // or one of the stretches of hours given for it. All three are the same
-  // control saying different things, which is what lets it stay itself across
-  // an answer.
+  // One row of a band — shut, open and untaken, or a stretch of hours. All three
+  // are the same control, which is what lets it stay itself across an answer.
   Widget _buildStretch(TimeBucket bucket, OpeningWindow? window, int index)
   {
     // Shut: a line saying so, and nothing to answer with.
@@ -525,13 +490,9 @@ class BandScheduleField<T> extends StatelessWidget
       nameOverride: index == 0 ? null : '',
       startTime: stretches[index].startTime,
       endTime: stretches[index].endTime,
-      // The track is the band, the same for every stretch inside it: two hours
-      // of the same afternoon read one under the other on the same scale, and
-      // each sits where it really sits in the day.
-      //
-      // Handing it the free space instead left the first stretch a track exactly
-      // as long as itself — full from end to end — and gave a stretch between
-      // two others one that looked like none of the rest of the same band.
+      // The track is the band and the same for every stretch inside it, so two
+      // hours of one afternoon read on the same scale. Handed the free space
+      // instead, the first stretch got a track exactly as long as itself.
       windowStartMinutes: window.startMinutes,
       windowEndMinutes: window.endMinutes,
       // The free space stays, but as the drag limit: two hours of the same band

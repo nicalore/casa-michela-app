@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -187,7 +188,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
           icon: Icons.alternate_email_rounded,
           rows: [
             DetailRowData('Email', orDash(child.email)),
-            DetailRowData('Telefono', orDash(child.phoneNumber)),
+            DetailRowData('Telefono', orDash(formatPhoneNumber(child.phoneNumber))),
             null,
           ],
         ),

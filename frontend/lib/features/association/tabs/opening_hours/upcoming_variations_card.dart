@@ -30,9 +30,8 @@ class UpcomingVariationsCard extends StatelessWidget
   // Only paid when the hours drop below the date instead of sharing its line.
   static const double _hoursHeight = 24.0;
 
-  // Breathing room past the longest date on screen, and the bounds the
-  // measured column is held between: enough that a single short date does not
-  // pull the hours right up against it, capped so one long span cannot push
+  // The bounds the measured date column is held between: enough that a short
+  // date does not pull the hours against it, capped so a long span cannot push
   // them off the row.
   static const double _dateColumnPadding = 16.0;
   static const double _minDateColumn = 130.0;
@@ -163,13 +162,9 @@ class UpcomingVariationsCard extends StatelessWidget
     return _headlineHeight + (stackHours ? _hoursHeight : 0) + _noteHeight;
   }
 
-  // Width the date column needs for the longest label actually on screen.
-  //
-  // Measured rather than taken as a share of the row: a proportional column
-  // has to be sized for the worst case ("Dal 25 settembre al 6 ottobre"), and
-  // left a gulf between the date and the hours on every row that did not
-  // happen to be that long. Every row uses the one width, so the columns still
-  // line up down the card.
+  // Measured off the longest label on screen rather than taken as a share of the
+  // row, which had to be sized for the worst case and left a gulf on every other
+  // row. One width for all of them, so the columns still line up.
   double _dateColumnWidth(List<VariationGroup> groups, TextScaler textScaler)
   {
     var widest = 0.0;
@@ -203,24 +198,18 @@ class UpcomingVariationsCard extends StatelessWidget
   }
 }
 
-// One variation, laid out in columns rather than as a single running sentence:
-// the date on the left, the hours spread across the width in the same three
-// band positions the weekly table uses, the actions hard right.
-//
-// The old "20 luglio — 07:00–12:00, 14:00–19:00, 20:00–22:00" packed everything
-// against the left edge and left a third of the row empty, and a comma list is
-// slow to read: three times in fixed positions, lining up down the card, say at
-// a glance which part of the day each variation touches.
+// One variation in columns rather than a running sentence: the date left, the
+// hours in the same three band positions the weekly table uses, actions right.
+// A comma list packed everything against the left edge and was slow to read,
+// where fixed positions say at a glance which part of the day is touched.
 class VariationRow extends StatelessWidget
 {
   // Reserved even where the buttons are not drawn, so a holiday's hours stay
   // in the same columns as every other row's.
   static const double actionsWidth = 72;
 
-  // Kept at zero now that the rows carry no mark of their own: every variation
-  // in this card is a variation, and a flag beside each one said only that.
-  // The constant stays because the header and the note line measure their
-  // indent from it.
+  // Zero now that the rows carry no mark of their own: every variation here is
+  // one. The constant stays because the header measures its indent from it.
   static const double leadingWidth = 0;
 
   static const double columnGap = 24;
@@ -274,9 +263,8 @@ class VariationRow extends StatelessWidget
           child: Row(
             children: [
               // Fixed rather than a share of the row, which would grow with the
-              // card and park the hours far from the date on every short one.
-              // Stacked there is nothing to line up with on this line, so the
-              // date simply takes what is left instead.
+              // card and park the hours far from short dates. Stacked, there is
+              // nothing to line up with and the date takes what is left.
               if (stackHours)
                 Expanded(child: _buildDate())
               else ...[
@@ -439,12 +427,10 @@ class VariationRow extends StatelessWidget
     );
   }
 
-  // The day's bands in their morning/afternoon/evening columns.
-  //
-  // Falls back to filling the columns left to right when the bands do not map
-  // cleanly — one outside 06:00-23:00, or two landing in the same band, both
-  // only reachable through data older than those bounds. Position then stops
-  // meaning anything, but nothing is dropped, which matters more.
+  // The day's bands in their three columns, falling back to filling them left to
+  // right where the bands do not map cleanly — only reachable through data older
+  // than the 06:00-23:00 bounds. Position stops meaning anything, but nothing is
+  // dropped, which matters more.
   List<OpeningDayItem?> _bandSlots()
   {
     final slots = List<OpeningDayItem?>.filled(TimeBucket.values.length, null);
@@ -467,10 +453,9 @@ class VariationRow extends StatelessWidget
   }
 }
 
-// Names the three columns the rows line up under, so a variation touching only
-// the afternoon reads as such instead of as a stray value floating mid-row.
-// Built from VariationRow's own geometry constants, so header and rows cannot
-// drift apart.
+// Names the three columns, so a variation touching only the afternoon reads as
+// such rather than as a stray value mid-row. Built from VariationRow's own
+// constants, so the two cannot drift apart.
 class VariationHoursHeader extends StatelessWidget
 {
   final double height;

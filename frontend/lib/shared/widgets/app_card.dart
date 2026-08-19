@@ -24,27 +24,19 @@ const double _compactDividerSpace = 20;
 // make when they do not fit on one.
 const double _headingGap = 16;
 
-// The two ways a card's own controls can share the heading with its title, and
-// the caller is the one that knows which it wants.
-//
-// A card that has already worked out there is room for them wants them beside
-// the title, with the title giving way: the week nav of the opening hours moves
-// down into the body on its own, at its own width, and would not have handed
-// them over here otherwise.
-//
-// A card whose controls are a handful of filter pills has no such number to lean
-// on — three of them can be wider than the whole card — so there they take a
-// line of their own the moment they do not fit on this one.
+// The two ways a card's controls can share the heading with its title, and the
+// caller knows which it wants: one that has already worked out there is room
+// wants them beside the title, with the title giving way; one whose controls are
+// filter pills has no such number to lean on, so they take a line of their own
+// the moment they do not fit.
 enum AppCardTrailing
 {
   beside,
   wrapping,
 }
 
-// The chrome every card of the app wears: a badge, a heading beside it and a
-// rule under the two. The white, the radius and the shadow are the same the
-// dashboard gives its module cards, so a card here and a card there read as the
-// same object.
+// The chrome every card wears: a badge, a heading and a rule. The same white,
+// radius and shadow the dashboard gives its module cards.
 class AppCard extends StatelessWidget
 {
   final String title;
@@ -72,14 +64,9 @@ class AppCard extends StatelessWidget
   // come back with half the card highlighted.
   final bool selectable;
 
-  // Set by a card whose height is decided elsewhere — two cards matched to the
-  // same height, a table pinned to a fixed one. The body then spreads into the
-  // height it was handed instead of leaving a hole under itself, while the
-  // heading stays where the other card's heading is.
-  //
-  // Only pass it where the height really is given: a card free to be as tall as
-  // it likes has no room to spread into and the flex would have nothing to
-  // measure against.
+  // Set by a card whose height is decided elsewhere: the body then spreads into
+  // the height it was handed instead of leaving a hole under itself. Only where
+  // the height really is given, or the flex has nothing to measure against.
   final bool fillHeight;
 
   const AppCard({
@@ -107,10 +94,9 @@ class AppCard extends StatelessWidget
     );
   }
 
-  // Nothing in here measures itself. That is a requirement, not a preference:
-  // matching two cards to the same height means asking each of them how tall it
-  // would be at a given width, and a LayoutBuilder cannot answer that question
-  // at all.
+  // Nothing in here measures itself, and that is a requirement: matching two
+  // cards means asking how tall each would be at a width, which a LayoutBuilder
+  // cannot answer.
   Widget _buildHeader(double badgeSize)
   {
     if (trailing == null || trailingFit == AppCardTrailing.beside)
@@ -255,10 +241,8 @@ class AppInfoRow extends StatelessWidget
       ),
     );
 
-    // On a narrow window the label goes above the value instead of beside it.
-    // A hundred and sixty pixels of label out of the two hundred and ninety a
-    // phone has left inside a card is most of the row spent naming the thing,
-    // and a tax code broken over two lines to fit what was left.
+    // On a narrow window the label goes above the value: 160 of label out of the
+    // 290 a phone leaves inside a card is most of the row spent naming it.
     if (AppBreakpoints.of(context).isCompact)
     {
       return Column(

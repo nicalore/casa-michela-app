@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/phone_number.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../models/person_item.dart';
@@ -184,7 +185,7 @@ class PersonInfoTab extends StatelessWidget
         labelWidth: 110,
         rows: [
           DetailRowData('Email', orDash(person.email)),
-          DetailRowData('Telefono', orDash(person.phoneNumber)),
+          DetailRowData('Telefono', orDash(formatPhoneNumber(person.phoneNumber))),
           null,
         ],
       ),
@@ -294,7 +295,7 @@ class PersonInfoTab extends StatelessWidget
         labelWidth: 205,
         rows: [
           DetailRowData('Contatto emergenza', orDash(person.emergencyContactName)),
-          DetailRowData('Telefono emergenza', orDash(person.emergencyContactPhone)),
+          DetailRowData('Telefono emergenza', orDash(formatPhoneNumber(person.emergencyContactPhone))),
           DetailRowData('Allergie / intolleranze', orDash(person.allergiesNotes)),
           DetailRowData('Farmaci / note', orDash(person.medicationsNotes)),
         ],

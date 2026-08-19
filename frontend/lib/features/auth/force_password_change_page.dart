@@ -229,6 +229,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
               controller: _currentPasswordController,
               label: 'Password attuale',
               hintText: 'Inserisci la password attuale',
+              nothingAbove: true,
             ),
           ),
           AppDialogPill(

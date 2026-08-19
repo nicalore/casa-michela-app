@@ -77,12 +77,9 @@ class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateM
   static const double _restScale = 1.0;
   static const double _breathScale = 1.22;
 
-  // Travel of the glow along the diagonal that runs from its corner to the
-  // centre of the page, in logical pixels. It moves in step with the swelling
-  // rather than against it: on its own the scaling is nearly invisible, because
-  // a circle growing about a centre that sits off screen barely changes where
-  // its edge falls, while sliding the whole shape inward is movement the eye
-  // actually catches.
+  // Travel along the diagonal from its corner to the centre. In step with the
+  // swelling: a circle growing about an off-screen centre barely moves its edge,
+  // while sliding the whole shape inward is movement the eye catches.
   static const double _driftDistance = 34;
 
   late final AnimationController _controller;
@@ -126,10 +123,9 @@ class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  // The breathing runs only when the page asks for it and the system is not set
-  // to reduce motion: a shape this large drifting behind the content is exactly
-  // what that setting exists to stop. A stopped controller asks for no ticks,
-  // so a page that leaves the effect off pays nothing for it.
+  // Only when the page asks and the system is not set to reduce motion, which a
+  // shape this large is exactly what exists to stop. A stopped controller asks
+  // for no ticks.
   void _syncAnimation()
   {
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;

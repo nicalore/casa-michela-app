@@ -23,28 +23,13 @@ const double _borderWidth = 1.5;
 // Between one row of words and the next, where they have wrapped.
 const double _rowGap = 3;
 
-// One row, several words, and a white pill that slides to the one chosen.
+// One row, several words, and a white pill that slides to the one chosen — what
+// the app changes view with. Loose pills mean something else here, and one shape
+// for both made two gestures look like one.
 //
-// It is what the app changes view with: the sections of a person's page, the
-// cards of a step in the person wizard, the two lists of a day in Lezioni.
-// Pills of the loose kind — the ones that stand apart from each other — say
-// something else in this app: they are what a filter is set with and what a
-// few options are picked from, and using the same shape to change page made
-// two different gestures look like one.
-//
-// The segments are as wide as the words in them. Equal halves are right for a
-// yes-or-no, where the two words are a syllable each; a step of the wizard can
-// hold seven cards from "Docente" to "Sicurezza del minore", and giving each
-// the width of the longest would make a control wider than the window it
-// stands in.
-//
-// More words than the room they are given, and they wrap onto another row. It
-// used to slide sideways instead, and a row that slides is a row that is cut:
-// at rest it ended at the edge of the card with a word half in and half out,
-// which reads as a control that has overrun its card rather than as one with
-// more in it than fits. Wrapped, the control is never wider than what it was
-// handed — it is taller — and everything it offers can be seen without moving
-// anything first.
+// Segments are as wide as their words: equal halves suit a yes-or-no, but seven
+// wizard cards would be wider than the window. Too many and they wrap, since
+// sliding left a word half in and half out at the edge of the card.
 class AppSegmentedTabs extends StatefulWidget
 {
   final List<String> labels;
@@ -61,17 +46,9 @@ class AppSegmentedTabs extends StatefulWidget
   // chooses.
   final EdgeInsets padding;
 
-  // Off, the control takes all the width it is given and stands at the left of
-  // it, which is what a row of tabs over a page wants: the pieces below it
-  // start at the same place it does.
-  //
-  // On, it takes only the width of its own words, and whoever holds it decides
-  // where it goes — a yes-or-no alone on a piece is centred by the column it is
-  // in, and the piece can then be measured from its widest line instead of
-  // being stretched to the window by a control two syllables wide.
-  //
-  // It still wraps where there is not room for one row: the width asked for is
-  // a ceiling, not a promise.
+  // Off, all the width given, at the left, which is what a row of tabs wants.
+  // On, only the width of its words, so a piece is measured from its widest line
+  // instead of being stretched by a control two syllables wide. Still wraps.
   final bool hugContent;
 
   const AppSegmentedTabs({
@@ -189,13 +166,9 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
     return painter.width + 2 * _segmentPadding;
   }
 
-  // The segments, split into the rows they fit in. Greedily from the left,
-  // which is the order they are read in: the current row fills up while the next
-  // word still fits, and a new one opens when it does not.
-  //
-  // A word wider than a whole row keeps its own row and is squeezed to it: on a
-  // phone with a long label something has to give, and losing the tail of a word
-  // beats breaking out of the card.
+  // Split into rows greedily from the left, which is the order they are read in.
+  // A word wider than a row keeps its own and is squeezed to it: losing the tail
+  // of a word beats breaking out of the card.
   List<List<int>> _pack(List<double> widths, double available)
   {
     final rows = <List<int>>[];
@@ -316,13 +289,9 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
       );
     }
 
-    // The words are already measured, so the room one row of them needs is
-    // known before anything is laid out. Capping the control there is what lets
-    // it be its own size: the builder below reads its constraints and fills
-    // them, so left to the width of the piece it would fill the piece.
-    //
-    // A ceiling and not a size: where the piece is narrower than this, the cap
-    // gives way to what is actually there and the rows wrap as they always did.
+    // The words are measured, so one row's width is known before layout.
+    // Capping there is what lets the control be its own size: the builder below
+    // fills its constraints. A ceiling and not a size — a narrower piece wins.
     final double oneRow = _widths.fold<double>(0, (sum, width) => sum + width) +
         2 * (_padding + _borderWidth);
 
@@ -364,10 +333,8 @@ class _AppSegmentedTabsState extends State<AppSegmentedTabs>
                 padding: const EdgeInsets.all(_padding),
                 decoration: BoxDecoration(
                   color: AppTheme.closedSurface,
-                  // A stadium while the words are on one row, and the same
-                  // corners on a block of them: rounded by half a row either
-                  // way, so wrapping changes the height of the control and not
-                  // the shape of it.
+                  // Rounded by half a row either way, so wrapping changes the
+                  // height of the control and not its shape.
                   borderRadius: BorderRadius.circular(widget.height / 2),
                   // Gold under the pointer, which is what the rest of the app
                   // does.

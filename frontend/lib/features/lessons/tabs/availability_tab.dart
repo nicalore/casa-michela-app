@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../core/utils/time_bucket.dart';
@@ -370,18 +371,24 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         _buildFilters(),
         const SizedBox(height: 28),
       ],
+      // On the beat the first card would have had: a day with nothing in it
+      // still arrives with the rest of the page, and left bare this sentence
+      // was the one thing on screen that did not move.
       body: groups.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text(
-                  _emptyMessage,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
+          ? PageTransitionItem(
+              slot: PageTransitionItem.list,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Text(
+                    _emptyMessage,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
               ),

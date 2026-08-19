@@ -17,17 +17,14 @@ import '../models/person_item.dart';
 
 const double _rowGap = 16;
 
-// The vertical rhythm of a section, and the whole of what says which card
-// belongs with which heading: cards of one run are close, a run and the heading
-// of the next are far apart. With one gap for both, a page of cards reads as an
-// undifferentiated stack — which is what it was.
+// The vertical rhythm, and the whole of what says which card belongs to which
+// heading: cards of a run are close, a run and the next heading far apart. One
+// gap for both reads as an undifferentiated stack.
 const double kPersonTitleGap = 20;
 const double kPersonCardGap = 24;
 
-// The room a grid of cards leaves inside its own scroll view. A card casts a
-// shadow beyond its edges and a scroll view clips whatever leaves its own:
-// without this, the last row reaches the clipping edge and has its shadow cut
-// clean off, which looks like a sliced card.
+// A card casts a shadow beyond its edges and a scroll view clips what leaves
+// its own, so without this the last row has its shadow cut clean off.
 const double kPersonGridShadowRoom = 12;
 const double kPersonSectionGap = 56;
 
@@ -68,15 +65,11 @@ class DetailRowData
   const DetailRowData(this.label, this.value, {this.isSensitive = false});
 }
 
-// Side by side above the breakpoint, stacked below it. The two cards are
-// stretched to equal height, so a short one does not look truncated next to a
-// tall one.
+// Side by side above the breakpoint, stacked below, stretched to equal height.
 //
-// The LayoutBuilder stays outside IntrinsicHeight and must never end up inside
-// it: intrinsic measurement cannot resolve a LayoutBuilder and throws. That
-// holds for everything the two cards are made of as well — AppCard and
-// AppInfoRow both decide their layout without measuring, which is what lets
-// them stand in here.
+// The LayoutBuilder must stay outside IntrinsicHeight: intrinsic measurement
+// cannot resolve one and throws. The same holds for everything the cards are
+// made of, which is why AppCard and AppInfoRow lay out without measuring.
 class PersonDetailCardPair extends StatelessWidget
 {
   static const double _breakpoint = 820.0;
@@ -276,11 +269,9 @@ class PersonFact
   final String label;
   final String value;
 
-  // Share of the row this one takes. The facts of a card are not the same size
-  // of thing: the name of a school or of a study programme runs to a line of
-  // text, while a class is a roman numeral and a repeated year is yes or no.
-  // Given the row in equal parts, the names wrap to three lines beside columns
-  // of white.
+  // Share of the row this one takes: a school's name runs to a line of text
+  // while a class is a roman numeral, and in equal parts the names wrap to
+  // three lines beside columns of white.
   final int flex;
 
   // Draws the value in the danger colour. For the one fact on these cards that
@@ -294,12 +285,8 @@ class PersonFact
   double get minWidth => 90 + 30.0 * flex;
 }
 
-// The facts of a membership or of a school year, side by side across the card
-// rather than one under the other: three or five short values in a column is a
-// long card saying very little, while a row of them can be read at a glance.
-//
-// They stack only when the card is too narrow to hold them, which depends on how
-// many there are.
+// The facts of a membership side by side rather than in a column, which is a
+// long card saying very little. They stack only where the card is too narrow.
 class PersonFactsRow extends StatelessWidget
 {
   static const double _stackedGap = 20;
@@ -357,14 +344,10 @@ class PersonFactsRow extends StatelessWidget
           );
         }
 
-        // Each fact takes what it needs, up to the share it was given, and what
-        // none of them needed is shared out evenly between them and at the two
-        // ends. Columns held open at their full share instead put a hole where a
-        // short value was — "cdcd" alone in four hundred pixels — and pushed the
-        // rest of the row off to the right of the card.
-        //
-        // Loose is what allows both: a fact longer than its share still wraps
-        // inside it rather than running off the card.
+        // Each fact takes what it needs up to its share, and the rest is spread
+        // evenly: held open at full share, a short value sat alone in four
+        // hundred pixels and pushed the row off the card. Loose allows both — a
+        // longer fact still wraps inside its share.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -383,12 +366,9 @@ class PersonFactsRow extends StatelessWidget
 }
 
 
-// Someone being picked in a dialog — a parent, a child. It is the card of the
-// people list, cut down: the picture over the name, and no roles, because what
-// is being asked here is "which person", not "what do they do".
-//
-// The height is fixed and the band under the name is always there, empty until
-// the card is chosen: without it the grid would jump every time one is picked.
+// Someone being picked in a dialog: the card of the people list cut down to the
+// picture and the name, since the question is "which person" and not "what do
+// they do". Fixed height with the band always there, or the grid jumps.
 class PersonPickerCard extends StatefulWidget
 {
   static const double width = 230;
@@ -548,15 +528,11 @@ class _PersonPickerCardState extends State<PersonPickerCard>
   }
 }
 
-// What adds another row to an editable list. The app's button at a smaller size:
-// it answers the pointer with the same flood the two at the foot do, because it
-// is the same kind of thing — something that happens when you press it.
-// The mark that says whether something is in or out. Filled with the brand ramp
-// when it is in, an outline when it is not, and a dash where it stands for a
-// group only some of whose rows are in.
+// The mark that says whether something is in or out: the brand ramp when it is,
+// an outline when it is not, a dash for a group only partly in.
 //
-// onTap is left out where the mark is decoration on a row that is itself
-// tappable: two hit targets for one answer is one too many.
+// onTap is left out where the mark decorates a row that is itself tappable: two
+// hit targets for one answer is one too many.
 
 // One row of an editable list inside a dialog: the fields on a ground of their
 // own, so a list of three of them reads as three things rather than as six

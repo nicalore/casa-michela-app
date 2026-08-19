@@ -433,7 +433,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
 
     if (entry.isFull && entry.remainingMinutes > 0)
     {
-      return 'Sono già state pianificate due lezioni. Allungane una per pianificare i minuti avanzati';
+      return 'Sono già state pianificate due lezioni. Allungane una per pianificare i minuti rimanenti.';
     }
 
     if (entry.remainingMinutes > 0 && entry.remainingMinutes < kMinimumBandMinutes)
@@ -583,6 +583,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
       entry: entry,
       disciplineIds: disciplines,
       minutes: entry.proposedMinutesFor(disciplines),
+      isWholeRequest: true,
     );
 
     return _draggableOf(
@@ -849,7 +850,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
 
     if (covered)
     {
-      return '${subject.name} è già pianificata. ${_verb}su un\'altra per pianificarla anche in una '
+      return '${subject.name} è già pianificata. ${_verb} per pianificarla anche in una '
           'seconda lezione.';
     }
 
@@ -862,7 +863,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
     if (entry.canJoinAPart)
     {
       return '$_verb${subject.name} su una lezione già in calendario per unirla, o su un\'ora '
-          'libera per crearne una nuova lezione.';
+          'libera per creare una nuova lezione.';
     }
 
     return '$_verb${subject.name} sull\'orario: le altre discipline restano da pianificare.';

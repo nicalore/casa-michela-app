@@ -54,17 +54,12 @@ String railEntryAt(List<RailGroup> groups, int index)
   return entries[index];
 }
 
-// The sections of a module, down the left side of the page.
+// The sections of a module, down the left of the page. Vertical is what makes
+// it work: under the top bar a second row of words read as the same control
+// twice, and nesting a level costs an indent rather than a third row.
 //
-// It carries the navigation the pages used to spread over a tab bar and a row
-// of chips. Vertical is what makes it work: stacked under the top bar, a second
-// row of words read as the same control twice, while a column reads as what it
-// is, and nesting one level costs an indent rather than a third row.
-//
-// selectedIndex counts the entries only, headings excluded, in the order they
-// are declared: with groups [a], [b, c] the indices are a=0, b=1, c=2. That is
-// deliberately the order of the page's own IndexedStack, so the two cannot
-// drift apart.
+// selectedIndex counts entries only, headings excluded, in declaration order —
+// deliberately the order of the page's own IndexedStack.
 class AppSectionRail extends StatelessWidget
 {
   // Wide enough for "Informazioni personali", the longest label any module
@@ -161,12 +156,9 @@ class AppSectionRail extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildTitle(),
-          // A module whose sections are counted rather than named can put more
-          // entries in here than the page is tall — Lezioni lists a day at a
-          // time, and how many days there are depends on when you ask. They
-          // scroll inside the card rather than running off the bottom of the
-          // page. Loose, so a rail that fits is exactly as tall as its entries,
-          // which is what every module currently is.
+          // A module whose sections are counted rather than named can outrun
+          // the page — Lezioni lists a day at a time — so they scroll inside the
+          // card. Loose, so a rail that fits is as tall as its entries.
           Flexible(
             child: SingleChildScrollView(
               child: Column(
@@ -212,10 +204,8 @@ class AppRailHeading extends StatelessWidget
   }
 }
 
-// One line of the rail. Public because the drawer that replaces the rail on a
-// narrow window is made of these same rows: the sections have to answer the
-// finger the way they answer the pointer, or moving between the two widths
-// would feel like moving between two apps.
+// One line of the rail. Public because the drawer that replaces it on a narrow
+// window is made of these same rows.
 class AppRailEntry extends StatefulWidget
 {
   final String label;
@@ -260,11 +250,9 @@ class _AppRailEntryState extends State<AppRailEntry>
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  // The mark grows out of the middle of the entry the way the
-                  // one in the top bar grows out of the middle of a word, only
-                  // along the other axis. It is squeezed by a transform and not
-                  // by a size, so it takes no part in layout and the column
-                  // cannot shift as the pointer travels down it.
+                  // Squeezed by a transform and not by a size, so it takes no
+                  // part in layout and the column cannot shift under the
+                  // pointer.
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: marked ? 1 : 0),
                     duration: _markFade,
@@ -313,10 +301,8 @@ class _AppRailEntryState extends State<AppRailEntry>
   }
 }
 
-// What the rail says on a window too narrow to hold it. The module it belongs
-// to, quietly, over the section you are actually in: the same eyebrow and title
-// pairing the dialogs of the app use, and the same two lines the rail carries at
-// its head — one of them just moved into the drawer with the entries.
+// What the rail says on a window too narrow to hold it: the module quietly over
+// the section you are in, the same eyebrow-and-title pairing the dialogs use.
 class AppSectionHeading extends StatelessWidget
 {
   final String module;

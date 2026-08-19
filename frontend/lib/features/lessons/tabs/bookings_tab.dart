@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/association_subject_item.dart';
@@ -428,18 +429,24 @@ class _BookingsTabState extends State<BookingsTab>
         _buildFilters(),
         const SizedBox(height: 28),
       ],
+      // On the beat the first card would have had: a day with nothing in it
+      // still arrives with the rest of the page, and left bare this sentence
+      // was the one thing on screen that did not move.
       body: groups.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text(
-                  _emptyMessage,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
+          ? PageTransitionItem(
+              slot: PageTransitionItem.list,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Text(
+                    _emptyMessage,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.trialMutedText,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
               ),
@@ -935,17 +942,30 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     return minutes;
   }
 
+  // Back to the window as it opens, so that the next request is asked the same
+  // questions the first one was. Everything answered goes, the way of being
+  // there included: it is the first thing chosen and the one that decides which
+  // cards follow, and left standing it answered itself for whoever came next.
   void _resetForm()
   {
     setState(()
     {
       _selectedStudentTaxCode = null;
       _days = {_firstOfferedDay()};
+      _selectedModes.clear();
 
       for (final mode in _modes)
       {
         _hours[mode]!.clear();
         _requests[mode]!.clear();
+
+        // Where the subject cards were left: the category being looked at and
+        // whatever was typed to find a discipline in it. Kept, the next pupil's
+        // subjects opened filtered by a word asked about somebody else, with the
+        // field above them still holding it.
+        _subjectCategory[mode] = 0;
+        _disciplineSearchControllers[mode]!.clear();
+        _disciplineQuery[mode] = '';
       }
 
       _droppedBookings.clear();

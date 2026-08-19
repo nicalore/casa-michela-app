@@ -471,6 +471,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
             label: 'Nome utente',
             hintText: 'Es. mario.rossi',
             onSubmitted: (_) => _handleSend(),
+            nothingAbove: true,
           ),
         ),
       ],

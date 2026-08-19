@@ -47,10 +47,9 @@ class WeeklyTemplateService:
 
         return template
 
-    # Propagation reaches the last generated date and no further: the horizon
-    # belongs to generate_opening_days, and days invented past it would come out
-    # open on holidays never seeded. Beyond it nothing needs doing — the next
-    # generation already reads the updated templates.
+    # Only to the last generated date: the horizon belongs to
+    # generate_opening_days, and days invented past it would open on holidays
+    # never seeded. The next generation already reads the updated templates.
     async def _propagation_horizon(self, mode: str) -> date | None:
         return await self.opening_day_repository.last_generated_date(mode)
 
@@ -78,14 +77,10 @@ class WeeklyTemplateService:
 
         return dates
 
-    # Rewrites the days of that weekday from that date on.
-    #
-    # The whole day and not the rows a change is recognised by: a band that
-    # changed its start time used to leave its old rows behind. Idempotent too,
-    # since whatever was there is deleted before the reinsert.
-    #
-    # Overrides stay untouched: holidays, closures and extraordinary openings do
-    # not come from the templates and take precedence.
+    # Rewrites the days of that weekday from that date on: the whole day and not
+    # the rows a change is recognised by, since a band that moved its start used
+    # to leave its old rows behind. Idempotent, and overrides — holidays,
+    # closures, extraordinary openings — are left untouched.
     async def reconcile_weekday(
         self,
         *,
@@ -173,10 +168,8 @@ class WeeklyTemplateService:
         rule_start = payload.effective_from or today_in_rome()
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
-            # (weekday, mode, start_time) is unique: if that time already
-            # exists, "adding" it means overwriting it rather than failing. The
-            # reconcile below rewrites the whole day anyway, so the template row
-            # is all that is needed here.
+            # (weekday, mode, start_time) is unique, so adding an existing time
+            # overwrites it. The reconcile below rewrites the whole day.
             existing = await self.repository.get_by_slot(
                 payload.weekday, payload.mode.value, payload.start_time
             )
@@ -227,10 +220,8 @@ class WeeklyTemplateService:
         mode = template.mode
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
-            # Moving a band onto a time another row of the same day holds
-            # overwrites it, so that row has to be withdrawn first or the unique
-            # constraint is hit. Without an effective date, since the reconcile
-            # below rewrites the day anyway.
+            # Moving a band onto a time another row holds overwrites it, so that
+            # row is withdrawn first or the unique constraint is hit.
             if payload.start_time != old_start_time:
                 clashing = await self.repository.get_by_slot(
                     weekday, mode, payload.start_time
@@ -245,10 +236,9 @@ class WeeklyTemplateService:
             if payload.effective_from is not None:
                 template.effective_from = payload.effective_from
 
-            # The template row changed, so the day is rewritten from scratch and
-            # the rows of the band as it was disappear with it. Without an
-            # effective date the historical default applies, from tomorrow on:
-            # what has already passed is left alone.
+            # The day is rewritten from scratch, so the old band's rows go with
+            # it. Without an effective date the default is from tomorrow, so what
+            # has passed is left alone.
             await self.reconcile_weekday(
                 weekday=weekday,
                 mode=mode,
@@ -270,10 +260,9 @@ class WeeklyTemplateService:
         template_id: int,
         effective_from: date | None = None,
     ) -> None:
-        # No cascade towards opening_days: there is no FK, by design. Without
-        # effective_from the deletion only affects the next
-        # generate_opening_days; with it, the rows already generated from that
-        # date on are withdrawn too, leaving the overrides intact.
+        # No FK towards opening_days, by design: without effective_from only the
+        # next generation is affected, with it the rows already generated are
+        # withdrawn too, leaving the overrides intact.
         template = await self.get_or_404(template_id)
 
         await self._discard_slot(template=template, effective_from=effective_from)

@@ -1,17 +1,12 @@
 import 'booking_summary_item.dart';
 
-// One thing a pupil asks for: what, how long, and — where it makes sense —
-// who they would like to be taught it by, what it is about and anything the
-// teacher should know before the lesson.
+// One thing a pupil asks for: a booking before it has been written, and the
+// shape the window that asks for one works on.
 //
-// It is a booking before it has been written, and the shape the window that
-// asks for one works on. The wizard holds a list of these per way of being
-// there; the card that opens off a day edits one at a time.
-//
-// Three kinds live in here, and what is worth asking changes with the kind: a
+// Three kinds live in here and what is worth asking changes with the kind: a
 // ministry subject has disciplines under it, a discipline asked on its own has
-// none, and a service has neither those nor a topic nor a tag — "metodo di
-// studio" is the thing itself, not a lesson about something.
+// none, and a service has neither those nor a topic — "metodo di studio" is the
+// thing itself, not a lesson about something.
 class SubjectRequestDraft
 {
   BookingRequestKind kind;
@@ -74,12 +69,10 @@ class SubjectRequestDraft
         preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[],
         excludedTeacherTaxCodes = excludedTeacherTaxCodes ?? <String>[];
 
-  // Everything a stored row holds, and not only what a summary shows.
-  //
-  // Whoever edits a booking writes back whatever they were handed, so a draft
-  // built out of half a booking is a booking about to lose the other half —
-  // its kind, the hours it is made of, what it is about, who was asked for.
-  // [ministrySubjectName] is the caller's to resolve: the catalogue is theirs.
+  // Everything a stored row holds and not only what a summary shows: whoever
+  // edits a booking writes back what they were handed, so a draft built from
+  // half of one is a booking about to lose the other half.
+  // [ministrySubjectName] is the caller's to resolve.
   factory SubjectRequestDraft.fromBooking(
     BookingSummaryItem booking, {
     String? ministrySubjectName,
@@ -112,10 +105,8 @@ class SubjectRequestDraft
   bool get asksForDisciplines => kind == BookingRequestKind.ministrySubject;
   bool get asksForTopicAndTag => kind != BookingRequestKind.service;
 
-  // The disciplines this hour is spent on, whichever way it was asked for: the
-  // ones chosen under a ministry subject, or the single one asked on its own. A
-  // service is spent on none — it is not a lesson about a subject — so it
-  // counts against no discipline's daily ceiling.
+  // The disciplines this hour is spent on, however it was asked for. A service
+  // is spent on none, so it counts against no discipline's daily ceiling.
   Set<int> get disciplineIds => switch (kind)
   {
     BookingRequestKind.ministrySubject => {...associationSubjectIds},

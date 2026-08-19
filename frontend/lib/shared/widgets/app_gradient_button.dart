@@ -30,11 +30,9 @@ const double _verticalPadding = 15;
 const double _pressedScale = 0.99;
 const double _pressedShift = 1;
 
-// The primary button. At rest an outline; under the pointer the brand ramp
-// floods it from the left, taking the letters white as it passes.
-//
-// It carries the one action a page is really about, so it is the loudest thing
-// a surface may put on itself and there should never be two on one screen.
+// The primary button: an outline at rest, flooded by the brand ramp under the
+// pointer. It carries the one action a page is about, so there should never be
+// two on one screen.
 class AppGradientButton extends StatefulWidget
 {
   final String label;
@@ -60,16 +58,12 @@ class AppGradientButton extends StatefulWidget
 
   final double radius;
 
-  // The air on either side of the label. The default is what a button standing
-  // on its own in a form wants; one repeated down a card — a row added to each
-  // band of a day — passes less, so that three of them do not weigh more than
-  // what they are adding to.
+  // The default is what a button standing alone in a form wants; one repeated
+  // down a card passes less, so three do not outweigh what they add to.
   final double horizontalPadding;
 
-  // While the action is on its way: a turning ring stands where the icon was and
-  // the button stops answering. The label does not change, because a button that
-  // renames itself mid-press is a button that also changes width, and these
-  // stand two to a row.
+  // A turning ring where the icon was. The label does not change: a button that
+  // renames itself mid-press also changes width, and these stand two to a row.
   final bool busy;
 
   const AppGradientButton({
@@ -171,10 +165,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
     );
   }
 
-  // Everything the fill brings with it — the ramp and the white letters over it
-  // — cut off wherever the sweep has got to. dstIn keeps the layer only where
-  // the shader is opaque, and the shader is a hard white up to the sweep, a
-  // short fade, then nothing.
+  // The ramp and its white letters, cut off where the sweep has got to: dstIn
+  // keeps the layer only where the shader is opaque.
   Widget _buildFill(double t)
   {
     if (t <= 0)
@@ -192,20 +184,14 @@ class _AppGradientButtonState extends State<AppGradientButton>
         horizontal: widget.horizontalPadding,
         vertical: widget.height == null ? _verticalPadding : 0,
       ),
-      // The letters up here are the same letters as underneath, painted a
-      // second time in white and cut off at the same place as the ground they
-      // sit on, which is what makes the fill look like it is recolouring them
-      // as it goes past. Only one of the two copies is announced.
+      // The same letters painted again in white and cut at the same place as
+      // their ground, which is what recolours them. Only one is announced.
       child: ExcludeSemantics(child: _buildFace(Colors.white)),
     );
 
-    // The sweep runs past the right edge rather than stopping on it: with the
-    // wave ending exactly at t, the last stretch was still under the fade when
-    // t reached 1 and the unmasked fill took over in one frame.
-    //
-    // So the leading edge is carried a feather further and left unclamped: held
-    // to the right-hand side it froze the solid front at 0.84 for the last sixth
-    // of the flood, which then turned solid in a single frame.
+    // The sweep runs past the right edge: ending exactly at t, the last stretch
+    // was still under the fade when t reached 1 and the fill took over in one
+    // frame. Left unclamped, or the front freezes for the last sixth.
     final double edge = t * (1 + _feather);
     final double solid = edge - _feather;
 
@@ -220,10 +206,8 @@ class _AppGradientButtonState extends State<AppGradientButton>
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
         colors: const [Colors.white, Colors.white, Colors.transparent, Colors.transparent],
-        // Only the stops are held to the gradient: what runs past the right
-        // edge is simply not on the button yet, and the two are still in order
-        // because a clamped edge is 1 and the front it is clamped against is
-        // below it.
+        // Only the stops are clamped: what runs past the right edge is not on
+        // the button yet, and the two stay in order.
         stops: [0, math.max(0, solid), math.min(edge, 1), 1],
       ).createShader(bounds),
       child: fill,
@@ -278,14 +262,10 @@ class _AppGradientButtonState extends State<AppGradientButton>
                       ),
                     ],
                   ),
-                  // The label is the only child that counts for layout.
-                  //
-                  // The fill goes over it and not under, carrying its own copy
-                  // of the word in white: underneath, the dark letters would
-                  // stay on top of the ramp and nothing would turn.
-                  //
-                  // No inset of its own — a Container with a border already lays
-                  // its child inside it, and padding again left a white ring.
+                  // The label is the only child that counts for layout. The
+                  // fill goes over it with its own white copy of the word, or
+                  // the dark letters would stay on top of the ramp. No inset:
+                  // the bordered Container already insets its child.
                   child: Stack(
                     alignment: Alignment.center,
                     children: [

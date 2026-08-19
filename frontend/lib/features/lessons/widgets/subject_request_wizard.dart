@@ -81,16 +81,12 @@ const double _widestCard = 880;
 const double _stackWidth =
     _widestCard + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap) + 64;
 
-// One subject asked for, written a question at a time.
+// One subject asked for, a question at a time: laid out together these answers
+// are a form nobody reads to the end, and folded into their row they make a list
+// a page tall the moment one is opened.
 //
-// Laid out one under the other these answers are a form nobody reads to the end,
-// and folded into the row they belong to they make a list that grows a page tall
-// the moment one is opened. So they are asked a card at a time — what, how long,
-// with whom, and what to know beforehand — each short enough to read at a
-// glance.
-//
-// How many are needed depends on the kind: a service has neither parts nor a
-// topic, and opens straight on the duration.
+// How many cards are needed depends on the kind: a service has neither parts nor
+// a topic and opens straight on the duration.
 class SubjectRequestWizard extends StatefulWidget
 {
   // The way of being there this subject is asked for in, said in the eyebrow:
@@ -103,28 +99,22 @@ class SubjectRequestWizard extends StatefulWidget
   // What the pupil's own study programme teaches.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // Everyone. A pupil who asks for a teacher the register does not list under
-  // that discipline is telling the association something it may not know —
-  // that the teacher covers it, or that they were taught by them last year —
-  // and a form that hides the name cannot be told it.
+  // Everyone: a pupil asking for a teacher the register does not list under that
+  // discipline is telling the association something it may not know, and a form
+  // that hides the name cannot be told it.
   final List<PersonItem> teachers;
 
   final bool isEditing;
 
-  // How much time the pupil gives in this mode, and how much the other subjects
-  // have already taken. They are what says, next to the duration, how much is
-  // left — and what stops more being taken than there is.
-  //
-  // Null where nobody knows: the count is then neither shown nor enforced,
-  // instead of treating every duration as over budget against a zero.
+  // How much time the pupil gives in this mode and how much is already taken:
+  // what says how much is left, and what stops more being taken. Null where
+  // nobody knows, rather than treating every duration as over a zero budget.
   final int? minutesAvailable;
   final int minutesTakenByOthers;
 
-  // How many minutes the other subjects of this mode have already put on each
-  // discipline, by discipline id. Two hours a day on one of them is the whole
-  // of it, and a subject can go over the ceiling without going over the
-  // pupil's time — three quarters of an hour of Latin on top of an hour and a
-  // half of it fits inside a morning and still is not allowed.
+  // Minutes already put on each discipline by the other subjects. Two hours a
+  // day on one is the whole of it, and a subject can pass that ceiling without
+  // passing the pupil's own time.
   final Map<int, int> minutesByDisciplineTakenByOthers;
 
   // True where it landed. The window closes on true and stays on false, with
@@ -161,10 +151,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
   bool _movingForward = true;
   bool _isSaving = false;
 
-  // The steps this request really has. The first two exist only where they have
-  // something to ask: a subject with a single discipline has no parts to choose
-  // from, and a service has neither parts nor kind nor topic — so it starts from
-  // the duration, instead of opening on an empty card.
+  // The first two steps exist only where they have something to ask: a single
+  // discipline has no parts to choose from, and a service starts from the
+  // duration rather than opening on an empty card.
   List<_Step> get _stepList => [
         if (_disciplineChoices.isNotEmpty) _Step.disciplines,
         if (_draft.asksForTopicAndTag) _Step.what,
@@ -197,14 +186,10 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     });
   }
 
-  // Why this step does not let one move on, where it does not.
-  //
-  // Three carry a mandatory answer — which parts, what kind of hour and how
-  // long — and each holds its own. Naming no teacher and saying nothing to the
-  // teacher is a perfectly ordinary request.
-  //
-  // It returns the reason instead of shouting it: the arrow goes dark and says
-  // so on hover, as in the dialog this one opens from.
+  // Why this step does not let one move on. Three carry a mandatory answer —
+  // which parts, what kind, how long; naming no teacher is an ordinary request.
+  // The reason is returned and not shouted: the arrow darkens and says it on
+  // hover.
   String? _blockedReason(_Step step)
   {
     // The disciplines are asked for only where there are some to choose from:
@@ -251,12 +236,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return null;
   }
 
-  // The first discipline this request would push past the daily ceiling, with
-  // the minutes it would end up on. Null where none of them goes over.
-  //
-  // Read against the whole day and not against this request alone: two hours is
-  // two hours whether they were asked for in one go or in four quarters spread
-  // over as many subjects.
+  // The first discipline this request would push past the daily ceiling. Read
+  // against the whole day: two hours is two hours whether asked in one go or in
+  // four quarters spread over as many subjects.
   (int, int)? get _disciplineOverCeiling
   {
     final duration = _draft.duration;
@@ -383,12 +365,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return const [];
   }
 
-  // The parts of the subject, one row per discipline.
-  //
-  // Chips said the name and nothing else; a row for each also carries what the
-  // discipline is, which is the thing being decided on. It is the same list one
-  // arrives here from, and the same rows a teacher's competences are picked
-  // with.
+  // One row per discipline. Chips said the name and nothing else, where a row
+  // also carries what the discipline is — the thing being decided on.
   Widget _buildDisciplinesStep()
   {
     return Column(
@@ -548,13 +526,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       onChanged: () => setState(() {}),
     );
 
-    // Two separate cards side by side, like the two modes on a day's page: two
-    // distinct answers to the same question, which inside a single box read as
-    // one list with a rule through the middle.
-    //
-    // How many can be named is told by the counter at the head of each: the
-    // paragraph explaining it said in thirty words what the count says in
-    // four.
+    // Two separate cards, like the two modes on a day's page: inside one box
+    // they read as a single list with a rule through the middle. How many can be
+    // named is told by the counter at the head of each.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -605,10 +579,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       eyebrow: 'Passo ${_step + 1} di $_steps · ${modeLabel(widget.mode).toLowerCase()}',
       title: widget.isEditing ? 'Modifica materia' : 'Aggiungi materia',
       maxWidth: _stackWidth,
-      // The two buttons answer the window — put it away, or walk out of it —
-      // and the arrows beside the card are what walks between the passes. It is
-      // what every other window of the app does, and a footer that sometimes
-      // saves and sometimes moves is a footer nobody can press without reading.
+      // The two buttons answer the window; the arrows beside the card walk
+      // between the passes. A footer that sometimes saves and sometimes moves is
+      // one nobody can press without reading.
       footer: AppDialogFooter.single(
         AppGradientButton(
           label: widget.isEditing ? 'SALVA' : 'AGGIUNGI',

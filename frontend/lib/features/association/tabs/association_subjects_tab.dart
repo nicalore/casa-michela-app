@@ -340,6 +340,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
                 label: 'Nome',
                 hintText: 'Es. Grammatica latina',
                 textCapitalization: TextCapitalization.sentences,
+                nothingAbove: true,
               ),
               _buildFieldLabel('Area'),
               Wrap(

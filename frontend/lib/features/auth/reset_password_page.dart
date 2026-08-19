@@ -196,6 +196,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
                 controller: _newPasswordController,
                 label: 'Nuova password',
                 hintText: 'Inserisci nuova password',
+                nothingAbove: true,
               ),
               const SizedBox(height: 16),
               PasswordPolicyChecklist(status: _policyStatus),

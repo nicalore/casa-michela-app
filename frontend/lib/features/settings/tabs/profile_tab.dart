@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -163,7 +164,7 @@ class _ProfileTabState extends State<ProfileTab>
     final String cf      = me.taxCode;
 
     final String email    = me.email ?? '-';
-    final String phoneValue = me.phoneNumber ?? '-';
+    final String phoneValue = me.phoneNumber == null ? '-' : formatPhoneNumber(me.phoneNumber);
 
     final String birthDateValue  = me.birthDate != null ? DateFormat('dd/MM/yyyy').format(me.birthDate!) : '-';
     final String birthCityValue = me.birthCity ?? '-';

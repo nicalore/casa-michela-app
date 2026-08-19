@@ -38,10 +38,15 @@ import 'widgets/lessons_day_header.dart';
 import 'widgets/lessons_toolbar.dart';
 import 'widgets/room_assignment_wizard.dart' show PlannedShift;
 
-// The order here is the order of the sections below.
+// The three tabs, in the order the switch and the rail reach them. Not the order
+// of the sections: the first two are one section — see _sectionIndex.
 const int _availabilityContentIndex = 0;
 const int _bookingsContentIndex = 1;
 const int _calendarContentIndex = 2;
+
+// And the two sections the page steps between.
+const int _daySectionIndex = 0;
+const int _calendarSectionIndex = 1;
 
 // Both lists are worked a day at a time and are one day seen from two sides, so
 // the rail asks for the day and a switch over the content chooses the side.
@@ -134,19 +139,27 @@ class _LessonsPageState extends State<LessonsPage>
   // calendar.
   bool get _isCalendarSelected => _selectedSection >= _availableDays.length;
 
-  // Which of the three tabs is on screen: the day the rail is on, seen from the
-  // side the switch is on, or the calendar.
-  int get _contentIndex
+  // Which side of the day the switch is on. Counted among the three tabs and not
+  // among the two lists, so that the one number reads the same wherever it is
+  // used — but it is the two lists this indexes, and never the calendar.
+  int get _dayViewIndex
   {
-    if (_isCalendarSelected)
-    {
-      return _calendarContentIndex;
-    }
-
     return _dayView == LessonsDayView.availability
         ? _availabilityContentIndex
         : _bookingsContentIndex;
   }
+
+  // Which of the three tabs is on screen: the day the rail is on, seen from the
+  // side the switch is on, or the calendar.
+  int get _contentIndex => _isCalendarSelected ? _calendarContentIndex : _dayViewIndex;
+
+  // Which section is on screen, which is not the same question.
+  //
+  // The two lists are one section and not two: they are one day seen from two
+  // sides, and the switch over them is a switch and not a step in the rail. Told
+  // apart, a flick between them emptied the page upwards and filled it back in
+  // for a change the pill beside it had already finished making.
+  int get _sectionIndex => _isCalendarSelected ? _calendarSectionIndex : _daySectionIndex;
 
   // The day the two lists are on. It stays where it was left while the calendar
   // is on screen: the calendar asks for a day of its own, and walking through
@@ -1334,11 +1347,65 @@ class _LessonsPageState extends State<LessonsPage>
   //
   // Inside the section rather than above it, so that it leaves and arrives with
   // the list it heads instead of standing still over a page being handed over.
-  Widget _buildDaySection(AppWindowSize size, Widget tab)
+  //
+  // The IndexedStack under it is the switch, and it is deliberately not a step:
+  // both lists stay mounted and the one asked for is simply the one drawn. The
+  // view is passed to both of them rather than each naming itself — the toolbar
+  // shows the answer and the answer is held here, so the one being left slides
+  // its pill across as the one arriving comes up wearing the same position.
+  //
+  // The two are built together from the start: a switch built when it is first
+  // looked at opens with its pill already on the answer, and neither asks
+  // anything of the network.
+  Widget _buildDaySection(AppWindowSize size)
   {
+    final Widget lists = IndexedStack(
+      // The view and not [_contentIndex], which is the calendar once the rail
+      // has walked past the last day — an index this stack has no child at, and
+      // it answers by drawing none of them.
+      index: _dayViewIndex,
+      children: [
+        AvailabilityTab(
+          view: _dayView,
+          availabilities: _availabilities,
+          teachers: _teachers,
+          availableDays: _availableDays,
+          selectedDay: _selectedDay,
+          openingDays: _openingDays,
+          onViewSelected: _selectView,
+          onCreate: _executeCreateAvailability,
+          onEdit: _executeEditAvailability,
+          onDeleteSlot: _executeDeleteAvailabilitySlot,
+          onDeleteGroup: _executeDeleteAvailabilityGroup,
+        ),
+        BookingsTab(
+          view: _dayView,
+          presences: _presences,
+          students: _students,
+          teachers: _teachers,
+          ministrySubjects: _ministrySubjects,
+          associationSubjects: _associationSubjects,
+          services: _services,
+          studyPrograms: _studyPrograms,
+          availableDays: _availableDays,
+          selectedDay: _selectedDay,
+          openingDays: _openingDays,
+          onViewSelected: _selectView,
+          onCreateLessonRequest: _executeCreateLessonRequest,
+          onCreatePresence: _executeCreatePresence,
+          onEditPresence: _executeEditPresence,
+          onDeletePresenceQuietly: _executeDeletePresenceQuietly,
+          onDeleteBookingQuietly: _executeDeleteBookingQuietly,
+          onDeleteGroup: _executeDeleteRequestGroup,
+          onCreateBooking: _executeCreateBooking,
+          onEditBooking: _executeEditBooking,
+        ),
+      ],
+    );
+
     if (_isSelectedDayClosed)
     {
-      return tab;
+      return lists;
     }
 
     return Column(
@@ -1353,7 +1420,7 @@ class _LessonsPageState extends State<LessonsPage>
             presentStudents: _presentStudentsToday,
           ),
         ),
-        Expanded(child: tab),
+        Expanded(child: lists),
       ],
     );
   }
@@ -1369,61 +1436,13 @@ class _LessonsPageState extends State<LessonsPage>
   // walking through the week rather than a pair per day: [PageSections.step] is
   // what tells the step apart from no step at all when the section stays put
   // and only the day under it changes.
-  //
-  // The two lists of a day are built together from the start: they are two ways
-  // of looking at one day, and a switch built when it is first looked at opens
-  // with its pill already on the answer. Neither asks anything of the network.
   Widget _buildTabs(AppWindowSize size)
   {
     return PageSections(
-      index: _contentIndex,
+      index: _sectionIndex,
       step: _selectedSection,
       children: [
-        // Which side the page is on is passed to both of them rather than each
-        // naming itself: the toolbar shows the answer, and the answer is held
-        // here. Told it, the one being left slides its pill across as the one
-        // arriving comes up wearing the same position.
-        _buildDaySection(
-          size,
-          AvailabilityTab(
-            view: _dayView,
-            availabilities: _availabilities,
-            teachers: _teachers,
-            availableDays: _availableDays,
-            selectedDay: _selectedDay,
-            openingDays: _openingDays,
-            onViewSelected: _selectView,
-            onCreate: _executeCreateAvailability,
-            onEdit: _executeEditAvailability,
-            onDeleteSlot: _executeDeleteAvailabilitySlot,
-            onDeleteGroup: _executeDeleteAvailabilityGroup,
-          ),
-        ),
-        _buildDaySection(
-          size,
-          BookingsTab(
-            view: _dayView,
-            presences: _presences,
-            students: _students,
-            teachers: _teachers,
-            ministrySubjects: _ministrySubjects,
-            associationSubjects: _associationSubjects,
-            services: _services,
-            studyPrograms: _studyPrograms,
-            availableDays: _availableDays,
-            selectedDay: _selectedDay,
-            openingDays: _openingDays,
-            onViewSelected: _selectView,
-            onCreateLessonRequest: _executeCreateLessonRequest,
-            onCreatePresence: _executeCreatePresence,
-            onEditPresence: _executeEditPresence,
-            onDeletePresenceQuietly: _executeDeletePresenceQuietly,
-            onDeleteBookingQuietly: _executeDeleteBookingQuietly,
-            onDeleteGroup: _executeDeleteRequestGroup,
-            onCreateBooking: _executeCreateBooking,
-            onEditBooking: _executeEditBooking,
-          ),
-        ),
+        _buildDaySection(size),
         _visitedSections.contains(_calendarContentIndex)
             ? CalendarTab(
                 availableDays: _availableDays,

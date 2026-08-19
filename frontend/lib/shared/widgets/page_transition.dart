@@ -5,35 +5,20 @@ import 'package:go_router/go_router.dart';
 
 import 'casa_michela_loader.dart';
 
-// How one page of the app gives way to the next.
-//
-// Two different things are called "changing page" here, and they do not deserve
-// the same animation.
-//
-// Walking between the destinations of the top bar changes what is inside a shell
-// that does not move: the paper, the two glows, the watermark and the bar itself
-// are the same on either side of the step. Those destinations are not pages at
-// all in the router's sense — they are branches of one page, all of them alive
-// at once, and [ShellDestinations] is what holds them and animates the handover.
-// The content on screen takes a short run-up to the right and then leaves to the
-// left, one element after the next, and the content arriving slides in from the
-// right in the same order.
-//
-// Everything else — the login, the logout, a person's page — really is a change
-// of page, and every route of the app is wrapped in a page that keeps the mark
-// and the blur it has always had.
+// How one page gives way to the next. Walking between the top bar's
+// destinations changes what is inside a shell that does not move: they are
+// branches of one page, all alive at once, held by [ShellDestinations], and the
+// content leaves and arrives one element at a time. Everything else really is a
+// change of page.
 
 // One duration for the two of them, so a step reads the same whatever kind it
 // is, and the timeline below is that duration divided between the half that
 // empties and the half that fills in.
 const Duration _pageTransition = Duration(milliseconds: 1200);
 
-// The timeline of a shell step, in fractions of the whole.
-//
-// The page leaving empties itself first, the page arriving fills in after, and
-// in the middle the two backgrounds — identical paper, identical bar — are
-// crossfaded into each other, which is what makes the shell look like it never
-// moved.
+// The timeline of a shell step, in fractions of the whole: the page leaving
+// empties first, the page arriving fills in after, and in the middle the two
+// identical backgrounds are crossfaded so the shell never appears to move.
 const double _slotDelay = 0.038;
 const int _lastDelayedSlot = 6;
 
@@ -46,11 +31,9 @@ const double _enterSpan = 0.32;
 const double _exitEnd = _lastDelayedSlot * _slotDelay + _exitSpan;
 const double _enterEnd = _enterStart + _lastDelayedSlot * _slotDelay + _enterSpan;
 
-// The turn of a step made in place — see [_HandoverState._held]. On a proper
-// handover the two halves overlap, one page emptying while the other fills in;
-// with a single child they cannot, since it has to be empty before what it is
-// showing can be swapped. So the two are laid end to end on the one controller,
-// each stretched over its half of it.
+// The turn of a step made in place — see [_HandoverState._held]. With a single
+// child the two halves cannot overlap: it has to be empty before what it shows
+// can be swapped, so they are laid end to end on the one controller.
 const double _reentryTurn = 0.5;
 
 double _reentryProgress(double value)
@@ -60,18 +43,14 @@ double _reentryProgress(double value)
       : _enterStart + (value - _reentryTurn) / (1 - _reentryTurn) * (_enterEnd - _enterStart);
 }
 
-// Where the page arriving stops holding itself back. Until then it is drawn at
-// nothing at all, so what is on screen is the page underneath still leaving; by
-// the end of it the handover is done. It begins before the last element has
-// finished leaving on purpose: a moment with nothing on the paper at all reads
-// as a page that failed to load rather than as a page changing.
+// Where the page arriving stops holding itself back. It begins before the last
+// element has finished leaving on purpose: a moment with nothing on the paper
+// reads as a page that failed to load rather than as a page changing.
 const double _arrivalFadeStart = 0.36;
 const double _arrivalFadeEnd = 0.46;
 
-// The run-up, in logical pixels: a step the wrong way before the dash, and the
-// share of the element's own time it is given. It is the pause at the end of it
-// — both curves rest there — that makes the leaving read as a decision rather
-// than as a slide.
+// A step the wrong way before the dash, and the share of the element's time it
+// takes. The pause at the end of it is what makes leaving read as a decision.
 const double _runUp = 22;
 const double _runUpShare = 0.32;
 
@@ -80,10 +59,8 @@ const double _runUpShare = 0.32;
 const double _overshoot = 7;
 const double _overshootShare = 0.84;
 
-// How far an element travels, measured on the window rather than fixed: a step
-// that reads as leaving the page on a phone is a twitch on a desktop. Out is the
-// longer of the two, because it has to look like the element is gone rather than
-// merely moved.
+// Measured on the window and not fixed: a step that reads as leaving on a phone
+// is a twitch on a desktop. Out is longer — it has to look gone, not moved.
 double _exitTravel(double width) => (width * 0.50).clamp(260.0, 760.0);
 
 double _enterTravel(double width) => (width * 0.22).clamp(130.0, 340.0);
@@ -108,21 +85,12 @@ CustomTransitionPage<void> buildAppTransitionPage({
   );
 }
 
-// One element of a page, in the order the page is read.
+// One element of a page, in reading order. What is left unwrapped is handed over
+// in the crossfade, which is what the shell wants.
 //
-// Wrapping something in this is what makes it leave and arrive on its own
-// account instead of with the page as a block. What is left unwrapped stays
-// where it is and is simply handed over in the crossfade, which is what the
-// shell — the bar, the glows, the paper — wants.
-//
-// The slot is the rank of the element among its neighbours, not a strict index:
-// two things given the same slot move together, and past [_lastDelayedSlot]
-// they all move at once, so a list of eighty cards does not take a minute to
-// walk off the page.
-//
-// Slots are counted within the page, not within the widget that declares them,
-// and an element must not sit inside another element: the two transforms would
-// compound, and the delay of the outer one would rob the inner ones of theirs.
+// The slot is a rank and not a strict index: same slot means moving together,
+// and past [_lastDelayedSlot] all at once. Counted within the page, and an
+// element must not sit inside another: the transforms would compound.
 class PageTransitionItem extends StatelessWidget
 {
   // What frames the page: the section rail, the greeting, the heading that
@@ -160,10 +128,8 @@ class PageTransitionItem extends StatelessWidget
     {
       final Size window = MediaQuery.sizeOf(context);
 
-      // The same journey on whichever axis the step is being made: a step
-      // between destinations runs along the row of the bar that made it, a step
-      // between sections up the column of the rail. What changes is which
-      // measurement of the window says how far "off the page" is.
+      // The same journey on whichever axis: destinations run along the bar,
+      // sections up the rail. Only which measurement of the window changes.
       final bool sideways = scope.axis == Axis.horizontal;
       final double extent = sideways ? window.width : window.height;
 
@@ -177,18 +143,10 @@ class PageTransitionItem extends StatelessWidget
       opacity = scope.leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
     }
 
-    // The same two widgets whatever is happening, standing still when nothing
-    // is: handing the element back bare while it is at rest would look like an
-    // economy, and is in fact how you throw it away. Flutter pairs a widget with
-    // its element by position, so a shape that changes between one build and the
-    // next takes everything below it down and builds it again from nothing —
-    // twice per step, once on the way out of rest and once on the way back into
-    // it. What was underneath, in this app, was whole pages: their data went
-    // with them, and they went and asked the server for it all over again.
-    //
-    // At rest neither of the two costs anything worth counting: an identity
-    // translation is a matrix nobody looks at, and Opacity at 1 does not so much
-    // as open a layer.
+    // The same two widgets whatever is happening: Flutter pairs widgets to
+    // elements by position, so handing the element back bare at rest rebuilds
+    // everything below it — here whole pages, which then refetched their data.
+    // At rest neither costs anything.
     return Transform.translate(
       offset: offset,
       child: Opacity(opacity: opacity, child: child),
@@ -196,24 +154,12 @@ class PageTransitionItem extends StatelessWidget
   }
 }
 
-// Every block of a column on its own beat, in the order they are read.
+// Every block of a column on its own beat: left whole, a page of forms leaves as
+// one slab, which beside a page of cards reads as two different apps.
 //
-// What a page of forms or of charts is made of: cards one under the next. Left
-// whole, such a page leaves and arrives as one slab — the one thing the step
-// was written not to look like — and beside a page of cards, which does run
-// block by block, the difference reads as two different apps.
-//
-// Handed the children a Column would have been given, and handing them back
-// wrapped, so a page keeps the spacing it already had: the gaps in these pages
-// are not all the same size, and a helper that imposed one size would be
-// rewriting the page rather than timing it. The air is passed through
-// untouched — a box with nothing in it is exactly that — and only what can be
-// seen is given a beat.
-//
-// The beats are counted here rather than written out at the call, because by
-// hand is how two blocks end up sharing one, and how a page whose blocks come
-// and go with the data ends up numbering them differently from one build to
-// the next.
+// The children a Column would have been given, handed back wrapped, so the page
+// keeps its own spacing: the air passes through and only what can be seen gets a
+// beat. Counted here and not at the call, which is how two blocks share one.
 List<Widget> pageTransitionBlocks(List<Widget> children)
 {
   var slot = PageTransitionItem.header;
@@ -227,25 +173,13 @@ List<Widget> pageTransitionBlocks(List<Widget> children)
   ];
 }
 
-// A vertical scroll view that opens its sides while a page is changing.
+// A scroll view that opens its sides while a page is changing: a viewport clips
+// all four, so an element walking off was cut at its own column and vanished
+// halfway across. It clips nothing and the two scrolling edges are put back by
+// hand, opened only during a step and by the width of the window.
 //
-// A viewport clips what it scrolls, and rightly so: the rows above and below
-// the one being read have to stay out of sight. But it clips all four sides,
-// and an element walking off the page was being cut at the edge of whatever
-// column it happened to sit in rather than at the edge of the window — it
-// vanished halfway across the page and came back out of thin air.
-//
-// So the viewport is told to clip nothing and the two edges that actually hold
-// the scrolling are put back by hand. The sides are opened only while a step is
-// under way, and by exactly the width of the window, which is more than the
-// longest journey any element makes; at rest the shape below is the very rect
-// the viewport would have clipped to, so nothing is out of place while a page
-// is merely being read.
-//
-// Only for a step made sideways. A step between sections travels up the page,
-// and there the clip is doing its proper job: the top edge of the viewport is
-// where the list begins, under the field and the filters that shorten it, and
-// a card let out through it would fly over them on its way off the page.
+// Sideways only: between sections the clip does its job, or a card would fly
+// over the field and filters above the list.
 class PageTransitionScrollView extends StatelessWidget
 {
   final Widget child;
@@ -305,10 +239,9 @@ double _exitOffset(double elapsed, double travel)
 
   final double dash = (elapsed - _runUpShare) / (1 - _runUpShare);
 
-  // Accelerating away, from the standstill the run-up ends on. Gently, because
-  // the element also has to be seen going: under a sharper acceleration it is
-  // still nearly where it was by the time it has faded, and what the eye gets is
-  // a page fading rather than a page leaving.
+  // Accelerating away from the standstill the run-up ends on, gently: sharper,
+  // the element has barely moved by the time it has faded, and the page reads as
+  // fading rather than leaving.
   return _runUp + (-travel - _runUp) * Curves.easeIn.transform(dash);
 }
 
@@ -324,10 +257,9 @@ double _enterOffset(double elapsed, double travel)
   return -_overshoot * (1 - Curves.easeInOut.transform(settle));
 }
 
-// Fading only once it is properly under way, and gone a little before it has
-// finished travelling: what says "left the page" is the speed it goes at, not
-// the distance it covers, and starting the fade at the run-up would empty the
-// page before anything had visibly moved.
+// Fading once properly under way and gone before it stops travelling: what says
+// "left the page" is the speed and not the distance, and fading at the run-up
+// emptied the page before anything had visibly moved.
 double _exitOpacity(double elapsed) => 1 - ((elapsed - 0.45) / 0.5).clamp(0.0, 1.0);
 
 double _enterOpacity(double elapsed) => (elapsed / 0.45).clamp(0.0, 1.0);
@@ -376,18 +308,9 @@ class _PageTransitionScope extends InheritedWidget
   }
 }
 
-// The destinations of the shell, every one of them alive at once.
-//
-// One is on screen and the others are kept in the tree, offstage and with their
-// tickers stopped, so that coming back to a destination finds it exactly as it
-// was left: its data already loaded, its section chosen, its filters set, its
-// list where it was scrolled to. Building them afresh on every step is what
-// made a change of destination blink and start over from a spinner.
-//
-// The step between two of them is the staggered one: the destination on screen
-// empties itself to the left, the one arriving fills in from the right, and in
-// between the two identical backgrounds are crossfaded so that the shell around
-// them — the bar, the glows, the paper — never appears to move.
+// The destinations of the shell, every one alive at once and kept offstage with
+// their tickers stopped, so coming back finds one as it was left. The step
+// between two crossfades the identical backgrounds, so the shell never moves.
 class ShellDestinations extends StatelessWidget
 {
   // Which of [children] is the destination being shown.
@@ -421,37 +344,18 @@ class ShellDestinations extends StatelessWidget
   }
 }
 
-// The sections of a page, every one of them alive at once.
-//
-// The same handover as [ShellDestinations], made up the page instead of across
-// it: the section on screen takes a short run-up downwards and then leaves
-// upwards, one element after the next, and the section arriving comes up from
-// below in the same order. A step taken in the rail and a step taken in the bar
-// are the same gesture on the two axes those two controls are drawn along.
-//
-// It stands where a page had an IndexedStack, and keeps what that gave: every
-// section stays mounted, so coming back to one finds it as it was left, with
-// its data loaded, its filters set and its list where it was scrolled to.
-//
-// Nested inside the shell, it steps aside. While a destination is being handed
-// over the whole page travels with it — the section on screen included — and
-// two scopes pulling the same elements in two directions would tear the page in
-// half. So the outer step, while there is one, is the one the elements are
-// told about.
+// The sections of a page: the same handover as [ShellDestinations] made up the
+// page instead of across it. It stands where an IndexedStack was and keeps every
+// section mounted. Nested inside the shell it steps aside, or two scopes would
+// pull the same elements two ways.
 class PageSections extends StatelessWidget
 {
   // Which of [children] is the section being shown.
   final int index;
 
-  // What the section on screen is about, where one section stands for several
-  // entries of the rail. The lessons walk a week a day at a time through one
-  // pair of lists rather than one pair per day, so stepping from Tuesday to
-  // Wednesday leaves [index] where it was and there is no second section to
-  // hand over to. Told the day as well, the section hands over to itself.
-  //
-  // Null for a rail that counts its entries and its sections the same way,
-  // which is every other page: there, a step that changes nothing is a step
-  // that changed nothing.
+  // Where one section stands for several rail entries: the lessons walk a week
+  // through one pair of lists, so Tuesday to Wednesday leaves [index] alone and
+  // the section hands over to itself. Null on every other page.
   final Object? step;
 
   // The sections, in the order the rail counts them.
@@ -527,19 +431,10 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   // no step under way.
   int? _leaving;
 
-  // What the child on screen was showing before a step that does not change
-  // which child it is — walking from one day of the lessons to the next.
-  //
-  // There is no second subtree to hand over to and there cannot be one: the two
-  // days are one widget, and inflating its description twice would be two
-  // copies of a section fighting over the same keys and the same scroll. So the
-  // child hands over to itself, and this is what it empties: the description it
-  // was built from last, held until the turn of the step so that what walks off
-  // the page is the day being left rather than the one arriving.
-  //
-  // Held and not rebuilt: it is the same widget object the child is already
-  // paired with, so drawing it again asks nothing of the tree at all, and the
-  // day is changed once — at the turn — rather than at the click.
+  // What the child showed before a step that does not change which child it is.
+  // There cannot be a second subtree — the two days are one widget — so it hands
+  // over to itself, holding the last description until the turn. Held and not
+  // rebuilt, so the day changes at the turn rather than at the click.
   Widget? _held;
 
   @override
@@ -567,10 +462,9 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
       return;
     }
 
-    // The same section, about something else. See [_held]. Not while a step
-    // between two sections is still running: that one is already showing both
-    // sides of a handover, and a third would be a day changing inside a section
-    // halfway off the page.
+    // The same section about something else — see [_held]. Not while a step
+    // between two is running, or a day changes inside a section half off the
+    // page.
     if (widget.step == oldWidget.step || _leaving != null || _arriving >= oldWidget.children.length)
     {
       return;
@@ -620,11 +514,9 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     final bool inPlace = _held != null && arriving;
     final bool emptying = inPlace && progress < _reentryTurn;
 
-    // Which of the two the crossfade is laid on: the one drawn last, because it
-    // is the one hiding the other. Reordering them so that the arriving one were
-    // always on top would take their state along with them, and it is not needed
-    // — the two backgrounds are the same paper, so fading the upper one in and
-    // fading the upper one out come to the same picture.
+    // Laid on the one drawn last, which is the one hiding the other. Reordering
+    // them would take their state along, and is not needed: the backgrounds are
+    // the same paper, so fading the upper one either way is the same picture.
     final bool upper = _leaving != null && index == (_arriving > _leaving! ? _arriving : _leaving!);
 
     final double opacity = !upper
@@ -668,22 +560,15 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   @override
   Widget build(BuildContext context)
   {
-    // The step this one is standing inside of, while there is one. A page in
-    // the shell already sits in a scope, and during a change of destination the
-    // whole page travels — the section on screen with it. Passing that answer on
-    // is what keeps the two from pulling the same elements two ways at once.
+    // The step this one stands inside of: during a change of destination the
+    // whole page travels, section included, and passing that on is what keeps
+    // the two from pulling the same elements two ways.
     final enclosing = _PageTransitionScope.maybeOf(context);
     final outer = (enclosing != null && enclosing.moving) ? enclosing : null;
 
-    // How far the page holding the shell is covered by another one.
-    //
-    // A person detail page does not change destination: it opens over all of
-    // them and leaves them where they were. Without this, closing one after
-    // editing something returned to a list that never knew it was back, because
-    // it had never left.
-    //
-    // Dialogs do not count, and Flutter is what knows it: a route drives this
-    // animation only if it is a page too, and a dialog is not.
+    // How far the shell's page is covered by another: a detail page opens over
+    // every destination, so without this closing one returned to a list that
+    // never knew it was back. Dialogs do not count — only a page drives it.
     final Animation<double>? covering = ModalRoute.of(context)?.secondaryAnimation;
 
     return AnimatedBuilder(
@@ -706,17 +591,9 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   }
 }
 
-// For a page that wants to be told when its destination is opened again.
-//
-// A destination that is never taken down is also never reloaded, and what it
-// loaded the first time it was opened would go on being all it knows. This is
-// how it asks to be told it is back, so that it can go and ask the server again
-// quietly, without taking down what it is already showing.
-//
-// [onDestinationShown] is not called the first time: the page has only just
-// built itself and has asked already. Nor is it called at all outside the shell
-// — on a person's page, on the login — where there is no destination to come
-// back to.
+// For a page told when its destination is opened again: never taken down means
+// never reloaded, so it asks the server again quietly without taking down what
+// it shows. Not called the first time, nor outside the shell.
 mixin DestinationRefresh<T extends StatefulWidget> on State<T>
 {
   bool? _wasShown;

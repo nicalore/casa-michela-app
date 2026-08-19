@@ -30,22 +30,18 @@ const double _barHeight = 80;
 const double _compactTopMargin = 12;
 const double _compactBarHeight = 64;
 
-// How far the shadow reaches past the bar. It is a wide soft one — 24 of blur
-// laid over 19 of spread — so it carries well beyond the white itself, and a
-// page that only clears the bar ends up with the shadow falling across whatever
-// it puts first. A little more than the 43 those two add up to, for air.
+// How far the shadow reaches past the bar: 24 of blur over 19 of spread, so a
+// page clearing only the bar gets the shadow across whatever it puts first.
 const double _shadowReach = 50;
 
 double _topMarginFor(AppWindowSize size) => size.isCompact ? _compactTopMargin : _topMargin;
 
 double _barHeightFor(AppWindowSize size) => size.isCompact ? _compactBarHeight : _barHeight;
 
-// The shell every page wears: the wordmark, the destinations and the identity
-// block, plus the menu under it. A Positioned.fill, so it belongs to a Stack and
-// is transparent to the pointer outside the bar and the open menu.
-//
-// The identity, the menu, the role switch and the logout live here and not in
-// the pages, so no page can end up with a bar that behaves differently.
+// The shell every page wears: wordmark, destinations, identity block and the
+// menu under it. A Positioned.fill, so it belongs to a Stack and is transparent
+// to the pointer outside the bar. The identity and its commands live here and
+// not in the pages, so no page can have a bar that behaves differently.
 class AppTopBar extends StatefulWidget
 {
   // Room a page has to leave itself at the top. The bar floats over the page
@@ -61,22 +57,17 @@ class AppTopBar extends StatefulWidget
     return _topMarginFor(size) + _barHeightFor(size) + (size.isCompact ? 44 : _shadowReach);
   }
 
-  // Route of the page showing the bar, for the drawer that stands in for the
-  // destinations on a narrow window: its entry is the one marked while you are
-  // there. The row in the bar itself asks the router instead — it has to keep
-  // agreeing with the bar of the page being handed over, which this cannot say.
+  // For the drawer that stands in for the destinations on a narrow window. The
+  // row in the bar asks the router instead, since it has to agree with the bar
+  // of the page being handed over.
   final String currentRoute;
 
-  // The identity already in hand, for a page that fetches it for its own
-  // reasons anyway: the dashboard needs the first name for its greeting, and
-  // handing it over here spares a second identical request. Left out, the bar
-  // asks for it itself, which is what every other page does.
+  // For a page that fetches the identity anyway — the dashboard needs the first
+  // name — so the bar does not repeat the request. Left out, it asks itself.
   final MeResponse? user;
 
-  // The sections of the page behind the bar. On a wide window they are the
-  // rail's business and the bar never sees them; below the breakpoint the rail
-  // is gone and they move into the drawer, which is the only place left that
-  // can hold two levels of navigation at once.
+  // On a wide window the sections are the rail's business; below the breakpoint
+  // the rail is gone and the drawer is the only place left holding two levels.
   final String? sectionTitle;
   final List<RailGroup> sectionGroups;
   final int selectedSection;
@@ -101,10 +92,9 @@ class _AppTopBarState extends State<AppTopBar>
   static const double _avatarSize = 54;
   static const double _compactAvatarSize = 42;
   static const double _maxRoleWidth = 190;
-  // Chosen so the lower line comes out at the size of the role on the other
-  // end of the bar. The width is the only handle there is: the lines are scaled
-  // to fill it, so it is the width, not the font size below, that decides how
-  // big the mark reads. Narrower means smaller and quieter.
+  // Chosen so the lower line matches the role at the other end. The width is
+  // the only handle: the lines are scaled to fill it, so the font size below
+  // does not decide how big the mark reads.
   static const double _wordmarkWidth = 124;
 
   // The two ends of the bar reserve the same width, so the destinations sit on
@@ -112,16 +102,12 @@ class _AppTopBarState extends State<AppTopBar>
   // identity block leaves over.
   static const double _sideSlotWidth = 290;
 
-  // What the role is allowed on the middle width. Long enough for
-  // "Amministratore", which is 114px at the size it is set there; the two long
-  // ones end in an ellipsis with the whole label in the tooltip, which is what
-  // OverflowTooltipText is for.
+  // Long enough for "Amministratore" at 114px; the two longer ones ellipsise
+  // with the whole label in the tooltip.
   static const double _mediumRoleWidth = 170;
 
-  // Air the destinations always keep on either side of them, so that a row
-  // scaled down to fit still never touches the mark or the role. This is the
-  // thing the middle width was missing: three equal slots put the words as
-  // close to their neighbours as the arithmetic allowed.
+  // Air the destinations keep either side, so a row scaled down to fit never
+  // touches the mark or the role — which three equal slots did not guarantee.
   static const double _navGutter = 20;
 
   // Where the menu hangs: just below the bar, under the avatar it belongs to.
@@ -240,10 +226,9 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  // The local logout (session cleanup plus the redirect to /login driven by
-  // authState) happens only if the server call succeeds. On failure the user
-  // stays authenticated on the page and is told what happened, rather than
-  // being left in a half logged out state (TC-IAM-012 / RF-IAM-018).
+  // The local logout happens only if the server call succeeds: on failure the
+  // user stays authenticated and is told, rather than half logged out
+  // (TC-IAM-012 / RF-IAM-018).
   Future<void> _logout() async
   {
     try
@@ -284,10 +269,8 @@ class _AppTopBarState extends State<AppTopBar>
         ? url
         : '${ApiConfig.baseUrl}$url';
 
-    // Defeats the browser cache so a freshly uploaded picture replaces the old
-    // one. It counts changes of picture and not time, so the URL is the same on
-    // every page: stamped with the build moment, the face blinked on every
-    // navigation.
+    // Defeats the browser cache. It counts changes of picture and not time, or
+    // the URL differs per build and the face blinks on every navigation.
     return '$absoluteUrl?v=${_apiService.profileImageVersion}';
   }
 
@@ -314,10 +297,8 @@ class _AppTopBarState extends State<AppTopBar>
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  // The name used to sit here, and it already sits fifty pixels below in the
-  // greeting. The role does not appear anywhere else on the page and used to be
-  // buried inside the menu, so the bar now answers a question you could not
-  // otherwise ask it: which of your roles you are currently wearing.
+  // The role and not the name, which already sits fifty pixels below in the
+  // greeting: which of your roles you are wearing is otherwise unanswerable.
   Widget _buildProfileButton(AppWindowSize size)
   {
     final medium = size == AppWindowSize.medium;
@@ -337,10 +318,8 @@ class _AppTopBarState extends State<AppTopBar>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Set like the upper line of the mark on the other end:
-                    // upper case, tracked, muted, small. The two ends of the
-                    // bar then read as one pair of blocks facing each other,
-                    // each a quiet label over a name.
+                    // Set like the upper line of the mark at the other end, so
+                    // the two ends read as a pair of blocks facing each other.
                     if (size == AppWindowSize.expanded)
                       Text(
                         'SEI AUTENTICATO COME',
@@ -385,12 +364,9 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  // Two lines locked to one width, each scaled to fill the box rather than set
-  // at a size: type at a fixed size ends where the letters happen to end.
-  //
-  // So the sizes below decide only the ratio between the lines. The upper one is
-  // uppercase and tracked, needs more width per letter, and therefore lands
-  // smaller — which is what keeps it subordinate.
+  // Two lines locked to one width, each scaled to fill the box: type at a fixed
+  // size ends where the letters happen to end. The sizes below decide only the
+  // ratio, and the tracked uppercase line lands smaller, which subordinates it.
   Widget _buildWordmark()
   {
     return SizedBox(
@@ -561,15 +537,11 @@ class _AppTopBarState extends State<AppTopBar>
             ),
             SizedBox(
               width: navWidth,
-              // Below its natural width the row of destinations shrinks as
-              // a whole instead of overflowing: the words keep their
-              // spacing and their proportions, and the bar keeps working
-              // down to sizes where nothing else would fit.
+              // Below its natural width the row shrinks as a whole rather than
+              // overflowing, keeping its spacing and proportions.
               child: Padding(
-                // The same air the middle width keeps. Here the slots are
-                // usually generous enough on their own, but between 1280 and
-                // about 1350 the row fills its slot exactly, and without this
-                // it would end flush against the block beside it.
+                // The same air the middle width keeps: between 1280 and 1350
+                // the row fills its slot exactly and would sit flush.
                 padding: const EdgeInsets.symmetric(horizontal: _navGutter),
                 child: Center(
                   child: FittedBox(
@@ -714,20 +686,17 @@ class _AppTopBarState extends State<AppTopBar>
 
           return Stack(
             children: [
-              // A sheet catching the next tap. Always here and merely deaf
-              // when nothing is open: a child appearing at the head of the list
-              // shifts the rest by one, and Flutter pairs children with elements
-              // by position — which rebuilt the bar on every open.
+              // A sheet catching the next tap, always here and merely deaf: a
+              // child appearing at the head shifts the rest by one, and Flutter
+              // pairs by position, which rebuilt the bar on every open.
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !(_isMenuOpen || _isDrawerOpen),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _closeOverlays,
-                    // Dimmed only under the drawer, which covers the page and
-                    // has to say so. The menu hangs off the bar over a page you
-                    // are still reading, and darkening it would be a lie about
-                    // how much of the app it has taken.
+                    // Only under the drawer, which covers the page. The menu
+                    // hangs over a page still being read.
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       curve: Curves.easeOut,

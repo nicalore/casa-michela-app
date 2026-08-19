@@ -48,6 +48,9 @@ class AppTextField extends StatefulWidget
   // standing beside a field — the button that removes its row — has no other way
   // to line up with the box rather than with the whole column, and guessing the
   // number puts it a dozen pixels too high.
+  //
+  // The label block of an ordinary field: a field with [nothingAbove] set is
+  // shorter by [_labelTopGap], and nothing lines up beside one of those.
   static const double labelBlockHeight = _labelTopGap + _labelBottomGap + _labelLineHeight;
   static const double boxHeight = 2 * _borderWidth + 2 * _contentPadding + _inputLineHeight;
 
@@ -58,6 +61,16 @@ class AppTextField extends StatefulWidget
   // label alongside, as on the login page: the box then starts on its own,
   // without the empty block where the label would have been.
   final bool showLabel;
+
+  // Nothing stands over the field: it is the first thing inside whatever holds
+  // it, a dialog piece or a card.
+  //
+  // The sixteen above the label is what separates it from the field before it,
+  // and at the top of a box there is no field before it — only the box's own
+  // padding, which the gap then adds itself to. The content came out sixteen
+  // pixels low in a box padded the same all round, which is what a piece
+  // carrying a single field looked wrong for.
+  final bool nothingAbove;
 
   final String hintText;
 
@@ -92,6 +105,7 @@ class AppTextField extends StatefulWidget
     required this.label,
     required this.hintText,
     this.showLabel = true,
+    this.nothingAbove = false,
     this.focusNode,
     this.obscureText = false,
     this.maxLength,
@@ -177,7 +191,10 @@ class _AppTextFieldState extends State<AppTextField>
         children: [
           if (widget.showLabel)
             Padding(
-              padding: const EdgeInsets.only(bottom: _labelBottomGap, top: _labelTopGap),
+              padding: EdgeInsets.only(
+                bottom: _labelBottomGap,
+                top: widget.nothingAbove ? 0 : _labelTopGap,
+              ),
               child: AppFieldLabel(widget.label),
             ),
           AnimatedContainer(

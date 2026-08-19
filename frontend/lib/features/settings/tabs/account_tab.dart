@@ -371,6 +371,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
             controller: _oldPasswordController,
             label: 'Password attuale',
             hintText: 'Inserisci password attuale',
+            nothingAbove: true,
           ),
         ),
         AppDialogPill(
