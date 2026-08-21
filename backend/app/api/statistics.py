@@ -6,14 +6,21 @@ from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
+from app.core.booking_window import today_in_rome
 from app.core.labels import course_type_label, education_level_label
 from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
+from app.models.booking import Booking
+from app.models.booking_teacher_preference import (
+    BookingTeacherPreference,
+    TeacherPreferenceTypeEnum,
+)
 from app.models.course_participant import CourseParticipant
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.person import Person
+from app.models.presence import Presence
 from app.models.psychologist import Psychologist
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
@@ -24,6 +31,7 @@ from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
+from app.schemas.person import PersonOption
 from app.schemas.statistics import (
     AgeDistributionItem,
     AreaDistributionItem,
@@ -34,6 +42,8 @@ from app.schemas.statistics import (
     MemberTrendItem,
     RetentionRateItem,
     SubjectDistributionItem,
+    TeacherAppreciationItem,
+    TeacherAppreciationRankingResponse,
     TeacherSubjectsStatisticsResponse,
 )
 
@@ -45,6 +55,21 @@ router = APIRouter(
 _MONTH_RESOLUTION: Final[str] = "month"
 _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
+_TOP_TEACHERS_LIMIT: Final[int] = 5
+
+# How far back a ranking of appreciation may be asked: the calendars older
+# than a year are deleted, so a thirteenth month back would answer with an
+# empty list and read as "nobody ever asked for them".
+_APPRECIATION_MONTHS: Final[int] = 12
+
+_MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR: Final[str] = (
+    "La classifica di gradimento copre solo gli ultimi dodici mesi"
+)
+
+_INCOMPLETE_APPRECIATION_MONTH_ERROR: Final[str] = (
+    "Indica anno e mese insieme, oppure nessuno dei due per gli ultimi "
+    "dodici mesi"
+)
 
 _ROLE_JOINS: Final[dict[str, tuple[tuple[Any, Any], ...]]] = {
     "administrator": (
@@ -394,6 +419,103 @@ async def _execute_collaborating_retention(
         retained_members=retained_count,
         retention_rate_percentage=round(retained_count / previous_count * 100.0, 2),
     )
+
+
+# A month as one number, so that "twelve months back" is a subtraction and not
+# a pair of wrap-around cases.
+def _month_index(year: int, month: int) -> int:
+    return year * 12 + month - 1
+
+
+def _first_day_of_index(index: int) -> date:
+    return date(index // 12, index % 12 + 1, 1)
+
+
+# The window a ranking covers, as a half-open interval of days: one month, or —
+# when neither is given — the current month and the eleven before it.
+def _appreciation_window(year: int | None, month: int | None) -> tuple[date, date]:
+    today = today_in_rome()
+    current = _month_index(today.year, today.month)
+    oldest = current - (_APPRECIATION_MONTHS - 1)
+
+    if year is None and month is None:
+        return _first_day_of_index(oldest), _first_day_of_index(current + 1)
+
+    if year is None or month is None:
+        raise ValueError(_INCOMPLETE_APPRECIATION_MONTH_ERROR)
+
+    selected = _month_index(year, month)
+
+    # A month still to come is refused along with one already deleted: a
+    # calendar nobody has booked yet is not a ranking of nobody.
+    if not oldest <= selected <= current:
+        raise ValueError(_MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR)
+
+    return _first_day_of_index(selected), _first_day_of_index(selected + 1)
+
+
+# Who was named most often on one side of the requests falling in the window.
+#
+# Dated by the day the hour was asked for and not by the day the request was
+# written: that is the day the calendar is deleted by, and the month a ranking
+# is read as being about.
+#
+# Whoever received the requests is counted whether or not they are still
+# collaborating: a month already gone was taught by the staff of that month, and
+# hiding whoever has since left would silently change what that month said.
+async def _appreciation_ranking(
+    db: AsyncSession,
+    preference_type: TeacherPreferenceTypeEnum,
+    window: tuple[date, date],
+) -> list[TeacherAppreciationItem]:
+    start, end = window
+    requests = func.count(BookingTeacherPreference.booking_id)
+
+    # Teachers, staff, members and people are all keyed by the same tax code, so
+    # the face at the end of the chain is one join away.
+    query = (
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+            requests.label("request_count"),
+        )
+        .select_from(BookingTeacherPreference)
+        .join(Booking, Booking.id == BookingTeacherPreference.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+        .join(Person, Person.tax_code == BookingTeacherPreference.teacher_tax_code)
+        .where(
+            BookingTeacherPreference.preference_type == preference_type,
+            Presence.date >= start,
+            Presence.date < end,
+        )
+        .group_by(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+        )
+        # By name after the count, so that two teachers on the same figure keep
+        # the same order between one read and the next.
+        .order_by(requests.desc(), Person.last_name, Person.first_name)
+        .limit(_TOP_TEACHERS_LIMIT)
+    )
+
+    result = await db.execute(query)
+
+    return [
+        TeacherAppreciationItem(
+            teacher=PersonOption(
+                tax_code=row.tax_code,
+                first_name=row.first_name,
+                last_name=row.last_name,
+                profile_image_url=row.profile_image_url,
+            ),
+            request_count=row.request_count,
+        )
+        for row in result.all()
+    ]
 
 
 @router.get("/general/current-totals", response_model=CurrentTotalsResponse)
@@ -766,6 +888,31 @@ async def get_teacher_subjects_statistics(
         top_10_subjects=top_subjects,
         bottom_10_subjects=bottom_subjects,
         area_distribution=area_distribution,
+    )
+
+
+@router.get(
+    "/teachers/appreciation-ranking",
+    response_model=TeacherAppreciationRankingResponse,
+)
+async def get_teacher_appreciation_ranking(
+    db: DbSession,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> TeacherAppreciationRankingResponse:
+    window = _appreciation_window(year, month)
+
+    return TeacherAppreciationRankingResponse(
+        most_appreciated=await _appreciation_ranking(
+            db,
+            TeacherPreferenceTypeEnum.PREFERRED,
+            window,
+        ),
+        least_appreciated=await _appreciation_ranking(
+            db,
+            TeacherPreferenceTypeEnum.NOT_PREFERRED,
+            window,
+        ),
     )
 
 

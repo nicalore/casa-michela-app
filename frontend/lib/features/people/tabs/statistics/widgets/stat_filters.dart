@@ -125,3 +125,22 @@ AppFilterPill<int> monthPill({
     menuWidth: _menuWidth,
   );
 }
+
+// One period out of the thirteen a ranking of appreciation is asked about. Wider
+// than the calendars beside it: "Ultimi 12 mesi" and a month with its year in
+// full do not fit the width a month abbreviation needs.
+AppFilterPill<String> appreciationPeriodPill({
+  required String value,
+  required ValueChanged<String> onChanged,
+})
+{
+  return AppFilterPill<String>.setting(
+    prefix: 'Periodo',
+    hint: 'Periodo',
+    icon: Icons.event_note_rounded,
+    value: value,
+    options: appreciationPeriodOptions(),
+    onChanged: onChanged,
+    menuWidth: 200,
+  );
+}

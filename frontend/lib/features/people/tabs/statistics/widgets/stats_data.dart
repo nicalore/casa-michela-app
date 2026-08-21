@@ -93,3 +93,57 @@ List<FilterOption<int>> monthOptions(int selectedYear)
       FilterOption(value: month, label: monthAbbreviations[month - 1]),
   ];
 }
+
+// The whole window, as against one month inside it.
+const String wholeWindowPeriod = 'all';
+
+// How far back a ranking of appreciation reaches. The calendars older than a
+// year are deleted, so a thirteenth month back would point at nothing.
+const int appreciationMonthsWindow = 12;
+
+String _periodValue(int year, int month)
+{
+  return '$year-${month.toString().padLeft(2, '0')}';
+}
+
+// The periods a ranking may be asked about: the whole window, then the current
+// month and the eleven before it, most recent first.
+//
+// One pill and not a year beside a month: what is being chosen is a single
+// period out of thirteen, and two pills would let a pair be picked that has
+// nothing behind it.
+List<FilterOption<String>> appreciationPeriodOptions()
+{
+  final now = DateTime.now();
+  final options = <FilterOption<String>>[
+    const FilterOption(value: wholeWindowPeriod, label: 'Ultimi 12 mesi'),
+  ];
+
+  for (var back = 0; back < appreciationMonthsWindow; back++)
+  {
+    // A month of zero or less is normalised into the year before it.
+    final month = DateTime(now.year, now.month - back);
+
+    options.add(
+      FilterOption(
+        value: _periodValue(month.year, month.month),
+        label: '${monthAbbreviations[month.month - 1]} ${month.year}',
+      ),
+    );
+  }
+
+  return options;
+}
+
+// The year and month a period names, or null where it names the whole window.
+({int year, int month})? periodParts(String period)
+{
+  if (period == wholeWindowPeriod)
+  {
+    return null;
+  }
+
+  final parts = period.split('-');
+
+  return (year: int.parse(parts[0]), month: int.parse(parts[1]));
+}

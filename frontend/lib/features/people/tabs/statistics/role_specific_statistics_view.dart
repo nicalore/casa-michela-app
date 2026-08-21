@@ -16,7 +16,9 @@ import '../../models/current_totals_item.dart';
 import '../../models/education_distribution_item.dart';
 import '../../models/member_trend_item.dart';
 import '../../models/retention_rate_item.dart';
+import '../../models/teacher_appreciation_item.dart';
 import '../../models/teacher_subjects_statistics_item.dart';
+import 'widgets/appreciation_ranking_card.dart';
 import 'widgets/bar_chart.dart';
 import 'widgets/chart_common.dart';
 import 'widgets/pie_chart.dart';
@@ -57,29 +59,26 @@ const Map<String, int> _ageGroupOrder = {
   '> 50': 7,
 };
 
-List<AgeDistributionItem> _sortedByAgeGroup(List<AgeDistributionItem> items) {
+List<AgeDistributionItem> _sortedByAgeGroup(List<AgeDistributionItem> items)
+{
   final sorted = [...items];
-  sorted.sort(
-    (a, b) => (_ageGroupOrder[a.ageGroup] ?? 99).compareTo(
-      _ageGroupOrder[b.ageGroup] ?? 99,
-    ),
-  );
+  sorted.sort((a, b) => (_ageGroupOrder[a.ageGroup] ?? 99).compareTo(_ageGroupOrder[b.ageGroup] ?? 99));
 
   return sorted;
 }
 
-class RoleSpecificStatisticsView extends StatefulWidget {
+class RoleSpecificStatisticsView extends StatefulWidget
+{
   final String roleKey;
 
   const RoleSpecificStatisticsView({super.key, required this.roleKey});
 
   @override
-  State<RoleSpecificStatisticsView> createState() =>
-      _RoleSpecificStatisticsViewState();
+  State<RoleSpecificStatisticsView> createState() => _RoleSpecificStatisticsViewState();
 }
 
-class _RoleSpecificStatisticsViewState
-    extends State<RoleSpecificStatisticsView> {
+class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
+{
   final ApiService _apiService = ApiService();
 
   bool _isLoading = true;
@@ -98,6 +97,8 @@ class _RoleSpecificStatisticsViewState
   List<EducationDistributionItem> _educationData = [];
   List<CourseDistributionItem> _courseData = [];
   TeacherSubjectsStatisticsItem? _teacherStats;
+  TeacherAppreciationRankingItem? _teacherAppreciation;
+  bool _isAppreciationLoading = false;
 
   String _trendResolution = 'year';
   int _startTrendYear = dataStartYear;
@@ -114,76 +115,133 @@ class _RoleSpecificStatisticsViewState
 
   String _educationDistributionType = 'school';
   String _teacherRankingMode = 'absolute';
+  String _appreciationPeriod = wholeWindowPeriod;
 
   bool get _hasDemographics => _rolesWithDemographics.contains(widget.roleKey);
 
   @override
-  void initState() {
+  void initState()
+  {
     super.initState();
     _loadData();
   }
 
-  Future<void> _loadEducationData() async {
-    if (widget.roleKey != _studentRole) {
+  Future<void> _loadEducationData() async
+  {
+    if (widget.roleKey != _studentRole)
+    {
       return;
     }
 
-    try {
+    try
+    {
       final data = await _apiService.getStudentEducationDistribution(
         _educationDistributionType,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _educationData = data);
       }
-    } catch (_) {}
+    }
+    catch (_) {}
   }
 
-  Future<void> _loadTeacherData() async {
-    if (widget.roleKey != _teacherRole) {
+  Future<void> _loadTeacherData() async
+  {
+    if (widget.roleKey != _teacherRole)
+    {
       return;
     }
 
-    try {
+    try
+    {
       final data = await _apiService.getTeacherSubjectsStatistics(
         _teacherRankingMode,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _teacherStats = data);
       }
-    } catch (_) {}
+    }
+    catch (_) {}
   }
 
-  Future<void> _loadCourseData() async {
-    if (widget.roleKey != _courseParticipantRole) {
+  // Its own request and its own spinner: the period pill stands on the ranking
+  // card, and answering it by reloading the competences beside it would blank a
+  // card nobody asked about.
+  Future<void> _loadTeacherAppreciationData() async
+  {
+    if (widget.roleKey != _teacherRole)
+    {
       return;
     }
 
-    try {
-      final data = await _apiService.getCourseParticipantDistribution();
+    setState(() => _isAppreciationLoading = true);
 
-      if (mounted) {
-        setState(() => _courseData = data);
+    try
+    {
+      final period = periodParts(_appreciationPeriod);
+
+      final data = await _apiService.getTeacherAppreciationRanking(
+        year: period?.year,
+        month: period?.month,
+      );
+
+      if (mounted)
+      {
+        setState(() => _teacherAppreciation = data);
       }
-    } catch (_) {}
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isAppreciationLoading = false);
+      }
+    }
   }
 
-  Future<void> _loadRoleSpecificData() async {
-    switch (widget.roleKey) {
+  Future<void> _loadCourseData() async
+  {
+    if (widget.roleKey != _courseParticipantRole)
+    {
+      return;
+    }
+
+    try
+    {
+      final data = await _apiService.getCourseParticipantDistribution();
+
+      if (mounted)
+      {
+        setState(() => _courseData = data);
+      }
+    }
+    catch (_) {}
+  }
+
+  Future<void> _loadRoleSpecificData() async
+  {
+    switch (widget.roleKey)
+    {
       case _studentRole:
         await _loadEducationData();
       case _teacherRole:
-        await _loadTeacherData();
+        await Future.wait([_loadTeacherData(), _loadTeacherAppreciationData()]);
       case _courseParticipantRole:
         await _loadCourseData();
     }
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData() async
+  {
     setState(() => _isLoading = true);
 
-    try {
+    try
+    {
       final collabRetentionFuture = _collabRetentionType == 'year'
           ? _apiService.getRoleRetentionRate(
               widget.roleKey,
@@ -241,9 +299,12 @@ class _RoleSpecificStatisticsViewState
       _ageData = _sortedByAgeGroup(results[6] as List<AgeDistributionItem>);
 
       await _loadRoleSpecificData();
-    } catch (_) {
-    } finally {
-      if (mounted) {
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isLoading = false);
       }
     }
@@ -254,30 +315,38 @@ class _RoleSpecificStatisticsViewState
   // which is what a single shared load did — throws away the cards that were
   // not asked about and makes a change of year read as a page change.
 
-  Future<void> _loadRetentionData() async {
+  Future<void> _loadRetentionData() async
+  {
     setState(() => _isRetentionLoading = true);
 
-    try {
+    try
+    {
       final data = await _apiService.getRoleRetentionRate(
         widget.roleKey,
         _selectedRetentionYear,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _retentionData = data);
       }
-    } catch (_) {
-    } finally {
-      if (mounted) {
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isRetentionLoading = false);
       }
     }
   }
 
-  Future<void> _loadCollabRetentionData() async {
+  Future<void> _loadCollabRetentionData() async
+  {
     setState(() => _isCollabRetentionLoading = true);
 
-    try {
+    try
+    {
       final data = _collabRetentionType == 'year'
           ? await _apiService.getRoleRetentionRate(
               widget.roleKey,
@@ -289,31 +358,39 @@ class _RoleSpecificStatisticsViewState
               _selectedCollabMonth,
             );
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _collabRetentionData = data);
       }
-    } catch (_) {
-    } finally {
-      if (mounted) {
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isCollabRetentionLoading = false);
       }
     }
   }
 
-  void _reloadRetention(VoidCallback mutateState) {
+  void _reloadRetention(VoidCallback mutateState)
+  {
     setState(mutateState);
     _loadRetentionData();
   }
 
-  void _reloadCollabRetention(VoidCallback mutateState) {
+  void _reloadCollabRetention(VoidCallback mutateState)
+  {
     setState(mutateState);
     _loadCollabRetentionData();
   }
 
-  Future<void> _loadTrendData() async {
+  Future<void> _loadTrendData() async
+  {
     setState(() => _isTrendLoading = true);
 
-    try {
+    try
+    {
       final data = await _apiService.getRoleMembersTrend(
         role: widget.roleKey,
         resolution: _trendResolution,
@@ -321,21 +398,27 @@ class _RoleSpecificStatisticsViewState
         endYear: _endTrendYear,
       );
 
-      if (mounted) {
+      if (mounted)
+      {
         setState(() => _trendData = padTrendData(data, _trendResolution, _startTrendYear, _endTrendYear));
       }
-    } catch (_) {
-    } finally {
-      if (mounted) {
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isTrendLoading = false);
       }
     }
   }
 
-  Future<void> _loadCollabTrendData() async {
+  Future<void> _loadCollabTrendData() async
+  {
     setState(() => _isCollabTrendLoading = true);
 
-    try {
+    try
+    {
       final data = await _apiService.getRoleCollaboratingTrend(
         role: widget.roleKey,
         resolution: _collabTrendResolution,
@@ -343,38 +426,47 @@ class _RoleSpecificStatisticsViewState
         endYear: _endCollabTrendYear,
       );
 
-      if (mounted) {
-        setState(() {
+      if (mounted)
+      {
+        setState(()
+        {
           _collabTrendData =
               padTrendData(data, _collabTrendResolution, _startCollabTrendYear, _endCollabTrendYear);
         });
       }
-    } catch (_) {
-    } finally {
-      if (mounted) {
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
         setState(() => _isCollabTrendLoading = false);
       }
     }
   }
 
-  void _reloadTrend(VoidCallback mutateState) {
+  void _reloadTrend(VoidCallback mutateState)
+  {
     setState(mutateState);
     _loadTrendData();
   }
 
-  void _reloadCollabTrend(VoidCallback mutateState) {
+  void _reloadCollabTrend(VoidCallback mutateState)
+  {
     setState(mutateState);
     _loadCollabTrendData();
   }
 
-  void _clampCollabMonthToDataStart() {
-    if (_selectedCollabYear == dataStartYear &&
-        _selectedCollabMonth < dataStartMonth) {
+  void _clampCollabMonthToDataStart()
+  {
+    if (_selectedCollabYear == dataStartYear && _selectedCollabMonth < dataStartMonth)
+    {
       _selectedCollabMonth = dataStartMonth;
     }
   }
 
-  String _membersRetentionSentence(RetentionRateItem data) {
+  String _membersRetentionSentence(RetentionRateItem data)
+  {
     final subject = data.retainedMembers == 1
         ? '1 iscritto mantenuto'
         : '${data.retainedMembers} iscritti mantenuti';
@@ -382,19 +474,19 @@ class _RoleSpecificStatisticsViewState
     return "$subject su ${data.previousYearMembers} dell'anno precedente.";
   }
 
-  String _collaboratorsRetentionSentence(RetentionRateItem data) {
+  String _collaboratorsRetentionSentence(RetentionRateItem data)
+  {
     final subject = data.retainedMembers == 1
         ? '1 collaboratore mantenuto'
         : '${data.retainedMembers} collaboratori mantenuti';
 
-    final period = _collabRetentionType == 'year'
-        ? "nell'anno precedente"
-        : 'nel mese precedente';
+    final period = _collabRetentionType == 'year' ? "nell'anno precedente" : 'nel mese precedente';
 
     return '$subject rispetto ai ${data.previousYearMembers} attivi $period.';
   }
 
-  Widget _buildMembersRetentionCard(double width, bool matched) {
+  Widget _buildMembersRetentionCard(double width, bool matched)
+  {
     return RetentionCard(
       title: 'Fidelizzazione iscritti',
       icon: Icons.favorite_rounded,
@@ -410,13 +502,15 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildCollabRetentionCard(double width, bool matched) {
+  Widget _buildCollabRetentionCard(double width, bool matched)
+  {
     final filters = StatFilterRow(
       children: [
         resolutionPill(
           prefix: 'Tipo',
           value: _collabRetentionType,
-          onChanged: (value) => _reloadCollabRetention(() {
+          onChanged: (value) => _reloadCollabRetention(()
+          {
             _collabRetentionType = value;
             _clampCollabMonthToDataStart();
           }),
@@ -429,7 +523,8 @@ class _RoleSpecificStatisticsViewState
           ),
         yearPill(
           value: _selectedCollabYear,
-          onChanged: (value) => _reloadCollabRetention(() {
+          onChanged: (value) => _reloadCollabRetention(()
+          {
             _selectedCollabYear = value;
             _clampCollabMonthToDataStart();
           }),
@@ -460,7 +555,8 @@ class _RoleSpecificStatisticsViewState
     required ValueChanged<String> onResolutionChanged,
     required ValueChanged<int> onStartYearChanged,
     required ValueChanged<int> onEndYearChanged,
-  }) {
+  })
+  {
     final filters = StatFilterRow(
       children: [
         resolutionPill(
@@ -483,7 +579,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildMembersTrendCard() {
+  Widget _buildMembersTrendCard()
+  {
     return _buildTrendChartCard(
       title: 'Trend iscritti',
       icon: Icons.show_chart_rounded,
@@ -494,24 +591,29 @@ class _RoleSpecificStatisticsViewState
       endYear: _endTrendYear,
       onResolutionChanged: (value) => _reloadTrend(() => _trendResolution = value),
       // The two bounds push each other, so the range can never invert.
-      onStartYearChanged: (value) => _reloadTrend(() {
+      onStartYearChanged: (value) => _reloadTrend(()
+      {
         _startTrendYear = value;
 
-        if (_endTrendYear < value) {
+        if (_endTrendYear < value)
+        {
           _endTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reloadTrend(() {
+      onEndYearChanged: (value) => _reloadTrend(()
+      {
         _endTrendYear = value;
 
-        if (_startTrendYear > value) {
+        if (_startTrendYear > value)
+        {
           _startTrendYear = value;
         }
       }),
     );
   }
 
-  Widget _buildCollabTrendCard() {
+  Widget _buildCollabTrendCard()
+  {
     return _buildTrendChartCard(
       title: 'Trend collaboratori attivi',
       icon: Icons.stacked_line_chart_rounded,
@@ -520,26 +622,30 @@ class _RoleSpecificStatisticsViewState
       resolution: _collabTrendResolution,
       startYear: _startCollabTrendYear,
       endYear: _endCollabTrendYear,
-      onResolutionChanged: (value) =>
-          _reloadCollabTrend(() => _collabTrendResolution = value),
-      onStartYearChanged: (value) => _reloadCollabTrend(() {
+      onResolutionChanged: (value) => _reloadCollabTrend(() => _collabTrendResolution = value),
+      onStartYearChanged: (value) => _reloadCollabTrend(()
+      {
         _startCollabTrendYear = value;
 
-        if (_endCollabTrendYear < value) {
+        if (_endCollabTrendYear < value)
+        {
           _endCollabTrendYear = value;
         }
       }),
-      onEndYearChanged: (value) => _reloadCollabTrend(() {
+      onEndYearChanged: (value) => _reloadCollabTrend(()
+      {
         _endCollabTrendYear = value;
 
-        if (_startCollabTrendYear > value) {
+        if (_startCollabTrendYear > value)
+        {
           _startCollabTrendYear = value;
         }
       }),
     );
   }
 
-  Widget _buildCityChartCard() {
+  Widget _buildCityChartCard()
+  {
     return ChartCard(
       title: 'Distribuzione per città',
       icon: Icons.location_city_rounded,
@@ -552,7 +658,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildAgeChartCard() {
+  Widget _buildAgeChartCard()
+  {
     return ChartCard(
       title: 'Distribuzione per età',
       icon: Icons.cake_rounded,
@@ -565,7 +672,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildEducationChartCard() {
+  Widget _buildEducationChartCard()
+  {
     return ChartCard(
       title: 'Distribuzione scolastica',
       icon: Icons.school_rounded,
@@ -580,7 +688,8 @@ class _RoleSpecificStatisticsViewState
           FilterOption(value: 'program', label: 'Percorso di studio'),
           FilterOption(value: 'level', label: 'Livello di istruzione'),
         ],
-        onChanged: (value) {
+        onChanged: (value)
+        {
           setState(() => _educationDistributionType = value);
           _loadEducationData();
         },
@@ -594,7 +703,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildCourseChartCard() {
+  Widget _buildCourseChartCard()
+  {
     return ChartCard(
       title: 'Distribuzione per corso',
       icon: Icons.menu_book_rounded,
@@ -607,7 +717,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildSubjectRow(SubjectDistributionItem subject) {
+  Widget _buildSubjectRow(SubjectDistributionItem subject)
+  {
     final unit = subject.count == 1 ? 'docente' : 'docenti';
     final programName = subject.programName;
 
@@ -666,10 +777,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildSubjectRanking(
-    String title,
-    List<SubjectDistributionItem> subjects,
-  ) {
+  Widget _buildSubjectRanking(String title, List<SubjectDistributionItem> subjects)
+  {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -684,7 +793,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildAreaDistributionSection(List<AreaDistributionItem> areas) {
+  Widget _buildAreaDistributionSection(List<AreaDistributionItem> areas)
+  {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -713,7 +823,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildTeacherSubjectsSections(TeacherSubjectsStatisticsItem stats) {
+  Widget _buildTeacherSubjectsSections(TeacherSubjectsStatisticsItem stats)
+  {
     final topRanking = _buildSubjectRanking(
       '10 discipline più coperte',
       stats.top10Subjects,
@@ -725,8 +836,10 @@ class _RoleSpecificStatisticsViewState
     final areaSection = _buildAreaDistributionSection(stats.areaDistribution);
 
     return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 900) {
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < 900)
+        {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -765,7 +878,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildAverageBlock(String label, double value) {
+  Widget _buildAverageBlock(String label, double value)
+  {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,13 +906,8 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
-  Widget _buildTeacherSubjectsCard() {
-    final stats = _teacherStats;
-
-    if (stats == null) {
-      return const SizedBox();
-    }
-
+  Widget _buildTeacherSubjectsCard(TeacherSubjectsStatisticsItem stats)
+  {
     return AppCard(
       title: 'Analisi competenze',
       selectable: false,
@@ -813,7 +922,8 @@ class _RoleSpecificStatisticsViewState
           FilterOption(value: 'absolute', label: 'Per disciplina'),
           FilterOption(value: 'program', label: 'Per disciplina e percorso'),
         ],
-        onChanged: (value) {
+        onChanged: (value)
+        {
           setState(() => _teacherRankingMode = value);
           _loadTeacherData();
         },
@@ -844,14 +954,40 @@ class _RoleSpecificStatisticsViewState
     );
   }
 
+  // Two cards about the teachers, and neither waits for the other: what they can
+  // teach, and how often the pupils ask for them.
+  List<Widget> _buildTeacherCards()
+  {
+    final stats = _teacherStats;
+    final appreciation = _teacherAppreciation;
+
+    return [
+      if (stats != null) _buildTeacherSubjectsCard(stats),
+      if (appreciation != null)
+        TeacherAppreciationCard(
+          ranking: appreciation,
+          period: _appreciationPeriod,
+          isLoading: _isAppreciationLoading,
+          onPeriodChanged: (value)
+          {
+            setState(() => _appreciationPeriod = value);
+            _loadTeacherAppreciationData();
+          },
+        ),
+    ];
+  }
+
   // City and age are shown side by side when both are available, and alone when
   // only one of the two came back.
-  Widget? _buildDemographicsSection() {
-    if (_cityData.isEmpty && _ageData.isEmpty) {
+  Widget? _buildDemographicsSection()
+  {
+    if (_cityData.isEmpty && _ageData.isEmpty)
+    {
       return null;
     }
 
-    if (_cityData.isNotEmpty && _ageData.isNotEmpty) {
+    if (_cityData.isNotEmpty && _ageData.isNotEmpty)
+    {
       return ResponsiveCardPair(
         first: _buildCityChartCard(),
         second: _buildAgeChartCard(),
@@ -861,22 +997,27 @@ class _RoleSpecificStatisticsViewState
     return _cityData.isNotEmpty ? _buildCityChartCard() : _buildAgeChartCard();
   }
 
-  Widget? _buildRoleSpecificCard() {
-    switch (widget.roleKey) {
+  // A list and not one card: the teachers have two, and each of them has to
+  // come in on a beat of its own like every other card of the page.
+  List<Widget> _buildRoleSpecificCards()
+  {
+    switch (widget.roleKey)
+    {
       case _studentRole:
-        return _buildEducationChartCard();
+        return [_buildEducationChartCard()];
       case _courseParticipantRole:
-        return _buildCourseChartCard();
+        return [_buildCourseChartCard()];
       case _teacherRole:
-        return _buildTeacherSubjectsCard();
+        return _buildTeacherCards();
       default:
-        return null;
+        return const [];
     }
   }
 
-  Widget _buildContent() {
+  Widget _buildContent()
+  {
     final demographics = _buildDemographicsSection();
-    final roleSpecific = _buildRoleSpecificCard();
+    final roleSpecific = _buildRoleSpecificCards();
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -913,8 +1054,8 @@ class _RoleSpecificStatisticsViewState
             demographics,
             const SizedBox(height: 24),
           ],
-          if (roleSpecific != null) ...[
-            roleSpecific,
+          for (final card in roleSpecific) ...[
+            card,
             const SizedBox(height: 24),
           ],
           _buildMembersTrendCard(),
@@ -929,8 +1070,10 @@ class _RoleSpecificStatisticsViewState
   // The nested Navigator gives this view its own Overlay, which is why the
   // filter menus insert into the root overlay instead.
   @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
+  Widget build(BuildContext context)
+  {
+    if (_isLoading)
+    {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
       );
@@ -940,8 +1083,7 @@ class _RoleSpecificStatisticsViewState
     // wrapped as one element out here: a page that left in a single slab was
     // the odd one out beside every list in the app.
     return Navigator(
-      onGenerateRoute: (settings) =>
-          MaterialPageRoute(builder: (context) => _buildContent()),
+      onGenerateRoute: (settings) => MaterialPageRoute(builder: (context) => _buildContent()),
     );
   }
 }

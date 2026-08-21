@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from app.schemas.person import PersonOption
+
 
 class MemberTrendItem(BaseModel):
     year: int
@@ -64,3 +66,17 @@ class TeacherSubjectsStatisticsResponse(BaseModel):
 class CourseDistributionItem(BaseModel):
     label: str
     count: int
+
+
+class TeacherAppreciationItem(BaseModel):
+    teacher: PersonOption
+
+    # How many requests named this teacher on that side over the period: a
+    # request may name three on each side, so the counts of a period sum to more
+    # than the requests it holds.
+    request_count: int
+
+
+class TeacherAppreciationRankingResponse(BaseModel):
+    most_appreciated: list[TeacherAppreciationItem]
+    least_appreciated: list[TeacherAppreciationItem]
