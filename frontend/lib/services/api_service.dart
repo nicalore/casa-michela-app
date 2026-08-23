@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 
 import '../core/config/api_config.dart';
 import '../core/utils/json_parsing.dart';
+import '../core/utils/time_bucket.dart';
 import '../features/association/models/association_subject_item.dart';
 import '../features/association/models/ministry_subject_item.dart';
 import '../features/association/models/opening_day_item.dart';
@@ -15,6 +16,7 @@ import '../features/association/models/weekly_template_item.dart';
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/lessons/models/availability_item.dart';
+import '../features/lessons/models/calendar_publication_item.dart';
 import '../features/lessons/models/lesson_item.dart';
 import '../features/lessons/models/presence_item.dart';
 import '../features/lessons/models/room_supervision_item.dart';
@@ -27,17 +29,10 @@ import '../features/people/models/education_distribution_item.dart';
 import '../features/people/models/member_trend_item.dart';
 import '../features/people/models/person_item.dart';
 import '../features/people/models/retention_rate_item.dart';
+import '../features/people/models/teacher_appreciation_item.dart';
 import '../features/people/models/teacher_subjects_statistics_item.dart';
 import 'auth_state.dart';
 import 'session_service.dart';
-
-// Three models of the association carry no fromJson of their own, unlike every
-// other model in the app, so their parsing lives here. One function each rather
-// than the same block written out in the list, the create and the update: three
-// copies of a shape are three places to forget a field.
-//
-// Untyped on purpose, the way the call sites were: a cast added here would be a
-// new way to fail on a payload that used to get through.
 
 List<AssociationSubjectOption> _associationSubjectOptions(dynamic value)
 {
@@ -154,8 +149,6 @@ class ApiService
         },
         onError: (error, handler) async
         {
-          // A refresh already in flight is not waited on: the call that hit the
-          // 401 fails, and whatever raised it retries once the session is back.
           if (error.response?.statusCode != 401 || _refreshToken == null || _isRefreshing)
           {
             return handler.next(error);
@@ -170,8 +163,6 @@ class ApiService
             final requestOptions = error.requestOptions;
             requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
 
-            // The refresh call carries the old token in its own body, so
-            // replaying it verbatim would send the one just spent.
             if (requestOptions.data is Map &&
                 (requestOptions.data as Map).containsKey('refresh_token'))
             {
@@ -203,23 +194,11 @@ class ApiService
     return _accessToken != null && _refreshToken != null;
   }
 
-  // The sentence the server sent with its refusal, or [fallback] where it sent
-  // none — a timeout, or anything that never reached the API's own handler.
-  //
-  // Every call in this file ends a `on DioException` this way, so how a refusal
-  // is unwrapped is decided here once instead of at seventy-five call sites.
-  // [Never] is what lets it stand alone in a catch: the analyzer knows nothing
-  // follows it, so the caller needs no unreachable return after it.
   Never _refused(DioException error, String fallback)
   {
     throw Exception(error.response?.data['detail'] ?? fallback);
   }
 
-  // Takes the pair of tokens a login or a refresh came back with, stores them,
-  // and moves the app to whatever state the account is in.
-  //
-  // The mandatory password reset is decided here and nowhere else, so it is
-  // read at the same point however a valid token was obtained.
   Future<void> _adoptSession(LoginResponse loginResponse) async
   {
     _accessToken = loginResponse.accessToken;
@@ -243,8 +222,6 @@ class ApiService
     await SessionService.clear();
   }
 
-  // Trades the refresh token for a fresh pair. Used both by the 401 interceptor
-  // and by [restoreSession].
   Future<LoginResponse> _performTokenRefresh() async
   {
     final refreshResponse = await _tokenDio.post(
@@ -328,9 +305,6 @@ class ApiService
         },
       );
 
-      // The password was changed successfully: the account no longer has a
-      // pending reset, so the global router redirect sends the user back to the
-      // dashboard automatically.
       authState.value = AuthState.authenticated;
     }
     on DioException catch (e)
@@ -406,9 +380,6 @@ class ApiService
     return parseList(response.data, WeeklyTemplateItem.fromJson);
   }
 
-  // effectiveFrom is the date the change starts applying to the already
-  // generated calendar. Omitting it leaves opening_days untouched, so the new
-  // hours only show up the next time the calendar is generated.
   Future<WeeklyTemplateItem> createWeeklyTemplate({
     required int weekday,
     required String mode,
@@ -430,7 +401,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la creazione della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante la creazione dell\'orario. Riprova più tardi.');
     }
   }
 
@@ -452,7 +423,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante la modifica della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante la modifica dell\'orario. Riprova più tardi.');
     }
   }
 
@@ -467,7 +438,7 @@ class ApiService
     }
     on DioException catch (e)
     {
-      _refused(e, 'Errore durante l\'eliminazione della fascia oraria. Riprova più tardi.');
+      _refused(e, 'Errore durante l\'eliminazione dell\'orario. Riprova più tardi.');
     }
   }
 
@@ -530,10 +501,6 @@ class ApiService
     }
   }
 
-  // Undoes a variation: the days in the range go back to the weekly template's
-  // hours. Server-side because rows written through the API are always flagged
-  // as overrides, so the client cannot put a standard day back on its own — and
-  // plain deletion would leave those days with no hours at all.
   Future<void> restoreStandardHours({
     required DateTime dateFrom,
     required DateTime dateTo,
@@ -597,10 +564,6 @@ class ApiService
     }
   }
 
-  // A whole day booked in one go: the bands and the lessons of one or both
-  // modes, in a single transaction. It either passes as a whole or not at all,
-  // where writing one presence and one lesson per call left a half-written day
-  // behind on a refusal partway through.
   Future<List<PresenceItem>> createLessonRequest({
     required String studentTaxCode,
     required DateTime date,
@@ -626,8 +589,6 @@ class ApiService
     }
   }
 
-  // Il nome è la chiave di un servizio, e i nomi hanno spazi e accenti: vanno
-  // codificati, altrimenti "Metodo di studio" arriva spezzato nel path.
   String _servicePath(String name) => '/services/${Uri.encodeComponent(name)}';
 
   Future<List<ServiceItem>> getServices() async
@@ -652,8 +613,6 @@ class ApiService
     }
   }
 
-  // originalName is which row to rewrite, name is what it will be called
-  // afterwards: the two are the same thing only until a rename.
   Future<ServiceItem> updateService(String originalName, String name, String description) async
   {
     try
@@ -689,9 +648,6 @@ class ApiService
     return parseList(response.data, RoomItem.fromJson);
   }
 
-  // The capacity travels as null where it was left blank, and not as zero: the
-  // backend refuses a zero, and a room nobody has counted is not a room with no
-  // seats in it.
   Future<RoomItem> createRoom({required String name, required String description, int? capacity}) async
   {
     try
@@ -738,11 +694,6 @@ class ApiService
     }
   }
 
-  // --- Teacher room assignments ---------------------------------------------
-
-  // A day at a time and never a range: rooms are handed out once a day's
-  // lessons are settled, and the window that does it is looking at one day.
-
   String _assignmentPath(DateTime day, String teacherTaxCode)
   {
     return '/teacher-room-assignments/${formatDateOnly(day)}/$teacherTaxCode';
@@ -783,9 +734,6 @@ class ApiService
     }
   }
 
-  // Moving a teacher to another room, not writing a second assignment: there is
-  // one room per teacher per day, and the supervision shifts follow the teacher
-  // across by cascade.
   Future<TeacherRoomAssignmentItem> moveTeacherRoom({
     required DateTime day,
     required String teacherTaxCode,
@@ -822,12 +770,6 @@ class ApiService
       _refused(e, 'Errore durante la rimozione dell\'assegnazione.');
     }
   }
-
-  // --- Room supervisions ----------------------------------------------------
-
-  // Written and thrown away rather than moved: a shift is a stretch of hours and
-  // nothing else, so changing who covers what is the same work either way, and
-  // there is no third verb here for that reason.
 
   Future<List<RoomSupervisionItem>> getRoomSupervisions(DateTime day) async
   {
@@ -880,11 +822,6 @@ class ApiService
     }
   }
 
-  // The identity the last answer to me() carried, kept so that a page opening
-  // has something to draw its top bar with while its own request is in flight.
-  // It is a memory of what was true a moment ago and nothing more: whoever uses
-  // it asks the server as well and replaces it with the answer. Dropped with the
-  // session, so it cannot outlive the account it belongs to.
   MeResponse? lastKnownIdentity;
 
   Future<MeResponse> me() async
@@ -897,10 +834,6 @@ class ApiService
     return identity;
   }
 
-  // How many times the profile picture has changed hands in this session. The
-  // picture keeps the same address when it is replaced, so whoever draws it
-  // stamps this on the URL to tell the browser cache that the bytes behind that
-  // address are not the ones it is holding.
   int profileImageVersion = 0;
 
   Future<String> uploadProfileImage(List<int> bytes, String fileName) async
@@ -923,7 +856,6 @@ class ApiService
     }
   }
 
-  // Mirror of uploadProfileImage: same endpoint family and error pattern.
   Future<void> deleteProfileImage() async
   {
     try
@@ -952,7 +884,6 @@ class ApiService
       final response = await _dio.post(
         '/schools/',
         data: {
-          // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name': name,
           'city': city,
@@ -976,7 +907,6 @@ class ApiService
       final response = await _dio.put(
         '/schools/$id',
         data: {
-          // Null when absent: the backend normalizes an empty string to null anyway.
           'mechanographic_code': (code == null || code.isEmpty) ? null : code,
           'name': name,
           'city': city,
@@ -1575,6 +1505,25 @@ class ApiService
     }
   }
 
+  Future<TeacherAppreciationRankingItem> getTeacherAppreciationRanking({int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/appreciation-ranking',
+        queryParameters: {
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return TeacherAppreciationRankingItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare il gradimento dei docenti. Riprova più tardi.');
+    }
+  }
+
   Future<List<CourseDistributionItem>> getCourseParticipantDistribution() async
   {
     try
@@ -1605,11 +1554,6 @@ class ApiService
     }
   }
 
-  // --- Availabilities -----------------------------------------------------
-
-  // The whole list where no dates are given, which is what the lessons page asks
-  // for when it opens. A range is for one day at a time: the calendar can be
-  // walked past the booking window, and out there the day has to be fetched.
   Future<List<AvailabilityItem>> getAvailabilities({DateTime? dateFrom, DateTime? dateTo}) async
   {
     final response = await _dio.get(
@@ -1694,8 +1638,6 @@ class ApiService
     }
   }
 
-  // --- Lesson requests (Presence + Booking) -----------------------------
-
   Future<List<PresenceItem>> getPresences({DateTime? dateFrom, DateTime? dateTo}) async
   {
     final response = await _dio.get(
@@ -1709,18 +1651,12 @@ class ApiService
     return parseList(response.data, PresenceItem.fromJson);
   }
 
-  // Used to refresh a single presence after a booking mutation: bookings are
-  // nested read-only inside PresenceResponse, so there is no dedicated
-  // endpoint to patch just that list in place.
   Future<PresenceItem> getPresence(int id) async
   {
     final response = await _dio.get('/presences/$id');
     return PresenceItem.fromJson(response.data);
   }
 
-  // No booker_tax_code sent on either call: every Lezioni request is made by
-  // a logged-in admin, and the backend already defaults an absent booker to
-  // the calling identity on create, and leaves it untouched on update.
   Future<PresenceItem> createPresence({
     required String studentTaxCode,
     required DateTime date,
@@ -1792,12 +1728,6 @@ class ApiService
     }
   }
 
-  // [subject] is the whole requested lesson, as SubjectRequestDraft.toJson()
-  // writes it: the kind of request with whatever belongs to it, the duration,
-  // the tags, the topic, the notes and the two teacher lists.
-  //
-  // Whole and not piecemeal, because the backend treats these as a complete
-  // write: what does not reach it is cleared rather than left as it was.
   Future<void> createBooking({
     required int presenceId,
     required Map<String, dynamic> subject,
@@ -1853,11 +1783,6 @@ class ApiService
     }
   }
 
-  // --- Lessons ------------------------------------------------------------
-
-  // The whole booking window in one answer, the way the availabilities and the
-  // presences beside it are asked for: the calendar walks its days without
-  // going back to the network, and what it draws is the same three lists.
   Future<List<LessonItem>> getLessons({DateTime? dateFrom, DateTime? dateTo}) async
   {
     final response = await _dio.get(
@@ -1871,9 +1796,6 @@ class ApiService
     return parseList(response.data, LessonItem.fromJson);
   }
 
-  // The bookings and the disciplines travel as whole lists on both the create
-  // and the update: a lesson is written entire, and what does not reach the
-  // server is unlinked rather than left as it was.
   Future<LessonItem> createLesson({
     required int availabilityId,
     required List<int> bookingIds,
@@ -1903,8 +1825,6 @@ class ApiService
     }
   }
 
-  // Moving a lesson to another teacher is a change of availability and nothing
-  // else: the identity of the hour is the row, not the person on it.
   Future<LessonItem> updateLesson({
     required int id,
     required int availabilityId,
@@ -1948,11 +1868,117 @@ class ApiService
       _refused(e, 'Errore durante l\'eliminazione della lezione. Riprova più tardi.');
     }
   }
+
+  String _publicationPath(DateTime day, TimeBucket band)
+  {
+    return '/calendar-publications/${formatDateOnly(day)}/${LessonItem.formatBand(band)}';
+  }
+
+  Future<List<CalendarPublicationItem>> getCalendarPublications({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async
+  {
+    final response = await _dio.get(
+      '/calendar-publications/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, CalendarPublicationItem.fromJson);
+  }
+
+  Future<CalendarPublicationItem> publishBand({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/calendar-publications/',
+        data: {
+          'date': formatDateOnly(day),
+          'band': LessonItem.formatBand(band),
+        },
+      );
+
+      return CalendarPublicationItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la pubblicazione del calendario.');
+    }
+  }
+
+  Future<CalendarPublicationItem> reopenBand({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post('${_publicationPath(day, band)}/draft');
+
+      return CalendarPublicationItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il ritorno in bozza.');
+    }
+  }
+
+  // Leaving the bozza without publishing: the part of the day goes back to what
+  // it was when it was opened. Answers how many of its hours could not be put
+  // back, which is not a failure — a request cancelled while the bozza was open
+  // took its hour with it either way.
+  Future<({CalendarPublicationItem publication, int lost})> discardDraft({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post('${_publicationPath(day, band)}/discard');
+
+      return (
+        publication: CalendarPublicationItem.fromJson(
+          response.data['publication'] as Map<String, dynamic>,
+        ),
+        lost: response.data['lost'] as int,
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'uscita dalla bozza.');
+    }
+  }
+
+  Future<({CalendarPublicationItem publication, bool resent})> closeDraft({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.delete('${_publicationPath(day, band)}/draft');
+
+      return (
+        publication: CalendarPublicationItem.fromJson(
+          response.data['publication'] as Map<String, dynamic>,
+        ),
+        resent: response.data['resent'] as bool,
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la pubblicazione delle modifiche.');
+    }
+  }
 }
 
-// Formats a date only where there is one, so that an absent filter can be
-// dropped from the query with the null-aware spread instead of being spelled
-// out over three lines above every call.
 extension _OptionalDate on DateTime?
 {
   String? let(String Function(DateTime) format)

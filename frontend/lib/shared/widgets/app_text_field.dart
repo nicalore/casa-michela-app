@@ -6,31 +6,18 @@ import 'app_field_label.dart';
 
 import '../../core/theme/app_theme.dart';
 
-// The ground of an input. Not white: on a white card a white field has only its
-// border to say where it begins, and the mockup gives it this barely-there green
-// instead so the field reads as a hollow in the paper.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 
 const double _fieldRadius = 14;
 const double _borderWidth = 2;
 
-// Gold, where the mockup uses its turquoise. On a page already built out of two
-// greens a third one had nothing to push against, while gold is the colour this
-// app keeps for wherever the attention is — the mark under the destination you
-// are on, the outline of the card under the pointer — and a focused field is
-// exactly that: the one place on the page that is listening to you.
 const Color _focusAccent = AppTheme.trialGold;
 
-// The ring the mockup opens around a focused field (0 0 0 4px at 15%). It is a
-// shadow with no blur, which is what makes it a ring and not a glow, and it sits
-// outside the border rather than replacing it.
 const double _focusRingWidth = 4;
 const double _focusRingOpacity = 0.15;
 
 const Duration _focusFade = Duration(milliseconds: 180);
 
-// The pieces the two heights above are made of, so that changing the padding or
-// the type size here keeps them true.
 const double _labelTopGap = 16;
 const double _labelBottomGap = 6;
 const double _labelLineHeight = kFieldLabelLineHeight;
@@ -39,50 +26,33 @@ const double _contentPadding = 16;
 const double _inputFontSize = 17;
 const double _inputLineHeight = _inputFontSize * 1.28;
 
-// A labelled input. Every field in the app is one of these, so the label, the
-// box, the ring that opens when it is focused and the way it answers are decided
-// once here rather than field by field.
+const double _counterFontSize = 11;
+const double _labelCounterGap = 8;
+
+const int _shortestCountedLimit = 50;
+
+const double _counterAlwaysShownFrom = 0.9;
+
 class AppTextField extends StatefulWidget
 {
-  // What the label above the box takes, and what the box itself takes. A control
-  // standing beside a field — the button that removes its row — has no other way
-  // to line up with the box rather than with the whole column, and guessing the
-  // number puts it a dozen pixels too high.
-  //
-  // The label block of an ordinary field: a field with [nothingAbove] set is
-  // shorter by [_labelTopGap], and nothing lines up beside one of those.
   static const double labelBlockHeight = _labelTopGap + _labelBottomGap + _labelLineHeight;
   static const double boxHeight = 2 * _borderWidth + 2 * _contentPadding + _inputLineHeight;
 
   final TextEditingController controller;
   final String label;
 
-  // The label above the box. Off where the field sits in a row with its own
-  // label alongside, as on the login page: the box then starts on its own,
-  // without the empty block where the label would have been.
   final bool showLabel;
 
-  // Nothing stands over the field: it is the first thing inside whatever holds
-  // it, a dialog piece or a card.
-  //
-  // The sixteen above the label is what separates it from the field before it,
-  // and at the top of a box there is no field before it — only the box's own
-  // padding, which the gap then adds itself to. The content came out sixteen
-  // pixels low in a box padded the same all round, which is what a piece
-  // carrying a single field looked wrong for.
   final bool nothingAbove;
 
   final String hintText;
 
-  // Supplied when something outside has to move the focus into the field, as an
-  // autocomplete does; left out the field keeps one of its own.
   final FocusNode? focusNode;
 
   final bool obscureText;
+
   final int? maxLength;
 
-  // A description is written in sentences, not in a line: given these the box
-  // grows with what is typed into it, between the two bounds.
   final int? maxLines;
   final int? minLines;
   final TextCapitalization textCapitalization;
@@ -90,11 +60,8 @@ class AppTextField extends StatefulWidget
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  // Sits inside the box at its right end: a visibility toggle, a unit, a hint.
   final Widget? suffix;
 
-  // What is wrong with what was typed, said under the field and repeated on its
-  // outline. Null while there is nothing to say, which is most of the time.
   final String? errorText;
 
   final TextInputType? keyboardType;
@@ -156,8 +123,6 @@ class _AppTextFieldState extends State<AppTextField>
   void dispose()
   {
     _focusNode.removeListener(_onFocusChanged);
-    // Only the one this field made itself: a node handed in from outside belongs
-    // to whoever handed it over.
     _ownedNode?.dispose();
     super.dispose();
   }
@@ -170,11 +135,49 @@ class _AppTextFieldState extends State<AppTextField>
     }
   }
 
+  bool get _showsCounter
+  {
+    final int? limit = widget.maxLength;
+
+    return limit != null && limit >= _shortestCountedLimit;
+  }
+
+  bool get _countsUnderTheField => _showsCounter && !widget.showLabel;
+
+  Widget _buildCounter(bool hasError)
+  {
+    final int limit = widget.maxLength!;
+
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: widget.controller,
+      builder: (context, value, _)
+      {
+        final int written = value.text.characters.length;
+
+        final bool full = written >= limit;
+        final bool nearlyFull = written >= limit * _counterAlwaysShownFrom;
+
+        return AnimatedOpacity(
+          duration: _focusFade,
+          curve: Curves.easeOut,
+          opacity: _hasFocus || nearlyFull ? 1 : 0,
+          child: Text(
+            '$written/$limit',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: _counterFontSize,
+              fontWeight: FontWeight.w600,
+              color: full || hasError ? AppTheme.trialDanger : AppTheme.trialMutedText,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    // An error outranks the pointer and the focus: while it stands, the outline
-    // is the colour of what is wrong.
     final String? error = widget.errorText;
 
     final Color outline = error != null
@@ -195,7 +198,17 @@ class _AppTextFieldState extends State<AppTextField>
                 bottom: _labelBottomGap,
                 top: widget.nothingAbove ? 0 : _labelTopGap,
               ),
-              child: AppFieldLabel(widget.label),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(child: AppFieldLabel(widget.label)),
+                  if (_showsCounter) ...[
+                    const SizedBox(width: _labelCounterGap),
+                    _buildCounter(error != null),
+                  ],
+                ],
+              ),
             ),
           AnimatedContainer(
             duration: _focusFade,
@@ -203,9 +216,6 @@ class _AppTextFieldState extends State<AppTextField>
             decoration: BoxDecoration(
               color: _fieldSurface,
               borderRadius: BorderRadius.circular(_fieldRadius),
-              // Gold once the pointer is on it, and gold with the ring once it is
-              // listening: a field answers the pointer the way everything else in
-              // this app does, and fades between the two.
               border: Border.all(color: outline, width: _borderWidth),
               boxShadow: [
                 BoxShadow(
@@ -234,8 +244,6 @@ class _AppTextFieldState extends State<AppTextField>
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                // The box is drawn by the container around it, so the field itself
-                // brings no line of its own.
                 border: InputBorder.none,
                 isDense: true,
                 counterText: '',
@@ -255,16 +263,30 @@ class _AppTextFieldState extends State<AppTextField>
               ),
             ),
           ),
-          if (error != null)
+          if (error != null || _countsUnderTheField)
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 4),
-              child: Text(
-                error,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.trialDanger,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Expanded(
+                    child: error == null
+                        ? const SizedBox.shrink()
+                        : Text(
+                            error,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.trialDanger,
+                            ),
+                          ),
+                  ),
+                  if (_countsUnderTheField) ...[
+                    const SizedBox(width: _labelCounterGap),
+                    _buildCounter(error != null),
+                  ],
+                ],
               ),
             ),
         ],

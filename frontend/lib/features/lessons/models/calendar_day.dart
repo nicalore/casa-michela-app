@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show TimeOfDay;
+
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../utils/opening_window.dart';
@@ -5,67 +7,65 @@ import '../utils/timeline_geometry.dart';
 import 'availability_item.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
+import 'presence_item.dart';
 
-// One row of the calendar: a teacher, what they offered inside the band, and
-// what has already been put on them.
-//
-// A row per teacher and not per availability, which is the shape the server
-// enforces rather than a matter of taste: two lessons of the same teacher may
-// not overlap *across both modes*, so two lanes for one person would be two
-// lanes of which at most one can ever be busy — an invitation to do the one
-// thing the server refuses.
-class TeacherLane
+enum CalendarView
 {
-  final String teacherTaxCode;
-  final PersonOptionItem teacher;
+  byTeacher('Per docente'),
+  byStudent('Per studente');
 
-  // Everything they offered that reaches into this band, in either mode. Not
-  // clipped: the lesson has to fall inside one whole availability row, so the
-  // row is what the rules are read against. The clipping is for the drawing.
-  final List<AvailabilityItem> availabilities;
+  final String label;
 
-  // What is already planned on them in this band, earliest first.
-  final List<LessonItem> lessons;
+  const CalendarView(this.label);
+}
 
-  const TeacherLane({
-    required this.teacherTaxCode,
-    required this.teacher,
-    required this.availabilities,
-    required this.lessons,
-  });
+enum CalendarSort
+{
+  room('Stanza'),
 
-  List<AvailabilityItem> availabilitiesIn(String mode)
-  {
-    return availabilities.where((slot) => slot.mode == mode).toList();
-  }
+  firstName('Nome (A-Z)'),
+  firstNameDesc('Nome (Z-A)'),
+  lastName('Cognome (A-Z)'),
+  lastNameDesc('Cognome (Z-A)'),
 
-  // The rows an hour of [lessonMode] could be taken out of, which is not the
-  // same question as which rows are *in* that mode.
-  //
-  // A teacher in the building can take a pupil who is at a screen; one
-  // connected from home cannot take a pupil sitting in front of them. So a
-  // remote hour has both kinds of row open to it and a hour in the building
-  // only its own — the rule [resolveAvailability] applies at the drop, read
-  // here by whoever has to decide what to *offer*.
-  List<AvailabilityItem> availabilitiesTaking(String lessonMode)
-  {
-    return availabilities
-        .where((slot) => slot.mode == kPresenceMode || lessonMode == kOnlineMode)
-        .toList();
-  }
+  arrival('Orario di arrivo');
 
-  // Where the teacher offered to be, per mode, clipped to the band and fused:
-  // two rows written 09:00–11:00 and 11:00–13:00 are one stretch of the
-  // morning, and a seam between them would draw a gap that is not there.
+  final String label;
+
+  const CalendarSort(this.label);
+}
+
+enum CalendarLayout
+{
+  byHour('Per orario'),
+  byLesson('Per lezioni');
+
+  final String label;
+
+  const CalendarLayout(this.label);
+}
+
+abstract class CalendarLane
+{
+  const CalendarLane();
+
+  String get personTaxCode;
+
+  PersonOptionItem get person;
+
+  List<LessonItem> get lessons;
+
+  List<(TimeOfDay, TimeOfDay)> rowsIn(String mode);
+
   List<(int, int)> spansIn(String mode, int bandStart, int bandEnd)
   {
     final spans = <(int, int)>[];
 
-    for (final slot in availabilitiesIn(mode))
+    for (final row in rowsIn(mode))
     {
       final clipped = intersectSpan(
-        minutesOfTimeOfDay(slot.startTime),
-        minutesOfTimeOfDay(slot.endTime),
+        minutesOfTimeOfDay(row.$1),
+        minutesOfTimeOfDay(row.$2),
         bandStart,
         bandEnd,
       );
@@ -79,19 +79,6 @@ class TeacherLane
     return mergeSpans(spans);
   }
 
-  // Whether the two modes overlap anywhere in the band. Where they do, the
-  // lane is drawn split in two halves for its whole width rather than in
-  // alternating segments: a row that changes height halfway is unreadable.
-  bool splitsModes(int bandStart, int bandEnd)
-  {
-    final presence = spansIn(kPresenceMode, bandStart, bandEnd);
-    final online = spansIn(kOnlineMode, bandStart, bandEnd);
-
-    return presence.any((a) => online.any((b) => spansOverlap(a.$1, a.$2, b.$1, b.$2)));
-  }
-
-  // The stretch of the band this row has anything in at all, availabilities
-  // and lessons together. It is one of the two things the axis is sized on.
   List<(int, int)> contentSpans(int bandStart, int bandEnd)
   {
     return [
@@ -101,18 +88,6 @@ class TeacherLane
     ];
   }
 
-  // Which sub-lane each lesson of this row is drawn in, and how many the row
-  // needs.
-  //
-  // Two hours of one teacher may run together — a doposcuola works that way,
-  // and the server caps it at two pupils rather than forbidding it — so a row
-  // is not one line of blocks any more. Overlapping hours are stacked, and the
-  // row grows to hold them.
-  //
-  // [memory] is where each lesson was drawn last time, by id. It is what keeps
-  // the row still when one block is moved: without it, moving the lower of two
-  // stacked hours to an earlier start renumbers both, and the block nobody
-  // touched slides up as if it had been dragged too.
   ({List<int> laneOf, int laneCount}) subLanesWith([Map<int, int> memory = const {}])
   {
     return assignSubLanes(
@@ -120,10 +95,57 @@ class TeacherLane
       preferred: [for (final lesson in lessons) memory[lesson.id]],
     );
   }
+}
 
-  // The busiest moment of this teacher's band, in pupils. The same count the
-  // server caps, shown in the head of the row so that a full teacher can be
-  // seen before a drop is attempted on them.
+class TeacherLane extends CalendarLane
+{
+  final String teacherTaxCode;
+  final PersonOptionItem teacher;
+
+  final List<AvailabilityItem> availabilities;
+
+  @override
+  final List<LessonItem> lessons;
+
+  const TeacherLane({
+    required this.teacherTaxCode,
+    required this.teacher,
+    required this.availabilities,
+    required this.lessons,
+  });
+
+  @override
+  String get personTaxCode => teacherTaxCode;
+
+  @override
+  PersonOptionItem get person => teacher;
+
+  @override
+  List<(TimeOfDay, TimeOfDay)> rowsIn(String mode)
+  {
+    return [for (final slot in availabilitiesIn(mode)) (slot.startTime, slot.endTime)];
+  }
+
+  List<AvailabilityItem> availabilitiesIn(String mode)
+  {
+    return availabilities.where((slot) => slot.mode == mode).toList();
+  }
+
+  List<AvailabilityItem> availabilitiesTaking(String lessonMode)
+  {
+    return availabilities
+        .where((slot) => slot.mode == kPresenceMode || lessonMode == kOnlineMode)
+        .toList();
+  }
+
+  bool splitsModes(int bandStart, int bandEnd)
+  {
+    final presence = spansIn(kPresenceMode, bandStart, bandEnd);
+    final online = spansIn(kOnlineMode, bandStart, bandEnd);
+
+    return presence.any((a) => online.any((b) => spansOverlap(a.$1, a.$2, b.$1, b.$2)));
+  }
+
   int get peakStudents
   {
     return peakConcurrentStudents([
@@ -133,13 +155,44 @@ class TeacherLane
   }
 }
 
-// Those in the building first, those only at a screen after them, and each
-// group by name.
-//
-// It follows how a day is actually composed: the pupils who are here have to
-// be given to somebody who is here, so the rows that can take them come first,
-// and the remote-only teachers — who can only take remote pupils — sit
-// together at the bottom where they read as the group they are.
+List<({String mode, String said})> laneWhenLines(
+  CalendarLane lane, {
+  required int bandStart,
+  required int bandEnd,
+})
+{
+  return [
+    for (final mode in const [kPresenceMode, kOnlineMode])
+      for (final span in lane.spansIn(mode, bandStart, bandEnd))
+        (mode: mode, said: '${modeLabel(mode)} ${formatMinutesRange(span.$1, span.$2)}'),
+  ];
+}
+
+String laneWhenLabel(
+  CalendarLane lane, {
+  required int bandStart,
+  required int bandEnd,
+  required CalendarView view,
+})
+{
+  final windows = laneWhenLines(lane, bandStart: bandStart, bandEnd: bandEnd);
+
+  if (windows.isEmpty)
+  {
+    return whenNothingLabel(view);
+  }
+
+  return windows.map((window) => window.said).join(' · ');
+}
+
+String whenNothingLabel(CalendarView view) =>
+    view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità';
+
+List<TeacherLane> convokedTeachers(List<TeacherLane> lanes)
+{
+  return lanes.where((lane) => lane.lessons.isNotEmpty).toList();
+}
+
 int _byPresenceThenName(TeacherLane a, TeacherLane b)
 {
   final aInBuilding = a.availabilitiesIn(kPresenceMode).isNotEmpty;
@@ -153,12 +206,6 @@ int _byPresenceThenName(TeacherLane a, TeacherLane b)
   return a.teacher.fullName.toLowerCase().compareTo(b.teacher.fullName.toLowerCase());
 }
 
-// The rows of one day in one band, in the order they are drawn.
-//
-// A teacher with nothing offered in the band has no row: there is no legal
-// place to drop anything on them. One with a lesson but no availability keeps
-// theirs all the same — the data should not allow it, but if it ever does, a
-// lesson nobody can see is worse than a row that looks odd.
 List<TeacherLane> buildTeacherLanes({
   required List<AvailabilityItem> availabilities,
   required List<LessonItem> lessons,
@@ -215,4 +262,192 @@ List<TeacherLane> buildTeacherLanes({
   ];
 
   return lanes..sort(_byPresenceThenName);
+}
+
+class StudentLane extends CalendarLane
+{
+  final String studentTaxCode;
+  final PersonOptionItem student;
+
+  final List<PresenceItem> presences;
+
+  @override
+  final List<LessonItem> lessons;
+
+  const StudentLane({
+    required this.studentTaxCode,
+    required this.student,
+    required this.presences,
+    required this.lessons,
+  });
+
+  @override
+  String get personTaxCode => studentTaxCode;
+
+  @override
+  PersonOptionItem get person => student;
+
+  List<PresenceItem> presencesIn(String mode)
+  {
+    return presences.where((row) => row.mode == mode).toList();
+  }
+
+  @override
+  List<(TimeOfDay, TimeOfDay)> rowsIn(String mode)
+  {
+    return [for (final row in presencesIn(mode)) (row.startTime, row.endTime)];
+  }
+}
+
+List<StudentLane> attendingStudents(List<StudentLane> lanes)
+{
+  return lanes.where((lane) => lane.lessons.isNotEmpty).toList();
+}
+
+int _byBeingHereThenName(StudentLane a, StudentLane b)
+{
+  final aInBuilding = a.presencesIn(kPresenceMode).isNotEmpty;
+  final bInBuilding = b.presencesIn(kPresenceMode).isNotEmpty;
+
+  if (aInBuilding != bInBuilding)
+  {
+    return aInBuilding ? -1 : 1;
+  }
+
+  return a.student.fullName.toLowerCase().compareTo(b.student.fullName.toLowerCase());
+}
+
+List<StudentLane> buildStudentLanes({
+  required List<PresenceItem> presences,
+  required List<LessonItem> lessons,
+  required DateTime day,
+  required TimeBucket band,
+})
+{
+  final bandStart = bandStartMinutes(band);
+  final bandEnd = bandEndMinutes(band);
+
+  final rowsByStudent = <String, List<PresenceItem>>{};
+  final lessonsByStudent = <String, List<LessonItem>>{};
+  final faces = <String, PersonOptionItem>{};
+
+  for (final presence in presences)
+  {
+    if (!isSameDate(presence.date, day))
+    {
+      continue;
+    }
+
+    final start = minutesOfTimeOfDay(presence.startTime);
+    final end = minutesOfTimeOfDay(presence.endTime);
+
+    if (!spansOverlap(start, end, bandStart, bandEnd))
+    {
+      continue;
+    }
+
+    rowsByStudent.putIfAbsent(presence.studentTaxCode, () => []).add(presence);
+    faces[presence.studentTaxCode] = presence.student;
+  }
+
+  for (final lesson in lessons)
+  {
+    if (!isSameDate(lesson.date, day) || lesson.band != band)
+    {
+      continue;
+    }
+
+    for (final entry in lesson.bookings)
+    {
+      final student = entry.presence.student;
+      final written = lessonsByStudent.putIfAbsent(student.taxCode, () => []);
+
+      if (written.any((other) => other.id == lesson.id))
+      {
+        continue;
+      }
+
+      written.add(lesson);
+      faces.putIfAbsent(student.taxCode, () => student);
+    }
+  }
+
+  final lanes = [
+    for (final entry in faces.entries)
+      StudentLane(
+        studentTaxCode: entry.key,
+        student: entry.value,
+        presences: rowsByStudent[entry.key] ?? <PresenceItem>[],
+        lessons: (lessonsByStudent[entry.key] ?? <LessonItem>[])
+          ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)),
+      ),
+  ];
+
+  return lanes..sort(_byBeingHereThenName);
+}
+
+int? laneArrival(CalendarLane lane, int bandStart, int bandEnd)
+{
+  final spans = lane.spansIn(kPresenceMode, bandStart, bandEnd);
+
+  return spans.isEmpty ? null : spans.first.$1;
+}
+
+int _byFirstName(CalendarLane a, CalendarLane b)
+{
+  final name = a.person.firstName.toLowerCase().compareTo(b.person.firstName.toLowerCase());
+
+  return name != 0 ? name : a.person.lastName.toLowerCase().compareTo(b.person.lastName.toLowerCase());
+}
+
+int _byLastName(CalendarLane a, CalendarLane b)
+{
+  final surname = a.person.lastName.toLowerCase().compareTo(b.person.lastName.toLowerCase());
+
+  return surname != 0 ? surname : _byFirstName(a, b);
+}
+
+// The same order read backwards, tie-break and all: two people both called Anna
+// come out by surname the other way round too. It is what "the same list upside
+// down" means, and the only rule that can be said in one line.
+Comparator<CalendarLane> _reversed(Comparator<CalendarLane> by)
+{
+  return (a, b) => by(b, a);
+}
+
+int _byArrival(CalendarLane a, CalendarLane b, int bandStart, int bandEnd)
+{
+  final first = laneArrival(a, bandStart, bandEnd);
+  final second = laneArrival(b, bandStart, bandEnd);
+
+  if (first == null || second == null)
+  {
+    if (first == second)
+    {
+      return _byFirstName(a, b);
+    }
+
+    return first == null ? 1 : -1;
+  }
+
+  return first == second ? _byFirstName(a, b) : first.compareTo(second);
+}
+
+List<T> orderLanes<T extends CalendarLane>({
+  required List<T> lanes,
+  required CalendarSort sort,
+  required int bandStart,
+  required int bandEnd,
+})
+{
+  final Comparator<CalendarLane> by = switch (sort)
+  {
+    CalendarSort.room || CalendarSort.firstName => _byFirstName,
+    CalendarSort.firstNameDesc => _reversed(_byFirstName),
+    CalendarSort.lastName => _byLastName,
+    CalendarSort.lastNameDesc => _reversed(_byLastName),
+    CalendarSort.arrival => (a, b) => _byArrival(a, b, bandStart, bandEnd),
+  };
+
+  return [...lanes]..sort(by);
 }

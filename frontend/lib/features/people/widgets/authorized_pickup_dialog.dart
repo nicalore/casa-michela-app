@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -9,9 +10,6 @@ import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../models/parental_relationship_draft.dart';
-
-// Who may collect a minor on an early exit, and when they may not, why. It
-// opens on ticking a parent or a child, in every dialog that relates the two.
 
 Future<ParentalRelationshipDraft?> showAuthorizedPickupDialog(
   BuildContext context, {
@@ -74,8 +72,6 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
     super.dispose();
   }
 
-  // The reason stays optional even when pickup is not authorized: no blocking
-  // validation.
   void _confirm()
   {
     final String reason = _reasonCtrl.text.trim();
@@ -130,8 +126,6 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
                 falseLabel: 'No',
                 onChanged: (value) => setState(() => _authorized = value),
               ),
-              // The room is always kept and only the opacity changes, so the
-              // window never resizes as the field comes and goes.
               AnimatedOpacity(
                 opacity: _authorized ? 0 : 1,
                 duration: const Duration(milliseconds: 220),
@@ -142,6 +136,7 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
                     controller: _reasonCtrl,
                     label: 'Motivo',
                     hintText: 'Es. Divieto di avvicinamento',
+                    maxLength: FieldLimits.pickupReason,
                     textCapitalization: TextCapitalization.sentences,
                   ),
                 ),
@@ -153,6 +148,3 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
     );
   }
 }
-
-// Chooses whether to lay the year and start date side by side or stacked, like MembershipEditRow in PersonMembershipsTab.
-// When stacked, the remove button moves next to the last field.

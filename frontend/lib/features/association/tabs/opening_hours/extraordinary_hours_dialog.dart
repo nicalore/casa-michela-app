@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/field_limits.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/week_range.dart';
@@ -25,26 +26,13 @@ class _BandDraft
   TimeOfDay? end;
 }
 
-// Two phases of floating pieces, walked with the arrows beside them the way the
-// days of a week are walked in the standard hours: when the variation runs, and
-// what the hours are on those days. Three shut bands is how a closure is said —
-// there is no separate question for it, because an answer kept beside the three
-// switches that decide the same thing is a second place for it to be wrong.
-//
-// Doubles as the editor for an existing variation: saving already replaces
-// whatever sits on the chosen dates, which is exactly what editing one means,
-// so [initial] only has to prefill the form and name the span the edit started
-// from.
 class ExtraordinaryHoursDialog extends StatefulWidget
 {
   final String mode;
   final Future<void> Function() onSaved;
 
-  // The standard hours of this mode, week by week: what recognises a variation
-  // that varies nothing. See [_variesNothing].
   final List<WeeklyTemplateItem> standardTemplates;
 
-  // The variation being edited, or null when creating a new one.
   final VariationGroup? initial;
 
   const ExtraordinaryHoursDialog({
@@ -61,12 +49,9 @@ class ExtraordinaryHoursDialog extends StatefulWidget
 
 class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
   static const double _dialogButtonFontSize = 14;
 
-  // Wide enough for two date fields side by side, and for three bands under
-  // each other on the phase after it.
   static const double _contentMaxWidth = 640;
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
@@ -80,8 +65,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
   bool _isSaving = false;
 
-  // Which of the two phases is on screen: what and when, or the hours. The
-  // second one exists only while the answer to the question is yes.
   int _phase = 0;
   bool _movingForward = true;
 
@@ -105,7 +88,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
     _fromCtrl.text = formatDateString(initial.start);
     _toCtrl.text = formatDateString(initial.end);
-    // Otherwise editing "Dal" would overwrite the "Al" that was just prefilled.
     _toTouched = true;
     _noteCtrl.text = initial.note ?? '';
 
@@ -153,14 +135,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return _validateDates() && _validateVariesSomething();
   }
 
-  // The minutes of an hour, the only measure in which two times compare without
-  // having to ask how they are written.
   int _minutesOf(TimeOfDay time) => time.hour * 60 + time.minute;
 
-  // The band the standard hours give a weekday, or null where that band is
-  // closed on that day. The first of its own, as the standard-hours editor does:
-  // a day can carry several rows in the same band, and the one shown is the
-  // earliest.
   WeeklyTemplateItem? _standardBand(int weekday, TimeBucket bucket)
   {
     final rows = widget.standardTemplates
@@ -171,8 +147,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return rows.firstOrNull;
   }
 
-  // True where what is being written is, band by band, what that day already
-  // does on its own.
   bool _isStandardOn(DateTime day)
   {
     for (final bucket in TimeBucket.values)
@@ -182,7 +156,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
       if (draft.start == null || draft.end == null)
       {
-        // Closed here: it matches only if it is closed on its own too.
         if (standard != null)
         {
           return false;
@@ -202,14 +175,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return true;
   }
 
-  // A variation repeating the standard hours on every day it covers varies
-  // nothing: the day would open and close at the same times, and all that would
-  // be left is one more row in the variations list, claiming a change that never
-  // happened.
-  //
-  // A single different day is enough for the variation to mean something: it
-  // goes through, and the days that already agreed end up under it too, which is
-  // what whoever picks a whole range is asking for.
   bool _variesNothing(DateTime from, DateTime to)
   {
     var cursor = from;
@@ -311,18 +276,11 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     await _save();
   }
 
-  // A variation with every band shut is a closure, and one with any band open is
-  // an opening. It used to be asked outright — "sarà aperta?" — and then had to
-  // agree with the three switches underneath it, which is one truth kept in two
-  // places.
   bool get _isOpen
   {
     return TimeBucket.values.any((b) => _bands[b]!.start != null && _bands[b]!.end != null);
   }
 
-  // Puts back the standard hours on the days the edit no longer covers, at
-  // either end of the original span. Returns false if any of it failed, in
-  // which case the caller stops rather than writing a half-moved variation.
   Future<bool> _releaseDroppedDays(DateTime startDate, DateTime endDate, List<String> errors) async
   {
     final initial = widget.initial;
@@ -375,10 +333,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     var successCount = 0;
     final errors = <String>[];
 
-    // An edit that shrinks the span leaves the dropped days still carrying the
-    // old variation: nothing below would touch them, since the writes only
-    // cover the new range. Done first, so a later failure cannot leave them
-    // half-changed instead of simply untouched.
     if (!await _releaseDroppedDays(startDate, endDate, errors))
     {
       setState(() => _isSaving = false);
@@ -395,9 +349,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
       return;
     }
 
-    // Both paths replace whatever is already on those dates, so both need to
-    // know what is there first; failing to read it means we cannot safely
-    // clear, hence the hard stop rather than a partial write.
     List<OpeningDayItem> primaryExisting;
 
     try
@@ -427,7 +378,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
             await _apiService.deleteOpeningDay(row.id);
           }
 
-          // A row with no hours is what "chiuso" is on this table.
           await _apiService.createOpeningDay(date: date, mode: widget.mode, note: note);
           successCount++;
         }
@@ -515,7 +465,6 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     }
   }
 
-  // When and, if it matters, what to call it.
   Widget _buildWhenPill()
   {
     return AppDialogPill(
@@ -538,8 +487,9 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
           const SizedBox(height: 8),
           AppTextField(
             controller: _noteCtrl,
-            label: 'Nota (opzionale)',
+            label: 'Motivazione (opzionale)',
             hintText: 'Es. Riunione',
+            maxLength: FieldLimits.notes,
             textCapitalization: TextCapitalization.sentences,
           ),
         ],
@@ -569,13 +519,10 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
               const Divider(height: 33, thickness: 1, color: AppTheme.trialLine),
           ],
           const SizedBox(height: 20),
-          // What used to be a question at the top of the dialog. Said here, it
-          // is a note about the three switches right above it rather than an
-          // answer that then has to agree with them.
           Text(
             _isOpen
                 ? 'I giorni scelti apriranno con questi orari.'
-                : 'Se tutte e tre le fasce orarie sono chiuse, l\'Associazione sarà chiusa per quel '
+                : 'Se mattina, pomeriggio e sera sono tutte chiuse, l\'Associazione sarà chiusa per quel '
                     'giorno.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,

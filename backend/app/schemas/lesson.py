@@ -16,8 +16,6 @@ _NO_BOOKING_ERROR: Final[str] = (
 )
 
 
-# Order-preserving, so that a client listing the same discipline twice gets the
-# lesson it meant rather than an error about a duplicate it cannot see.
 def _drop_duplicates[T](values: list[T]) -> list[T]:
     return list(dict.fromkeys(values))
 
@@ -27,8 +25,6 @@ class LessonBase(TimeBandMixin):
 
     booking_ids: list[int] = Field(..., min_length=1)
 
-    # Empty only for an hour made of services, which have no discipline behind
-    # them at all.
     association_subject_ids: list[int] = Field(default_factory=list)
 
     @field_validator("booking_ids", "association_subject_ids")
@@ -62,8 +58,6 @@ class LessonResponse(BaseModel):
     teacher: PersonOption
     date: date
 
-    # Where the teacher is, and how the hour reaches the pupils. They differ
-    # exactly when someone in the building is teaching someone who is not.
     teacher_mode: OpeningModeEnum
     mode: OpeningModeEnum
 
@@ -71,18 +65,13 @@ class LessonResponse(BaseModel):
     start_time: time
     end_time: time
 
-    # Not a property of the lesson but of its teacher's day: resolved through
-    # teacher_room_assignments, and null for a teacher working from home.
     room: RoomOption | None = None
 
     disciplines: list[AssociationSubjectOption] = Field(default_factory=list)
     bookings: list[BookingResponse] = Field(default_factory=list)
 
-    is_published: bool = False
+    is_locked: bool = False
 
-    # Things worth telling the administrator that are not reasons to refuse:
-    # a teacher someone would rather not have, a room over its capacity.
-    # Populated on write, empty on read.
     warnings: list[str] = Field(default_factory=list)
 
     created_at: datetime

@@ -8,9 +8,6 @@ from app.core.time_band import (
     band_of,
 )
 
-# The same bounds the client draws, in frontend/lib/core/utils/time_bucket.dart.
-# If one side moves, this is where the other finds out.
-
 
 @pytest.mark.parametrize(
     ("moment", "expected"),
@@ -33,12 +30,10 @@ def test_outside_the_day_is_refused(moment: time) -> None:
         band_of(moment)
 
 
-# Noon to one is entirely morning: a band hands its end to the next one, so
-# touching the boundary from the left is still inside.
 def test_a_lesson_may_end_exactly_on_the_boundary() -> None:
     assert assert_within_single_band(time(12), time(13)) is TimeBandEnum.MORNING
 
 
 def test_a_lesson_may_not_cross_the_boundary() -> None:
-    with pytest.raises(ValueError, match="fasce"):
+    with pytest.raises(ValueError, match="parti della giornata"):
         assert_within_single_band(time(12, 30), time(13, 30))

@@ -49,9 +49,7 @@ class CalendarPublicationRepository(WritableRepository[CalendarPublication]):
 
         return set(rows)
 
-    # One query for a whole response: a list of lessons spans a handful of days
-    # and asking per row would be a query per lesson.
-    async def find_published_pairs(
+    async def find_settled_pairs(
         self,
         pairs: Collection[tuple[date, str]],
     ) -> set[tuple[date, str]]:
@@ -64,6 +62,7 @@ class CalendarPublicationRepository(WritableRepository[CalendarPublication]):
             await self.session.execute(
                 select(CalendarPublication.date, CalendarPublication.band).where(
                     CalendarPublication.date.in_(days),
+                    CalendarPublication.draft_snapshot.is_(None),
                 ),
             )
         ).all()

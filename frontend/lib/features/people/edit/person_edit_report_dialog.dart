@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
@@ -13,13 +14,6 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_widgets.dart';
-
-// Reporting an error in the data that cannot be edited here.
-//
-// First name, last name, gender, tax code and birth data hold a person's record
-// together, and changing them by hand from any dialog is how one ends up with
-// two people where there was one. Here one says which are wrong and what they
-// should say; correcting them is for whoever answers for them.
 
 const List<String> _reportableFields = [
   'Nome',
@@ -214,6 +208,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
                     controller: _controllers[field]!,
                     label: field,
                     hintText: 'Valore corretto',
+                    maxLength: FieldLimits.reportValue,
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: (_) => setState(() {}),
                   ),

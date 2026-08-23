@@ -24,6 +24,13 @@ dependencies:
   dio: ^5.9.2
   image_picker: ^1.2.2
 
+  # L'export del calendario in PDF. Puro Dart, nessun plugin nativo: il
+  # documento è costruito dal browser con la stessa logica di dominio che
+  # disegna il calendario a schermo, e `web` serve solo ad aprire la scheda che
+  # lo mostra.
+  pdf: ^3.13.0
+  web: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -36,4 +43,8 @@ flutter:
 
   assets:
     - assets/images/
+    # Sotto `assets` e non sotto `fonts`: non è una famiglia di testo dell'app —
+    # che prende il suo Plus Jakarta Sans da google_fonts — ma tre file che solo
+    # l'export legge, con rootBundle, la prima volta che qualcuno stampa.
+    - assets/fonts/
     - ../backend/.env

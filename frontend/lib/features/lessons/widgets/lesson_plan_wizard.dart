@@ -31,46 +31,16 @@ const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 const double _stepWidth = 560;
 
-// A wider foot than the standard pair, because the command at the left of it is
-// a sentence and not a word. "RIMUOVI DAL CALENDARIO" is two hundred and
-// twenty-four pixels of letters at this size, and two hundred and forty-seven
-// with the glyph and the gap before it. Half of the standard five hundred and
-// twenty is two hundred and fifty-two, four of which the outline takes, and the
-// label was being written over two lines: a button that takes two lines to name
-// one action reads as two of them.
-//
-// Three hundred and twelve apiece, which leaves the longer of the two thirty
-// pixels of air at either end. The row inside a button is shrink-wrapped and
-// centred, so it is this width and not the padding below that the air is made
-// of: wider, and the sentence sat in the middle of a button with nothing else
-// in it.
 const double _dialogFooterWidth = 640;
 
-// Less than a button standing on its own in a form takes. Not what the ends are
-// made of — see above — but the floor the label is held to, and at the default
-// thirty the sentence would meet it before it met the button.
 const double _dialogButtonPadding = 18;
 
-// Wide enough for the card *and* its two arrows: under this the frame drops them
-// underneath, which is the phone layout and reads as a different window. The
-// spare sixty-four is the stack's own margin, the same sum the booking wizard
-// is built with.
 const double _dialogWidth = _stepWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap) + 64;
 
-// Under this the eyebrow gives up the step count and keeps only the name. The
-// head spends about a hundred and forty on the face and its padding before a
-// letter is drawn, and "PASSO 1 DI 2 · " is another hundred and ten.
-//
-// The count goes and not the name: the name is the only thing on the line that
-// says whose hours these are, while the step is already said by the arrows.
 const double _stepCountMin = 560;
 
-// The quarter of an hour every duration in this app is given in.
 const int _step = kQuarterHour;
 
-// One stretch a teacher offered, cut to the band, the pupil's hours and the row
-// itself. The row and not the merged picture the track draws: a lesson has to
-// fall inside one row, so a teacher there twice is offered twice.
 class _Slot
 {
   final TeacherLane lane;
@@ -90,21 +60,14 @@ class _Slot
   String get label => '${lane.teacher.fullName} · ${formatMinutesRange(windowStart, windowEnd)}';
 }
 
-// A part of the request as it is being designed. The design is not the
-// calendar: an existing part carries its hour's id so confirming rewrites it,
-// and a removed part is an hour to delete — but not until the last button.
 class _Part
 {
-  // The hour this part already is, where it is one.
   final int? lessonId;
 
-  // Its band has been published: nothing about it may be touched.
-  final bool isPublished;
+  final bool isLocked;
 
   Set<int> disciplineIds;
 
-  // Which stretch it takes, by the id of the availability row. Null where the
-  // day has none that could hold it, which the window says rather than hides.
   int? availabilityId;
 
   int startMinutes;
@@ -112,7 +75,7 @@ class _Part
 
   _Part({
     this.lessonId,
-    this.isPublished = false,
+    this.isLocked = false,
     required this.disciplineIds,
     required this.availabilityId,
     required this.startMinutes,
@@ -124,15 +87,6 @@ class _Part
   bool get isPlanned => lessonId != null;
 }
 
-// Everything one request can be turned into: the pupil, the materia, how it is
-// divided, and who takes each piece and when.
-//
-// One window per request and not per hour, since an hour is one part of a
-// materia and the division only makes sense against the whole of what was
-// asked. That is also why there is no second window for an hour.
-//
-// Nothing is written until the last button: the steps build a drawing, and
-// confirming makes the calendar match it.
 class LessonPlanWizard extends StatefulWidget
 {
   final SchedulableBooking entry;
@@ -176,10 +130,6 @@ class LessonPlanWizard extends StatefulWidget
 
 class _LessonPlanWizardState extends State<LessonPlanWizard>
 {
-  // The drawing being made. Built from the calendar every time the window
-  // opens and never carried over from the last one: an hour deleted between two
-  // openings has to be gone from here as well, and a window that remembered
-  // what was chosen before would be offering to write it again.
   late final List<_Part> _parts = _initialParts();
 
   int _stepIndex = 0;
@@ -193,10 +143,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   BookingSummaryItem get _booking => _entry.booking;
 
-  // --- what was asked for ---------------------------------------------------
-
-  // What the request is called: a ministry subject by its own name, a lone
-  // discipline and a service by theirs.
   String get _requestName
   {
     return switch (_booking.kind)
@@ -215,8 +161,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   bool get _isLocked => _entry.isLocked;
 
-  // --- the drawing ----------------------------------------------------------
-
   List<_Part> _initialParts()
   {
     final requested = widget.entry.requestedDisciplineIds;
@@ -225,10 +169,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       for (final lesson in widget.entry.parts)
         _Part(
           lessonId: lesson.id,
-          isPublished: lesson.isPublished,
-          // What of the request this hour covers. An hour may carry a discipline
-          // the request never asked for — it cannot, in fact, but reading it
-          // this way means the drawing can only ever say what was asked.
+          isLocked: lesson.isLocked,
           disciplineIds: lesson.disciplineIds.intersection(requested).toSet(),
           availabilityId: lesson.availabilityId,
           startMinutes: lesson.startMinutes,
@@ -243,8 +184,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       return [?draft];
     }
 
-    // Planned, but not all of it: the part that would finish it is drawn in
-    // already, because that is what the window was opened to do.
     final uncovered = widget.entry.uncoveredDisciplineIds;
 
     if (uncovered.isNotEmpty &&
@@ -262,10 +201,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return parts;
   }
 
-  // A part not yet on the calendar, put in the first stretch that would take
-  // it. Where none would, it is drawn all the same, without a stretch: the
-  // window then says who could have taken it, which is the useful half of the
-  // answer.
   _Part? _draft(Set<int> disciplineIds, int wanted, List<_Part> siblings)
   {
     final length = wanted < kMinimumBandMinutes ? kMinimumBandMinutes : wanted;
@@ -298,20 +233,10 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     );
   }
 
-  // --- what the day can take ------------------------------------------------
-
-  // Every stretch that could hold a part on [disciplineIds]. Judged at the
-  // shortest a lesson can be and not at the length currently chosen, so the
-  // list does not empty itself while the hours are being stretched.
   List<_Slot> _slotsFor(Set<int> disciplineIds, {List<_Part> siblings = const [], int? lessonId, int? keep})
   {
     final presence = _entry.presence;
 
-    // Keyed by the teacher and the two ends, so a teacher who offered the same
-    // stretch twice — in the building *and* from home, both of which can take a
-    // pupil at a screen — is one entry and not two identical ones. Two stretches
-    // that differ stay two: that is a teacher there twice in the band, and both
-    // are worth offering.
     final slots = <(String, int, int), _Slot>{};
 
     for (final lane in _index.lanes)
@@ -351,10 +276,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               disciplineIds: disciplineIds,
               length: kMinimumBandMinutes,
               siblings: siblings,
-              // The hour this part already **is** cannot be what stands in its
-              // own way: left in, its minutes are counted as spent and its own
-              // place on the track as taken, and every stretch of the day comes
-              // back refused — including the one the lesson is sitting in.
               lessonId: lessonId,
             ) ==
             null)
@@ -375,9 +296,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return slots.values.toList();
   }
 
-  // Which of two rows for the same stretch to offer: the one a part is already
-  // written on, or else the one in the building, which is what
-  // [resolveAvailability] picks at the drop.
   bool _preferred(_Slot candidate, _Slot current, int? keep)
   {
     if (candidate.availability.id == keep)
@@ -393,11 +311,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return candidate.availability.mode == kPresenceMode && current.availability.mode != kPresenceMode;
   }
 
-  // The first quarter of an hour inside [slot] where a part of [length] on
-  // those disciplines would be taken, or null where none would.
-  //
-  // Asked of the same judge the drop asks rather than of a copy of its rules:
-  // there is one place in this app that decides whether an hour may be written.
   int? _firstValidStart({
     required _Slot slot,
     required Set<int> disciplineIds,
@@ -426,10 +339,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return null;
   }
 
-  // Why the calendar would refuse this piece of the drawing.
-  // [validatePlacement] cannot see the other part as it is being designed, so
-  // both hours are taken out of its sight and judged here: two parts that
-  // overlap are one pupil in two hours at once.
   String? _judge({
     required String teacherTaxCode,
     required int startMinutes,
@@ -512,9 +421,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     ).where((slot) => slot.availability.id == part.availabilityId).firstOrNull;
   }
 
-  // The longest a part may be: what is left of the request once the other part
-  // has taken its own, less the half hour a discipline left out of both will
-  // need.
   int _ceilingFor(_Part part)
   {
     final others = _siblingsOf(part).fold(0, (total, sibling) => total + sibling.minutes);
@@ -532,10 +438,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return ceiling < kMinimumBandMinutes ? kMinimumBandMinutes : ceiling;
   }
 
-  // --- the drawing being changed --------------------------------------------
-
-  // Puts a part inside a stretch, keeping the hours it has where they still
-  // fit and finding it a place where they do not.
   void _place(_Part part, _Slot slot, {int? wanted})
   {
     final room = slot.windowEnd - slot.windowStart;
@@ -562,14 +464,11 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     part.endMinutes = start + length;
   }
 
-  // Puts every part back in a state it can be used in after the division has
-  // changed: a discipline moved from one part to the other can cost a teacher
-  // their competence for it, and it moves the ceilings with it.
   void _reconcile()
   {
     for (final part in _parts)
     {
-      if (part.isPublished)
+      if (part.isLocked)
       {
         continue;
       }
@@ -600,9 +499,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     {
       if (count == 1 && _parts.length > 1)
       {
-        // The two put back into one: the first keeps the whole materia, and the
-        // second stops being part of the drawing — which is what deletes its
-        // hour when the window is confirmed.
         final first = _parts.first;
 
         first.disciplineIds = {..._entry.requestedDisciplineIds};
@@ -614,28 +510,17 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         final first = _parts.first;
         final ordered = _requestedDisciplines;
 
-        // Split down the middle as a starting point: something in each part is
-        // what makes the two rows readable. One discipline goes in both, since
-        // an hour with nothing in it is not an hour.
         final cut = (ordered.length / 2).ceil();
 
         first.disciplineIds = ordered.take(cut).toSet();
 
         final rest = ordered.skip(cut).toSet();
 
-        // What the second hour is about. A service has nothing to share out —
-        // it is not made of disciplines — and asking a list with nothing in it
-        // for its last element is what stopped a service from being divided at
-        // all. A single discipline goes in both hours instead: two teachers
-        // taking turns on it.
         final second = ordered.isEmpty
             ? const <int>{}
             : rest.isEmpty
                 ? {ordered.last}
                 : rest;
-        // The first hour gives its half back before the second looks for a
-        // place: asked while the first still held every minute, the second was
-        // refused everywhere.
         final total = _booking.duration;
         final half = snapQuarterDown(total ~/ 2).clamp(kMinimumBandMinutes, total - kMinimumBandMinutes);
 
@@ -653,8 +538,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     });
   }
 
-  // Puts a discipline into one of the hours, or takes it out. An hour about
-  // nothing is not a lesson, so the last discipline of a part does not answer.
   void _setDisciplineIn(int partIndex, int disciplineId, bool selected)
   {
     final part = _parts[partIndex];
@@ -677,8 +560,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         part.disciplineIds.remove(disciplineId);
       }
 
-      // Moving a discipline can cost the chosen teacher their competence for the
-      // hour it lands in, and it moves the ceilings with it.
       _reconcile();
     });
   }
@@ -691,11 +572,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     });
   }
 
-  // --- writing --------------------------------------------------------------
-
-  // What confirming would do, in a forced order: deletions, then rewritings,
-  // then new hours. An hour has to give its minutes back before another asks
-  // for them, and leave before anything is written over its place.
   Future<void> _confirm() async
   {
     if (_isSaving)
@@ -703,8 +579,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       return;
     }
 
-    // Pressed with something in the way: the button says what it is rather than
-    // doing nothing, which is what it did before and reads as a broken button.
     final obstacle = _obstacle;
 
     if (obstacle != null)
@@ -807,10 +681,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         !same;
   }
 
-  // --- the two steps --------------------------------------------------------
-
-  // The name of one field over the one datum under it, spaced the way every
-  // field of the booking wizard is spaced.
   Widget _label(String text, {bool first = true})
   {
     return Padding(
@@ -836,14 +706,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   String _partName(int index) => index == 0 ? 'Prima parte' : 'Seconda parte';
 
-  // Whether the materia can be asked for in two hours. The disciplines have
-  // nothing to do with it: one discipline in two hours is two teachers taking
-  // turns.
-  //
-  // Measured on the whole request and not on what is unplanned: this window
-  // redraws existing hours as readily as it writes new ones, and read the other
-  // way a fully planned materia answered "less than an hour left" about
-  // itself.
   bool get _canSplit => _booking.duration >= 2 * kMinimumBandMinutes;
 
   Widget _buildDivision()
@@ -853,36 +715,25 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Measured from the two words in it rather than stretched to the card:
-        // a yes-or-no two syllables wide, sitting at one end of a piece the
-        // width of the window, reads as a field with something missing beside
-        // it. See AppSegmentedTabs.hugContent, which is there for this.
         Center(
           child: AppDialogPill(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              // The question is asked once, in the guide above, and this is
-              // where it is answered: a label and a sentence here would be the
-              // same two lines a hand's breadth apart.
               children: [
                 AppSegmentedTabs(
                   labels: const ['Una', 'Due'],
                   selectedIndex: _parts.length > 1 ? 1 : 0,
-                  // The tab answers with its own index; what is being chosen is
-                  // a number of hours, and the two are one apart.
                   onSelected: _canSplit && !_isLocked ? (index) => _setPartCount(index + 1) : (_) {},
                   height: 38,
                   fontSize: 13,
                   padding: EdgeInsets.zero,
                   hugContent: true,
                 ),
-                // Only where one of the two answers is not available: that is
-                // not the question said again, it is why it cannot be answered.
                 if (!_canSplit) ...[
                   const SizedBox(height: 10),
                   Text(
                     'È stata prenotata meno di un\'ora: non è possibile dividere la materia in due '
-                        'lezioni poiché ogni lezione deve durare almeno mezz\'ora.',
+                        'lezioni poiché ognuna deve durare almeno mezz\'ora.',
                     style: _noteStyle,
                   ),
                 ],
@@ -890,9 +741,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
             ),
           ),
         ),
-        // Only where there is something to assign. One discipline in two hours
-        // is in both of them, and a table asking which of the two would be a
-        // question with one wrong answer.
         if (_parts.length > 1 && disciplines.length > 1) ...[
           const SizedBox(height: 14),
           AppDialogPill(
@@ -911,9 +759,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     );
   }
 
-  // Two switches and not a choice between two: a discipline can be in both —
-  // two teachers taking turns — and in neither, which leaves it for another
-  // time. A row forcing a pick could not draw what is already on the track.
   Widget _buildDisciplineRow(int id)
   {
     return Padding(
@@ -935,8 +780,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     );
   }
 
-  // Three cases, none readable off the digits: assegnata un'ora, assegnate due
-  // ore, assegnati quaranta minuti. An hour and a half takes the singular.
   String _assignedWord(int minutes)
   {
     final hours = minutes ~/ 60;
@@ -949,11 +792,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return hours == 1 ? 'Assegnata' : 'Assegnate';
   }
 
-  // What the drawing adds up to, under the hours it is made of.
-  //
-  // It belongs here and not on a step of its own: the sliders above are what
-  // set the minutes, and a page that asked for them first only to let them be
-  // dragged about afterwards was asking the same question twice.
   Widget _buildTotals()
   {
     final assigned = _parts.fold(0, (total, part) => total + part.minutes);
@@ -961,9 +799,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     return AppDialogPill(
       expand: true,
-      // The sum, as a sum: two numbers and the word between them. A sentence is
-      // read once and skipped after that, and this line changes under the hand
-      // at every drag of the sliders above it.
       child: Row(
         children: [
           Expanded(
@@ -1042,7 +877,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
             const SizedBox(height: 14),
           ],
           _label('Docente e ore libere'),
-          if (part.isPublished)
+          if (part.isLocked)
             Text(
               'Pubblicata: ${formatMinutesRange(part.startMinutes, part.endMinutes)}. Non può '
                   'essere modificata.',
@@ -1094,10 +929,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
               windowStartMinutes: slot.windowStart,
               windowEndMinutes: slot.windowEnd,
               nameOverride: '',
-              // The slider writes the hours itself, large, above its own track:
-              // a line saying them again over it was the same range twice. What
-              // it does not say is how long they are, and that goes in the slot
-              // the open/closed switch leaves empty here.
               trailing: Text(formatMinutes(part.minutes), style: _valueStyle),
             ),
             if (refusal != null) ...[
@@ -1136,9 +967,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     );
   }
 
-  // The two quantities the window is bounded by: how long the materia was asked
-  // for, and how long the pupil is here. An hour and a half inside five hours is
-  // a different problem from one inside two, so it is read with the title.
   Widget _buildFacts()
   {
     final presence = _entry.presence;
@@ -1152,9 +980,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         children: [
           Icon(icon, size: 16, color: accent),
           const SizedBox(width: 6),
-          // Flexible: a Wrap hands its children a bounded width, but a Row of
-          // minimum size would pass the text an unbounded one and let it run out
-          // of the window — and this line is wider than a phone's whole dialog.
           Flexible(
             child: Text(
               text,
@@ -1170,10 +995,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       );
     }
 
-    // The name is dropped rather than the clock, which is the part being read:
-    // the name is already the title, the face and the eyebrow.
-    //
-    // Not "Presente" for both — a pupil at a screen is not present anywhere.
     final presenceLabel = mode == kOnlineMode ? 'Online' : 'Presente';
 
     return Wrap(
@@ -1191,14 +1012,11 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     );
   }
 
-  // The one thing in the way: the band being published, or the first part the
-  // calendar would refuse. Not drawn anywhere — every part says its own refusal
-  // under its own fields — but answered with by the confirm, in a banner.
   String? get _obstacle
   {
     if (_isLocked)
     {
-      return kPublishedRefusal;
+      return kSettledRefusal;
     }
 
     for (final part in _parts)
@@ -1214,12 +1032,8 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return null;
   }
 
-  // The two quantities the window is bounded by. Not the materia's name, which
-  // titles the window: what belongs here is what the steps below are spending.
   String? get _blockedReason
   {
-    // Only where there are disciplines to put anywhere: a service is not made of
-    // them, and an hour of it with none is the only shape it has.
     if (_requestedDisciplines.isNotEmpty && _parts.any((part) => part.disciplineIds.isEmpty))
     {
       return 'Ogni lezione deve avere almeno una disciplina.';
@@ -1228,9 +1042,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     return null;
   }
 
-  // The three questions in the order they can be answered: in how many hours,
-  // how long each is, and who takes them when. Three and not two — the minutes
-  // are what the request is made of, and belong to a question of their own.
   ({String question, String hint}) get _guide
   {
     return switch (_stepIndex)
@@ -1278,10 +1089,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       leading: PersonAvatar(person: _entry.presence.student, size: PersonAvatar.titleSize),
       subtitle: _buildFacts(),
       maxWidth: _dialogWidth,
-      // The two answers side by side, and the one that takes something away
-      // dressed as such: it is where every other window of the app puts the
-      // command that deletes, and it only exists while there is something on the
-      // calendar to take off.
       footer: _entry.parts.isEmpty || _isLocked
           ? AppDialogFooter.single(
               maxWidth: _dialogFooterWidth,
@@ -1343,8 +1150,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
   }
 }
 
-// Opens the window on one request, whichever way it was reached: the card in
-// the panel and the hour on the track are two views of the same materia.
 Future<void> showLessonPlanWizard({
   required BuildContext context,
   required SchedulableBooking entry,

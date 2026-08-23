@@ -14,11 +14,11 @@ END_BEFORE_START_ERROR: Final[str] = (
 )
 
 _INCONSISTENT_CLOSURE_ERROR: Final[str] = (
-    "Se la fascia è chiusa, sia l'orario di inizio sia quello di fine devono "
-    "essere assenti."
+    "Se è chiuso, sia l'orario di inizio sia quello di fine devono essere "
+    "assenti."
 )
 
-_BAND_TOO_SHORT_ERROR: Final[str] = "La fascia oraria deve durare almeno mezz'ora."
+_BAND_TOO_SHORT_ERROR: Final[str] = "L'orario deve durare almeno mezz'ora."
 
 
 def _strip(value: str) -> str:
@@ -58,9 +58,6 @@ class QuarterHourTimeRangeMixin(TimeRangeMixin):
         return assert_quarter_hour_step(value)
 
 
-# A stretch of the day: quarter-hour steps, at least half an hour long. Shared
-# by the hours a pupil gives and the ones asked for in a single lesson request,
-# which are the same sentence asked twice.
 class TimeBandMixin(QuarterHourTimeRangeMixin):
     @model_validator(mode="after")
     def _band_is_long_enough(self) -> Self:
@@ -70,7 +67,6 @@ class TimeBandMixin(QuarterHourTimeRangeMixin):
         return self
 
 
-# Both bounds absent means closed, so they are either both there or neither is.
 class OptionalTimeRangeMixin(BaseModel):
     start_time: time | None = None
     end_time: time | None = None

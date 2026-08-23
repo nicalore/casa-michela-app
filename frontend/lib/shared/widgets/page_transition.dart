@@ -1,53 +1,30 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 
 import 'casa_michela_loader.dart';
 
-// How one page gives way to the next. Walking between the top bar's
-// destinations changes what is inside a shell that does not move: they are
-// branches of one page, all alive at once, held by [ShellDestinations], and the
-// content leaves and arrives one element at a time. Everything else really is a
-// change of page.
-
-// One duration for the two of them, so a step reads the same whatever kind it
-// is, and the timeline below is that duration divided between the half that
-// empties and the half that fills in.
 const Duration _pageTransition = Duration(milliseconds: 1200);
 
-// The timeline of a shell step, in fractions of the whole: the page leaving
-// empties first, the page arriving fills in after, and in the middle the two
-// identical backgrounds are crossfaded so the shell never appears to move.
-//
-// [_slotDelay] is the wait between the first slot and the second, and every
-// slot after that waits [_slotDecay] of what the one before it did. A flat wait
-// per slot has to be capped somewhere or the last card would still be leaving
-// after the new page had arrived, and everything past that cap then moves in one
-// block — on a grid, every row but the first. Shortening the wait instead of
-// stopping it leaves the head of the page the run-up it was drawn with and still
-// gives the twentieth card a beat of its own.
-const double _slotDelay = 0.038;
-const double _slotDecay = 0.85;
+const double _slotDelay = 0.024;
+const int _lastDelayedSlot = 11;
+
+const double _waveDown = 0.15;
+const double _waveAcross = 0.075;
 
 const double _exitSpan = 0.22;
 const double _enterStart = 0.40;
 const double _enterSpan = 0.32;
 
-// The whole of the wait, summed over every slot there could ever be. It is what
-// the geometric series above converges to, so no count of cards can push the
-// arriving page past the end of its own step.
-const double _slotSpread = _slotDelay / (1 - _slotDecay);
+const double _listWait = PageTransitionItem.list * _slotDelay;
 
-// Where each half of the timeline is done: the longest any slot waits, plus the
-// span it is given.
+const double _slotSpread = _listWait + _waveDown + _waveAcross;
+
 const double _exitEnd = _slotSpread + _exitSpan;
 const double _enterEnd = _enterStart + _slotSpread + _enterSpan;
 
-// The turn of a step made in place — see [_HandoverState._held]. With a single
-// child the two halves cannot overlap: it has to be empty before what it shows
-// can be swapped, so they are laid end to end on the one controller.
 const double _reentryTurn = 0.5;
 
 double _reentryProgress(double value)
@@ -57,29 +34,19 @@ double _reentryProgress(double value)
       : _enterStart + (value - _reentryTurn) / (1 - _reentryTurn) * (_enterEnd - _enterStart);
 }
 
-// Where the page arriving stops holding itself back. It begins before the last
-// element has finished leaving on purpose: a moment with nothing on the paper
-// reads as a page that failed to load rather than as a page changing.
 const double _arrivalFadeStart = 0.36;
 const double _arrivalFadeEnd = 0.46;
 
-// A step the wrong way before the dash, and the share of the element's time it
-// takes. The pause at the end of it is what makes leaving read as a decision.
 const double _runUp = 22;
 const double _runUpShare = 0.32;
 
-// Where an element coming in overshoots to before settling back, and the share
-// of its time left for that settling.
 const double _overshoot = 7;
 const double _overshootShare = 0.84;
 
-// Measured on the window and not fixed: a step that reads as leaving on a phone
-// is a twitch on a desktop. Out is longer — it has to look gone, not moved.
 double _exitTravel(double width) => (width * 0.50).clamp(260.0, 760.0);
 
 double _enterTravel(double width) => (width * 0.22).clamp(130.0, 340.0);
 
-// The page every route of the app is wrapped in: the mark over a white blur.
 CustomTransitionPage<void> buildAppTransitionPage({
   required LocalKey key,
   required Widget child,
@@ -88,7 +55,6 @@ CustomTransitionPage<void> buildAppTransitionPage({
   return CustomTransitionPage<void>(
     key: key,
     child: child,
-    // The page below has to keep being drawn: it is what the white is laid over.
     opaque: false,
     transitionDuration: _pageTransition,
     reverseTransitionDuration: _pageTransition,
@@ -99,68 +65,57 @@ CustomTransitionPage<void> buildAppTransitionPage({
   );
 }
 
-// One element of a page, in reading order. What is left unwrapped is handed over
-// in the crossfade, which is what the shell wants.
-//
-// The slot is a rank and not a strict index: same slot means moving together,
-// and past [_lastDelayedSlot] all at once. Counted within the page, and an
-// element must not sit inside another: the transforms would compound.
 class PageTransitionItem extends StatelessWidget
 {
-  // What frames the page: the section rail, the greeting, the heading that
-  // stands in for the rail on a narrow window.
   static const int frame = 0;
 
-  // What heads the content: the search field, the button beside it, the
-  // filters, the count under them.
   static const int header = 1;
 
-  // The first of the cards. The ones after it follow, one slot each.
   static const int list = 2;
 
-  // Where a card of a grid falls in the wave. Counted straight along the list a
-  // row would be four slots wide and the row under it would start four slots
-  // late, so by the second screenful the whole page is moving on one beat.
-  // Adding the row to the column sends the wave down the diagonal instead: a row
-  // keeps the run-up along it that it was drawn with, and the row beneath simply
-  // comes in one slot behind.
-  static int gridSlot(int index, int columns)
-  {
-    final int across = columns < 1 ? 1 : columns;
-
-    return list + index ~/ across + index % across;
-  }
-
-  final int slot;
+  final int? slot;
   final Widget child;
 
   const PageTransitionItem({
     super.key,
-    required this.slot,
+    required int this.slot,
     required this.child,
   });
+
+  const PageTransitionItem.wave({
+    super.key,
+    required this.child,
+  }) : slot = null;
 
   @override
   Widget build(BuildContext context)
   {
     final scope = _PageTransitionScope.maybeOf(context);
+    final int? slot = this.slot;
+
+    if (slot == null)
+    {
+      return _WaveItem(
+        progress: scope?.progress ?? 1,
+        leaving: scope?.leaving ?? false,
+        axis: scope?.axis ?? Axis.vertical,
+        window: MediaQuery.sizeOf(context),
+        child: child,
+      );
+    }
 
     Offset offset = Offset.zero;
     double opacity = 1;
 
-    // No scope means nothing is moving: either this is not a destination of the
-    // shell at all — a person's page, the login — or the one it is in is being
-    // read rather than left.
     if (scope != null)
     {
       final Size window = MediaQuery.sizeOf(context);
 
-      // The same journey on whichever axis: destinations run along the bar,
-      // sections up the rail. Only which measurement of the window changes.
       final bool sideways = scope.axis == Axis.horizontal;
       final double extent = sideways ? window.width : window.height;
 
-      final double elapsed = _slotProgress(scope.progress, slot, leaving: scope.leaving);
+      final double elapsed =
+          _slotProgress(scope.progress, wait: _slotWait(slot), leaving: scope.leaving);
 
       final double travelled = scope.leaving
           ? _exitOffset(elapsed, _exitTravel(extent))
@@ -170,10 +125,6 @@ class PageTransitionItem extends StatelessWidget
       opacity = scope.leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
     }
 
-    // The same two widgets whatever is happening: Flutter pairs widgets to
-    // elements by position, so handing the element back bare at rest rebuilds
-    // everything below it — here whole pages, which then refetched their data.
-    // At rest neither costs anything.
     return Transform.translate(
       offset: offset,
       child: Opacity(opacity: opacity, child: child),
@@ -181,12 +132,212 @@ class PageTransitionItem extends StatelessWidget
   }
 }
 
-// Every block of a column on its own beat: left whole, a page of forms leaves as
-// one slab, which beside a page of cards reads as two different apps.
-//
-// The children a Column would have been given, handed back wrapped, so the page
-// keeps its own spacing: the air passes through and only what can be seen gets a
-// beat. Counted here and not at the call, which is how two blocks share one.
+class _WaveItem extends SingleChildRenderObjectWidget
+{
+  final double progress;
+  final bool leaving;
+  final Axis axis;
+  final Size window;
+
+  const _WaveItem({
+    required this.progress,
+    required this.leaving,
+    required this.axis,
+    required this.window,
+    required Widget super.child,
+  });
+
+  @override
+  _RenderWaveItem createRenderObject(BuildContext context)
+  {
+    return _RenderWaveItem(progress, leaving, axis, window);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderWaveItem renderObject)
+  {
+    renderObject
+      ..progress = progress
+      ..leaving = leaving
+      ..axis = axis
+      ..window = window;
+  }
+}
+
+class _RenderWaveItem extends RenderProxyBox
+{
+  double _progress;
+  bool _leaving;
+  Axis _axis;
+  Size _window;
+
+  Offset _shift = Offset.zero;
+
+  double? _wait;
+
+  _RenderWaveItem(this._progress, this._leaving, this._axis, this._window);
+
+  bool get _moving => _leaving || _progress < 1;
+
+  set progress(double value)
+  {
+    if (_progress == value)
+    {
+      return;
+    }
+
+    final bool was = _moving;
+    _progress = value;
+
+    if (was != _moving)
+    {
+      _wait = null;
+      markNeedsCompositingBitsUpdate();
+    }
+
+    markNeedsPaint();
+  }
+
+  set leaving(bool value)
+  {
+    if (_leaving == value)
+    {
+      return;
+    }
+
+    final bool was = _moving;
+    _leaving = value;
+    _wait = null;
+
+    if (was != _moving)
+    {
+      markNeedsCompositingBitsUpdate();
+    }
+
+    markNeedsPaint();
+  }
+
+  set axis(Axis value)
+  {
+    if (_axis == value)
+    {
+      return;
+    }
+
+    _axis = value;
+    markNeedsPaint();
+  }
+
+  set window(Size value)
+  {
+    if (_window == value)
+    {
+      return;
+    }
+
+    _window = value;
+    _wait = null;
+    markNeedsPaint();
+  }
+
+  @override
+  void performLayout()
+  {
+    super.performLayout();
+    _wait = null;
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => child != null && _moving;
+
+  double _waitForPlace()
+  {
+    final RenderObject? viewport = RenderAbstractViewport.maybeOf(this);
+
+    if (viewport is! RenderBox || !viewport.hasSize || !hasSize)
+    {
+      return _listWait;
+    }
+
+    final Size view = viewport.size;
+
+    if (view.isEmpty)
+    {
+      return _listWait;
+    }
+
+    final Offset here = localToGlobal(Offset.zero, ancestor: viewport);
+
+    final double down = (here.dy / view.height).clamp(0.0, 1.0);
+    final double across = (here.dx / view.width).clamp(0.0, 1.0);
+
+    return _listWait + down * _waveDown + across * _waveAcross;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset)
+  {
+    final RenderBox? child = this.child;
+
+    if (child == null)
+    {
+      return;
+    }
+
+    if (!_moving)
+    {
+      _shift = Offset.zero;
+      layer = null;
+      context.paintChild(child, offset);
+
+      return;
+    }
+
+    final bool sideways = _axis == Axis.horizontal;
+    final double extent = sideways ? _window.width : _window.height;
+
+    final double wait = _wait ??= _waitForPlace();
+    final double elapsed = _slotProgress(_progress, wait: wait, leaving: _leaving);
+
+    final double travelled = _leaving
+        ? _exitOffset(elapsed, _exitTravel(extent))
+        : _enterOffset(elapsed, _enterTravel(extent));
+
+    _shift = sideways ? Offset(travelled, 0) : Offset(0, travelled);
+
+    final double opacity = _leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
+    final int alpha = (opacity * 255).round().clamp(0, 255);
+
+    if (alpha == 0)
+    {
+      layer = null;
+
+      return;
+    }
+
+    if (alpha == 255)
+    {
+      layer = null;
+      context.paintChild(child, offset + _shift);
+
+      return;
+    }
+
+    layer = context.pushOpacity(
+      offset + _shift,
+      alpha,
+      (PaintingContext inner, Offset innerOffset) => inner.paintChild(child, innerOffset),
+      oldLayer: layer as OpacityLayer?,
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform)
+  {
+    transform.translateByDouble(_shift.dx, _shift.dy, 0, 1);
+  }
+}
+
 List<Widget> pageTransitionBlocks(List<Widget> children)
 {
   var slot = PageTransitionItem.header;
@@ -200,22 +351,10 @@ List<Widget> pageTransitionBlocks(List<Widget> children)
   ];
 }
 
-// A scroll view that opens its sides while a page is changing: a viewport clips
-// all four, so an element walking off was cut at its own column and vanished
-// halfway across. It clips nothing and the two scrolling edges are put back by
-// hand, opened only during a step and by the width of the window.
-//
-// Sideways only: between sections the clip does its job, or a card would fly
-// over the field and filters above the list.
 class PageTransitionScrollView extends StatelessWidget
 {
-  // What scrolls, described whole. Null where [slivers] was given instead.
   final Widget? child;
 
-  // What scrolls, described a screenful at a time. A catalogue is the reason
-  // this way in exists: a page laid out as one box has to describe and lay out
-  // every card it holds, and during a step each of those is also a layer to
-  // composite — three hundred of them for the two dozen anyone can see.
   final List<Widget>? slivers;
 
   const PageTransitionScrollView({super.key, required Widget this.child}) : slivers = null;
@@ -244,8 +383,6 @@ class PageTransitionScrollView extends StatelessWidget
 
 class _SidewaysClip extends CustomClipper<Rect>
 {
-  // How far past either side the content is allowed to be seen. At zero this is
-  // the plain bounds of the box, which is what a viewport clips to anyway.
   final double overhang;
 
   const _SidewaysClip(this.overhang);
@@ -257,28 +394,17 @@ class _SidewaysClip extends CustomClipper<Rect>
   bool shouldReclip(_SidewaysClip oldClipper) => oldClipper.overhang != overhang;
 }
 
-// Where an element is along its own share of the step: 0 before its turn comes,
-// 1 once it is done.
-double _slotProgress(double progress, int slot, {required bool leaving})
+double _slotProgress(double progress, {required double wait, required bool leaving})
 {
-  final double start = (leaving ? 0.0 : _enterStart) + _slotWait(slot);
+  final double start = (leaving ? 0.0 : _enterStart) + wait;
   final double span = leaving ? _exitSpan : _enterSpan;
 
   return ((progress - start) / span).clamp(0.0, 1.0);
 }
 
-// How long a slot waits before its turn comes: the run of [_slotDelay] decayed
-// by [_slotDecay] each step, which is the same as this closed form. It rises
-// towards [_slotSpread] and never reaches it, so every slot is behind the one
-// before it however far down the page it sits.
 double _slotWait(int slot)
 {
-  if (slot <= 0)
-  {
-    return 0;
-  }
-
-  return _slotSpread * (1 - math.pow(_slotDecay, slot));
+  return slot.clamp(0, _lastDelayedSlot) * _slotDelay;
 }
 
 double _exitOffset(double elapsed, double travel)
@@ -290,9 +416,6 @@ double _exitOffset(double elapsed, double travel)
 
   final double dash = (elapsed - _runUpShare) / (1 - _runUpShare);
 
-  // Accelerating away from the standstill the run-up ends on, gently: sharper,
-  // the element has barely moved by the time it has faded, and the page reads as
-  // fading rather than leaving.
   return _runUp + (-travel - _runUp) * Curves.easeIn.transform(dash);
 }
 
@@ -308,9 +431,6 @@ double _enterOffset(double elapsed, double travel)
   return -_overshoot * (1 - Curves.easeInOut.transform(settle));
 }
 
-// Fading once properly under way and gone before it stops travelling: what says
-// "left the page" is the speed and not the distance, and fading at the run-up
-// emptied the page before anything had visibly moved.
 double _exitOpacity(double elapsed) => 1 - ((elapsed - 0.45) / 0.5).clamp(0.0, 1.0);
 
 double _enterOpacity(double elapsed) => (elapsed / 0.45).clamp(0.0, 1.0);
@@ -320,22 +440,14 @@ double _arrivalOpacity(double progress)
   return ((progress - _arrivalFadeStart) / (_arrivalFadeEnd - _arrivalFadeStart)).clamp(0.0, 1.0);
 }
 
-// What the elements of a page read to know where they are in the step.
 class _PageTransitionScope extends InheritedWidget
 {
-  // 0 at the start of the step and 1 at the end of it, whichever side of the
-  // handover this page is on.
   final double progress;
 
   final bool leaving;
 
-  // Which way the step is being made: along the row for a change of
-  // destination, up the column for a change of section.
   final Axis axis;
 
-  // Whether there is anything to get out of the way of. A page that has arrived
-  // and is being read sits at the end of its own animation and is not moving;
-  // one still to arrive sits at the start of it and is.
   bool get moving => leaving || progress < 1;
 
   const _PageTransitionScope({
@@ -359,17 +471,10 @@ class _PageTransitionScope extends InheritedWidget
   }
 }
 
-// The destinations of the shell, every one alive at once and kept offstage with
-// their tickers stopped, so coming back finds one as it was left. The step
-// between two crossfades the identical backgrounds, so the shell never moves.
 class ShellDestinations extends StatelessWidget
 {
-  // Which of [children] is the destination being shown.
   final int currentIndex;
 
-  // The destinations, in the order they are declared. It is also the order they
-  // are drawn in, which is why the crossfade is laid on whichever of the two
-  // happens to be the upper one rather than always on the same one.
   final List<Widget> children;
 
   const ShellDestinations({
@@ -385,31 +490,19 @@ class ShellDestinations extends StatelessWidget
       index: currentIndex,
       step: null,
       axis: Axis.horizontal,
-      // The shell fills the screen, and so does every destination in it.
       fit: StackFit.expand,
-      // The only thing that tells a page it is being read again. Sections do
-      // not: coming back to one is not coming back to the app.
       announces: true,
       children: children,
     );
   }
 }
 
-// The sections of a page: the same handover as [ShellDestinations] made up the
-// page instead of across it. It stands where an IndexedStack was and keeps every
-// section mounted. Nested inside the shell it steps aside, or two scopes would
-// pull the same elements two ways.
 class PageSections extends StatelessWidget
 {
-  // Which of [children] is the section being shown.
   final int index;
 
-  // Where one section stands for several rail entries: the lessons walk a week
-  // through one pair of lists, so Tuesday to Wednesday leaves [index] alone and
-  // the section hands over to itself. Null on every other page.
   final Object? step;
 
-  // The sections, in the order the rail counts them.
   final List<Widget> children;
 
   const PageSections({
@@ -426,9 +519,6 @@ class PageSections extends StatelessWidget
       index: index,
       step: step,
       axis: Axis.vertical,
-      // Loose, unlike the shell: the settings are as tall as whichever section
-      // is open rather than being given a height, and a section stretched to a
-      // height nobody has would have nothing to stretch to.
       fit: StackFit.loose,
       announces: false,
       children: children,
@@ -436,21 +526,15 @@ class PageSections extends StatelessWidget
   }
 }
 
-// The machinery both of them are: one child on screen, the others mounted and
-// offstage, and a staggered step from one to the next along a given axis.
 class _Handover extends StatefulWidget
 {
   final int index;
 
-  // What the child on screen is about, for the steps that do not change which
-  // child that is. See [PageSections.step].
   final Object? step;
 
   final Axis axis;
   final StackFit fit;
 
-  // Whether the children are told they are being shown again, for the pages
-  // that ask again for their data when they are.
   final bool announces;
 
   final List<Widget> children;
@@ -478,14 +562,8 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
 
   late int _arriving = widget.index;
 
-  // The one still on screen while it empties itself, and null whenever there is
-  // no step under way.
   int? _leaving;
 
-  // What the child showed before a step that does not change which child it is.
-  // There cannot be a second subtree — the two days are one widget — so it hands
-  // over to itself, holding the last description until the turn. Held and not
-  // rebuilt, so the day changes at the turn rather than at the click.
   Widget? _held;
 
   @override
@@ -500,8 +578,6 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   {
     super.didUpdateWidget(oldWidget);
 
-    // No setState anywhere here: this runs from the rebuild that brought the new
-    // index in, and the frame it belongs to has not been laid out yet.
     if (widget.index != _arriving)
     {
       _leaving = _arriving;
@@ -513,17 +589,11 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
       return;
     }
 
-    // The same section about something else — see [_held]. Not while a step
-    // between two is running, or a day changes inside a section half off the
-    // page.
     if (widget.step == oldWidget.step || _leaving != null || _arriving >= oldWidget.children.length)
     {
       return;
     }
 
-    // What is on screen at this moment is what the step has to empty. Partway
-    // through one already, that is still the description held from it rather
-    // than the one just built, which nothing has drawn yet.
     if (_held == null || _controller.value >= _reentryTurn)
     {
       _held = oldWidget.children[_arriving];
@@ -539,8 +609,6 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     super.dispose();
   }
 
-  // Once the step is over the one left behind goes offstage, which is what
-  // stops it being drawn and laid out until it is asked for again.
   void _onStatusChanged(AnimationStatus status)
   {
     if (status == AnimationStatus.completed && (_leaving != null || _held != null))
@@ -559,48 +627,26 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     final bool leaving = index == _leaving;
     final bool onScreen = arriving || leaving;
 
-    // A step made in place: this child is both halves of it, one after the
-    // other, and until the turn what it is drawn from is the description it
-    // had before the step. See [_held].
     final bool inPlace = _held != null && arriving;
     final bool emptying = inPlace && progress < _reentryTurn;
 
-    // Laid on the one drawn last, which is the one hiding the other. Reordering
-    // them would take their state along, and is not needed: the backgrounds are
-    // the same paper, so fading the upper one either way is the same picture.
     final bool upper = _leaving != null && index == (_arriving > _leaving! ? _arriving : _leaving!);
 
     final double opacity = !upper
         ? 1
         : (arriving ? _arrivalOpacity(progress) : 1 - _arrivalOpacity(progress));
 
-    // The shape below never changes, whichever state a child is in: swap a
-    // widget in or out of it and what is underneath is built again from
-    // nothing, which is the very thing this exists to avoid.
     return Offstage(
       offstage: !onScreen,
       child: TickerMode(
         enabled: onScreen,
-        // Nothing answers the pointer while the step is under way: the one
-        // leaving is still on screen, and a card caught on its way out would
-        // open something the page it belongs to is already halfway out of.
         child: IgnorePointer(
           ignoring: !arriving || _leaving != null || inPlace,
           child: _DestinationScope(
-            // A section says nothing about the destination it sits in: the
-            // answer stays the one the shell gave, which the scope above this
-            // one is still holding.
             current: widget.announces
                 ? arriving && !covered
                 : _DestinationScope.of(context),
             child: _PageTransitionScope(
-              // A child nobody can see is told the step is over rather than how
-              // far along it is. Every section of a page is mounted at once, and
-              // a scope that ticks is one every element under it depends on: the
-              // page being read would be rebuilt on each frame together with the
-              // seven put away behind it, which is most of the cost of a step
-              // spent on pixels that are not drawn. Held still, they are not
-              // rebuilt at all, and at rest the numbers below say the same thing.
               progress: onScreen
                   ? (outer?.progress ?? (inPlace ? _reentryProgress(progress) : progress))
                   : 1,
@@ -620,15 +666,9 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   @override
   Widget build(BuildContext context)
   {
-    // The step this one stands inside of: during a change of destination the
-    // whole page travels, section included, and passing that on is what keeps
-    // the two from pulling the same elements two ways.
     final enclosing = _PageTransitionScope.maybeOf(context);
     final outer = (enclosing != null && enclosing.moving) ? enclosing : null;
 
-    // How far the shell's page is covered by another: a detail page opens over
-    // every destination, so without this closing one returned to a list that
-    // never knew it was back. Dialogs do not count — only a page drives it.
     final Animation<double>? covering = ModalRoute.of(context)?.secondaryAnimation;
 
     return AnimatedBuilder(
@@ -651,25 +691,10 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   }
 }
 
-// For a page whose sections are built the first time they are asked for and
-// kept from then on.
-//
-// That first build is the heaviest frame of a step by a long way: a catalogue is
-// a hundred cards, and describing a hundred cards for the first time does not
-// fit inside a frame. Left where it falls it lands in the middle of the step,
-// which is the one moment of the page where a dropped frame is the whole point
-// of what is being watched. So it is moved off it: the section is mounted
-// offstage on one frame, and the rail steps on the next. The cost is a frame
-// nobody is looking at, against a stutter in an animation everybody is.
 mixin SectionVisits<T extends StatefulWidget> on State<T>
 {
-  // The sections that have been opened, and so are built. Read by the page to
-  // decide which of its children are real and which are still a placeholder.
   final Set<int> visitedSections = {};
 
-  // Open [index], with [show] recording it as the section now being read.
-  // Somewhere that has been open before has nothing left to build, and steps
-  // straight away.
   void openSection(int index, VoidCallback show)
   {
     if (!visitedSections.add(index))
@@ -679,8 +704,6 @@ mixin SectionVisits<T extends StatefulWidget> on State<T>
       return;
     }
 
-    // This frame only mounts what the next one will step to: nothing about what
-    // is on screen changes yet.
     setState(() {});
 
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -693,14 +716,10 @@ mixin SectionVisits<T extends StatefulWidget> on State<T>
   }
 }
 
-// For a page told when its destination is opened again: never taken down means
-// never reloaded, so it asks the server again quietly without taking down what
-// it shows. Not called the first time, nor outside the shell.
 mixin DestinationRefresh<T extends StatefulWidget> on State<T>
 {
   bool? _wasShown;
 
-  // Ask again, quietly, for whatever this page is showing.
   void onDestinationShown();
 
   @override
@@ -719,9 +738,6 @@ mixin DestinationRefresh<T extends StatefulWidget> on State<T>
   }
 }
 
-// Whether the destination this sits in is the one being shown. Outside the shell
-// — a person's page, the login — there is no destination to speak of and the
-// answer is yes, which leaves whatever reads it alone.
 class _DestinationScope extends InheritedWidget
 {
   final bool current;
@@ -737,9 +753,6 @@ class _DestinationScope extends InheritedWidget
   bool updateShouldNotify(_DestinationScope oldWidget) => oldWidget.current != current;
 }
 
-// The step that changes screen: the mark over a white blur, as it has always
-// been. Nothing here reads the slots, so a page playing this one moves as a
-// block whatever its elements are wrapped in.
 class _ScreenTransition extends StatelessWidget
 {
   final Animation<double> animation;

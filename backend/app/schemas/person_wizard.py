@@ -3,6 +3,7 @@ from typing import Final, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core import field_lengths
 from app.schemas.person import ParentalRelationshipInput
 
 _MISSING_CONSENTS_ERROR: Final[str] = (
@@ -14,7 +15,6 @@ _MANDATORY_PSYCH_MEETINGS_ERROR: Final[str] = (
     "lo psicologo."
 )
 
-# Field name paired with how it is named back to whoever left it unticked.
 _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
     ("statute_acknowledged", "presa visione dello Statuto"),
     ("regulation_acknowledged", "accettazione del Regolamento"),
@@ -28,22 +28,26 @@ _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
 
 
 class WizardGeneralData(BaseModel):
-    first_name: str = Field(..., min_length=1)
-    last_name: str = Field(..., min_length=1)
-    tax_code: str = Field(..., min_length=16, max_length=16)
+    first_name: str = Field(..., min_length=1, max_length=field_lengths.PERSON_NAME)
+    last_name: str = Field(..., min_length=1, max_length=field_lengths.PERSON_NAME)
+    tax_code: str = Field(
+        ...,
+        min_length=field_lengths.TAX_CODE,
+        max_length=field_lengths.TAX_CODE,
+    )
     gender: str
     birth_date: date
-    birth_city: str
-    birth_nation: str
-    birth_province: str = Field(..., max_length=2)
-    residence_type: str
-    residence_address: str
-    residence_street_number: str
-    residence_city: str
-    residence_province: str = Field(..., max_length=2)
-    postal_code: str = Field(..., max_length=5)
-    email: str
-    phone: str
+    birth_city: str = Field(..., max_length=field_lengths.CITY)
+    birth_nation: str = Field(..., max_length=field_lengths.NATION)
+    birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
+    residence_type: str = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
+    residence_address: str = Field(..., max_length=field_lengths.ADDRESS)
+    residence_street_number: str = Field(..., max_length=field_lengths.STREET_NUMBER)
+    residence_city: str = Field(..., max_length=field_lengths.CITY)
+    residence_province: str = Field(..., max_length=field_lengths.PROVINCE)
+    postal_code: str = Field(..., max_length=field_lengths.POSTAL_CODE)
+    email: str = Field(..., max_length=field_lengths.EMAIL)
+    phone: str = Field(..., max_length=field_lengths.PHONE)
 
 
 class WizardMembershipData(BaseModel):
@@ -57,17 +61,23 @@ class WizardMembershipData(BaseModel):
 class WizardMemberData(BaseModel):
     memberships: list[WizardMembershipData] = Field(default_factory=list)
     payment_method: str | None = None
-    payment_method_other: str | None = None
+    payment_method_other: str | None = Field(
+        None,
+        max_length=field_lengths.OTHER_DETAIL,
+    )
     statute_acknowledged: bool
     regulation_acknowledged: bool
     video_surveillance_acknowledged: bool
     special_category_data_consent: bool
     newsletter_consent: bool
     consents_signed_at: date | None = None
-    emergency_contact_name: str | None = None
-    emergency_contact_phone: str | None = None
-    allergies_notes: str | None = None
-    medications_notes: str | None = None
+    emergency_contact_name: str | None = Field(
+        None,
+        max_length=field_lengths.CONTACT_NAME,
+    )
+    emergency_contact_phone: str | None = Field(None, max_length=field_lengths.PHONE)
+    allergies_notes: str | None = Field(None, max_length=field_lengths.NOTES)
+    medications_notes: str | None = Field(None, max_length=field_lengths.NOTES)
 
     @model_validator(mode="after")
     def _check_mandatory_consents(self) -> Self:
@@ -87,12 +97,12 @@ class WizardMemberData(BaseModel):
 
 class WizardStaffData(BaseModel):
     collaboration_type: str
-    iban: str | None = None
+    iban: str | None = Field(None, max_length=field_lengths.IBAN)
 
 
 class WizardAdminData(BaseModel):
     role: str
-    other_role: str | None = None
+    other_role: str | None = Field(None, max_length=field_lengths.OTHER_ROLE)
 
 
 class WizardTeachingCompetence(BaseModel):
@@ -101,12 +111,10 @@ class WizardTeachingCompetence(BaseModel):
 
 
 class WizardTeacherData(BaseModel):
-    school_education: str | None = None
-    university_education: str | None = None
+    school_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
+    university_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
     competences: list[WizardTeachingCompetence] = Field(default_factory=list)
 
-    # The services the teacher can take on. No study programme: a service is
-    # the same whoever asks for it.
     service_names: list[str] = Field(default_factory=list)
 
 
@@ -129,7 +137,10 @@ class WizardSchoolEnrollmentData(BaseModel):
 class WizardStudentData(BaseModel):
     authorized_early_exit: bool
     certification_type: str | None = None
-    certification_other_detail: str | None = None
+    certification_other_detail: str | None = Field(
+        None,
+        max_length=field_lengths.OTHER_DETAIL,
+    )
     mandatory_psych_meetings_acknowledged: bool
     school_enrollments: list[WizardSchoolEnrollmentData] = Field(default_factory=list)
 

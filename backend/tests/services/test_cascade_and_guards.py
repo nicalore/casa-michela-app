@@ -1,26 +1,29 @@
-from datetime import time
+from contextlib import contextmanager
+from datetime import datetime, time
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
+from app.models.opening_day import OpeningDay
 from app.models.room_supervision import RoomSupervision
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.availability_repository import AvailabilityRepository
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
+from app.schemas.availability import AvailabilityUpdate
 from app.schemas.booking import BookingUpdate
-from app.schemas.presence import PresenceUpdate
 from app.schemas.room_supervision import RoomSupervisionCreate
 from app.schemas.teacher_room_assignment import TeacherRoomAssignmentCreate
 from app.services.availability_cleanup import purge_availabilities_for_closed_days
 from app.services.availability_service import AvailabilityService
 from app.services.booking_service import BookingService
 from app.services.presence_service import PresenceService
-from tests.conftest import ADMIN_IDENTITY
+from tests.conftest import ADMIN_IDENTITY, identity_of
 from tests.factories import make_room
 from tests.services.test_calendar_publication_service import (
     assignments,
@@ -34,6 +37,14 @@ from tests.services.test_lesson_service import (
 from tests.services.test_lesson_service import (
     service as lesson_service,
 )
+
+_ROME = ZoneInfo("Europe/Rome")
+
+
+@contextmanager
+def freeze(moment: datetime):
+    with patch("app.core.booking_close.now_in_rome", return_value=moment):
+        yield
 
 
 async def _count(db: AsyncSession, model) -> int:
@@ -65,15 +76,13 @@ async def _afternoon_with_a_room(db: AsyncSession):
     return built
 
 
-# Closing the day would take a published calendar away without anybody being
-# told, so it is refused and everything stays where it is.
 async def test_closing_a_published_day_is_refused(db: AsyncSession) -> None:
     await _afternoon_with_a_room(db)
 
     db.add(CalendarPublication(date=DAY, band="AFTERNOON"))
     await db.flush()
 
-    with pytest.raises(ValueError, match="depubblica"):
+    with pytest.raises(ValueError, match="in bozza"):
         await purge_availabilities_for_closed_days(db, [DAY], "presence")
 
     assert await _count(db, Lesson) == 1
@@ -81,9 +90,6 @@ async def test_closing_a_published_day_is_refused(db: AsyncSession) -> None:
     assert await _count(db, RoomSupervision) == 1
 
 
-# A draft is work in progress and not history: it goes, and so do the room and
-# the shifts, which hang off neither the availabilities nor the presences and
-# would otherwise be left against a closed day.
 async def test_closing_a_day_of_drafts_clears_everything(
     db: AsyncSession,
 ) -> None:
@@ -100,7 +106,6 @@ def _booking_update(built, **overrides) -> BookingUpdate:
     fields = {
         "duration": built.booking.duration,
         "association_subject_id": built.subject_id,
-        # A request has to say what kind of hour it is.
         "tags": ["HOMEWORK"],
         "topic": None,
         "notes": None,
@@ -116,8 +121,56 @@ def _bookings(db: AsyncSession) -> BookingService:
     return BookingService(BookingRepository(db), PresenceRepository(db))
 
 
-# Adding a note to an hour already on the timetable is exactly when somebody
-# wants to, so the harmless fields stay open.
+async def test_a_teacher_cannot_withdraw_hours_once_the_bookings_close(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+
+    service = AvailabilityService(AvailabilityRepository(db))
+    teacher = identity_of(built.teacher.tax_code, "TEACHER")
+
+    with freeze(datetime(2026, 9, 15, 11, tzinfo=_ROME)):
+        with pytest.raises(ValueError, match="solo un amministratore"):
+            await service.delete(teacher, built.availability.id)
+
+
+async def test_a_teacher_can_withdraw_them_before_they_close(db: AsyncSession) -> None:
+    built = await scene(db)
+
+    service = AvailabilityService(AvailabilityRepository(db))
+    teacher = identity_of(built.teacher.tax_code, "TEACHER")
+
+    with freeze(datetime(2026, 9, 15, 10, 59, tzinfo=_ROME)):
+        await service.delete(teacher, built.availability.id)
+
+    assert await _count(db, Lesson) == 0
+
+
+async def test_an_administrator_is_not_held_to_the_closing(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+
+    service = AvailabilityService(AvailabilityRepository(db))
+
+    with freeze(datetime(2026, 9, 15, 23, tzinfo=_ROME)):
+        await service.delete(ADMIN_IDENTITY, built.availability.id)
+
+    assert await _count(db, Lesson) == 0
+
+
+async def test_a_family_cannot_withdraw_a_request_once_the_bookings_close(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+
+    student = identity_of(built.student.tax_code, "STUDENT")
+
+    with freeze(datetime(2026, 9, 15, 11, tzinfo=_ROME)):
+        with pytest.raises(ValueError, match="solo un amministratore"):
+            await _bookings(db).delete(student, built.booking.id)
+
+
 async def test_a_note_can_still_be_added_to_a_scheduled_request(
     db: AsyncSession,
 ) -> None:
@@ -133,71 +186,80 @@ async def test_a_note_can_still_be_added_to_a_scheduled_request(
     assert updated.topic == "Ripasso"
 
 
-# The length is what the lesson was checked against, so it can no longer move.
-async def test_a_scheduled_request_cannot_change_length(
+async def test_changing_the_length_takes_the_hour_off_the_timetable(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
     await lesson_service(db).create(payload(built))
 
-    with pytest.raises(HTTPException) as error:
-        await _bookings(db).update(
-            ADMIN_IDENTITY,
-            built.booking.id,
-            _booking_update(built, duration=90),
-        )
+    updated = await _bookings(db).update(
+        ADMIN_IDENTITY,
+        built.booking.id,
+        _booking_update(built, duration=90),
+    )
 
-    assert error.value.status_code == 400
-    assert "già in una lezione" in error.value.detail
+    assert updated.duration == 90
+    assert await _count(db, Lesson) == 0
 
 
-async def test_a_scheduled_request_cannot_be_deleted(db: AsyncSession) -> None:
+async def test_deleting_a_request_takes_its_hours_with_it(db: AsyncSession) -> None:
     built = await scene(db)
     await lesson_service(db).create(payload(built))
 
-    with pytest.raises(HTTPException) as error:
-        await _bookings(db).delete(ADMIN_IDENTITY, built.booking.id)
+    await _bookings(db).delete(ADMIN_IDENTITY, built.booking.id)
 
-    assert error.value.status_code == 400
+    assert await _count(db, Lesson) == 0
 
 
-# Narrowing the pupil's hours would leave the lesson outside them.
-async def test_a_scheduled_presence_cannot_be_narrowed(db: AsyncSession) -> None:
+async def test_narrowing_an_availability_drops_only_what_falls_outside(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, duration=120)
+
+    await lesson_service(db).create(payload(built, start=time(15), end=time(16)))
+    await lesson_service(db).create(payload(built, start=time(17), end=time(18)))
+
+    db.add(
+        OpeningDay(
+            date=DAY,
+            mode="presence",
+            start_time=time(14),
+            end_time=time(19),
+            is_override=False,
+        ),
+    )
+    await db.flush()
+
+    service = AvailabilityService(AvailabilityRepository(db))
+
+    await service.update(
+        ADMIN_IDENTITY,
+        built.availability.id,
+        AvailabilityUpdate(
+            date=DAY,
+            mode="presence",
+            start_time=time(15),
+            end_time=time(16, 30),
+        ),
+    )
+
+    remaining = (await db.execute(select(Lesson))).scalars().all()
+
+    assert [lesson.start_time for lesson in remaining] == [time(15)]
+
+
+async def test_deleting_a_presence_takes_its_hours_with_it(db: AsyncSession) -> None:
     built = await scene(db)
     await lesson_service(db).create(payload(built))
 
     service = PresenceService(PresenceRepository(db))
 
-    with pytest.raises(HTTPException) as error:
-        await service.update(
-            ADMIN_IDENTITY,
-            built.presence.id,
-            PresenceUpdate(
-                date=DAY,
-                mode="presence",
-                start_time=time(17),
-                end_time=time(19),
-            ),
-        )
+    await service.delete(ADMIN_IDENTITY, built.presence.id)
 
-    assert error.value.status_code == 400
+    assert await _count(db, Lesson) == 0
 
 
-async def test_a_scheduled_presence_cannot_be_deleted(db: AsyncSession) -> None:
-    built = await scene(db)
-    await lesson_service(db).create(payload(built))
-
-    service = PresenceService(PresenceRepository(db))
-
-    with pytest.raises(HTTPException) as error:
-        await service.delete(ADMIN_IDENTITY, built.presence.id)
-
-    assert error.value.status_code == 400
-
-
-# Refused for everybody, administrators included: there is no cascade left to
-# authorise, and the way through is to remove the lessons first.
-async def test_an_availability_with_lessons_is_not_deletable_by_an_admin(
+async def test_deleting_an_availability_takes_its_lessons_with_it(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
@@ -205,8 +267,6 @@ async def test_an_availability_with_lessons_is_not_deletable_by_an_admin(
 
     service = AvailabilityService(AvailabilityRepository(db))
 
-    with pytest.raises(HTTPException) as error:
-        await service.delete(ADMIN_IDENTITY, built.availability.id)
+    await service.delete(ADMIN_IDENTITY, built.availability.id)
 
-    assert error.value.status_code == 400
-    assert "lezioni pianificate" in error.value.detail
+    assert await _count(db, Lesson) == 0

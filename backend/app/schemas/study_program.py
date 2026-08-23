@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import field_lengths
 from app.models.study_program import EducationLevelEnum
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.validators import OptionalCleanStr, StrippedStr
@@ -16,13 +17,14 @@ class MinistrySubjectOption(BaseModel):
 
 
 class StudyProgramBase(BaseModel):
-    name: StrippedStr = Field(..., min_length=1)
+    name: StrippedStr = Field(..., min_length=1, max_length=field_lengths.NAME)
 
-    # The sector the programme belongs to. Absent where none exists, since
-    # primary and middle school have no branches.
-    sector: OptionalCleanStr = Field(None, max_length=100)
+    sector: OptionalCleanStr = Field(None, max_length=field_lengths.SECTOR)
 
-    description: OptionalCleanStr = Field(None, max_length=1000)
+    description: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.DESCRIPTION,
+    )
     level: EducationLevelEnum
     min_year: int = Field(..., ge=1)
     max_year: int = Field(..., ge=1)

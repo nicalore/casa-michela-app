@@ -2,21 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_field_label.dart';
-import '../../../shared/widgets/app_carousel_frame.dart';
-import '../../../shared/widgets/app_dialog_footer.dart';
-import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
-import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../../shared/widgets/wizard_dialog.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/study_program_item.dart';
@@ -35,11 +31,8 @@ class StudyProgramsTab extends StatefulWidget
 {
   final List<StudyProgramItem> studyPrograms;
 
-  // Read only: needed by the card and by the wizard to link the ministry
-  // subjects, but owned by MinistrySubjectsTab.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // Read only, used by the discipline filter alone.
   final List<AssociationSubjectItem> associationSubjects;
 
   final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
@@ -69,11 +62,8 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
   String? _filterLevel;
   String? _filterSector;
 
-  // Multi selection filters: a program passes when it matches at least one of
-  // the selected ids, and the two filters are combined with the others in AND.
   Set<int> _selectedMinistrySubjectIds = {};
   Set<int> _selectedAssociationSubjectIds = {};
-
 
   List<StudyProgramItem> get _filteredPrograms
   {
@@ -81,8 +71,6 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
 
     final result = widget.studyPrograms.where((program)
     {
-      // Searched on the full name: the sector no longer lives inside the name,
-      // but it is still what one types to reach a programme.
       final matchesSearch = program.fullName.toLowerCase().contains(query);
       final matchesLevel = _filterLevel == null || program.level == _filterLevel;
       final matchesSector = _filterSector == null || program.sector == _filterSector;
@@ -90,8 +78,6 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
       final matchesMinistrySubjects = _selectedMinistrySubjectIds.isEmpty ||
           program.ministrySubjects.any((subject) => _selectedMinistrySubjectIds.contains(subject.id));
 
-      // A discipline has no direct relation with the program: it is reached
-      // through the ministry subjects of the program.
       final matchesAssociationSubjects = _selectedAssociationSubjectIds.isEmpty ||
           program.ministrySubjects.any(
             (subject) => subject.associationSubjects.any(
@@ -106,19 +92,16 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           matchesAssociationSubjects;
     }).toList();
 
-    result.sort((a, b) => switch (_sortBy)
-    {
-      SortCriterion.nameAsc => a.name.compareTo(b.name),
-      SortCriterion.nameDesc => b.name.compareTo(a.name),
-      SortCriterion.dateAsc => a.createdAt.compareTo(b.createdAt),
-      SortCriterion.dateDesc => b.createdAt.compareTo(a.createdAt),
-    });
+    sortByCriterion(
+      result,
+      _sortBy,
+      name: (item) => item.name,
+      createdAt: (item) => item.createdAt,
+    );
 
     return result;
   }
 
-  // The sectors the programmes really have, in alphabetical order: there is no
-  // fixed list of sectors, they are written by whoever enters the programmes.
   List<String> get _knownSectors
   {
     final sectors = <String>{
@@ -138,8 +121,6 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
       barrierLabel: 'StudyProgramWizard',
       builder: (context) => _StudyProgramWizardDialog(
         existingProgram: program,
-        // Read here, so the list is refreshed by the next setState of
-        // AssociationPage.
         availableMinistrySubjects: widget.ministrySubjects,
         knownSectors: _knownSectors,
         onCancelEdit: onCancelEdit,
@@ -213,94 +194,60 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     final programs = _filteredPrograms;
 
     return TabContent(
-      header: [
-        TabHeaderRow(
-          search: AppSearchField(
-            controller: _searchController,
-            onChanged: (value) => setState(() => _searchText = value),
-            hintText: 'Cerca percorso di studio...',
+      header: entityTabHeader(
+        searchController: _searchController,
+        onSearchChanged: (value) => setState(() => _searchText = value),
+        searchHint: 'Cerca percorso di studio...',
+        actionLabel: 'NUOVO PERCORSO',
+        onAction: () => _showWizard(),
+        sort: _sortBy,
+        onSortChanged: (value) => setState(() => _sortBy = value),
+        countLabel: programs.length == 1
+            ? '1 percorso trovato'
+            : '${programs.length} percorsi trovati',
+        filters: [
+          const FilterGroupDivider(),
+          AppFilterPill<String>.filter(
+            prefix: 'Livello',
+            hint: 'Tutti i livelli',
+            icon: Icons.school_outlined,
+            value: _filterLevel,
+            menuWidth: 210,
+            onChanged: (value) => setState(() => _filterLevel = value),
+            onClear: () => setState(() => _filterLevel = null),
+            options: schoolLevels
+                .map((level) => FilterOption(value: level.value, label: level.compactLabel))
+                .toList(),
           ),
-          action: AppGradientButton(
-            label: 'NUOVO PERCORSO',
-            icon: Icons.add_rounded,
-            height: 50,
-            // Half its own height: the shape of the search bar it stands
-            // beside.
-            radius: 25,
-            fontSize: 14,
-            onPressed: () => _showWizard(),
-          ),
-        ),
-        const SizedBox(height: 28),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            AppFilterPill<SortCriterion>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina per',
-              icon: Icons.swap_vert_rounded,
-              value: _sortBy,
-              menuWidth: 190,
-              onChanged: (value) => setState(() => _sortBy = value),
-              options: SortCriterion.values
-                  .map((sort) => FilterOption(value: sort, label: sort.label))
-                  .toList(),
-            ),
-            const FilterGroupDivider(),
+          if (_knownSectors.isNotEmpty)
             AppFilterPill<String>.filter(
-              prefix: 'Livello',
-              hint: 'Tutti i livelli',
-              icon: Icons.school_outlined,
-              value: _filterLevel,
-              menuWidth: 210,
-              onChanged: (value) => setState(() => _filterLevel = value),
-              onClear: () => setState(() => _filterLevel = null),
-              options: schoolLevels
-                  .map((level) => FilterOption(value: level.value, label: level.compactLabel))
+              prefix: 'Settore',
+              hint: 'Tutti i settori',
+              icon: Icons.account_tree_outlined,
+              value: _filterSector,
+              menuWidth: 280,
+              onChanged: (value) => setState(() => _filterSector = value),
+              onClear: () => setState(() => _filterSector = null),
+              options: _knownSectors
+                  .map((sector) => FilterOption(value: sector, label: sector))
                   .toList(),
             ),
-            if (_knownSectors.isNotEmpty)
-              AppFilterPill<String>.filter(
-                prefix: 'Settore',
-                hint: 'Tutti i settori',
-                icon: Icons.account_tree_outlined,
-                value: _filterSector,
-                menuWidth: 280,
-                onChanged: (value) => setState(() => _filterSector = value),
-                onClear: () => setState(() => _filterSector = null),
-                options: _knownSectors
-                    .map((sector) => FilterOption(value: sector, label: sector))
-                    .toList(),
-              ),
-            AppCountFilterPill(
-              icon: Icons.auto_stories_outlined,
-              label: 'Discipline interne',
-              count: _selectedAssociationSubjectIds.length,
-              onOpen: _showAssociationSubjectFilterDialog,
-              onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
-            ),
-            AppCountFilterPill(
-              icon: Icons.menu_book_outlined,
-              label: 'Materie ministeriali',
-              count: _selectedMinistrySubjectIds.length,
-              onOpen: _showMinistrySubjectFilterDialog,
-              onClear: () => setState(() => _selectedMinistrySubjectIds = {}),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          programs.length == 1 ? '1 percorso trovato' : '${programs.length} percorsi trovati',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
+          AppCountFilterPill(
+            icon: Icons.auto_stories_outlined,
+            label: 'Discipline interne',
+            count: _selectedAssociationSubjectIds.length,
+            onOpen: _showAssociationSubjectFilterDialog,
+            onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+          AppCountFilterPill(
+            icon: Icons.menu_book_outlined,
+            label: 'Materie ministeriali',
+            count: _selectedMinistrySubjectIds.length,
+            onOpen: _showMinistrySubjectFilterDialog,
+            onClear: () => setState(() => _selectedMinistrySubjectIds = {}),
+          ),
+        ],
+      ),
       body: EntityCardGrid(
         children: programs.map((program)
         {
@@ -321,8 +268,6 @@ class _StudyProgramWizardDialog extends StatefulWidget
   final StudyProgramItem? existingProgram;
   final List<MinistrySubjectItem> availableMinistrySubjects;
 
-  // The sectors already used by the other programmes, offered as choices so
-  // that the same wording stays the same word.
   final List<String> knownSectors;
   final VoidCallback? onCancelEdit;
   final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
@@ -340,11 +285,8 @@ class _StudyProgramWizardDialog extends StatefulWidget
 }
 
 class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
+    with WizardDialogState, TwoStepWizardState
 {
-  // The height and type size every dialog of the app gives its buttons.
-  static const double _dialogButtonHeight = 52;
-  static const double _dialogButtonFontSize = 14;
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _sectorController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -352,25 +294,20 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   final TextEditingController _maxYearController = TextEditingController();
   final TextEditingController _subjectSearchController = TextEditingController();
 
-  // How wide the card in the carousel is allowed to get, and the stack around
-  // it: the card plus an arrow and a gap on either side.
   static const double _contentMaxWidth = 640;
-  static const double _stackMaxWidth =
-      _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
-  // How tall the list of things to pick can get before it scrolls on its own.
   static const double _optionsMaxHeight = 300;
 
-  int _currentStep = 0;
-  bool _movingForward = true;
-  bool _isSaving = false;
   String? _selectedLevel;
   List<int> _selectedSubjects = [];
 
-  // Guard against re-entering the clamp while adjusting the other controller.
   bool _isClampingYears = false;
 
-  bool get _isEditing => widget.existingProgram != null;
+  @override
+  bool get isEditing => widget.existingProgram != null;
+
+  @override
+  VoidCallback? get onCancelEdit => widget.onCancelEdit;
 
   int get _maxYearForSelectedLevel => _maxYearForLevel(_selectedLevel);
 
@@ -379,8 +316,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   {
     super.initState();
 
-    // The arrow lights up as soon as the mandatory fields are there: without
-    // listening to them it would stay dark until something else repainted.
     _nameController.addListener(_refresh);
     _minYearController.addListener(_refresh);
     _maxYearController.addListener(_refresh);
@@ -422,7 +357,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     super.dispose();
   }
 
-  void _resetForm()
+  @override
+  void resetForm()
   {
     setState(()
     {
@@ -434,33 +370,14 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _subjectSearchController.clear();
       _selectedLevel = null;
       _selectedSubjects.clear();
-      _currentStep = 0;
-      _movingForward = false;
+      rewindSteps();
     });
   }
 
-  void _closeDialog()
-  {
-    Navigator.of(context).pop();
-
-    if (_isEditing)
-    {
-      widget.onCancelEdit?.call();
-    }
-  }
-
-  // Fits the year range to the level just picked. The ceiling is computed from
-  // the incoming level, not from _selectedLevel, which still holds the old one
-  // and is assigned at the end.
   void _clampYearsToLevel(String level)
   {
     final maxAllowed = _maxYearForLevel(level);
 
-    // The ceiling the range in the fields was written against. A range that ran
-    // to the end of the old level means "all of it", so it follows the new level
-    // up as well as down — going from the middle school to the high school it
-    // used to stay at 1-3 while the line underneath said 1-5. A range somebody
-    // picked by hand, 2 to 4 out of five, is left alone unless it no longer fits.
     final previousMax = _maxYearForLevel(_selectedLevel);
 
     final currentMin = int.tryParse(_minYearController.text);
@@ -485,8 +402,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     }
     else
     {
-      // Covers the ceiling too: newMin can never pass newMax, which is already
-      // inside it.
       newMin = currentMin > newMax ? newMax : currentMin;
     }
 
@@ -514,8 +429,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     });
   }
 
-  // Clamps the value being typed and propagates it to the other end of the
-  // range when it gets overtaken.
   void _onYearChanged(bool isMinField)
   {
     if (_isClampingYears)
@@ -523,8 +436,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return;
     }
 
-    // Without a level there is no ceiling to apply yet: the step validation
-    // takes care of it.
     if (_selectedLevel == null)
     {
       return;
@@ -533,7 +444,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     final controller = isMinField ? _minYearController : _maxYearController;
     final otherController = isMinField ? _maxYearController : _minYearController;
 
-    // The user is still typing, for instance right after clearing the field.
     if (controller.text.isEmpty)
     {
       return;
@@ -573,13 +483,11 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     _isClampingYears = false;
 
-    // Refreshes the supporting text below the fields.
     setState(() {});
   }
 
-  // Why the first step does not let one move on, where it does not. What stays
-  // below is the full check, which holds on save too.
-  String? get _firstStepBlockedReason
+  @override
+  String? get firstStepBlockedReason
   {
     if (_nameController.text.trim().isEmpty)
     {
@@ -599,13 +507,10 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     return null;
   }
 
-  bool _validateFirstStep()
+  bool _validateYears()
   {
-    final blocked = _firstStepBlockedReason;
-
-    if (blocked != null)
+    if (!validateFirstStep())
     {
-      CustomSnackBar.show(context: context, message: blocked, isError: true);
       return false;
     }
 
@@ -614,95 +519,54 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
     if (minYear == null || maxYear == null || minYear > maxYear || minYear < 1)
     {
-      CustomSnackBar.show(context: context, message: 'Intervallo di anni non valido.', isError: true);
+      showError('Intervallo di anni non valido.');
+
       return false;
     }
 
-    // Redundant with the live clamping, but covers programmatic input and
-    // future refactors.
     if (maxYear > _maxYearForSelectedLevel)
     {
-      CustomSnackBar.show(context: context, message: "Per il livello selezionato l'anno massimo consentito è $_maxYearForSelectedLevel.", isError: true);
+      showError(
+        "Per il livello selezionato l'anno massimo consentito è "
+        '$_maxYearForSelectedLevel.',
+      );
+
       return false;
     }
 
     return true;
   }
 
-  void _goToStep(int step)
-  {
-    setState(()
-    {
-      _movingForward = step > _currentStep;
-      _currentStep = step;
-    });
-  }
-
-  // Everything is checked from here, whichever phase you are standing on, and
-  // whatever is missing is on the phase this puts you on.
   Future<void> _submit() async
   {
-    if (!_validateFirstStep())
+    if (!_validateYears())
     {
-      _goToStep(0);
+      goToStep(0);
 
       return;
     }
 
     if (_selectedSubjects.isEmpty)
     {
-      _goToStep(1);
-      CustomSnackBar.show(context: context, message: 'Seleziona almeno una materia ministeriale.', isError: true);
+      goToStep(1);
+      showError('Seleziona almeno una materia ministeriale.');
 
       return;
     }
 
-    setState(() => _isSaving = true);
+    final sector = _sectorController.text.trim();
 
-    final success = await widget.onSave(
-      _nameController.text.trim(),
-      _sectorController.text.trim().isEmpty ? null : _sectorController.text.trim(),
-      _selectedLevel!,
-      int.parse(_minYearController.text),
-      int.parse(_maxYearController.text),
-      _descController.text.trim(),
-      _selectedSubjects,
-      (errorMessage)
-      {
-        if (mounted)
-        {
-          CustomSnackBar.show(context: context, message: errorMessage, isError: true);
-        }
-      },
-    );
-
-    if (!mounted)
-    {
-      return;
-    }
-
-    setState(() => _isSaving = false);
-
-    if (!success)
-    {
-      return;
-    }
-
-    if (_isEditing)
-    {
-      Navigator.of(context).pop();
-    }
-    else
-    {
-      _resetForm();
-    }
-  }
-
-  Widget _buildFieldLabel(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: AppFieldLabel(text),
+    await runSave(
+      (onError) => widget.onSave(
+        _nameController.text.trim(),
+        sector.isEmpty ? null : sector,
+        _selectedLevel!,
+        int.parse(_minYearController.text),
+        int.parse(_maxYearController.text),
+        _descController.text.trim(),
+        _selectedSubjects,
+        onError,
+      ),
     );
   }
 
@@ -728,8 +592,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Prima il settore, poi il nome: è l'ordine in cui si legge un
-            // percorso — la famiglia, e poi quale.
             _SectorAutocompleteField(
               controller: _sectorController,
               label: 'Settore (opzionale)',
@@ -741,9 +603,10 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               controller: _nameController,
               label: 'Nome',
               hintText: 'Es. Amministrazione finanza e marketing (triennio)',
+              maxLength: FieldLimits.name,
               textCapitalization: TextCapitalization.sentences,
             ),
-            _buildFieldLabel('Livello scolastico'),
+            const WizardFieldLabel('Livello scolastico'),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -778,8 +641,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                 ),
               ],
             ),
-            // Shown only after a level has been picked, so the constraint does
-            // not confuse the user before it applies.
             if (_selectedLevel != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -793,14 +654,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                   ),
                 ),
               ),
-            AppTextField(
-              controller: _descController,
-              label: 'Descrizione (opzionale)',
-              hintText: 'Aggiungi una descrizione...',
-              textCapitalization: TextCapitalization.sentences,
-              minLines: 1,
-              maxLines: 4,
-            ),
+            DescriptionField(_descController),
           ],
         ),
       );
@@ -832,9 +686,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
           hintText: 'Cerca materia ministeriale...',
         ),
         const SizedBox(height: 16),
-        // A ceiling rather than the whole of what is left: the phase is a
-        // piece floating on the page now, and there is no fixed panel height
-        // for it to take a share of. Past this the list scrolls inside it.
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
           child: availableSubjects.isEmpty
@@ -881,46 +732,16 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   @override
   Widget build(BuildContext context)
   {
-    return AppDialogStack(
-      eyebrow: 'Passo ${_currentStep + 1} di 2',
-      title: _isEditing ? 'Modifica percorso' : 'Nuovo percorso',
-      onClose: _closeDialog,
-      maxWidth: _stackMaxWidth,
-      footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: _isEditing ? 'SALVA' : 'CREA',
-          icon: Icons.check_rounded,
-          busy: _isSaving,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _submit,
-        ),
-      ),
-      children: [
-        AppCarouselFrame(
-          index: _currentStep,
-          movingForward: _movingForward,
-          maxContentWidth: _contentMaxWidth,
-          canGoBack: _currentStep > 0,
-          canGoForward: _currentStep == 0,
-          forwardBlockedReason:
-              _currentStep == 0 ? _firstStepBlockedReason : null,
-          onBack: () => _goToStep(0),
-          onForward: () => _goToStep(1),
-          child: AppDialogPill(
-            child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
-          ),
-        ),
-      ],
+    return buildTwoStepDialog(
+      title: isEditing ? 'Modifica percorso' : 'Nuovo percorso',
+      contentMaxWidth: _contentMaxWidth,
+      onSubmit: _submit,
+      firstStep: _buildStep1,
+      secondStep: _buildStep2,
     );
   }
 }
 
-// A programme's sector, with autocomplete over the sectors already in use.
-//
-// Free text: a new sector is simply typed. The autocomplete is there because the
-// grouping only holds if the same wording stays the same word, and retyping it
-// by hand every time is the quickest way not to.
 class _SectorAutocompleteField extends StatefulWidget
 {
   final TextEditingController controller;
@@ -955,8 +776,6 @@ class _SectorAutocompleteFieldState extends State<_SectorAutocompleteField>
   @override
   Widget build(BuildContext context)
   {
-    // Measured here so the list, which lives in an overlay, can be as wide as
-    // the field it opens under.
     return LayoutBuilder(builder: (context, constraints)
     {
       final double width = constraints.maxWidth;
@@ -968,18 +787,11 @@ class _SectorAutocompleteFieldState extends State<_SectorAutocompleteField>
         {
           final query = value.text.trim().toLowerCase();
 
-          // On an empty field everything is offered: there are five or six, and
-          // seeing them is how they get reused instead of a seventh being
-          // invented.
           return widget.options.where(
             (option) => query.isEmpty || option.toLowerCase().contains(query),
           );
         },
-        // The chosen text stays in the field: nothing is being collected into a
-        // list here, a single question is being answered.
         onSelected: (option) => widget.onChanged(),
-        // The field is the one every other field is: a sector is typed the way
-        // a name is typed, and the autocomplete is only what opens under it.
         fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted)
         {
           return AppTextField(
@@ -987,6 +799,7 @@ class _SectorAutocompleteFieldState extends State<_SectorAutocompleteField>
             focusNode: focusNode,
             label: widget.label,
             hintText: widget.hint,
+            maxLength: FieldLimits.sector,
             textCapitalization: TextCapitalization.sentences,
             onChanged: (_) => widget.onChanged(),
             onSubmitted: (_) => onFieldSubmitted(),

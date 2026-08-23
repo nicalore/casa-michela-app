@@ -3,6 +3,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core import field_lengths
 from app.models.association_subject import SubjectAreaEnum
 from app.models.study_program import EducationLevelEnum
 from app.schemas.association_subject import AssociationSubjectOption
@@ -14,10 +15,13 @@ _DUPLICATE_AREAS_ERROR: Final[str] = (
 
 
 class MinistrySubjectBase(BaseModel):
-    name: StrippedStr = Field(..., min_length=1)
+    name: StrippedStr = Field(..., min_length=1, max_length=field_lengths.NAME)
     level: EducationLevelEnum
     area: list[SubjectAreaEnum] = Field(..., min_length=1, max_length=3)
-    description: OptionalCleanStr = Field(None, max_length=1000)
+    description: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.DESCRIPTION,
+    )
 
     @field_validator("area")
     @classmethod

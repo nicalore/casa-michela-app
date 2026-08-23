@@ -23,8 +23,6 @@ if TYPE_CHECKING:
     from app.models.booking import Booking
     from app.models.lesson import Lesson
 
-# Two teachers on one request is a request shared out; a third is a request
-# chopped up.
 _MAX_LESSON_PARTS: Final[int] = 2
 
 _TOO_MANY_LESSON_PARTS_ERROR: Final[str] = (
@@ -37,19 +35,11 @@ _LESSON_PARTS_EXCEED_BOOKING_ERROR: Final[str] = (
 )
 
 _LESSON_PARTS_ACROSS_BANDS_ERROR: Final[str] = (
-    "Le lezioni di una prenotazione devono trovarsi nella stessa fascia oraria: "
+    "Le lezioni di una prenotazione devono stare nella stessa parte della giornata: "
     "mattino, pomeriggio e sera si pubblicano separatamente"
 )
 
 
-# Which requested hours a lesson is teaching. The two foreign keys deliberately
-# point in opposite directions: the lesson side cascades because the link is part
-# of the lesson, the booking side restricts because a request cannot be deleted
-# out from under the lesson that taught it.
-#
-# That restriction travels up the chain: presences cascade onto their bookings,
-# so deleting a scheduled presence fails in the database. The services refuse it
-# earlier, in a sentence a person can read.
 class LessonBooking(Base):
     __tablename__ = "lesson_bookings"
 
@@ -58,8 +48,6 @@ class LessonBooking(Base):
         primary_key=True,
     )
 
-    # The second column of a composite primary key gets no index of its own, and
-    # "is this booking already scheduled?" is asked on every edit of a booking.
     booking_id: Mapped[int] = mapped_column(
         ForeignKey("bookings.id", ondelete="RESTRICT"),
         primary_key=True,
@@ -71,9 +59,6 @@ class LessonBooking(Base):
     booking: Mapped[Booking] = relationship(back_populates="lesson_bookings")
 
 
-# Read out of __dict__ and not off the attribute, which on a loaded link would
-# be a lazy load where no IO can be done. session.get is safe: it answers from
-# the identity map, or queries inside the greenlet this hook runs in.
 def _resolve_lesson(session: Session, link: LessonBooking) -> Lesson | None:
     from app.models.lesson import Lesson
 
@@ -88,9 +73,6 @@ def _resolve_lesson(session: Session, link: LessonBooking) -> Lesson | None:
     return None
 
 
-# The band is computed here and not read off the column, which the database
-# generates and is still empty on a lesson this flush is about to write.
-# time_band.py holds the bounds once for both.
 def _span(lesson: Any) -> tuple[int, str]:
     return (
         minutes_between(lesson.start_time, lesson.end_time),
@@ -98,13 +80,6 @@ def _span(lesson: Any) -> tuple[int, str]:
     )
 
 
-# A request may be split between two teachers, unequally: 75 minutes goes 30 and
-# 45. What it may not do is exceed what was asked for, run to a third part, or
-# straddle two bands.
-#
-# The thirty-minute floor is left to the lesson's own CHECK, and from it follows
-# that nothing under an hour can be split at all. Deletions are not examined:
-# they only remove parts and minutes.
 @event.listens_for(Session, "before_flush")
 def _validate_lesson_parts(
     session: Session,
@@ -115,9 +90,6 @@ def _validate_lesson_parts(
     from app.models.lesson import Lesson
 
     pending_links = pending_instances(session, LessonBooking)
-    # Lessons count as much as links do: stretching a lesson already linked
-    # changes the total of every request hanging off it. Forgetting them is the
-    # easiest way to let an overlong split through.
     pending_lessons = pending_instances(session, Lesson)
 
     if not pending_links and not pending_lessons:
@@ -129,8 +101,6 @@ def _validate_lesson_parts(
     }
     deleted_lesson_ids = {lesson.id for lesson in deleted_instances(session, Lesson)}
 
-    # Keyed by identity as well as by id, so that two lessons not yet flushed
-    # never collapse into one.
     staged: dict[FlushKey, dict[FlushKey, Any]] = defaultdict(dict)
     bookings_in_memory: dict[FlushKey, Any] = {}
 
@@ -197,9 +167,6 @@ def _validate_lesson_parts(
 
         parts: dict[FlushKey, tuple[int, str]] = {}
 
-        # Queried explicitly rather than navigated through the relationship, so
-        # this is correct whether the links were built through it or through the
-        # raw columns.
         if booking_id is not None:
             for lesson_id, start_time, end_time in session.execute(
                 select(Lesson.id, Lesson.start_time, Lesson.end_time)
@@ -217,7 +184,6 @@ def _validate_lesson_parts(
                     band_of(start_time),
                 )
 
-        # A lesson this flush is rewriting counts for what it says now.
         for lesson_key, lesson in staged[booking_key].items():
             parts[lesson_key] = _span(lesson)
 

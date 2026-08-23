@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import field_lengths
 from app.models.study_program import EducationLevelEnum
 
 
@@ -12,8 +13,6 @@ class PersonOption(BaseModel):
     first_name: str
     last_name: str
 
-    # The face too, and not only the name: wherever this option stands for a
-    # person, the reader recognises them by it long before they read a tax code.
     profile_image_url: str | None = None
 
 
@@ -60,8 +59,6 @@ class _RelatedPersonResponse(BaseModel):
     city: str | None = None
     birth_date: date | None = None
 
-    # Scoped to the ParentalResponsibility row linking the two people, not a
-    # property of either of them.
     authorized_pickup: bool = True
     pickup_restriction_reason: str | None = None
 
@@ -77,32 +74,32 @@ class ChildInfoResponse(_RelatedPersonResponse):
 
 
 class GeneralDataUpdate(BaseModel):
-    first_name: str
-    last_name: str
-    tax_code: str
+    first_name: str = Field(..., max_length=field_lengths.PERSON_NAME)
+    last_name: str = Field(..., max_length=field_lengths.PERSON_NAME)
+    tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     gender: str
     birth_date: date
-    birth_city: str
-    birth_nation: str
-    birth_province: str
-    residence_type: str
-    residence_address: str
-    residence_street_number: str
-    residence_city: str
-    residence_province: str
-    postal_code: str
-    email: str
-    phone: str
+    birth_city: str = Field(..., max_length=field_lengths.CITY)
+    birth_nation: str = Field(..., max_length=field_lengths.NATION)
+    birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
+    residence_type: str = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
+    residence_address: str = Field(..., max_length=field_lengths.ADDRESS)
+    residence_street_number: str = Field(..., max_length=field_lengths.STREET_NUMBER)
+    residence_city: str = Field(..., max_length=field_lengths.CITY)
+    residence_province: str = Field(..., max_length=field_lengths.PROVINCE)
+    postal_code: str = Field(..., max_length=field_lengths.POSTAL_CODE)
+    email: str = Field(..., max_length=field_lengths.EMAIL)
+    phone: str = Field(..., max_length=field_lengths.PHONE)
 
 
 class StaffUpdateData(BaseModel):
     collaboration_type: str
-    iban: str | None = None
+    iban: str | None = Field(None, max_length=field_lengths.IBAN)
 
 
 class AdminUpdateData(BaseModel):
     role: str
-    other_role: str | None = None
+    other_role: str | None = Field(None, max_length=field_lengths.OTHER_ROLE)
 
 
 class TeacherCompetenceUpdateItem(BaseModel):
@@ -111,12 +108,10 @@ class TeacherCompetenceUpdateItem(BaseModel):
 
 
 class TeacherUpdateData(BaseModel):
-    school_education: str | None = None
-    university_education: str | None = None
+    school_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
+    university_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
     competences: list[TeacherCompetenceUpdateItem] | None = None
 
-    # The services the teacher can take on. No study programme: a service is
-    # the same whoever asks for it.
     service_names: list[str] | None = None
     expected_updated_at: datetime | None = None
 
@@ -140,21 +135,23 @@ class SchoolEnrollmentUpdateItem(BaseModel):
 class StudentUpdateData(BaseModel):
     authorized_early_exit: bool
     certification_type: str | None = None
-    certification_other_detail: str | None = None
+    certification_other_detail: str | None = Field(
+        None,
+        max_length=field_lengths.OTHER_DETAIL,
+    )
     mandatory_psych_meetings_acknowledged: bool
 
-    # Full history, replaced as a whole: update_person overwrites every
-    # SchoolEnrollment of the student with this list, with the same semantics
-    # as the dedicated school-enrollments endpoint. A partial list deletes
-    # the years it omits.
     school_enrollments: list[SchoolEnrollmentUpdateItem]
     expected_updated_at: datetime | None = None
 
 
 class ParentalRelationshipInput(BaseModel):
-    tax_code: str
+    tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     authorized_pickup: bool = True
-    pickup_restriction_reason: str | None = None
+    pickup_restriction_reason: str | None = Field(
+        None,
+        max_length=field_lengths.PICKUP_REASON,
+    )
 
 
 class RelationshipsUpdate(BaseModel):
@@ -174,23 +171,24 @@ class PersonMembershipsUpdate(BaseModel):
     collaborating_active: bool
     memberships: list[MembershipUpdateItem]
 
-    # From here on every field is optional with "absent from the JSON means
-    # leave the stored value alone", not "absent means clear it": the schema
-    # is shared by two callers with different scopes. The backend tells an
-    # absent field from an explicit null through model_fields_set, so a plain
-    # `is None` check would silently wipe data.
     payment_method: str | None = None
-    payment_method_other: str | None = None
+    payment_method_other: str | None = Field(
+        None,
+        max_length=field_lengths.OTHER_DETAIL,
+    )
     statute_acknowledged: bool | None = None
     regulation_acknowledged: bool | None = None
     video_surveillance_acknowledged: bool | None = None
     special_category_data_consent: bool | None = None
     newsletter_consent: bool | None = None
     consents_signed_at: date | None = None
-    emergency_contact_name: str | None = None
-    emergency_contact_phone: str | None = None
-    allergies_notes: str | None = None
-    medications_notes: str | None = None
+    emergency_contact_name: str | None = Field(
+        None,
+        max_length=field_lengths.CONTACT_NAME,
+    )
+    emergency_contact_phone: str | None = Field(None, max_length=field_lengths.PHONE)
+    allergies_notes: str | None = Field(None, max_length=field_lengths.NOTES)
+    medications_notes: str | None = Field(None, max_length=field_lengths.NOTES)
     expected_updated_at: datetime | None = None
 
 
@@ -218,14 +216,14 @@ class PersonSchoolEnrollmentsUpdate(BaseModel):
 
 
 class ParentUpdatePayload(BaseModel):
-    parent_tax_code: str
+    parent_tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     authorized_pickup: bool = True
-    pickup_restriction_reason: str | None = None
+    pickup_restriction_reason: str | None = Field(
+        None,
+        max_length=field_lengths.PICKUP_REASON,
+    )
 
 
-# A programme a teacher is competent on. Broken into parts rather than the
-# single composed string, so the client can group them by level and sector
-# without parsing the name back apart.
 class TeacherProgramResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -313,9 +311,6 @@ class PersonResponse(BaseModel):
     university_education: str | None = None
     medical_certificate_expiration: date | None = None
 
-    # Optimistic concurrency tokens for the three aggregates that have one.
-    # None when the person has no such profile. Clients must send them back
-    # as expected_updated_at on the matching update endpoints.
     member_updated_at: datetime | None = None
     student_updated_at: datetime | None = None
     teacher_updated_at: datetime | None = None
@@ -326,6 +321,4 @@ class PersonResponse(BaseModel):
     children: list[ChildInfoResponse] | None = None
     teacher_subjects: list[TeacherSubjectResponse] | None = None
 
-    # Kept out of taught_subjects, which are the disciplines: a service is not
-    # a subject, and the two are named differently wherever they are shown.
     teacher_services: list[str] | None = None

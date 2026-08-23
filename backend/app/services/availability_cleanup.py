@@ -16,7 +16,7 @@ from app.models.presence import Presence
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 
 _PUBLISHED_DAY_CANNOT_BE_CLOSED_ERROR: Final[str] = (
-    "Non puoi chiudere una giornata con il calendario pubblicato: depubblica "
+    "Non puoi chiudere una giornata con il calendario pubblicato: riportalo in bozza "
     "prima {days}."
 )
 
@@ -25,10 +25,7 @@ def _day_label(day: date, band: str) -> str:
     return f"{day.strftime('%d/%m/%Y')} ({time_band_label(band).lower()})"
 
 
-# A published calendar has gone out to families and teachers. Closing the day
-# would take it away without anybody being told, so the closure is refused and
-# the way through is to unpublish first.
-async def _assert_no_published_lessons(
+async def _assert_no_settled_lessons(
     session: AsyncSession,
     lessons: Sequence[Lesson],
 ) -> None:
@@ -41,6 +38,7 @@ async def _assert_no_published_lessons(
         await session.execute(
             select(CalendarPublication.date, CalendarPublication.band).where(
                 CalendarPublication.date.in_({day for day, _ in pairs}),
+                CalendarPublication.draft_snapshot.is_(None),
             ),
         )
     ).all()
@@ -55,10 +53,6 @@ async def _assert_no_published_lessons(
         )
 
 
-# A room handed to a teacher who is no longer teaching that day belongs to
-# nothing. These rows hang off neither the availabilities nor the presences, so
-# no cascade would take them, and they would sit against a closed day forever.
-# Their supervision shifts go with them, through the composite key.
 async def _drop_orphan_room_assignments(
     session: AsyncSession,
     dates: Sequence[date],
@@ -96,24 +90,6 @@ async def _drop_orphan_room_assignments(
     await session.flush()
 
 
-# Deletes what the teachers offered and what the pupils asked for on the given
-# dates, where the association no longer opens in that mode, and returns how many
-# rows were removed with both kinds counted together.
-#
-# Closing a day is not a change of hours, it is the end of the question those
-# rows were answering. Left in place they would also be unreachable — the page
-# shows a closed day as closed and offers nothing to open — so they would sit in
-# the table forever, counted by every statistic and shown by nothing.
-#
-# The order below is not incidental. The calendar is kept as a record, so the
-# foreign keys holding a lesson to its availability and to its bookings restrict
-# rather than cascade, and deleting either while a lesson stands would simply
-# fail. Draft lessons therefore go first, and this is the one place in the whole
-# system where a lesson is removed as a consequence of something else: work in
-# progress is not yet history.
-#
-# Deliberately not run inside its own transaction: it is part of the change that
-# closed the day, and either both land or neither does.
 async def purge_availabilities_for_closed_days(
     session: AsyncSession,
     dates: Iterable[date],
@@ -145,8 +121,6 @@ async def purge_availabilities_for_closed_days(
     if not closed_dates:
         return 0
 
-    # Both sides of the lesson lose their ground when a mode closes: the teacher
-    # side through the availabilities, the pupil side through the presences.
     lessons = (
         (
             await session.execute(
@@ -160,7 +134,7 @@ async def purge_availabilities_for_closed_days(
         .all()
     )
 
-    await _assert_no_published_lessons(session, lessons)
+    await _assert_no_settled_lessons(session, lessons)
 
     for lesson in lessons:
         await session.delete(lesson)
@@ -174,10 +148,6 @@ async def purge_availabilities_for_closed_days(
         )
     )
 
-    # Loaded and deleted one by one rather than in a single statement: the
-    # bookings under a presence go with it through the relationship's cascade,
-    # which a bulk DELETE would step around, leaving them behind with nothing to
-    # hang from.
     presences = (
         (
             await session.execute(

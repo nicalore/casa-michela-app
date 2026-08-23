@@ -17,9 +17,9 @@ from app.schemas.teacher_room_assignment import (
     TeacherRoomAssignmentUpdate,
 )
 from app.services.lesson_guard import (
-    assert_bands_not_published,
+    assert_bands_editable,
     find_bands_with_lessons,
-    find_published_bands,
+    find_settled_bands,
     published_band_error,
 )
 from app.services.room_occupancy import capacity_warnings, teachers_in_building
@@ -55,8 +55,6 @@ class TeacherRoomAssignmentService:
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
 
-    # A room is handed out once the lessons are settled, so the teacher has to
-    # already have some, and to be in the building for at least one of them.
     async def _assert_convened(self, day: date, teacher_tax_code: str) -> None:
         lessons = await self.lessons.list_for_day(day)
 
@@ -66,8 +64,6 @@ class TeacherRoomAssignmentService:
                 detail=_NOT_CONVENED_ERROR,
             )
 
-    # Every band of the day this teacher actually teaches in: those are the ones
-    # that have to still be open for their room to move.
     async def _assert_day_open_for(
         self,
         day: date,
@@ -80,7 +76,7 @@ class TeacherRoomAssignmentService:
             if lesson.availability.teacher_tax_code == teacher_tax_code
         }
 
-        await assert_bands_not_published(self.session, [(day, band) for band in bands])
+        await assert_bands_editable(self.session, [(day, band) for band in bands])
 
     async def _warnings_for(self, day: date) -> list[str]:
         lessons = await self.lessons.list_for_day(day)
@@ -167,9 +163,6 @@ class TeacherRoomAssignmentService:
         await self._assert_day_open_for(day, teacher_tax_code)
         await self._room_or_404(payload.room_id)
 
-        # The shifts follow the teacher to the new room, through the composite
-        # key's ON UPDATE CASCADE. Whether the room they left is still watched
-        # over is answered when the band is published.
         assignment.room_id = payload.room_id
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
@@ -180,15 +173,12 @@ class TeacherRoomAssignmentService:
             await self._warnings_for(day),
         )
 
-    # Removing the assignment takes the teacher's shifts with it, by cascade.
-    # The count goes back to the caller so it can be said out loud rather than
-    # discovered afterwards.
     async def unassign(self, day: date, teacher_tax_code: str) -> int:
         assignment = await self.get_or_404(day, teacher_tax_code)
 
-        published = await find_published_bands(self.session, day)
+        settled = await find_settled_bands(self.session, day)
         with_lessons = await find_bands_with_lessons(self.session, day)
-        clashing = sorted(published & with_lessons)
+        clashing = sorted(settled & with_lessons)
 
         if clashing:
             raise HTTPException(

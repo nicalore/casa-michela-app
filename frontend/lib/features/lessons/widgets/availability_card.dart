@@ -16,15 +16,11 @@ import '../utils/booking_window.dart';
 import '../utils/opening_window.dart';
 import 'person_avatar.dart';
 
-// The height and type size every dialog of the app gives its buttons.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// Narrow: a question of one sentence, and the two answers under it.
 const double _confirmWidth = 480;
 
-// Written the way every other hour of the app is written: twenty-four hour,
-// with the dash the association's opening bands use.
 String _timeRangeLabel(AvailabilityItem availability)
 {
   return formatTimeRange(availability.startTime, availability.endTime);
@@ -32,12 +28,8 @@ String _timeRangeLabel(AvailabilityItem availability)
 
 class AvailabilityCard extends StatefulWidget
 {
-  // Room for a name over three lines of hours. A day can hold more than three
-  // stretches — a band can be answered several times over — so the column
-  // counts what it cannot show rather than making the card grow.
   static const double height = 172;
 
-  // One teacher on one day, with every stretch of hours they gave for it.
   final AvailabilityGroup group;
 
   final void Function(VoidCallback onCancel) onEditRequested;
@@ -68,8 +60,6 @@ class _AvailabilityCardState extends State<AvailabilityCard>
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The reopen callback reuses the card state, not the dialog context
-          // that is about to become invalid.
           widget.onEditRequested(_showDetailsDialog);
         },
         onDelete: widget.onDelete,
@@ -84,9 +74,6 @@ class _AvailabilityCardState extends State<AvailabilityCard>
     final presence = group.slotsFor(kPresenceMode);
     final online = group.slotsFor(kOnlineMode);
 
-    // Both ways stand side by side, each with its own hours under it; one way
-    // alone has nothing to be compared against, so it takes the middle instead
-    // of leaving an empty half.
     final bothWays = presence.isNotEmpty && online.isNotEmpty;
 
     return MouseRegion(
@@ -104,8 +91,6 @@ class _AvailabilityCardState extends State<AvailabilityCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
-            // Gold under the pointer, the same mark a module card takes on the
-            // dashboard and a person takes in the anagrafiche.
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -129,16 +114,9 @@ class _AvailabilityCardState extends State<AvailabilityCard>
                 ),
               ),
               const SizedBox(height: 12),
-              // Centred in the room the name leaves rather than hung from the
-              // top of it: the card is the same height whatever the day holds,
-              // and a day with one stretch on it would otherwise be a line of
-              // hours with a hole underneath. The name stays where it is, so
-              // the names of a row still line up.
               Expanded(
                 child: Center(
                   child: bothWays
-                      // Sized to the taller of the two columns, which is what
-                      // gives the line between them something to be as tall as.
                       ? IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -167,12 +145,8 @@ class _AvailabilityCardState extends State<AvailabilityCard>
   }
 }
 
-// One way of being there, with the hours given for it stacked underneath.
 class _ModeColumn extends StatelessWidget
 {
-  // What the card is tall enough to hold. A band can now be answered with more
-  // than one stretch, so a day has no ceiling of three — but the card does, and
-  // it is the same height whatever is on it.
   static const int maxLines = 3;
 
   final String mode;
@@ -186,9 +160,6 @@ class _ModeColumn extends StatelessWidget
     final online = mode == kOnlineMode;
     final accent = online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
 
-    // Past what fits, the last line counts what it is standing in front of
-    // rather than letting the column run off the bottom of the card. The window
-    // that opens off it has all of them.
     final fits = slots.length <= maxLines;
     final shown = fits ? slots : slots.take(maxLines - 1).toList();
     final hidden = fits ? const <AvailabilityItem>[] : slots.sublist(maxLines - 1);
@@ -225,9 +196,6 @@ class _ModeColumn extends StatelessWidget
         for (final slot in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 3),
-            // Brought down to the column rather than cut short by it: the hours
-            // are eleven characters whatever happens, and a column narrowed by a
-            // phone must still show all eleven.
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
@@ -243,8 +211,6 @@ class _ModeColumn extends StatelessWidget
           ),
         if (hidden.isNotEmpty)
           Tooltip(
-            // The ones left off, in full: the count says how many there are,
-            // and the pointer says which.
             message: hidden.map(_timeRangeLabel).join('\n'),
             child: Padding(
               padding: const EdgeInsets.only(bottom: 3),
@@ -267,7 +233,6 @@ class _ModeColumn extends StatelessWidget
   }
 }
 
-// One stretch of hours, in the window that opens off the card.
 class _TimeSlotLabel extends StatelessWidget
 {
   final String label;
@@ -307,9 +272,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws a whole
-  // day's availability away, and the answer that does it should not be quieter
-  // than the one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -318,7 +280,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -360,7 +321,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                   TextSpan(
                     text: group.slots.length == 1
                         ? '.'
-                        : ', con tutte e ${group.slots.length} le sue fasce orarie.',
+                        : ', con tutti e ${group.slots.length} i suoi orari.',
                   ),
                 ],
               ),
@@ -377,8 +338,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -387,8 +346,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // The two ways of being there are two blocks of the same shape, one under the
-  // other: what names them is an eyebrow and not a field's label.
   Widget _buildModeLabel(String text, {bool first = false})
   {
     return Padding(
@@ -409,9 +366,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
     return AppDialogStack(
       eyebrow: 'Disponibilità',
       title: group.teacher.fullName,
-      // Who they are, before when they are there: the day and the stretches
-      // below belong to somebody, and the face is recognised before the surname
-      // is read.
       leading: PersonAvatar(person: group.teacher, size: PersonAvatar.titleSize),
       maxWidth: 560,
       footer: AppDialogFooter(
@@ -435,8 +389,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       children: [
         AppDialogPill(
           expand: true,
-          // Selection stops at the body: the buttons underneath are not text
-          // you would ever want to drag a cursor through.
           child: SelectionArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -448,9 +400,6 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
             ),
           ),
         ),
-        // Both ways of being there on the one window, each with the stretches
-        // given for it. A way that was not given says so rather than being
-        // left out: its absence is an answer too.
         AppDialogPill(
           expand: true,
           child: Column(
@@ -461,7 +410,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                 _buildModeLabel(modeLabel(mode), first: mode == kPresenceMode),
                 if (group.slotsFor(mode).isEmpty)
                   Text(
-                    'Nessuna fascia oraria.',
+                    'Nessun orario.',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,

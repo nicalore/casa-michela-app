@@ -2,19 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'week_range.dart';
 
-// The band bounds are this module's own; the quarter-hour step and the two
-// conversions used to live here and are now general enough to be read off
-// week_range, which is where every other hour of the app is formatted.
 export 'week_range.dart' show kMinimumBandMinutes, kQuarterHour, minutesOfTimeOfDay, timeOfDayFromMinutes;
 
 enum TimeBucket { morning, afternoon, evening }
 
-// The three bands the association's day is divided into. They belong to the
-// whole app and not to the page that draws them: the opening hours are written
-// in them, and a teacher's availability is offered in them. Half-open by
-// convention — a band owns its start and hands its end to the next one, so
-// 13:00 is the first afternoon slot rather than the last morning one — except
-// evening's 23:00, which is a real closing time and stays selectable.
+// Mirrors app/core/time_band.py, which enforces these bands. Half-open by
+// convention — a band owns its start and hands its end to the next one —
+// except evening's close, which is a real closing time and stays selectable.
 const int _morningStartHour = kDayStartMinutes ~/ 60;
 const int _afternoonStartHour = 13;
 const int _eveningStartHour = 19;
@@ -46,15 +40,6 @@ int _bandEndHour(TimeBucket bucket)
   }
 }
 
-// Bucketing is a start_time-only heuristic, not a strict boundary on the
-// displayed range: a slot starting at 14:00 and ending at 19:00 still lands
-// in Pomeriggio and shows its full range there. Assumes at most one row per
-// bucket per day, matching the current weekly_templates shape — a same-bucket
-// collision is an accepted, undefended degradation (last one wins).
-//
-// Returns null outside 06:00-23:00, so pre-existing rows from before these
-// bounds existed are simply not shown in any band rather than being forced
-// into the nearest one.
 TimeBucket? bucketFor(TimeOfDay? start)
 {
   if (start == null)
@@ -95,8 +80,40 @@ String bandLabel(TimeBucket bucket)
   }
 }
 
-// The window a band owns, in minutes from midnight. Public because the slider
-// is that window: its track runs from one to the other.
 int bandStartMinutes(TimeBucket bucket) => _bandStartHour(bucket) * 60;
 
 int bandEndMinutes(TimeBucket bucket) => _bandEndHour(bucket) * 60;
+
+// When the bookings close: before it a teacher offers hours and a family
+// books them, after it both lists are read-only to everybody but an
+// administrator. Mirrors app/core/booking_close.py, which enforces it.
+const Map<TimeBucket, (int daysBefore, int hour)> _closingTimes = {
+  TimeBucket.morning: (1, 20),
+  TimeBucket.afternoon: (0, 11),
+  TimeBucket.evening: (0, 18),
+};
+
+DateTime bookingsCloseAt(DateTime day, TimeBucket band)
+{
+  final handover = _closingTimes[band]!;
+
+  return DateTime(day.year, day.month, day.day - handover.$1, handover.$2);
+}
+
+bool haveBookingsClosed(DateTime day, TimeBucket band, DateTime now)
+{
+  return !now.isBefore(bookingsCloseAt(day, band));
+}
+
+String bookingsCloseLabel(DateTime day, TimeBucket band)
+{
+  final at = bookingsCloseAt(day, band);
+  final hour = at.hour.toString().padLeft(2, '0');
+
+  if (_closingTimes[band]!.$1 == 0)
+  {
+    return '$hour:00';
+  }
+
+  return '$hour:00 di ${formatDayMonthShort(at)}';
+}

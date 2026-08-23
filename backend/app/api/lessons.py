@@ -27,8 +27,6 @@ from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
 from app.services.lesson_service import LessonService
 
-# Everyone with a stake in the calendar may read it, and the service narrows
-# each of them to their own rows; only an administrator writes it.
 router = APIRouter(
     prefix="/lessons",
     tags=["lessons"],
@@ -71,7 +69,7 @@ def _to_response(
     lesson: Lesson,
     people: dict[str, Person],
     rooms: dict[tuple[date, str], TeacherRoomAssignment],
-    published: set[tuple[date, str]],
+    settled: set[tuple[date, str]],
     warnings: list[str],
 ) -> LessonResponse:
     teacher_tax_code = lesson.availability.teacher_tax_code
@@ -88,8 +86,6 @@ def _to_response(
         band=TimeBandEnum(lesson.band),
         start_time=lesson.start_time,
         end_time=lesson.end_time,
-        # Not stored on the lesson: a room belongs to the teacher for the day,
-        # and the calendar is simply where it has to be shown.
         room=(
             RoomOption.model_validate(assignment.room)
             if assignment is not None
@@ -100,16 +96,13 @@ def _to_response(
             for row in lesson.lesson_disciplines
         ],
         bookings=_booking_responses(lesson, people),
-        is_published=(lesson.date, lesson.band) in published,
+        is_locked=(lesson.date, lesson.band) in settled,
         warnings=warnings,
         created_at=lesson.created_at,
         updated_at=lesson.updated_at,
     )
 
 
-# One batched lookup per response rather than one per row: names live on Person,
-# the rooms are keyed by day and teacher, and whether a band went out is a
-# handful of pairs however long the list is.
 async def _to_responses(
     db: DbSession,
     lessons: Sequence[Lesson],
@@ -135,12 +128,12 @@ async def _to_responses(
         for assignment in await assignments.list_for_day(day):
             rooms[(day, assignment.teacher_tax_code)] = assignment
 
-    published = await CalendarPublicationRepository(db).find_published_pairs(
+    settled = await CalendarPublicationRepository(db).find_settled_pairs(
         {(lesson.date, lesson.band) for lesson in lessons},
     )
 
     return [
-        _to_response(lesson, people, rooms, published, warnings or [])
+        _to_response(lesson, people, rooms, settled, warnings or [])
         for lesson in lessons
     ]
 

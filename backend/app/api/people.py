@@ -4,6 +4,7 @@ from typing import Annotated, Any, Final
 
 import resend
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from pydantic import StringConstraints
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.base import ExecutableOption
 
 from app.api.dependencies import DbSession
+from app.core import field_lengths
 from app.core.config import settings
 from app.core.labels import (
     roman_numeral,
@@ -76,8 +78,6 @@ _ROLE_ADMIN: Final[str] = "Amministratore"
 _ROLE_TEACHER: Final[str] = "Docente"
 _ROLE_PSYCHOLOGIST: Final[str] = "Psicologo"
 
-# The write side of the API speaks the same names in upper case: deriving the
-# codes keeps the read/write round trip from drifting apart.
 _ROLE_CODE_PARENT: Final[str] = _ROLE_PARENT.upper()
 _ROLE_CODE_MEMBER: Final[str] = _ROLE_MEMBER.upper()
 _ROLE_CODE_COURSE_PARTICIPANT: Final[str] = _ROLE_COURSE_PARTICIPANT.upper()
@@ -241,7 +241,7 @@ _ADMIN_UNIQUENESS_ERRORS: Final[dict[str, str]] = {
         "Esiste già un Presidente configurato all'interno del sistema."
     ),
     "uq_administrator_vice_president": (
-        "Esiste già un Vice Presidente configurato all'interno del sistema."
+        "Esiste già un Vicepresidente configurato all'interno del sistema."
     ),
     "uq_administrator_treasurer": (
         "Esiste già un Tesoriere configurato all'interno del sistema."
@@ -758,8 +758,6 @@ async def _create_parental_relationships(
     *,
     is_parent: bool,
 ) -> None:
-    # Children are added only when this person actually holds the parent role,
-    # while parents of this person are always allowed.
     if is_parent:
         for minor in relationships.minors_tax_codes:
             if minor.tax_code == person.tax_code:
@@ -810,8 +808,6 @@ async def _update_member_data(
         entity_label=_MEMBERSHIPS_LABEL,
     )
 
-    # Fields absent from the payload keep their stored value instead of being
-    # cleared: this schema is shared by callers with different scopes.
     provided_fields = member_data.model_fields_set
 
     update_values: dict[str, Any] = {
@@ -894,8 +890,6 @@ async def _sync_student_profile(
     )
 
     if current_student is not None:
-        # Checked before writing any field, otherwise a conflict would still
-        # leave partial data behind.
         assert_not_stale(
             current_student,
             student_data.expected_updated_at,
@@ -928,10 +922,6 @@ async def _sync_student_profile(
         )
         await db.flush()
 
-    # The whole school history is replaced, with the same semantics as the
-    # dedicated endpoint: this is the single source of truth for the school
-    # years, so anagraphic data and history travel in one atomic call under a
-    # single concurrency check.
     await db.execute(
         delete(SchoolEnrollment).where(
             SchoolEnrollment.student_tax_code == person.tax_code
@@ -1063,9 +1053,6 @@ async def _sync_teacher_profile(
     )
 
     if existing is not None:
-        # Teacher.updated_at carries onupdate=func.now(), so any UPDATE on the
-        # row bumps it even when it does not touch the column. The check
-        # therefore also covers edits limited to the education fields.
         entity_label = (
             _TEACHING_SUBJECTS_LABEL
             if teacher_data.competences is not None
@@ -1121,9 +1108,6 @@ async def _sync_teacher_profile(
         await _replace_teacher_services(db, person.tax_code, teacher_data.service_names)
 
 
-# Rewrites a teacher's services after checking they exist: without the check a
-# wrong name would surface as a foreign key violation, that is a 500 or a message
-# that does not name what was wrong.
 async def _replace_teacher_services(
     db: AsyncSession,
     tax_code: str,
@@ -1348,8 +1332,6 @@ async def update_person(
 
     is_parent = _ROLE_CODE_PARENT in roles
 
-    # Existing relationships are cleared before the Parent profile is touched,
-    # then rebuilt afterwards, so the foreign keys never dangle.
     if payload.relationships is not None:
         await db.execute(
             delete(ParentalResponsibility).where(
@@ -1402,8 +1384,6 @@ async def update_person(
                 )
             )
 
-        # No dedicated role: the service is open to any member. The guard at
-        # the top of this function keeps it from coexisting with PSICOLOGO.
         if payload.psychological_support_data:
             await _sync_psychological_support(
                 db,
@@ -1662,8 +1642,6 @@ async def update_parental_responsibility(
         payload.pickup_restriction_reason if not payload.authorized_pickup else None
     )
 
-    # Same parent: only the pickup authorization changes, so the row is
-    # updated in place instead of being deleted and recreated.
     if payload.parent_tax_code.upper() == old_parent_tax_code.upper():
         link.authorized_pickup = payload.authorized_pickup
         link.pickup_restriction_reason = restriction_reason
@@ -1713,10 +1691,16 @@ async def delete_parental_responsibility(
     return {"message": _LINK_REMOVED_MESSAGE}
 
 
+_ReportedValue = Annotated[
+    str,
+    StringConstraints(max_length=field_lengths.REPORT_VALUE),
+]
+
+
 @router.post("/{tax_code}/report-error", status_code=status.HTTP_200_OK)
 async def report_person_error(
     tax_code: str,
-    corrections: dict[str, Any],
+    corrections: dict[str, _ReportedValue],
     db: DbSession,
 ) -> dict[str, str]:
     person = await db.get(Person, tax_code)
@@ -1954,8 +1938,6 @@ async def update_teacher_competences(
     payload: PersonTeacherCompetencesUpdate,
     db: DbSession,
 ) -> dict[str, str]:
-    # A teacher who only takes on services is still a teacher: what they cannot
-    # be is one who does neither of the two.
     if not payload.competences and not payload.service_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

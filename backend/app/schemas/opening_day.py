@@ -4,8 +4,9 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Final, Self
 
-from pydantic import BaseModel, ConfigDict, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
+from app.core import field_lengths
 from app.core.holidays import holiday_label
 from app.schemas.validators import OptionalCleanStr, OptionalTimeRangeMixin
 
@@ -26,14 +27,11 @@ class OpeningDayBase(OptionalTimeRangeMixin):
 
 
 class OpeningDayCreate(OpeningDayBase):
-    pass
+    note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
 
 
-# date, mode and is_override are immutable through the API: date/mode keep the
-# propagation matching well defined (see WeeklyTemplateService), while
-# is_override is forced to True server-side on every manual write.
 class OpeningDayUpdate(OptionalTimeRangeMixin):
-    note: OptionalCleanStr = None
+    note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
     expected_updated_at: datetime | None = None
 
 
@@ -45,16 +43,6 @@ class OpeningDayResponse(OpeningDayBase):
     created_at: datetime
     updated_at: datetime
 
-    # Whether the row is a system-generated public holiday closure. No column
-    # says so: holidays are seeded as ordinary overrides, and are recognised by
-    # being a whole-day closure whose note matches the name of the holiday
-    # falling on that date. The client uses it to hide edit and delete on a
-    # variation the next generation would recreate anyway.
-    #
-    # The comparison starts from the label and not from the note: an
-    # extraordinary closure without a note has note None, and on an ordinary day
-    # so is holiday_label — comparing them directly turned every note-less
-    # closure into a holiday.
     @computed_field
     @property
     def is_holiday(self) -> bool:

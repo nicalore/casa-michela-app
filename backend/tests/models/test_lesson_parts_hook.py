@@ -60,7 +60,6 @@ async def test_an_hour_may_be_split_in_half(db: AsyncSession) -> None:
     await db.flush()
 
 
-# The halves need not be equal, and these two are the cases that say so.
 @pytest.mark.parametrize(
     ("duration", "first", "second"),
     [
@@ -81,10 +80,6 @@ async def test_uneven_parts_are_allowed(
     await db.flush()
 
 
-# Nothing shorter than an hour can be split, and nobody had to write that down.
-# Each part is at least half an hour by the lesson's own CHECK, so two of them
-# need sixty minutes to come out of, and forty-five has not got them: the
-# refusal arrives as the second part, not the first.
 async def test_three_quarters_of_an_hour_cannot_be_split(db: AsyncSession) -> None:
     availability, booking = await _scene(db, duration=45)
 
@@ -116,8 +111,6 @@ async def test_the_parts_may_not_outlast_the_request(db: AsyncSession) -> None:
         await db.flush()
 
 
-# Covering only half is a state of the work, not a mistake: it is refused when
-# the band is published, not while it is being arranged.
 async def test_half_a_request_is_a_valid_draft(db: AsyncSession) -> None:
     availability, booking = await _scene(db, duration=120)
 
@@ -131,12 +124,10 @@ async def test_the_two_parts_must_share_a_band(db: AsyncSession) -> None:
     db.add(_part(availability, booking, time(12, 30), time(13)))
     db.add(_part(availability, booking, time(13), time(13, 30)))
 
-    with pytest.raises(ValueError, match="fascia"):
+    with pytest.raises(ValueError, match="parte della giornata"):
         await db.flush()
 
 
-# The case that is always forgotten: nothing new is linked, an existing lesson
-# simply grows until the two parts no longer fit the request.
 async def test_stretching_a_stored_lesson_is_caught(db: AsyncSession) -> None:
     availability, booking = await _scene(db, duration=120)
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../shared/widgets/app_field_label.dart';
@@ -21,23 +22,12 @@ import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
 
-// The cards of the edit dialog: one per group of questions.
-//
-// Stateless widgets. They receive the form, edit it in place and notify whoever
-// owns it — the dialog, which calls setState. They live in a file of their own
-// because the whole dialog calls four endpoints as soon as it opens and cannot
-// be mounted in a test, whereas a single card can.
-
-// What every card receives.
 class PersonEditCardContext
 {
   final PersonEditForm form;
   final Map<String, String> errors;
   final VoidCallback onChanged;
 
-  // The residence of whoever opened this dialog, where there is one: the
-  // residence card offers it behind a checkbox. Null in dialogs not opened from
-  // another one, which is the normal case.
   final ResidenceOffer? offeredResidence;
 
   const PersonEditCardContext({
@@ -54,12 +44,8 @@ class PersonEditCardContext
   }
 }
 
-// Between one choice and the next. Here rather than as a margin inside the
-// card: a margin under the last one is space nobody asked for, and on a stack of
-// six it was enough to bring up a scrollbar for twelve pixels.
 const double _choiceGap = 12;
 
-// The label above a group of controls, with the room around it.
 Widget cardSection(String label, Widget child)
 {
   return Column(
@@ -71,8 +57,6 @@ Widget cardSection(String label, Widget child)
     ],
   );
 }
-
-// --------------------------------------------------------------- le scelte
 
 class InvolvementCard extends StatelessWidget
 {
@@ -118,8 +102,6 @@ class InvolvementCard extends StatelessWidget
 
 class RolesCard extends StatelessWidget
 {
-  // Below this width two columns of choices become two narrow columns, and the
-  // text explaining the role wraps three times.
   static const double _twoColumnsFrom = 760;
 
   static const Map<String, IconData> _icons = {
@@ -133,9 +115,6 @@ class RolesCard extends StatelessWidget
 
   final PersonEditCardContext ctx;
 
-  // Which roles can be picked. Empty means all of them: a minor created on the
-  // fly is not offered parent, psychologist or administrator, which require
-  // being of age.
   final Set<String> only;
 
   const RolesCard({super.key, required this.ctx, this.only = const {}});
@@ -147,12 +126,6 @@ class RolesCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Two columns where there is room: six roles in single file made a column
-    // taller than the dialog, which then scrolled to show the last one.
-    //
-    // The two in a row come out the same height: the sentences explaining the
-    // roles are not the same length, and two side by side at different heights
-    // read as crooked at once.
     return CardScrollArea(
       child: LayoutBuilder(
         builder: (context, constraints)
@@ -246,8 +219,6 @@ class AssociationCard extends StatelessWidget
           icon: Icons.person_off_outlined,
           title: 'No',
           subtitle: 'Il genitore viene registrato solo come tutore del minore.',
-          // Neither of the two until they say so: a self-ticked "No" was an
-          // answer nobody had given.
           selected: ctx.form.parentIsMember == false,
           onSelected: (_)
           {
@@ -260,19 +231,8 @@ class AssociationCard extends StatelessWidget
   }
 }
 
-// ------------------------------------------------------- i dati personali
-
-// What cannot be changed from here: identity and birth. A value that cannot be
-// changed is not a field but a fact, and it reads the way a fact reads on the
-// person's page — where these same two groups live under the same names.
-// Disabled fields, by contrast, looked like broken ones.
-
-// A fact's label and its value sit in two columns, and this is the first. Wide
-// enough to keep the longest label on one line and to leave a visible gap
-// between the name and the value.
 const double _factLabelWidth = 230;
 
-// The line explaining why it cannot be edited, and how to have it corrected.
 class _ReportBlock extends StatelessWidget
 {
   final String explanation;
@@ -332,9 +292,6 @@ class IdentityCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // The uploader takes the pill's whole width: inside a row, as a child
-        // without flex, it would be handed an infinite width and its
-        // LayoutBuilder would have nothing to do with it.
         AppPhotoUploader(
           imageBytes: ctx.form.fotoProfilo,
           initialImageUrl: person.profileImageUrl,
@@ -407,13 +364,10 @@ class BirthDataCard extends StatelessWidget
   }
 }
 
-// The same two cards, but to be filled in: when the person does not exist yet,
-// what will later be untouchable is the only thing that can be written.
 class IdentityEditCard extends StatelessWidget
 {
   static const double _breakpoint = 560;
 
-  // The gap AppTextField leaves above its own label.
   static const double _fieldLabelTopGap = 16;
 
   final PersonEditCardContext ctx;
@@ -427,6 +381,7 @@ class IdentityEditCard extends StatelessWidget
       controller: ctx.form.firstNameCtrl,
       label: 'Nome',
       hintText: 'Es. Mario',
+      maxLength: FieldLimits.personName,
       errorText: ctx.errors['nome'],
       textCapitalization: TextCapitalization.words,
       onChanged: (_) => ctx.clearError('nome'),
@@ -436,6 +391,7 @@ class IdentityEditCard extends StatelessWidget
       controller: ctx.form.lastNameCtrl,
       label: 'Cognome',
       hintText: 'Es. Rossi',
+      maxLength: FieldLimits.personName,
       errorText: ctx.errors['cognome'],
       textCapitalization: TextCapitalization.words,
       onChanged: (_) => ctx.clearError('cognome'),
@@ -473,9 +429,6 @@ class IdentityEditCard extends StatelessWidget
           },
         ),
         const SizedBox(height: 20),
-        // Gender and tax code in one row: the first is two chips, and on a row
-        // of its own it left half the form empty. The two labels start at the
-        // same height, so the row reads as a row.
         LayoutBuilder(
           builder: (context, constraints)
           {
@@ -495,6 +448,7 @@ class IdentityEditCard extends StatelessWidget
               controller: ctx.form.cfCtrl,
               label: 'Codice fiscale',
               hintText: 'Es. RSSMRA80A01L157H',
+              maxLength: FieldLimits.taxCode,
               errorText: ctx.errors['cf'],
               textCapitalization: TextCapitalization.characters,
               onChanged: (_) => ctx.clearError('cf'),
@@ -508,10 +462,6 @@ class IdentityEditCard extends StatelessWidget
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // The same two columns as the row above: gender under the
-                // first name, tax code under the last. The chip group has none
-                // of the gap a field leaves above its label, so it is given one
-                // here, and both labels and both controls line up.
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(top: _fieldLabelTopGap),
@@ -544,6 +494,7 @@ class BirthDataEditCard extends StatelessWidget
       controller: ctx.form.birthCityCtrl,
       label: 'Città di nascita',
       hintText: 'Es. Thiene',
+      maxLength: FieldLimits.city,
       errorText: ctx.errors['cittaNascita'],
       textCapitalization: TextCapitalization.words,
       onChanged: (_) => ctx.clearError('cittaNascita'),
@@ -553,6 +504,7 @@ class BirthDataEditCard extends StatelessWidget
       controller: ctx.form.birthProvinceCtrl,
       label: 'Provincia di nascita',
       hintText: 'Es. VI',
+      maxLength: FieldLimits.province,
       errorText: ctx.errors['provNascita'],
       onChanged: (_) => ctx.clearError('provNascita'),
     );
@@ -592,6 +544,7 @@ class BirthDataEditCard extends StatelessWidget
           controller: ctx.form.birthNationCtrl,
           label: 'Nazione di nascita',
           hintText: 'Es. Italia',
+          maxLength: FieldLimits.nation,
           errorText: ctx.errors['nazioneNascita'],
           textCapitalization: TextCapitalization.words,
           onChanged: (_) => ctx.clearError('nazioneNascita'),
@@ -601,7 +554,6 @@ class BirthDataEditCard extends StatelessWidget
   }
 }
 
-// The consents, signed once and once only: on joining.
 class ConsentsCard extends StatelessWidget
 {
   final PersonEditCardContext ctx;
@@ -654,16 +606,11 @@ class ConsentsCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // On creation there are five, each with its explanation under it: a card
-    // taller than the dialog, which set everything else in motion.
     return CardScrollArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // The three declarations are signed once, on joining: they are never
-          // withdrawn afterwards, and showing them when editing would suggest
-          // otherwise. The two consents below can be changed at any time.
           if (ctx.form.isCreation) ...[
           _consent(
             label: 'Statuto',
@@ -729,7 +676,6 @@ class ConsentsCard extends StatelessWidget
   }
 }
 
-// The psychological support service, which can be asked for on joining.
 class PsychologicalSupportCard extends StatelessWidget
 {
   final PersonEditCardContext ctx;
@@ -773,19 +719,14 @@ class PsychologicalSupportCard extends StatelessWidget
 
 class ResidenceCard extends StatelessWidget
 {
-  // Below this width street type, name and number no longer fit in a row.
   static const double _breakpoint = 600;
 
-  // Wide enough for the whole 'Via/Strada/...' hint: cut short, it stops
-  // saying what goes in the field.
   static const double _streetTypeWidth = 160;
 
   final PersonEditCardContext ctx;
 
   const ResidenceCard({super.key, required this.ctx});
 
-  // A field typed by hand: the error goes, and the tick with it, because what
-  // is being typed is no longer the residence that was offered.
   void _handWritten(String key)
   {
     ctx.clearError(key);
@@ -799,6 +740,7 @@ class ResidenceCard extends StatelessWidget
       controller: ctx.form.streetTypeCtrl,
       label: 'Indirizzo',
       hintText: 'Via/Strada/...',
+      maxLength: FieldLimits.residenceType,
       errorText: ctx.errors['tipoVia'],
       onChanged: (_) => _handWritten('tipoVia'),
     );
@@ -807,6 +749,7 @@ class ResidenceCard extends StatelessWidget
       controller: ctx.form.streetNameCtrl,
       label: '',
       hintText: 'Nome',
+      maxLength: FieldLimits.address,
       errorText: ctx.errors['indirizzo'],
       textCapitalization: TextCapitalization.words,
       onChanged: (_) => _handWritten('indirizzo'),
@@ -816,6 +759,7 @@ class ResidenceCard extends StatelessWidget
       controller: ctx.form.streetNumberCtrl,
       label: '',
       hintText: 'N°',
+      maxLength: FieldLimits.streetNumber,
       errorText: ctx.errors['civico'],
       onChanged: (_) => _handWritten('civico'),
     );
@@ -826,14 +770,6 @@ class ResidenceCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Above the fields, because it is the shortcut to filling them in:
-        // below, it would read as something to do after writing them.
-        //
-        // It is there even when there is nothing to copy yet, disabled and
-        // saying what is missing. Hidden until the other residence is written,
-        // it would be invisible exactly when it is looked for — this dialog gets
-        // opened before the other one is filled in — and nobody would know it
-        // existed.
         if (offered != null) ...[
           AppChoiceCard(
             icon: Icons.home_outlined,
@@ -854,7 +790,6 @@ class ResidenceCard extends StatelessWidget
                 ctx.form.giveBackResidence();
               }
 
-              // The six fields changed underneath their errors.
               for (final key in const ['tipoVia', 'indirizzo', 'civico', 'cittaResidenza', 'provResidenza', 'cap'])
               {
                 ctx.errors.remove(key);
@@ -889,6 +824,7 @@ class ResidenceCard extends StatelessWidget
           controller: ctx.form.residenceCityCtrl,
           label: 'Città',
           hintText: 'Es. Thiene',
+          maxLength: FieldLimits.city,
           errorText: ctx.errors['cittaResidenza'],
           textCapitalization: TextCapitalization.words,
           onChanged: (_) => _handWritten('cittaResidenza'),
@@ -900,6 +836,7 @@ class ResidenceCard extends StatelessWidget
               controller: ctx.form.residenceProvinceCtrl,
               label: 'Provincia',
               hintText: 'Es. VI',
+              maxLength: FieldLimits.province,
               errorText: ctx.errors['provResidenza'],
               onChanged: (_) => _handWritten('provResidenza'),
             );
@@ -908,6 +845,7 @@ class ResidenceCard extends StatelessWidget
               controller: ctx.form.postalCodeCtrl,
               label: 'CAP',
               hintText: 'Es. 36016',
+              maxLength: FieldLimits.postalCode,
               errorText: ctx.errors['cap'],
               keyboardType: TextInputType.number,
               onChanged: (_) => _handWritten('cap'),
@@ -948,6 +886,7 @@ class ContactsCard extends StatelessWidget
       controller: ctx.form.emailCtrl,
       label: 'Email',
       hintText: 'Es. mario.rossi@email.com',
+      maxLength: FieldLimits.email,
       errorText: ctx.errors['email'],
       keyboardType: TextInputType.emailAddress,
       onChanged: (_) => ctx.clearError('email'),
@@ -957,6 +896,7 @@ class ContactsCard extends StatelessWidget
       controller: ctx.form.phoneCtrl,
       label: 'Telefono',
       hintText: 'Es. 333 123 4567',
+      maxLength: FieldLimits.phone,
       errorText: ctx.errors['telefono'],
       keyboardType: TextInputType.phone,
       inputFormatters: const [PhoneInputFormatter()],
@@ -984,8 +924,6 @@ class ContactsCard extends StatelessWidget
   }
 }
 
-// --------------------------------------------------- i dati associativi
-
 class MembershipsCard extends StatelessWidget
 {
   final PersonEditCardContext ctx;
@@ -1001,9 +939,6 @@ class MembershipsCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The rows scroll, the button that adds one does not: it is pressed
-        // after writing the last row, and inside the list it would run off the
-        // bottom exactly when it is needed.
         CardScrollArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1018,8 +953,6 @@ class MembershipsCard extends StatelessWidget
                   startError: ctx.errors['enrollmentDate_$i'],
                   onYearChanged: (_) => ctx.clearError('enrollmentYear_$i'),
                   onDayMonthChanged: (_) => ctx.clearError('enrollmentDate_$i'),
-                  // The first cannot be removed: it is the membership the
-                  // person is a member by.
                   onRemove: i == 0
                       ? null
                       : ()
@@ -1036,10 +969,6 @@ class MembershipsCard extends StatelessWidget
           label: 'AGGIUNGI ISCRIZIONE',
           onTap: ()
           {
-            // Rows are added going back in time: the one being written is the
-            // membership before the oldest already there, so the year proposed
-            // is the one before it — never the year after the most recent,
-            // which would invent a membership that has not happened yet.
             final Iterable<int> years = rows
                 .map((row) => int.tryParse(row.yearCtrl.text.trim()))
                 .whereType<int>();
@@ -1088,6 +1017,7 @@ class PaymentCard extends StatelessWidget
             controller: ctx.form.otherPaymentMethodCtrl,
             label: 'Altra modalità',
             hintText: 'Es. Carta di credito',
+            maxLength: FieldLimits.otherDetail,
             errorText: ctx.errors['altraModalitaPagamento'],
             onChanged: (_) => ctx.clearError('altraModalitaPagamento'),
           ),
@@ -1117,8 +1047,6 @@ class AdminCard extends StatelessWidget
           onChanged: (value)
           {
             ctx.form.adminRoleValue = value;
-            // President, vice president and treasurer cannot be paid: the
-            // collaboration follows the role without asking.
             ctx.form.syncCollaborationWithAdminRole();
             ctx.clearError('ruoloAmministratore');
           },
@@ -1128,6 +1056,7 @@ class AdminCard extends StatelessWidget
             controller: ctx.form.otherAdminRoleCtrl,
             label: 'Altro ruolo',
             hintText: 'Es. Responsabile IT',
+            maxLength: FieldLimits.otherRole,
             errorText: ctx.errors['altroRuoloAmministratore'],
             onChanged: (_) => ctx.clearError('altroRuoloAmministratore'),
           ),
@@ -1153,6 +1082,7 @@ class TeacherCard extends StatelessWidget
           controller: ctx.form.studiScolasticiCtrl,
           label: 'Studi scolastici',
           hintText: 'Es. Liceo Classico',
+          maxLength: FieldLimits.education,
           errorText: ctx.errors['studiScolastici'],
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => ctx.clearError('studiScolastici'),
@@ -1161,6 +1091,7 @@ class TeacherCard extends StatelessWidget
           controller: ctx.form.studiUniversitariCtrl,
           label: 'Studi universitari',
           hintText: 'Es. Laurea in Informatica',
+          maxLength: FieldLimits.education,
           errorText: ctx.errors['studiUniversitari'],
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => ctx.clearError('studiUniversitari'),
@@ -1183,12 +1114,6 @@ class CourseParticipantCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // The courses the association runs, and not a field to type one into:
-        // in the database they are a two-value enum, so a third name would not
-        // fit anyway. When editing it used to be a text field, seeded with the
-        // label the server sends and posted back verbatim to a server expecting
-        // the code — pressing SAVE on a participant, without touching anything,
-        // was enough to make the save fail.
         PersonChipGroupField(
           label: 'Tipo corso',
           options: kCourseTypes.keys.toList(),
@@ -1257,17 +1182,12 @@ class StudentCard extends StatelessWidget
             controller: ctx.form.otherCertificationCtrl,
             label: 'Altra certificazione',
             hintText: 'Es. Autismo livello 1',
+            maxLength: FieldLimits.otherDetail,
             errorText: ctx.errors['altraCertificazione'],
             onChanged: (_) => ctx.clearError('altraCertificazione'),
           ),
-        // Whoever holds a certification has to know that two meetings with the
-        // psychologist are mandatory: a condition of joining and not a detail,
-        // so it is ticked by hand.
         if (ctx.form.certificationTypeValue != null && ctx.form.certificationTypeValue != 'No') ...[
           const SizedBox(height: 24),
-          // Laid out like the consents: title, what is being agreed to, then
-          // the switch. Under the switch the sentence arrived after the answer
-          // had already been given.
           const AppFieldLabel('Presa visione incontri'),
           const SizedBox(height: 8),
           Text(
@@ -1311,8 +1231,6 @@ class SchoolEnrollmentsCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The rows scroll, the button that adds one does not: it is pressed
-        // after writing the last row.
         CardScrollArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1354,8 +1272,6 @@ class SchoolEnrollmentsCard extends StatelessWidget
           label: 'AGGIUNGI ANNO',
           onTap: ()
           {
-            // Rows are added going back in time, so the year before the oldest
-            // one present is the one offered.
             final int oldest = rows.isEmpty
                 ? currentSchoolYearStart() + 1
                 : rows
@@ -1390,6 +1306,7 @@ class StaffCard extends StatelessWidget
           controller: ctx.form.ibanCtrl,
           label: 'IBAN',
           hintText: 'Es. IT00A...',
+          maxLength: FieldLimits.iban,
           errorText: ctx.errors['iban'],
           onChanged: (_) => ctx.clearError('iban'),
         ),
@@ -1433,6 +1350,7 @@ class MinorSafetyCard extends StatelessWidget
           controller: ctx.form.emergencyContactNameCtrl,
           label: 'Contatto emergenza',
           hintText: 'Nome e cognome',
+          maxLength: FieldLimits.contactName,
           errorText: ctx.errors['contattoEmergenzaNome'],
           textCapitalization: TextCapitalization.words,
           onChanged: (_) => ctx.clearError('contattoEmergenzaNome'),
@@ -1441,6 +1359,7 @@ class MinorSafetyCard extends StatelessWidget
           controller: ctx.form.emergencyContactPhoneCtrl,
           label: 'Telefono emergenza',
           hintText: 'Es. 333 123 4567',
+          maxLength: FieldLimits.phone,
           errorText: ctx.errors['contattoEmergenzaTelefono'],
           keyboardType: TextInputType.phone,
           inputFormatters: const [PhoneInputFormatter()],
@@ -1450,6 +1369,7 @@ class MinorSafetyCard extends StatelessWidget
           controller: ctx.form.allergiesCtrl,
           label: 'Allergie / intolleranze',
           hintText: 'Es. Polline, lattosio',
+          maxLength: FieldLimits.notes,
           minLines: 1,
           maxLines: 3,
           textCapitalization: TextCapitalization.sentences,
@@ -1459,6 +1379,7 @@ class MinorSafetyCard extends StatelessWidget
           controller: ctx.form.medicationsCtrl,
           label: 'Farmaci',
           hintText: 'Es. Ventolin',
+          maxLength: FieldLimits.notes,
           minLines: 1,
           maxLines: 3,
           textCapitalization: TextCapitalization.sentences,

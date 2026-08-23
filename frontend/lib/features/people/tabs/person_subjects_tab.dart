@@ -24,32 +24,13 @@ import '../models/teacher_subject_item.dart';
 import '../widgets/competence_picker.dart';
 import '../widgets/person_detail_widgets.dart';
 
-// The card a discipline is shown on: the width every entity card of the app is
-// drawn at, and the gold outline they all take under the pointer.
 const double _subjectCardWidth = 360;
 
-// What sits between two of them, along the row and between the rows. It is also
-// what says how many fit across, and so which beat each card leaves on.
 const double _subjectCardGap = 16;
 const double _subjectCardRadius = 30;
 
-// The name gets two lines, since a discipline is commonly named in more words
-// than one line of a card holds; the line under it gets one. Both line heights
-// are spelled out below rather than left to the font, so the height here is the
-// sum of its parts and not a figure somebody measured once:
-//
-//   2 x 17 x 1.15  the name           39.10
-//   4              the gap between     4.00
-//   1 x 13 x 1.25  the line under it  16.25
-//   2 x 16         the padding        32.00
-//   2 x 2          the border          4.00
-//                                     -----
-//                                     95.35
 const double _subjectCardHeight = 96;
 
-// What a name may take before it is cut. It is cut with an ellipsis and said in
-// full under the pointer, which is the price of every card being the same
-// height.
 const int _subjectCardTitleLines = 2;
 const double _subjectCardTitleHeight = 1.15;
 const double _subjectCardDetailHeight = 1.25;
@@ -99,8 +80,6 @@ List<FilterOption<String>> _areaPillOptions()
   return [
     for (final area in subjectAreas)
       FilterOption(value: area.value, label: area.label),
-    // Last, and under the three areas: the services are not a fourth area,
-    // they are the other thing a teacher can take on.
     const FilterOption(value: kServicesFilterValue, label: 'Servizi'),
   ];
 }
@@ -158,7 +137,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     return result;
   }
 
-  // A service has no area, so asking for a real one leaves it out.
   List<String> get _filteredServices
   {
     if (_filterArea != null && !_showingOnlyServices)
@@ -177,9 +155,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       (widget.person.teacherSubjects ?? const []).isNotEmpty ||
       (widget.person.teacherServices ?? const []).isNotEmpty;
 
-  // Disciplines and services in a single list, sorted together as the pill
-  // says: whoever reads the page is looking at what the teacher can take on, not
-  // at two separate lists.
   List<Widget> _buildCards()
   {
     final entries = <({String name, Widget card})>[
@@ -197,9 +172,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       for (final service in _filteredServices)
         (
           name: service,
-          // No onTap: a service has no programmes to open, and a card lighting
-          // up under the pointer without doing anything promises a dialog that
-          // is not there.
           card: _ReadOnlyCard(
             title: service,
             subtitle: 'Servizio',
@@ -252,8 +224,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     );
   }
 
-  // The head of the list, as on every other list of the app: the field that
-  // shortens it, then the pills that narrow it.
   Widget _buildFilters()
   {
     return Column(
@@ -311,11 +281,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1520),
-          // Laid out by hand rather than by [pageTransitionBlocks], which gives
-          // one beat to each block it is handed: the grid went in as a single
-          // block, so a teacher's disciplines all left and came back together
-          // while the rest of the page walked. The cards carry their own beats
-          // here, and the button below waits for the last of them.
           child: LayoutBuilder(
             builder: (context, constraints)
             {
@@ -323,8 +288,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                       (_subjectCardWidth + _subjectCardGap))
                   .floor();
 
-              // One past the last card, whichever row it fell on, so what closes
-              // the page arrives behind the grid and not in the middle of it.
               final int closing = cards.isEmpty
                   ? PageTransitionItem.list + 1
                   : PageTransitionItem.list + (cards.length - 1) ~/ columns + columns;
@@ -351,11 +314,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                       spacing: _subjectCardGap,
                       runSpacing: _subjectCardGap,
                       children: [
-                        for (var i = 0; i < cards.length; i++)
-                          PageTransitionItem(
-                            slot: PageTransitionItem.gridSlot(i, columns),
-                            child: cards[i],
-                          ),
+                        for (final card in cards)
+                          PageTransitionItem.wave(child: card),
                       ],
                     ),
                   const SizedBox(height: 48),
@@ -373,20 +333,11 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   }
 }
 
-// The name and what is said about it, and nothing else.
-//
-// There used to be a glyph in a circle: the same one for every discipline and
-// the same for every service, so it told no card from another — it said
-// "discipline" beside a line already saying how many programmes there are. It
-// took half the card's width and held the other half's height.
 class _ReadOnlyCard extends StatefulWidget
 {
   final String title;
   final String subtitle;
 
-  // What pressing it opens, where there is something to open. Null on a
-  // service: it has no programmes, and the card does not light up under the
-  // pointer, because gold in this app means "this can be pressed".
   final VoidCallback? onTap;
 
   const _ReadOnlyCard({
@@ -418,18 +369,12 @@ class _ReadOnlyCardState extends State<_ReadOnlyCard>
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           width: _subjectCardWidth,
-          // A height and not a minimum. A minimum only lines up the cards whose
-          // names take the same number of lines: a name that wrapped to a second
-          // one pushed its own card taller than the ones beside it, and the row
-          // came out ragged. Every card of a grid in this app is a fixed height
-          // for that reason.
           height: _subjectCardHeight,
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(_subjectCardRadius),
-            // Gold under the pointer, the mark every card of the app takes.
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -470,20 +415,12 @@ class _ReadOnlyCardState extends State<_ReadOnlyCard>
   }
 }
 
-// Where a discipline is taught, opened from its card. Read-only: the same list
-// as the dialog that picks them, without the ticks.
-//
-// The programmes sit under their level and their sector, and the row carries
-// only the name, which is the part that tells them apart — rather than a wall of
-// chips each holding a programme's full name.
 class _ReadOnlyProgramsDialog extends StatelessWidget
 {
   final TeacherSubjectItem subject;
 
   const _ReadOnlyProgramsDialog({required this.subject});
 
-  // In the order the first programme of each group turns up, so a list read
-  // twice reads the same.
   Map<String, List<TeacherProgramItem>> get _groups
   {
     final groups = <String, List<TeacherProgramItem>>{};
@@ -543,9 +480,6 @@ class _ReadOnlyProgramsDialog extends StatelessWidget
       maxWidth: 720,
       fillLast: true,
       children: [
-        // What the discipline is, before where it is taught: the name is in
-        // the pill above and says no more than what it is called. Where nobody
-        // wrote it the pill is absent, rather than opening on an empty line.
         if (description != null && description.isNotEmpty)
           AppDialogPill(
             expand: true,
@@ -561,9 +495,6 @@ class _ReadOnlyProgramsDialog extends StatelessWidget
               ),
             ),
           ),
-        // How many and which, in a single pill: the count is the title of the
-        // list under it, and split from it was a one-line pill saying something
-        // incomplete. The count stays put while the list scrolls.
         AppDialogPill(
           expand: true,
           child: Column(
@@ -606,8 +537,6 @@ class _ReadOnlyProgramsDialog extends StatelessWidget
   }
 }
 
-// A programme, to read and nothing else: the dot in place of the tick says
-// there is nothing to press here.
 class _ProgramLine extends StatelessWidget
 {
   final String label;
@@ -661,18 +590,11 @@ class _SubjectsEditDialog extends StatefulWidget
 
 class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
 {
-  // Which disciplines the teacher covers, and with which study programs. Kept as
-  // two maps because a discipline can be switched off while keeping the programs
-  // that were picked for it, until the dialog is closed.
   final Map<int, bool> _isSubjectSelected = {};
   final Map<int, Set<int>> _programsBySubject = {};
 
-  // The services the teacher takes on, by name: they have no programmes to
-  // narrow down.
   final Set<String> _selectedServices = {};
 
-  // Programs linked to each discipline, computed once after loading instead of on
-  // every rebuild: the lookup walks every program and all its nested subjects.
   final Map<int, List<StudyProgramItem>> _programsBySubjectId = {};
 
   bool _isLoadingData = true;
@@ -689,10 +611,6 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
     _loadAllData();
   }
 
-  // A program teaches a discipline when one of its ministry subjects lists it.
-  // The nested disciplines come with the study programs payload: if the backend
-  // stopped including them, every discipline would look unteachable and the grid
-  // would come out empty.
   List<StudyProgramItem> _findProgramsFor(AssociationSubjectItem subject)
   {
     return _allPrograms
@@ -749,15 +667,8 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
     }
   }
 
-  // Ticking a discipline is the whole of the common answer: it is assigned
-  // wherever it is taught. Restricting it is a second step, and one that is only
-  // taken when it is true — most teachers teach a discipline in every programme
-  // that offers it, and the window that asked them programme by programme asked
-  // them something they had no reason to answer.
   Future<void> _submitForm() async
   {
-    // A teacher who only takes on services is still a teacher: what cannot be
-    // saved is one who does neither.
     if (!_isSubjectSelected.values.any((isSelected) => isSelected) &&
         _selectedServices.isEmpty)
     {
@@ -782,8 +693,6 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
               })
           .toList();
 
-      // teacherUpdatedAt is the optimistic concurrency token for the teacher
-      // aggregate: the server refuses the update if it has changed meanwhile.
       await ApiService().updateTeacherCompetences(
         widget.person.fiscalCode,
         competences,
@@ -826,7 +735,6 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
       eyebrow: 'Discipline',
       title: 'Modifica discipline',
       maxWidth: 860,
-      // Search and filters stay put; only the list of disciplines moves.
       fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(
@@ -848,12 +756,6 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
           selectedServices: _selectedServices,
           isLoading: _isLoadingData,
           onChanged: () => setState(() {}),
-          // Two pieces standing in the room of one child, and a beat each: the
-          // stack counts the title 0 and this child 1, so the filters take that
-          // beat and the list comes after them. Under a single piece the two
-          // arrived together, which is not what the windows next door do — the
-          // minors and the parents hand the stack the same two pills as two
-          // children and they arrive one after the other.
           builder: (context, filters, list) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [

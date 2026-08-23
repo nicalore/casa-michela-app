@@ -1,12 +1,6 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../association/models/ministry_subject_item.dart';
 
-// How an hour is asked for: a ministry subject with its disciplines, a
-// discipline on its own, or a service.
-//
-// The three are not variants of the same question — what makes sense to ask
-// changes — and whoever shows or edits them has to tell them apart without
-// guessing from which field is filled.
 enum BookingRequestKind
 {
   ministrySubject,
@@ -14,15 +8,37 @@ enum BookingRequestKind
   service,
 }
 
-// Reuses AssociationSubjectOption from the association feature rather than
-// declaring a duplicate: same shape (id, name), same backend schema.
+String bookingTitle(BookingSummaryItem booking, List<MinistrySubjectItem> ministrySubjects)
+{
+  return switch (booking.kind)
+  {
+    BookingRequestKind.ministrySubject => _ministrySubjectName(
+        ministrySubjects,
+        booking.ministrySubjectId,
+      ),
+    BookingRequestKind.associationSubject => booking.associationSubject?.name ?? 'Disciplina',
+    BookingRequestKind.service => booking.serviceName ?? 'Servizio',
+  };
+}
+
+String _ministrySubjectName(List<MinistrySubjectItem> subjects, int? id)
+{
+  for (final subject in subjects)
+  {
+    if (subject.id == id)
+    {
+      return subject.name;
+    }
+  }
+
+  return 'Materia';
+}
+
 class BookingSummaryItem
 {
   final int id;
   final int duration;
 
-  // Filled according to the kind: the first two for a ministry subject, the
-  // third for a lone discipline, the last for a service.
   final int? ministrySubjectId;
   final List<AssociationSubjectOption> associationSubjects;
   final AssociationSubjectOption? associationSubject;
@@ -52,8 +68,6 @@ class BookingSummaryItem
     required this.updatedAt,
   });
 
-  // The disciplines this hour is spent on, whichever way it was asked for. A
-  // service is spent on none: it is not a lesson about a subject.
   Set<int> get disciplineIds => switch (kind)
   {
     BookingRequestKind.ministrySubject =>
@@ -100,9 +114,6 @@ class BookingSummaryItem
       ),
       associationSubject: option(json['association_subject']),
       serviceName: json['service_name'] as String?,
-      // A list of strings and not of objects: parseList casts every element to
-      // a Map before even handing it over, which breaks on a tag. It went
-      // unnoticed while no booking really carried tags.
       tags: parseStringList(json['tags']),
       topic: json['topic'] as String?,
       notes: json['notes'] as String?,

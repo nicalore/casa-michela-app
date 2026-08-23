@@ -5,6 +5,7 @@ from typing import Final
 from fastapi import HTTPException, status
 
 from app.api.rbac import IdentityContext
+from app.core.booking_close import assert_still_open, bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.association_subject import AssociationSubject
@@ -19,10 +20,10 @@ from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import BookingBase, BookingCreate, BookingUpdate
 from app.services.lesson_guard import (
-    assert_booking_band_not_published,
-    assert_bookings_not_scheduled,
+    find_booking_lessons,
     find_scheduled_booking_ids,
 )
+from app.services.schedule_cascade import unschedule
 
 _ENTITY_LABEL: Final[str] = "la prenotazione"
 _NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
@@ -36,11 +37,6 @@ _UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[str] = "La disciplina indicata non esi
 _UNKNOWN_SERVICE_ERROR: Final[str] = 'Il servizio "{name}" non esiste.'
 _CREATE_ERROR: Final[str] = "Errore durante la creazione della prenotazione."
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
-
-_SCHEDULED_BOOKING_LOCKED_ERROR: Final[str] = (
-    "Questa prenotazione è già in una lezione: puoi modificarne solo argomento, "
-    "note e tipologia. Rimuovi la lezione per cambiare il resto."
-)
 
 
 class BookingService:
@@ -77,8 +73,6 @@ class BookingService:
         ministry_subject_id: int | None,
         association_subject_ids: list[int],
     ) -> list[SubjectRequested]:
-        # A lone-discipline or service request has no subjects to resolve: the
-        # kind is told by the columns on the booking.
         if ministry_subject_id is None:
             return []
 
@@ -105,18 +99,11 @@ class BookingService:
             SubjectRequested(
                 ministry_subject_id=pair.ministry_subject_id,
                 association_subject_id=pair.association_subject_id,
-                # Set directly from the already-loaded pair rather than left
-                # to lazy-load: SQLAlchemy's async extension can't lazy-load
-                # relationships outside of an explicit await.
                 ministry_association_subject=pair,
             )
             for pair in pairs
         ]
 
-    # Turns the two lists of tax codes into rows, checking they name teachers.
-    # Existence only: a pupil may name a teacher who does not teach that subject,
-    # or who has not offered that day. Which of the named ones the hour actually
-    # goes to is the timetable's business.
     async def resolve_teacher_preferences(
         self,
         preferred_tax_codes: list[str],
@@ -148,10 +135,6 @@ class BookingService:
             for tax_code in tax_codes
         ]
 
-    # A validated Booking hung off a presence, not yet added to the session. It
-    # takes the presence as an object rather than an id: the caller already holds
-    # it and has already been authorized on it, so re-selecting it here would be
-    # a second query answering a question already answered.
     async def build_for_presence(
         self,
         presence: Presence,
@@ -166,9 +149,6 @@ class BookingService:
             topic=payload.topic,
             notes=payload.notes,
             association_subject_id=payload.association_subject_id,
-            # Set from the row just loaded rather than left to lazy-load: the
-            # response reads it right after, and SQLAlchemy's async extension
-            # cannot lazy-load outside an explicit await.
             association_subject=association_subject,
             service_name=payload.service_name,
             subjects_requested=await self.resolve_subjects(
@@ -181,10 +161,6 @@ class BookingService:
             ),
         )
 
-    # Checks that the requested discipline or service exists, and returns the
-    # loaded discipline. Without it, a wrong id or name would come out as a
-    # foreign key violation: a generic 400 instead of a message saying what is
-    # missing.
     async def _resolve_request_target(
         self,
         payload: BookingBase,
@@ -250,12 +226,26 @@ class BookingService:
 
         return booking
 
+    def _assert_still_theirs(
+        self,
+        identity: IdentityContext,
+        presence: Presence,
+    ) -> None:
+        assert_still_open(
+            presence.date,
+            bands_of(presence.start_time, presence.end_time),
+            is_admin=identity.is_admin,
+        )
+
     async def create(
         self,
         identity: IdentityContext,
         payload: BookingCreate,
     ) -> Booking:
         presence = await self._get_authorized_presence(identity, payload.presence_id)
+
+        self._assert_still_theirs(identity, presence)
+
         booking = await self.build_for_presence(presence, payload)
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
@@ -264,8 +254,6 @@ class BookingService:
 
         return booking
 
-    # Everything the lesson was validated against when it was planned: its
-    # length, whose hours it comes out of, and what it is about.
     def _scheduling_shape(self, booking: Booking) -> tuple:
         requested = booking.subjects_requested
 
@@ -290,36 +278,26 @@ class BookingService:
             frozenset(payload.association_subject_ids),
         )
 
-    # A request that has already been taught cannot be reshaped: the lesson was
-    # checked against its duration, its disciplines and its presence, and moving
-    # any of them now would leave the calendar saying something that was never
-    # true.
-    #
-    # The harmless fields are deliberately still editable. Adding a note to an
-    # hour that is already on the timetable is exactly when somebody wants to.
-    async def _assert_scheduled_edit_allowed(
+    async def _unschedule_if_reshaped(
         self,
         booking: Booking,
         payload: BookingUpdate,
-    ) -> None:
+    ) -> int:
         scheduled = await find_scheduled_booking_ids(
             self.repository.session,
             [booking.id],
         )
 
         if not scheduled:
-            return
+            return 0
 
-        await assert_booking_band_not_published(
+        if self._scheduling_shape(booking) == self._payload_shape(booking, payload):
+            return 0
+
+        return await unschedule(
             self.repository.session,
-            booking.id,
+            await find_booking_lessons(self.repository.session, booking.id),
         )
-
-        if self._scheduling_shape(booking) != self._payload_shape(booking, payload):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_SCHEDULED_BOOKING_LOCKED_ERROR,
-            )
 
     async def update(
         self,
@@ -335,19 +313,21 @@ class BookingService:
             entity_label=_ENTITY_LABEL,
         )
 
-        await self._assert_scheduled_edit_allowed(booking, payload)
+        self._assert_still_theirs(identity, booking.presence)
+
+        await self._unschedule_if_reshaped(booking, payload)
 
         if (
             payload.presence_id is not None
             and payload.presence_id != booking.presence_id
         ):
-            # Reassigning to a different presence is allowed for any caller
-            # authorized on the *new* presence too, not just admins: it is a
-            # resource reference to re-verify, not an identity field.
             new_presence = await self._get_authorized_presence(
                 identity,
                 payload.presence_id,
             )
+
+            self._assert_still_theirs(identity, new_presence)
+
             booking.presence = new_presence
 
         booking.association_subject = await self._resolve_request_target(payload)
@@ -369,10 +349,6 @@ class BookingService:
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
             await self.repository.commit()
-            # updated_at is computed by the database on every UPDATE, so it is
-            # expired the moment the statement lands and has to be read back
-            # here: the response carries it, and reaching for it after the
-            # request has left the session is IO in a place that cannot do any.
             await self.repository.refresh(booking)
 
         return booking
@@ -380,9 +356,12 @@ class BookingService:
     async def delete(self, identity: IdentityContext, booking_id: int) -> None:
         booking = await self.get_owned_or_404(identity, booking_id)
 
-        # The database would refuse this as well, through the RESTRICT that
-        # keeps the calendar; this is here so the answer is a sentence.
-        await assert_bookings_not_scheduled(self.repository.session, [booking.id])
+        self._assert_still_theirs(identity, booking.presence)
+
+        await unschedule(
+            self.repository.session,
+            await find_booking_lessons(self.repository.session, booking.id),
+        )
 
         await self.repository.delete(booking)
         await self.repository.commit()

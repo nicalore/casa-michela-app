@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_field_label.dart';
-import '../../../shared/widgets/app_carousel_frame.dart';
-import '../../../shared/widgets/app_dialog_footer.dart';
-import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
@@ -15,6 +11,7 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../../shared/widgets/wizard_dialog.dart';
 import '../models/association_subject_item.dart';
 import '../models/ministry_subject_item.dart';
 import '../models/subject_taxonomy.dart';
@@ -24,8 +21,6 @@ class MinistrySubjectsTab extends StatefulWidget
 {
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // Read only: the wizard needs it to link the internal disciplines, but the
-  // owner of this list is AssociationSubjectsTab.
   final List<AssociationSubjectItem> associationSubjects;
 
   final Future<bool> Function(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) onCreate;
@@ -67,13 +62,12 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       return matchesSearch && matchesArea && matchesLevel;
     }).toList();
 
-    result.sort((a, b) => switch (_sortBy)
-    {
-      SortCriterion.nameAsc => a.name.compareTo(b.name),
-      SortCriterion.nameDesc => b.name.compareTo(a.name),
-      SortCriterion.dateAsc => a.createdAt.compareTo(b.createdAt),
-      SortCriterion.dateDesc => b.createdAt.compareTo(a.createdAt),
-    });
+    sortByCriterion(
+      result,
+      _sortBy,
+      name: (item) => item.name,
+      createdAt: (item) => item.createdAt,
+    );
 
     return result;
   }
@@ -85,8 +79,6 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       barrierLabel: 'MinistrySubjectWizard',
       builder: (context) => _MinistrySubjectWizardDialog(
         existingSubject: subject,
-        // Read here, so the list is refreshed by the next setState of
-        // AssociationPage.
         availableAssociationSubjects: widget.associationSubjects,
         onCancelEdit: onCancelEdit,
         onSave: (name, level, areas, description, associationIds, onError) async
@@ -108,81 +100,45 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     final subjects = _filteredSubjects;
 
     return TabContent(
-      header: [
-        TabHeaderRow(
-          search: AppSearchField(
-            controller: _searchController,
-            onChanged: (value) => setState(() => _searchText = value),
-            hintText: 'Cerca materia ministeriale...',
+      header: entityTabHeader(
+        searchController: _searchController,
+        onSearchChanged: (value) => setState(() => _searchText = value),
+        searchHint: 'Cerca materia ministeriale...',
+        actionLabel: 'NUOVA MATERIA',
+        onAction: () => _showWizard(),
+        sort: _sortBy,
+        onSortChanged: (value) => setState(() => _sortBy = value),
+        countLabel: subjects.length == 1
+            ? '1 materia trovata'
+            : '${subjects.length} materie trovate',
+        filters: [
+          const FilterGroupDivider(),
+          AppFilterPill<String>.filter(
+            prefix: 'Livello',
+            hint: 'Tutti i livelli',
+            icon: Icons.school_outlined,
+            value: _filterLevel,
+            menuWidth: 210,
+            onChanged: (value) => setState(() => _filterLevel = value),
+            onClear: () => setState(() => _filterLevel = null),
+            options: schoolLevels
+                .map((level) => FilterOption(value: level.value, label: level.compactLabel))
+                .toList(),
           ),
-          action: AppGradientButton(
-            label: 'NUOVA MATERIA',
-            icon: Icons.add_rounded,
-            height: 50,
-            // Half its own height: the shape of the search bar it stands
-            // beside.
-            radius: 25,
-            fontSize: 14,
-            onPressed: () => _showWizard(),
+          AppFilterPill<String>.filter(
+            prefix: 'Area',
+            hint: 'Tutte le aree',
+            icon: Icons.category_outlined,
+            value: _filterArea,
+            menuWidth: 210,
+            onChanged: (value) => setState(() => _filterArea = value),
+            onClear: () => setState(() => _filterArea = null),
+            options: subjectAreas
+                .map((area) => FilterOption(value: area.value, label: area.label))
+                .toList(),
           ),
-        ),
-        const SizedBox(height: 28),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            AppFilterPill<SortCriterion>.setting(
-              prefix: 'Ordina',
-              hint: 'Ordina per',
-              icon: Icons.swap_vert_rounded,
-              value: _sortBy,
-              menuWidth: 190,
-              onChanged: (value) => setState(() => _sortBy = value),
-              options: SortCriterion.values
-                  .map((sort) => FilterOption(value: sort, label: sort.label))
-                  .toList(),
-            ),
-            const FilterGroupDivider(),
-            AppFilterPill<String>.filter(
-              prefix: 'Livello',
-              hint: 'Tutti i livelli',
-              icon: Icons.school_outlined,
-              value: _filterLevel,
-              menuWidth: 210,
-              onChanged: (value) => setState(() => _filterLevel = value),
-              onClear: () => setState(() => _filterLevel = null),
-              options: schoolLevels
-                  .map((level) => FilterOption(value: level.value, label: level.compactLabel))
-                  .toList(),
-            ),
-            AppFilterPill<String>.filter(
-              prefix: 'Area',
-              hint: 'Tutte le aree',
-              icon: Icons.category_outlined,
-              value: _filterArea,
-              menuWidth: 210,
-              onChanged: (value) => setState(() => _filterArea = value),
-              onClear: () => setState(() => _filterArea = null),
-              options: subjectAreas
-                  .map((area) => FilterOption(value: area.value, label: area.label))
-                  .toList(),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          subjects.length == 1
-              ? '1 materia trovata'
-              : '${subjects.length} materie trovate',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
+        ],
+      ),
       body: EntityCardGrid(
         children: subjects.map((subject)
         {
@@ -216,41 +172,32 @@ class _MinistrySubjectWizardDialog extends StatefulWidget
 }
 
 class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDialog>
+    with WizardDialogState, TwoStepWizardState
 {
-  // The height and type size every dialog of the app gives its buttons.
-  static const double _dialogButtonHeight = 52;
-  static const double _dialogButtonFontSize = 14;
-
   static const int _maxAreas = 3;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _disciplineSearchController = TextEditingController();
 
-  // How wide the card in the carousel is allowed to get, and the stack around
-  // it: the card plus an arrow and a gap on either side.
   static const double _contentMaxWidth = 640;
-  static const double _stackMaxWidth =
-      _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
-  // How tall the list of things to pick can get before it scrolls on its own.
   static const double _optionsMaxHeight = 300;
 
-  int _currentStep = 0;
-  bool _movingForward = true;
-  bool _isSaving = false;
   String? _selectedLevel;
   List<String> _selectedAreas = [];
   List<int> _selectedAssociations = [];
 
-  bool get _isEditing => widget.existingSubject != null;
+  @override
+  bool get isEditing => widget.existingSubject != null;
+
+  @override
+  VoidCallback? get onCancelEdit => widget.onCancelEdit;
 
   @override
   void initState()
   {
     super.initState();
 
-    // The arrow lights up as soon as the name is there: without listening to
-    // the field it would stay dark until something else repainted the dialog.
     _nameController.addListener(_refresh);
 
     final subject = widget.existingSubject;
@@ -275,7 +222,8 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     super.dispose();
   }
 
-  void _resetForm()
+  @override
+  void resetForm()
   {
     setState(()
     {
@@ -285,19 +233,8 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       _selectedLevel = null;
       _selectedAreas.clear();
       _selectedAssociations.clear();
-      _currentStep = 0;
-      _movingForward = false;
+      rewindSteps();
     });
-  }
-
-  void _closeDialog()
-  {
-    Navigator.of(context).pop();
-
-    if (_isEditing)
-    {
-      widget.onCancelEdit?.call();
-    }
   }
 
   void _onAreaChanged(String area, bool isSelected)
@@ -318,8 +255,6 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
 
       _selectedAreas.remove(area);
 
-      // Drop only the internal disciplines belonging to the area just
-      // deselected, leaving those of the other selected areas untouched.
       final idsToRemove = widget.availableAssociationSubjects
           .where((subject) => subject.area == area)
           .map((subject) => subject.id)
@@ -329,10 +264,8 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     });
   }
 
-  // Why the first step does not let one move on, where it does not. It returns
-  // the reason instead of shouting it: the arrow goes dark and says so on hover,
-  // so one knows before pressing and not after.
-  String? get _firstStepBlockedReason
+  @override
+  String? get firstStepBlockedReason
   {
     if (_nameController.text.trim().isEmpty)
     {
@@ -360,94 +293,32 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
     }
   }
 
-  bool _validateFirstStep()
-  {
-    final reason = _firstStepBlockedReason;
-
-    if (reason != null)
-    {
-      CustomSnackBar.show(context: context, message: reason, isError: true);
-
-      return false;
-    }
-
-    return true;
-  }
-
-  void _goToStep(int step)
-  {
-    setState(()
-    {
-      _movingForward = step > _currentStep;
-      _currentStep = step;
-    });
-  }
-
-  // Everything is checked from here, whichever phase you are standing on, and
-  // whatever is missing is on the phase this puts you on.
   Future<void> _submit() async
   {
-    if (!_validateFirstStep())
+    if (!validateFirstStep())
     {
-      _goToStep(0);
+      goToStep(0);
 
       return;
     }
 
     if (_selectedAssociations.isEmpty)
     {
-      _goToStep(1);
-      CustomSnackBar.show(context: context, message: 'Seleziona almeno una disciplina interna associata.', isError: true);
+      goToStep(1);
+      showError('Seleziona almeno una disciplina interna associata.');
 
       return;
     }
 
-    setState(() => _isSaving = true);
-
-    final success = await widget.onSave(
-      _nameController.text.trim(),
-      _selectedLevel!,
-      _selectedAreas,
-      _descController.text.trim(),
-      _selectedAssociations,
-      (errorMessage)
-      {
-        if (mounted)
-        {
-          CustomSnackBar.show(context: context, message: errorMessage, isError: true);
-        }
-      },
-    );
-
-    if (!mounted)
-    {
-      return;
-    }
-
-    setState(() => _isSaving = false);
-
-    if (!success)
-    {
-      return;
-    }
-
-    if (_isEditing)
-    {
-      Navigator.of(context).pop();
-    }
-    else
-    {
-      _resetForm();
-    }
-  }
-
-  // Small, tracked and muted over what it names, the way the settings cards and
-  // the dialogs of this app label a value.
-  Widget _buildFieldLabel(String text)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 20),
-      child: AppFieldLabel(text),
+    await runSave(
+      (onError) => widget.onSave(
+        _nameController.text.trim(),
+        _selectedLevel!,
+        _selectedAreas,
+        _descController.text.trim(),
+        _selectedAssociations,
+        onError,
+      ),
     );
   }
 
@@ -461,9 +332,10 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
               controller: _nameController,
               label: 'Nome',
               hintText: 'Es. Lingua e cultura latina',
+              maxLength: FieldLimits.name,
               textCapitalization: TextCapitalization.sentences,
             ),
-            _buildFieldLabel('Livello scolastico'),
+            const WizardFieldLabel('Livello scolastico'),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -479,7 +351,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                 );
               }).toList(),
             ),
-            _buildFieldLabel('Aree (massimo $_maxAreas)'),
+            const WizardFieldLabel('Aree (massimo $_maxAreas)'),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -492,14 +364,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                 );
               }).toList(),
             ),
-            AppTextField(
-              controller: _descController,
-              label: 'Descrizione (opzionale)',
-              hintText: 'Aggiungi una descrizione...',
-              textCapitalization: TextCapitalization.sentences,
-              minLines: 1,
-              maxLines: 4,
-            ),
+            DescriptionField(_descController),
           ],
         ),
       );
@@ -531,9 +396,6 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
           hintText: 'Cerca disciplina interna...',
         ),
         const SizedBox(height: 16),
-        // A ceiling rather than the whole of what is left: the phase is a
-        // piece floating on the page now, and there is no fixed panel height
-        // for it to take a share of. Past this the list scrolls inside it.
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
           child: availableSubjects.isEmpty
@@ -580,37 +442,12 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   @override
   Widget build(BuildContext context)
   {
-    return AppDialogStack(
-      eyebrow: 'Passo ${_currentStep + 1} di 2',
-      title: _isEditing ? 'Modifica materia' : 'Nuova materia',
-      onClose: _closeDialog,
-      maxWidth: _stackMaxWidth,
-      footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: _isEditing ? 'SALVA' : 'CREA',
-          icon: Icons.check_rounded,
-          busy: _isSaving,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: _submit,
-        ),
-      ),
-      children: [
-        AppCarouselFrame(
-          index: _currentStep,
-          movingForward: _movingForward,
-          maxContentWidth: _contentMaxWidth,
-          canGoBack: _currentStep > 0,
-          canGoForward: _currentStep == 0,
-          forwardBlockedReason:
-              _currentStep == 0 ? _firstStepBlockedReason : null,
-          onBack: () => _goToStep(0),
-          onForward: () => _goToStep(1),
-          child: AppDialogPill(
-            child: _currentStep == 0 ? _buildStep1() : _buildStep2(),
-          ),
-        ),
-      ],
+    return buildTwoStepDialog(
+      title: isEditing ? 'Modifica materia' : 'Nuova materia',
+      contentMaxWidth: _contentMaxWidth,
+      onSubmit: _submit,
+      firstStep: _buildStep1,
+      secondStep: _buildStep2,
     );
   }
 }

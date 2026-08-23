@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 
 from app.api.rbac import IdentityContext
+from app.core.booking_close import assert_still_open, bands_of
 from app.core.booking_window import assert_within_booking_window
 from app.core.integrity import integrity_guard
 from app.core.labels import opening_mode_label
@@ -14,8 +15,9 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
-from app.services.lesson_guard import assert_presence_not_scheduled
+from app.services.lesson_guard import find_presence_lessons
 from app.services.opening_window import assert_within_opening
+from app.services.schedule_cascade import unschedule
 
 _ENTITY_LABEL: Final[str] = "la presenza"
 _NOT_FOUND_ERROR: Final[str] = "Presenza non trovata"
@@ -43,9 +45,6 @@ class PresenceService:
     def __init__(self, repository: PresenceRepository) -> None:
         self.repository = repository
 
-    # A pupil is here while the association is open, and reachable online while
-    # it teaches online: either way the hours are given against one of the bands
-    # it actually opens that day in that mode.
     async def _assert_within_opening(
         self,
         target_date: date,
@@ -62,10 +61,6 @@ class PresenceService:
             outside_opening_error=_OUTSIDE_OPENING_ERROR,
         )
 
-    # A pupil's day is made of stretches that do not run over each other: two
-    # overlapping ones are the same hour promised twice. Across the two modes as
-    # much as within one, because whoever is in the building from three to five
-    # is not also at a screen from four to six.
     async def _assert_no_overlap(
         self,
         student_tax_code: str,
@@ -157,10 +152,6 @@ class PresenceService:
         date_from: date | None,
         date_to: date | None,
     ) -> Sequence[Presence]:
-        # A non-admin's booker_tax_code filter is always forced to
-        # themselves; student_tax_code, if given, is passed through as-is
-        # since it can only further narrow their own already-scoped results
-        # (e.g. a parent filtering to one specific child).
         effective_booker_tax_code = (
             booker_tax_code if identity.is_admin else identity.tax_code
         )
@@ -192,17 +183,31 @@ class PresenceService:
 
         return presence
 
-    # Validates, adds to the session and flushes, but does not commit: split out
-    # of create() so a caller writing several rows in one transaction can reuse
-    # every check without each one closing the transaction under it. Flushing,
-    # rather than only adding, is what gives the presence its id, so bookings can
-    # hang off it in the same go.
+    def _assert_still_theirs(
+        self,
+        identity: IdentityContext,
+        day: date,
+        start_time: time,
+        end_time: time,
+    ) -> None:
+        assert_still_open(
+            day,
+            bands_of(start_time, end_time),
+            is_admin=identity.is_admin,
+        )
+
     async def prepare_create(
         self,
         identity: IdentityContext,
         payload: PresenceCreate,
     ) -> Presence:
         assert_within_booking_window(payload.date)
+        self._assert_still_theirs(
+            identity,
+            payload.date,
+            payload.start_time,
+            payload.end_time,
+        )
 
         student_tax_code = self._resolve_student_tax_code_for_create(
             identity,
@@ -235,9 +240,6 @@ class PresenceService:
             mode=payload.mode.value,
             start_time=payload.start_time,
             end_time=payload.end_time,
-            # Explicitly marks the collection as loaded (empty): a brand-new
-            # presence has no bookings yet, and this avoids an async lazy
-            # load when the response is built right after.
             bookings=[],
         )
 
@@ -270,19 +272,15 @@ class PresenceService:
             entity_label=_ENTITY_LABEL,
         )
 
-        # Once any of these hours is on the timetable, when and how the pupil is
-        # here can no longer move: narrowing the window would leave a lesson
-        # outside it, and changing the mode or the day would leave it teaching
-        # somebody who is not there.
         if (
             payload.date != presence.date
             or payload.mode.value != presence.mode
             or payload.start_time != presence.start_time
             or payload.end_time != presence.end_time
         ):
-            await assert_presence_not_scheduled(
+            await unschedule(
                 self.repository.session,
-                presence.id,
+                await find_presence_lessons(self.repository.session, presence.id),
             )
 
         if (
@@ -310,6 +308,19 @@ class PresenceService:
 
             presence.booker_tax_code = payload.booker_tax_code
 
+        self._assert_still_theirs(
+            identity,
+            presence.date,
+            presence.start_time,
+            presence.end_time,
+        )
+        self._assert_still_theirs(
+            identity,
+            payload.date,
+            payload.start_time,
+            payload.end_time,
+        )
+
         if payload.date != presence.date:
             assert_within_booking_window(payload.date)
 
@@ -335,10 +346,6 @@ class PresenceService:
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
             await self.repository.commit()
-            # updated_at is computed by the database on every UPDATE, so it is
-            # expired the moment the statement lands and has to be read back
-            # here: the response carries it, and reaching for it after the
-            # request has left the session is IO in a place that cannot do any.
             await self.repository.refresh(presence)
 
         return presence
@@ -346,10 +353,17 @@ class PresenceService:
     async def delete(self, identity: IdentityContext, presence_id: int) -> None:
         presence = await self.get_owned_or_404(identity, presence_id)
 
-        # The cascade onto the bookings would run into the RESTRICT that keeps
-        # the calendar, and fail with an integrity error. Refused here instead,
-        # with a sentence.
-        await assert_presence_not_scheduled(self.repository.session, presence.id)
+        self._assert_still_theirs(
+            identity,
+            presence.date,
+            presence.start_time,
+            presence.end_time,
+        )
+
+        await unschedule(
+            self.repository.session,
+            await find_presence_lessons(self.repository.session, presence.id),
+        )
 
         await self.repository.delete(presence)
         await self.repository.commit()

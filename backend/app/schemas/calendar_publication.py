@@ -11,6 +11,21 @@ class CalendarPublicationCreate(BaseModel):
     band: TimeBandEnum
 
 
+class CalendarDraftClosed(BaseModel):
+    publication: "CalendarPublicationResponse"
+
+    resent: bool
+
+
+# Leaving a bozza without publishing answers one thing worth saying out loud.
+class CalendarDraftDiscarded(BaseModel):
+    publication: "CalendarPublicationResponse"
+
+    # Hours the snapshot could not put back, because what they stood on is gone:
+    # an availability withdrawn, a request cancelled. Zero on an ordinary undo.
+    lost: int
+
+
 class CalendarPublicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -18,10 +33,11 @@ class CalendarPublicationResponse(BaseModel):
     band: TimeBandEnum
     published_at: datetime
 
-    # Null once the administrator who published is no longer one: the fact
-    # outlives the person, even where the name does not.
     published_by: str | None = None
     publisher: PersonOption | None = None
 
-    # Rooms found over capacity while publishing. Said and not enforced.
+    is_draft: bool = False
+
+    has_changes: bool = False
+
     warnings: list[str] = Field(default_factory=list)

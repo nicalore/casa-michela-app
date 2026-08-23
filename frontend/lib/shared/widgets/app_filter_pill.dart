@@ -16,49 +16,60 @@ const double _menuRadius = 16;
 const double _menuGap = 8;
 const double _menuMaxHeight = 350;
 
-// The mark that opens beside the row under the pointer, as in the rail and in
-// the user menu: same gold, same width, same way of growing out of the middle.
 const double _markWidth = 2;
 const double _markHeight = 16;
 
-// The cross that turns a filter off, and the disc it sits in.
 const double _clearIcon = 14;
 const double _clearDiscPadding = 3;
 const double _clearDisc = _clearIcon + 2 * _clearDiscPadding;
 
-// Air between the chevron and the disc.
 const double _clearGap = 8;
 
-// How much bigger the disc gets under the pointer, and the room reserved for
-// that growth: a scale paints outside the box it was measured at, and this one
-// sits inside a ClipRect that would shave the cross's side off.
 const double _clearGrowth = 1.12;
 const double _clearHoverRoom = _clearDisc * (_clearGrowth - 1) / 2;
 
-// How much of the pill the label may take when there is room for all of it.
-const double _labelMaxWidth = 210;
+const double kFilterPillLabelMaxWidth = 210;
 
-// The label is the part that gives way, so it is Flexible: a pill too narrow
-// for its words gives up label rather than running off the card.
-//
-// A flex and not a measurement: a card matched to another's height asks this
-// subtree how tall it would be at a given width, which a LayoutBuilder here
-// could not answer.
-Widget _pillLabel(Widget label)
+Widget _pillLabel(Widget label, double maxWidth)
 {
   return Flexible(
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: _labelMaxWidth),
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: label,
     ),
   );
 }
 
-// Two things wearing one shape. A setting always holds a value — a list is
-// always sorted somehow — so it can never be off and has nothing to clear.
-//
-// A filter starts off and, when set, is why the list is shorter than the truth:
-// so one that is on fills with the brand ramp and carries a cross.
+const double _sortMenuWidth = 190;
+
+class AppSortPill extends StatelessWidget
+{
+  final SortCriterion value;
+  final ValueChanged<SortCriterion> onChanged;
+
+  const AppSortPill({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppFilterPill<SortCriterion>.setting(
+      prefix: 'Ordina',
+      hint: 'Ordina per',
+      icon: Icons.swap_vert_rounded,
+      value: value,
+      menuWidth: _sortMenuWidth,
+      onChanged: onChanged,
+      options: SortCriterion.values
+          .map((sort) => FilterOption(value: sort, label: sort.label))
+          .toList(),
+    );
+  }
+}
+
 enum _PillKind
 {
   setting,
@@ -67,9 +78,6 @@ enum _PillKind
 
 class AppFilterPill<T> extends StatefulWidget
 {
-  // What the pill is for, written on it: "Ordina", "Città". The value follows in
-  // bold, so the two read as one sentence — "Ordina: Nome (A-Z)" — and no one
-  // has to work out from an icon whether a pill sorts the list or shortens it.
   final String prefix;
 
   final String hint;
@@ -79,9 +87,11 @@ class AppFilterPill<T> extends StatefulWidget
   final ValueChanged<T> onChanged;
   final VoidCallback? onClear;
   final double menuWidth;
+
+  final double maxLabelWidth;
+
   final _PillKind _kind;
 
-  // Sorting, grouping: something that is always set to one of its options.
   const AppFilterPill.setting({
     super.key,
     required this.prefix,
@@ -91,10 +101,10 @@ class AppFilterPill<T> extends StatefulWidget
     required this.options,
     required this.onChanged,
     required this.menuWidth,
+    this.maxLabelWidth = kFilterPillLabelMaxWidth,
   })  : _kind = _PillKind.setting,
         onClear = null;
 
-  // Narrowing: off until it is chosen, and loud once it is.
   const AppFilterPill.filter({
     super.key,
     required this.prefix,
@@ -105,6 +115,7 @@ class AppFilterPill<T> extends StatefulWidget
     required this.onChanged,
     required this.onClear,
     required this.menuWidth,
+    this.maxLabelWidth = kFilterPillLabelMaxWidth,
   }) : _kind = _PillKind.filter;
 
   @override
@@ -121,7 +132,6 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
 
   bool get _isOpen => _overlay != null;
 
-  // Only a filter fills, and only once it has something to say.
   bool get _isFilled => widget._kind == _PillKind.filter && widget.value != null;
 
   String? get _selectedLabel
@@ -136,8 +146,6 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
     return matches.isEmpty ? null : matches.first.label;
   }
 
-  // Nothing chosen: the pill says what it would narrow if you asked it to, in
-  // one weight. Something chosen: the job in front, the answer in bold behind.
   Widget _buildLabel(Color contentColor)
   {
     final String? selected = _selectedLabel;
@@ -179,8 +187,6 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
   @override
   void dispose()
   {
-    // Torn down rather than animated out: the widget owning it is going away,
-    // and an overlay outliving it would be left hanging on the screen.
     _overlay?.remove();
     _overlay = null;
     super.dispose();
@@ -226,9 +232,6 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
       ),
     );
 
-    // rootOverlay bypasses any nested Navigator between here and the screen, so
-    // the menu is positioned in real screen space: without it a menu opened
-    // inside a dialog lands offset by the dialog's own origin.
     Overlay.of(context, rootOverlay: true).insert(_overlay!);
     setState(() {});
   }
@@ -264,13 +267,8 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
   @override
   Widget build(BuildContext context)
   {
-    // Open counts as pointed at: the pill keeps its mark for as long as the menu
-    // it opened is on the screen.
     final bool marked = _hover || _isOpen;
 
-    // Two values, because they answer two different questions and can both be
-    // halfway through at once: t is whether the filter is on, h whether the
-    // pointer is here.
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: marked ? 1 : 0),
       duration: _hoverFade,
@@ -302,19 +300,14 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
       children: [
         Icon(widget.icon, size: 18, color: contentColor),
         const SizedBox(width: 9),
-        _pillLabel(_buildLabel(contentColor)),
+        _pillLabel(_buildLabel(contentColor), widget.maxLabelWidth),
         const SizedBox(width: 6),
-        // The chevron is the part that was missing: without it these read as
-        // buttons that do something rather than as something that opens.
         AnimatedRotation(
           turns: _isOpen ? 0.5 : 0,
           duration: _menuFade,
           curve: Curves.easeOut,
           child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: contentColor),
         ),
-        // Opens sideways with the ground rather than appearing on top of it, so
-        // the pill grows by exactly the width of the cross over the same moment
-        // it changes colour.
         ClipRect(
           child: Align(
             alignment: Alignment.centerLeft,
@@ -327,9 +320,6 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
   }
 }
 
-// A filter whose choices are too many for a menu, so it opens a dialog and
-// comes back with a count. Visibly the same pill as the others, which is the
-// point: the row must not look like two kinds of control.
 class AppCountFilterPill extends StatefulWidget
 {
   final String label;
@@ -338,6 +328,8 @@ class AppCountFilterPill extends StatefulWidget
   final VoidCallback onOpen;
   final VoidCallback onClear;
 
+  final double maxLabelWidth;
+
   const AppCountFilterPill({
     super.key,
     required this.label,
@@ -345,6 +337,7 @@ class AppCountFilterPill extends StatefulWidget
     required this.count,
     required this.onOpen,
     required this.onClear,
+    this.maxLabelWidth = kFilterPillLabelMaxWidth,
   });
 
   @override
@@ -410,10 +403,9 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
               color: contentColor,
             ),
           ),
+          widget.maxLabelWidth,
         ),
         const SizedBox(width: 6),
-        // No chevron: this one opens a window rather than dropping a list under
-        // itself, and saying otherwise would be a promise it does not keep.
         Icon(Icons.tune_rounded, size: 16, color: contentColor),
         ClipRect(
           child: Align(
@@ -427,8 +419,6 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
   }
 }
 
-// The ground, the outline and the shadow every pill in the row wears, and the
-// one place they are decided.
 class _PillSurface extends StatelessWidget
 {
   final double t;
@@ -452,8 +442,6 @@ class _PillSurface extends StatelessWidget
     this.anchorKey,
   });
 
-  // Muted with nothing to say, teal once it has an answer or the pointer is on
-  // it, white once the ground underneath has gone dark.
   static Color contentColor({required double t, required double h, required bool answered})
   {
     return Color.lerp(
@@ -467,9 +455,6 @@ class _PillSurface extends StatelessWidget
     )!;
   }
 
-  // A ramp of two whites and not a plain colour: a decoration carrying a colour
-  // and one carrying a gradient cannot be interpolated, so swapping between them
-  // had nothing to animate through and flashed.
   LinearGradient get _ground
   {
     return LinearGradient(
@@ -505,8 +490,6 @@ class _PillSurface extends StatelessWidget
             gradient: _ground,
             borderRadius: BorderRadius.circular(_pillRadius),
             border: Border.all(color: borderColor, width: _borderWidth),
-            // The card's own shadow while it is white, deepening into the filled
-            // one as the ramp arrives.
             boxShadow: [
               BoxShadow(
                 color: Color.lerp(
@@ -527,16 +510,10 @@ class _PillSurface extends StatelessWidget
   }
 }
 
-// The cross that turns a filter off. It sits on a filled pill that already
-// answers the pointer as a whole, so its own answer has to be louder than the
-// pill's or it looks like part of the label: the disc it sits in goes from a
-// hint of white to plainly there, and the cross grows with it.
 class _ClearButton extends StatefulWidget
 {
   final VoidCallback onTap;
 
-  // How far the ground under it has gone dark: a white cross on a pill that is
-  // still white would be a hole rather than a button.
   final double opacity;
 
   const _ClearButton({required this.onTap, required this.opacity});
@@ -562,9 +539,6 @@ class _ClearButtonState extends State<_ClearButton>
         child: Tooltip(
           message: 'Rimuovi il filtro',
           waitDuration: const Duration(milliseconds: 400),
-          // The disc grows into the left gap, which is wider than it needs, so
-          // only the right is paid for. The gap is outside the scale: scaled
-          // with the disc it dragged it sideways as it grew.
           child: Padding(
             padding: const EdgeInsets.only(left: _clearGap, right: _clearHoverRoom),
             child: AnimatedScale(
@@ -623,8 +597,6 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
   {
     super.initState();
 
-    // Expanding on the next frame is what makes the opening animation visible:
-    // on the first frame the overlay is laid out collapsed.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)
@@ -634,8 +606,6 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
     });
   }
 
-  // Awaited by the pill before the overlay is pulled, so the menu folds away
-  // instead of vanishing.
   Future<void> collapse() async
   {
     if (mounted)
@@ -729,8 +699,6 @@ class _FilterMenuRowState extends State<_FilterMenuRow>
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
-              // Squeezed by a transform rather than by a height, so the row
-              // cannot shift as the mark comes and goes.
               SizedBox(
                 width: _markWidth,
                 height: _markHeight,

@@ -2,14 +2,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core import field_lengths
 from app.models.association_subject import SubjectAreaEnum
 from app.schemas.validators import OptionalCleanStr, StrippedStr
 
 
-# A discipline named by something else: a ministry subject containing it, a
-# programme teaching it, a lesson asking for it. It carries the description too,
-# because that is what says what the discipline is, and whoever picks one picks
-# it from here.
 class AssociationSubjectOption(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -19,9 +16,12 @@ class AssociationSubjectOption(BaseModel):
 
 
 class AssociationSubjectBase(BaseModel):
-    name: StrippedStr = Field(..., min_length=1)
+    name: StrippedStr = Field(..., min_length=1, max_length=field_lengths.NAME)
     area: SubjectAreaEnum
-    description: OptionalCleanStr = Field(None, max_length=1000)
+    description: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.DESCRIPTION,
+    )
 
 
 class AssociationSubjectCreate(AssociationSubjectBase):

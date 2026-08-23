@@ -6,14 +6,11 @@ import '../../association/models/ministry_subject_item.dart';
 import 'booking_summary_item.dart';
 import 'person_option_item.dart';
 
-// The room a teacher was put in for the day. Not [RoomItem]: that one insists
-// on a created_at this does not carry.
 class RoomOptionItem
 {
   final int id;
   final String name;
 
-  // Null where nobody measured, which is not a zero.
   final int? capacity;
 
   const RoomOptionItem({
@@ -32,8 +29,6 @@ class RoomOptionItem
   }
 }
 
-// What bounds a lesson on the pupil's side, as the availability does on the
-// teacher's.
 class LessonPresenceRef
 {
   final int id;
@@ -66,9 +61,6 @@ class LessonPresenceRef
   }
 }
 
-// A booking as it hangs off a lesson. The server's BookingResponse is a
-// BookingSummaryResponse plus two fields, so the object is read twice rather
-// than restating fourteen fields. Composition for the same reason.
 class LessonBookingItem
 {
   final BookingSummaryItem booking;
@@ -95,45 +87,32 @@ class LessonBookingItem
   }
 }
 
-// One hour of the calendar: a teacher's availability spent on one or more
-// bookings, over a subset of the disciplines they asked for.
 class LessonItem
 {
   final int id;
 
-  // Three quarters of a composite foreign key on the server, so [date] and
-  // [teacherMode] cannot drift from it.
   final int availabilityId;
 
   final String teacherTaxCode;
   final PersonOptionItem teacher;
   final DateTime date;
 
-  // Where the teacher is, read from the availability.
   final String teacherMode;
 
-  // What the hour is for the pupils, read from their presences. A teacher in
-  // the building takes both; one connected from home can only take online.
   final String mode;
 
-  // Computed by the database from [startTime]. Carried and not recomputed:
-  // what the server published is what the server decided.
   final TimeBucket band;
 
   final TimeOfDay startTime;
   final TimeOfDay endTime;
 
-  // The teacher's room for the whole day, not the lesson's own. Null while
-  // nobody has assigned one, and for a teacher at home.
   final RoomOptionItem? room;
 
   final List<AssociationSubjectOption> disciplines;
   final List<LessonBookingItem> bookings;
 
-  final bool isPublished;
+  final bool isLocked;
 
-  // Filled by a POST or PUT and empty on every read: a warning has no column to
-  // live in, so it travels with the answer that raised it.
   final List<String> warnings;
 
   final DateTime createdAt;
@@ -153,7 +132,7 @@ class LessonItem
     this.room,
     this.disciplines = const [],
     this.bookings = const [],
-    this.isPublished = false,
+    this.isLocked = false,
     this.warnings = const [],
     required this.createdAt,
     required this.updatedAt,
@@ -169,9 +148,6 @@ class LessonItem
 
   Set<int> get disciplineIds => disciplines.map((subject) => subject.id).toSet();
 
-  // Alphabetical and not as they arrived: an optimistic drawing and the
-  // server's answer order them differently, and the hour would visibly reshuffle
-  // a round trip after being moved.
   List<String> get disciplineNames
   {
     return disciplines.map((subject) => subject.name).toList()
@@ -180,14 +156,8 @@ class LessonItem
 
   Set<String> get studentTaxCodes => bookings.map((entry) => entry.studentTaxCode).toSet();
 
-  // The client's own drawing of an hour the server has not answered for yet, so
-  // the calendar moves with the hand and not with the network. Its id is
-  // negative: nothing that would reach the server may be done to one.
   bool get isProvisional => id < 0;
 
-  // The same hour moved or stretched: a block let go after a drag has to be
-  // where it was dropped now, not once a request has come back. [band] follows
-  // [startTime] the way the database computes it.
   LessonItem copyWith({
     int? id,
     int? availabilityId,
@@ -216,14 +186,13 @@ class LessonItem
       room: room ?? this.room,
       disciplines: disciplines ?? this.disciplines,
       bookings: bookings,
-      isPublished: isPublished,
+      isLocked: isLocked,
       warnings: warnings,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
   }
 
-  // The one place the frontend enum and the server's capitals meet.
   static TimeBucket parseBand(Object? value)
   {
     return switch (value as String)
@@ -265,11 +234,9 @@ class LessonItem
         (e) => AssociationSubjectOption.fromJson(e),
       ),
       bookings: parseList(json['bookings'], LessonBookingItem.fromJson),
-      isPublished: json['is_published'] as bool? ?? false,
+      isLocked: json['is_locked'] as bool? ?? false,
       warnings: parseStringList(json['warnings']),
       createdAt: parseInstant(json['created_at'])!,
-      // parseInstant forces UTC: without it the round trip loses the offset
-      // and every second save answers 409.
       updatedAt: parseInstant(json['updated_at'])!,
     );
   }
