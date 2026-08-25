@@ -14,7 +14,8 @@ from app.models.weekly_template import WeeklyTemplate
 from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
 from app.schemas.weekly_template import WeeklyTemplateCreate, WeeklyTemplateUpdate
-from app.services.availability_cleanup import purge_availabilities_for_closed_days
+from app.services.availability_cleanup import purge_hours_outside_openings
+from app.services.calendar_hours_sync import CalendarHoursWatch
 
 _ENTITY_LABEL: Final[str] = "il template settimanale"
 _NOT_FOUND_ERROR: Final[str] = "Riga di template non trovata"
@@ -87,6 +88,7 @@ class WeeklyTemplateService:
         weekday: int,
         mode: str,
         effective_from: date,
+        confirmed: bool = False,
     ) -> None:
         horizon = await self._propagation_horizon(mode)
 
@@ -117,6 +119,14 @@ class WeeklyTemplateService:
             if template.mode == mode
         ]
 
+        # The hours of these days are about to be rewritten, and a calendar that
+        # has gone out on the old ones has to hear about it: it goes back into
+        # bozza, or away altogether where the day no longer opens.
+        watch = await CalendarHoursWatch.taken(
+            self.opening_day_repository.session,
+            dates,
+        )
+
         await self.opening_day_repository.delete_generated_for_dates(dates, mode)
 
         await self.opening_day_repository.create_many([
@@ -133,13 +143,16 @@ class WeeklyTemplateService:
             if template.effective_from <= day
         ])
 
-        # A day left with no band is a closed day, and an availability is an
-        # offer to be there while the association is open.
-        await purge_availabilities_for_closed_days(
+        # An availability is an offer to be there while the association is
+        # open, and a presence a pupil's answer to the same hours: what the new
+        # standard hours leave outside is not an offer any more.
+        purged = await purge_hours_outside_openings(
             self.opening_day_repository.session,
             dates,
             mode,
         )
+
+        await watch.settle(confirmed=confirmed, purged=purged)
 
     # Withdraws a band. The rows already materialised are rewritten by the
     # weekday reconcile, which reads the templates that are left.
@@ -148,6 +161,7 @@ class WeeklyTemplateService:
         *,
         template: WeeklyTemplate,
         effective_from: date | None,
+        confirmed: bool = False,
     ) -> None:
         weekday = template.weekday
         mode = template.mode
@@ -159,6 +173,7 @@ class WeeklyTemplateService:
                 weekday=weekday,
                 mode=mode,
                 effective_from=effective_from,
+                confirmed=confirmed,
             )
 
     async def create(self, payload: WeeklyTemplateCreate) -> WeeklyTemplate:
@@ -193,6 +208,7 @@ class WeeklyTemplateService:
                     weekday=payload.weekday,
                     mode=payload.mode.value,
                     effective_from=payload.effective_from,
+                    confirmed=payload.confirm,
                 )
 
             await self.repository.commit()
@@ -245,6 +261,7 @@ class WeeklyTemplateService:
                 effective_from=(
                     payload.effective_from or today_in_rome() + timedelta(days=1)
                 ),
+                confirmed=payload.confirm,
             )
 
             await self.repository.commit()
@@ -259,11 +276,17 @@ class WeeklyTemplateService:
         self,
         template_id: int,
         effective_from: date | None = None,
+        *,
+        confirmed: bool = False,
     ) -> None:
         # No FK towards opening_days, by design: without effective_from only the
         # next generation is affected, with it the rows already generated are
         # withdrawn too, leaving the overrides intact.
         template = await self.get_or_404(template_id)
 
-        await self._discard_slot(template=template, effective_from=effective_from)
+        await self._discard_slot(
+            template=template,
+            effective_from=effective_from,
+            confirmed=confirmed,
+        )
         await self.repository.commit()

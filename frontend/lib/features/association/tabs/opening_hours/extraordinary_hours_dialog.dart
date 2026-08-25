@@ -12,13 +12,17 @@ import '../../../../shared/widgets/app_dialog_stack.dart';
 import '../../../../shared/widgets/app_gradient_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/snackbar.dart';
-import '../../models/opening_day_item.dart';
 import '../../models/weekly_template_item.dart';
 import 'calendar_bounds.dart';
 import '../../../../shared/widgets/band_time_range_slider.dart';
 import 'hours_date_field.dart';
+import 'lost_calendars.dart';
 import '../../../../core/utils/time_bucket.dart';
 import 'variation_group.dart';
+
+// The height and the size every button of this module's dialogs stands at.
+const double _dialogButtonHeight = 52;
+const double _dialogButtonFontSize = 14;
 
 class _BandDraft
 {
@@ -49,9 +53,6 @@ class ExtraordinaryHoursDialog extends StatefulWidget
 
 class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 {
-  static const double _dialogButtonHeight = 52;
-  static const double _dialogButtonFontSize = 14;
-
   static const double _contentMaxWidth = 640;
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
@@ -281,7 +282,16 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return TimeBucket.values.any((b) => _bands[b]!.start != null && _bands[b]!.end != null);
   }
 
-  Future<bool> _releaseDroppedDays(DateTime startDate, DateTime endDate, List<String> errors) async
+  // The days the variation used to cover and no longer does, put back on the
+  // standard hours. It can take a calendar or an hour away like any other
+  // write, so it goes through the same question — and through the same answer,
+  // which is why the confirmation is handed in rather than made here.
+  Future<bool> _releaseDroppedDays(
+    DateTime startDate,
+    DateTime endDate,
+    List<String> errors,
+    LossConfirmation confirmation,
+  ) async
   {
     final initial = widget.initial;
 
@@ -299,13 +309,32 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
     for (final (from, to) in dropped)
     {
+      if (!mounted)
+      {
+        return false;
+      }
+
       try
       {
-        await _apiService.restoreStandardHours(dateFrom: from, dateTo: to, mode: widget.mode);
+        final done = await confirmation.run(
+          context,
+          (confirm) => _apiService.restoreStandardHours(
+            dateFrom: from,
+            dateTo: to,
+            mode: widget.mode,
+            confirm: confirm,
+          ),
+        );
+
+        if (!done)
+        {
+          return false;
+        }
       }
       catch (e)
       {
         errors.add(readableApiError(e));
+
         return false;
       }
     }
@@ -333,11 +362,29 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     var successCount = 0;
     final errors = <String>[];
 
-    if (!await _releaseDroppedDays(startDate, endDate, errors))
+    // A closure is a day with no bands, an opening is a day with the ones that
+    // were filled in.
+    final List<(TimeOfDay, TimeOfDay)> bands = !_isOpen
+        ? const []
+        : [
+            for (final bucket in TimeBucket.values)
+              if (_bands[bucket]!.start != null && _bands[bucket]!.end != null)
+                (_bands[bucket]!.start!, _bands[bucket]!.end!),
+          ];
+
+    // Where a write would take a published calendar or an hour already given
+    // down, the server refuses it and says what it would have cost. The
+    // question is put once for the whole save: a window changing five days is
+    // one decision, not five.
+    final confirmation = LossConfirmation(
+      confirmLabel: _isOpen ? 'SALVA COMUNQUE' : 'CHIUDI COMUNQUE',
+    );
+
+    if (!await _releaseDroppedDays(startDate, endDate, errors, confirmation))
     {
       setState(() => _isSaving = false);
 
-      if (mounted)
+      if (mounted && !confirmation.declined)
       {
         CustomSnackBar.show(
           context: context,
@@ -349,90 +396,42 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
       return;
     }
 
-    List<OpeningDayItem> primaryExisting;
-
-    try
+    // The day is written whole and in one call: a deletion followed by a
+    // creation would leave it, for as long as the two calls take, a day with no
+    // hours at all — which is a closure, and takes the day's lessons and its
+    // published calendar down with it.
+    for (final date in dates)
     {
-      primaryExisting = await _apiService.getOpeningDays(dateFrom: startDate, dateTo: endDate, mode: widget.mode);
-    }
-    catch (e)
-    {
-      setState(() => _isSaving = false);
-
-      if (mounted)
+      if (!mounted)
       {
-        CustomSnackBar.show(context: context, message: 'Impossibile leggere gli orari esistenti. Riprova.', isError: true);
+        return;
       }
 
-      return;
-    }
-
-    if (!_isOpen)
-    {
-      for (final date in dates)
+      try
       {
-        try
-        {
-          for (final row in primaryExisting.where((d) => isSameDate(d.date, date)))
-          {
-            await _apiService.deleteOpeningDay(row.id);
-          }
+        final written = await confirmation.run(
+          context,
+          (confirm) => _apiService.replaceOpeningDay(
+            date: date,
+            mode: widget.mode,
+            bands: bands,
+            note: note,
+            confirm: confirm,
+          ),
+        );
 
-          await _apiService.createOpeningDay(date: date, mode: widget.mode, note: note);
-          successCount++;
-        }
-        catch (e)
-        {
-          errors.add('${formatDayMonthShort(date)}: ${readableApiError(e)}');
-        }
-      }
-    }
-    else
-    {
-      final filledBands = TimeBucket.values.where((b) => _bands[b]!.start != null && _bands[b]!.end != null).toList();
-
-      for (final date in dates)
-      {
-        var dateFailed = false;
-
-        for (final row in primaryExisting.where((d) => isSameDate(d.date, date)))
-        {
-          try
-          {
-            await _apiService.deleteOpeningDay(row.id);
-          }
-          catch (e)
-          {
-            errors.add('${formatDayMonthShort(date)}: ${readableApiError(e)}');
-            dateFailed = true;
-          }
-        }
-
-        for (final bucket in filledBands)
-        {
-          final band = _bands[bucket]!;
-
-          try
-          {
-            await _apiService.createOpeningDay(
-              date: date,
-              mode: widget.mode,
-              startTime: band.start,
-              endTime: band.end,
-              note: note,
-            );
-          }
-          catch (e)
-          {
-            errors.add('${formatDayMonthShort(date)}: ${readableApiError(e)}');
-            dateFailed = true;
-          }
-        }
-
-        if (!dateFailed)
+        if (written)
         {
           successCount++;
         }
+        else if (confirmation.declined)
+        {
+          break;
+        }
+      }
+      catch (e)
+      {
+        errors.add('${formatDayMonthShort(date)}: ${readableApiError(e)}');
       }
     }
 
@@ -442,6 +441,15 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     }
 
     setState(() => _isSaving = false);
+
+    // Turned back at the question about what the write would take away, with
+    // nothing written: there is nothing to report and nowhere to go. The window
+    // stays open on what was typed into it, which is where whoever said no
+    // meant to be.
+    if (confirmation.declined && successCount == 0 && errors.isEmpty)
+    {
+      return;
+    }
 
     final actionLabel = _isEditing ? 'Variazione' : (_isOpen ? 'Apertura' : 'Chiusura');
     final baseMessage = errors.isEmpty

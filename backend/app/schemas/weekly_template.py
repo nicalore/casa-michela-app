@@ -19,6 +19,10 @@ class _EffectiveFromMixin(BaseModel):
     # to future generations.
     effective_from: date | None = None
 
+    # Said by a caller that has been told what the change takes away from the
+    # calendars already published on those days, and has answered for it.
+    confirm: bool = False
+
 
 class WeeklyTemplateCreate(WeeklyTemplateBase, _EffectiveFromMixin):
     pass

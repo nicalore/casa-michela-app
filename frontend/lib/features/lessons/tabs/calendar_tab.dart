@@ -1603,7 +1603,12 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget? _buildBandNotice(List<CalendarLane> lanes)
   {
-    if (unionOpeningWindow(widget.openingDays, _day, _band) == null && lanes.isEmpty)
+    // A band with no hours has nothing to draw a timeline against, whatever is
+    // left standing on it: hours offered before it shut, or a calendar taken
+    // down with them. Those are read and taken away in Disponibilità, which is
+    // where they can be acted on — here they would be a board of rows against
+    // no hours at all, over the one thing there is to say about the band.
+    if (unionOpeningWindow(widget.openingDays, _day, _band) == null)
     {
       return _buildClosedBand();
     }

@@ -16,6 +16,7 @@ import '../../models/weekly_template_item.dart';
 import 'calendar_bounds.dart';
 import '../../../../shared/widgets/band_time_range_slider.dart';
 import 'hours_date_field.dart';
+import 'lost_calendars.dart';
 import '../../../../core/utils/time_bucket.dart';
 
 class _BandDraft
@@ -201,10 +202,21 @@ class _EditHoursDialogState extends State<EditHoursDialog>
     var successCount = 0;
     final errors = <String>[];
 
-    for (var weekday = 1; weekday <= 7; weekday++)
+    // A decorrenza reaches days that may already have their calendar out, and a
+    // band the new hours no longer open loses it. The server refuses those
+    // writes until the cost has been put to whoever asked for them — once for
+    // the whole save, however many rows it is made of.
+    final confirmation = LossConfirmation();
+
+    for (var weekday = 1; weekday <= 7 && !confirmation.declined; weekday++)
     {
       for (final bucket in TimeBucket.values)
       {
+        if (confirmation.declined || !mounted)
+        {
+          break;
+        }
+
         final originals = _originals[weekday]![bucket]!;
         final draft = _drafts[weekday]![bucket]!;
         final hasEdit = draft.start != null && draft.end != null;
@@ -218,14 +230,20 @@ class _EditHoursDialogState extends State<EditHoursDialog>
 
           if (hasEdit && originals.isEmpty)
           {
-            await _apiService.createWeeklyTemplate(
-              weekday: weekday,
-              mode: widget.mode,
-              startTime: draft.start!,
-              endTime: draft.end!,
-              effectiveFrom: effectiveFrom,
-            );
-            successCount++;
+            if (await confirmation.run(
+              context,
+              (confirm) => _apiService.createWeeklyTemplate(
+                weekday: weekday,
+                mode: widget.mode,
+                startTime: draft.start!,
+                endTime: draft.end!,
+                effectiveFrom: effectiveFrom,
+                confirm: confirm,
+              ),
+            ))
+            {
+              successCount++;
+            }
           }
           else if (hasEdit)
           {
@@ -234,13 +252,19 @@ class _EditHoursDialogState extends State<EditHoursDialog>
             // to materialise the days that date now covers. Skipping the call
             // when only the date changed left the calendar untouched while
             // still reporting success.
-            await _apiService.updateWeeklyTemplate(
-              id: originals.first.id,
-              startTime: draft.start!,
-              endTime: draft.end!,
-              effectiveFrom: effectiveFrom,
-            );
-            successCount++;
+            if (await confirmation.run(
+              context,
+              (confirm) => _apiService.updateWeeklyTemplate(
+                id: originals.first.id,
+                startTime: draft.start!,
+                endTime: draft.end!,
+                effectiveFrom: effectiveFrom,
+                confirm: confirm,
+              ),
+            ))
+            {
+              successCount++;
+            }
           }
 
           // Whatever the band still holds beyond the one row the field edits.
@@ -248,8 +272,22 @@ class _EditHoursDialogState extends State<EditHoursDialog>
           // and a band rewritten keeps only the row it was rewritten into.
           for (final duplicate in originals.skip(hasEdit ? 1 : 0))
           {
-            await _apiService.deleteWeeklyTemplate(duplicate.id, effectiveFrom: effectiveFrom);
-            successCount++;
+            if (!mounted)
+            {
+              break;
+            }
+
+            if (await confirmation.run(
+              context,
+              (confirm) => _apiService.deleteWeeklyTemplate(
+                duplicate.id,
+                effectiveFrom: effectiveFrom,
+                confirm: confirm,
+              ),
+            ))
+            {
+              successCount++;
+            }
           }
         }
         catch (e)
@@ -265,6 +303,14 @@ class _EditHoursDialogState extends State<EditHoursDialog>
     }
 
     setState(() => _isSaving = false);
+
+    // Turned back at the question about what the change would take away, with
+    // nothing written: there is nothing to report, and the window stays open on
+    // the hours that were typed into it.
+    if (confirmation.declined && successCount == 0 && errors.isEmpty)
+    {
+      return;
+    }
 
     // A bare count says nothing about what went wrong, so the first failure
     // travels with it — the rest are only summarised. And an empty schedule

@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.booking_close import assert_still_open, bands_of, closes_at
 from app.core.time_band import TimeBandEnum
@@ -508,7 +509,15 @@ async def test_leaving_a_bozza_undoes_the_work_in_it(db: AsyncSession) -> None:
 
     assert lost == 0
 
-    back = (await db.execute(select(Lesson))).scalars().one()
+    # The bookings asked for by name: read off a lesson that happens to be in
+    # the session already they come for free, and off one that is not they are
+    # a query from inside a sync attribute access, which is a greenlet error
+    # rather than a failed assertion.
+    back = (
+        await db.execute(
+            select(Lesson).options(selectinload(Lesson.lesson_bookings)),
+        )
+    ).scalars().one()
 
     assert (back.start_time, back.end_time) == (time(15), time(16))
     assert back.lesson_bookings[0].booking_id == built[0].booking.id

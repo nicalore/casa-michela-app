@@ -12,6 +12,12 @@ class DashboardSectionCard extends StatelessWidget
   static const double radius = 28;
   static const EdgeInsets _padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
 
+  // The same card with its margins pulled in and its title a size down. It is
+  // what the small cards wear where two of them stand one over the other in the
+  // height of a third: two full headings there cost more than the figures they
+  // announce, and the room they take is taken from the card beside them.
+  static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
+
   final String eyebrow;
   final String title;
   final Widget child;
@@ -29,6 +35,9 @@ class DashboardSectionCard extends StatelessWidget
   // underneath; false in a column, where the height is the one needed.
   final bool fill;
 
+  // The narrower heading, for a card that shares its height with another.
+  final bool compact;
+
   const DashboardSectionCard({
     super.key,
     required this.eyebrow,
@@ -37,6 +46,7 @@ class DashboardSectionCard extends StatelessWidget
     this.action,
     this.minHeight = 0,
     this.fill = false,
+    this.compact = false,
   });
 
   @override
@@ -50,7 +60,7 @@ class DashboardSectionCard extends StatelessWidget
           borderRadius: BorderRadius.circular(radius),
           boxShadow: AppTheme.cardShadow,
         ),
-        padding: _padding,
+        padding: compact ? _compactPadding : _padding,
         child: Column(
           mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,18 +76,18 @@ class DashboardSectionCard extends StatelessWidget
                       Text(
                         eyebrow.toUpperCase(),
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
+                          fontSize: compact ? 10 : 11,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.4,
                           height: 1.2,
                           color: AppTheme.trialMutedText,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      SizedBox(height: compact ? 2 : 3),
                       Text(
                         title,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 21,
+                          fontSize: compact ? 18 : 21,
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                           color: AppTheme.trialOcean,
@@ -92,7 +102,7 @@ class DashboardSectionCard extends StatelessWidget
                 ],
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: compact ? 14 : 20),
             if (fill) Expanded(child: child) else child,
           ],
         ),

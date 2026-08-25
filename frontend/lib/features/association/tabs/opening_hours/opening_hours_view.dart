@@ -16,6 +16,7 @@ import '../../models/weekly_template_item.dart';
 import 'calendar_bounds.dart';
 import 'edit_hours_dialog.dart';
 import 'extraordinary_hours_dialog.dart';
+import 'lost_calendars.dart';
 import 'opening_hours_table_card.dart';
 import 'opening_hours_layout.dart';
 import 'standard_hours_card.dart';
@@ -374,13 +375,27 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
       return;
     }
 
+    // Going back to the standard hours can shut a day a variation had opened,
+    // and a day that shuts takes its published calendar with it. The server
+    // refuses the write until that has been put to whoever asked for it.
+    final confirmation = LossConfirmation(confirmLabel: 'ELIMINA COMUNQUE');
+
     try
     {
-      await _apiService.restoreStandardHours(
-        dateFrom: group.start,
-        dateTo: group.end,
-        mode: widget.mode,
+      final done = await confirmation.run(
+        context,
+        (confirm) => _apiService.restoreStandardHours(
+          dateFrom: group.start,
+          dateTo: group.end,
+          mode: widget.mode,
+          confirm: confirm,
+        ),
       );
+
+      if (!done)
+      {
+        return;
+      }
     }
     catch (e)
     {

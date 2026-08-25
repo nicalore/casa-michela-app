@@ -8,6 +8,7 @@ import '../core/utils/time_bucket.dart';
 import '../features/association/models/association_subject_item.dart';
 import '../features/association/models/ministry_subject_item.dart';
 import '../features/association/models/opening_day_item.dart';
+import '../features/association/tabs/opening_hours/lost_calendars.dart';
 import '../features/association/models/room_item.dart';
 import '../features/association/models/school_item.dart';
 import '../features/association/models/service_item.dart';
@@ -196,7 +197,19 @@ class ApiService
 
   Never _refused(DioException error, String fallback)
   {
-    throw Exception(error.response?.data['detail'] ?? fallback);
+    final detail = error.response?.data is Map ? error.response?.data['detail'] : null;
+
+    // A write that would take something away — a published calendar, the hours
+    // offered against the old opening, the requests booked into them — is
+    // refused rather than done, and the refusal carries what it would have
+    // cost. It is not an error to be shown: it is a question to be put to
+    // whoever asked for the write, and it comes back typed so it can be.
+    if (detail is Map && detail['error'] == WriteWouldTakeAway.code)
+    {
+      throw WriteWouldTakeAway.fromJson(detail.cast<String, dynamic>());
+    }
+
+    throw Exception(detail ?? fallback);
   }
 
   Future<void> _adoptSession(LoginResponse loginResponse) async
@@ -386,6 +399,7 @@ class ApiService
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     DateTime? effectiveFrom,
+    bool confirm = false,
   }) async
   {
     try
@@ -396,6 +410,7 @@ class ApiService
         'start_time': formatTimeOfDay(startTime),
         'end_time': formatTimeOfDay(endTime),
         'effective_from': effectiveFrom != null ? formatDateOnly(effectiveFrom) : null,
+        'confirm': confirm,
       });
       return WeeklyTemplateItem.fromJson(response.data);
     }
@@ -410,6 +425,7 @@ class ApiService
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     DateTime? effectiveFrom,
+    bool confirm = false,
   }) async
   {
     try
@@ -418,6 +434,7 @@ class ApiService
         'start_time': formatTimeOfDay(startTime),
         'end_time': formatTimeOfDay(endTime),
         'effective_from': effectiveFrom != null ? formatDateOnly(effectiveFrom) : null,
+        'confirm': confirm,
       });
       return WeeklyTemplateItem.fromJson(response.data);
     }
@@ -427,13 +444,16 @@ class ApiService
     }
   }
 
-  Future<void> deleteWeeklyTemplate(int id, {DateTime? effectiveFrom}) async
+  Future<void> deleteWeeklyTemplate(int id, {DateTime? effectiveFrom, bool confirm = false}) async
   {
     try
     {
       await _dio.delete(
         '/weekly-templates/$id',
-        queryParameters: effectiveFrom != null ? {'effective_from': formatDateOnly(effectiveFrom)} : null,
+        queryParameters: {
+          if (effectiveFrom != null) 'effective_from': formatDateOnly(effectiveFrom),
+          if (confirm) 'confirm': true,
+        },
       );
     }
     on DioException catch (e)
@@ -489,11 +509,53 @@ class ApiService
     }
   }
 
-  Future<void> deleteOpeningDay(int id) async
+  // A day's hours written whole: the rows of that day and mode are replaced by
+  // the bands given, and no bands at all is the day being closed.
+  //
+  // One call and not a delete followed by a create, because between the two the
+  // day stands with no hours on it — and a day with no hours, however briefly,
+  // is a day whose lessons are cleared and whose calendar is taken down. Written
+  // whole, a change of hours only sends the calendar back into bozza.
+  Future<List<OpeningDayItem>> replaceOpeningDay({
+    required DateTime date,
+    required String mode,
+    required List<(TimeOfDay, TimeOfDay)> bands,
+    String? note,
+    bool confirm = false,
+  }) async
   {
     try
     {
-      await _dio.delete('/opening-days/$id');
+      final response = await _dio.put('/opening-days/day', data: {
+        'date': formatDateOnly(date),
+        'mode': mode,
+        'note': note,
+        'confirm': confirm,
+        'bands': [
+          for (final band in bands)
+            {
+              'start_time': formatTimeOfDay(band.$1),
+              'end_time': formatTimeOfDay(band.$2),
+            },
+        ],
+      });
+
+      return parseList(response.data, OpeningDayItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio degli orari. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteOpeningDay(int id, {bool confirm = false}) async
+  {
+    try
+    {
+      await _dio.delete(
+        '/opening-days/$id',
+        queryParameters: {if (confirm) 'confirm': true},
+      );
     }
     on DioException catch (e)
     {
@@ -505,11 +567,13 @@ class ApiService
     required DateTime dateFrom,
     required DateTime dateTo,
     required String mode,
+    bool confirm = false,
   }) async
   {
     try
     {
       await _dio.post('/opening-days/restore-standard', data: {
+        'confirm': confirm,
         'date_from': formatDateOnly(dateFrom),
         'date_to': formatDateOnly(dateTo),
         'mode': mode,

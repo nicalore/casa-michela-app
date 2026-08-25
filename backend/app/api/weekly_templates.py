@@ -84,9 +84,10 @@ async def delete_weekly_template(
     template_id: int,
     db: DbSession,
     effective_from: date | None = None,
+    confirm: bool = False,
 ) -> dict[str, str]:
     # A query param rather than a body: DELETE with a body is not uniformly
     # supported across HTTP clients.
-    await _service(db).delete(template_id, effective_from)
+    await _service(db).delete(template_id, effective_from, confirmed=confirm)
 
     return {"detail": "Riga di template eliminata"}

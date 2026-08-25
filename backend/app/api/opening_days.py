@@ -12,6 +12,7 @@ from app.repositories.opening_day_repository import OpeningDayRepository
 from app.repositories.weekly_template_repository import WeeklyTemplateRepository
 from app.schemas.opening_day import (
     OpeningDayCreate,
+    OpeningDayReplace,
     OpeningDayResponse,
     OpeningDayRestoreRequest,
     OpeningDayRestoreResponse,
@@ -67,6 +68,14 @@ async def create_opening_day(
 
 # Declared before the routes carrying {opening_day_id}, so the path segment is
 # not intercepted by them.
+@router.put("/day", response_model=list[OpeningDayResponse])
+async def replace_day(
+    payload: OpeningDayReplace,
+    db: DbSession,
+) -> list[OpeningDayResponse]:
+    return _to_responses(await _service(db).replace_day(payload))
+
+
 @router.post("/restore-standard", response_model=OpeningDayRestoreResponse)
 async def restore_standard_hours(
     payload: OpeningDayRestoreRequest,
@@ -76,6 +85,7 @@ async def restore_standard_hours(
         date_from=payload.date_from,
         date_to=payload.date_to,
         mode=payload.mode.value,
+        confirmed=payload.confirm,
     )
 
     return OpeningDayRestoreResponse(
@@ -109,7 +119,8 @@ async def update_opening_day(
 async def delete_opening_day(
     opening_day_id: int,
     db: DbSession,
+    confirm: bool = False,
 ) -> dict[str, str]:
-    await _service(db).delete(opening_day_id)
+    await _service(db).delete(opening_day_id, confirmed=confirm)
 
     return {"detail": "Apertura eliminata"}

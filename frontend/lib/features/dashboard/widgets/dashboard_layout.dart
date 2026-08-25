@@ -13,13 +13,20 @@ import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../association/models/opening_day_item.dart';
 import '../../auth/models/me_response.dart';
+import '../../lessons/models/availability_item.dart';
+import '../../lessons/models/calendar_publication_item.dart';
+import '../../lessons/models/lesson_item.dart';
+import '../../lessons/models/presence_item.dart';
+import '../../lessons/utils/opening_window.dart';
 import '../../people/models/current_totals_item.dart';
 import '../../people/models/person_item.dart';
 import 'dashboard_birthdays_section.dart';
 import 'dashboard_greeting.dart';
 import 'dashboard_section_card.dart';
 import 'dashboard_stats_section.dart';
+import 'dashboard_today_section.dart';
 
 // The layout the browser build shows, and the one every change of the last
 // months has been made to. A widget test runs with kIsWeb false and would
@@ -47,25 +54,39 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 {
   static const double _tabletBreakpoint = 600.0;
 
-  // Room between the greeting and the first section, and between sections.
+  // Room between the greeting and the first section, and between sections. The
+  // last is between the two that share the side column, which stand closer.
   static const double _greetingBottomGap = 24;
   static const double _sectionGap = 22;
+  static const double _sideColumnGap = 16;
 
   // How wide the home page may grow: beyond this, a line of text runs longer
   // than the eye follows.
   static const double _maxContentWidth = 1240;
 
-  // The two widths at which the grid changes shape: three cards in a row, two,
-  // or everything in a column. The first is what it takes to fit the four
-  // figures in a row at the top with a wide enough "today" beside them.
-  static const double _minTodayWidth = 330;
-  static const double _threeColumnsFrom =
-      DashboardStatsSection.fourInARowFrom + _minTodayWidth + _sectionGap;
+  // How the top row is divided: the day takes the greater part of it, and the
+  // two cards that stand one over the other take the rest.
+  static const int _dayFlex = 3;
+  static const int _sideFlex = 2;
+
+  // The two widths at which the grid changes shape. The first is where the side
+  // column stops being one: under [twoInARowFrom] the four figures fall into a
+  // single file, and a card of four rows over the birthdays is a column nobody
+  // can read the bottom of.
+  static const double _sideColumnFrom =
+      DashboardStatsSection.twoInARowFrom * (_dayFlex + _sideFlex) / _sideFlex + _sectionGap;
   static const double _twoColumnsFrom = 700;
 
-  // How tall the sections still to come are: the size they will have once
-  // filled, so the home page does not resettle the day they arrive.
-  static const double _todayHeight = 226;
+  // How many rows the birthdays keep where they stand in the side column. Two —
+  // which is four names where the column is wide enough for two abreast: the
+  // room there is what the day's height leaves once the figures have taken
+  // theirs, and a card asking for more of it would be taking it from the day.
+  static const int _birthdaysInSideColumn = 2;
+
+  // The floors of the two rows. Neither is a ceiling: a card with more to say
+  // grows, and the row grows with it — what these hold is the shape of the page
+  // on a quiet day, so the home does not resettle as the figures arrive.
+  static const double _dayRowHeight = 300;
   static const double _listHeight = 286;
 
   final ApiService _apiService = ApiService();
@@ -73,13 +94,28 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   bool _loadingUser = true;
   MeResponse? _currentUser;
 
-  // What the home page really shows: the association's totals and the week's
-  // birthdays. The other sections are still to come.
+  // What the home page really shows: today, the association's totals and the
+  // week's birthdays. The other sections are still to come.
   bool _loadingHome = true;
   CurrentTotalsItem? _totals;
   CurrentTotalsItem? _teacherTotals;
   CurrentTotalsItem? _studentTotals;
   List<DashboardBirthday> _birthdays = [];
+
+  // Today's own data, asked for apart from the rest: it takes six requests of
+  // its own, and the figures beside it have no reason to wait on them.
+  bool _loadingToday = true;
+  List<DashboardBandStatus>? _bands;
+
+  // Bumped on every fetch, so an answer that is no longer the current one is
+  // dropped instead of overwriting fresher data.
+  //
+  // The home asks again every time it is come back to, and the hours are
+  // regularly changed in Associazione and looked at here a second later: two
+  // rounds can be in the air at once, and the older of them landing last would
+  // put the hours back the way they were until the next visit.
+  int _homeRequest = 0;
+  int _todayRequest = 0;
 
   @override
   void initState()
@@ -95,17 +131,19 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
     _loadCurrentUser();
     _loadHomeData();
+    _loadTodayData();
   }
 
-  // The home page is no longer torn down when left, and both the birthdays and
-  // the totals change while away. It asks for them again on return without
-  // clearing what it is already showing: the two functions below never switch
-  // the spinner back on, they only switch it off.
+  // The home page is no longer torn down when left, and the birthdays, the
+  // totals and the day itself all change while away. It asks for them again on
+  // return without clearing what it is already showing: the three functions
+  // below never switch the spinner back on, they only switch it off.
   @override
   void onDestinationShown()
   {
     _loadCurrentUser();
     _loadHomeData();
+    _loadTodayData();
   }
 
   // The four requests go out together and the page draws with whatever comes
@@ -113,6 +151,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   // be left with a page rather than an error.
   Future<void> _loadHomeData() async
   {
+    final int request = ++_homeRequest;
+
     final results = await Future.wait([
       _apiService.getCurrentTotals().then<Object?>((value) => value).catchError((_) => null),
       _apiService.getRoleCurrentTotals('teacher').then<Object?>((value) => value).catchError((_) => null),
@@ -120,7 +160,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       _apiService.getPeople().then<Object?>((value) => value).catchError((_) => null),
     ]);
 
-    if (!mounted)
+    if (!mounted || request != _homeRequest)
     {
       return;
     }
@@ -132,6 +172,72 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       _studentTotals = results[2] as CurrentTotalsItem?;
       _birthdays = upcomingBirthdays((results[3] as List<PersonItem>?) ?? const []);
       _loadingHome = false;
+    });
+  }
+
+  // The day the page opens on, band by band. The six requests go out together
+  // and every one of them is an administrator's: where the hours come back
+  // refused the card is left with no bands at all, which is not the same as a
+  // day with none — it says the hours could not be read rather than drawing an
+  // association that never opened.
+  Future<void> _loadTodayData() async
+  {
+    final int request = ++_todayRequest;
+
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+
+    final results = await Future.wait([
+      _apiService
+          .getOpeningDays(dateFrom: today, dateTo: today, mode: kPresenceMode)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+      _apiService
+          .getOpeningDays(dateFrom: today, dateTo: today, mode: kOnlineMode)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+      _apiService
+          .getAvailabilities(dateFrom: today, dateTo: today)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+      _apiService
+          .getPresences(dateFrom: today, dateTo: today)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+      _apiService
+          .getLessons(dateFrom: today, dateTo: today)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+      _apiService
+          .getCalendarPublications(dateFrom: today, dateTo: today)
+          .then<Object?>((value) => value)
+          .catchError((_) => null),
+    ]);
+
+    if (!mounted || request != _todayRequest)
+    {
+      return;
+    }
+
+    // Both openings or neither: with one of the two missing the bands would be
+    // drawn as open one way only, which is a stronger claim than "we do not
+    // know" and the wrong one to make on a request that was refused.
+    final inBuilding = results[0] as List<OpeningDayItem>?;
+    final onScreen = results[1] as List<OpeningDayItem>?;
+
+    setState(()
+    {
+      _bands = inBuilding == null || onScreen == null
+          ? null
+          : openBands(
+              day: today,
+              openingDays: [...inBuilding, ...onScreen],
+              availabilities: (results[2] as List<AvailabilityItem>?) ?? const [],
+              presences: (results[3] as List<PresenceItem>?) ?? const [],
+              lessons: (results[4] as List<LessonItem>?) ?? const [],
+              publications: (results[5] as List<CalendarPublicationItem>?) ?? const [],
+            );
+      _loadingToday = false;
     });
   }
 
@@ -290,15 +396,11 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     return _staggered(
       slot: slot,
-      card: DashboardSectionCard(
-        eyebrow: 'Oggi',
-        title: 'Orari e presenze',
-        minHeight: inRow ? _todayHeight : 0,
+      card: DashboardTodaySection(
+        bands: _bands,
+        isLoading: _loadingToday,
+        minHeight: inRow ? _dayRowHeight : 0,
         fill: inRow,
-        child: const DashboardComingSoon(
-          icon: Icons.today_rounded,
-          description: '',
-        ),
       ),
     );
   }
@@ -337,7 +439,12 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _statsCard({required bool inRow, required double cardWidth, required int slot})
+  Widget _statsCard({
+    required bool inRow,
+    required double cardWidth,
+    required int slot,
+    bool compact = false,
+  })
   {
     return _staggered(
       slot: slot,
@@ -347,13 +454,22 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         students: _studentTotals,
         isLoading: _loadingHome,
         columns: DashboardStatsSection.columnsForWidth(cardWidth),
-        minHeight: inRow ? _todayHeight : 0,
-        fill: inRow,
+        compact: compact,
+        // In the side column it takes the height its four tiles need and no
+        // more: what is left of the row is the birthdays' to have.
+        minHeight: inRow && !compact ? _dayRowHeight : 0,
+        fill: inRow && !compact,
       ),
     );
   }
 
-  Widget _birthdaysCard({required bool inRow, required int slot, double minHeight = 0})
+  Widget _birthdaysCard({
+    required bool inRow,
+    required double cardWidth,
+    required int slot,
+    int? maxRows,
+    bool compact = false,
+  })
   {
     return _staggered(
       slot: slot,
@@ -361,73 +477,109 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         birthdays: _birthdays,
         isLoading: _loadingHome,
         onTap: (person) => context.go('/people/${person.fiscalCode}'),
-        minHeight: inRow ? minHeight : 0,
+        maxRows: maxRows ?? 4,
+        columns: DashboardBirthdaysSection.columnsForWidth(cardWidth),
+        compact: compact,
+        minHeight: inRow && maxRows == null ? _listHeight : 0,
         fill: inRow,
       ),
     );
   }
 
+  // The two that stand one over the other beside the day: the figures, in their
+  // short form, and under them the birthdays taking whatever height the day
+  // leaves. Together they come to the height of the day itself, which is what
+  // makes the top row a row and not two columns that happen to be next to each
+  // other.
+  Widget _sideColumn(double cardWidth)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _statsCard(inRow: true, cardWidth: cardWidth, compact: true, slot: 1),
+        // Closer to each other than to anything else on the page: the two read
+        // as the one column they are, and every pixel not spent between them is
+        // a pixel the day beside them does not have to stretch to cover.
+        const SizedBox(height: _sideColumnGap),
+        Expanded(
+          child: _birthdaysCard(
+            inRow: true,
+            cardWidth: cardWidth,
+            maxRows: _birthdaysInSideColumn,
+            compact: true,
+            slot: 2,
+          ),
+        ),
+      ],
+    );
+  }
+
   // The home grid, decided on the width the page really has.
   //
-  // Wide: today and the figures on top, the three lists below — five sections in
-  // two rows, which is what it takes to see them all without scrolling.
-  // Narrow: two rows of two with the figures last, where they get a whole row.
-  // Narrowest: a single column, the only shape that holds on a phone.
+  // Two rows wherever there is room for two, and the same two everywhere: the
+  // day and the birthdays on top — the two sections that are read — the figures
+  // and the two still to come below. The rows are not the same height, and are
+  // not meant to be: what the day has to say is a list of bands, and what the
+  // figures have is four tiles.
+  //
+  // Narrowest: a single column, the only shape that holds on a phone. The order
+  // is the reading order of the wide grid, which is also the order the sections
+  // arrive in on a change of page.
   Widget _buildHome(double width)
   {
     if (width < _twoColumnsFrom)
     {
       return _column([
         _todayCard(inRow: false, slot: 0),
-        _noticesCard(inRow: false, slot: 1),
-        _tasksCard(inRow: false, slot: 2),
-        _statsCard(inRow: false, cardWidth: width, slot: 3),
-        _birthdaysCard(inRow: false, slot: 4),
+        _statsCard(inRow: false, cardWidth: width, slot: 1),
+        _birthdaysCard(inRow: false, cardWidth: width, slot: 2),
+        _noticesCard(inRow: false, slot: 3),
+        _tasksCard(inRow: false, slot: 4),
       ]);
     }
 
-    // Two columns: the figures move last, where they get a whole row and the
-    // four tiles stay in line. Broken into two rows of two they would make a
-    // card taller than what it says is worth.
-    if (width < _threeColumnsFrom)
+    // Not wide enough for a column beside the day: the four figures and the
+    // birthdays share a row of their own under it, each with the width they
+    // would have had one above the other.
+    if (width < _sideColumnFrom)
     {
       return _column([
+        _todayCard(inRow: false, slot: 0),
         _CardRow(
           children: [
-            _todayCard(inRow: true, slot: 0),
-            _birthdaysCard(inRow: true, minHeight: _todayHeight, slot: 1),
+            _statsCard(inRow: true, cardWidth: (width - _sectionGap) / 2, slot: 1),
+            _birthdaysCard(inRow: true, cardWidth: (width - _sectionGap) / 2, slot: 2),
           ],
         ),
         _CardRow(
           children: [
-            _noticesCard(inRow: true, slot: 2),
-            _tasksCard(inRow: true, slot: 3),
+            _noticesCard(inRow: true, slot: 3),
+            _tasksCard(inRow: true, slot: 4),
           ],
         ),
-        _statsCard(inRow: false, cardWidth: width, slot: 4),
       ]);
     }
 
-    // The figures need more width than "today" asks for: four tiles in a row,
-    // whose labels would clip if squeezed. They never go below that size, and
-    // whatever is left over goes to "today".
-    final double available = width - _sectionGap;
-    final double statsWidth = (available * 3 / 5)
-        .clamp(DashboardStatsSection.fourInARowFrom, available - _minTodayWidth);
+    // The day down the left of the top row, and beside it the two small cards
+    // one over the other. The day is the tallest of the three and the other two
+    // divide its height between them.
+    final double sideWidth = (width - _sectionGap) * _sideFlex / (_dayFlex + _sideFlex);
 
     return _column([
       _CardRow(
-        widths: [null, statsWidth],
+        flexes: const [_dayFlex, _sideFlex],
         children: [
           _todayCard(inRow: true, slot: 0),
-          _statsCard(inRow: true, cardWidth: statsWidth, slot: 1),
+          _sideColumn(sideWidth),
         ],
       ),
+      // Two and not three: what is left of the page goes to the sections still
+      // to come, which had a third of a row each and read as columns of a table
+      // rather than as cards.
       _CardRow(
         children: [
-          _noticesCard(inRow: true, slot: 2),
-          _tasksCard(inRow: true, slot: 3),
-          _birthdaysCard(inRow: true, minHeight: _listHeight, slot: 4),
+          _noticesCard(inRow: true, slot: 3),
+          _tasksCard(inRow: true, slot: 4),
         ],
       ),
     ]);
@@ -525,17 +677,18 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   }
 }
 
-// A row of cards, all the same height: two side by side at different heights
-// read as crooked at once, and the taller of the two sets the height.
+// A row of cards, all of the same width and all of the same height: two side by
+// side at different heights read as crooked at once, and the tallest of them
+// sets the height. Which is why what shares a row is chosen among the cards
+// that want the same height to begin with.
 class _CardRow extends StatelessWidget
 {
   final List<Widget> children;
 
-  // A card's width, where that is a decided size and not a share of the row:
-  // null means whatever is left, split with the others.
-  final List<double?>? widths;
+  // The share of the row each card takes, where they do not take equal ones.
+  final List<int>? flexes;
 
-  const _CardRow({required this.children, this.widths});
+  const _CardRow({required this.children, this.flexes});
 
   @override
   Widget build(BuildContext context)
@@ -546,10 +699,7 @@ class _CardRow extends StatelessWidget
         children: [
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0) const SizedBox(width: _DashboardLayoutState._sectionGap),
-            if (widths?[i] == null)
-              Expanded(child: children[i])
-            else
-              SizedBox(width: widths![i], child: children[i]),
+            Expanded(flex: flexes?[i] ?? 1, child: children[i]),
           ],
         ],
       ),

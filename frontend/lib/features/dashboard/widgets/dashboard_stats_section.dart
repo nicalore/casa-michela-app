@@ -47,6 +47,12 @@ class DashboardStatsSection extends StatelessWidget
   final CurrentTotalsItem? students;
   final bool isLoading;
 
+  // The short form of a tile: the change said on the same line as the figure
+  // rather than under it. It is what the card wears where it stands in a
+  // column with another card rather than alone in a row — a third of the height
+  // for the same four numbers, which is what leaves room for the other one.
+  final bool compact;
+
   // How many figures per row. Decided by the page, the only one that knows how
   // much room it gave this card: measuring it here would want a LayoutBuilder,
   // and a LayoutBuilder inside a row of equal-height cards cannot answer how
@@ -64,6 +70,7 @@ class DashboardStatsSection extends StatelessWidget
     required this.students,
     this.isLoading = false,
     this.columns = 4,
+    this.compact = false,
     this.minHeight = 0,
     this.fill = false,
   });
@@ -102,6 +109,7 @@ class DashboardStatsSection extends StatelessWidget
       title: 'Alcune statistiche',
       minHeight: minHeight,
       fill: fill,
+      compact: compact,
       child: isLoading
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
@@ -133,9 +141,11 @@ class DashboardStatsSection extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < columns; i++) ...[
-              if (i > 0) const SizedBox(width: 16),
+              if (i > 0) SizedBox(width: compact ? 12 : 16),
               Expanded(
-                child: i < row.length ? _StatTile(stat: row[i]) : const SizedBox(),
+                child: i < row.length
+                    ? _StatTile(stat: row[i], compact: compact)
+                    : const SizedBox(),
               ),
             ],
           ],
@@ -148,7 +158,7 @@ class DashboardStatsSection extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: 16),
+          if (i > 0) SizedBox(height: compact ? 12 : 16),
           if (fill) Expanded(child: rows[i]) else rows[i],
         ],
       ],
@@ -159,8 +169,9 @@ class DashboardStatsSection extends StatelessWidget
 class _StatTile extends StatelessWidget
 {
   final DashboardStat stat;
+  final bool compact;
 
-  const _StatTile({required this.stat});
+  const _StatTile({required this.stat, this.compact = false});
 
   @override
   Widget build(BuildContext context)
@@ -174,11 +185,66 @@ class _StatTile extends StatelessWidget
         ? AppTheme.trialMutedText
         : (up ? AppTheme.trialSeaGreen : AppTheme.trialDanger);
 
+    final Widget label = Text(
+      stat.label.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.1,
+        color: AppTheme.trialMutedText,
+      ),
+    );
+
+    final Widget value = Text(
+      '${stat.value}',
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: compact ? 22 : 34,
+        fontWeight: FontWeight.w700,
+        height: 1,
+        color: AppTheme.trialOcean,
+      ),
+    );
+
+    final Widget change = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The arrow goes in the short form: beside the figure rather than under
+        // it there is no room for both it and the words, and of the two it is
+        // the words that say when. The colour keeps saying which way.
+        if (!compact) ...[
+          Icon(
+            still
+                ? Icons.remove_rounded
+                : (up ? Icons.trending_up_rounded : Icons.trending_down_rounded),
+            size: 16,
+            color: deltaColor,
+          ),
+          const SizedBox(width: 5),
+        ],
+        Flexible(
+          child: Text(
+            still ? 'Stabile' : '${up ? '+' : ''}${stat.deltaMonth} questo mese',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: compact ? 10.5 : 12.5,
+              fontWeight: FontWeight.w600,
+              color: deltaColor,
+            ),
+          ),
+        ),
+      ],
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 14, vertical: 9)
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(compact ? 16 : 20),
         border: Border.all(color: AppTheme.trialLine, width: 1.5),
       ),
       child: Column(
@@ -189,54 +255,26 @@ class _StatTile extends StatelessWidget
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            stat.label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.1,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${stat.value}',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 34,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              color: AppTheme.trialOcean,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(
-                still
-                    ? Icons.remove_rounded
-                    : (up ? Icons.trending_up_rounded : Icons.trending_down_rounded),
-                size: 16,
-                color: deltaColor,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  still
-                      ? 'Stabile'
-                      : '${up ? '+' : ''}${stat.deltaMonth} nel mese',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: deltaColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          label,
+          SizedBox(height: compact ? 5 : 10),
+          // Short form: the change stands beside the figure on its own
+          // baseline. Under it, as it stands in the full tile, it would spend a
+          // third of the height on the smallest thing the tile says.
+          if (compact)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                value,
+                const SizedBox(width: 8),
+                Flexible(child: change),
+              ],
+            )
+          else ...[
+            value,
+            const SizedBox(height: 10),
+            change,
+          ],
         ],
       ),
     );

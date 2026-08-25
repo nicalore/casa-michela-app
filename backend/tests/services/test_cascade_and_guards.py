@@ -19,7 +19,7 @@ from app.schemas.availability import AvailabilityUpdate
 from app.schemas.booking import BookingUpdate
 from app.schemas.room_supervision import RoomSupervisionCreate
 from app.schemas.teacher_room_assignment import TeacherRoomAssignmentCreate
-from app.services.availability_cleanup import purge_availabilities_for_closed_days
+from app.services.availability_cleanup import purge_hours_outside_openings
 from app.services.availability_service import AvailabilityService
 from app.services.booking_service import BookingService
 from app.services.presence_service import PresenceService
@@ -76,18 +76,21 @@ async def _afternoon_with_a_room(db: AsyncSession):
     return built
 
 
-async def test_closing_a_published_day_is_refused(db: AsyncSession) -> None:
+# A day that shuts takes everything on it, the published as well as the drafts:
+# what was sent out for a day the association has since closed is not a calendar
+# any more. The row saying it was published goes with it — that part is
+# calendar_hours_sync, which every write of the hours ends in.
+async def test_closing_a_published_day_clears_it_too(db: AsyncSession) -> None:
     await _afternoon_with_a_room(db)
 
     db.add(CalendarPublication(date=DAY, band="AFTERNOON"))
     await db.flush()
 
-    with pytest.raises(ValueError, match="in bozza"):
-        await purge_availabilities_for_closed_days(db, [DAY], "presence")
+    await purge_hours_outside_openings(db, [DAY], "presence")
 
-    assert await _count(db, Lesson) == 1
-    assert await _count(db, TeacherRoomAssignment) == 1
-    assert await _count(db, RoomSupervision) == 1
+    assert await _count(db, Lesson) == 0
+    assert await _count(db, TeacherRoomAssignment) == 0
+    assert await _count(db, RoomSupervision) == 0
 
 
 async def test_closing_a_day_of_drafts_clears_everything(
@@ -95,7 +98,7 @@ async def test_closing_a_day_of_drafts_clears_everything(
 ) -> None:
     await _afternoon_with_a_room(db)
 
-    await purge_availabilities_for_closed_days(db, [DAY], "presence")
+    await purge_hours_outside_openings(db, [DAY], "presence")
 
     assert await _count(db, Lesson) == 0
     assert await _count(db, TeacherRoomAssignment) == 0
