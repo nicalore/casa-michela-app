@@ -666,8 +666,55 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (!failure)
     {
+      // Before the window goes: the banner comes out on the root overlay, so it
+      // stands over the calendar either way, and read here it is still about
+      // hours that were just written.
+      if (_crowdsACertifiedStudent())
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: kCertifiedOverlapWarning,
+          tone: SnackBarTone.warning,
+        );
+      }
+
       Navigator.pop(context);
     }
+  }
+
+  // Whether any of the hours just written landed beside another one with a
+  // certified pupil on either side of the overlap. Allowed, and said anyway.
+  bool _crowdsACertifiedStudent()
+  {
+    for (final part in _parts)
+    {
+      final slot = _slotOf(part);
+      final existing = _entry.parts.where((lesson) => lesson.id == part.lessonId).firstOrNull;
+
+      // An hour nobody moved was not written, so it is not this save's overlap.
+      if (slot == null || (existing != null && !_hasChanged(part, existing)))
+      {
+        continue;
+      }
+
+      final beside = overlapsACertifiedStudent(
+        _index,
+        LessonPlacement(
+          teacherTaxCode: slot.teacherTaxCode,
+          startMinutes: part.startMinutes,
+          endMinutes: part.endMinutes,
+          bookingIds: [_entry.id],
+          lessonId: part.lessonId,
+        ),
+      );
+
+      if (beside)
+      {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   bool _hasChanged(_Part part, LessonItem existing)

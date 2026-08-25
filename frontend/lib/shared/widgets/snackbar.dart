@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -299,8 +300,13 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
                   Expanded(
                     child: Text(
                       widget.message,
-                      style: TextStyle(
-                        fontFamily: 'Plus Jakarta Sans',
+                      // Asked of google_fonts, the way the rest of the app asks
+                      // for this face. Nothing registers the family under the
+                      // spelling 'Plus Jakarta Sans' — google_fonts loads it
+                      // under a name of its own — so writing that out by hand
+                      // left the banner in whatever font the platform defaults
+                      // to, next to windows that were in Plus Jakarta Sans.
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: style.textColor,

@@ -36,6 +36,7 @@ import '../models/schedulable_booking.dart';
 import '../models/teacher_room_assignment_item.dart';
 import '../export/calendar_pdf_export.dart';
 import '../utils/lesson_placement.dart';
+import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import '../widgets/calendar_booking_panel.dart';
@@ -815,6 +816,12 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
+    // Read before the write, while the lessons it would sit beside are still
+    // the ones on the board.
+    final crowding = overlapsACertifiedStudent(index, placement)
+        ? const [kCertifiedOverlapWarning]
+        : const <String>[];
+
     final create = widget.onCreateLesson;
     final update = widget.onUpdateLesson;
 
@@ -893,7 +900,7 @@ class _CalendarTabState extends State<CalendarTab>
           return;
         }
 
-        _reportWarnings(written);
+        _reportWarnings(written, also: crowding);
 
         return;
       }
@@ -919,21 +926,23 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
-    _reportWarnings(written);
+    _reportWarnings(written, also: crowding);
   }
 
-  void _reportWarnings(LessonItem written)
+  // [also] is what this side of the wire saw for itself; the rest is what the
+  // server thought worth saying about the lesson it wrote.
+  void _reportWarnings(LessonItem written, {List<String> also = const []})
   {
-    if (written.warnings.isEmpty)
+    final said = <String>{...also, ...written.warnings};
+
+    if (said.isEmpty)
     {
       return;
     }
 
     CustomSnackBar.show(
       context: context,
-      message: written.warnings.length == 1
-          ? written.warnings.single
-          : 'Lezione salvata.',
+      message: said.length == 1 ? said.single : 'Lezione salvata.',
       tone: SnackBarTone.warning,
     );
   }
@@ -1796,6 +1805,18 @@ class _CalendarTabState extends State<CalendarTab>
     await _ensureRoomPlan(force: true);
   }
 
+  // Whoever gave their hours for this fascia, got no lesson in it, and joined
+  // the association less than two weeks before the day being sent. The window
+  // that sends the calendar out is the last place where that is worth knowing.
+  List<String> _uncalledNewTeachers()
+  {
+    return uncalledNewTeacherWarnings(
+      lanes: _lanes,
+      people: widget.people,
+      day: _day,
+    );
+  }
+
   Future<void> _publish() async
   {
     final publish = widget.onPublishBand;
@@ -1808,7 +1829,10 @@ class _CalendarTabState extends State<CalendarTab>
     final band = _band;
     final day = _day;
 
-    final confirmed = await showPublishConfirmation(context: context);
+    final confirmed = await showPublishConfirmation(
+      context: context,
+      warnings: _uncalledNewTeachers(),
+    );
 
     if (confirmed != true || !mounted)
     {
@@ -2028,7 +2052,10 @@ class _CalendarTabState extends State<CalendarTab>
     final band = _band;
     final day = _day;
 
-    final confirmed = await showPublishChangesConfirmation(context: context);
+    final confirmed = await showPublishChangesConfirmation(
+      context: context,
+      warnings: _uncalledNewTeachers(),
+    );
 
     if (confirmed != true || !mounted)
     {

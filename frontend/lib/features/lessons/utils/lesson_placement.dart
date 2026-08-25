@@ -34,6 +34,12 @@ const String kTooManyPartsRefusal = 'Una prenotazione può essere divisa in al m
 const String kFreedMinutesGoBackNotice =
     'Una prenotazione può essere divisa in al massimo due lezioni: la porzione rimossa torna da pianificare.';
 
+// Two students in the same hour is allowed, and for a student whose file
+// declares a certification it is allowed too — but it is not what should
+// happen, so the calendar says so rather than standing in the way.
+const String kCertifiedOverlapWarning =
+    'Gli studenti con una certificazione non dovrebbero essere sovrapposti.';
+
 const int kMaxConcurrentStudents = 2;
 
 const String kTooManyStudentsRefusal =
@@ -85,6 +91,10 @@ class CalendarDayIndex
 
   final Map<String, int> studyProgrammeByStudent;
 
+  // The students whose anagrafica declares a certification. Only the people
+  // list knows it, so it is read once here rather than looked up per drop.
+  final Set<String> certifiedStudents;
+
   final Map<int, Set<int>> disciplinesByProgramme;
 
   final Map<int, String> disciplineNames;
@@ -100,6 +110,7 @@ class CalendarDayIndex
     required this.competenceIdsByTeacher,
     required this.serviceNamesByTeacher,
     required this.studyProgrammeByStudent,
+    required this.certifiedStudents,
     required this.disciplinesByProgramme,
     required this.disciplineNames,
   });
@@ -127,6 +138,7 @@ class CalendarDayIndex
     final competences = <String, Set<int>>{};
     final services = <String, Set<String>>{};
     final programmes = <String, int>{};
+    final certified = <String>{};
 
     for (final person in people)
     {
@@ -147,6 +159,11 @@ class CalendarDayIndex
       if (programme != null)
       {
         programmes[person.fiscalCode] = programme;
+      }
+
+      if (person.certificationType != null)
+      {
+        certified.add(person.fiscalCode);
       }
     }
 
@@ -193,6 +210,7 @@ class CalendarDayIndex
       competenceIdsByTeacher: competences,
       serviceNamesByTeacher: services,
       studyProgrammeByStudent: programmes,
+      certifiedStudents: certified,
       disciplinesByProgramme: {
         for (final programme in studyPrograms)
           programme.id: {
@@ -805,6 +823,39 @@ LessonPlacement validatePlacement({
   ];
 
   return placement(null, availabilityId: availability.id, mode: mode, warnings: warnings);
+}
+
+// Whether the lesson about to be written lands beside another one in the same
+// lane with a certified student on either side of the overlap. Asked of the
+// index as it stands before the write, which is where the lessons it would sit
+// next to still are.
+bool overlapsACertifiedStudent(CalendarDayIndex index, LessonPlacement placement)
+{
+  if (index.certifiedStudents.isEmpty)
+  {
+    return false;
+  }
+
+  final alongside = [
+    for (final lesson in index.lanesByTeacher[placement.teacherTaxCode]?.lessons ?? const <LessonItem>[])
+      if (lesson.id != placement.lessonId &&
+          lesson.id != placement.deleteLessonId &&
+          spansOverlap(placement.startMinutes, placement.endMinutes, lesson.startMinutes, lesson.endMinutes))
+        lesson,
+  ];
+
+  if (alongside.isEmpty)
+  {
+    return false;
+  }
+
+  final students = <String>{
+    for (final id in placement.bookingIds)
+      if (index.bookingsById[id] case final entry?) entry.presence.studentTaxCode,
+    for (final lesson in alongside) ...lesson.studentTaxCodes,
+  };
+
+  return students.any(index.certifiedStudents.contains);
 }
 
 String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int> disciplineIds)

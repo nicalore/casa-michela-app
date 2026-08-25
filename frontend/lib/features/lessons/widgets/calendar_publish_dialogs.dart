@@ -27,6 +27,51 @@ Widget _question(String sentence)
   );
 }
 
+// The docenti the calendar is about to go out without. Yellow and under the
+// sentence that says who receives it, because it is not a reason to stop —
+// only something to have read before pressing PUBBLICA.
+Widget _caution(List<String> warnings)
+{
+  return AppDialogPill(
+    expand: true,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.modifiedAccentSurface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 20, color: AppTheme.modifiedAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (at, sentence) in warnings.indexed)
+                  Padding(
+                    padding: EdgeInsets.only(top: at == 0 ? 0 : 6),
+                    child: Text(
+                      sentence,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                        color: AppTheme.modifiedAccent,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 AppGradientButton _dismiss(BuildContext context)
 {
   return AppGradientButton(
@@ -40,7 +85,10 @@ AppGradientButton _dismiss(BuildContext context)
   );
 }
 
-Future<bool?> showPublishConfirmation({required BuildContext context})
+Future<bool?> showPublishConfirmation({
+  required BuildContext context,
+  List<String> warnings = const [],
+})
 {
   return showBlurredDialog<bool>(
     context: context,
@@ -62,6 +110,7 @@ Future<bool?> showPublishConfirmation({required BuildContext context})
       ),
       children: [
         _question('Il calendario verrà inviato a docenti, genitori e studenti.'),
+        if (warnings.isNotEmpty) _caution(warnings),
       ],
     ),
   );
@@ -128,7 +177,10 @@ Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
   );
 }
 
-Future<bool?> showPublishChangesConfirmation({required BuildContext context})
+Future<bool?> showPublishChangesConfirmation({
+  required BuildContext context,
+  List<String> warnings = const [],
+})
 {
   return showBlurredDialog<bool>(
     context: context,
@@ -152,6 +204,7 @@ Future<bool?> showPublishChangesConfirmation({required BuildContext context})
         _question(
           'Il calendario aggiornato verrà inviato a docenti, genitori e studenti.',
         ),
+        if (warnings.isNotEmpty) _caution(warnings),
       ],
     ),
   );
