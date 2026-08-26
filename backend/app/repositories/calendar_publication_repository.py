@@ -37,6 +37,19 @@ class CalendarPublicationRepository(WritableRepository[CalendarPublication]):
             ),
         )
 
+    # Held for the rest of the transaction. Reopening, closing and leaving a
+    # bozza all read this row and then write it, and the band lock does not
+    # cover the case of one administrator with two windows open.
+    async def get_for_update(self, day: date, band: str) -> CalendarPublication | None:
+        return await self.session.scalar(
+            select(CalendarPublication)
+            .where(
+                CalendarPublication.date == day,
+                CalendarPublication.band == band,
+            )
+            .with_for_update(),
+        )
+
     async def is_published(self, day: date, band: str) -> bool:
         return await self.get(day, band) is not None
 

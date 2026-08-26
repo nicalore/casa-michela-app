@@ -77,12 +77,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       DashboardStatsSection.twoInARowFrom * (_dayFlex + _sideFlex) / _sideFlex + _sectionGap;
   static const double _twoColumnsFrom = 700;
 
-  // How many rows the birthdays keep where they stand in the side column. Two —
-  // which is four names where the column is wide enough for two abreast: the
-  // room there is what the day's height leaves once the figures have taken
-  // theirs, and a card asking for more of it would be taking it from the day.
-  static const int _birthdaysInSideColumn = 2;
-
   // The floors of the two rows. Neither is a ceiling: a card with more to say
   // grows, and the row grows with it — what these hold is the shape of the page
   // on a quiet day, so the home does not resettle as the figures arrive.
@@ -467,7 +461,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     required bool inRow,
     required double cardWidth,
     required int slot,
-    int? maxRows,
     bool compact = false,
   })
   {
@@ -477,10 +470,9 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
         birthdays: _birthdays,
         isLoading: _loadingHome,
         onTap: (person) => context.go('/people/${person.fiscalCode}'),
-        maxRows: maxRows ?? 4,
         columns: DashboardBirthdaysSection.columnsForWidth(cardWidth),
         compact: compact,
-        minHeight: inRow && maxRows == null ? _listHeight : 0,
+        minHeight: inRow && !compact ? _listHeight : 0,
         fill: inRow,
       ),
     );
@@ -505,7 +497,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
           child: _birthdaysCard(
             inRow: true,
             cardWidth: cardWidth,
-            maxRows: _birthdaysInSideColumn,
             compact: true,
             slot: 2,
           ),

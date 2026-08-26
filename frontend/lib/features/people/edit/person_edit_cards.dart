@@ -1315,7 +1315,7 @@ class StaffCard extends StatelessWidget
           label: 'Collaborazione',
           options: forced
               ? const ['Non pagato']
-              : const ['Volontario', 'Retribuito', 'FSL (Ex PCT0)'],
+              : const ['Volontario', 'Retribuito', 'FSL (Ex PCTO)'],
           value: ctx.form.collaborationTypeValue,
           enabled: !forced,
           note: forced

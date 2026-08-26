@@ -17,6 +17,7 @@ import '../features/association/models/weekly_template_item.dart';
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/lessons/models/availability_item.dart';
+import '../features/lessons/models/calendar_lock_item.dart';
 import '../features/lessons/models/calendar_publication_item.dart';
 import '../features/lessons/models/lesson_item.dart';
 import '../features/lessons/models/presence_item.dart';
@@ -2040,6 +2041,51 @@ class ApiService
     {
       _refused(e, 'Errore durante la pubblicazione delle modifiche.');
     }
+  }
+
+  String _lockPath(DateTime day, TimeBucket band)
+  {
+    return '/calendar-locks/${formatDateOnly(day)}/${LessonItem.formatBand(band)}';
+  }
+
+  Future<List<CalendarLockItem>> getCalendarLocks({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async
+  {
+    final response = await _dio.get(
+      '/calendar-locks/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, CalendarLockItem.fromJson);
+  }
+
+  // Saying the administrator is still at the screen, which is the whole of what
+  // holding a band means. There is no call for taking one: writing into the
+  // calendar is what does that.
+  Future<CalendarLockState> heartbeatCalendarLock({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    final response = await _dio.post('${_lockPath(day, band)}/heartbeat');
+
+    return CalendarLockState.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // Leaving the calendar. Best effort and never the guarantee: a window that
+  // was closed rather than left says nothing at all, and the ninety seconds
+  // say it for it.
+  Future<void> releaseCalendarLock({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    await _dio.delete(_lockPath(day, band));
   }
 }
 

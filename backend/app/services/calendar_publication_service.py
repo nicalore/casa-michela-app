@@ -10,10 +10,15 @@ from app.api.rbac import IdentityContext
 from app.core.booking_close import assert_ready_to_publish, now_in_rome
 from app.core.integrity import integrity_guard
 from app.core.labels import time_band_label
+from app.core.time_band import TimeBandEnum, band_bounds
 from app.core.time_step import minutes_between
 from app.models.booking_disciplines import loaded_disciplines
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
+from app.repositories.booking_repository import BookingRepository
+from app.repositories.calendar_band_lock_repository import (
+    CalendarBandLockRepository,
+)
 from app.repositories.calendar_publication_repository import (
     CalendarPublicationRepository,
 )
@@ -26,6 +31,7 @@ from app.repositories.teacher_room_assignment_repository import (
 )
 from app.schemas.calendar_publication import CalendarPublicationCreate
 from app.services.calendar_snapshot import differs, restore, snapshot_of
+from app.services.lesson_guard import assert_band_claimed
 from app.services.room_occupancy import capacity_warnings, teachers_in_building
 
 _NOT_FOUND_ERROR: Final[str] = "Questo calendario non è pubblicato."
@@ -46,6 +52,16 @@ _PARTIAL_COVERAGE_ERROR: Final[str] = (
 _UNCOVERED_DISCIPLINES_ERROR: Final[str] = (
     "Alcune discipline richieste non sono assegnate a nessuna lezione: "
     "{students}."
+)
+
+_UNPLANNED_ERROR: Final[str] = (
+    "Alcune prenotazioni non sono state pianificate: {students}. Mettile in "
+    "calendario o annullale prima di pubblicare."
+)
+
+_NOT_YOURS_TO_DISCARD_ERROR: Final[str] = (
+    "La bozza è stata aperta da {opener}: uscendone si annullerebbe anche il "
+    "suo lavoro. Puoi pubblicarla, oppure chiedere a {opener} di uscirne."
 )
 
 _MAX_NAMED: Final[int] = 5
@@ -86,7 +102,44 @@ class CalendarPublicationService:
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
 
-    async def _assert_requests_covered(self, lessons: Sequence[Lesson]) -> None:
+    # The requests of the band that are on no lesson at all.
+    #
+    # Everything below reads the requests through the lessons that teach them,
+    # so a request nobody ever looked at was checked nowhere: the band went out
+    # ignoring it. Building a calendar before the requests close is the ordinary
+    # way of ending up with one — the ones that arrive afterwards land on a
+    # calendar that is already finished.
+    async def _assert_nothing_left_out(self, day: date, band: str) -> None:
+        start_time, end_time = band_bounds(TimeBandEnum(band))
+
+        left_out = await BookingRepository(self.session).find_unplanned_students(
+            day,
+            start_time,
+            end_time,
+        )
+
+        if not left_out:
+            return
+
+        people = await PersonRepository(self.session).get_options(left_out)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNPLANNED_ERROR.format(
+                students=_joined(
+                    [_person_label(people.get(code)) for code in left_out],
+                ),
+            ),
+        )
+
+    async def _assert_requests_covered(
+        self,
+        day: date,
+        band: str,
+        lessons: Sequence[Lesson],
+    ) -> None:
+        await self._assert_nothing_left_out(day, band)
+
         bookings = {
             link.booking.id: link.booking
             for lesson in lessons
@@ -178,7 +231,12 @@ class CalendarPublicationService:
             await self.picture_of(publication.date, publication.band),
         )
 
-    async def reopen(self, day: date, band: str) -> CalendarPublication:
+    async def reopen(
+        self,
+        identity: IdentityContext,
+        day: date,
+        band: str,
+    ) -> CalendarPublication:
         publication = await self._published_or_404(day, band)
 
         if publication.draft_snapshot is not None:
@@ -187,7 +245,10 @@ class CalendarPublicationService:
                 detail=_ALREADY_IN_DRAFT_ERROR,
             )
 
+        await assert_band_claimed(self.session, identity, day, band)
+
         publication.draft_snapshot = await self.picture_of(day, band)
+        publication.draft_opened_by = identity.tax_code
 
         async with integrity_guard(self.session, _PUBLISH_ERROR):
             await self.repository.commit()
@@ -209,13 +270,16 @@ class CalendarPublicationService:
                 detail=_NOT_IN_DRAFT_ERROR,
             )
 
+        await assert_band_claimed(self.session, identity, day, band)
+
         lessons = await self.lessons.list_for_band(day, band)
 
-        await self._assert_requests_covered(lessons)
+        await self._assert_requests_covered(day, band, lessons)
 
         changed = await self.has_changes(publication)
 
         publication.draft_snapshot = None
+        publication.draft_opened_by = None
 
         if changed:
             publication.published_at = func.now()
@@ -223,14 +287,53 @@ class CalendarPublicationService:
 
         warnings = await self._capacity_warnings(day, lessons)
 
+        await self._let_go(identity, day, band)
+
         async with integrity_guard(self.session, _PUBLISH_ERROR):
             await self.repository.commit()
             await self.repository.refresh(publication)
 
         return publication, warnings, changed
 
+    # Leaving a bozza puts the band back as it was when the bozza opened, so it
+    # is only ever the opener's to leave: anybody else would be undoing their
+    # own afternoon along with everyone else's, and would have no way of seeing
+    # it coming. The band lock cannot answer this — it lasts a minute and a
+    # half, and a bozza can stay open overnight.
+    #
+    # A bozza with nobody's name on it was opened before this existed, and is
+    # left alone: the same as an expected_updated_at that never arrives.
+    async def _assert_theirs_to_discard(
+        self,
+        publication: CalendarPublication,
+        identity: IdentityContext,
+    ) -> None:
+        opener = publication.draft_opened_by
+
+        if opener is None or opener == identity.tax_code:
+            return
+
+        people = await PersonRepository(self.session).get_options([opener])
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=_NOT_YOURS_TO_DISCARD_ERROR.format(
+                opener=_person_label(people.get(opener)) or "un altro amministratore",
+            ),
+        )
+
+    # The sitting is over, so the band goes back to everybody. Holding it any
+    # longer would only keep the next person out of a calendar nobody is
+    # working on.
+    async def _let_go(self, identity: IdentityContext, day: date, band: str) -> None:
+        await CalendarBandLockRepository(self.session).release(
+            day,
+            band,
+            identity.tax_code,
+        )
+
     async def _published_or_404(self, day: date, band: str) -> CalendarPublication:
-        publication = await self.repository.get(day, band)
+        publication = await self.repository.get_for_update(day, band)
 
         if publication is None:
             raise HTTPException(
@@ -277,9 +380,14 @@ class CalendarPublicationService:
 
         assert_ready_to_publish(payload.date, payload.band, self.now())
 
+        # Publishing is the last thing done to a band, so it is done by whoever
+        # was doing the others: it takes the lock like any other change, which
+        # is also what keeps two administrators from publishing at once.
+        await assert_band_claimed(self.session, identity, payload.date, band)
+
         lessons = await self.lessons.list_for_band(payload.date, band)
 
-        await self._assert_requests_covered(lessons)
+        await self._assert_requests_covered(payload.date, band, lessons)
 
         warnings = await self._capacity_warnings(payload.date, lessons)
 
@@ -288,6 +396,8 @@ class CalendarPublicationService:
             band=band,
             published_by=identity.tax_code,
         )
+
+        await self._let_go(identity, payload.date, band)
 
         async with integrity_guard(self.session, _PUBLISH_ERROR):
             await self.repository.create(publication)
@@ -304,7 +414,12 @@ class CalendarPublicationService:
     # back is an hour whose availability was withdrawn or whose request was
     # cancelled while the bozza was open — those took it with them either way —
     # and how many of them there were goes back to the caller to be said.
-    async def discard(self, day: date, band: str) -> int:
+    async def discard(
+        self,
+        identity: IdentityContext,
+        day: date,
+        band: str,
+    ) -> int:
         publication = await self._published_or_404(day, band)
         snapshot = publication.draft_snapshot
 
@@ -314,9 +429,15 @@ class CalendarPublicationService:
                 detail=_NOT_IN_DRAFT_ERROR,
             )
 
+        await assert_band_claimed(self.session, identity, day, band)
+        await self._assert_theirs_to_discard(publication, identity)
+
         lost = await restore(self.session, day, band, snapshot)
 
         publication.draft_snapshot = None
+        publication.draft_opened_by = None
+
+        await self._let_go(identity, day, band)
 
         async with integrity_guard(self.session, _DISCARD_ERROR):
             await self.repository.commit()
@@ -324,8 +445,16 @@ class CalendarPublicationService:
 
         return lost
 
-    async def unpublish(self, day: date, band: str) -> None:
+    async def unpublish(
+        self,
+        identity: IdentityContext,
+        day: date,
+        band: str,
+    ) -> None:
         publication = await self._published_or_404(day, band)
 
+        await assert_band_claimed(self.session, identity, day, band)
+
         await self.repository.delete(publication)
+        await self._let_go(identity, day, band)
         await self.repository.commit()

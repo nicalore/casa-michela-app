@@ -165,8 +165,12 @@ async def list_lessons(
 
 
 @router.post("/", response_model=LessonResponse, dependencies=_ADMIN_ONLY)
-async def create_lesson(payload: LessonCreate, db: DbSession) -> LessonResponse:
-    lesson, warnings = await _service(db).create(payload)
+async def create_lesson(
+    payload: LessonCreate,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> LessonResponse:
+    lesson, warnings = await _service(db).create(identity, payload)
 
     return (await _to_responses(db, [lesson], warnings=warnings))[0]
 

@@ -53,10 +53,11 @@ async def _count(db: AsyncSession, model) -> int:
 
 async def _afternoon_with_a_room(db: AsyncSession):
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     room = await make_room(db)
     await assignments(db).assign(
+        ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -64,6 +65,7 @@ async def _afternoon_with_a_room(db: AsyncSession):
         ),
     )
     await supervisions(db).create(
+        ADMIN_IDENTITY,
         RoomSupervisionCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -178,7 +180,7 @@ async def test_a_note_can_still_be_added_to_a_scheduled_request(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     updated = await _bookings(db).update(
         ADMIN_IDENTITY,
@@ -193,7 +195,7 @@ async def test_changing_the_length_takes_the_hour_off_the_timetable(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     updated = await _bookings(db).update(
         ADMIN_IDENTITY,
@@ -207,7 +209,7 @@ async def test_changing_the_length_takes_the_hour_off_the_timetable(
 
 async def test_deleting_a_request_takes_its_hours_with_it(db: AsyncSession) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     await _bookings(db).delete(ADMIN_IDENTITY, built.booking.id)
 
@@ -219,8 +221,14 @@ async def test_narrowing_an_availability_drops_only_what_falls_outside(
 ) -> None:
     built = await scene(db, duration=120)
 
-    await lesson_service(db).create(payload(built, start=time(15), end=time(16)))
-    await lesson_service(db).create(payload(built, start=time(17), end=time(18)))
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(15), end=time(16)),
+    )
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(17), end=time(18)),
+    )
 
     db.add(
         OpeningDay(
@@ -253,7 +261,7 @@ async def test_narrowing_an_availability_drops_only_what_falls_outside(
 
 async def test_deleting_a_presence_takes_its_hours_with_it(db: AsyncSession) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     service = PresenceService(PresenceRepository(db))
 
@@ -266,7 +274,7 @@ async def test_deleting_an_availability_takes_its_lessons_with_it(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     service = AvailabilityService(AvailabilityRepository(db))
 

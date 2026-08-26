@@ -6,9 +6,14 @@ import '../../../core/utils/week_range.dart' show formatDayMonthShort;
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
 
-// The birthdays of the next seven days: the one thing on the home page that
-// asks for nothing, it is simply read. The reckoning is on day and month and not
-// on the year.
+// The next two birthdays, wherever they fall: the one thing on the home page
+// that asks for nothing, it is simply read. Two and no more, and no window
+// either — a card that shows the next seven days is empty for most of the
+// summer, and one that shows forty names is a list nobody reads on the way
+// past.
+//
+// The reckoning is on day and month and not on the year: what is wanted is the
+// next time the day comes round.
 
 class DashboardBirthday
 {
@@ -30,55 +35,77 @@ class DashboardBirthday
   }
 }
 
-// The birthdays falling from today through the next [days] days, in order.
+// The next time this person's day comes round, today included.
+DateTime? _nextBirthday(DateTime? birth, DateTime today)
+{
+  if (birth == null)
+  {
+    return null;
+  }
+
+  for (final year in [today.year, today.year + 1])
+  {
+    // On years without a 29 February the birthday falls on the 28th: a
+    // DateTime would roll it over to 1 March, and it would go unnoticed.
+    final int day = birth.month == 2 && birth.day == 29 && !_isLeap(year)
+        ? 28
+        : birth.day;
+
+    final DateTime when = DateTime(year, birth.month, day);
+
+    if (!when.isBefore(today))
+    {
+      return when;
+    }
+  }
+
+  return null;
+}
+
+// The first [limit] birthdays from today on, in the order they come.
 List<DashboardBirthday> upcomingBirthdays(
   List<PersonItem> people, {
-  int days = 7,
+  int limit = 2,
   DateTime? from,
 }) {
-  final DateTime today = DateTime(
-    (from ?? DateTime.now()).year,
-    (from ?? DateTime.now()).month,
-    (from ?? DateTime.now()).day,
-  );
+  final DateTime now = from ?? DateTime.now();
+  final DateTime today = DateTime(now.year, now.month, now.day);
 
   final List<DashboardBirthday> found = [];
 
   for (final person in people)
   {
-    final DateTime? birth = person.birthDate;
+    final DateTime? when = _nextBirthday(person.birthDate, today);
 
-    if (birth == null)
+    if (when == null)
     {
       continue;
     }
 
-    for (var offset = 0; offset <= days; offset++)
-    {
-      final DateTime day = today.add(Duration(days: offset));
-
-      // On years without a 29 February the birthday falls on the 28th:
-      // DateTime would roll it over to 1 March, and it would go unnoticed.
-      final int birthDay = birth.month == 2 && birth.day == 29 && !_isLeap(day.year)
-          ? 28
-          : birth.day;
-
-      if (day.month == birth.month && day.day == birthDay)
-      {
-        found.add(DashboardBirthday(
-          person: person,
-          date: day,
-          age: day.year - birth.year,
-        ));
-
-        break;
-      }
-    }
+    found.add(DashboardBirthday(
+      person: person,
+      date: when,
+      age: when.year - person.birthDate!.year,
+    ));
   }
 
-  found.sort((a, b) => a.date.compareTo(b.date));
+  // By name where two share a day, so the same two people come back in the same
+  // order on every reading.
+  found.sort((a, b)
+  {
+    final int day = a.date.compareTo(b.date);
 
-  return found;
+    if (day != 0)
+    {
+      return day;
+    }
+
+    return '${a.person.lastName} ${a.person.firstName}'
+        .toLowerCase()
+        .compareTo('${b.person.lastName} ${b.person.firstName}'.toLowerCase());
+  });
+
+  return found.take(limit).toList();
 }
 
 bool _isLeap(int year) => year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
@@ -93,11 +120,6 @@ class DashboardBirthdaysSection extends StatelessWidget
   final List<DashboardBirthday> birthdays;
   final bool isLoading;
   final void Function(PersonItem person)? onTap;
-
-  // How many rows fit in the card before the rest becomes a single line saying
-  // how many are left. A home page is looked at, not scrolled: a list growing on
-  // its own would stretch the whole row it sits in.
-  final int maxRows;
 
   // How many names stand side by side on a row. Decided by the page, the only
   // one that knows how much room it gave this card: measuring it here would
@@ -116,7 +138,6 @@ class DashboardBirthdaysSection extends StatelessWidget
     required this.birthdays,
     this.isLoading = false,
     this.onTap,
-    this.maxRows = 4,
     this.columns = 1,
     this.minHeight = 0,
     this.fill = false,
@@ -134,18 +155,6 @@ class DashboardBirthdaysSection extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // When there are too many, the last place goes to the count of those left
-    // over, so the card is the same height whether there are four or forty.
-    final int room = maxRows * columns;
-    final int visible = birthdays.length > room ? room - 1 : birthdays.length;
-    final List<DashboardBirthday> shown = birthdays.sublist(0, visible);
-    final int hidden = birthdays.length - visible;
-
-    // Where that count fits in the last place of the grid it goes there, which
-    // keeps the card exactly as tall as its rows; where the grid comes out full
-    // it goes on a line under them.
-    final bool countInGrid = hidden > 0 && visible % columns != 0;
-
     return DashboardSectionCard(
       // The full title wraps in a card a third of the width, and a two-line
       // title raises the whole row of cards.
@@ -163,7 +172,7 @@ class DashboardBirthdaysSection extends StatelessWidget
             )
           : birthdays.isEmpty
               ? Text(
-                  'Nessun compleanno nei prossimi sette giorni.',
+                  'Nessun compleanno in arrivo.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w500,
@@ -173,9 +182,15 @@ class DashboardBirthdaysSection extends StatelessWidget
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
+                  // Due righe soltanto, e la card è alta quanto la giornata le
+                  // lascia: appoggiate in cima lascerebbero sotto di sé mezza
+                  // card vuota, che si legge come una dimenticanza. Al centro
+                  // l'aria sta intorno a loro.
+                  mainAxisAlignment:
+                      fill ? MainAxisAlignment.center : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (var start = 0; start < shown.length; start += columns) ...[
+                    for (var start = 0; start < birthdays.length; start += columns) ...[
                       if (start > 0) const SizedBox(height: 8),
                       IntrinsicHeight(
                         child: Row(
@@ -184,27 +199,15 @@ class DashboardBirthdaysSection extends StatelessWidget
                             for (var i = 0; i < columns; i++) ...[
                               if (i > 0) const SizedBox(width: 8),
                               Expanded(
-                                child: start + i < shown.length
-                                    ? _row(shown[start + i])
-                                    : (countInGrid ? _count(hidden) : const SizedBox()),
+                                child: start + i < birthdays.length
+                                    ? _row(birthdays[start + i])
+                                    : const SizedBox(),
                               ),
                             ],
                           ],
                         ),
                       ),
                     ],
-                    if (hidden > 0 && !countInGrid)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4, top: 2),
-                        child: Text(
-                          _countLabel(hidden),
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.trialMutedText,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
     );
@@ -229,36 +232,8 @@ class DashboardBirthdaysSection extends StatelessWidget
       tight: tight,
     );
   }
-
-  // The count of those left over, standing in the place of a name: no tint and
-  // no border, so the grid reads as the names it holds and one line about the
-  // rest, rather than as a row of cards one of which is empty.
-  Widget _count(int hidden)
-  {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          _countLabel(hidden),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-            color: AppTheme.trialMutedText,
-          ),
-        ),
-      ),
-    );
-  }
-
-  static String _countLabel(int hidden)
-  {
-    return hidden == 1
-        ? 'e un altro nei prossimi giorni'
-        : 'e altri $hidden nei prossimi giorni';
-  }
 }
+
 
 class _BirthdayRow extends StatefulWidget
 {

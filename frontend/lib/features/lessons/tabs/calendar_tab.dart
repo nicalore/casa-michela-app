@@ -27,6 +27,7 @@ import '../../people/models/person_item.dart';
 import '../models/availability_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
+import '../models/calendar_lock_item.dart';
 import '../models/calendar_publication_item.dart';
 import '../models/lesson_item.dart';
 import '../models/person_option_item.dart';
@@ -89,6 +90,12 @@ const double _panelGap = 28;
 const String _kDraftPillTooltip = 'Le modifiche saranno inviate una volta confermate.';
 
 const String _kDraftDiscarded = 'Modifiche annullate.';
+
+// What the banner says under the name. Held here with the other three sentences
+// this screen says about the state of a band.
+const String kLockedBandNotice =
+    'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
+    'finito, il calendario torna disponibile.';
 
 // Where an hour could not be put back at all: the availability it stood on was
 // withdrawn, or the request it taught was cancelled, while the bozza was open.
@@ -172,6 +179,18 @@ class CalendarTab extends StatefulWidget
 
   final List<CalendarPublicationItem> publications;
 
+  // Who is building this band, where somebody is. Only ever set for the band on
+  // the screen: it is the one the banner is about.
+  final CalendarLockItem? lock;
+
+  // Somebody else has the band. What is drawn can be read and not composed —
+  // no hour is picked up, nothing is dropped, and the calendar is not sent.
+  final bool isReadOnly;
+
+  // Which day and which part of it the tab settled on. The page beats and
+  // reloads for this band and no other, and only the tab knows which it is.
+  final void Function({required DateTime day, required TimeBucket band})? onViewChanged;
+
   final Future<List<String>?> Function({
     required DateTime day,
     required TimeBucket band,
@@ -230,6 +249,9 @@ class CalendarTab extends StatefulWidget
     this.studyPrograms = const [],
     this.rooms = const [],
     this.publications = const [],
+    this.lock,
+    this.isReadOnly = false,
+    this.onViewChanged,
     this.onPublishBand,
     this.onReopenBand,
     this.onCloseDraft,
@@ -294,6 +316,7 @@ class _CalendarTabState extends State<CalendarTab>
       }
 
       setState(_syncClock);
+      _sayWhichBand();
       _ensureRoomPlan();
     });
   }
@@ -496,12 +519,22 @@ class _CalendarTabState extends State<CalendarTab>
       _syncClock();
     });
 
+    _sayWhichBand();
+
     await _fetchDay(normalised);
 
     if (mounted)
     {
       await _ensureRoomPlan();
     }
+  }
+
+  // Which band the page should be beating and reloading for. Said after every
+  // move rather than read out of the widget tree: the page cannot see _day and
+  // _band, and they are the whole of what a lock is about.
+  void _sayWhichBand()
+  {
+    widget.onViewChanged?.call(day: _day, band: _band);
   }
 
   Future<void> _fetchDay(DateTime day) async
@@ -671,6 +704,20 @@ class _CalendarTabState extends State<CalendarTab>
       ministrySubjects: widget.ministrySubjects,
       view: _view,
     );
+  }
+
+  // What a tap on an hour opens. Composing it opens the wizard that plans it;
+  // reading it opens what it says — which is the same answer a published band
+  // gives, and the right one here too: a wizard that could not save at the end
+  // of it would be a refusal three steps late.
+  void Function(LessonItem) _lessonTap(CalendarDayIndex index)
+  {
+    if (widget.isReadOnly)
+    {
+      return _openPublishedLesson;
+    }
+
+    return (lesson) => _openLesson(lesson, index);
   }
 
   Future<void> _openLesson(LessonItem lesson, CalendarDayIndex index) async
@@ -1214,11 +1261,16 @@ class _CalendarTabState extends State<CalendarTab>
     return AppSegmentedTabs(
       labels: [for (final bucket in TimeBucket.values) bandLabel(bucket)],
       selectedIndex: _band.index,
-      onSelected: (index) => setState(()
+      onSelected: (index)
       {
-        _band = TimeBucket.values[index];
-        _syncClock();
-      }),
+        setState(()
+        {
+          _band = TimeBucket.values[index];
+          _syncClock();
+        });
+
+        _sayWhichBand();
+      },
       padding: EdgeInsets.zero,
       hugContent: true,
     );
@@ -1587,15 +1639,18 @@ class _CalendarTabState extends State<CalendarTab>
       subLaneOf: stacking.subLaneOf,
       warnedLessonIds: marked.warned,
       preferredLessonIds: marked.preferred,
-      onLessonTap: (lesson) => _openLesson(lesson, index),
-      onPlan: (payload, teacherTaxCode, startMinutes) => _plan(index, payload, teacherTaxCode, startMinutes),
+      onLessonTap: _lessonTap(index),
+      onPlan: widget.isReadOnly
+          ? null
+          : (payload, teacherTaxCode, startMinutes) =>
+              _plan(index, payload, teacherTaxCode, startMinutes),
       onPlanResize: (lesson, startMinutes, endMinutes) => planResizeWithin(index, lesson, startMinutes, endMinutes),
       onDrop: (payload, placement) => _applyDrop(payload, placement, index),
       onRefused: _reportCarriedRefusal,
       carried: _carried,
       carriedAt: _carriedAt,
-      onDroppedOutside: _removeLesson,
-      onDragChanged: (payload) => _carry(payload, index),
+      onDroppedOutside: widget.isReadOnly ? null : _removeLesson,
+      onDragChanged: widget.isReadOnly ? null : (payload) => _carry(payload, index),
       scrollController: _trackController,
       viewportKey: _viewportKey,
     );
@@ -2091,8 +2146,68 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
+  // Who has the band, said where the buttons would have been.
+  //
+  // There and not over the calendar, because the calendar is the thing worth
+  // looking at: the work being done shows up as it is done, and what this adds
+  // is the reason none of it can be touched. The buttons are gone from under it
+  // for the same reason — an ASSEGNA STANZE that answered with a refusal would
+  // be worse than no button at all.
+  Widget _buildLockNotice(CalendarLockItem lock)
+  {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: _actionButtonWidth * 2),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.modifiedAccentSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_clock_rounded, size: 20, color: AppTheme.modifiedAccent),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  lockedSentence(lock),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.trialInk,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  kLockedBandNotice,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                    color: AppTheme.trialInk.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget? _buildBandAction()
   {
+    final lock = widget.lock;
+
+    if (widget.isReadOnly && lock != null)
+    {
+      return _buildLockNotice(lock);
+    }
+
     if (_isDraft)
     {
       // The way out is always there, because a bozza somebody wants to abandon
@@ -2261,9 +2376,11 @@ class _CalendarTabState extends State<CalendarTab>
       shape: shape,
       isExpanded: _panelExpanded,
       onExpandedChanged: (expanded) => setState(() => _panelExpanded = expanded),
-      onPlanRequested: index.lanes.isEmpty ? null : (entry) => _planBooking(entry, index),
+      onPlanRequested: index.lanes.isEmpty || widget.isReadOnly
+          ? null
+          : (entry) => _planBooking(entry, index),
       carriedAt: _carriedAt,
-      onDragChanged: (payload) => _carry(payload, index),
+      onDragChanged: widget.isReadOnly ? null : (payload) => _carry(payload, index),
     );
   }
 
@@ -2287,7 +2404,7 @@ class _CalendarTabState extends State<CalendarTab>
       preferredLessonIds: marked.preferred,
       pastLessonIds: _pastLessons(lanes),
       roomByTeacher: _isSettled ? _roomLabelsFor(lanes) : const {},
-      onLessonTap: _isSettled ? _openPublishedLesson : (lesson) => _openLesson(lesson, index),
+      onLessonTap: _isSettled ? _openPublishedLesson : _lessonTap(index),
     );
   }
 

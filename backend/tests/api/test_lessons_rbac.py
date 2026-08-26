@@ -9,7 +9,7 @@ from app.api.rbac import IdentityContext, get_current_identity
 from app.db.session import get_db
 from app.main import app
 from app.models.calendar_publication import CalendarPublication
-from tests.conftest import identity_of
+from tests.conftest import ADMIN_IDENTITY, identity_of
 from tests.services.test_lesson_service import (
     DAY,
     payload,
@@ -50,8 +50,8 @@ async def _two_published_lessons(db: AsyncSession):
     first = await scene(db)
     second = await scene(db)
 
-    mine, _ = await lesson_service(db).create(payload(first))
-    theirs, _ = await lesson_service(db).create(
+    mine, _ = await lesson_service(db).create(ADMIN_IDENTITY, payload(first))
+    theirs, _ = await lesson_service(db).create(ADMIN_IDENTITY,
         payload(second, start=time(17), end=time(18)),
     )
 
@@ -74,7 +74,7 @@ async def test_an_administrator_sees_everything(
     client: AsyncClient,
 ) -> None:
     (_, mine), (_, theirs) = await _two_published_lessons(db)
-    as_user(identity_of("ADMIN00A01A001X", "ADMIN"))
+    as_user(ADMIN_IDENTITY)
 
     assert await _ids(client) == {mine, theirs}
 
@@ -86,7 +86,7 @@ async def test_a_draft_is_invisible_to_a_teacher(
     client: AsyncClient,
 ) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
     as_user(identity_of(built.teacher.tax_code, "TEACHER"))
 
@@ -98,9 +98,9 @@ async def test_an_administrator_sees_the_draft_anyway(
     client: AsyncClient,
 ) -> None:
     built = await scene(db)
-    lesson, _ = await lesson_service(db).create(payload(built))
+    lesson, _ = await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
-    as_user(identity_of("ADMIN00A01A001X", "ADMIN"))
+    as_user(ADMIN_IDENTITY)
 
     assert await _ids(client) == {lesson.id}
 
@@ -198,7 +198,7 @@ async def test_an_administrator_can_write_the_calendar(
     client: AsyncClient,
 ) -> None:
     built = await scene(db)
-    as_user(identity_of("ADMIN00A01A001X", "ADMIN"))
+    as_user(ADMIN_IDENTITY)
 
     response = await client.post(
         "/lessons/",

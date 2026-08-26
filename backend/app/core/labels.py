@@ -3,7 +3,7 @@ from typing import Final
 COLLABORATION_TYPE_LABELS: Final[dict[str, str]] = {
     "VOLUNTEER": "Volontario",
     "PAID": "Retribuito",
-    "PCTO": "PCTO",
+    "PCTO": "FSL (Ex PCTO)",
     "UNPAID": "Non pagato",
 }
 

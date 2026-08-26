@@ -229,6 +229,7 @@ async def test_competence_is_read_against_the_pupils_programme(
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
+            ADMIN_IDENTITY,
             lesson_payload(
                 availability,
                 booking_ids=[booking.id],
@@ -256,6 +257,7 @@ async def test_competence_on_the_pupils_own_programme_passes(
     availability, booking = await _hour_for(db, teacher, student, subject)
 
     lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
         lesson_payload(
             availability,
             booking_ids=[booking.id],
@@ -286,6 +288,7 @@ async def test_a_discipline_outside_the_programme_ignores_it(
     availability, booking = await _hour_for(db, teacher, student, subject)
 
     lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
         lesson_payload(
             availability,
             booking_ids=[booking.id],
@@ -303,7 +306,7 @@ async def test_a_pupil_with_no_school_is_checked_on_the_discipline_alone(
 ) -> None:
     built = await scene(db)
 
-    lesson, _ = await service(db).create(payload(built))
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert lesson.start_time == _LESSON_START
 
@@ -350,6 +353,7 @@ async def test_a_group_hour_needs_the_competence_on_every_programme(
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
+            ADMIN_IDENTITY,
             lesson_payload(
                 availability,
                 booking_ids=[booking.id for booking in bookings],
@@ -364,7 +368,7 @@ async def test_a_group_hour_needs_the_competence_on_every_programme(
 async def test_a_lesson_is_created(db: AsyncSession) -> None:
     built = await scene(db)
 
-    lesson, warnings = await service(db).create(payload(built))
+    lesson, warnings = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert lesson.mode == "presence"
     assert lesson.band == "AFTERNOON"
@@ -375,7 +379,10 @@ async def test_a_lesson_must_fit_the_availability(db: AsyncSession) -> None:
     built = await scene(db)
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(payload(built, start=time(13), end=time(14)))
+        await service(db).create(
+            ADMIN_IDENTITY,
+            payload(built, start=time(13), end=time(14)),
+        )
 
     assert error.value.status_code == 400
     assert "disponibilità" in error.value.detail
@@ -387,7 +394,7 @@ async def test_a_lesson_must_fit_the_pupils_hours(db: AsyncSession) -> None:
     await db.flush()
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(payload(built))
+        await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert error.value.status_code == 400
     assert "ore di" in error.value.detail
@@ -396,12 +403,13 @@ async def test_a_lesson_must_fit_the_pupils_hours(db: AsyncSession) -> None:
 # What is capped is the pupils at any one moment, and two is the cap.
 async def test_a_teacher_may_take_two_pupils_at_once(db: AsyncSession) -> None:
     built = await scene(db)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     second = await _second_pupil_on(db, built.teacher)
 
     # The same hour as payload's own, so the two genuinely run together.
     lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
         pupil_payload(built.availability, second),
     )
 
@@ -414,7 +422,7 @@ async def test_an_online_hour_may_not_run_alongside_a_hour_in_the_building(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     online_availability = await make_availability(
         db,
@@ -428,7 +436,10 @@ async def test_an_online_hour_may_not_run_alongside_a_hour_in_the_building(
     second = await _second_pupil_on(db, built.teacher, mode="online")
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(pupil_payload(online_availability, second))
+        await service(db).create(
+            ADMIN_IDENTITY,
+            pupil_payload(online_availability, second),
+        )
 
     assert error.value.status_code == 400
     assert "online" in error.value.detail
@@ -438,12 +449,15 @@ async def test_two_online_hours_may_not_run_together_either(
     db: AsyncSession,
 ) -> None:
     built = await scene(db, teacher_mode="online", student_mode="online")
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     second = await _second_pupil_on(db, built.teacher, mode="online")
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(pupil_payload(built.availability, second))
+        await service(db).create(
+            ADMIN_IDENTITY,
+            pupil_payload(built.availability, second),
+        )
 
     assert error.value.status_code == 400
     assert "online" in error.value.detail
@@ -455,7 +469,7 @@ async def test_an_online_hour_may_follow_one_in_the_building(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     online_availability = await make_availability(
         db,
@@ -469,6 +483,7 @@ async def test_an_online_hour_may_follow_one_in_the_building(
     second = await _second_pupil_on(db, built.teacher, mode="online")
 
     lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
         pupil_payload(
             online_availability,
             second,
@@ -484,10 +499,10 @@ async def test_an_online_hour_may_follow_one_in_the_building(
 # Heads and not rows: a group hour of two already fills the teacher up.
 async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> None:
     built = await scene(db)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     second = await _second_pupil_on(db, built.teacher)
-    await service(db).create(pupil_payload(built.availability, second))
+    await service(db).create(ADMIN_IDENTITY, pupil_payload(built.availability, second))
 
     third = await _second_pupil_on(db, built.teacher)
 
@@ -495,6 +510,7 @@ async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> 
     # to four there would be three of them.
     with pytest.raises(HTTPException) as error:
         await service(db).create(
+            ADMIN_IDENTITY,
             pupil_payload(
                 built.availability,
                 third,
@@ -512,13 +528,14 @@ async def test_hours_that_only_touch_do_not_count_as_at_once(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     # Three to four, then two more from four to five: three on the afternoon,
     # never more than two at once.
     for _ in range(2):
         pupil = await _second_pupil_on(db, built.teacher)
         lesson, _ = await service(db).create(
+            ADMIN_IDENTITY,
             pupil_payload(
                 built.availability,
                 pupil,
@@ -532,7 +549,7 @@ async def test_hours_that_only_touch_do_not_count_as_at_once(
 
 async def test_a_pupil_cannot_be_in_two_lessons_at_once(db: AsyncSession) -> None:
     built = await scene(db, duration=120)
-    await service(db).create(payload(built))
+    await service(db).create(ADMIN_IDENTITY, payload(built))
 
     other_teacher = await make_teacher(db)
     subject = await make_discipline(db)
@@ -553,6 +570,7 @@ async def test_a_pupil_cannot_be_in_two_lessons_at_once(db: AsyncSession) -> Non
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
+            ADMIN_IDENTITY,
             lesson_payload(
                 other_availability,
                 booking_ids=[second_booking.id],
@@ -570,7 +588,7 @@ async def test_a_teacher_at_home_cannot_take_a_pupil_in_the_building(
     built = await scene(db, teacher_mode="online", student_mode="presence")
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(payload(built))
+        await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert error.value.status_code == 400
     assert "da casa" in error.value.detail
@@ -582,6 +600,7 @@ async def test_pupils_in_one_lesson_must_share_a_mode(db: AsyncSession) -> None:
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
+            ADMIN_IDENTITY,
             payload(
                 built,
                 booking_ids=[built.booking.id, other.booking.id],
@@ -600,7 +619,7 @@ async def test_a_teacher_without_the_competence_is_refused(
     built = await scene(db, competent=False)
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(payload(built))
+        await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert error.value.status_code == 400
     assert "competenza" in error.value.detail
@@ -621,7 +640,7 @@ async def test_an_unwanted_teacher_is_a_warning_and_not_a_refusal(
     )
     await db.flush()
 
-    lesson, warnings = await service(db).create(payload(built))
+    lesson, warnings = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert lesson.id is not None
     assert len(warnings) == 1
@@ -635,7 +654,7 @@ async def test_a_published_band_is_closed_to_new_lessons(db: AsyncSession) -> No
     await db.flush()
 
     with pytest.raises(HTTPException) as error:
-        await service(db).create(payload(built))
+        await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert error.value.status_code == 409
 
@@ -649,14 +668,14 @@ async def test_another_band_being_published_changes_nothing(
     db.add(CalendarPublication(date=DAY, band="MORNING"))
     await db.flush()
 
-    lesson, _ = await service(db).create(payload(built))
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert lesson.band == "AFTERNOON"
 
 
 async def test_a_stale_write_is_rejected(db: AsyncSession) -> None:
     built = await scene(db, duration=120)
-    lesson, _ = await service(db).create(payload(built))
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     stale = LessonUpdate(
         availability_id=built.availability.id,
@@ -677,7 +696,7 @@ async def test_a_lesson_can_be_deleted_while_the_band_is_open(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-    lesson, _ = await service(db).create(payload(built))
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     await service(db).delete(ADMIN_IDENTITY, lesson.id)
 

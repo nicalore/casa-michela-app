@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from datetime import date
+from datetime import date, time
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.association_subject import AssociationSubject
 from app.models.booking import Booking
+from app.models.lesson_booking import LessonBooking
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.presence import Presence
 from app.models.service import Service
@@ -56,6 +57,38 @@ class BookingRepository(WritableRepository[Booking]):
             stmt = stmt.where(Presence.date <= date_to)
 
         return (await self.session.execute(stmt)).scalars().all()
+
+    # The students of a band whose requests no lesson teaches at all.
+    #
+    # "At all" and not "here": a presence straddling one o'clock has the one
+    # request, and having planned it in the afternoon is no reason to refuse the
+    # morning. What this catches is the request nobody has looked at — which is
+    # what arriving after the calendar was built looks like.
+    async def find_unplanned_students(
+        self,
+        day: date,
+        start_time: time,
+        end_time: time,
+    ) -> Sequence[str]:
+        planned = (
+            select(LessonBooking.booking_id)
+            .where(LessonBooking.booking_id == Booking.id)
+            .exists()
+        )
+
+        rows = await self.session.scalars(
+            select(Presence.student_tax_code)
+            .join(Booking.presence)
+            .where(
+                Presence.date == day,
+                Presence.start_time < end_time,
+                Presence.end_time > start_time,
+                ~planned,
+            )
+            .distinct(),
+        )
+
+        return list(rows)
 
     async def get_by_id(
         self,

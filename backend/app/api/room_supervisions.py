@@ -4,7 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
-from app.api.rbac import require_role
+from app.api.rbac import CurrentIdentity, require_role
 from app.models.person import Person
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
@@ -93,9 +93,10 @@ async def list_supervisions(
 @router.post("/", response_model=RoomSupervisionResponse, dependencies=_ADMIN_ONLY)
 async def create_supervision(
     payload: RoomSupervisionCreate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> RoomSupervisionResponse:
-    supervision = await _service(db).create(payload)
+    supervision = await _service(db).create(identity, payload)
 
     return (await _to_responses(db, [supervision]))[0]
 
@@ -108,9 +109,10 @@ async def create_supervision(
 async def update_supervision(
     supervision_id: int,
     payload: RoomSupervisionUpdate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> RoomSupervisionResponse:
-    supervision = await _service(db).update(supervision_id, payload)
+    supervision = await _service(db).update(identity, supervision_id, payload)
 
     return (await _to_responses(db, [supervision]))[0]
 
@@ -118,8 +120,9 @@ async def update_supervision(
 @router.delete("/{supervision_id}", dependencies=_ADMIN_ONLY)
 async def delete_supervision(
     supervision_id: int,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
-    await _service(db).delete(supervision_id)
+    await _service(db).delete(identity, supervision_id)
 
     return {"detail": "Responsabilità eliminata"}

@@ -12,6 +12,7 @@ from app.api import (
     auth,
     availabilities,
     bookings,
+    calendar_locks,
     calendar_publications,
     lesson_requests,
     lessons,
@@ -101,6 +102,7 @@ app.include_router(lessons.router)
 app.include_router(teacher_room_assignments.router)
 app.include_router(room_supervisions.router)
 app.include_router(calendar_publications.router)
+app.include_router(calendar_locks.router)
 
 
 @app.get("/health")

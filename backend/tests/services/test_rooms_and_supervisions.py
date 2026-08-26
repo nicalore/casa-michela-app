@@ -18,6 +18,7 @@ from app.services.room_supervision_service import RoomSupervisionService
 from app.services.teacher_room_assignment_service import (
     TeacherRoomAssignmentService,
 )
+from tests.conftest import ADMIN_IDENTITY
 from tests.factories import make_availability, make_room, make_teacher
 from tests.services.test_lesson_service import (
     DAY,
@@ -46,10 +47,11 @@ def supervisions(db: AsyncSession) -> RoomSupervisionService:
 
 async def test_a_convened_teacher_gets_a_room(db: AsyncSession) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
     room = await make_room(db)
 
     assignment, warnings = await assignments(db).assign(
+        ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -70,6 +72,7 @@ async def test_a_teacher_without_lessons_gets_no_room(db: AsyncSession) -> None:
 
     with pytest.raises(HTTPException) as error:
         await assignments(db).assign(
+        ADMIN_IDENTITY,
             TeacherRoomAssignmentCreate(
                 date=DAY,
                 teacher_tax_code=teacher.tax_code,
@@ -85,11 +88,12 @@ async def test_a_teacher_without_lessons_gets_no_room(db: AsyncSession) -> None:
 # has no answer.
 async def test_a_teacher_working_from_home_gets_no_room(db: AsyncSession) -> None:
     built = await scene(db, teacher_mode="online", student_mode="online")
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
     room = await make_room(db)
 
     with pytest.raises(HTTPException) as error:
         await assignments(db).assign(
+        ADMIN_IDENTITY,
             TeacherRoomAssignmentCreate(
                 date=DAY,
                 teacher_tax_code=built.teacher.tax_code,
@@ -103,10 +107,11 @@ async def test_a_teacher_working_from_home_gets_no_room(db: AsyncSession) -> Non
 # Over capacity is said and not enforced: the number is optional to begin with.
 async def test_a_full_room_is_a_warning(db: AsyncSession) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
     room = await make_room(db, capacity=1)
 
     _, warnings = await assignments(db).assign(
+        ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -120,10 +125,11 @@ async def test_a_full_room_is_a_warning(db: AsyncSession) -> None:
 
 async def test_a_room_without_a_capacity_never_warns(db: AsyncSession) -> None:
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
     room = await make_room(db)
 
     _, warnings = await assignments(db).assign(
+        ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -136,10 +142,11 @@ async def test_a_room_without_a_capacity_never_warns(db: AsyncSession) -> None:
 
 async def _assigned(db: AsyncSession):
     built = await scene(db)
-    await lesson_service(db).create(payload(built))
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
     room = await make_room(db)
 
     await assignments(db).assign(
+        ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -154,6 +161,7 @@ async def test_a_supervisor_takes_a_shift(db: AsyncSession) -> None:
     built, room = await _assigned(db)
 
     shift = await supervisions(db).create(
+        ADMIN_IDENTITY,
         RoomSupervisionCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -197,6 +205,7 @@ async def test_a_shift_outside_the_teachers_hours_is_refused(
 
     with pytest.raises(HTTPException) as error:
         await supervisions(db).create(
+        ADMIN_IDENTITY,
             RoomSupervisionCreate(
                 date=DAY,
                 teacher_tax_code=built.teacher.tax_code,
@@ -215,6 +224,7 @@ async def test_nobody_watches_two_rooms_at_once(db: AsyncSession) -> None:
     other_room = await make_room(db)
 
     await supervisions(db).create(
+        ADMIN_IDENTITY,
         RoomSupervisionCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -228,6 +238,7 @@ async def test_nobody_watches_two_rooms_at_once(db: AsyncSession) -> None:
     # and their existing shift already covers these hours.
     with pytest.raises(HTTPException) as error:
         await supervisions(db).create(
+        ADMIN_IDENTITY,
             RoomSupervisionCreate(
                 date=DAY,
                 teacher_tax_code=built.teacher.tax_code,
@@ -246,6 +257,7 @@ async def test_unassigning_takes_the_shifts_along(db: AsyncSession) -> None:
     built, room = await _assigned(db)
 
     await supervisions(db).create(
+        ADMIN_IDENTITY,
         RoomSupervisionCreate(
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
@@ -255,7 +267,11 @@ async def test_unassigning_takes_the_shifts_along(db: AsyncSession) -> None:
         ),
     )
 
-    removed = await assignments(db).unassign(DAY, built.teacher.tax_code)
+    removed = await assignments(db).unassign(
+        ADMIN_IDENTITY,
+        DAY,
+        built.teacher.tax_code,
+    )
 
     assert removed == 1
     assert await supervisions(db).list_for_day(DAY, room_id=None) == []

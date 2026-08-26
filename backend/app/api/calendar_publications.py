@@ -47,6 +47,12 @@ def _to_response(
         else None
     )
 
+    opener = (
+        people.get(publication.draft_opened_by)
+        if publication.draft_opened_by is not None
+        else None
+    )
+
     return CalendarPublicationResponse(
         date=publication.date,
         band=TimeBandEnum(publication.band),
@@ -56,6 +62,10 @@ def _to_response(
             PersonOption.model_validate(publisher) if publisher is not None else None
         ),
         is_draft=publication.draft_snapshot is not None,
+        draft_opened_by=publication.draft_opened_by,
+        draft_opener=(
+            PersonOption.model_validate(opener) if opener is not None else None
+        ),
         has_changes=has_changes,
         warnings=warnings,
     )
@@ -72,9 +82,10 @@ async def _to_responses(
         return []
 
     people = await PersonRepository(db).get_options(
-        publication.published_by
+        tax_code
         for publication in publications
-        if publication.published_by is not None
+        for tax_code in (publication.published_by, publication.draft_opened_by)
+        if tax_code is not None
     )
 
     return [
@@ -145,9 +156,10 @@ async def publish_band(
 async def reopen_band(
     publication_date: date,
     band: TimeBandEnum,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> CalendarPublicationResponse:
-    publication = await _service(db).reopen(publication_date, str(band))
+    publication = await _service(db).reopen(identity, publication_date, str(band))
 
     return (await _to_responses(db, [publication]))[0]
 
@@ -159,9 +171,10 @@ async def reopen_band(
 async def discard_draft(
     publication_date: date,
     band: TimeBandEnum,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> CalendarDraftDiscarded:
-    lost = await _service(db).discard(publication_date, str(band))
+    lost = await _service(db).discard(identity, publication_date, str(band))
     publication = await _service(db).repository.get(publication_date, str(band))
 
     return CalendarDraftDiscarded(
@@ -193,8 +206,9 @@ async def close_draft(
 async def unpublish_band(
     publication_date: date,
     band: TimeBandEnum,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
-    await _service(db).unpublish(publication_date, str(band))
+    await _service(db).unpublish(identity, publication_date, str(band))
 
     return {"detail": "Calendario in modifica"}

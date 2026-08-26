@@ -32,7 +32,9 @@ from app.repositories.lesson_repository import LessonRepository, LessonVisibilit
 from app.repositories.person_repository import PersonRepository
 from app.schemas.lesson import LessonCreate, LessonUpdate
 from app.services.lesson_guard import (
+    assert_band_claimed,
     assert_band_editable,
+    assert_bands_claimed,
     assert_bands_editable,
 )
 from app.services.teacher_occupancy import (
@@ -532,6 +534,7 @@ class LessonService:
 
     async def _validate(
         self,
+        identity: IdentityContext,
         payload: LessonCreate | LessonUpdate,
         *,
         exclude_id: int | None,
@@ -540,6 +543,7 @@ class LessonService:
 
         band = assert_within_single_band(payload.start_time, payload.end_time)
         await assert_band_editable(self.session, availability.date, band)
+        await assert_band_claimed(self.session, identity, availability.date, band)
 
         self._assert_within_availability(
             availability,
@@ -623,8 +627,12 @@ class LessonService:
 
         return lesson
 
-    async def create(self, payload: LessonCreate) -> tuple[Lesson, list[str]]:
-        validated = await self._validate(payload, exclude_id=None)
+    async def create(
+        self,
+        identity: IdentityContext,
+        payload: LessonCreate,
+    ) -> tuple[Lesson, list[str]]:
+        validated = await self._validate(identity, payload, exclude_id=None)
 
         lesson = Lesson(
             availability=validated.availability,
@@ -659,8 +667,16 @@ class LessonService:
             self.session,
             [(lesson.date, lesson.band)],
         )
+        # The band it is leaving as well as the one it is going to, which
+        # _validate takes care of: moving an hour out of an afternoon somebody
+        # else is building is as much a change to that afternoon as adding one.
+        await assert_bands_claimed(
+            self.session,
+            identity,
+            [(lesson.date, lesson.band)],
+        )
 
-        validated = await self._validate(payload, exclude_id=lesson.id)
+        validated = await self._validate(identity, payload, exclude_id=lesson.id)
 
         lesson.availability = validated.availability
         lesson.mode = validated.mode
@@ -678,6 +694,7 @@ class LessonService:
         lesson = await self.get_visible_or_404(identity, lesson_id)
 
         await assert_band_editable(self.session, lesson.date, lesson.band)
+        await assert_band_claimed(self.session, identity, lesson.date, lesson.band)
 
         await self.repository.delete(lesson)
         await self.repository.commit()

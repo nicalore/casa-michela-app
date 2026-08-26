@@ -1,6 +1,7 @@
 import os
 import subprocess
 from collections.abc import AsyncIterator
+from datetime import date
 from pathlib import Path
 
 import psycopg
@@ -12,6 +13,10 @@ from sqlalchemy.pool import NullPool
 
 from app.api.rbac import IdentityContext
 from app.core.config import settings
+from app.models.administrator import Administrator
+from app.models.member import Member
+from app.models.person import Person
+from app.models.staff import Staff
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,7 +36,13 @@ def identity_of(
     )
 
 
-ADMIN_IDENTITY = identity_of("AAAAAA00A01A999X", "ADMIN")
+# Not a bare string any more: taking a calendar band in hand writes down who is
+# holding it, and that is a foreign key onto administrators. The identity the
+# tests act through has to be somebody who exists — which it always claimed to
+# be. _seeded_administrator below is what puts them there.
+ADMIN_TAX_CODE = "AAAAAA00A01A999E"
+
+ADMIN_IDENTITY = identity_of(ADMIN_TAX_CODE, "ADMIN")
 
 _BASE_URL = make_url(settings.async_database_url)
 _TEST_DB = os.environ.get("TEST_POSTGRES_DB", f"{_BASE_URL.database}_test")
@@ -116,6 +127,8 @@ async def db(engine) -> AsyncIterator[AsyncSession]:
         )
 
         try:
+            await _seed_administrator(session)
+
             yield session
 
         finally:
@@ -123,3 +136,44 @@ async def db(engine) -> AsyncIterator[AsyncSession]:
 
             if transaction.is_active:
                 await transaction.rollback()
+
+
+# The person behind ADMIN_IDENTITY, written into every test's transaction and
+# rolled back with it. Here and not in the factories because it is not a choice
+# a test makes: the identity is a module constant, so the row it names has to be
+# there wherever it is used.
+async def _seed_administrator(session: AsyncSession) -> None:
+    session.add(
+        Person(
+            tax_code=ADMIN_TAX_CODE,
+            first_name="Anna",
+            last_name="Bianchi",
+            gender="F",
+            birth_date=date(2000, 1, 1),
+            birth_city="Verona",
+            birth_nation="Italia",
+            birth_province="VR",
+            email="amministrazione@example.com",
+            phone="+390000000000",
+            residence_type="Via",
+            residence_address="Roma",
+            residence_street_number="1",
+            residence_city="Verona",
+            residence_province="VR",
+            postal_code="37100",
+        ),
+    )
+    await session.flush()
+
+    session.add(Member(tax_code=ADMIN_TAX_CODE))
+    session.add(Staff(tax_code=ADMIN_TAX_CODE, collaboration_type="VOLUNTEER"))
+    await session.flush()
+
+    session.add(
+        Administrator(
+            tax_code=ADMIN_TAX_CODE,
+            role="OTHER",
+            other_role="Presidenza",
+        ),
+    )
+    await session.flush()

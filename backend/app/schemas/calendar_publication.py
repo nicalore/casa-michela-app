@@ -38,6 +38,11 @@ class CalendarPublicationResponse(BaseModel):
 
     is_draft: bool = False
 
+    # Whose bozza it is. Only they can leave it without publishing, so the
+    # screen can say so instead of offering a button that would be refused.
+    draft_opened_by: str | None = None
+    draft_opener: PersonOption | None = None
+
     has_changes: bool = False
 
     warnings: list[str] = Field(default_factory=list)

@@ -52,7 +52,7 @@ const Map<String, String> kCourseTypes = {
 const Map<String, String> kCollaborationTypes = {
   'Volontario': 'VOLUNTEER',
   'Retribuito': 'PAID',
-  'FSL (Ex PCT0)': 'PCTO',
+  'FSL (Ex PCTO)': 'PCTO',
   'Non pagato': 'UNPAID',
 };
 

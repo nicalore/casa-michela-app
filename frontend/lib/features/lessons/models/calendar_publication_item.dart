@@ -18,6 +18,11 @@ class CalendarPublicationItem
 
   final bool isDraft;
 
+  // Whose bozza it is. Only they can leave it without publishing, so the screen
+  // says so instead of offering a button the server would refuse.
+  final String? draftOpenedBy;
+  final PersonOptionItem? draftOpener;
+
   final bool hasChanges;
 
   final List<String> warnings;
@@ -29,6 +34,8 @@ class CalendarPublicationItem
     this.publishedBy,
     this.publisher,
     this.isDraft = false,
+    this.draftOpenedBy,
+    this.draftOpener,
     this.hasChanges = false,
     this.warnings = const [],
   });
@@ -36,6 +43,7 @@ class CalendarPublicationItem
   factory CalendarPublicationItem.fromJson(Map<String, dynamic> json)
   {
     final publisher = json['publisher'];
+    final opener = json['draft_opener'];
 
     return CalendarPublicationItem(
       date: DateTime.parse(json['date'] as String),
@@ -43,6 +51,10 @@ class CalendarPublicationItem
       publishedAt: parseInstant(json['published_at'])!,
       publishedBy: json['published_by'] as String?,
       isDraft: json['is_draft'] as bool? ?? false,
+      draftOpenedBy: json['draft_opened_by'] as String?,
+      draftOpener: opener == null
+          ? null
+          : PersonOptionItem.fromJson(opener as Map<String, dynamic>),
       hasChanges: json['has_changes'] as bool? ?? false,
       publisher: publisher == null
           ? null

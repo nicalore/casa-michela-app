@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_dimensions.dart';
@@ -23,6 +25,7 @@ import '../association/models/study_program_item.dart';
 import '../people/models/person_item.dart';
 import 'models/availability_item.dart';
 import 'models/booking_summary_item.dart';
+import 'models/calendar_lock_item.dart';
 import 'models/calendar_publication_item.dart';
 import 'models/lesson_item.dart';
 import 'models/presence_item.dart';
@@ -33,6 +36,7 @@ import 'models/teacher_room_assignment_item.dart';
 import 'tabs/availability_tab.dart';
 import 'tabs/bookings_tab.dart';
 import 'tabs/calendar_tab.dart';
+import 'utils/band_watch.dart';
 import 'utils/booking_window.dart';
 import 'utils/opening_window.dart';
 import 'widgets/lessons_day_header.dart';
@@ -96,6 +100,22 @@ class _LessonsPageState extends State<LessonsPage>
 
   List<CalendarPublicationItem> _publications = [];
 
+  // Who is building which band right now. Only the live ones ever arrive, so a
+  // row here means somebody is at the screen.
+  List<CalendarLockItem> _locks = [];
+
+  String? _meTaxCode;
+
+  // What the calendar is showing. The beat and the reload are about this band
+  // and no other, so the tab says which one and the page acts on it.
+  DateTime? _shownDay;
+  TimeBucket? _shownBand;
+
+  late final CalendarBandWatch _watch = CalendarBandWatch(
+    beat: _beat,
+    poll: _pollShownDay,
+  );
+
   List<OpeningDayItem> _openingDays = [];
 
   List<RoomItem> _rooms = [];
@@ -148,7 +168,15 @@ class _LessonsPageState extends State<LessonsPage>
   {
     super.initState();
     _visitedSections.add(_contentIndex);
+    _watch.start();
     _loadAllData();
+  }
+
+  @override
+  void dispose()
+  {
+    _watch.dispose();
+    super.dispose();
   }
 
   @override
@@ -170,8 +198,30 @@ class _LessonsPageState extends State<LessonsPage>
     ];
   }
 
+  // Who is at this screen, which is the whole of what tells a band held by us
+  // from one held by somebody else. Read from what the session already knows,
+  // and asked for only where nothing has asked yet.
+  Future<void> _readWhoIAm() async
+  {
+    try
+    {
+      final me = _apiService.lastKnownIdentity ?? await _apiService.me();
+
+      if (mounted)
+      {
+        setState(() => _meTaxCode = me.taxCode);
+      }
+    }
+    catch (e, stackTrace)
+    {
+      reportCaughtError(e, stackTrace, during: 'la lettura del profilo');
+    }
+  }
+
   Future<void> _loadAllData({bool quiet = false}) async
   {
+    unawaited(_readWhoIAm());
+
     try
     {
       final results = await Future.wait([
@@ -741,6 +791,246 @@ class _LessonsPageState extends State<LessonsPage>
     return closed ? resent ?? false : null;
   }
 
+  // Who is holding the band on the screen, if anybody.
+  CalendarLockItem? get _shownLock
+  {
+    final day = _shownDay;
+    final band = _shownBand;
+
+    if (day == null || band == null)
+    {
+      return null;
+    }
+
+    for (final lock in _locks)
+    {
+      if (isSameDate(lock.date, day) && lock.band == band)
+      {
+        return lock;
+      }
+    }
+
+    return null;
+  }
+
+  // Somebody else is building it, so what is drawn can be read and not touched.
+  bool get _isCalendarReadOnly
+  {
+    final lock = _shownLock;
+
+    return lock != null && lock.holderTaxCode != _meTaxCode;
+  }
+
+  bool get _holdsTheShownBand
+  {
+    final lock = _shownLock;
+
+    return lock != null && _meTaxCode != null && lock.holderTaxCode == _meTaxCode;
+  }
+
+  void _syncTheBand()
+  {
+    _watch.says(holding: _holdsTheShownBand, watching: _isCalendarReadOnly);
+  }
+
+  // The calendar moved to another day, or to another part of one. Whatever was
+  // held is let go at once: the ninety seconds would do it anyway, and making
+  // the next person wait them out for a band nobody is building is only a wait.
+  void _onCalendarViewChanged({required DateTime day, required TimeBucket band})
+  {
+    final wasDay = _shownDay;
+    final wasBand = _shownBand;
+
+    if (wasDay != null && isSameDate(wasDay, day) && wasBand == band)
+    {
+      return;
+    }
+
+    if (wasDay != null && wasBand != null && _watch.holdsTheBand)
+    {
+      _letTheBandGo(wasDay, wasBand);
+    }
+
+    setState(()
+    {
+      _shownDay = day;
+      _shownBand = band;
+    });
+
+    _syncTheBand();
+    unawaited(_readTheLocks(day));
+  }
+
+  void _letTheBandGo(DateTime day, TimeBucket band)
+  {
+    _foldLock(day, band, null);
+
+    // Best effort and never the guarantee: a window that is closed rather than
+    // left says nothing at all, and the ninety seconds say it for it.
+    unawaited(
+      _apiService
+          .releaseCalendarLock(day: day, band: band)
+          .catchError((Object _) {}),
+    );
+  }
+
+  Future<void> _beat() async
+  {
+    final day = _shownDay;
+    final band = _shownBand;
+
+    if (day == null || band == null)
+    {
+      return;
+    }
+
+    try
+    {
+      final state = await _apiService.heartbeatCalendarLock(day: day, band: band);
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      _foldLock(day, band, state.lock);
+    }
+    catch (e, stackTrace)
+    {
+      // Said to the log and not to the screen: a beat that did not arrive is
+      // not news, and two more will follow before the band is gone.
+      reportCaughtError(e, stackTrace, during: 'il battito del calendario');
+    }
+  }
+
+  void _foldLock(DateTime day, TimeBucket band, CalendarLockItem? lock)
+  {
+    setState(()
+    {
+      _locks = [
+        for (final row in _locks)
+          if (!(isSameDate(row.date, day) && row.band == band)) row,
+        ?lock,
+      ];
+    });
+
+    _syncTheBand();
+  }
+
+  Future<void> _readTheLocks(DateTime day) async
+  {
+    try
+    {
+      final rows = await _apiService.getCalendarLocks(dateFrom: day, dateTo: day);
+
+      if (!mounted)
+      {
+        return;
+      }
+
+      setState(()
+      {
+        _locks = [
+          for (final row in _locks)
+            if (!isSameDate(row.date, day)) row,
+          ...rows,
+        ];
+      });
+
+      _syncTheBand();
+    }
+    catch (e, stackTrace)
+    {
+      reportCaughtError(e, stackTrace, during: 'la lettura dei calendari in uso');
+    }
+  }
+
+  Set<int> _lessonIdsOn(DateTime day, TimeBucket band)
+  {
+    return {
+      for (final lesson in _lessons)
+        if (isSameDate(lesson.date, day) && lesson.band == band) lesson.id,
+    };
+  }
+
+  Set<int> _requestIdsOn(DateTime day)
+  {
+    return {
+      for (final presence in _presences)
+        if (isSameDate(presence.date, day))
+          for (final booking in presence.bookings) booking.id,
+    };
+  }
+
+  // The whole day read back, and then what moved under whoever is building it
+  // said out loud.
+  Future<void> _pollShownDay() async
+  {
+    final day = _shownDay;
+    final band = _shownBand;
+
+    if (day == null || band == null)
+    {
+      return;
+    }
+
+    final held = _watch.holdsTheBand;
+    final hours = held ? _lessonIdsOn(day, band) : const <int>{};
+    final requests = held ? _requestIdsOn(day) : const <int>{};
+
+    await Future.wait([
+      _executeLoadDay(day, (_) {}),
+      _readTheLocks(day),
+    ]);
+
+    if (!mounted || !held)
+    {
+      return;
+    }
+
+    _sayWhatMovedUnderneath(hours, requests, day, band);
+  }
+
+  // Only the two things that move without anybody in this window having touched
+  // them: an hour that went because what it stood on was withdrawn, and a
+  // request that arrived after the calendar was built. Both are ordinary — a
+  // docente can still take back a disponibilità, a studente can still book —
+  // and neither is worth a refusal. What they are worth is being told, because
+  // otherwise a block simply vanishes off the board and nothing says why.
+  void _sayWhatMovedUnderneath(
+    Set<int> hours,
+    Set<int> requests,
+    DateTime day,
+    TimeBucket band,
+  )
+  {
+    final gone = hours.difference(_lessonIdsOn(day, band)).length;
+    final arrived = _requestIdsOn(day).difference(requests).length;
+
+    final said = [
+      if (gone == 1)
+        'Un\'ora è uscita dal calendario: la disponibilità o la prenotazione su '
+            'cui stava non c\'è più.',
+      if (gone > 1)
+        '$gone ore sono uscite dal calendario: le disponibilità o le '
+            'prenotazioni su cui stavano non ci sono più.',
+      if (arrived == 1) 'È arrivata una nuova prenotazione per questa giornata.',
+      if (arrived > 1) 'Sono arrivate $arrived nuove prenotazioni per questa giornata.',
+    ];
+
+    if (said.isEmpty)
+    {
+      return;
+    }
+
+    CustomSnackBar.show(
+      context: context,
+      message: said.join(' '),
+      tone: SnackBarTone.warning,
+      isError: false,
+    );
+  }
+
   List<CalendarPublicationItem> _withoutBand(DateTime day, TimeBucket band)
   {
     return [
@@ -926,6 +1216,12 @@ class _LessonsPageState extends State<LessonsPage>
       // already answered for itself, and what is drawn is a day old at worst.
       reportCaughtError(e, stackTrace, during: 'il ricaricamento del calendario');
     }
+
+    // Every write into a calendar comes back through here, and a write is what
+    // takes a band. Reading who holds it is how this window learns the band is
+    // now its own and starts saying it is still there — asking never takes
+    // anything, so the days this runs for that were only looked at are unharmed.
+    await _readTheLocks(day);
   }
 
   Future<void> _refreshPublications(DateTime day) async
@@ -1431,18 +1727,26 @@ class _LessonsPageState extends State<LessonsPage>
                 studyPrograms: _studyPrograms,
                 rooms: _rooms,
                 publications: _publications,
+                lock: _shownLock,
+                isReadOnly: _isCalendarReadOnly,
+                onViewChanged: _onCalendarViewChanged,
                 onLoadDay: _executeLoadDay,
-                onPublishBand: _executePublishBand,
-                onReopenBand: _executeReopenBand,
-                onCloseDraft: _executeCloseDraft,
-                onDiscardDraft: _executeDiscardDraft,
                 onLoadRoomPlan: _executeLoadRoomPlan,
-                onSaveRoomPlan: _executeSaveRoomPlan,
-                onCreateLesson: _executeCreateLesson,
-                onUpdateLesson: _executeUpdateLesson,
-                onDeleteLesson: _executeDeleteLesson,
-                onSplitLesson: _executeSplitLesson,
-                onMoveBooking: _executeMoveBooking,
+                // Withheld while somebody else has the band. The screen shows
+                // it as read the whole way through, so nothing here is a
+                // second line of defence against a button that can be pressed
+                // — it is the same answer said in the one place a write could
+                // still be started from.
+                onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
+                onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,
+                onCloseDraft: _isCalendarReadOnly ? null : _executeCloseDraft,
+                onDiscardDraft: _isCalendarReadOnly ? null : _executeDiscardDraft,
+                onSaveRoomPlan: _isCalendarReadOnly ? null : _executeSaveRoomPlan,
+                onCreateLesson: _isCalendarReadOnly ? null : _executeCreateLesson,
+                onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
+                onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
+                onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
+                onMoveBooking: _isCalendarReadOnly ? null : _executeMoveBooking,
               )
             : const SizedBox.shrink(),
       ],
@@ -1462,6 +1766,8 @@ class _LessonsPageState extends State<LessonsPage>
 
       _visitedSections.add(_contentIndex);
     });
+
+    _watchTheShownSection();
   }
 
   void _selectView(LessonsDayView view)
@@ -1471,6 +1777,29 @@ class _LessonsPageState extends State<LessonsPage>
       _dayView = view;
       _visitedSections.add(_contentIndex);
     });
+
+    _watchTheShownSection();
+  }
+
+  // Walking away from the calendar stops the beat, and the band comes free
+  // within the minute and a half. Coming back does not take it again: the
+  // first hour written does that, the way it did the first time.
+  void _watchTheShownSection()
+  {
+    final onTheCalendar = _contentIndex == _calendarContentIndex;
+
+    if (!onTheCalendar && _watch.holdsTheBand)
+    {
+      final day = _shownDay;
+      final band = _shownBand;
+
+      if (day != null && band != null)
+      {
+        _letTheBandGo(day, band);
+      }
+    }
+
+    _watch.shows(onTheCalendar);
   }
 
   @override

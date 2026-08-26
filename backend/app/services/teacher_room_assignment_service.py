@@ -4,6 +4,7 @@ from typing import Final
 
 from fastapi import HTTPException, status
 
+from app.api.rbac import IdentityContext
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.teacher_room_assignment import TeacherRoomAssignment
@@ -17,6 +18,7 @@ from app.schemas.teacher_room_assignment import (
     TeacherRoomAssignmentUpdate,
 )
 from app.services.lesson_guard import (
+    assert_bands_claimed,
     assert_bands_editable,
     find_bands_with_lessons,
     find_settled_bands,
@@ -64,19 +66,30 @@ class TeacherRoomAssignmentService:
                 detail=_NOT_CONVENED_ERROR,
             )
 
-    async def _assert_day_open_for(
-        self,
-        day: date,
-        teacher_tax_code: str,
-    ) -> None:
+    # A room is one row for the whole day, so what it belongs to is not a band
+    # but the bands that teacher actually teaches in. Which is the right answer
+    # for the lock too: if the morning and the afternoon are being built by two
+    # people and the teacher is in both, neither of them moves their room until
+    # the other lets go.
+    async def _bands_of(self, day: date, teacher_tax_code: str) -> set[str]:
         lessons = await self.lessons.list_for_day(day)
-        bands = {
+
+        return {
             lesson.band
             for lesson in lessons
             if lesson.availability.teacher_tax_code == teacher_tax_code
         }
 
-        await assert_bands_editable(self.session, [(day, band) for band in bands])
+    async def _assert_day_open_for(
+        self,
+        identity: IdentityContext,
+        day: date,
+        teacher_tax_code: str,
+    ) -> None:
+        pairs = [(day, band) for band in await self._bands_of(day, teacher_tax_code)]
+
+        await assert_bands_editable(self.session, pairs)
+        await assert_bands_claimed(self.session, identity, pairs)
 
     async def _warnings_for(self, day: date) -> list[str]:
         lessons = await self.lessons.list_for_day(day)
@@ -117,6 +130,7 @@ class TeacherRoomAssignmentService:
 
     async def assign(
         self,
+        identity: IdentityContext,
         payload: TeacherRoomAssignmentCreate,
     ) -> tuple[TeacherRoomAssignment, list[str]]:
         existing = await self.repository.get(payload.date, payload.teacher_tax_code)
@@ -127,7 +141,11 @@ class TeacherRoomAssignmentService:
                 detail=_ALREADY_ASSIGNED_ERROR,
             )
 
-        await self._assert_day_open_for(payload.date, payload.teacher_tax_code)
+        await self._assert_day_open_for(
+            identity,
+            payload.date,
+            payload.teacher_tax_code,
+        )
         await self._assert_convened(payload.date, payload.teacher_tax_code)
         await self._room_or_404(payload.room_id)
 
@@ -148,6 +166,7 @@ class TeacherRoomAssignmentService:
 
     async def update(
         self,
+        identity: IdentityContext,
         day: date,
         teacher_tax_code: str,
         payload: TeacherRoomAssignmentUpdate,
@@ -160,7 +179,7 @@ class TeacherRoomAssignmentService:
             entity_label=_ENTITY_LABEL,
         )
 
-        await self._assert_day_open_for(day, teacher_tax_code)
+        await self._assert_day_open_for(identity, day, teacher_tax_code)
         await self._room_or_404(payload.room_id)
 
         assignment.room_id = payload.room_id
@@ -173,7 +192,12 @@ class TeacherRoomAssignmentService:
             await self._warnings_for(day),
         )
 
-    async def unassign(self, day: date, teacher_tax_code: str) -> int:
+    async def unassign(
+        self,
+        identity: IdentityContext,
+        day: date,
+        teacher_tax_code: str,
+    ) -> int:
         assignment = await self.get_or_404(day, teacher_tax_code)
 
         settled = await find_settled_bands(self.session, day)
@@ -185,6 +209,12 @@ class TeacherRoomAssignmentService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=published_band_error(day, clashing[0]),
             )
+
+        await assert_bands_claimed(
+            self.session,
+            identity,
+            [(day, band) for band in await self._bands_of(day, teacher_tax_code)],
+        )
 
         shifts = await self.repository.count_supervisions(day, teacher_tax_code)
 

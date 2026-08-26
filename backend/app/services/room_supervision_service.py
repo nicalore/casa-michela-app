@@ -5,6 +5,8 @@ from typing import Final
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
+from app.api.rbac import IdentityContext
+from app.core.booking_close import bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.availability import Availability
@@ -17,6 +19,7 @@ from app.schemas.room_supervision import (
     RoomSupervisionCreate,
     RoomSupervisionUpdate,
 )
+from app.services.lesson_guard import assert_bands_claimed
 
 _ENTITY_LABEL: Final[str] = "il turno"
 _NOT_FOUND_ERROR: Final[str] = "Turno da responsabile non trovato"
@@ -51,6 +54,22 @@ class RoomSupervisionService:
     @property
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
+
+    # Every band the stretch touches, and not the one it starts in: a shift is
+    # free to run from noon to two, and it belongs to both halves of the day it
+    # is written into.
+    async def _assert_claimed(
+        self,
+        identity: IdentityContext,
+        day: date,
+        start_time: time,
+        end_time: time,
+    ) -> None:
+        await assert_bands_claimed(
+            self.session,
+            identity,
+            [(day, band) for band in bands_of(start_time, end_time)],
+        )
 
     # The composite foreign key already makes this impossible; the check is here
     # for the sentence, so the answer is not a bare integrity error.
@@ -150,7 +169,17 @@ class RoomSupervisionService:
 
         return supervision
 
-    async def create(self, payload: RoomSupervisionCreate) -> RoomSupervision:
+    async def create(
+        self,
+        identity: IdentityContext,
+        payload: RoomSupervisionCreate,
+    ) -> RoomSupervision:
+        await self._assert_claimed(
+            identity,
+            payload.date,
+            payload.start_time,
+            payload.end_time,
+        )
         await self._assert_assigned(
             payload.date,
             payload.teacher_tax_code,
@@ -186,6 +215,7 @@ class RoomSupervisionService:
 
     async def update(
         self,
+        identity: IdentityContext,
         supervision_id: int,
         payload: RoomSupervisionUpdate,
     ) -> RoomSupervision:
@@ -195,6 +225,21 @@ class RoomSupervisionService:
             supervision,
             payload.expected_updated_at,
             entity_label=_ENTITY_LABEL,
+        )
+
+        # Where it was as well as where it is going: dragging a shift out of a
+        # morning is a change to that morning.
+        await self._assert_claimed(
+            identity,
+            supervision.date,
+            supervision.start_time,
+            supervision.end_time,
+        )
+        await self._assert_claimed(
+            identity,
+            supervision.date,
+            payload.start_time,
+            payload.end_time,
         )
 
         await self._assert_within_availability(
@@ -222,8 +267,15 @@ class RoomSupervisionService:
 
     # No precondition beyond existing: a gap left behind is caught when the band
     # is published, and arranging shifts in whatever order suits is the point.
-    async def delete(self, supervision_id: int) -> None:
+    async def delete(self, identity: IdentityContext, supervision_id: int) -> None:
         supervision = await self.get_or_404(supervision_id)
+
+        await self._assert_claimed(
+            identity,
+            supervision.date,
+            supervision.start_time,
+            supervision.end_time,
+        )
 
         await self.repository.delete(supervision)
         await self.repository.commit()

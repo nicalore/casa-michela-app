@@ -4,7 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
-from app.api.rbac import require_role
+from app.api.rbac import CurrentIdentity, require_role
 from app.models.person import Person
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.repositories.lesson_repository import LessonRepository
@@ -92,9 +92,10 @@ async def list_assignments(
 )
 async def assign_room(
     payload: TeacherRoomAssignmentCreate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> TeacherRoomAssignmentResponse:
-    assignment, warnings = await _service(db).assign(payload)
+    assignment, warnings = await _service(db).assign(identity, payload)
 
     return (await _to_responses(db, [assignment], warnings=warnings))[0]
 
@@ -108,9 +109,15 @@ async def update_assignment(
     day: date,
     teacher_tax_code: str,
     payload: TeacherRoomAssignmentUpdate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> TeacherRoomAssignmentResponse:
-    assignment, warnings = await _service(db).update(day, teacher_tax_code, payload)
+    assignment, warnings = await _service(db).update(
+        identity,
+        day,
+        teacher_tax_code,
+        payload,
+    )
 
     return (await _to_responses(db, [assignment], warnings=warnings))[0]
 
@@ -119,9 +126,10 @@ async def update_assignment(
 async def unassign_room(
     day: date,
     teacher_tax_code: str,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
-    shifts = await _service(db).unassign(day, teacher_tax_code)
+    shifts = await _service(db).unassign(identity, day, teacher_tax_code)
 
     # Said rather than discovered afterwards: the shifts went with it.
     detail = "Assegnazione rimossa"

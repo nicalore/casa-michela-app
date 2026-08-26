@@ -550,7 +550,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           _buildFieldLabel('Tipo collaborazione'),
                           _buildChoiceChips<String>(
                             value: _currentState.collaborationType,
-                            options: const [('Volontario', 'Volontario'), ('Retribuito', 'Retribuito'), ('(FSL (Ex PCTO)', 'PCTO')],
+                            options: const [('Volontario', 'Volontario'), ('Retribuito', 'Retribuito'), ('FSL (Ex PCTO)', 'FSL (Ex PCTO)')],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
