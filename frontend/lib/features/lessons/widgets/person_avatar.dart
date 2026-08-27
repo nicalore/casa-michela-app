@@ -5,29 +5,15 @@ import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../people/models/person_face.dart';
 
-// A person's face next to their name, as on the person cards: the photo where
-// there is one, the initials where there is not.
-//
-// Large enough to recognise who it is: in person pickers the face is often the
-// real handle — whoever books remembers the teacher's face before the surname —
-// and the rows grow to hold it rather than squeezing it.
+// A person's photo, or their initials when there is none.
 class PersonAvatar extends StatelessWidget
 {
-  // The size for inside a scrolling list.
   static const double listSize = 42;
 
-  // The one for the list where the face is what is being looked for.
   static const double pickerSize = 56;
 
-  // The one next to a detail dialog's title, where the face sits beside a name
-  // set large and is the first thing looked at: taller than the two lines
-  // alongside it, so the circle is the person being read about and not a button
-  // resting next to them.
   static const double titleSize = 76;
 
-  // Anyone with a name and — perhaps — a photo: the full person record and the
-  // minimal one travelling with an availability or a request are drawn the same
-  // way.
   final PersonFace person;
 
   final double size;
@@ -43,8 +29,6 @@ class PersonAvatar extends StatelessWidget
       child: Text(
         initials,
         style: GoogleFonts.plusJakartaSans(
-          // Le iniziali crescono con il cerchio, o in un cerchio grande
-          // galleggiano in mezzo al vuoto.
           fontSize: size * 0.38,
           fontWeight: FontWeight.w700,
           color: AppTheme.trialTealDeep,
@@ -54,7 +38,7 @@ class PersonAvatar extends StatelessWidget
 
     String? imageUrl = person.profileImageUrl?.trim();
 
-    // The images are stored without a host: the relative path needs prefixing.
+    // Images are stored without a host: relative paths need prefixing.
     if (imageUrl != null && imageUrl.startsWith('/'))
     {
       imageUrl = ApiConfig.buildUrl(imageUrl);

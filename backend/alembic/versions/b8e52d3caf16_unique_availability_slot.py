@@ -18,12 +18,8 @@ _INDEX_NAME = "ux_availability_slot"
 
 
 def upgrade() -> None:
-    # The service refuses any stretch that runs over another one of the same
-    # teacher, day and mode; this is the same rule at the one point two racing
-    # requests cannot both win. It only catches the exact same start, which is
-    # the shape a double click produces — the overlapping-but-not-identical case
-    # stays the service's, since saying it in SQL takes an exclusion constraint
-    # and the btree_gist extension with it.
+    # Race-proof backstop for the service's overlap rule: only identical starts
+    # (double-click shape); true overlap would need exclusion + btree_gist.
     op.create_index(
         _INDEX_NAME,
         "availabilities",

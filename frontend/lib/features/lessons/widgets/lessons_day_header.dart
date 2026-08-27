@@ -4,19 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../utils/booking_window.dart';
 
-// What a day amounts to, over the band it is worked from.
-//
-// The counts are the day's own, taken before any search: they are here to say
-// whether the day holds together — how many teachers are covering how many
-// pupils — which is a question the list below cannot answer once it has been
-// filtered down to one name. They count people and not rows: a teacher who has
-// left two slots open counts once, and so does a pupil booked in twice.
+// Counts are pre-search and count people, not rows.
 class LessonsDayHeader extends StatelessWidget
 {
   final DateTime day;
 
-  // On a narrow window the day is already named by the heading above this, so
-  // it is left out here rather than said twice in forty pixels.
   final bool showDay;
 
   final int availableTeachers;

@@ -100,14 +100,11 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>>
       ),
     );
 
-    // rootOverlay bypasses any nested Navigator between here and the screen, so
-    // the menu is positioned in real screen space: without it a menu opened
-    // inside a dialog lands offset by the dialog's own origin.
+    // rootOverlay: without it a menu opened inside a dialog is offset by the
+    // dialog's own origin.
     Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
   }
 
-  // The overlay is removed only after the collapse animation has run, so the
-  // menu does not disappear abruptly.
   void _closeMenu() async
   {
     if (_overlayEntry == null)
@@ -226,8 +223,8 @@ class _FilterOverlayContent<T> extends StatefulWidget
 
 class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
 {
-  // The same value drives the AnimatedSize and the delay awaited by hide():
-  // they must stay in sync or the overlay is torn down mid animation.
+  // Drives both AnimatedSize and the delay awaited by hide(): they must stay
+  // in sync or the overlay is torn down mid animation.
   static const Duration _expandDuration = Duration(milliseconds: 180);
 
   bool _expanded = false;
@@ -237,8 +234,8 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
   {
     super.initState();
 
-    // Expanding on the next frame is what makes the opening animation
-    // visible: on the first frame the overlay is laid out collapsed.
+    // Expanding on the next frame makes the opening animation visible: the first
+    // frame lays the overlay out collapsed.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)

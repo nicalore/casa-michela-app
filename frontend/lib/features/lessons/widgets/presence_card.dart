@@ -26,15 +26,11 @@ import 'subject_request_wizard.dart';
 import '../utils/booking_window.dart';
 import '../utils/opening_window.dart';
 
-// The height and type size every dialog of the app gives its buttons.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// Narrow: a question of one sentence, and the two answers under it.
 const double _confirmWidth = 480;
 
-// Air between two pieces of the same window, the same the stack leaves between
-// the ones it lays out itself.
 const double _pieceGap = 20;
 
 String _timeRangeLabel(PresenceItem presence)
@@ -55,9 +51,6 @@ String _ministrySubjectName(List<MinistrySubjectItem> subjects, int id)
   return 'Materia';
 }
 
-// The three shapes of request read differently: a ministry subject says which
-// disciplines under it, while a lone discipline and a service are called by name
-// and nothing more.
 String _requestLabel(BookingSummaryItem request, List<MinistrySubjectItem> subjects)
 {
   final duration = formatMinutes(request.duration);
@@ -79,33 +72,21 @@ String _requestLabel(BookingSummaryItem request, List<MinistrySubjectItem> subje
 
 class PresenceCard extends StatefulWidget
 {
-  // Room for a name over three lines of hours and the count under them. A day
-  // can hold more than three stretches, so the column counts what it cannot
-  // show rather than making the card grow.
   static const double height = 190;
 
-  // One pupil on one day, with every stretch of hours they asked for and
-  // everything they asked to do inside them.
   final PresenceGroup group;
 
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // Only what the pupil's own study programme teaches can be asked for, so the
-  // card has to be able to work out which subjects those are.
+  // Needed to work out which subjects the pupil's study programme allows.
   final List<PersonItem> students;
   final List<StudyProgramItem> studyPrograms;
 
-  // And who could teach them: a pupil may name up to three, as a preference.
   final List<PersonItem> teachers;
 
   final void Function(VoidCallback onCancel) onEditRequested;
   final VoidCallback onDelete;
 
-  // One subject changed from the card, without walking the whole window again:
-  // the hours are what the wizard is for, and a duration typed wrong is not a
-  // reason to go back through them. Changed and taken away, not added: a
-  // subject in more is an answer to "what do they want to do", which is asked
-  // by the window that writes the day and not by the one that reads it.
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteSubject;
 
@@ -130,9 +111,7 @@ class _PresenceCardState extends State<PresenceCard>
 {
   bool _isHovering = false;
 
-  // The day, as something the window that opens off it can listen to. A window
-  // that took a copy would show the day as it was when it opened: a subject
-  // added from inside it would be written, land, and not appear.
+  // A ValueNotifier so the dialog opened off this card sees later updates.
   late final ValueNotifier<PresenceGroup> _group = ValueNotifier(widget.group);
 
   @override
@@ -140,9 +119,7 @@ class _PresenceCardState extends State<PresenceCard>
   {
     super.didUpdateWidget(oldWidget);
 
-    // Handed on after the frame rather than during it: this runs while the
-    // page is building, and the window listening is somewhere else entirely —
-    // in the overlay — where being marked dirty mid-build is an error.
+    // Post-frame: notifying the overlay dialog mid-build is an error.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)
@@ -171,14 +148,11 @@ class _PresenceCardState extends State<PresenceCard>
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The reopen callback reuses the card state, not the dialog context
-          // that is about to become invalid.
+          // Reuses the card state, not the dialog context about to become invalid.
           widget.onEditRequested(_showDetailsDialog);
         },
         onDelete: widget.onDelete,
         teachers: widget.teachers,
-        // Added, changed and taken away where they stand: the window does not
-        // close to ask, and does not have to be found again afterwards.
         onSaveSubject: _writeSubject,
         onDeleteSubject: (mode, booking)
         {
@@ -189,8 +163,6 @@ class _PresenceCardState extends State<PresenceCard>
     );
   }
 
-  // The subjects a pupil may ask for: the ones their own study programme
-  // teaches. A subject nobody teaches them is one nobody can honour.
   List<MinistrySubjectItem> get offeredSubjects
   {
     for (final student in widget.students)
@@ -206,19 +178,8 @@ class _PresenceCardState extends State<PresenceCard>
     return const [];
   }
 
-  // Which stretch of the day a subject hangs from, and the row as the page has
-  // it now.
-  //
-  // Not always the first one: a day written before its stretches were
-  // rearranged can hold it anywhere, and changed against the wrong stretch the
-  // write lands while the page refreshes a row that did not move.
-  //
-  // The row comes back with it, as the page has it now and not as the window
-  // had it when it opened. Between the two the day can have been read again —
-  // changing its stretches rewrites the subjects hanging off them — and the
-  // updated_at the window pocketed on the way in is then a token the server no
-  // longer recognises: it answers 409, and an edit that was never sent reads as
-  // an edit that was not saved.
+  // Returns the row as the page has it NOW, not as the dialog captured it:
+  // a stale updated_at token would make the server answer 409.
   ({int presenceId, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
   {
     for (final slot in widget.group.slots)
@@ -235,11 +196,8 @@ class _PresenceCardState extends State<PresenceCard>
     return null;
   }
 
-  // What a row handed back, written where the pupil's day keeps it — all of it,
-  // and not the subject and the length alone. Both endpoints write a booking
-  // whole: what a save leaves out is not left as it was, it is emptied, so a
-  // subject saved by halves comes back with its topic, its notes, its kind of
-  // hour and both lists of teachers wiped.
+  // The endpoints write a booking whole: any field left out of the payload is
+  // emptied, not preserved.
   Future<bool> _writeSubject(BookingSummaryItem existing, SubjectRequestDraft draft) async
   {
     if (!draft.isComplete)
@@ -253,9 +211,6 @@ class _PresenceCardState extends State<PresenceCard>
       return false;
     }
 
-    // Read again now and not when the dialog opened: between the two the day
-    // can have changed underneath, and with it the subject's concurrency
-    // token.
     final held = _whereItHangs(existing);
 
     if (held == null)
@@ -307,8 +262,6 @@ class _PresenceCardState extends State<PresenceCard>
       barrierLabel: 'ConfirmSubjectDeletion',
       builder: (confirmContext) => _ConfirmSubjectDeletion(
         label: _requestLabel(booking, widget.ministrySubjects),
-        // The refusal is said rather than swallowed: a delete that the server
-        // turned down and nobody mentioned is a delete that looks broken.
         onConfirmed: () => widget.onDeleteSubject(booking, presenceId, (message)
         {
           if (mounted)
@@ -328,9 +281,6 @@ class _PresenceCardState extends State<PresenceCard>
     final presence = group.slotsFor(kPresenceMode);
     final online = group.slotsFor(kOnlineMode);
 
-    // Both ways stand side by side, each with its own hours under it; one way
-    // alone has nothing to be compared against, so it takes the middle instead
-    // of leaving an empty half.
     final bothWays = presence.isNotEmpty && online.isNotEmpty;
 
     return MouseRegion(
@@ -348,8 +298,6 @@ class _PresenceCardState extends State<PresenceCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
-            // Gold under the pointer, the same mark a module card takes on the
-            // dashboard and a person takes in the anagrafiche.
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -373,15 +321,9 @@ class _PresenceCardState extends State<PresenceCard>
                 ),
               ),
               const SizedBox(height: 12),
-              // Centred in the room the name leaves rather than hung from the
-              // top of it: the card is the same height whatever the day holds,
-              // and a day with one stretch on it would otherwise be a line of
-              // hours with a hole underneath.
               Expanded(
                 child: Center(
                   child: bothWays
-                      // Sized to the taller of the two columns, which is what
-                      // gives the line between them something to be as tall as.
                       ? IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -410,11 +352,8 @@ class _PresenceCardState extends State<PresenceCard>
   }
 }
 
-// One way of being there, with the hours given for it stacked underneath and
-// what was asked for inside them counted at the foot.
 class _ModeColumn extends StatelessWidget
 {
-  // What the card is tall enough to hold.
   static const int maxLines = 3;
 
   final String mode;
@@ -431,9 +370,6 @@ class _ModeColumn extends StatelessWidget
     final slots = group.slotsFor(mode);
     final requests = group.requestsFor(mode);
 
-    // Past what fits, the last line counts what it is standing in front of
-    // rather than letting the column run off the bottom of the card. The window
-    // that opens off it has all of them.
     final fits = slots.length <= maxLines;
     final shown = fits ? slots : slots.take(maxLines - 1).toList();
     final hidden = fits ? const <PresenceItem>[] : slots.sublist(maxLines - 1);
@@ -470,9 +406,6 @@ class _ModeColumn extends StatelessWidget
         for (final slot in shown)
           Padding(
             padding: const EdgeInsets.only(bottom: 3),
-            // Brought down to the column rather than cut short by it: the hours
-            // are eleven characters whatever happens, and a column narrowed by a
-            // phone must still show all eleven.
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
@@ -488,8 +421,6 @@ class _ModeColumn extends StatelessWidget
           ),
         if (hidden.isNotEmpty)
           Tooltip(
-            // The ones left off, in full: the count says how many there are,
-            // and the pointer says which.
             message: hidden.map(_timeRangeLabel).join('\n'),
             child: Padding(
               padding: const EdgeInsets.only(bottom: 3),
@@ -508,9 +439,6 @@ class _ModeColumn extends StatelessWidget
             ),
           ),
         const SizedBox(height: 5),
-        // What the hours are for. Hours with nothing asked for inside them are a
-        // request still to be filled in, so the line says so rather than being
-        // left out.
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
@@ -532,7 +460,6 @@ class _ModeColumn extends StatelessWidget
   }
 }
 
-// One stretch of hours, in the window that opens off the card.
 class _TimeSlotLabel extends StatelessWidget
 {
   final String label;
@@ -562,14 +489,10 @@ class _TimeSlotLabel extends StatelessWidget
 
 class _RequestDetailsDialogContent extends StatefulWidget
 {
-  // The day, listened to rather than copied: a subject written from in here
-  // lands on the page, and the page hands it back through this.
   final ValueListenable<PresenceGroup> group;
 
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // What the pupil's own programme teaches: what may be chosen, as against
-  // what has to be named.
   final List<MinistrySubjectItem> offeredSubjects;
 
   final List<PersonItem> teachers;
@@ -577,7 +500,6 @@ class _RequestDetailsDialogContent extends StatefulWidget
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
-  // Null where the subject is a new one being written.
   final Future<bool> Function(BookingSummaryItem existing, SubjectRequestDraft draft) onSaveSubject;
   final void Function(String mode, BookingSummaryItem booking) onDeleteSubject;
 
@@ -598,9 +520,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
 class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogContent>
 {
-  // The stored subjects, as drafts, kept from one build to the next: rebuilt
-  // every time, the rows would lose the one that is open under the reader's
-  // hands.
+  // Cached across builds so an open row is not rebuilt out from under the user.
   final Map<int, ({DateTime updatedAt, SubjectRequestDraft draft})> _drafts = {};
 
   PresenceGroup get group => widget.group.value;
@@ -614,11 +534,8 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       return held.draft;
     }
 
-    // Everything the row holds, not only what a summary shows: the card that
-    // opens off it reads the topic, the notes and the two lists of teachers, and
-    // the wizard that edits it would write back whatever it was handed — so a
-    // draft built out of half a booking is a booking about to lose the other
-    // half.
+    // Built from the whole booking: the wizard writes back whatever it was
+    // handed, so a partial draft would wipe the missing fields.
     final draft = SubjectRequestDraft.fromBooking(
       booking,
       ministrySubjectName: ministrySubjectName(
@@ -633,9 +550,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     return draft;
   }
 
-  // Two full buttons rather than two words in a corner: this one throws a whole
-  // day's request away, and the answer that does it should not be quieter than
-  // the one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -644,7 +558,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -701,8 +614,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -711,8 +622,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     );
   }
 
-  // The two ways of being there are two blocks of the same shape, one under the
-  // other: what names them is an eyebrow and not a field's label.
   Widget _buildModeLabel(String text, {bool first = false})
   {
     return Padding(
@@ -754,8 +663,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     );
   }
 
-  // The same window the day is written in, opened over the one that reads it:
-  // a subject is asked the same way wherever it is asked.
   void _showSubjectWizard(BuildContext context, String mode, {required BookingSummaryItem existing})
   {
     showBlurredDialog(
@@ -765,21 +672,12 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         mode: mode,
         draft: _draftOf(existing),
         ministrySubjects: widget.offeredSubjects,
-        // Only those still collaborating: a teacher who has stopped will not
-        // take the lesson, and offering them is offering a preference nobody
-        // will honour.
         teachers: activeCollaborators(widget.teachers),
         isEditing: true,
-        // How much time the pupil gives in this mode, and how much the other
-        // subjects have already taken: next to the duration it says how much is
-        // left. The one being edited does not count among the others — the
-        // wizard counts its duration itself, and counting it twice would call it
-        // over budget the moment it opened.
+        // The edited booking's own duration is excluded: the wizard counts it
+        // itself, and counting it twice would read as over budget on open.
         minutesAvailable: group.minutesOfferedIn(mode),
         minutesTakenByOthers: group.minutesAskedFor(mode) - existing.duration,
-        // And the same reckoning per discipline, for the ceiling each of them
-        // carries on its own: a subject can fit in the pupil's time and still
-        // be the third hour of that discipline in one day.
         minutesByDisciplineTakenByOthers:
             group.minutesByDiscipline(mode, skip: existing),
         onSave: (draft) => widget.onSaveSubject(existing, draft),
@@ -813,10 +711,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
               ),
             ),
             _buildFieldLabel('Materie richieste'),
-            // Without the button that adds one: from here the day is read and
-            // what is there is put right. One more subject is an answer to the
-            // "what do they want to do" question, which is asked by editing the
-            // request and not by looking at it.
             SubjectRequestList(
               requests: [for (final booking in stored) _draftOf(booking)],
               ministrySubjects: widget.ministrySubjects,
@@ -844,13 +738,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
     return AppDialogStack(
       eyebrow: 'Richiesta',
       title: group.student.fullName,
-      // Who they are, before what they asked for: the request belongs to a
-      // pupil, and the face is recognised before the surname is read.
       leading: PersonAvatar(person: group.student, size: PersonAvatar.titleSize),
-      // Wider than the windows that ask one column of questions: this one holds
-      // the two ways of being there beside each other, and each of them holds
-      // rows with a subject, its disciplines and how long on them. At 760 the
-      // two columns were 350 apiece and every row was three lines of wrapping.
       maxWidth: 1040,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
@@ -871,16 +759,8 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         ),
       ),
       children: [
-        // As wide as the two facts on it and no wider: stretched across a
-        // window this wide, a date and a name would be two words adrift in a
-        // band of white.
         AppDialogPill(
-          // Selection stops at the body: the buttons underneath are not text
-          // you would ever want to drag a cursor through.
           child: SelectionArea(
-            // Two facts of a few words each: side by side they are one line of
-            // the window rather than a column as tall as the two ways of being
-            // there standing under it.
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -892,11 +772,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
             ),
           ),
         ),
-        // Both ways of being there side by side, each with the hours given for
-        // it and what was asked for inside them. They are two halves of one
-        // day, and reading them one under the other made the second look like a
-        // footnote to the first. Where the window is too narrow to hold two
-        // columns, they stack rather than being squeezed.
         LayoutBuilder(
           builder: (context, constraints)
           {
@@ -917,10 +792,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
               );
             }
 
-            // Each as tall as what it holds, rather than both as tall as the
-            // taller: a row that opens into a form makes one side much longer
-            // than the other, and stretching the short one to match it is a
-            // column of white as tall as a page.
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -936,9 +807,6 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
   }
 }
 
-
-// Taking one subject off a request: it is one line of a day rather than the day
-// itself, but it is still something thrown away for good.
 class _ConfirmSubjectDeletion extends StatelessWidget
 {
   final String label;

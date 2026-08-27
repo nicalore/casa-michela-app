@@ -41,11 +41,8 @@ class TeacherPreferenceTypeEnum(StrEnum):
     NOT_PREFERRED = "NOT_PREFERRED"
 
 
-# Who a pupil would rather be taught an hour by, and who they would not: a
-# preference and not an assignment, since NOT_PREFERRED says who the hour should
-# go to last, not who is forbidden it. One table and not two, so that the
-# composite primary key makes it impossible for the same teacher to be named on
-# both sides of the same lesson.
+# A preference, not an assignment: NOT_PREFERRED means last resort, not
+# forbidden. One table so the composite PK bars a teacher from both sides.
 class BookingTeacherPreference(Base):
     __tablename__ = "booking_teacher_preferences"
 
@@ -85,9 +82,8 @@ def _validate_teacher_preferences_cap(
         for instance in deleted_instances(session, BookingTeacherPreference)
     }
 
-    # Grouped per booking, and within one booking keyed by teacher: a teacher
-    # moved from one side to the other in the same flush is then counted once,
-    # on the side they ended up on.
+    # Keyed per (booking, teacher): a teacher moved between sides in one
+    # flush counts once, on the final side.
     staged_by_booking: dict[
         BookingFlushKey, dict[str, TeacherPreferenceTypeEnum]
     ] = defaultdict(dict)
@@ -103,11 +99,8 @@ def _validate_teacher_preferences_cap(
     for key, staged in staged_by_booking.items():
         merged: dict[str, TeacherPreferenceTypeEnum] = {}
 
-        # Queried explicitly (rather than navigated via
-        # booking.teacher_preferences) so this is correct regardless of whether
-        # related objects were constructed via the relationship or via the raw
-        # booking_id column. Only for a booking that already exists: a brand-new
-        # one has nothing stored to read.
+        # Queried explicitly: relationship collections may be unbuilt or
+        # stale. Only stored bookings have rows to read.
         booking_id = stored_booking_id(key)
 
         if booking_id is not None:

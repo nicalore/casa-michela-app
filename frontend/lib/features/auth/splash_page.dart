@@ -4,10 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'widgets/auth_pill_page.dart';
 
-// The couple of seconds the app takes to decide whether you are already signed
-// in. Not an empty page with a spinner in the middle: the same paper and the
-// same corner glows as everything else, so whoever opens the app sees at once
-// where they have landed.
 class SplashPage extends StatelessWidget
 {
   static const double _logoSize = 132;

@@ -22,19 +22,8 @@ from app.repositories.teacher_room_assignment_repository import (
 from app.services.availability_cleanup import PurgedHours
 from app.services.calendar_snapshot import snapshot_of
 
-# What a change of hours does to a calendar that has already gone out.
-#
-# The opening hours are the ground a calendar stands on. Move them and what was
-# decided on the old ones is no longer a plan anybody can keep: the band goes
-# back into bozza, with every lesson still in it, and whoever publishes it again
-# is saying a second time that it holds. Take them away altogether and the
-# calendar goes with them — there is no day left to plan, and what is left to
-# say about that part of the day is that the association is closed.
-#
-# It is one rule and it is written once here, because there are five ways to
-# change an opening — the weekly hours, an extraordinary opening, a closure, an
-# edit of either, and going back to the standard — and a rule kept in five
-# places is a rule that holds in four.
+# Single rule, written once, for what a change of opening hours does to a
+# published calendar: moved hours send the band back to draft; removed hours delete it.
 
 _LOST_ERROR: Final[str] = "write_would_take_away"
 
@@ -72,17 +61,13 @@ def _hours_said(purged: PurgedHours) -> str:
 
     listed = " e ".join([", ".join(said[:-1]), said[-1]]) if len(said) > 1 else said[0]
 
-    # Una sola cosa, e una soltanto, vuole il singolare: due disponibilità sono
-    # due, e una disponibilità più una prenotazione sono due cose.
     if purged.availabilities + purged.presences + purged.lessons == 1:
         return f"{listed} non rientra nei nuovi orari ed è stata eliminata."
 
     return f"{listed} non rientrano nei nuovi orari e sono state eliminate."
 
 
-# A calendar this write would take something away from: the whole of it where
-# the band is left with no hours at all, and the lessons of the mode being
-# written where the band survives the other way and only they are cleared.
+# whole=True when the band lost all its hours; False when only one mode's lessons go.
 @dataclass(frozen=True)
 class LostCalendar:
     day: date
@@ -93,12 +78,8 @@ class LostCalendar:
         return f"{self.day.strftime('%d/%m/%Y')} ({time_band_label(self.band).lower()})"
 
 
-# Raised instead of writing, where a write would take a published calendar away
-# and the caller has not said it knows.
-#
-# The whole of the work has been done by then and none of it is kept: the
-# transaction is left unfinished and the session unwinds it, which is what makes
-# the answer exact — it is not a guess at what would happen, it is what did.
+# Raised after the write is done but before commit; the rollback undoes it,
+# which is what makes the reported losses exact.
 class WriteWouldTakeAway(HTTPException):
     def __init__(
         self,
@@ -136,10 +117,7 @@ class WriteWouldTakeAway(HTTPException):
         )
 
 
-# The opening of one band of one day: every stretch it is open for, whichever
-# way it is open. Two of these being equal is what "the hours have not changed"
-# means, and it is why the modes are in it — a morning that shut its screens and
-# kept its doors is a morning that changed.
+# Modes are part of the key: a band that closed one mode has changed.
 type BandOpening = frozenset[tuple[str, time, time]]
 
 type OpeningsByBand = dict[tuple[date, str], BandOpening]
@@ -212,9 +190,7 @@ async def _openings_of(
         start = row.start_time
         end = row.end_time
 
-        # An hour outside the association's own day belongs to no band. It
-        # cannot be written through the API, and a row that has one anyway is
-        # not a reason to refuse a change of hours somewhere else.
+        # Hours outside the association's day belong to no band; ignore stray rows.
         if start is None or end is None or start < DAY_START or start >= DAY_END:
             continue
 
@@ -236,8 +212,7 @@ def _modes_of(opening: BandOpening | None) -> set[str]:
     return {mode for mode, _, _ in opening or frozenset()}
 
 
-# The lessons of a band: all of them, or only those given in the ways of being
-# open named — a band that keeps its screens keeps the lessons taught on them.
+# Deletes the band's lessons: all of them, or only those in the given modes.
 async def _drop_band(
     session: AsyncSession,
     day: date,
@@ -290,11 +265,7 @@ async def _lessons_by_band(
     return {(day, band): count for day, band, count in rows.all()}
 
 
-# The hours as they stood before a write, held for as long as the write takes.
-#
-# Only the days that have a calendar are read: everywhere else there is nothing
-# to keep in step, and a restore covering three months would otherwise weigh
-# every day of them.
+# Captures the hours before a write; only days with a calendar are read.
 class CalendarHoursWatch:
     def __init__(
         self,
@@ -323,19 +294,13 @@ class CalendarHoursWatch:
             await _lessons_by_band(session, days),
         )
 
-    # Done after the write and before it is kept. Where it finds a published
-    # calendar the write would take something away from and the caller has not
-    # said it knows, it refuses — and the refusal leaves the transaction
-    # unfinished, so nothing of the write survives it.
+    # Call after the write, before commit; a refusal leaves the transaction to roll back.
     async def settle(
         self,
         *,
         confirmed: bool = False,
         purged: PurgedHours | None = None,
     ) -> None:
-        # The hours taken away are asked about too, calendar or no calendar:
-        # they were somebody's offer and somebody's booking, and they are gone
-        # either way. One question covers both, and it is the same refusal.
         if not self.days:
             if purged and not confirmed:
                 raise WriteWouldTakeAway(purged=purged)
@@ -354,9 +319,6 @@ class CalendarHoursWatch:
             withdrawn = _modes_of(self.before.get(key)) - _modes_of(after.get(key))
 
             if not after.get(key):
-                # The band has no hours left at all: there is nothing to hold a
-                # calendar up any more, and nothing left of that part of the day
-                # to say beyond that the association is closed.
                 await _drop_band(self.session, publication.date, publication.band)
                 await self.session.delete(publication)
 
@@ -365,10 +327,7 @@ class CalendarHoursWatch:
                 continue
 
             if withdrawn:
-                # One of the two ways of being open has gone. What was sent out
-                # was a day in both, and it cannot be sent again by leaving a
-                # bozza: the band goes back to never having been published, and
-                # the lessons given the way that shut go with it.
+                # A mode was withdrawn: unpublish and drop only that mode's lessons.
                 await _drop_band(
                     self.session,
                     publication.date,
@@ -381,9 +340,7 @@ class CalendarHoursWatch:
 
                 continue
 
-            # The hours only moved: the calendar goes back to being worked on,
-            # and nothing in it is lost — leaving the bozza puts it back exactly
-            # as it was sent.
+            # Hours only moved: back to draft, nothing lost.
             if publication.draft_snapshot is None:
                 publication.draft_snapshot = await _picture_of(
                     self.session,
@@ -401,10 +358,7 @@ class CalendarHoursWatch:
                 purged,
             )
 
-    # A band left holding fewer lessons than it was published with, by some
-    # other road than the two above — the day shutting in a mode clears the
-    # lessons given in it wherever they stand. What went out is not what is
-    # there any more, so that calendar goes back to never having been sent.
+    # Unpublishes bands whose lesson count dropped through side effects not caught above.
     async def _emptied(
         self,
         *,

@@ -12,9 +12,8 @@ abstract final class RoleLabelMapper
     'MEMBER': memberLabel,
   };
 
-  // Roles whose holders are members by definition, so showing "Associato"
-  // next to them would be redundant. "Genitore" is deliberately excluded,
-  // because a parent is not necessarily a member of the association.
+  // Roles that imply membership. "Genitore" is excluded: a parent is not
+  // necessarily a member.
   static const Set<String> _memberSubclassLabels = <String>{
     'Amministratore',
     'Docente',
@@ -23,12 +22,10 @@ abstract final class RoleLabelMapper
     'Corsista',
   };
 
-  // Unknown values are returned unchanged, which keeps the conversion
-  // idempotent over already translated labels.
+  // Unknown values pass through unchanged, keeping the conversion idempotent.
   static String toLabel(String role) => _labelsByRoleCode[role] ?? role;
 
-  // True when the person is a plain member: filtering by "Associato" is meant to
-  // find exactly these, not everyone who also happens to be a member.
+  // A plain member only — not everyone who also happens to be a member.
   static bool hasOnlyMemberRole(List<String> labels)
   {
     return labels.contains(memberLabel) && !labels.any(_memberSubclassLabels.contains);

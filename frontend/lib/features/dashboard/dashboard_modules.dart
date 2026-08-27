@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-// The app's destinations: the ones the top bar lists. They used to double as
-// the home cards; those are gone, but the list stays a single one, and this is
-// it.
 class DashboardModule
 {
   final String title;
@@ -20,9 +17,7 @@ class DashboardModule
   });
 }
 
-// The one place the modules are declared. Both the cards on the dashboard and
-// the entries in the header navigation read this list, so a module can never
-// exist in one and be missing from the other.
+// Single source for both the dashboard cards and the header navigation.
 const List<DashboardModule> dashboardModules = [
   DashboardModule(
     title: 'Persone',

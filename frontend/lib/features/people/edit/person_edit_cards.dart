@@ -18,6 +18,7 @@ import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart' hide currentSchoolYearStart;
+import '../widgets/teacher_rating_dots.dart';
 import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
@@ -1078,6 +1079,34 @@ class TeacherCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Only admins receive the rating; on creation it does not exist yet.
+        if (ctx.form.teacherRating != null) ...[
+          cardSection(
+            'Valutazione',
+            TeacherRatingDots(
+              value: ctx.form.teacherRating!,
+              dotSize: 24,
+              onChanged: (value)
+              {
+                ctx.form.teacherRating = value;
+                ctx.onChanged();
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+        cardSection(
+          'Studente delle superiori',
+          AppSegmentedSwitch(
+            value: ctx.form.isHighSchoolStudent,
+            onChanged: (value)
+            {
+              ctx.form.isHighSchoolStudent = value;
+              ctx.onChanged();
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
         AppTextField(
           controller: ctx.form.studiScolasticiCtrl,
           label: 'Studi scolastici',
@@ -1087,15 +1116,16 @@ class TeacherCard extends StatelessWidget
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => ctx.clearError('studiScolastici'),
         ),
-        AppTextField(
-          controller: ctx.form.studiUniversitariCtrl,
-          label: 'Studi universitari',
-          hintText: 'Es. Laurea in Informatica',
-          maxLength: FieldLimits.education,
-          errorText: ctx.errors['studiUniversitari'],
-          textCapitalization: TextCapitalization.sentences,
-          onChanged: (_) => ctx.clearError('studiUniversitari'),
-        ),
+        if (!ctx.form.isHighSchoolStudent)
+          AppTextField(
+            controller: ctx.form.studiUniversitariCtrl,
+            label: 'Studi universitari',
+            hintText: 'Es. Laurea in Informatica',
+            maxLength: FieldLimits.education,
+            errorText: ctx.errors['studiUniversitari'],
+            textCapitalization: TextCapitalization.sentences,
+            onChanged: (_) => ctx.clearError('studiUniversitari'),
+          ),
       ],
     );
   }
@@ -1185,6 +1215,16 @@ class StudentCard extends StatelessWidget
             maxLength: FieldLimits.otherDetail,
             errorText: ctx.errors['altraCertificazione'],
             onChanged: (_) => ctx.clearError('altraCertificazione'),
+          ),
+        // Free text: diagnoses often name several disorders together.
+        if (ctx.form.certificationTypeValue == 'DSA')
+          AppTextField(
+            controller: ctx.form.dsaCertificationCtrl,
+            label: 'Tipo di DSA',
+            hintText: 'Es. Dislessia e discalculia',
+            maxLength: FieldLimits.dsaDetail,
+            errorText: ctx.errors['tipoDsa'],
+            onChanged: (_) => ctx.clearError('tipoDsa'),
           ),
         if (ctx.form.certificationTypeValue != null && ctx.form.certificationTypeValue != 'No') ...[
           const SizedBox(height: 24),
@@ -1368,7 +1408,7 @@ class MinorSafetyCard extends StatelessWidget
         AppTextField(
           controller: ctx.form.allergiesCtrl,
           label: 'Allergie / intolleranze',
-          hintText: 'Es. Polline, lattosio',
+          hintText: 'Es. Polline',
           maxLength: FieldLimits.notes,
           minLines: 1,
           maxLines: 3,

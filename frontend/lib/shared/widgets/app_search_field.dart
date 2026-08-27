@@ -5,17 +5,11 @@ import '../../core/theme/app_theme.dart';
 
 const double _height = 50;
 
-// The same gold the password field takes when it is focused, and for the same
-// reason: gold is where the attention is, and a field being typed into is the
-// one place on the page that is listening.
 const double _focusRingWidth = 4;
 const double _focusRingOpacity = 0.14;
 
 const Duration _focusFade = Duration(milliseconds: 200);
 
-// The search box at the head of a list. A pill rather than the rounded box the
-// inputs in the dialogs wear: it belongs to the furniture of the page, next to
-// the top bar and the rail, and those are all cut from circles.
 class AppSearchField extends StatefulWidget
 {
   final TextEditingController controller;
@@ -65,8 +59,6 @@ class _AppSearchFieldState extends State<AppSearchField>
     }
   }
 
-  // Only the trailing control depends on it, but it has to be watched: the
-  // glass turns into a cross the moment there is something to clear.
   void _onTextChanged()
   {
     setState(() {});
@@ -114,17 +106,12 @@ class _AppSearchFieldState extends State<AppSearchField>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(_height),
-          // Gold as soon as the pointer arrives, gold with the ring as soon as
-          // it listens: the two answers every field of the app gives, and that
-          // this bar did not.
           border: Border.all(
             color: _hasFocus || _hover ? AppTheme.trialGold : AppTheme.trialLine,
             width: 1.5,
           ),
           boxShadow: [
             ...AppTheme.cardShadow,
-            // The ring belongs to focus alone: it says the field is listening,
-            // which is a different statement from saying it can be pressed.
             BoxShadow(
               color: AppTheme.trialGold.withValues(alpha: _hasFocus ? _focusRingOpacity : 0),
               spreadRadius: _hasFocus ? _focusRingWidth : 0,

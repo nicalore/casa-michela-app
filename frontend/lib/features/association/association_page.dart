@@ -37,12 +37,8 @@ const int _roomsContentIndex = 5;
 const int _presenceHoursContentIndex = 6;
 const int _onlineHoursContentIndex = 7;
 
-// The order here is the order of the IndexedStack below, and the constants
-// above are the indices into both.
+// Order matches the IndexedStack below; the constants above index both.
 const List<RailGroup> _sections = [
-  // The schools sit with the teaching, after the study programmes: a school is
-  // made of programmes, and looking for them on their own at the top found
-  // nobody.
   RailGroup(
     title: 'Didattica',
     entries: [
@@ -53,8 +49,6 @@ const List<RailGroup> _sections = [
       'Scuole',
     ],
   ),
-  // On its own between the teaching and the hours: a room is neither, and one
-  // entry does not need a heading over it to say what it is.
   RailGroup(entries: ['Stanze']),
   RailGroup(title: 'Orari', entries: ['In presenza', 'Online']),
 ];
@@ -72,12 +66,10 @@ class _AssociationPageState extends State<AssociationPage>
 {
   final ApiService _apiService = ApiService();
 
-  // The page opens on the first entry of the rail, which is now the services.
   int _selectedSection = _servicesContentIndex;
 
-  // Single source of truth for the entities shared across tabs, loaded once
-  // when the page opens. Every setState here propagates to the frozen tabs in
-  // the IndexedStack through their didUpdateWidget.
+  // Single source of truth for entities shared across tabs; setState here
+  // propagates to mounted tabs via didUpdateWidget.
   bool _isLoading = true;
   List<SchoolItem> _schools = [];
   List<StudyProgramItem> _studyPrograms = [];
@@ -95,16 +87,10 @@ class _AssociationPageState extends State<AssociationPage>
     _loadAllData();
   }
 
-  // The page is not taken down when you walk away from it, so it asks for its
-  // data again on the way back. Under its breath: what is on screen stays on
-  // screen until the answer arrives.
   @override
   void onDestinationShown() => _loadAllData(quiet: true);
 
-  // Quiet means asked for again rather than asked for the first time: the page
-  // is already showing what it loaded when it was opened, so a failure leaves it
-  // standing and says nothing instead of raising an error over a page that is
-  // perfectly readable.
+  // quiet: a refresh over already-shown data, so a failure says nothing.
   Future<void> _loadAllData({bool quiet = false}) async
   {
     try
@@ -152,17 +138,9 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // Every entity embeds a denormalized copy of the entity below it (for
-  // example MinistrySubjectItem.associationSubjects), received from the backend
-  // at fetch time. That copy is not updated by a standalone edit or delete, so
-  // after such an operation the level above is refetched to make the nested
-  // copy fresh again.
-
-  // Refetches one level of the catalogue.
-  //
-  // The failure is swallowed on purpose: the write that made this necessary has
-  // already gone through, and a stale nested copy is no reason to tell whoever
-  // asked that their operation failed.
+  // Each entity embeds a denormalized copy of the level below it, so after an
+  // edit/delete the level above is refetched. Failures are swallowed: the
+  // write itself already succeeded.
   Future<void> _refresh<T>(Future<List<T>> Function() fetch, void Function(List<T>) apply) async
   {
     try
@@ -176,7 +154,7 @@ class _AssociationPageState extends State<AssociationPage>
     }
     catch (_)
     {
-      // See above.
+      // Intentionally swallowed.
     }
   }
 
@@ -200,10 +178,6 @@ class _AssociationPageState extends State<AssociationPage>
     return _refresh(_apiService.getWeeklyTemplates, (rows) => _weeklyTemplates = rows);
   }
 
-  // --- Services ----------------------------------------------------------
-  // Nothing is denormalized onto a service and nothing hangs off one yet, so
-  // none of these trigger a cascade refresh.
-
   Future<bool> _executeCreateService(String name, String description, Function(String) onError)
   {
     return write(
@@ -214,9 +188,7 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  // A service is identified by its name, so an edit changing it replaces the row
-  // whose name was the previous one: originalName is the key, name is the new
-  // value.
+  // A service is keyed by name: originalName is the key, name the new value.
   Future<bool> _executeEditService(String originalName, String name, String description, Function(String) onError)
   {
     return write(
@@ -235,8 +207,6 @@ class _AssociationPageState extends State<AssociationPage>
       done: 'Servizio eliminato con successo!',
     );
   }
-
-  // --- Association subjects ----------------------------------------------
 
   Future<bool> _executeCreateAssociationSubject(String name, String area, String description, Function(String) onError)
   {
@@ -268,8 +238,6 @@ class _AssociationPageState extends State<AssociationPage>
       cascade: _refreshMinistrySubjects,
     );
   }
-
-  // --- Ministry subjects -------------------------------------------------
 
   Future<bool> _executeCreateMinistrySubject(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError)
   {
@@ -314,8 +282,6 @@ class _AssociationPageState extends State<AssociationPage>
       cascade: _refreshStudyPrograms,
     );
   }
-
-  // --- Study programs ----------------------------------------------------
 
   Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError)
   {
@@ -365,10 +331,6 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  // --- Schools -----------------------------------------------------------
-  // The school sits at the top of the denormalization chain, so its edit and
-  // delete do not trigger any cascade refresh.
-
   Future<bool> _executeCreateSchool(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError)
   {
     return write(
@@ -411,11 +373,6 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  // --- Rooms -------------------------------------------------------------
-  // Nothing is denormalized onto a room, and what hangs off one — the days it
-  // has been assigned for — is what stops it from being deleted rather than
-  // something to refresh afterwards. So none of these trigger a cascade.
-
   Future<bool> _executeCreateRoom(String name, int? capacity, String description, Function(String) onError)
   {
     return write(
@@ -445,12 +402,8 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  // IndexedStack keeps the state of already visited sections alive: the
-  // placeholder is replaced only on first visit, after which the section stays
-  // mounted and does not reload until the whole page is closed. Shared data
-  // arrives from above through the widget properties, so a setState here
-  // propagates to the mounted sections through their didUpdateWidget, without
-  // disposing and recreating their internal state (scroll, filters, search).
+  // Visited sections stay mounted in the IndexedStack, keeping their internal
+  // state (scroll, filters, search); the placeholder is replaced on first visit.
   Widget _buildSectionContent()
   {
     if (_isLoading)
@@ -547,10 +500,6 @@ class _AssociationPageState extends State<AssociationPage>
             color: AppTheme.trialPaper,
             child: Stack(
               children: [
-                // Same pair of glows the dashboard wears, on the same paper: the
-                // two ends of the mockup's background ramp, split between the
-                // corners. See the note in DashboardLayout for why they both
-                // fade towards a blue.
                 const CornerGlow(
                   corner: GlowCorner.topRight,
                   tint: AppTheme.trialDeepWater,
@@ -567,30 +516,19 @@ class _AssociationPageState extends State<AssociationPage>
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // The top inset clears the bar floating above the page: it
-                    // is laid over the content rather than in the column with
-                    // it, so the room it needs has to be left here.
+                    // Top inset clears the bar overlaid on the content.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    // Stretched, so the content keeps being handed the full
-                    // height it was given when it sat in a column; the rail is
-                    // pinned back to its own height inside that.
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // The rail steps aside below the breakpoint. Two hundred
-                        // and seventy pixels of a phone cannot go to a column of
-                        // section names, and the drawer behind the bar is
-                        // already holding them.
                         if (size.hasRail) ...[
                           Align(
                             alignment: Alignment.topLeft,
-                            // First out and first back in on a change of page:
-                            // the rail is what frames the content beside it.
                             child: PageTransitionItem(
                               slot: PageTransitionItem.frame,
                               child: AppSectionRail(
@@ -605,9 +543,6 @@ class _AssociationPageState extends State<AssociationPage>
                         ],
                         Expanded(
                           child: size.isCompact
-                              // What the rail was saying about where you are has
-                              // to keep being said: the module quietly, over the
-                              // section you are in.
                               ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
@@ -628,8 +563,7 @@ class _AssociationPageState extends State<AssociationPage>
                     ),
                   ),
                 ),
-                // Last in the stack, so the bar and the menu it opens stay above
-                // the page.
+                // Last in the stack so the bar and its menu stay above the page.
                 AppTopBar(
                   currentRoute: '/association',
                   sectionTitle: 'Associazione',

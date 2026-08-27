@@ -7,16 +7,12 @@ import '../../../shared/widgets/band_time_range_slider.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../utils/opening_window.dart';
 
-// One stretch of hours inside one band, and the row it came from. A stretch
-// exists because it was given: a band nobody answered is an empty list, not a
-// draft holding two nulls.
 class BandStretch<T>
 {
   TimeOfDay startTime;
   TimeOfDay endTime;
 
-  // The stored row this stretch is, where it is one already. Null on a stretch
-  // that has never been saved.
+  // The stored row backing this stretch; null when never saved.
   T? existing;
 
   BandStretch({required this.startTime, required this.endTime, this.existing});
@@ -28,22 +24,18 @@ class BandStretch<T>
   int get minutes => endMinutes - startMinutes;
 }
 
-// A day answered band by band. Both a teacher's availability and a pupil's
-// hours are made of this: two different questions held the same way.
 class BandSchedule<T>
 {
   final Map<TimeBucket, List<BandStretch<T>>> _byBucket = {
     for (final bucket in TimeBucket.values) bucket: <BandStretch<T>>[],
   };
 
-  // Rows that were stored and are no longer given: they go once the window
-  // they were edited in is saved.
+  // Stored rows no longer given; deleted when the editing window is saved.
   final List<T> dropped = [];
 
   List<BandStretch<T>> of(TimeBucket bucket) => _byBucket[bucket]!;
 
-  // The same stretches read from morning to evening. A copy: the real list
-  // keeps the order the stretches were given in, and that is what is shown.
+  // Copy in clock order; the real list keeps insertion order, which is what is shown.
   List<BandStretch<T>> _inTimeOrder(TimeBucket bucket) =>
       [...of(bucket)]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
@@ -66,7 +58,6 @@ class BandSchedule<T>
     return minutes;
   }
 
-  // Every stretch given, band by band, ognuna nell'ordine in cui è stata data.
   Iterable<BandStretch<T>> get all sync*
   {
     for (final bucket in TimeBucket.values)
@@ -75,9 +66,6 @@ class BandSchedule<T>
     }
   }
 
-  // A row that was saved. Here the order of the day is the only one there is —
-  // of rows read back from storage nobody knows the order they were given in —
-  // and a reopened day reads from morning to evening.
   void addStored(TimeBucket bucket, BandStretch<T> stretch)
   {
     of(bucket)
@@ -95,8 +83,6 @@ class BandSchedule<T>
     dropped.clear();
   }
 
-  // A stretch that is no longer given. Where it was stored, the row goes with
-  // it once the window is saved.
   void _drop(BandStretch<T> stretch)
   {
     final existing = stretch.existing;
@@ -108,8 +94,6 @@ class BandSchedule<T>
     }
   }
 
-  // The whole of what the association has open in that band: the widest answer,
-  // to be narrowed rather than built up from nothing.
   void toggle(TimeBucket bucket, TimeOfDay? start, TimeOfDay? end)
   {
     final stretches = of(bucket);
@@ -129,7 +113,6 @@ class BandSchedule<T>
     stretches.add(BandStretch<T>(startTime: start, endTime: end));
   }
 
-  // One stretch dragged: only its own two ends move.
   void move(TimeBucket bucket, int index, TimeOfDay start, TimeOfDay end)
   {
     of(bucket)[index]
@@ -137,9 +120,6 @@ class BandSchedule<T>
       ..endTime = end;
   }
 
-  // One more stretch in the same band, filling the first room left in it. The
-  // whole of the gap, for the same reason a band opens as the whole of its
-  // opening: it is the widest true answer, and narrowing it is one drag.
   void addStretch(TimeBucket bucket, OpeningWindow window)
   {
     final gap = firstGap(bucket, window);
@@ -149,9 +129,7 @@ class BandSchedule<T>
       return;
     }
 
-    // At the end, where it was asked for: putting it in clock order would push
-    // the row being looked at down and open the new one elsewhere. The stretches
-    // stay in the order they were given.
+    // Appended, not inserted in clock order: reordering would move the row under the user.
     of(bucket).add(
       BandStretch<T>(
         startTime: timeOfDayFromMinutes(gap.$1),
@@ -165,12 +143,8 @@ class BandSchedule<T>
     _drop(of(bucket).removeAt(index));
   }
 
-// The room between the stretch before and the one after, inside the opening:
-// two stretches cannot be made to overlap because neither can be dragged that
-// far, so the rule is the shape of the control and not a refusal at the end.
-//
-// Before and after are read off the clock and not the list, whose order is the
-// order the stretches were given in.
+  // Drag bounds keeping stretches from overlapping; neighbours are read off
+  // the clock, not the list order.
   (int, int) boundsAt(TimeBucket bucket, OpeningWindow window, int index)
   {
     final stretches = of(bucket);
@@ -188,8 +162,6 @@ class BandSchedule<T>
 
       final neighbour = stretches[other];
 
-      // No pair overlaps, so every other stretch lies wholly before or wholly
-      // after: of the former the latest counts, of the latter the earliest.
       if (neighbour.endMinutes <= self.startMinutes)
       {
         start = neighbour.endMinutes > start ? neighbour.endMinutes : start;
@@ -203,16 +175,11 @@ class BandSchedule<T>
     return (start, end);
   }
 
-  // The first stretch of the band still free, in the order of the day, or null
-  // where the opening is spoken for from end to end. A quarter of an hour is
-  // the least that can be stored, so anything narrower is not room.
+  // First free gap of at least a quarter hour, or null when the window is full.
   (int, int)? firstGap(TimeBucket bucket, OpeningWindow window)
   {
     var cursor = window.startMinutes;
 
-    // The first free slot is a question about the day and not about the list:
-    // finding it means walking the stretches first to last in time, an order the
-    // list no longer keeps.
     for (final stretch in _inTimeOrder(bucket))
     {
       if (stretch.startMinutes - cursor >= kQuarterHour)
@@ -231,13 +198,8 @@ class BandSchedule<T>
     return null;
   }
 
-  // Two stretches that read as one become one: 14-15 and 15-17 are saved as
-  // 14-17. Only within a band, which is why it happens here — an afternoon
-  // ending where the evening begins stays two things.
-  //
-  // The first stays where it sits in the list: what merges are the hours. If it
-  // was unsaved and the departing one was saved, it takes that row over rather
-  // than deleting one to rewrite an identical other.
+  // Merges touching/overlapping stretches within a band (14-15 + 15-17 becomes
+  // 14-17). The survivor adopts a departing stretch's stored row when it has none.
   void fuse()
   {
     for (final bucket in TimeBucket.values)
@@ -248,7 +210,6 @@ class BandSchedule<T>
 
       for (final stretch in _inTimeOrder(bucket))
       {
-        // Detached from the one before: it starts a stretch of its own.
         if (open == null || stretch.startMinutes > open.endMinutes)
         {
           open = stretch;
@@ -275,9 +236,7 @@ class BandSchedule<T>
     }
   }
 
-  // What is open changes under the form: a second day narrows every band to
-  // what the two share. Rather than leaving hours nobody could save — and the
-  // slider cannot draw — the bands are brought back inside at once.
+  // Clamps every stretch back inside the (possibly narrowed) opening windows.
   void reconcile(OpeningWindow? Function(TimeBucket bucket) windowFor)
   {
     for (final bucket in TimeBucket.values)
@@ -303,9 +262,6 @@ class BandSchedule<T>
         continue;
       }
 
-      // Each stretch held after the one before it, or hours squeezed by a
-      // narrower window run over each other. On the clock and not on the list:
-      // the rows stay where the user put them.
       final gone = Set<BandStretch<T>>.identity();
       var cursor = window.startMinutes;
 
@@ -316,8 +272,7 @@ class BandSchedule<T>
 
         if (end - start < kQuarterHour)
         {
-          // A band's only stretch squeezed to nothing becomes the whole of what
-          // is left open. Where there are others, this one simply goes.
+          // A band's only stretch squeezed to nothing becomes the whole opening.
           if (stretches.length == 1)
           {
             stretch
@@ -345,18 +300,15 @@ class BandSchedule<T>
   }
 }
 
-// The three bands of a day. The field mutates the schedule it is handed and says
-// so through [onChanged]: the answer belongs to the window, not to this row.
+// Mutates the schedule it is handed and reports through [onChanged].
 class BandScheduleField<T> extends StatelessWidget
 {
   final BandSchedule<T> schedule;
 
-  // What the association has open in that band, or null where it is shut.
+  // Null where the association is shut in that band.
   final OpeningWindow? Function(TimeBucket bucket) windowFor;
 
-  // What a band says where the association is shut in it, and what it says
-  // where it is open and nobody has answered. The two are different things: a
-  // band the association opens and nobody took is not a closed band.
+  // disabledLabel: association shut; offLabel: open but unanswered.
   final String disabledLabel;
   final String offLabel;
 
@@ -364,9 +316,6 @@ class BandScheduleField<T> extends StatelessWidget
 
   final VoidCallback onChanged;
 
-  // The shortest stretch that can be given: half an hour, for a pupil's hours
-  // as for the ones a teacher offers. Below that, it is somebody arriving and
-  // leaving.
   final int minimumMinutes;
 
   const BandScheduleField({
@@ -402,9 +351,6 @@ class BandScheduleField<T> extends StatelessWidget
     );
   }
 
-  // One band: the hours given in it, one track each, and the room to give one
-  // more. Two stretches of the same afternoon are two stretches, not two
-  // afternoons — so the band is named once, over them.
   Widget _buildBand(TimeBucket bucket)
   {
     final window = windowFor(bucket);
@@ -415,23 +361,17 @@ class BandScheduleField<T> extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Always the first child of the same column, whatever the band is:
-        // otherwise answering it moves the row in the tree, the switch is built
-        // again from nothing, and its pill appears rather than slides.
+        // Kept as the first child so answering the band does not rebuild the
+        // switch from scratch (its pill would appear instead of slide).
         _buildStretch(bucket, window, 0),
         for (var index = 1; index < stretches.length; index++) ...[
           const SizedBox(height: 14),
           _buildStretch(bucket, window, index),
         ],
-        // Only where there is somewhere to put it: an opening taken from end to
-        // end has no room for another stretch, and a button that could only
-        // refuse is not a button.
         if (gap != null) ...[
           const SizedBox(height: 10),
           AppAddRowButton(
             label: addLabel,
-            // Three bands to a card, each able to take another stretch: at the
-            // ordinary size the buttons weighed more than the hours they add to.
             dense: true,
             onTap: () => _report(() => schedule.addStretch(bucket, window!)),
           ),
@@ -440,11 +380,8 @@ class BandScheduleField<T> extends StatelessWidget
     );
   }
 
-  // One row of a band — shut, open and untaken, or a stretch of hours. All three
-  // are the same control, which is what lets it stay itself across an answer.
   Widget _buildStretch(TimeBucket bucket, OpeningWindow? window, int index)
   {
-    // Shut: a line saying so, and nothing to answer with.
     if (window == null)
     {
       return BandTimeRangeSlider(
@@ -460,7 +397,6 @@ class BandScheduleField<T> extends StatelessWidget
 
     final stretches = schedule.of(bucket);
 
-    // Open and not taken: the switch is the whole of the question.
     if (stretches.isEmpty)
     {
       return BandTimeRangeSlider(
@@ -471,9 +407,6 @@ class BandScheduleField<T> extends StatelessWidget
         windowStartMinutes: window.startMinutes,
         windowEndMinutes: window.endMinutes,
         offLabel: offLabel,
-        // The switch answers "is this band taken?", and the two words the app
-        // gives a yes-or-no are the ones that fit beside the name of the band
-        // and its hours.
         trueLabel: 'Sì',
         falseLabel: 'No',
         onChanged: (start, end) => _report(() => schedule.toggle(bucket, start, end)),
@@ -485,25 +418,16 @@ class BandScheduleField<T> extends StatelessWidget
     return BandTimeRangeSlider(
       minimumMinutes: minimumMinutes,
       bucket: bucket,
-      // Named on the first alone: the ones under it are the same band, and
-      // saying "Pomeriggio" three times would read as three afternoons.
+      // Band named on the first stretch only.
       nameOverride: index == 0 ? null : '',
       startTime: stretches[index].startTime,
       endTime: stretches[index].endTime,
-      // The track is the band and the same for every stretch inside it, so two
-      // hours of one afternoon read on the same scale. Handed the free space
-      // instead, the first stretch got a track exactly as long as itself.
       windowStartMinutes: window.startMinutes,
       windowEndMinutes: window.endMinutes,
-      // The free space stays, but as the drag limit: two hours of the same band
-      // still cannot overlap, because neither reaches where the other is.
       dragMinMinutes: bounds.$1,
       dragMaxMinutes: bounds.$2,
       trueLabel: 'Sì',
       falseLabel: 'No',
-      // With one stretch on it, the switch takes the band away; with several,
-      // each is thrown away on its own, and the last one thrown away leaves the
-      // band unanswered again.
       trailing: stretches.length == 1
           ? null
           : FadeHoverIconButton(

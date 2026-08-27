@@ -1,5 +1,4 @@
-// Single source of truth for the two closed vocabularies shared by the
-// association tabs. The values must stay aligned with the backend enums.
+// Values must stay aligned with the backend enums.
 
 class SubjectArea
 {
@@ -15,8 +14,7 @@ const List<SubjectArea> subjectAreas = <SubjectArea>[
   SubjectArea('SCIENCES', 'Area Scientifica'),
 ];
 
-// Unknown values are returned unchanged, so a new backend area shows up as its
-// raw code instead of disappearing from the interface.
+// Unknown values are returned unchanged so new backend codes stay visible.
 String subjectAreaLabel(String value)
 {
   for (final area in subjectAreas)
@@ -35,9 +33,7 @@ class SchoolLevel
   final String value;
   final String label;
 
-  // Drops the redundant "Scuola" prefix, for places where the surrounding
-  // context already says these are school levels (the selection chips and the
-  // level filter). Keeps the three options on a single row.
+  // Without the "Scuola" prefix, for contexts that already say so.
   final String compactLabel;
 
   final String shortLabel;
@@ -51,8 +47,7 @@ const List<SchoolLevel> schoolLevels = <SchoolLevel>[
   SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Sec. II Grado'),
 ];
 
-// Unknown values are returned unchanged, so a new backend level shows up as
-// its raw code instead of disappearing from the interface.
+// Unknown values are returned unchanged so new backend codes stay visible.
 String schoolLevelLabel(String value)
 {
   for (final level in schoolLevels)
@@ -79,10 +74,7 @@ String schoolLevelShortLabel(String value)
   return value;
 }
 
-// The heading a programme sits under when programmes are grouped: the level,
-// which they all have, and the sector where there is one. Here because the two
-// places listing programmes — the one that picks them and the one that only
-// shows them — have to group them the same way.
+// Shared so every place listing programmes groups them the same way.
 String programScopeTitle({required String level, String? sector})
 {
   final String levelLabel = schoolLevelShortLabel(level);
@@ -90,11 +82,7 @@ String programScopeTitle({required String level, String? sector})
   return sector == null ? levelLabel : '$levelLabel · $sector';
 }
 
-// A discipline's description, or null where it says nothing.
-//
-// A description never written arrives null, a cleared one arrives as an empty
-// string, and a half-written one can be two spaces: three ways of having said
-// nothing, and whoever shows it has to treat them as one.
+// Null, empty, and whitespace-only descriptions are all treated as absent.
 String? descriptionOrNull(String? description)
 {
   final String? said = description?.trim();

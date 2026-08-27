@@ -1,13 +1,4 @@
-"""la bozza conserva com'era la giornata, non solo la sua impronta
-
-Uscire da una bozza senza pubblicare adesso annulla davvero il lavoro fatto
-dentro: la parte di giornata torna com'era quando la bozza si è aperta. Un'
-impronta sapeva solo dire se qualcosa era cambiato, e per rimettere le cose a
-posto servono le righe.
-
-La colonna tiene la fotografia: le lezioni con le loro discipline e prenotazioni,
-e le stanze e i turni. Non nulla significa "in bozza", come prima significava
-l'impronta.
+"""drafts store a snapshot of the day instead of just its fingerprint
 
 Revision ID: b8d3e5f21a47
 Revises: a4f7c2e91b30
@@ -38,9 +29,8 @@ def upgrade() -> None:
         _TABLE,
         sa.Column(_NEW, postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
-    # Le bozze aperte al momento del passaggio non hanno una fotografia da cui
-    # ripartire. Si chiudono: quello che c'è dentro resta scritto, e chi le
-    # aveva aperte le riapre.
+    # Drafts open at migration time have no snapshot to restart from, so they
+    # are closed; their content stays written and can be reopened.
     op.drop_column(_TABLE, _OLD)
 
 

@@ -5,10 +5,7 @@ class StudyProgramItem
   final int id;
   final String name;
 
-  // The sector the programme belongs to. Null where none exists, since primary
-  // and middle school have no branches. It used to live inside the name, after a
-  // vertical bar, and grouping the programmes meant reading the punctuation of
-  // whoever had written them.
+  // Null where none exists: primary and middle school have no branches.
   final String? sector;
 
   final String description;
@@ -30,9 +27,6 @@ class StudyProgramItem
     this.ministrySubjects = const [],
   });
 
-  // The full name, sector included. Needed wherever a programme is named
-  // outside its own context — a school year, a competence — and the name alone
-  // does not identify it.
   String get fullName => sector == null ? name : '$sector | $name';
 }
 

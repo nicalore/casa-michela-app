@@ -1,6 +1,3 @@
-// Two dates being the same day is asked here as often as anywhere, and it is
-// the same question week_range already answers: read from there and handed on,
-// so that importing this module keeps bringing it along.
 export '../../../core/utils/week_range.dart' show isSameDate;
 
 // Weekly unlock window for availabilities and presences: every Friday at
@@ -79,9 +76,8 @@ List<DateTime> computeAvailableDays(DateTime now)
   return days;
 }
 
-// "GiornoSettimana numero mese", e.g. "Sabato 25 luglio". No locale data is
-// initialized anywhere in this app, so DateFormat with a locale argument
-// would throw at runtime — these names are a plain manual lookup instead.
+// E.g. "Sabato 25 luglio". No locale data is initialized in this app, so
+// DateFormat with a locale would throw at runtime; manual lookup instead.
 String formatAvailableDayLabel(DateTime date)
 {
   final weekday = _weekdayNames[date.weekday - 1];
@@ -90,9 +86,7 @@ String formatAvailableDayLabel(DateTime date)
   return '$weekday ${date.day} $month';
 }
 
-// "Lun 3 ago" — the same day, said short enough for a chip. The full label
-// names the day where there is room for it; a row of ten of those would wrap
-// three times over.
+// E.g. "Lun 3 ago".
 String formatAvailableDayShortLabel(DateTime date)
 {
   final weekday = _weekdayNames[date.weekday - 1].substring(0, 3);

@@ -6,15 +6,6 @@ import '../../../core/utils/week_range.dart' show formatDayMonthShort;
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
 
-// The next two birthdays, wherever they fall: the one thing on the home page
-// that asks for nothing, it is simply read. Two and no more, and no window
-// either — a card that shows the next seven days is empty for most of the
-// summer, and one that shows forty names is a list nobody reads on the way
-// past.
-//
-// The reckoning is on day and month and not on the year: what is wanted is the
-// next time the day comes round.
-
 class DashboardBirthday
 {
   final PersonItem person;
@@ -35,7 +26,6 @@ class DashboardBirthday
   }
 }
 
-// The next time this person's day comes round, today included.
 DateTime? _nextBirthday(DateTime? birth, DateTime today)
 {
   if (birth == null)
@@ -45,8 +35,8 @@ DateTime? _nextBirthday(DateTime? birth, DateTime today)
 
   for (final year in [today.year, today.year + 1])
   {
-    // On years without a 29 February the birthday falls on the 28th: a
-    // DateTime would roll it over to 1 March, and it would go unnoticed.
+    // Feb 29 falls on the 28th in non-leap years; DateTime would roll it over
+    // to 1 March.
     final int day = birth.month == 2 && birth.day == 29 && !_isLeap(year)
         ? 28
         : birth.day;
@@ -62,7 +52,6 @@ DateTime? _nextBirthday(DateTime? birth, DateTime today)
   return null;
 }
 
-// The first [limit] birthdays from today on, in the order they come.
 List<DashboardBirthday> upcomingBirthdays(
   List<PersonItem> people, {
   int limit = 2,
@@ -89,8 +78,7 @@ List<DashboardBirthday> upcomingBirthdays(
     ));
   }
 
-  // By name where two share a day, so the same two people come back in the same
-  // order on every reading.
+  // Tie-break by name for a stable order.
   found.sort((a, b)
   {
     final int day = a.date.compareTo(b.date);
@@ -121,14 +109,10 @@ class DashboardBirthdaysSection extends StatelessWidget
   final bool isLoading;
   final void Function(PersonItem person)? onTap;
 
-  // How many names stand side by side on a row. Decided by the page, the only
-  // one that knows how much room it gave this card: measuring it here would
-  // want a LayoutBuilder, and a LayoutBuilder inside a row of equal-height
-  // cards cannot answer how tall it would be.
+  // Decided by the page: measuring here would need a LayoutBuilder, which
+  // cannot report a height inside a row of equal-height cards.
   final int columns;
 
-  // Passati alla card: quanto è alta almeno, se il contenuto riempie e se
-  // l'intestazione è quella stretta.
   final double minHeight;
   final bool fill;
   final bool compact;
@@ -144,10 +128,7 @@ class DashboardBirthdaysSection extends StatelessWidget
     this.compact = false,
   });
 
-  // How wide the card has to be for two names to stand side by side: a face, a
-  // name and a date twice over, with neither name ending in an ellipsis.
-  // Measured on the narrowest column the home grid gives this card, which is
-  // the one it has on the narrowest window the browser build draws.
+  // Minimum card width for two names side by side without ellipsis.
   static const double twoInARowFrom = 380;
 
   static int columnsForWidth(double width) => width >= twoInARowFrom ? 2 : 1;
@@ -156,8 +137,6 @@ class DashboardBirthdaysSection extends StatelessWidget
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      // The full title wraps in a card a third of the width, and a two-line
-      // title raises the whole row of cards.
       eyebrow: 'Spegniamo le candeline',
       title: 'Compleanni',
       minHeight: minHeight,
@@ -182,10 +161,6 @@ class DashboardBirthdaysSection extends StatelessWidget
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
-                  // Due righe soltanto, e la card è alta quanto la giornata le
-                  // lascia: appoggiate in cima lascerebbero sotto di sé mezza
-                  // card vuota, che si legge come una dimenticanza. Al centro
-                  // l'aria sta intorno a loro.
                   mainAxisAlignment:
                       fill ? MainAxisAlignment.center : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -219,10 +194,6 @@ class DashboardBirthdaysSection extends StatelessWidget
 
     return _BirthdayRow(
       birthday: birthday,
-      // The month is written out where the row has the width for it, and cut to
-      // its three letters where two rows share it: the line under a name is
-      // where the room runs out first, and "17 ago" is the same day as
-      // "17 agosto" with none of the guessing an ellipsis leaves.
       when: birthday.isToday
           ? 'oggi'
           : (tight
@@ -241,9 +212,6 @@ class _BirthdayRow extends StatefulWidget
   final String when;
   final VoidCallback? onTap;
 
-  // Half a card's width instead of a whole one: the face is smaller and the
-  // margins narrower, which is what it takes for a name to be read whole rather
-  // than ended in an ellipsis.
   final bool tight;
 
   const _BirthdayRow({
@@ -308,9 +276,6 @@ class _BirthdayRowState extends State<_BirthdayRow>
                 ),
               ),
               SizedBox(width: widget.tight ? 10 : 12),
-              // Name above, date and age below: in a narrow column the two on
-              // the same line take room from each other, and it is always the
-              // name that loses.
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

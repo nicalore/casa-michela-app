@@ -40,9 +40,8 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("id > 0", name="positive_presence_id"),
         CheckConstraint("end_time > start_time", name="presence_end_after_start"),
-        # Half an hour is the shortest stretch worth teaching in: anything less
-        # is a pupil arriving and leaving. Logically this subsumes the check
-        # above, which stays because it names a different mistake.
+        # Thirty minutes is the shortest teachable stretch. Subsumes the
+        # check above, which stays for its distinct error message.
         CheckConstraint(
             "end_time - start_time >= INTERVAL '30 minutes'",
             name="presence_minimum_duration",
@@ -62,10 +61,7 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
 
     date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    # The same two the opening hours are kept in. In the building the hours are
-    # when the pupil is here; online they are when the pupil can be taught. Two
-    # different sentences, one shape, because both are answered against the
-    # association's opening in that mode.
+    # Same two modes the opening hours are kept in.
     mode: Mapped[str] = mapped_column(String(20), nullable=False)
 
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
@@ -126,8 +122,7 @@ def _validate_presence_booker(
         ):
             continue
 
-        # An administrator may also book on a student's behalf, recording who
-        # actually entered the presence rather than a real parent.
+        # An administrator may book on a student's behalf; records who entered it.
         is_admin_booker = (
             session.scalar(
                 select(Administrator.tax_code).where(

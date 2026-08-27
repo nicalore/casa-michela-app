@@ -22,41 +22,26 @@ import '../models/person_item.dart';
 import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 
-// The card that answers "is this person a member" holds two words and a badge:
-// as wide as the year cards below it, it would be mostly white.
 const double _statusCardWidth = 500;
 
-// How wide the year cards are allowed to grow. The same figure as the school
-// years next door, which need every pixel of it for the names of schools and
-// programmes: the two tabs are read one after the other, and cards of two
-// different widths read as two different kinds of thing.
 const double _cardsWidth = 1600;
 
-// The two tints this tab stands a line of text on: the brand turquoise laid on
-// white for something that is running, and the danger red for something that was
-// taken away.
 const Color _collaboratingSurface = Color(0xFFE8F7F5);
 const Color _revokedSurface = Color(0xFFFBEDEA);
 
-// What the two revocations are called in Italian. The codes themselves live on
-// MembershipItem, which is what carries them: the edit window has to ask the
-// same question this tab asks, and two places spelling 'NO' by hand are two
-// places that can stop agreeing.
 const Map<String, String> _revocationLabels = {
   MembershipItem.revocationExpulsion: 'Espulsione',
   MembershipItem.revocationResignation: 'Dimissioni',
 };
 
-// Days after the end date during which the membership can still be renewed. The
-// backend stores one per membership, but this dialog can only create new rows and
-// has no field for it, so new ones get the standard period.
+// The dialog has no field for the renewal period, so new rows get the standard.
 const int _defaultRenewalPeriodDays = 30;
 
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 
-// A membership counts as running until the renewal window after its end date has
-// passed, not on the end date itself.
+// A membership counts as running until the renewal window has passed, not on
+// the end date itself.
 bool _isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays)
 {
   return DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
@@ -67,9 +52,7 @@ class PersonMembershipsTab extends StatelessWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // True when the logged in account is the person being shown. Revoking your own
-  // membership is not allowed, so the button is hidden. Defaults to false so
-  // other call sites keep working.
+  // Revoking your own membership is not allowed, so the button is hidden.
   final bool isOwnProfile;
 
   const PersonMembershipsTab({
@@ -97,10 +80,6 @@ class PersonMembershipsTab extends StatelessWidget
     );
   }
 
-  // Whether the person is a member right now, and whether they are collaborating
-  // while they are. It is the answer the tab exists to give, so it stands on its
-  // own at the top — small and in the middle of the page rather than a card the
-  // width of the years below it, because it is two words and a badge.
   Widget _buildStatusCard({
     required bool isEnrolled,
     required bool isFemale,
@@ -170,8 +149,6 @@ class PersonMembershipsTab extends StatelessWidget
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      // Flexible, or the line runs off the card on a phone: a row
-                      // gives a child that is not flexible no width to fit into.
                       Flexible(
                         child: Text(
                           collaborationText,
@@ -204,8 +181,6 @@ class PersonMembershipsTab extends StatelessWidget
       title: 'Anno ${membership.year}',
       compact: true,
       leading: AppCardBadge(
-        // The running year is the card with the seal on it; the years behind it
-        // wear the plain mark of something filed away.
         icon: isCurrent ? Icons.workspace_premium_rounded : Icons.history_rounded,
         compact: true,
       ),
@@ -214,9 +189,6 @@ class PersonMembershipsTab extends StatelessWidget
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isRevoked) ...[
-            // Across the middle of the card. It is the one thing on it that is
-            // about the card as a whole rather than about a line of it, and
-            // against the left edge it read as the first of the facts under it.
             Center(
               child: _RevokedNotice(
                 label: _revocationLabels[membership.revocation] ?? membership.revocation,
@@ -248,8 +220,6 @@ class PersonMembershipsTab extends StatelessWidget
       onPressed: () => _showEditDialog(context),
     );
 
-    // Revoking your own membership is not allowed, so on your own page the one
-    // button stands alone.
     if (isOwnProfile)
     {
       return edit;
@@ -285,8 +255,7 @@ class PersonMembershipsTab extends StatelessWidget
         !latest.isRevoked &&
         _isWithinRenewalWindow(latest.endDate, latest.renewalPeriodDays);
 
-    // Only the most recent membership can be the running one, so the rest are
-    // history whether or not it is.
+    // Only the most recent membership can be the running one.
     final currentMembership = isEnrolled ? latest : null;
     final pastMemberships = isEnrolled ? memberships.skip(1).toList() : memberships;
 
@@ -335,9 +304,6 @@ class PersonMembershipsTab extends StatelessWidget
   }
 }
 
-// The line that says a membership was given up or taken away. Red, and on a
-// ground of its own: it is the one thing on the card that changes what the dates
-// above it mean.
 class _RevokedNotice extends StatelessWidget
 {
   final String label;
@@ -400,8 +366,7 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
 
     try
     {
-      // memberUpdatedAt is the optimistic concurrency token: the server refuses
-      // the revocation if somebody else changed the membership meanwhile.
+      // memberUpdatedAt is the optimistic concurrency token.
       await _apiService.revokePersonMembership(
         widget.person.fiscalCode,
         _selectedCode,
@@ -436,9 +401,6 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
     }
   }
 
-  // What revoking does, said before it is done. It is the one thing in this
-  // window that cannot be undone, so it stands on the danger tint rather than
-  // being a line of text among the others.
   Widget _buildWarning()
   {
     return Container(
@@ -498,10 +460,6 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
               const SizedBox(height: 22),
               const AppFieldLabel('Motivazione della revoca'),
               const SizedBox(height: 12),
-              // Two possibilities and no more: chips say so at a glance, where a
-              // menu would hide one of the two behind a click. The labels are
-              // Italian and the state keeps the backend's code, so nothing has
-              // to be translated back on the way out.
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -533,12 +491,10 @@ class _MembershipRowData
   final TextEditingController yearController;
   final TextEditingController dayMonthController;
 
-  // Carried through untouched: this dialog cannot change a revocation, only the
-  // dedicated revoke dialog can.
+  // Carried through untouched: only the dedicated revoke dialog can change it.
   final String revocation;
 
-  // Preserved from the loaded membership so that saving does not silently reset
-  // it. New rows get the standard period.
+  // Preserved so saving does not silently reset it.
   final int renewalPeriodDays;
 
   _MembershipRowData({
@@ -621,9 +577,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
 
     setState(()
     {
-      // Rows are added going back in time: the year proposed is the one before
-      // the oldest already written, not the one after the most recent, which
-      // would either repeat a year or invent a membership yet to come.
+      // New rows go back in time: the year before the oldest already written.
       final int year = earliestYear == null ? DateTime.now().year : earliestYear - 1;
 
       _rows.add(_MembershipRowData(
@@ -658,15 +612,14 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       return false;
     }
 
-    // DateTime rolls over invalid values, so 31/02 becomes 02/03: comparing the
-    // components back is what rejects it.
+    // DateTime rolls over invalid values (31/02 becomes 02/03), so compare the
+    // components back.
     final date = DateTime(parsedYear, month, day);
 
     return date.year == parsedYear && date.month == month && date.day == day;
   }
 
-  // Fills _errors and returns whether every row is usable. Each row is checked on
-  // its own, so one bad year does not hide the problems of the rows below it.
+  // Each row is checked independently so one bad year does not hide the rest.
   bool _validateRows()
   {
     _errors.clear();
@@ -711,8 +664,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     return _errors.isEmpty;
   }
 
-  // The membership always ends on the last day of its own year, so only the start
-  // day and month are editable.
+  // A membership always ends on the last day of its own year.
   List<Map<String, dynamic>> _buildPayload()
   {
     final payload = _rows.map((row)
@@ -851,11 +803,6 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
         ),
       ),
       children: [
-        // The one question on this pill, and it is a question: in the middle,
-        // the way the dialogs of the app ask one. Measured from the three words
-        // it is made of rather than stretched to the window — a yes-or-no with
-        // half a metre of white paper on either side reads as a piece missing
-        // whatever else was meant to be on it.
         AppDialogPill(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -881,9 +828,6 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
             children: [
               const AppFieldLabel('Storico iscrizioni'),
               const SizedBox(height: 12),
-              // A long-standing member has one row per year: the list scrolls
-              // inside the pill instead of stretching it, with the label above
-              // and the button below staying put.
               CardScrollArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

@@ -18,8 +18,7 @@ class CalendarPublicationItem
 
   final bool isDraft;
 
-  // Whose bozza it is. Only they can leave it without publishing, so the screen
-  // says so instead of offering a button the server would refuse.
+  // Only the draft opener may discard the draft.
   final String? draftOpenedBy;
   final PersonOptionItem? draftOpener;
 

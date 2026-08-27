@@ -40,8 +40,7 @@ class MinistrySubjectCard extends StatelessWidget
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The callback that reopens the details carries the card's context
-          // along, not that of the dialog about to close.
+          // Reopen with the card's context, not the closing dialog's.
           onEditRequested(() => _showDetailsDialog(context));
         },
         onDelete: onDelete,
@@ -52,10 +51,6 @@ class MinistrySubjectCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // The name, which school it is for, and what it is. The areas used to sit
-    // here in place of the description: there are three in all, so they repeat
-    // from card to card and tell nothing apart, whereas the description says
-    // about the subject what the name does not.
     final String? description = descriptionOrNull(subject.description);
 
     return AppCatalogueCard(
@@ -71,14 +66,12 @@ class MinistrySubjectCard extends StatelessWidget
 
 class _MinistrySubjectDetailsDialogContent extends StatelessWidget
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
 
-  // Narrow: a question of one sentence, and the two answers under it.
   static const double _confirmWidth = 480;
   static const double _dialogButtonFontSize = 14;
 
-  // Room for the longest of the three levels with a little to spare.
+  // Fits the longest of the three levels with a little to spare.
   static const double _levelColumnWidth = 300;
 
   final MinistrySubjectItem subject;
@@ -95,9 +88,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws
-  // something away, and the answer that does it should not be quieter than the
-  // one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -106,7 +96,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -160,10 +149,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -184,11 +169,8 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     final hasDescription = subject.description != null && subject.description!.isNotEmpty;
     final compact = AppBreakpoints.of(context).isCompact;
 
-    // A column of its own rather than a share of the dialog: half of it is not
-    // enough for "Scuola Secondaria di II Grado" (254px at this size) and a
-    // level broken over two lines reads as two levels. The same width whichever
-    // level it is, so the areas start where they always start instead of
-    // sliding left and right from one subject to the next.
+    // Fixed-width column: "Scuola Secondaria di II Grado" needs 254px and must
+    // not wrap.
     final Widget levelBlock = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,8 +190,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFieldLabel(areaLabels.length == 1 ? 'Area' : 'Aree', first: true),
-        // One per line: they are separate things, and a comma between two of
-        // them looked like one long area.
         for (int i = 0; i < areaLabels.length; i++)
           Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : 4),
@@ -221,8 +201,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
     return AppDialogStack(
       eyebrow: 'Materia ministeriale',
       title: subject.name,
-      // Wider than the other detail windows: the name of a level and a list of
-      // areas stand side by side in here, and neither of them is short.
       maxWidth: 660,
       footer: AppDialogFooter(
         secondary: AppGradientButton(
@@ -250,8 +228,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Side by side while the dialog is wide enough for both, one
-                // over the other on a phone.
                 if (compact) ...[
                   levelBlock,
                   areasBlock,
@@ -280,8 +256,6 @@ class _MinistrySubjectDetailsDialogContent extends StatelessWidget
             ),
           ),
         ),
-        // The disciplines are a piece of their own: they are not a field of the
-        // subject, they are the other things it is made of.
         AppDialogPill(
           expand: true,
           child: Column(

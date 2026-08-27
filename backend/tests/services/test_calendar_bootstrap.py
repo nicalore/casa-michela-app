@@ -16,9 +16,8 @@ from app.services.weekly_template_service import WeeklyTemplateService
 _MORNING = (time(9, 0), time(12, 0))
 
 
-# The first occurrence of that weekday which is not a public holiday: on a
-# holiday the calendar says closed whatever the templates say, and the day would
-# prove nothing about propagation.
+# First non-holiday occurrence of the weekday: a holiday would prove
+# nothing about propagation.
 def _first_open_occurrence(from_day: date, weekday: int) -> date:
     day = from_day + timedelta(days=(weekday - from_day.isoweekday()) % 7)
 
@@ -64,10 +63,8 @@ async def _rows_on(db: AsyncSession, day: date, mode: str) -> list[OpeningDay]:
     )
 
 
-# The state the migrations leave behind: weekly templates seeded, calendar
-# empty. Everything that propagates the standard hours is bounded by the last
-# materialised date, so a calendar that was never generated is one where saving
-# the hours writes the template and reaches no day at all.
+# The state the migrations leave behind: templates seeded, calendar empty,
+# so saving hours writes the template and reaches no day at all.
 async def test_an_empty_calendar_is_materialised_to_the_horizon(
     db: AsyncSession,
 ) -> None:
@@ -89,10 +86,8 @@ async def test_an_empty_calendar_is_materialised_to_the_horizon(
         assert max(materialised) <= calendar_horizon(today)
 
 
-# What the bootstrap is for. Propagation of the standard hours stops at the last
-# materialised date by design — beyond it the days do not exist and inventing
-# them would be generation — so on a calendar that was never generated the hours
-# are saved as a template, reported as saved, and reach no day at all.
+# The case the bootstrap exists for: without it, on a never-generated
+# calendar saved hours are reported saved and reach no day.
 async def test_without_a_calendar_the_standard_hours_reach_no_day(
     db: AsyncSession,
 ) -> None:
@@ -118,8 +113,7 @@ async def test_with_a_calendar_the_standard_hours_reach_the_days(
     assert _MORNING in [(row.start_time, row.end_time) for row in rows]
 
 
-# The bootstrap is not a second way of generating the calendar: once there is
-# one, it stands aside.
+# Once a calendar exists the bootstrap stands aside.
 async def test_a_calendar_that_reaches_today_is_left_alone(db: AsyncSession) -> None:
     await bootstrap_calendar(db)
 
@@ -163,8 +157,7 @@ async def test_holidays_come_out_closed(db: AsyncSession) -> None:
         ]
 
 
-# A calendar left behind by time is as unusable as one never generated: nothing
-# can be propagated into a horizon that has already passed.
+# A calendar entirely in the past counts as never generated.
 async def test_a_calendar_stopping_in_the_past_is_generated_again(
     db: AsyncSession,
 ) -> None:

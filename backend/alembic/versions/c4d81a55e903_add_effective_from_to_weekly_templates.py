@@ -14,9 +14,8 @@ down_revision = "b7e2c4a91f30"
 branch_labels = None
 depends_on = None
 
-# Data di nascita dell'associazione: le righe già presenti non hanno una data
-# di decorrenza registrata, e assumerle in vigore "da sempre" conserva
-# esattamente il comportamento attuale della generazione.
+# The association's founding date: existing rows have no recorded start, and
+# treating them as effective since forever preserves generation behavior.
 _BACKFILL = "2023-01-09"
 
 

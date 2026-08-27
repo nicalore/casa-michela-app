@@ -12,8 +12,7 @@ class PersonOptionItem implements PersonFace
   @override
   final String lastName;
 
-  // Where the anagrafica keeps their face. Null for whoever never uploaded one,
-  // which is most people: the circle then falls back to their initials.
+  // Null when never uploaded; the avatar falls back to initials.
   @override
   final String? profileImageUrl;
 

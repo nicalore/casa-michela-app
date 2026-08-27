@@ -21,9 +21,8 @@ class ChildItem
   final String? schoolClass;
   final String? studyProgram;
 
-  // Both describe the ParentalResponsibility relation between the current
-  // parent and this child, not the child in general: the same child can be
-  // collectable by one parent and not by another.
+  // Describe the relation with the current parent, not the child in general:
+  // the same child can be collectable by one parent and not by another.
   final bool authorizedPickup;
   final String? pickupRestrictionReason;
 

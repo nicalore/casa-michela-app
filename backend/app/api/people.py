@@ -12,6 +12,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.base import ExecutableOption
 
 from app.api.dependencies import DbSession
+from app.api.rbac import CurrentIdentity
 from app.core import field_lengths
 from app.core.config import settings
 from app.core.labels import (
@@ -127,6 +128,9 @@ _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
     "La modifica del Codice Fiscale non è consentita per preservare "
     "l'integrità dei dati storici."
+)
+_RATING_IS_ADMIN_ONLY_ERROR: Final[str] = (
+    "La valutazione di un docente può essere modificata solo da un amministratore."
 )
 _PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
     "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
@@ -374,7 +378,12 @@ def _map_teacher_subjects(
     return sorted(subject_names), teacher_subjects
 
 
-def _map_person_to_response(person: Person) -> PersonResponse:
+# The rating is administrator-only: not for the teacher or colleagues to read.
+def _map_person_to_response(
+    person: Person,
+    *,
+    show_teacher_rating: bool,
+) -> PersonResponse:
     roles: list[str] = []
     children: list[ChildInfoResponse] = []
     memberships: list[MembershipResponse] = []
@@ -397,12 +406,15 @@ def _map_person_to_response(person: Person) -> PersonResponse:
     iban = None
     admin_role = None
     admin_other_role = None
+    is_high_school_student = None
     school_education = None
     university_education = None
+    teacher_rating = None
     medical_certificate_expiration = None
 
     certification_type = None
     certification_other_detail = None
+    certification_dsa_detail = None
     mandatory_psych_meetings_acknowledged = None
 
     payment_method = None
@@ -500,6 +512,7 @@ def _map_person_to_response(person: Person) -> PersonResponse:
 
             certification_type = student.certification_type
             certification_other_detail = student.certification_other_detail
+            certification_dsa_detail = student.certification_dsa_detail
             mandatory_psych_meetings_acknowledged = (
                 student.mandatory_psych_meetings_acknowledged
             )
@@ -561,8 +574,10 @@ def _map_person_to_response(person: Person) -> PersonResponse:
             if staff.teacher_profile is not None:
                 roles.append(_ROLE_TEACHER)
                 teacher = staff.teacher_profile
+                is_high_school_student = teacher.is_high_school_student
                 school_education = teacher.school_education
                 university_education = teacher.university_education
+                teacher_rating = float(teacher.rating) if show_teacher_rating else None
                 teacher_updated_at = teacher.updated_at
                 taught_subjects, teacher_subjects = _map_teacher_subjects(teacher)
                 teacher_services = sorted(
@@ -622,11 +637,14 @@ def _map_person_to_response(person: Person) -> PersonResponse:
         iban=iban,
         admin_role=admin_role,
         admin_other_role=admin_other_role,
+        is_high_school_student=is_high_school_student,
         school_education=school_education,
         university_education=university_education,
+        teacher_rating=teacher_rating,
         medical_certificate_expiration=medical_certificate_expiration,
         certification_type=certification_type,
         certification_other_detail=certification_other_detail,
+        certification_dsa_detail=certification_dsa_detail,
         mandatory_psych_meetings_acknowledged=mandatory_psych_meetings_acknowledged,
         payment_method=payment_method,
         payment_method_other=payment_method_other,
@@ -888,6 +906,11 @@ async def _sync_student_profile(
         if certification_type == CertificationTypeEnum.OTHER
         else None
     )
+    certification_dsa_detail = (
+        student_data.certification_dsa_detail
+        if certification_type == CertificationTypeEnum.DSA
+        else None
+    )
 
     if current_student is not None:
         assert_not_stale(
@@ -902,6 +925,7 @@ async def _sync_student_profile(
                 authorized_early_exit=student_data.authorized_early_exit,
                 certification_type=certification_type,
                 certification_other_detail=certification_other_detail,
+                certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
                     student_data.mandatory_psych_meetings_acknowledged
                 ),
@@ -915,6 +939,7 @@ async def _sync_student_profile(
                 authorized_early_exit=student_data.authorized_early_exit,
                 certification_type=certification_type,
                 certification_other_detail=certification_other_detail,
+                certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
                     student_data.mandatory_psych_meetings_acknowledged
                 ),
@@ -1052,6 +1077,17 @@ async def _sync_teacher_profile(
         select(Teacher).where(Teacher.tax_code == person.tax_code)
     )
 
+    values: dict[str, Any] = {
+        "is_high_school_student": teacher_data.is_high_school_student,
+        "school_education": teacher_data.school_education,
+        "university_education": teacher_data.university_education,
+    }
+
+    # Omitted when not sent: a save by someone who cannot see the rating
+    # leaves it unchanged; a new teacher starts from the column default.
+    if teacher_data.rating is not None:
+        values["rating"] = teacher_data.rating
+
     if existing is not None:
         entity_label = (
             _TEACHING_SUBJECTS_LABEL
@@ -1067,20 +1103,10 @@ async def _sync_teacher_profile(
         await db.execute(
             update(Teacher)
             .where(Teacher.tax_code == person.tax_code)
-            .values(
-                school_education=teacher_data.school_education,
-                university_education=teacher_data.university_education,
-                updated_at=datetime.now(UTC),
-            )
+            .values(**values, updated_at=datetime.now(UTC))
         )
     else:
-        db.add(
-            Teacher(
-                tax_code=person.tax_code,
-                school_education=teacher_data.school_education,
-                university_education=teacher_data.university_education,
-            )
-        )
+        db.add(Teacher(tax_code=person.tax_code, **values))
         await db.flush()
 
     if teacher_data.competences is None and teacher_data.service_names is None:
@@ -1279,16 +1305,26 @@ async def _commit_person_update(db: AsyncSession) -> None:
 
 
 @router.get("/", response_model=list[PersonResponse])
-async def get_people(db: DbSession) -> list[PersonResponse]:
+async def get_people(
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> list[PersonResponse]:
     stmt = select(Person).options(*_person_load_options())
     result = await db.execute(stmt)
     people = result.unique().scalars().all()
 
-    return [_map_person_to_response(person) for person in people]
+    return [
+        _map_person_to_response(person, show_teacher_rating=identity.is_admin)
+        for person in people
+    ]
 
 
 @router.get("/{tax_code}", response_model=PersonResponse)
-async def get_person(tax_code: str, db: DbSession) -> PersonResponse:
+async def get_person(
+    tax_code: str,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> PersonResponse:
     stmt = (
         select(Person)
         .options(*_person_load_options())
@@ -1303,13 +1339,14 @@ async def get_person(tax_code: str, db: DbSession) -> PersonResponse:
             detail=_PERSON_NOT_FOUND_ERROR,
         )
 
-    return _map_person_to_response(person)
+    return _map_person_to_response(person, show_teacher_rating=identity.is_admin)
 
 
 @router.put("/{tax_code}", status_code=status.HTTP_200_OK)
 async def update_person(
     tax_code: str,
     payload: PersonUpdatePayload,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
     person = await _get_person_or_404(db, tax_code)
@@ -1318,6 +1355,17 @@ async def update_person(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_TAX_CODE_IMMUTABLE_ERROR,
+        )
+
+    # Refused, not dropped: a silent save would read as an accepted rating.
+    if (
+        payload.teacher_data is not None
+        and payload.teacher_data.rating is not None
+        and not identity.is_admin
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_RATING_IS_ADMIN_ONLY_ERROR,
         )
 
     await _update_general_data(db, person, payload.general_data)

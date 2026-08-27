@@ -14,12 +14,15 @@ from app.core.optimistic_concurrency import assert_not_stale
 from app.models.availability import Availability
 from app.models.teacher import Teacher
 from app.repositories.availability_repository import AvailabilityRepository
+from app.repositories.calendar_activity_repository import (
+    CalendarActivityRepository,
+)
 from app.schemas.availability import AvailabilityCreate, AvailabilityUpdate
 from app.services.lesson_guard import (
     find_availability_lessons,
 )
 from app.services.opening_window import assert_within_opening
-from app.services.schedule_cascade import unschedule
+from app.services.schedule_cascade import unassign, unschedule
 
 _ENTITY_LABEL: Final[str] = "le disponibilità"
 _NOT_FOUND_ERROR: Final[str] = "Disponibilità non trovata"
@@ -110,6 +113,35 @@ class AvailabilityService:
         ]
 
         return await unschedule(self.repository.session, dropped)
+
+    # Activities are handed back to the panel rather than lost, so not counted.
+    async def _unassign_what_no_longer_fits(
+        self,
+        availability: Availability,
+        payload: AvailabilityUpdate,
+    ) -> None:
+        activities = await CalendarActivityRepository(
+            self.repository.session,
+        ).find_for_availability(availability.id)
+
+        if not activities:
+            return
+
+        moved = (
+            payload.date != availability.date
+            or payload.mode.value != availability.mode
+        )
+
+        await unassign(
+            self.repository.session,
+            [
+                activity
+                for activity in activities
+                if moved
+                or activity.start_time < payload.start_time
+                or activity.end_time > payload.end_time
+            ],
+        )
 
     async def _assert_teacher_exists(self, teacher_tax_code: str) -> None:
         teacher = await self.repository.session.scalar(
@@ -277,6 +309,7 @@ class AvailabilityService:
         )
 
         await self._unschedule_what_no_longer_fits(availability, payload)
+        await self._unassign_what_no_longer_fits(availability, payload)
 
         if payload.date != availability.date:
             assert_within_booking_window(payload.date)
@@ -323,6 +356,12 @@ class AvailabilityService:
                 self.repository.session,
                 availability.id,
             ),
+        )
+        await unassign(
+            self.repository.session,
+            await CalendarActivityRepository(
+                self.repository.session,
+            ).find_for_availability(availability.id),
         )
 
         await self.repository.delete(availability)

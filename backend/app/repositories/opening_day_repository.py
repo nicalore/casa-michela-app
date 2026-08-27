@@ -81,8 +81,7 @@ class OpeningDayRepository(WritableRepository[OpeningDay]):
         return {(row.date, row.mode, row.start_time) for row in rows}
 
     async def last_generated_date(self, mode: str) -> date | None:
-        # How far the rows have already been generated: it bounds how far a
-        # newly created template row is worth propagating.
+        # Bounds how far a new template row is worth propagating.
         stmt = select(func.max(OpeningDay.date)).where(OpeningDay.mode == mode)
 
         return (await self.session.execute(stmt)).scalar_one_or_none()
@@ -94,9 +93,7 @@ class OpeningDayRepository(WritableRepository[OpeningDay]):
         date_from: date,
         date_to: date,
     ) -> set[date]:
-        # Dates carrying an override (holiday, closure or extraordinary
-        # opening) are left alone by propagation: an override always takes
-        # precedence over the standard hours.
+        # Override dates are skipped by propagation: overrides beat standard hours.
         stmt = select(OpeningDay.date).where(
             OpeningDay.mode == mode,
             OpeningDay.is_override.is_(True),
@@ -106,9 +103,8 @@ class OpeningDayRepository(WritableRepository[OpeningDay]):
 
         return {row.date for row in (await self.session.execute(stmt)).all()}
 
-    # Drops the generated (non-override) rows of those dates, so a day can be
-    # rewritten from the templates instead of patched row by row. Overrides stay
-    # where they are, because they do not come from the templates.
+    # Drops only generated (non-override) rows so a day can be rewritten
+    # from the templates.
     async def delete_generated_for_dates(
         self,
         dates: Sequence[date],

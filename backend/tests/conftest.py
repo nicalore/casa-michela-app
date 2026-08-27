@@ -21,9 +21,6 @@ from app.models.staff import Staff
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
-# The identity the services and the RBAC dependency work from. Built by hand
-# rather than logged in: what is under test is what the roles let somebody do,
-# not how they proved who they are.
 def identity_of(
     tax_code: str,
     *roles: str,
@@ -36,10 +33,8 @@ def identity_of(
     )
 
 
-# Not a bare string any more: taking a calendar band in hand writes down who is
-# holding it, and that is a foreign key onto administrators. The identity the
-# tests act through has to be somebody who exists — which it always claimed to
-# be. _seeded_administrator below is what puts them there.
+# Band locks FK onto administrators, so this identity must exist as a row;
+# _seed_administrator creates it in every test's transaction.
 ADMIN_TAX_CODE = "AAAAAA00A01A999E"
 
 ADMIN_IDENTITY = identity_of(ADMIN_TAX_CODE, "ADMIN")
@@ -52,8 +47,7 @@ TEST_SYNC_URL = TEST_ASYNC_URL.set(drivername="postgresql+psycopg")
 
 
 def _create_database_if_missing() -> None:
-    # Connected to the maintenance database, since CREATE DATABASE cannot run
-    # inside the database it is creating.
+    # CREATE DATABASE cannot run inside the database it is creating.
     admin_url = _BASE_URL.set(drivername="postgresql", database="postgres")
 
     with psycopg.connect(
@@ -69,14 +63,8 @@ def _create_database_if_missing() -> None:
             connection.execute(f'CREATE DATABASE "{_TEST_DB}"')
 
 
-# A database of its own, never the development one. The before_flush hooks are
-# registered on the Session globally, so a test that fails part-way through
-# would otherwise leave rows behind in a database somebody is working in.
-#
-# The schema is built by running the migrations rather than by create_all: that
-# way every run exercises them, which is half of what they are worth. It also
-# means a lesson's generated column and the composite keys are exactly what
-# production will have.
+# Dedicated test database; schema built via migrations (not create_all) so
+# every run exercises them and matches production exactly.
 @pytest.fixture(scope="session", autouse=True)
 def _database() -> None:
     _create_database_if_missing()
@@ -93,11 +81,8 @@ def _database() -> None:
     )
 
 
-# One engine per test, and deliberately not one per session: pytest-asyncio
-# gives each test its own event loop, and a pooled connection opened in one loop
-# cannot be used from the next. The cost is a connection per test, which is
-# nothing next to the confusion of a suite that passes one test at a time and
-# fails when run together.
+# One engine per test: pytest-asyncio gives each test its own event loop, and
+# a pooled connection opened in one loop cannot be reused from the next.
 @pytest_asyncio.fixture
 async def engine(_database: None):
     engine = create_async_engine(
@@ -111,10 +96,8 @@ async def engine(_database: None):
     await engine.dispose()
 
 
-# One outer transaction per test, rolled back at the end, so nothing a test
-# writes survives it. join_transaction_mode="create_savepoint" is what makes the
-# services usable unchanged: their commit() releases a savepoint instead of
-# ending the outer transaction.
+# Outer transaction rolled back per test; create_savepoint makes the services'
+# commit() release a savepoint instead of ending the outer transaction.
 @pytest_asyncio.fixture
 async def db(engine) -> AsyncIterator[AsyncSession]:
     async with engine.connect() as connection:
@@ -138,10 +121,6 @@ async def db(engine) -> AsyncIterator[AsyncSession]:
                 await transaction.rollback()
 
 
-# The person behind ADMIN_IDENTITY, written into every test's transaction and
-# rolled back with it. Here and not in the factories because it is not a choice
-# a test makes: the identity is a module constant, so the row it names has to be
-# there wherever it is used.
 async def _seed_administrator(session: AsyncSession) -> None:
     session.add(
         Person(

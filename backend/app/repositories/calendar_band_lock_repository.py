@@ -11,9 +11,7 @@ from app.models.calendar_band_lock import LOCK_TTL_SECONDS, CalendarBandLock
 from app.repositories.base import WritableRepository
 
 
-# Whether the lock is still worth anything, asked of the database and never of a
-# clock on this side of it: two callers cannot disagree about it, and no browser
-# can lie about it.
+# Liveness is judged by the database clock, never an application-side clock.
 def _alive() -> ColumnElement[bool]:
     return CalendarBandLock.heartbeat_at > func.now() - literal(
         timedelta(seconds=LOCK_TTL_SECONDS),
@@ -22,11 +20,8 @@ def _alive() -> ColumnElement[bool]:
 
 
 class CalendarBandLockRepository(WritableRepository[CalendarBandLock]):
-    # Takes the band, or renews it, in one statement: nothing separates the
-    # question from the answer, so two administrators pressing in the same
-    # instant cannot both be told yes.
-    #
-    # Nothing back means the band is somebody else's and they are still there.
+    # Atomic claim-or-renew: two concurrent claimers cannot both win.
+    # None means the band is held alive by someone else.
     async def claim(
         self,
         day: date,
@@ -40,9 +35,7 @@ class CalendarBandLockRepository(WritableRepository[CalendarBandLock]):
                 index_elements=[CalendarBandLock.date, CalendarBandLock.band],
                 set_={
                     "holder_tax_code": tax_code,
-                    # Renewing keeps the sitting that was already going; taking
-                    # over an abandoned band starts a new one, because the hour
-                    # the banner says is the hour this administrator arrived.
+                    # Renewal keeps acquired_at; taking over an expired lock resets it.
                     "acquired_at": case(
                         (
                             CalendarBandLock.holder_tax_code == tax_code,
@@ -91,8 +84,7 @@ class CalendarBandLockRepository(WritableRepository[CalendarBandLock]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # Only ever one's own: letting go is not the same as taking away, and an
-    # expired row that somebody else has already taken is theirs now.
+    # Deletes only the caller's own lock.
     async def release(self, day: date, band: str, tax_code: str) -> None:
         await self.session.execute(
             delete(CalendarBandLock).where(

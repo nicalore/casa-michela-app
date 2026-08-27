@@ -3,35 +3,28 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../models/activity_item.dart';
 import '../models/schedulable_booking.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
+import 'calendar_activity_card.dart';
 import 'calendar_booking_card.dart';
 import 'calendar_lesson_block.dart';
 import 'person_avatar.dart';
 
-// What the panel is wide standing beside the timeline, and how tall a pupil's
-// block stands in the strip above it on a narrow window.
-//
-// The strip is deliberately shorter than a pupil's block usually is: it stands
-// *above* the track on the windows that have no room for two columns, and those
-// are the windows with the least height to give away. Whatever does not fit
-// scrolls inside the block.
 const double kBookingPanelWidth = 300;
 const double kBookingStripHeight = 210;
 const double kBookingBlockWidth = 288;
 
-// How much of the band is still to be planned.
-//
-// Counted by request and not by card: one that has not been planned is offered
-// under every stretch of hours the pupil gave in that mode, and there is still
-// only one of it to plan.
-//
-// Out here rather than on the panel because the narrow calendar has to say the
-// same number in its own switch, above a panel that has been told to stop
-// saying it. Two counts of one thing is how the tab and the panel end up
-// disagreeing about a day on the one screen that shows them together.
+const String kAddActivityLabel = 'AGGIUNGI ATTIVITÀ';
+
+const double _addHeight = 46;
+const double _denseAddHeight = 32;
+
+// Counted by request id, not by card: an unplanned request appears under every
+// stretch of hours the pupil gave in that mode.
 int openBookingCount(List<PresenceBookingGroup> groups)
 {
   return groups
@@ -42,41 +35,23 @@ int openBookingCount(List<PresenceBookingGroup> groups)
       .length;
 }
 
-// The three shapes the panel is asked for, which are three screens and not
-// three widths of one.
-//
-// It was a single `isColumn`, and the third shape is what broke it. Read off
-// one bool, "laid out as a column" and "can be picked up" could not disagree —
-// and the combination the narrow calendar needs is exactly the one that
-// agreement was hiding: the column's order, with nothing draggable in it,
-// because there is no track left to drop onto.
+int openPanelCount(List<PresenceBookingGroup> groups, List<ActivityItem> activities)
+{
+  return openBookingCount(groups) + activities.length;
+}
+
 enum BookingPanelShape
 {
-  // Beside the track, at full height, with the whole column scrolling on its
-  // own so the timeline keeps all of its own.
+  // Beside the track, full height.
   column,
 
-  // Above the track, the pupils running across it. Can be shut, and then it is
-  // one line: the hours it gives back go to the track under it.
+  // Above the track on short windows; collapsible.
   strip,
 
-  // The whole of a narrow screen, with no track anywhere. The heading is said
-  // by the switch above it, and a card is opened with a tap.
+  // Whole narrow screen, no track, cards open with a tap.
   page,
 }
 
-// The chevron that shuts the strip and opens it again.
-//
-// Square, and outlined in gold under the pointer, because that is how this
-// screen says "the pointer is here" everywhere else on it: the cards below do
-// it, AppTodayButton in the header above does it, and the round close of a
-// dialog does the coloured version of the same thing. Drawn as a shape that
-// only filled — no line around it — it was the one control on the page
-// answering the hand in a language of its own.
-//
-// Thirty-two and not the forty-four a paging arrow takes: this one stands on a
-// line of text, and at the arrow's size it was taller than the heading it sits
-// in.
 class _ExpandToggle extends StatefulWidget
 {
   final bool isExpanded;
@@ -104,8 +79,6 @@ class _ExpandToggleState extends State<_ExpandToggle>
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            // The same beat the cards under it change on, so a pointer crossing
-            // from one to the other is answered at one speed.
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             width: 32,
@@ -130,12 +103,6 @@ class _ExpandToggleState extends State<_ExpandToggle>
   }
 }
 
-// The pupil a block belongs to, and how much of them is left to do.
-//
-// One heading per pupil and not per stretch of hours: the same name appearing
-// twice down the panel — the morning in the building, the evening at a screen —
-// reads as two people, and whoever is composing a day thinks by pupil first.
-// The hours come back one level down, where they decide something.
 class _StudentHeader extends StatelessWidget
 {
   final StudentBookingGroup student;
@@ -161,11 +128,6 @@ class _StudentHeader extends StatelessWidget
 
     return Row(
       children: [
-        // The size the app gives a face inside a list. It used to be two thirds
-        // of that, which is a photograph nobody can recognise anybody in — and a
-        // face too small to read is a face not worth the room it takes. The two
-        // lines beside it are shorter than the circle, so the block grows by the
-        // difference and by nothing else.
         PersonAvatar(person: student.student, size: PersonAvatar.listSize),
         const SizedBox(width: 11),
         Expanded(
@@ -203,12 +165,6 @@ class _StudentHeader extends StatelessWidget
   }
 }
 
-// One stretch of hours of one pupil: the world it is in, and when.
-//
-// Said with the glyph, the colour and the word all three, because it is the
-// thing a placement is judged against and reading it wrong is a lesson written
-// where the pupil is not. The two colours are the track's own, so a card in the
-// panel and the block it becomes are the same colour before and after.
 class _PresenceBand extends StatelessWidget
 {
   final PresenceBookingGroup group;
@@ -261,53 +217,39 @@ class _PresenceBand extends StatelessWidget
   }
 }
 
-// Everything the day has asked for and not yet been given.
-//
-// Three levels down, and the drag lives on the middle one: the pupil is the
-// block, the materia is the card that gets picked up, and the disciplines are
-// the small cards inside it — one of which can be taken out on its own while
-// there is still a second part to put it in.
-//
-// Where the drag lives at all is [shape]'s answer, and on the narrowest screens
-// it is nowhere: there is no track beside or above this, and the card is opened
-// with a tap onto the same window the drag was only ever a quick way into.
 class CalendarBookingPanel extends StatelessWidget
 {
   final List<PresenceBookingGroup> groups;
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // Who is who, by tax code, for the preferences a request carries.
+  // Only activities not yet assigned; assigned ones are drawn on the track.
+  final List<ActivityItem> activities;
+
   final Map<String, String> teacherNames;
 
-  // Which of the three the panel is. See [BookingPanelShape].
   final BookingPanelShape shape;
 
-  // Whether the strip is open. Shut, only its heading is left, and the two
-  // hundred and ninety pixels that frees go to the timeline under it — which is
-  // the whole reason it can be shut: the windows that stack the two are the
-  // windows with the least height to give away.
-  //
-  // Meaningless in the other two shapes, and ignored by them.
+  // Strip shape only; ignored by the other shapes.
   final bool isExpanded;
 
   final ValueChanged<bool>? onExpandedChanged;
 
-  // The written-out way of planning one part, offered in the menu every card
-  // opens when it is clicked.
   final void Function(SchedulableBooking entry)? onPlanRequested;
 
-  // A drag started here, or ended. The timeline needs to know at once, so it can
-  // show where the request could go before the pointer arrives.
   final void Function(CalendarDragPayload? payload)? onDragChanged;
 
-  // Passed straight through to the cards: what is being carried says where it
-  // would land, and it is the same answer the track's own blocks give.
   final ValueListenable<CarriedPlacement>? carriedAt;
+
+  // Absent when the band cannot be edited: published, or locked by another editor.
+  final VoidCallback? onAddActivity;
+
+  final void Function(ActivityItem activity)? onOpenActivity;
 
   const CalendarBookingPanel({
     super.key,
     required this.groups,
     required this.ministrySubjects,
+    this.activities = const [],
     this.teacherNames = const {},
     required this.shape,
     this.isExpanded = true,
@@ -315,12 +257,10 @@ class CalendarBookingPanel extends StatelessWidget
     this.onPlanRequested,
     this.onDragChanged,
     this.carriedAt,
+    this.onAddActivity,
+    this.onOpenActivity,
   });
 
-  // Derived from the shape and not passed in beside it, which here is honest:
-  // there are three shapes, there are three gestures, and each shape really
-  // does settle its own. It was the bool that lied, because two values cannot
-  // say three things.
   BookingDragMode get _dragMode
   {
     return switch (shape)
@@ -331,13 +271,6 @@ class CalendarBookingPanel extends StatelessWidget
     };
   }
 
-  // What is still open, and only that.
-  //
-  // There used to be a switch offering the planned ones too, and it was a
-  // second way of seeing the day the day already had: what is planned is drawn
-  // on the track beside this, in the hours it was put in. A list repeating it
-  // out of place answered nothing the track was not already answering better,
-  // and every card in it was inert.
   List<PresenceBookingGroup> get _visibleGroups
   {
     final filtered = <PresenceBookingGroup>[];
@@ -357,7 +290,7 @@ class CalendarBookingPanel extends StatelessWidget
 
   List<StudentBookingGroup> get _visibleStudents => groupByStudent(_visibleGroups);
 
-  int get _openCount => openBookingCount(groups);
+  int get _openCount => openPanelCount(groups, activities);
 
   String get _emptyMessage
   {
@@ -369,12 +302,6 @@ class CalendarBookingPanel extends StatelessWidget
     return 'Tutte le prenotazioni sono pianificate.';
   }
 
-  // The name of the panel, and how much of it is left.
-  //
-  // Dropped whole in [BookingPanelShape.page] and only there: the narrow
-  // calendar carries a switch above this whose left half already reads "Da
-  // pianificare", with the same count on it, and a heading repeating the
-  // control immediately above it is the phrase said twice in ten pixels.
   Widget _buildHeader({required bool showToggle})
   {
     return Row(
@@ -446,11 +373,64 @@ class CalendarBookingPanel extends StatelessWidget
     );
   }
 
-  // One pupil, with every stretch of hours they have something open in.
-  //
-  // The block is paper and the materie inside it are white, so the nesting is
-  // read as depth rather than counted: whatever is lighter than what surrounds
-  // it is the thing that gets moved.
+  Widget _buildActivityCard(ActivityItem activity)
+  {
+    return CalendarActivityCard(
+      activity: activity,
+      dragMode: _dragMode,
+      onOpen: onOpenActivity == null ? null : () => onOpenActivity!(activity),
+      onDragChanged: onDragChanged,
+      carriedAt: carriedAt,
+    );
+  }
+
+  List<Widget> _buildActivityCards({required bool named})
+  {
+    if (activities.isEmpty)
+    {
+      return const [];
+    }
+
+    return [
+      if (named)
+        Text(
+          'ATTIVITÀ',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            letterSpacing: 1.1,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+      for (final activity in activities) _buildActivityCard(activity),
+    ];
+  }
+
+  Widget? _buildAddActivity({bool dense = false})
+  {
+    final add = onAddActivity;
+
+    if (add == null)
+    {
+      return null;
+    }
+
+    final double height = dense ? _denseAddHeight : _addHeight;
+
+    return Center(
+      child: AppGradientButton(
+        label: kAddActivityLabel,
+        icon: Icons.add_rounded,
+        height: height,
+        fontSize: dense ? 11 : 13,
+        radius: height / 2,
+        horizontalPadding: dense ? 16 : 30,
+        onPressed: add,
+      ),
+    );
+  }
+
   Widget _buildStudentBlock(StudentBookingGroup student)
   {
     return Container(
@@ -477,16 +457,17 @@ class CalendarBookingPanel extends StatelessWidget
     );
   }
 
-  // Beside the track: one pupil under the next, the whole column scrolling on
-  // its own so the timeline keeps its full height.
-  //
-  // The same body serves the narrow screen, which is what the switch above it
-  // buys: one of the two halves of the day at a time means this one is handed a
-  // height of its own there too, and a column that has a height can go on
-  // scrolling inside it exactly as it does beside the track.
   Widget _buildColumn({bool showTitle = true})
   {
     final visible = _visibleStudents;
+    final cards = _buildActivityCards(named: true);
+
+    final rows = <Widget>[
+      for (final student in visible) _buildStudentBlock(student),
+      ...cards,
+    ];
+
+    final add = _buildAddActivity();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -496,32 +477,27 @@ class CalendarBookingPanel extends StatelessWidget
           const SizedBox(height: 16),
         ],
         Expanded(
-          child: visible.isEmpty
+          child: rows.isEmpty
               ? SingleChildScrollView(child: _buildEmpty())
               : ListView.separated(
                   padding: EdgeInsets.zero,
-                  itemCount: visible.length,
+                  itemCount: rows.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) => _buildStudentBlock(visible[index]),
+                  itemBuilder: (context, index) => rows[index],
                 ),
         ),
+        if (add != null) ...[
+          const SizedBox(height: 16),
+          add,
+        ],
       ],
     );
   }
 
-  // Above the track, where there is not room for two columns: the pupils run
-  // across instead of down, each block keeping its own shape and scrolling
-  // inside itself. Vertically within a horizontal list, so the two gestures
-  // never mean the same thing.
   Widget _buildStrip()
   {
     final header = _buildHeader(showToggle: true);
 
-    // Shut, the heading is the whole of it, and the two hundred and ninety
-    // pixels it was taking go to the timeline under it. Nothing slides: what is
-    // below is an axis that would have to be re-laid at every frame of an
-    // animation, and hours drifting upwards while their teachers stay put reads
-    // as the day coming apart rather than as a panel folding.
     if (!isExpanded)
     {
       return header;
@@ -529,12 +505,19 @@ class CalendarBookingPanel extends StatelessWidget
 
     final visible = _visibleStudents;
 
+    final rows = <Widget>[
+      for (final student in visible) _buildStudentBlock(student),
+      ..._buildActivityCards(named: false),
+    ];
+
+    final add = _buildAddActivity(dense: true);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
         const SizedBox(height: 16),
-        if (visible.isEmpty)
+        if (rows.isEmpty)
           _buildEmpty()
         else
           SizedBox(
@@ -542,14 +525,18 @@ class CalendarBookingPanel extends StatelessWidget
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.zero,
-              itemCount: visible.length,
+              itemCount: rows.length,
               separatorBuilder: (context, index) => const SizedBox(width: 14),
               itemBuilder: (context, index) => SizedBox(
                 width: kBookingBlockWidth,
-                child: SingleChildScrollView(child: _buildStudentBlock(visible[index])),
+                child: SingleChildScrollView(child: rows[index]),
               ),
             ),
           ),
+        if (add != null) ...[
+          const SizedBox(height: 12),
+          add,
+        ],
       ],
     );
   }
@@ -561,8 +548,6 @@ class CalendarBookingPanel extends StatelessWidget
     {
       BookingPanelShape.column => _buildColumn(),
       BookingPanelShape.strip => _buildStrip(),
-      // The column again, minus its name: on a narrow screen the switch above
-      // is already carrying it, with the same count on it.
       BookingPanelShape.page => _buildColumn(showTitle: false),
     };
   }

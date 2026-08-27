@@ -10,27 +10,17 @@ import '../../../../shared/widgets/app_gradient_button.dart';
 import '../../../../shared/widgets/dialog_components.dart';
 import '../../../lessons/models/lesson_item.dart' show LessonItem;
 
-// What a change of the opening hours would take away from a calendar that has
-// already gone out, and the question it is put behind.
-//
-// The reckoning is the server's and not this side's: it is the server that
-// knows what a write ends up doing — which days a decorrenza really reaches,
-// which of them carry a variation the standard hours do not touch, which are
-// holidays — and it answers by doing the work, seeing what it cost, and
-// refusing to keep it until somebody has said they know. What is left here is
-// the asking.
+// The server computes what an opening-hours write would take away and refuses
+// it until confirmed; this side only asks the question.
 
-// One band a write would take something from.
 class LostCalendar
 {
   final DateTime date;
   final TimeBucket band;
 
-  // The band is left with no hours at all and the calendar goes with them.
-  // Where it is false the band survives — open the other way — and what goes is
-  // the lessons given in the way that shut, and the publication with them: what
-  // was sent out was a day open both ways, and it cannot be sent again by
-  // closing a bozza.
+  // True: the band loses all hours and its published calendar. False: the band
+  // stays open the other way; only the closed mode's lessons and the
+  // publication are lost.
   final bool whole;
 
   const LostCalendar({
@@ -52,10 +42,6 @@ class LostCalendar
       '${formatWeekdayColumnLabel(date)} · ${bandLabel(band).toLowerCase()}';
 }
 
-// The hours a write would take away with the opening they were given against:
-// an offer a teacher made, an hour a family booked, and the lessons built on
-// them. Counted and not named — what is being decided is whether to go ahead,
-// and a list of forty hours is not read by anybody deciding that.
 class LostHours
 {
   final int availabilities;
@@ -79,16 +65,13 @@ class LostHours
 
   bool get any => availabilities > 0 || presences > 0 || lessons > 0;
 
-  // Una sola cosa, e una soltanto: è l'unico caso in cui il verbo va al
-  // singolare. Due disponibilità sono due, e una disponibilità più una
-  // prenotazione sono due cose.
+  // Italian verb agreement: singular only when exactly one thing is lost.
   bool get isSingle => availabilities + presences + lessons == 1;
 
   static String _counted(int value, String singular, String plural) =>
       '$value ${value == 1 ? singular : plural}';
 
-  // "2 disponibilità, 1 prenotazione e 3 lezioni", leaving out what is not
-  // there: a nought is not news.
+  // "2 disponibilità, 1 prenotazione e 3 lezioni", omitting zero counts.
   String get said
   {
     final List<String> parts = [
@@ -106,8 +89,7 @@ class LostHours
   }
 }
 
-// The server's refusal, carrying what the write would have cost. Not an error
-// to be shown: a question to be put.
+// The server's refusal, carrying what the write would have cost.
 class WriteWouldTakeAway implements Exception
 {
   static const String code = 'write_would_take_away';
@@ -140,8 +122,7 @@ class WriteWouldTakeAway implements Exception
   String toString() => message;
 }
 
-// Asked once for a whole save, however many writes it is made of: a window
-// changing five days is one decision, not five.
+// Asked once per save, however many writes it is made of.
 class LossConfirmation
 {
   final String confirmLabel;
@@ -151,15 +132,11 @@ class LossConfirmation
   bool _confirmed = false;
   bool _declined = false;
 
-  // Whether the question has been put and answered no, which is the caller's
-  // sign to stop rather than to carry on with the next day.
+  // True once the user answered no; the caller should stop.
   bool get declined => _declined;
 
-  // Runs [write], and where the server refuses it for what it would take away,
-  // puts that to whoever asked and sends it again with the answer.
-  //
-  // Anything else the write throws is left to the caller: this one only knows
-  // about the one refusal it can answer.
+  // Runs [write]; on a WriteWouldTakeAway refusal, asks the user and retries
+  // with the answer. Any other exception propagates.
   Future<bool> run(
     BuildContext context,
     Future<void> Function(bool confirm) write,
@@ -206,18 +183,12 @@ class LossConfirmation
   }
 }
 
-// How many of the bands are named before the rest becomes a count.
+// How many bands are named before the rest becomes a count.
 const int _maxNamed = 4;
 
 const double _buttonHeight = 52;
 const double _buttonFontSize = 14;
 
-// What the write takes away, said before it is taken.
-//
-// The same shape as the other confirmations of the module — an eyebrow, a
-// question and a pill of prose — and the way on is the red one: what is on the
-// other side of it cannot be undone, and the calendars named in it have already
-// been read by the people they were sent to.
 Future<bool?> showLostCalendarsConfirmation({
   required BuildContext context,
   List<LostCalendar> lost = const [],
@@ -232,10 +203,6 @@ Future<bool?> showLostCalendarsConfirmation({
 
   final int hidden = ordered.length - ordered.take(_maxNamed).length;
 
-  // Two things can happen to a band and they are not the same thing: one is
-  // left with no hours at all and loses the calendar with them, the other keeps
-  // the hours of the way that stays open and goes back to never having been
-  // published. Where both are in the list, both are said.
   final bool anyWhole = ordered.any((row) => row.whole);
   final bool anyPartial = ordered.any((row) => !row.whole);
 
@@ -243,8 +210,6 @@ Future<bool?> showLostCalendarsConfirmation({
     context: context,
     barrierLabel: 'ConfirmLostCalendars',
     builder: (confirmContext) => AppDialogStack(
-      // Named for what is at stake: a calendar people have already read, or
-      // hours they have already given.
       eyebrow: ordered.isEmpty ? 'Ore utilizzate' : 'Calendario pubblicato',
       title: 'Confermi?',
       showClose: false,
@@ -331,10 +296,9 @@ Future<bool?> showLostCalendarsConfirmation({
               ],
               const SizedBox(height: 12),
               Text(
-                // Il calendario e le lezioni sono già dati per eliminati dalle
-                // righe sopra, e sono maschili: qui resta da dire che non
-                // tornano. Le ore da sole invece non sono ancora state
-                // nominate come eliminate, e sono femminili — una o tante.
+                // Italian gender agreement: calendar+lessons are masculine and
+                // already declared deleted above; hours alone are feminine and
+                // still need their own deletion sentence.
                 ordered.isNotEmpty
                     ? 'Non potranno essere recuperati.'
                     : hours.isSingle

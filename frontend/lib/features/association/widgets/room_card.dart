@@ -11,11 +11,9 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../models/room_item.dart';
 import '../models/subject_taxonomy.dart';
 
-// The same teal a ministry subject's level takes: a fact, not a sentence.
 const Color _capacityTextColor = AppTheme.trialTealDeep;
 
-// Null where nobody has counted, and then the card says nothing rather than
-// writing a zero: unmeasured is not a room with no seats in it.
+// Null when uncounted: unmeasured is not a room with zero seats.
 String? roomCapacityLabel(int? capacity)
 {
   if (capacity == null)
@@ -60,8 +58,6 @@ class RoomCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Capacity first: it tells one room from another once the names have been
-    // read, and it is a line where a description is a sentence.
     final String? capacity = roomCapacityLabel(room.capacity);
     final String? description = descriptionOrNull(room.description);
 
@@ -78,10 +74,8 @@ class RoomCard extends StatelessWidget
 
 class _RoomDetailsDialogContent extends StatelessWidget
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
 
-  // Narrow: a question of one sentence, and the two answers under it.
   static const double _confirmWidth = 480;
 
   static const double _detailsWidth = 600;
@@ -97,8 +91,6 @@ class _RoomDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons: the answer that throws something away should not be
-  // quieter than the one that walks away.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -107,7 +99,6 @@ class _RoomDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -161,7 +152,6 @@ class _RoomDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // The first label of a piece sits at its top edge; the rest open a gap.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -170,7 +160,6 @@ class _RoomDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // A value, or the grey italic sentence standing in for one nobody gave.
   Widget _buildValue(
     String? value,
     String missing, {

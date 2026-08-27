@@ -1,17 +1,11 @@
-// How far the opening-hours calendar reaches, in both directions.
-
-// The day the association was founded. Nothing in its calendar predates it,
-// so weeks before this cannot be browsed and hours cannot be dated earlier.
+// The founding date; nothing in the calendar predates it.
 final DateTime kAssociationFoundedOn = DateTime(2023, 1, 9);
 
 // The month the yearly generation runs, producing the whole following year.
 const int _generationMonth = DateTime.december;
 
-// The last date the calendar can reach.
-//
-// Normally 31 December of the current year — beyond that the days simply do
-// not exist yet. From 1 December the next year opens up, because that is when
-// the generation script runs and materialises it.
+// Normally 31 December of the current year; from 1 December the next year
+// opens up, when the generation script materialises it.
 DateTime calendarHorizon([DateTime? now])
 {
   final today = now ?? DateTime.now();

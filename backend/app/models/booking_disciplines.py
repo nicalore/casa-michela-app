@@ -4,20 +4,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-# Which disciplines an hour is spent on, answered differently by each of the
-# three shapes of request. Both readings — in memory and from the database —
-# live here because three hooks need them.
+# In-memory and stored readings both live here because three hooks need them.
 
 
-# What the booking says as it stands in this session, or None where nothing in
-# it answers and the stored rows still hold.
-#
-# Read out of __dict__ and not off the attribute, which under async would be a
-# lazy load where no IO can be done. None means nothing was said; an empty set
-# means a booking that really carries no requested subject.
-#
-# Nor is the database read back for a booking being rewritten: the rows a
-# replacement discards are not among session.deleted until the flush proper.
+# Read from __dict__: attribute access would lazy-load (no IO under async).
+# None = nothing said this session (stored rows hold); empty set = truly none.
 def loaded_disciplines(booking: Any) -> set[int] | None:
     if booking.association_subject_id is not None:
         return {booking.association_subject_id}
@@ -33,10 +24,7 @@ def loaded_disciplines(booking: Any) -> set[int] | None:
     return {row.association_subject_id for row in requested}
 
 
-# The same answer for rows already in the database, in two queries rather than
-# one per booking. Bookings with no discipline at all — services — come back
-# with an empty set rather than missing from the mapping, so callers never have
-# to tell "no disciplines" apart from "not asked about".
+# Bookings with no discipline come back as empty sets, never missing keys.
 def stored_disciplines(
     session: Session,
     booking_ids: Collection[int],
@@ -58,8 +46,6 @@ def stored_disciplines(
         ).all()
     }
 
-    # Only a ministry request has rows here, and the shape above already left it
-    # an empty set to fill.
     for booking_id, association_subject_id in session.execute(
         select(
             SubjectRequested.booking_id,
@@ -71,8 +57,6 @@ def stored_disciplines(
     return disciplines
 
 
-# What this booking covers, whatever state it is in: what it says now when it
-# says anything, and what is stored otherwise.
 def disciplines_of(
     session: Session,
     booking: Any,

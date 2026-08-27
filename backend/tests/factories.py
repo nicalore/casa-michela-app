@@ -32,15 +32,22 @@ from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
-
-# The chain from a person down to a teacher is four tables deep, and all of it
-# is needed before one availability can exist.
+from tests.conftest import ADMIN_TAX_CODE
 
 _counter = count(1)
 
 
-# Flushed straight away: the rows here hang off one another, and a child cannot
-# be added before its parent has an id.
+# Skip any seed producing ADMIN_TAX_CODE (reached at seed 999): that code is
+# already seeded by conftest, and reusing it would fail an unrelated test.
+def _next_seed() -> int:
+    seed = next(_counter)
+
+    while make_tax_code(seed) == ADMIN_TAX_CODE:
+        seed = next(_counter)
+
+    return seed
+
+
 async def _persist[T](db: AsyncSession, entity: T) -> T:
     db.add(entity)
     await db.flush()
@@ -48,10 +55,8 @@ async def _persist[T](db: AsyncSession, entity: T) -> T:
     return entity
 
 
-# Built from the model's own tables: Person validates the check character, so a
-# guessed code would fail the day somebody reads the algorithm again.
+# Computes a real check character, since Person validates it.
 def make_tax_code(seed: int) -> str:
-    # Fifteen characters, and the sixteenth is the check.
     initial = ascii_uppercase[(seed // 1000) % len(ascii_uppercase)]
     stem = f"{initial}AAAAA00A01A{seed % 1000:03d}"
     total = sum(
@@ -72,7 +77,7 @@ async def make_person(
     first_name: str = "Mario",
     last_name: str = "Rossi",
 ) -> Person:
-    seed = next(_counter)
+    seed = _next_seed()
 
     return await _persist(
         db,
@@ -97,7 +102,6 @@ async def make_person(
     )
 
 
-# Both teachers and administrators hang off this chain.
 async def _make_staff_person(
     db: AsyncSession,
     *,
@@ -142,8 +146,7 @@ async def make_student(
 async def make_administrator(db: AsyncSession) -> Administrator:
     person = await _make_staff_person(db, first_name="Giulia", last_name="Neri")
 
-    # OTHER: the three named roles have a partial unique index, and two tests
-    # wanting an administrator would collide on it.
+    # OTHER: the named roles have a partial unique index and would collide.
     return await _persist(
         db,
         Administrator(
@@ -206,8 +209,7 @@ async def _make_ministry_subject(db: AsyncSession) -> MinistrySubject:
     )
 
 
-# Keyed by programme too. Without one a fresh programme is made, which is what
-# "competent, never mind which" means.
+# With no study_program a fresh one is made: competent, never mind which.
 async def make_competence(
     db: AsyncSession,
     teacher: Teacher,
@@ -226,8 +228,7 @@ async def make_competence(
     )
 
 
-# What the competence check reads to know which programme applies. The school
-# exists only to satisfy the composite foreign key.
+# The school exists only to satisfy the composite foreign key.
 async def make_enrollment(
     db: AsyncSession,
     student: Student,
@@ -315,14 +316,12 @@ async def make_presence(
             start_time=start_time,
             end_time=end_time,
             student_tax_code=student.tax_code,
-            # No parents here, so the pupil is their own booker.
             booker_tax_code=student.tax_code,
         ),
     )
 
 
-# The simplest of the three shapes: a booking with no discipline at all is
-# refused by the model.
+# The model refuses a booking with neither discipline nor service.
 async def make_booking(
     db: AsyncSession,
     presence: Presence,
@@ -345,9 +344,8 @@ async def make_booking(
     )
 
 
-# Puts a discipline inside a programme. Only a discipline reachable this way is
-# judged on the (discipline, programme) pair; one no programme covers is judged
-# on the discipline alone.
+# Only a discipline inside a programme is judged on the (discipline, programme)
+# pair; one no programme covers is judged on the discipline alone.
 async def make_discipline_in_programme(
     db: AsyncSession,
     subject: AssociationSubject,
@@ -372,8 +370,7 @@ async def make_discipline_in_programme(
     return ministry
 
 
-# The only shape that carries more than one discipline, so the only one that
-# shows a covering apart from a single subject.
+# The only booking shape that carries more than one discipline.
 async def make_ministry_request(
     db: AsyncSession,
     presence: Presence,

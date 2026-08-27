@@ -1,27 +1,15 @@
-// Week math and compact date/time labels for the Orari weekly-hours table
-// (Associazione > Orari > In presenza/Online). Shared by both sub-tabs, hence
-// living under core/utils rather than a single feature folder.
-//
-// Every day-stepping computation here goes through the DateTime constructor
-// (year, month, day + n) rather than Duration-based add()/subtract(), mirroring
-// features/lessons/utils/booking_window.dart: Duration arithmetic on local
-// DateTimes can skew across Italy's DST transitions, while constructor field
-// arithmetic is plain calendar math with no such risk.
+// Week math and labels for the Orari weekly-hours table. Day stepping uses the
+// DateTime constructor (y, m, d + n), not Duration add(), which skews across DST.
 
 import 'package:flutter/material.dart';
 
-// The step every hour in this app moves by, and the one the backend stores.
+// The step every hour moves by, and the one the backend stores.
 const int kQuarterHour = 15;
 
-// The shortest stretch a pupil can give, in the building or online. Anything
-// under it is a pupil arriving and leaving, and the database refuses it anyway.
+// The shortest stretch a pupil can give; the database refuses less.
 const int kMinimumBandMinutes = 30;
 
-// The association's day, in minutes from midnight: the morning band opens at
-// six and the evening one shuts at eleven. Anything that asks for an hour —
-// the bands of the weekly hours, a teacher's availability, a pupil's presence
-// — is a stretch of this day, so the two ends live here rather than in the
-// module that happened to need them first.
+// The association's day in minutes from midnight: 06:00 to 23:00.
 const int kDayStartMinutes = 6 * 60;
 const int kDayEndMinutes = 23 * 60;
 
@@ -67,10 +55,6 @@ const List<String> _monthNamesFull = [
   'dicembre',
 ];
 
-// ---------------------------------------------------------------------------
-// Dates
-// ---------------------------------------------------------------------------
-
 DateTime _dateOnly(DateTime value)
 {
   return DateTime(value.year, value.month, value.day);
@@ -88,8 +72,7 @@ DateTime startOfWeek(DateTime date)
   return addDays(day, -(day.weekday - DateTime.monday));
 }
 
-// The 7 dates from [weekStart] (expected to already be a Monday) through the
-// following Sunday, inclusive.
+// The 7 dates from [weekStart] (a Monday) through Sunday.
 List<DateTime> daysOfWeek(DateTime weekStart)
 {
   return List.generate(7, (i) => addDays(weekStart, i));
@@ -100,10 +83,6 @@ bool isSameDate(DateTime a, DateTime b)
   return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-// ---------------------------------------------------------------------------
-// Minutes from midnight
-// ---------------------------------------------------------------------------
-
 TimeOfDay timeOfDayFromMinutes(int minutes)
 {
   return TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
@@ -111,43 +90,33 @@ TimeOfDay timeOfDayFromMinutes(int minutes)
 
 int minutesOfTimeOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
 
-// ---------------------------------------------------------------------------
-// Labels
-// ---------------------------------------------------------------------------
-
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
 // "Lun".."Dom" for ISO weekday 1-7.
 String weekdayShortName(int weekday) => _weekdayNamesShort[weekday - 1];
 
-// "Lunedì".."Domenica" for ISO weekday 1-7 — the un-dated counterpart of
-// weekdayShortName, used where a full day name is needed without an actual
-// date (e.g. one wizard step per weekday).
+// "Lunedì".."Domenica" for ISO weekday 1-7.
 String weekdayFullName(int weekday) => _weekdayNamesFull[weekday - 1];
 
-// "Lunedì 27 dicembre" — the day-column label for the opening-hours table,
-// written out in full (not abbreviated, unlike the week-range caption below).
+// "Lunedì 27 dicembre".
 String formatWeekdayColumnLabel(DateTime date)
 {
   return '${_weekdayNamesFull[date.weekday - 1]} ${date.day} ${_monthNamesFull[date.month - 1]}';
 }
 
-// "27 lug" — used for the week-range caption next to the nav arrows.
+// "27 lug".
 String formatDayMonthShort(DateTime date)
 {
   return '${date.day} ${_monthNamesShort[date.month - 1]}';
 }
 
-// "27 dicembre" — a dated label without the weekday, for spans covering
-// several days where naming one weekday would be misleading.
+// "27 dicembre".
 String formatDayMonthFull(DateTime date)
 {
   return '${date.day} ${_monthNamesFull[date.month - 1]}';
 }
 
-// "Dal 20 al 22 agosto", collapsing the repeated month when both ends share
-// one. Callers use it for multi-day spans; a single day keeps the fuller
-// formatWeekdayColumnLabel instead.
+// "Dal 20 al 22 agosto", collapsing the repeated month.
 String formatDateSpan(DateTime start, DateTime end)
 {
   if (start.month == end.month && start.year == end.year)
@@ -158,9 +127,8 @@ String formatDateSpan(DateTime start, DateTime end)
   return 'Dal ${formatDayMonthFull(start)} al ${formatDayMonthFull(end)}';
 }
 
-// "09:00" — display-only formatting. Distinct from json_parsing.dart's
-// formatTimeOfDay, which produces "09:00:00" for requests sent to the
-// backend.
+// "09:00" — display-only; json_parsing's formatTimeOfDay makes "09:00:00"
+// for the backend.
 String formatTimeOfDayShort(TimeOfDay time)
 {
   return '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
@@ -172,17 +140,13 @@ String formatTimeRange(TimeOfDay start, TimeOfDay end)
   return '${formatTimeOfDayShort(start)}–${formatTimeOfDayShort(end)}';
 }
 
-// "09:00–13:00", from the two ends said in minutes from midnight.
-//
-// The calendar works in minutes from end to end and only turns them into a
-// TimeOfDay at the edges; this is one of those edges.
+// "09:00–13:00", from minutes from midnight.
 String formatMinutesRange(int startMinutes, int endMinutes)
 {
   return formatTimeRange(timeOfDayFromMinutes(startMinutes), timeOfDayFromMinutes(endMinutes));
 }
 
-// A number of minutes, said the way a timetable says it: "2h", "2h 30m",
-// "45m". Where hours and minutes both stand, they stand together.
+// "2h", "2h 30m", "45m".
 String formatMinutes(int minutes)
 {
   final hours = minutes ~/ 60;

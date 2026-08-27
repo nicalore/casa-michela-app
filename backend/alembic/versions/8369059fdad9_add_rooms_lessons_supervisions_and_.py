@@ -1,12 +1,4 @@
-"""aggiunge stanze, lezioni, responsabili e pubblicazioni del calendario
-
-Il calendario di una giornata: le lezioni, la stanza in cui ogni docente
-convocato lavora, chi risponde di quella stanza e quali fasce sono state
-pubblicate.
-
-Le chiavi esterne che reggono una lezione sono in RESTRICT e non in CASCADE,
-al contrario di tutto il resto dello schema: il calendario è un archivio, e
-nulla di ciò che lo sostiene può essere cancellato mentre la lezione esiste.
+"""add rooms, lessons, supervisions and calendar publications
 
 Revision ID: 8369059fdad9
 Revises: 4bfe4c59c661
@@ -34,11 +26,8 @@ _BAND_EXPRESSION = (
 
 
 def upgrade() -> None:
-    # First of all, and the reason is the composite foreign key below: Postgres
-    # wants a UNIQUE on exactly the columns a foreign key references. It is
-    # trivially satisfied, id being the primary key already, and costs one
-    # redundant index for the guarantee that a lesson's date and mode can never
-    # drift from its availability's.
+    # Postgres requires a UNIQUE on exactly the columns the composite FK below
+    # references; redundant with the PK, but keeps lesson date/mode from drifting.
     op.create_unique_constraint(
         "uq_availability_identity",
         "availabilities",

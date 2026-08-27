@@ -35,8 +35,7 @@ class AssociationSubjectCard extends StatelessWidget
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The callback that reopens the details carries the card's context
-          // along, not that of the dialog about to close.
+          // Reopen with the card's context, not the closing dialog's.
           onEditRequested(() => _showDetailsDialog(context));
         },
         onDelete: onDelete,
@@ -47,10 +46,6 @@ class AssociationSubjectCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // The name and what it is. The area used to be here and is gone: there are
-    // three areas, so one card in three repeats the same word, and whoever is
-    // looking for a discipline needs to know what is done inside it — the area is
-    // already told by the filter they searched with.
     final String? description = descriptionOrNull(subject.description);
 
     return AppCatalogueCard(
@@ -65,10 +60,8 @@ class AssociationSubjectCard extends StatelessWidget
 
 class _AssociationSubjectDetailsDialogContent extends StatelessWidget
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
 
-  // Narrow: a question of one sentence, and the two answers under it.
   static const double _confirmWidth = 480;
 
   static const double _detailsWidth = 600;
@@ -86,9 +79,6 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws
-  // something away, and the answer that does it should not be quieter than the
-  // one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -97,7 +87,6 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -151,10 +140,6 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(

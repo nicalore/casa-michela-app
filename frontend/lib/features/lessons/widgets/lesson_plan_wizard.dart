@@ -666,9 +666,6 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
     if (!failure)
     {
-      // Before the window goes: the banner comes out on the root overlay, so it
-      // stands over the calendar either way, and read here it is still about
-      // hours that were just written.
       if (_crowdsACertifiedStudent())
       {
         CustomSnackBar.show(
@@ -682,8 +679,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     }
   }
 
-  // Whether any of the hours just written landed beside another one with a
-  // certified pupil on either side of the overlap. Allowed, and said anyway.
+  // Overlap with a certified pupil's lesson is allowed, but warned about.
   bool _crowdsACertifiedStudent()
   {
     for (final part in _parts)
@@ -691,7 +687,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
       final slot = _slotOf(part);
       final existing = _entry.parts.where((lesson) => lesson.id == part.lessonId).firstOrNull;
 
-      // An hour nobody moved was not written, so it is not this save's overlap.
+      // Unchanged hours were not written by this save.
       if (slot == null || (existing != null && !_hasChanged(part, existing)))
       {
         continue;
@@ -1152,7 +1148,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
           : AppDialogFooter(
               maxWidth: _dialogFooterWidth,
               secondary: AppGradientButton(
-                label: 'RIMUOVI DAL CALENDARIO',
+                label: kRemoveFromCalendarLabel,
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
                 accent: AppTheme.trialDanger,

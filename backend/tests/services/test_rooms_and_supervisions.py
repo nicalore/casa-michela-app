@@ -63,8 +63,7 @@ async def test_a_convened_teacher_gets_a_room(db: AsyncSession) -> None:
     assert warnings == []
 
 
-# A room is handed out once the lessons are settled, so somebody with none has
-# nothing to be given.
+# No lessons, no room to be given.
 async def test_a_teacher_without_lessons_gets_no_room(db: AsyncSession) -> None:
     teacher = await make_teacher(db)
     await make_availability(db, teacher, day=DAY)
@@ -84,8 +83,7 @@ async def test_a_teacher_without_lessons_gets_no_room(db: AsyncSession) -> None:
     assert "in sede" in error.value.detail
 
 
-# Someone teaching from home occupies nothing, so asking which room they are in
-# has no answer.
+# A remote teacher occupies no room.
 async def test_a_teacher_working_from_home_gets_no_room(db: AsyncSession) -> None:
     built = await scene(db, teacher_mode="online", student_mode="online")
     await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
@@ -174,8 +172,7 @@ async def test_a_supervisor_takes_a_shift(db: AsyncSession) -> None:
     assert shift.id is not None
 
 
-# Not the service refusing but the database: the only foreign key on a shift
-# points at the assignment, so a teacher without that room cannot watch it.
+# Refused by the database: a shift's only FK points at the assignment.
 async def test_only_an_assigned_teacher_can_watch_a_room(
     db: AsyncSession,
 ) -> None:
@@ -196,8 +193,7 @@ async def test_only_an_assigned_teacher_can_watch_a_room(
         await db.flush()
 
 
-# Whoever watches over a room is in the building, so the shift has to fall
-# inside hours the teacher actually offered there.
+# The shift must fall inside the teacher's offered in-person hours.
 async def test_a_shift_outside_the_teachers_hours_is_refused(
     db: AsyncSession,
 ) -> None:
@@ -234,8 +230,7 @@ async def test_nobody_watches_two_rooms_at_once(db: AsyncSession) -> None:
         ),
     )
 
-    # Moving the teacher to the other room would be the only way to watch it,
-    # and their existing shift already covers these hours.
+    # The existing shift already covers these hours in the other room.
     with pytest.raises(HTTPException) as error:
         await supervisions(db).create(
         ADMIN_IDENTITY,
@@ -251,8 +246,7 @@ async def test_nobody_watches_two_rooms_at_once(db: AsyncSession) -> None:
     assert error.value.status_code == 400
 
 
-# The shifts belong to the assignment: taking the room away takes them too, and
-# the count comes back so it can be said rather than discovered.
+# Removing the assignment removes its shifts, and the count is reported.
 async def test_unassigning_takes_the_shifts_along(db: AsyncSession) -> None:
     built, room = await _assigned(db)
 
@@ -277,8 +271,7 @@ async def test_unassigning_takes_the_shifts_along(db: AsyncSession) -> None:
     assert await supervisions(db).list_for_day(DAY, room_id=None) == []
 
 
-# The catalogue is not a checklist: a day with little work leaves rooms shut,
-# and a room nobody is in asks for nothing.
+# Unused rooms need no supervision.
 async def test_unused_rooms_are_simply_unused(db: AsyncSession) -> None:
     built, used = await _assigned(db)
     await make_room(db)

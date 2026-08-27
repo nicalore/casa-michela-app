@@ -20,7 +20,6 @@ import 'lost_calendars.dart';
 import '../../../../core/utils/time_bucket.dart';
 import 'variation_group.dart';
 
-// The height and the size every button of this module's dialogs stands at.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
@@ -282,10 +281,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     return TimeBucket.values.any((b) => _bands[b]!.start != null && _bands[b]!.end != null);
   }
 
-  // The days the variation used to cover and no longer does, put back on the
-  // standard hours. It can take a calendar or an hour away like any other
-  // write, so it goes through the same question — and through the same answer,
-  // which is why the confirmation is handed in rather than made here.
+  // Restores standard hours on days the edited variation no longer covers.
+  // Shares the caller's LossConfirmation so the question is asked only once.
   Future<bool> _releaseDroppedDays(
     DateTime startDate,
     DateTime endDate,
@@ -362,8 +359,7 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
     var successCount = 0;
     final errors = <String>[];
 
-    // A closure is a day with no bands, an opening is a day with the ones that
-    // were filled in.
+    // A closure is a day with no bands.
     final List<(TimeOfDay, TimeOfDay)> bands = !_isOpen
         ? const []
         : [
@@ -372,10 +368,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
                 (_bands[bucket]!.start!, _bands[bucket]!.end!),
           ];
 
-    // Where a write would take a published calendar or an hour already given
-    // down, the server refuses it and says what it would have cost. The
-    // question is put once for the whole save: a window changing five days is
-    // one decision, not five.
+    // The server refuses writes that would drop published calendars or given
+    // hours until confirmed — asked once for the whole save.
     final confirmation = LossConfirmation(
       confirmLabel: _isOpen ? 'SALVA COMUNQUE' : 'CHIUDI COMUNQUE',
     );
@@ -396,10 +390,8 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
       return;
     }
 
-    // The day is written whole and in one call: a deletion followed by a
-    // creation would leave it, for as long as the two calls take, a day with no
-    // hours at all — which is a closure, and takes the day's lessons and its
-    // published calendar down with it.
+    // Each day is written whole in one call: delete-then-create would leave it
+    // momentarily closed, taking its lessons and published calendar with it.
     for (final date in dates)
     {
       if (!mounted)
@@ -442,10 +434,7 @@ class _ExtraordinaryHoursDialogState extends State<ExtraordinaryHoursDialog>
 
     setState(() => _isSaving = false);
 
-    // Turned back at the question about what the write would take away, with
-    // nothing written: there is nothing to report and nowhere to go. The window
-    // stays open on what was typed into it, which is where whoever said no
-    // meant to be.
+    // Declined before anything was written: nothing to report, dialog stays open.
     if (confirmation.declined && successCount == 0 && errors.isEmpty)
     {
       return;

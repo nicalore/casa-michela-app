@@ -9,22 +9,11 @@ import 'opening_hours_layout.dart';
 
 const String _closedLabel = 'Chiuso';
 
-// Shows the schedule actually in force right now, taken from the generated
-// calendar rather than from weekly_templates: a change dated in the future is
-// already stored in the templates but does not apply yet, and one dated in the
-// past has been superseded — reading the templates would show either as though
-// it were today's schedule.
-//
-// Laid out as a board rather than a list of "Lun–Ven / 09:00–13:00" rows: the
-// seven days run across the card and each one carries its own bands stacked
-// underneath, so the week is read left to right the way a timetable is. The
-// day-over-values arrangement follows the enrolment cards in
-// features/people/tabs/person_schools_tab.dart — a caption above the values it
-// labels, spread evenly across the full width of the card.
+// Shows the schedule in force right now, read from the generated calendar
+// rather than weekly_templates: templates can hold future or superseded rows.
 class StandardHoursCard extends StatelessWidget
 {
-  // A day holds at most a morning, an afternoon and an evening band, and the
-  // card is pinned to a height that clears exactly those three.
+  // The card height clears exactly three bands per day.
   static const int _maxBandsPerDay = 3;
 
   static const double _bandGap = 6;
@@ -41,9 +30,7 @@ class StandardHoursCard extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        // Once the days stack there are seven of them one under the other, far
-        // past the height the board is pinned to — so the pinned height applies
-        // to the side-by-side layout only.
+        // The pinned height applies to the side-by-side layout only.
         final isStacked = constraints.maxWidth < kHoursCompactBreakpoint;
 
         final card = AppCard(
@@ -60,15 +47,11 @@ class StandardHoursCard extends StatelessWidget
 
   Widget _buildBody(bool isStacked)
   {
-    // Nothing at all while loading: the card fills in fast, and any placeholder
-    // here only flashes.
     if (isLoading)
     {
       return const SizedBox.shrink();
     }
 
-    // A week with nothing configured at all reads better as one sentence than
-    // as seven columns of "Chiuso".
     if (!_hasAnyOpening)
     {
       return Text(
@@ -79,10 +62,6 @@ class StandardHoursCard extends StatelessWidget
 
     if (isStacked)
     {
-      // A day per line, its name on the left and its bands on the right, rather
-      // than seven centred columns one under the other: stacked, a column of
-      // centred text has nothing to line up against and reads as seven separate
-      // little cards.
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -94,9 +73,7 @@ class StandardHoursCard extends StatelessWidget
       );
     }
 
-    // Expanded rather than spaceEvenly: every day takes the same slice of the
-    // card regardless of how many bands it holds, so the day names stay evenly
-    // spaced and the bands underneath line up in rows across the week.
+    // Expanded rather than spaceEvenly: equal slices keep the bands lined up.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -105,7 +82,6 @@ class StandardHoursCard extends StatelessWidget
     );
   }
 
-  // One line of the stacked form.
   Widget _buildDayRow(int weekday)
   {
     final bands = _bandsFor(weekday);
@@ -137,8 +113,6 @@ class StandardHoursCard extends StatelessWidget
                     color: AppTheme.trialMutedText,
                   ),
                 )
-              // Wrapped, so a day with three bands runs on to a second line
-              // instead of pushing the two beside it off the card.
               : Wrap(
                   spacing: 14,
                   runSpacing: 4,
@@ -207,9 +181,7 @@ class StandardHoursCard extends StatelessWidget
     );
   }
 
-  // The day's opening bands, earliest first — so they read morning, afternoon,
-  // evening down the column. Capped at the three the card is sized for: a
-  // fourth band on one day would push that column past the pinned height.
+  // Earliest first, capped at the three bands the card is sized for.
   List<OpeningDayItem> _bandsFor(int weekday)
   {
     final bands = (scheduleByWeekday[weekday] ?? const <OpeningDayItem>[])

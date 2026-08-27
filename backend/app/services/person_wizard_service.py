@@ -64,9 +64,7 @@ _UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {na
 _DEFAULT_GRADE: Final[int] = 1
 
 
-# Attaches the services to a freshly created teacher, checking they exist:
-# without the check a wrong name would surface as a foreign key violation, that
-# is a 500 instead of a message naming what was wrong.
+# Existence is checked so a wrong name yields a message, not an FK 500.
 async def _add_teacher_services(
     db: AsyncSession,
     tax_code: str,
@@ -205,6 +203,11 @@ async def create_person_from_wizard(
                         if certification_type == CertificationTypeEnum.OTHER
                         else None
                     ),
+                    certification_dsa_detail=(
+                        student_data.certification_dsa_detail
+                        if certification_type == CertificationTypeEnum.DSA
+                        else None
+                    ),
                     mandatory_psych_meetings_acknowledged=(
                         student_data.mandatory_psych_meetings_acknowledged
                     ),
@@ -288,6 +291,7 @@ async def create_person_from_wizard(
                 db.add(
                     Teacher(
                         tax_code=person.tax_code,
+                        is_high_school_student=teacher_data.is_high_school_student,
                         school_education=teacher_data.school_education,
                         university_education=teacher_data.university_education,
                     )

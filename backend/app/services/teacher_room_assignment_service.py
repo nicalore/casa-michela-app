@@ -66,11 +66,9 @@ class TeacherRoomAssignmentService:
                 detail=_NOT_CONVENED_ERROR,
             )
 
-    # A room is one row for the whole day, so what it belongs to is not a band
-    # but the bands that teacher actually teaches in. Which is the right answer
-    # for the lock too: if the morning and the afternoon are being built by two
-    # people and the teacher is in both, neither of them moves their room until
-    # the other lets go.
+    # A room row spans the whole day, so it belongs to every band the teacher
+    # teaches in — the lock included: two band builders sharing a teacher
+    # cannot move the room independently.
     async def _bands_of(self, day: date, teacher_tax_code: str) -> set[str]:
         lessons = await self.lessons.list_for_day(day)
 

@@ -1,17 +1,12 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 
-// One place of a ranking: who was named, and by how many requests.
-//
-// The teacher travels as the same minimal person every picker and every
-// availability carries, so the circle beside the name is drawn by the same
-// widget here as everywhere else.
 class TeacherAppreciationItem
 {
   final PersonOptionItem teacher;
 
-  // A request may name three teachers on each side, so the counts of a period
-  // add up to more than the requests that period holds.
+  // A request may name three teachers per side, so a period's counts add up to
+  // more than its requests.
   final int requestCount;
 
   const TeacherAppreciationItem({
@@ -28,8 +23,6 @@ class TeacherAppreciationItem
   }
 }
 
-// The two ends of the same question, asked of one period: who the pupils asked
-// for, and who they asked to be spared.
 class TeacherAppreciationRankingItem
 {
   final List<TeacherAppreciationItem> mostAppreciated;

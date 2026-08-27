@@ -1,16 +1,5 @@
 """add teacher services
 
-Which services a teacher can take on, alongside the disciplines they teach.
-
-The twin of teaching_competences without the study programme: a discipline is
-taught differently to a first year and to a fifth, which is why competence is
-keyed by programme, but "metodo di studio" is the same help whoever asks for
-it. So the key here is just the teacher and the service.
-
-Both foreign keys carry ON UPDATE CASCADE: tax_code and a service's name are
-each a mutable natural key, and a rename on either side must not orphan the
-rows that point at it.
-
 Revision ID: deff88ef5884
 Revises: f205d001bebd
 Create Date: 2026-08-04 13:14:18.299539
@@ -53,8 +42,8 @@ def upgrade() -> None:
             name=op.f("pk_teacher_services"),
         ),
     )
-    # Per la domanda inversa: chi può seguire questo servizio. teacher_tax_code
-    # è già la colonna guida della chiave primaria e non ne ha bisogno.
+    # For the reverse lookup (who covers this service); teacher_tax_code already
+    # leads the primary key and needs no index.
     op.create_index(
         op.f("ix_teacher_services_service_name"),
         "teacher_services",

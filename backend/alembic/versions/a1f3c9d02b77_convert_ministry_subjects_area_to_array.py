@@ -27,7 +27,7 @@ def upgrade() -> None:
         create_type=False,
     )
 
-    # Ogni riga esistente ha un solo valore: viene avvolto in un array a un elemento
+    # Each existing row has a single value: wrapped into a one-element array.
     op.alter_column(
         'ministry_subjects',
         'area',
@@ -63,8 +63,7 @@ def downgrade() -> None:
         create_type=False,
     )
 
-    # ATTENZIONE: se una riga ha più di un'area, il downgrade mantiene solo la prima
-    # (le altre vengono perse in modo irreversibile)
+    # Downgrade keeps only the first area; any others are lost irreversibly.
     op.alter_column(
         'ministry_subjects',
         'area',

@@ -11,40 +11,28 @@ import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../models/person_item.dart';
 
-// The pieces the tabs of a person's page are built from. The panel is AppCard's
-// and the rows are AppInfoRow's — the same objects the settings pages are made
-// of, since they are showing the same thing: a person's own values, read only.
-
 const double _rowGap = 16;
 
-// The vertical rhythm, and the whole of what says which card belongs to which
-// heading: cards of a run are close, a run and the next heading far apart. One
-// gap for both reads as an undifferentiated stack.
 const double kPersonTitleGap = 20;
 const double kPersonCardGap = 24;
 
-// A card casts a shadow beyond its edges and a scroll view clips what leaves
-// its own, so without this the last row has its shadow cut clean off.
+// Keeps the last row's shadow from being clipped by the scroll view.
 const double kPersonGridShadowRoom = 12;
 const double kPersonSectionGap = 56;
 
-// Where a round icon button has to start to sit on the middle of the box of an
-// AppTextField beside it, rather than on the middle of the whole field — label
-// included — or a dozen pixels above it.
+// Centres a round icon button on the box of an AppTextField beside it.
 const double kPersonFieldButtonSize = 36;
 const double kPersonFieldButtonInset =
     AppTextField.labelBlockHeight + (AppTextField.boxHeight - kPersonFieldButtonSize) / 2;
 
-// The two buttons at the foot of every window opened from this page, at the
-// size the rest of the app's dialogs use.
 const double kPersonDialogButtonHeight = 52;
 const double kPersonDialogButtonFontSize = 14;
 
-// Placeholder shown wherever a value is missing.
+// Shared by all wide cards so their value columns align; fits the longest label.
+const double kPersonWideCardLabelWidth = 230;
+
 const String missingValue = '-';
 
-// Trims and falls back to [missingValue], so a field made of spaces reads as
-// absent rather than blank.
 String orDash(String? value)
 {
   final trimmed = value?.trim();
@@ -52,24 +40,25 @@ String orDash(String? value)
   return trimmed == null || trimmed.isEmpty ? missingValue : trimmed;
 }
 
-// One label and value pair inside a [PersonDetailCard].
 class DetailRowData
 {
   final String label;
   final String value;
 
-  // Renders the value masked with a reveal toggle. Used for the fields that
-  // should not be readable by anyone glancing at the screen.
   final bool isSensitive;
 
-  const DetailRowData(this.label, this.value, {this.isSensitive = false});
+  final Widget? valueWidget;
+
+  const DetailRowData(this.label, this.value, {this.isSensitive = false})
+      : valueWidget = null;
+
+  const DetailRowData.drawn(this.label, this.valueWidget)
+      : value = '',
+        isSensitive = false;
 }
 
-// Side by side above the breakpoint, stacked below, stretched to equal height.
-//
 // The LayoutBuilder must stay outside IntrinsicHeight: intrinsic measurement
-// cannot resolve one and throws. The same holds for everything the cards are
-// made of, which is why AppCard and AppInfoRow lay out without measuring.
+// cannot resolve one and throws.
 class PersonDetailCardPair extends StatelessWidget
 {
   static const double _breakpoint = 820.0;
@@ -113,19 +102,14 @@ class PersonDetailCardPair extends StatelessWidget
   }
 }
 
-// A card of the person's own values: the badge and heading of every card in the
-// app, and a column of label and value pairs under the rule.
 class PersonDetailCard extends StatelessWidget
 {
   final String title;
   final IconData icon;
 
-  // A null entry renders as an invisible row: it pads the shorter card so the
-  // visible rows of two cards side by side stay on the same lines.
+  // A null entry renders as an invisible row, padding the shorter card of a pair.
   final List<DetailRowData?> rows;
 
-  // Width of the label column. Cards with long labels need more room, and the
-  // two halves of a pair usually differ.
   final double labelWidth;
 
   const PersonDetailCard({
@@ -171,6 +155,7 @@ class PersonDetailCard extends StatelessWidget
           label: rowData.label,
           value: rowData.value,
           labelWidth: labelWidth,
+          valueWidget: rowData.valueWidget,
         );
       }
 
@@ -200,9 +185,7 @@ class PersonDetailCard extends StatelessWidget
   }
 }
 
-// Masked by default, revealed by the eye toggle. The visibility lives on the
-// single row rather than on the whole card, so revealing one value does not
-// expose the others.
+// Visibility is per row, so revealing one value does not expose the others.
 class _ObscurableDetailRow extends StatefulWidget
 {
   final String label;
@@ -223,11 +206,8 @@ class _ObscurableDetailRowState extends State<_ObscurableDetailRow>
 {
   bool _isVisible = false;
 
-  // No toggle when there is nothing to reveal: hiding a dash makes no sense.
   bool get _hasValue => widget.value.isNotEmpty && widget.value != missingValue;
 
-  // Replaces every non space character with a dot, so the grouping of the
-  // original value stays readable while masked.
   String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
 
   @override
@@ -263,30 +243,20 @@ class _ObscurableDetailRowState extends State<_ObscurableDetailRow>
   }
 }
 
-// One of the facts across a card: what it is over what it says.
 class PersonFact
 {
   final String label;
   final String value;
 
-  // Share of the row this one takes: a school's name runs to a line of text
-  // while a class is a roman numeral, and in equal parts the names wrap to
-  // three lines beside columns of white.
   final int flex;
 
-  // Draws the value in the danger colour. For the one fact on these cards that
-  // is worth stopping at — a school year repeated.
   final bool highlight;
 
   const PersonFact(this.label, this.value, {this.flex = 1, this.highlight = false});
 
-  // Under this the column stops being readable, whatever share it was given.
-  // Wider facts need more of it, which is the whole reason they are wider.
   double get minWidth => 90 + 30.0 * flex;
 }
 
-// The facts of a membership side by side rather than in a column, which is a
-// long card saying very little. They stack only where the card is too narrow.
 class PersonFactsRow extends StatelessWidget
 {
   static const double _stackedGap = 20;
@@ -344,10 +314,7 @@ class PersonFactsRow extends StatelessWidget
           );
         }
 
-        // Each fact takes what it needs up to its share, and the rest is spread
-        // evenly: held open at full share, a short value sat alone in four
-        // hundred pixels and pushed the row off the card. Loose allows both — a
-        // longer fact still wraps inside its share.
+        // FlexFit.loose: at full share a short value pushed the row off the card.
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -366,9 +333,7 @@ class PersonFactsRow extends StatelessWidget
 }
 
 
-// Someone being picked in a dialog: the card of the people list cut down to the
-// picture and the name, since the question is "which person" and not "what do
-// they do". Fixed height with the band always there, or the grid jumps.
+// Fixed height with the actions band always present, or the grid jumps.
 class PersonPickerCard extends StatefulWidget
 {
   static const double width = 230;
@@ -380,8 +345,6 @@ class PersonPickerCard extends StatefulWidget
   final bool isSelected;
   final VoidCallback onTap;
 
-  // Given only where a chosen card has something more to say than "chosen": the
-  // authorisation to collect a child is edited from here.
   final VoidCallback? onEdit;
   final VoidCallback? onRemove;
 
@@ -448,9 +411,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
   @override
   Widget build(BuildContext context)
   {
-    // A chosen card carrying its own actions is no longer tappable as a whole:
-    // with the two buttons on it, a tap anywhere else would be a third meaning
-    // for the same card.
+    // A card with its own action buttons is not tappable as a whole.
     final bool hasActions =
         widget.isSelected && (widget.onEdit != null || widget.onRemove != null);
 
@@ -528,15 +489,6 @@ class _PersonPickerCardState extends State<PersonPickerCard>
   }
 }
 
-// The mark that says whether something is in or out: the brand ramp when it is,
-// an outline when it is not, a dash for a group only partly in.
-//
-// onTap is left out where the mark decorates a row that is itself tappable: two
-// hit targets for one answer is one too many.
-
-// One row of an editable list inside a dialog: the fields on a ground of their
-// own, so a list of three of them reads as three things rather than as six
-// fields in a column.
 class PersonEditRow extends StatelessWidget
 {
   final Widget child;
@@ -558,13 +510,6 @@ class PersonEditRow extends StatelessWidget
   }
 }
 
-// A small, quiet action inside a dialog — selecting all of something, clearing
-// it — where a gradient button would be shouting as loudly as SALVA at the foot.
-// Outlined, and gold when the pointer arrives.
-
-// A heading over a run of cards inside a tab — "Iscrizione attuale" over the
-// membership that is running. Smaller than a card's own title, because it names
-// a group of cards rather than what is in one.
 class PersonSectionTitle extends StatelessWidget
 {
   final String text;
@@ -585,8 +530,6 @@ class PersonSectionTitle extends StatelessWidget
   }
 }
 
-// What a tab says when it has nothing to show: the sentence, and where there is
-// something to be done about it, the button that does it.
 class PersonEmptyState extends StatelessWidget
 {
   final String message;

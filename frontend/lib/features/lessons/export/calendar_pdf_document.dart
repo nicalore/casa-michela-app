@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_publication_item.dart';
 import '../models/lesson_item.dart';
@@ -144,6 +145,10 @@ class _Styles
 
   pw.TextStyle blockHours(String mode) => _style(6.5, fonts.bold, pdfLessonAccent(mode));
 
+  late final pw.TextStyle activityHours = _style(6.5, fonts.bold, kPdfActivity);
+
+  late final pw.TextStyle activityCellHours = _style(7.5, fonts.bold, kPdfActivity);
+
   pw.TextStyle blockWhere(String mode) => _style(6, fonts.bold, pdfLessonAccent(mode));
 
   late final pw.TextStyle tableHead = _style(7.5, fonts.bold, kPdfInk);
@@ -199,6 +204,7 @@ pw.Widget _titleWords(CalendarExportData data, _Styles styles)
           _count(counts.teachers, 'docente convocato', 'docenti convocati'),
           _count(counts.students, 'studente', 'studenti'),
           _count(counts.lessons, 'lezione', 'lezioni'),
+          if (counts.activities > 0) _count(counts.activities, 'attività', 'attività'),
         ].join(' · '),
         style: styles.meta,
       ),
@@ -447,10 +453,10 @@ pw.Widget _trackRow(
   final track = _gridFormat.availableWidth - kNameColumnWidth;
   final minutes = window.$2 - window.$1;
 
-  double widthOf(LessonItem lesson)
+  double widthOf(int startMinutes, int endMinutes)
   {
-    final start = lesson.startMinutes.clamp(window.$1, window.$2);
-    final end = lesson.endMinutes.clamp(window.$1, window.$2);
+    final start = startMinutes.clamp(window.$1, window.$2);
+    final end = endMinutes.clamp(window.$1, window.$2);
 
     return track * (end - start) / minutes - 2 * kBlockGap;
   }
@@ -459,10 +465,19 @@ pw.Widget _trackRow(
     name: _laneHead(data, styles, lane),
     blocks: [
       for (final lesson in lane.lessons)
-        _block(data, styles, lesson, widthOf(lesson)),
+        _block(data, styles, lesson, widthOf(lesson.startMinutes, lesson.endMinutes)),
+      for (final activity in lane.activities)
+        _activityBlock(styles, activity, widthOf(activity.startMinutes, activity.endMinutes)),
     ],
-    spans: [for (final lesson in lane.lessons) (lesson.startMinutes, lesson.endMinutes)],
-    laneOf: subLanes.laneOf,
+    spans: [
+      for (final lesson in lane.lessons) (lesson.startMinutes, lesson.endMinutes),
+      for (final activity in lane.activities) (activity.startMinutes, activity.endMinutes),
+    ],
+    // Activities always take the top sub-lane: they never overlap lessons.
+    laneOf: [
+      ...subLanes.laneOf,
+      for (final _ in lane.activities) 0,
+    ],
     laneCount: subLanes.laneCount,
     windowStart: window.$1,
     windowEnd: window.$2,
@@ -525,6 +540,34 @@ pw.Widget _block(CalendarExportData data, _Styles styles, LessonItem lesson, dou
         pw.Text(lessonTitle(lesson, view: data.view), style: styles.blockWho),
         pw.Text(about.subject, style: styles.blockSubject),
         if (data.isByStudent) pw.Text(where.label, style: styles.blockWhere(lesson.mode)),
+      ],
+    ),
+  );
+}
+
+pw.Widget _activityBlock(_Styles styles, ScheduledActivity scheduled, double width)
+{
+  final usable = width - kBlockChrome;
+  final description = scheduled.description;
+
+  return pw.Container(
+    decoration: pw.BoxDecoration(
+      color: kPdfActivitySurface,
+      border: pw.Border.all(color: kPdfActivity, width: 0.6),
+      borderRadius: pw.BorderRadius.circular(2.5),
+    ),
+    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.5),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          usable >= 40 * _typeScale
+              ? formatMinutesRange(scheduled.startMinutes, scheduled.endMinutes)
+              : formatTimeOfDayShort(timeOfDayFromMinutes(scheduled.startMinutes)),
+          style: styles.activityHours,
+        ),
+        pw.Text(scheduled.name, style: styles.blockWho),
+        if (description != null) pw.Text(description, style: styles.blockSubject),
       ],
     ),
   );
@@ -679,20 +722,43 @@ pw.Widget _lessonHead(String label, _Styles styles)
 
 pw.Widget _lessonsCell(CalendarExportData data, _Styles styles, CalendarLane lane)
 {
-  if (lane.lessons.isEmpty)
+  if (lane.lessons.isEmpty && lane.activities.isEmpty)
   {
     return _cell(pw.Text('Nessuna lezione', style: styles.cellQuiet));
   }
+
+  final rows = <({int startMinutes, pw.TableRow row})>[
+    for (final lesson in lane.lessons)
+      (startMinutes: lesson.startMinutes, row: _lessonRow(data, styles, lesson)),
+    for (final activity in lane.activities)
+      (startMinutes: activity.startMinutes, row: _activityRow(data, styles, activity)),
+  ]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
   return _cell(pw.Table(
     columnWidths: _lessonColumnsFor(data),
     border: pw.TableBorder(
       horizontalInside: pw.BorderSide(color: kPdfLine, width: 0.4),
     ),
-    children: [
-      for (final lesson in lane.lessons) _lessonRow(data, styles, lesson),
-    ],
+    children: [for (final entry in rows) entry.row],
   ));
+}
+
+pw.TableRow _activityRow(
+  CalendarExportData data,
+  _Styles styles,
+  ScheduledActivity scheduled,
+)
+{
+  final fields = exportActivityFields(scheduled);
+
+  return pw.TableRow(
+    children: [
+      _lessonField(pw.Text(fields.hours, style: styles.activityCellHours)),
+      _lessonField(pw.Text(fields.who, style: styles.cellLesson)),
+      _lessonField(pw.Text(fields.subject, style: styles.cellLesson)),
+      if (data.isByStudent) _lessonField(pw.SizedBox()),
+    ],
+  );
 }
 
 pw.TableRow _lessonRow(CalendarExportData data, _Styles styles, LessonItem lesson)

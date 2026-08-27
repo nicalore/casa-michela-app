@@ -104,8 +104,7 @@ async def _assert_name_available(
     level: EducationLevelEnum,
     sector: str | None,
 ) -> None:
-    # The sector is part of the identity: the same programme name under two
-    # different sectors is two different programmes.
+    # The sector is part of the programme's identity.
     stmt = select(StudyProgram).where(
         StudyProgram.name.ilike(name),
         StudyProgram.level == level,

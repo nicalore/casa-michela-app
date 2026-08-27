@@ -15,24 +15,10 @@ from app.models.opening_day import OpeningDay
 from app.models.presence import Presence
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 
-# What a change of the opening hours does to the hours given against them.
-#
-# An availability is a teacher saying "I am here while you are open", and a
-# presence is a family saying it for a pupil. Both are answers to the hours, and
-# both hold only as long as the hours they answered to: an hour that ends up
-# outside what the association opens is not a shorter hour, it is an hour nobody
-# can be held to. It goes, and it takes with it the lessons built on it, the
-# requests booked into it and the rooms handed out for it.
-#
-# Whole and not clipped: an offer cut down to what is left of it is an offer
-# nobody made. Where a change leaves a stretch only half inside, what stood
-# there is taken away and given again — by the teacher, by the family — against
-# the hours as they now are.
+# Availabilities/presences left outside the new openings are deleted whole,
+# never clipped, together with the lessons, bookings, and rooms built on them.
 
 
-# What a write took away with the hours it moved. Counted rather than named:
-# the question it is put behind is whether to go ahead, and a list of forty
-# hours is not read by anybody deciding that.
 @dataclass(frozen=True)
 class PurgedHours:
     availabilities: int = 0
@@ -47,9 +33,7 @@ def _merged(spans: list[tuple[time, time]]) -> list[tuple[time, time]]:
     merged: list[tuple[time, time]] = []
 
     for start, end in sorted(spans):
-        # Touching counts as one stretch: a morning ending where the afternoon
-        # begins is open across the seam, and an hour written over it is inside
-        # the association's day.
+        # Touching spans merge: adjacent openings count as one stretch.
         if merged and start <= merged[-1][1]:
             merged[-1] = (merged[-1][0], max(merged[-1][1], end))
 
@@ -125,9 +109,6 @@ async def _outside_rows(
     ]
 
 
-# The lessons that cannot outlive what is being taken away: one stands on an
-# availability, and both of them refuse to go while a lesson is still holding
-# them.
 async def _lessons_standing_on(
     session: AsyncSession,
     availability_ids: set[int],
@@ -195,13 +176,8 @@ async def _drop_orphan_room_assignments(
     await session.flush()
 
 
-# Every way of writing the hours ends here. A day that shuts is the widest case
-# of it and not a case apart: with no hours left, nothing on it is inside
-# anything, so all of it goes.
-#
-# What goes is not asked about here. The calendars that had gone out on those
-# lessons are calendar_hours_sync's to answer for, and it refuses the whole
-# write until somebody has said they know what it costs.
+# Every hours write ends here; a fully closed day purges everything.
+# Confirmation of the cost is calendar_hours_sync's responsibility, not this.
 async def purge_hours_outside_openings(
     session: AsyncSession,
     dates: Iterable[date],
@@ -244,8 +220,7 @@ async def purge_hours_outside_openings(
     for availability in availabilities:
         await session.delete(availability)
 
-    # The requests booked into it go with the hour they were booked into: the
-    # database says so too, bookings hanging off the presence with a cascade.
+    # Bookings cascade with their presence.
     for presence in presences:
         await session.delete(presence)
 

@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../utils/opening_window.dart';
+import '../widgets/calendar_activity_block.dart';
 
 PdfColor _pdf(Color colour)
 {
@@ -26,6 +27,9 @@ final PdfColor kPdfPresenceSurface = _pdf(AppTheme.todaySurface);
 
 final PdfColor kPdfOnline = _pdf(AppTheme.modifiedAccent);
 final PdfColor kPdfOnlineSurface = _pdf(AppTheme.modifiedAccentSurface);
+
+final PdfColor kPdfActivity = _pdf(kActivityAccent);
+final PdfColor kPdfActivitySurface = _pdf(kActivitySurface);
 
 final PdfColor kPdfLine = _pdf(AppTheme.trialLine);
 final PdfColor kPdfRule = _pdf(AppTheme.closedLine);

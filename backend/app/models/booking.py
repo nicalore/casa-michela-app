@@ -55,7 +55,7 @@ _MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
     "disciplina singola o un servizio"
 )
 
-# The most one pupil may spend on one discipline in a day, in one mode.
+# Max minutes per student per discipline per day, per mode.
 _MAX_DISCIPLINE_MINUTES_PER_DAY: Final[int] = 120
 
 _DISCIPLINE_OVER_DAILY_LIMIT_ERROR: Final[str] = (
@@ -84,16 +84,12 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
             "duration BETWEEN 30 AND 120 AND duration % 15 = 0",
             name="booking_duration_step",
         ),
-        # Three shapes of request: a ministry subject with its disciplines
-        # (neither column set), a discipline alone, or a service. The two columns
-        # exclude each other here; the child table is held by the hook below,
-        # since a CHECK cannot count rows in one.
+        # Both columns null means a ministry-subject request; the child-table
+        # side is enforced by the hook below, since a CHECK cannot count rows.
         CheckConstraint(
             "num_nonnulls(association_subject_id, service_name) <= 1",
             name="booking_single_request_kind",
         ),
-        # A service has neither a topic nor a kind of test: "study method" is
-        # the thing itself, not a lesson about something.
         CheckConstraint(
             "service_name IS NULL OR (cardinality(tags) = 0 AND topic IS NULL)",
             name="booking_service_has_no_tag_or_topic",
@@ -112,9 +108,6 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
 
     duration: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # What kind of hour this is: revising for an oral, catching up on homework,
-    # going beyond the syllabus. More than one, or none: an hour is often two
-    # things at once, and whoever cannot say is still asking for a lesson.
     tags: Mapped[list[BookingTagEnum]] = mapped_column(
         ARRAY(SqlEnum(BookingTagEnum, name="booking_tag_enum")),
         nullable=False,
@@ -122,24 +115,18 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
         server_default="{}",
     )
 
-    # What the lesson is about, in the pupil's own words. A sentence, not an
-    # essay.
     topic: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    # Anything else the teacher should know before the hour starts.
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
-    # A discipline asked for on its own, outside any ministry subject: what a
-    # pupil reaches for when what they need is not on their own syllabus. Null
-    # on every other kind of request.
+    # Set only for a standalone-discipline request.
     association_subject_id: Mapped[int | None] = mapped_column(
         ForeignKey("association_subjects.id", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=True,
         index=True,
     )
 
-    # Or a service, which is not a subject at all, keyed by its renameable name.
-    # Null on every other kind.
+    # Set only for a service request.
     service_name: Mapped[str | None] = mapped_column(
         ForeignKey("services.name", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=True,
@@ -157,30 +144,22 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    # Ordered by tax code only so the response is stable between reads: the
-    # three named on either side are a set, not a ranking.
     teacher_preferences: Mapped[list[BookingTeacherPreference]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",
         order_by="BookingTeacherPreference.teacher_tax_code",
     )
 
-    # No delete-orphan and passive_deletes="all" on purpose: presences cascade
-    # onto their bookings, and a delete-orphan collection would be loaded on the
-    # way — which raises under async — and then delete around the restriction
-    # that keeps the calendar.
+    # No delete-orphan on purpose: it would lazy-load (raises under async) and
+    # delete around the RESTRICT that protects the calendar.
     lesson_bookings: Mapped[list[LessonBooking]] = relationship(
         back_populates="booking",
         passive_deletes="all",
     )
 
 
-# What the CHECK cannot see: whether the requested subjects are there when they
-# are needed and absent when they are not.
-#
-# New bookings only. On a stored one the rows a replacement discards are not
-# among session.deleted yet, so counting them would reject a legitimate edit;
-# edits go through the services, which rewrite kind and subjects together.
+# New bookings only: on a stored one a replacement's discarded rows are not in
+# session.deleted yet, and edits go through the services anyway.
 @event.listens_for(Session, "before_flush")
 def _validate_booking_request_kind(
     session: Session,
@@ -203,8 +182,6 @@ def _validate_booking_request_kind(
             staged[key] = staged.get(key, 0) + 1
 
     for booking in new_bookings:
-        # An unflushed booking is reached by its children through identity; one
-        # that already carries an id, through that id.
         count = staged.get(pending_booking_key(booking), 0)
 
         if booking.id is not None:
@@ -237,9 +214,6 @@ def _deleted_ids_of(session: Session, model: type[Any]) -> set[Any]:
     return {instance.id for instance in deleted_instances(session, model)}
 
 
-# Which (student, day, mode) this flush touches — every one of them has to be
-# counted again, whether what moved was a stretch of the day or an hour inside
-# it.
 def _affected_days(
     session: Session,
     pending_presences: Sequence[Any],
@@ -263,8 +237,8 @@ def _pending_ids(entities: Sequence[Any]) -> set[Any]:
     return {entity.id for entity in entities if entity.id is not None}
 
 
-# Pending rows shadow their stored counterparts, deleted ones drop out, and rows
-# not yet flushed are keyed by identity so two of them never collapse into one.
+# Pending rows shadow stored ones; unflushed rows are keyed by identity so two
+# never collapse into one.
 def _total_minutes(
     persisted_minutes: dict[Any, int],
     pending: Sequence[Any],
@@ -293,9 +267,8 @@ def _validate_booking_duration_within_presence(
 ) -> None:
     from app.models.presence import Presence
 
-    # Deletions only shrink a pupil's minutes and can never turn a valid day
-    # invalid. Counted per mode: an hour asked online cannot be taught out of
-    # the hours spent in the building, so the two budgets never lend.
+    # Counted per mode: the online and in-presence budgets never lend to each
+    # other. Deletions alone can never invalidate a day.
     pending_presences = pending_instances(session, Presence)
     pending_bookings = pending_instances(session, Booking)
 
@@ -308,10 +281,8 @@ def _validate_booking_duration_within_presence(
     deleted_booking_ids = _deleted_ids_of(session, Booking)
 
     for student_tax_code, day, mode in affected:
-        # Queried explicitly rather than navigated through relationship
-        # collections, so this is correct regardless of whether related objects
-        # were built via the relationship or via the raw FK column, and of what
-        # else happens to be cached in the identity map.
+        # Queried explicitly so the result does not depend on what the identity
+        # map happens to have cached.
         persisted_presence_rows = session.execute(
             select(Presence.id, Presence.start_time, Presence.end_time).where(
                 Presence.student_tax_code == student_tax_code,
@@ -380,8 +351,7 @@ def _add_minutes(
     disciplines: set[int],
     duration: int,
 ) -> None:
-    # The whole lesson on each of them: an hour covering three disciplines is an
-    # hour of each and not twenty minutes apiece.
+    # An hour covering N disciplines counts as a full hour of each.
     for discipline in disciplines:
         totals[discipline] = totals.get(discipline, 0) + duration
 
@@ -395,9 +365,6 @@ def _validate_discipline_minutes_within_day(
     from app.models.booking_disciplines import disciplines_of, stored_disciplines
     from app.models.presence import Presence
 
-    # Two hours of one discipline in a day is where a lesson stops teaching and
-    # starts filling time. Per mode, like the day's budget, and deletions are
-    # again not a reason to check.
     pending_presences = pending_instances(session, Presence)
     pending_bookings = pending_instances(session, Booking)
 
@@ -428,8 +395,6 @@ def _validate_discipline_minutes_within_day(
             and presence.mode == mode
         ]
 
-        # A booking already in the database is read from it, unless this flush is
-        # rewriting it — then what it says now is what counts.
         pending_ids = _pending_ids(day_bookings)
 
         persisted_rows = (
@@ -463,8 +428,7 @@ def _validate_discipline_minutes_within_day(
             )
 
         for booking in day_bookings:
-            # A booking that says nothing about its subjects in this flush is
-            # still covering whatever is stored for it.
+            # A booking silent about its subjects still covers its stored ones.
             _add_minutes(
                 minutes_by_discipline,
                 disciplines_of(session, booking, stored=stored),

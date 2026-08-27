@@ -51,14 +51,12 @@ def _closure_rows(day: date, label: str) -> Iterator[tuple[_SlotKey, OpeningDay]
         )
 
 
-# Presence and online are independent: every template row carries its own hours
-# and inherits none from the other mode.
+# Modes are independent: no hour inheritance between them.
 def _template_rows(
     day: date,
     templates: Sequence[WeeklyTemplate],
 ) -> Iterator[tuple[_SlotKey, OpeningDay]]:
     for template in templates:
-        # A rule only applies from its effective date on.
         if template.effective_from > day:
             continue
 
@@ -74,9 +72,8 @@ def _template_rows(
         )
 
 
-# Script-only, never imported by an API router: seed_holidays and
-# generate_opening_days are meant to be launched from backend/scripts/, and
-# keeping them physically apart makes exposing them by mistake impossible.
+# Script-only, never imported by an API router, so these cannot be exposed
+# by mistake.
 class OpeningDayGenerationService:
     def __init__(
         self,
@@ -138,8 +135,7 @@ class OpeningDayGenerationService:
 
             label = holidays_by_year[current.year].get(current)
 
-            # A holiday closes the day in both modes, and the standard hours of
-            # that weekday do not apply to it at all.
+            # A holiday closes the day in both modes; weekday hours do not apply.
             candidates: Iterable[tuple[_SlotKey, OpeningDay]] = (
                 _closure_rows(current, label)
                 if label is not None

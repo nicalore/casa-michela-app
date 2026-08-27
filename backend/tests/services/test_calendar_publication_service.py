@@ -100,8 +100,7 @@ async def admin(db: AsyncSession):
     return identity_of(administrator.tax_code, "ADMIN")
 
 
-# Whoever was building has gone away: the last beat is old enough that the band
-# is nobody's again. A bozza, which lives in the database, is still open.
+# Ages the lock heartbeat past its TTL: the band is free, the draft stays open.
 async def _abandon_the_band(db: AsyncSession) -> None:
     await db.execute(
         update(CalendarBandLock).values(
@@ -112,11 +111,16 @@ async def _abandon_the_band(db: AsyncSession) -> None:
     await db.flush()
 
 
-async def _settled_afternoon(db: AsyncSession, *, capacity: int | None = None):
-    built = await scene(db)
-    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
-
+async def give_a_room(
+    db: AsyncSession,
+    built,  # noqa: ANN001 - the Scene of tests.services.test_lesson_service
+    *,
+    start: time = time(15),
+    end: time = time(16),
+    capacity: int | None = None,
+):
     room = await make_room(db, capacity=capacity)
+
     await assignments(db).assign(
         ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
@@ -131,12 +135,19 @@ async def _settled_afternoon(db: AsyncSession, *, capacity: int | None = None):
             date=DAY,
             teacher_tax_code=built.teacher.tax_code,
             room_id=room.id,
-            start_time=time(15),
-            end_time=time(16),
+            start_time=start,
+            end_time=end,
         ),
     )
 
-    return built, room
+    return room
+
+
+async def _settled_afternoon(db: AsyncSession, *, capacity: int | None = None):
+    built = await scene(db)
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+
+    return built, await give_a_room(db, built, capacity=capacity)
 
 
 async def test_a_settled_band_is_published(db: AsyncSession) -> None:
@@ -247,44 +258,63 @@ async def test_a_discipline_left_untaught_stops_publication(
     assert "non sono assegnate" in error.value.detail
 
 
-async def test_a_teacher_without_a_room_still_publishes(db: AsyncSession) -> None:
+async def test_a_teacher_without_a_room_stops_publication(
+    db: AsyncSession,
+) -> None:
     built = await scene(db)
     await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
 
-    publication, warnings = await publications(db).publish(
-        ADMIN_IDENTITY,
-        AFTERNOON,
-    )
+    with pytest.raises(HTTPException) as error:
+        await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
 
-    assert publication.band == "AFTERNOON"
-    assert warnings == []
+    assert error.value.status_code == 400
+    assert "stanza assegnata" in error.value.detail
+    assert "Anna Bianchi" in error.value.detail
 
 
-async def test_a_gap_in_the_cover_still_publishes(db: AsyncSession) -> None:
-    built = await scene(db, duration=120)
+async def test_a_gap_in_the_cover_stops_publication(db: AsyncSession) -> None:
+    built = await scene(db)
+    await lesson_service(db).create(ADMIN_IDENTITY, payload(built))
+
+    room = await give_a_room(db, built)
+
+    beside = await scene(db)
     await lesson_service(db).create(
         ADMIN_IDENTITY,
-        payload(built, start=time(15), end=time(17)),
+        payload(beside, start=time(17), end=time(18)),
     )
-
-    room = await make_room(db)
     await assignments(db).assign(
         ADMIN_IDENTITY,
         TeacherRoomAssignmentCreate(
             date=DAY,
-            teacher_tax_code=built.teacher.tax_code,
+            teacher_tax_code=beside.teacher.tax_code,
             room_id=room.id,
         ),
     )
-    await supervisions(db).create(
+
+    with pytest.raises(HTTPException) as error:
+        await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    assert error.value.status_code == 400
+    assert "responsabile" in error.value.detail
+    assert room.name in error.value.detail
+
+
+# A supervisor's own teaching hours count as covered without a separate shift.
+async def test_an_hour_given_to_a_supervisor_needs_no_new_shift(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, duration=120)
+    await lesson_service(db).create(
         ADMIN_IDENTITY,
-        RoomSupervisionCreate(
-            date=DAY,
-            teacher_tax_code=built.teacher.tax_code,
-            room_id=room.id,
-            start_time=time(15),
-            end_time=time(16),
-        ),
+        payload(built, start=time(15), end=time(16)),
+    )
+
+    await give_a_room(db, built, start=time(15), end=time(16))
+
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(17), end=time(18)),
     )
 
     publication, _ = await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
@@ -330,6 +360,72 @@ async def test_an_empty_hour_between_two_lessons_is_not_a_gap(
     publication, _ = await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
 
     assert publication.band == "AFTERNOON"
+
+
+async def test_a_teacher_convened_in_the_bozza_needs_a_room(
+    db: AsyncSession,
+) -> None:
+    await _settled_afternoon(db)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    called = await scene(db)
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(called, start=time(17), end=time(18)),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert error.value.status_code == 400
+    assert "stanza assegnata" in error.value.detail
+    assert "Anna Bianchi" in error.value.detail
+
+
+async def test_an_hour_beyond_the_supervisors_stops_the_bozza(
+    db: AsyncSession,
+) -> None:
+    _, room = await _settled_afternoon(db)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    beside = await scene(db)
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(beside, start=time(17), end=time(18)),
+    )
+    await assignments(db).assign(
+        ADMIN_IDENTITY,
+        TeacherRoomAssignmentCreate(
+            date=DAY,
+            teacher_tax_code=beside.teacher.tax_code,
+            room_id=room.id,
+        ),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert error.value.status_code == 400
+    assert "responsabile" in error.value.detail
+    assert room.name in error.value.detail
+
+
+async def test_moving_a_supervisors_hour_leaves_the_bozza_publishable(
+    db: AsyncSession,
+) -> None:
+    await _settled_afternoon(db)
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+    await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    lesson = (await db.execute(select(Lesson))).scalars().one()
+    lesson.start_time, lesson.end_time = time(17), time(18)
+    await db.flush()
+
+    _, _, resent = await publications(db).settle(ADMIN_IDENTITY, DAY, "AFTERNOON")
+
+    assert resent is True
 
 
 async def test_an_overfull_room_publishes_with_a_warning(
@@ -499,8 +595,6 @@ async def test_closing_a_changed_draft_sends_it_again(db: AsyncSession) -> None:
 
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
 
-    # The bozza is a sitting of its own, and whoever opens it is who closes it:
-    # publishing let the band go, so somebody else can pick it up.
     closer = await admin(db)
     await publications(db).reopen(closer, DAY, "AFTERNOON")
 
@@ -535,8 +629,6 @@ async def test_moving_an_hour_and_moving_it_back_sends_nothing(
     assert resent is False
 
 
-# Leaving the bozza without publishing puts the part of the day back as it was
-# when it was opened. It is what the whole picture is kept for.
 async def test_leaving_a_bozza_undoes_the_work_in_it(db: AsyncSession) -> None:
     built = await _settled_afternoon(db)
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
@@ -551,10 +643,7 @@ async def test_leaving_a_bozza_undoes_the_work_in_it(db: AsyncSession) -> None:
 
     assert lost == 0
 
-    # The bookings asked for by name: read off a lesson that happens to be in
-    # the session already they come for free, and off one that is not they are
-    # a query from inside a sync attribute access, which is a greenlet error
-    # rather than a failed assertion.
+    # selectinload avoids a lazy load from sync attribute access (greenlet error).
     back = (
         await db.execute(
             select(Lesson).options(selectinload(Lesson.lesson_bookings)),
@@ -575,11 +664,9 @@ async def test_leaving_a_bozza_closes_it(db: AsyncSession) -> None:
 
     assert publication is not None
     assert publication.draft_snapshot is None
-    # Still published, and never sent again: nothing changed in the end.
     assert publication.published_at is not None
 
 
-# An hour added in the bozza was never part of what went out, so it goes.
 async def test_leaving_a_bozza_takes_away_what_was_added_in_it(
     db: AsyncSession,
 ) -> None:
@@ -589,15 +676,7 @@ async def test_leaving_a_bozza_takes_away_what_was_added_in_it(
         payload(built, start=time(15), end=time(16)),
     )
 
-    room = await make_room(db)
-    await assignments(db).assign(
-        ADMIN_IDENTITY,
-        TeacherRoomAssignmentCreate(
-            date=DAY,
-            teacher_tax_code=built.teacher.tax_code,
-            room_id=room.id,
-        ),
-    )
+    await give_a_room(db, built)
     await lesson_service(db).create(
         ADMIN_IDENTITY,
         payload(built, start=time(16), end=time(17)),
@@ -615,8 +694,6 @@ async def test_leaving_a_bozza_takes_away_what_was_added_in_it(
     assert await db.scalar(select(func.count()).select_from(Lesson)) == 2
 
 
-# What cannot come back: the request the hour was teaching is gone, so the hour
-# it was checked against is not a calendar the database would accept any more.
 async def test_an_hour_whose_request_went_cannot_be_put_back(
     db: AsyncSession,
 ) -> None:
@@ -676,15 +753,7 @@ async def test_a_reopened_band_takes_lesson_writes_again(db: AsyncSession) -> No
         payload(built, start=time(15), end=time(16)),
     )
 
-    room = await make_room(db)
-    await assignments(db).assign(
-        ADMIN_IDENTITY,
-        TeacherRoomAssignmentCreate(
-            date=DAY,
-            teacher_tax_code=built.teacher.tax_code,
-            room_id=room.id,
-        ),
-    )
+    await give_a_room(db, built)
     await lesson_service(db).create(
         ADMIN_IDENTITY,
         payload(built, start=time(16), end=time(17)),
@@ -756,11 +825,6 @@ async def test_unpublishing_something_unpublished_is_a_404(
     assert error.value.status_code == 404
 
 
-# A request that arrived after the calendar was built, and that nobody ever put
-# anywhere. Everything above reads requests through the lessons that teach them,
-# so until this one was added it was the one thing checked nowhere.
-
-
 async def _an_unplanned_request(db: AsyncSession, *, start: time, end: time):
     student = await make_student(db)
     presence = await make_presence(
@@ -800,9 +864,6 @@ async def test_a_request_nobody_planned_stops_closing_a_bozza(
     assert error.value.status_code == 400
 
 
-# The one that says "planned nowhere" and not "planned in this band": a pupil
-# staying from noon has the one request, and having taught it in the morning is
-# no reason to hold up the afternoon.
 async def test_a_request_taught_in_the_other_half_of_the_day_does_not(
     db: AsyncSession,
 ) -> None:
@@ -823,17 +884,12 @@ async def test_a_request_taught_in_the_other_half_of_the_day_does_not(
     assert publication.band == "AFTERNOON"
 
 
-# Leaving a bozza puts the band back as it was when it opened, so it is the
-# opener's to leave and nobody else's.
-
-
 async def test_leaving_a_bozza_is_only_the_openers(db: AsyncSession) -> None:
     await _settled_afternoon(db)
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
     await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
 
-    # The opener walked away and the band came free, which is exactly the case
-    # the lock cannot cover: a bozza outlives it many times over.
+    # The lock has expired, but the bozza still belongs to its opener.
     await _abandon_the_band(db)
 
     other = await admin(db)
@@ -852,7 +908,7 @@ async def test_a_bozza_with_nobody_s_name_on_it_can_still_be_left(
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
     await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
 
-    # A bozza opened before any of this existed, as the migration leaves them.
+    # Drafts predating the migration have no opener recorded.
     publication = await CalendarPublicationRepository(db).get(DAY, "AFTERNOON")
     publication.draft_opened_by = None
     await db.flush()
@@ -861,10 +917,6 @@ async def test_a_bozza_with_nobody_s_name_on_it_can_still_be_left(
     await publications(db).discard(await admin(db), DAY, "AFTERNOON")
 
     assert publication.draft_snapshot is None
-
-
-# The sitting ends when the band goes out or the bozza closes, and the band goes
-# back to everybody: holding it any longer would only keep the next person out.
 
 
 async def _held_by(db: AsyncSession) -> str | None:

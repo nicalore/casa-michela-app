@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
 
-// Shows a tooltip with the full text only when the label is actually clipped.
-// Overflow is detected by re-measuring the text with a TextPainter at the real
-// laid-out width (read from the render box after layout), instead of reading
-// RenderParagraph.didExceedMaxLines: that render-object flag is unreliable on
-// Flutter web, so a browser never surfaced the tooltip. A TextPainter we lay
-// out ourselves is reliable everywhere. The width comes from the render box
-// (not a LayoutBuilder), so the widget still works inside IntrinsicHeight,
-// which queries intrinsic dimensions a LayoutBuilder cannot answer. A
-// systemFonts listener re-measures once google_fonts finish loading after the
-// first frame, so the result stays correct with the final font metrics.
+// Overflow is re-measured with a TextPainter at the real laid-out width:
+// RenderParagraph.didExceedMaxLines is unreliable on Flutter web.
 class OverflowTooltipText extends StatefulWidget
 {
   final String text;
@@ -70,8 +62,7 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
       widget.textSpan ?? TextSpan(text: widget.text, style: widget.style);
 
   // Deferred: the text must be laid out for the current frame before its width
-  // is known. The overflow is then recomputed with a fresh TextPainter (rather
-  // than the render object's own didExceedMaxLines) so it stays correct on web.
+  // is known.
   void _scheduleOverflowCheck()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)

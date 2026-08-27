@@ -53,6 +53,7 @@ class PersonItem implements PersonFace
 
   final String? certificationType;
   final String? certificationOtherDetail;
+  final String? certificationDsaDetail;
   final bool? mandatoryPsychMeetingsAcknowledged;
 
   final String? paymentMethod;
@@ -65,21 +66,21 @@ class PersonItem implements PersonFace
   final String? iban;
   final String? adminRole;
   final String? adminOtherRole;
+  // Null when not a teacher; false means university or beyond.
+  final bool? isHighSchoolStudent;
   final String? schoolEducation;
   final String? universityEducation;
+
+  // 0 to 5 in half points; null for non-teachers and for non-admin viewers.
+  final double? teacherRating;
+
   final DateTime? medicalCertificateExpiration;
 
-  // Timestamps of the three aggregates under optimistic concurrency control
-  // (RNF-IAM-REL-07). They travel back to the server as expected_updated_at on
-  // the corresponding edit endpoints, so their exact instant is significant:
-  // unlike the display-only dates above, these are compared for equality by the
-  // backend.
-  // The two consents that stay a choice: special category data and the
-  // newsletters. The three declarations signed on joining are not here, because
-  // they are never withdrawn.
   final bool? specialCategoryDataConsent;
   final bool? newsletterConsent;
 
+  // Optimistic-concurrency tokens (RNF-IAM-REL-07): sent back as
+  // expected_updated_at and compared for equality by the backend.
   final DateTime? memberUpdatedAt;
   final DateTime? studentUpdatedAt;
   final DateTime? teacherUpdatedAt;
@@ -90,9 +91,6 @@ class PersonItem implements PersonFace
   final List<ChildItem>? children;
   final List<TeacherSubjectItem>? teacherSubjects;
 
-  // The services the teacher can take on, by name. Kept apart from the
-  // disciplines: a service has no programmes, and whoever shows them calls the
-  // two by different names.
   final List<String>? teacherServices;
 
   const PersonItem({
@@ -129,6 +127,7 @@ class PersonItem implements PersonFace
     this.isMedicalCertificateValid,
     this.certificationType,
     this.certificationOtherDetail,
+    this.certificationDsaDetail,
     this.mandatoryPsychMeetingsAcknowledged,
     this.paymentMethod,
     this.paymentMethodOther,
@@ -139,8 +138,10 @@ class PersonItem implements PersonFace
     this.iban,
     this.adminRole,
     this.adminOtherRole,
+    this.isHighSchoolStudent,
     this.schoolEducation,
     this.universityEducation,
+    this.teacherRating,
     this.medicalCertificateExpiration,
     this.specialCategoryDataConsent,
     this.newsletterConsent,
@@ -175,8 +176,7 @@ class PersonItem implements PersonFace
       addressNumber: json['residence_street_number'],
       province: json['residence_province'],
       zipCode: json['postal_code'],
-      // Two keys are accepted because the endpoints are not consistent on this
-      // field: the prefixed one wins when both are present.
+      // Endpoints are inconsistent on this field; the prefixed key wins.
       city: json['residence_city'] ?? json['city'],
       birthDate: parseDate(json['birth_date']),
       childrenCount: json['children_count'],
@@ -193,6 +193,7 @@ class PersonItem implements PersonFace
       isMedicalCertificateValid: json['is_medical_certificate_valid'],
       certificationType: json['certification_type'],
       certificationOtherDetail: json['certification_other_detail'],
+      certificationDsaDetail: json['certification_dsa_detail'],
       mandatoryPsychMeetingsAcknowledged: json['mandatory_psych_meetings_acknowledged'],
       paymentMethod: json['payment_method'],
       paymentMethodOther: json['payment_method_other'],
@@ -203,8 +204,10 @@ class PersonItem implements PersonFace
       iban: json['iban'],
       adminRole: json['admin_role'],
       adminOtherRole: json['admin_other_role'],
+      isHighSchoolStudent: json['is_high_school_student'] as bool?,
       schoolEducation: json['school_education'],
       universityEducation: json['university_education'],
+      teacherRating: (json['teacher_rating'] as num?)?.toDouble(),
       medicalCertificateExpiration: parseDate(json['medical_certificate_expiration']),
       specialCategoryDataConsent: json['special_category_data_consent'] as bool?,
       newsletterConsent: json['newsletter_consent'] as bool?,
@@ -222,8 +225,6 @@ class PersonItem implements PersonFace
     );
   }
 
-  // The most recent membership, the only one that can be the current one: the
-  // others are history either way.
   MembershipItem? get latestMembership
   {
     final List<MembershipItem> all = [...?memberships];
@@ -238,8 +239,6 @@ class PersonItem implements PersonFace
     return all.first;
   }
 
-  // Expelled or resigned: their last membership was revoked, and with it
-  // everything that depended on being part of the association.
   bool get isMembershipRevoked => latestMembership?.isRevoked ?? false;
 
   int? get age
@@ -254,7 +253,6 @@ class PersonItem implements PersonFace
     final today = DateTime.now();
     var years = today.year - birth.year;
 
-    // The birthday has not occurred yet this year, so one year is taken back.
     if (today.month < birth.month ||
         (today.month == birth.month && today.day < birth.day))
     {
@@ -265,19 +263,8 @@ class PersonItem implements PersonFace
   }
 }
 
-// Who can still be picked: only those actively collaborating. It holds wherever
-// somebody is named for something still to happen — the teacher offering an
-// availability, the one preferred or not preferred on a lesson, the pupil booked
-// for — because whoever has stopped will not be there that day, and offering
-// them is offering a choice nobody can honour.
-//
-// Expelled or resigned counts as not collaborating: collaborating holds while
-// the membership runs, and whoever is no longer part of the association does not
-// spend the day inside it.
-//
-// It does not apply to what has already happened: the availability a former
-// collaborator gave still carries their name, and writing it needs the whole
-// list.
+// Who can be picked for future work: active collaborators with an unrevoked
+// membership. Past records still carry former collaborators' names.
 List<PersonItem> activeCollaborators(List<PersonItem> people)
 {
   return people

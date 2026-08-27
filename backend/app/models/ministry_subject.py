@@ -69,9 +69,8 @@ class MinistrySubject(CreatedAtMixin, Base):
 
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
-    # Both association tables are reachable as entities and through a
-    # many-to-many shortcut: `overlaps` declares the two views of the same rows
-    # as intentional and changes nothing at runtime.
+    # Association tables are also reachable via many-to-many shortcuts;
+    # `overlaps` declares that intentional (no runtime effect).
     study_program_subjects: Mapped[list[StudyProgramSubject]] = relationship(
         back_populates="ministry_subject",
         cascade="all, delete-orphan",

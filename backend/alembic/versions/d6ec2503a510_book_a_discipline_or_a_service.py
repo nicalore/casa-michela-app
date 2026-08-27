@@ -1,18 +1,5 @@
 """book a discipline or a service
 
-Until now an hour could only be asked for as a ministry subject with some of
-its disciplines. Two more ways to ask were missing: a discipline on its own,
-for what is not on the pupil's own syllabus, and a service, which is not a
-subject at all.
-
-Rather than a discriminator column, the kind is read off the two new columns:
-both null means the old kind, and the CHECK stops them being set together.
-That a request of the new kinds carries no ministry subjects — a child table,
-which no CHECK can count — is held in the ORM (see Booking).
-
-The two columns are nullable and nothing is backfilled: every row that exists
-is a ministry-subject request, which is exactly what two nulls mean.
-
 Revision ID: d6ec2503a510
 Revises: deff88ef5884
 Create Date: 2026-08-04 13:55:03.290664
@@ -68,7 +55,7 @@ def upgrade() -> None:
         "services",
         ["service_name"],
         ["name"],
-        # Il nome di un servizio è una chiave naturale mutabile.
+        # A service name is a mutable natural key.
         onupdate="CASCADE",
         ondelete="CASCADE",
     )

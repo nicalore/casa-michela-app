@@ -6,12 +6,7 @@ import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/date_input_formatters.dart';
 import 'person_detail_widgets.dart';
 
-// A membership: the year and the day it began, side by side, stacked when the
-// row narrows. Once stacked, the delete button moves next to the last field.
-//
-// Here and not inside a dialog because two dialogs edit memberships — the tab's
-// and the person's — and two look-alike rows are the quickest way to start
-// diverging.
+// Shared by the two dialogs that edit memberships (the tab's and the person's).
 class MembershipEditRow extends StatelessWidget
 {
   static const double _breakpoint = 360;
@@ -23,8 +18,7 @@ class MembershipEditRow extends StatelessWidget
   final ValueChanged<String> onYearChanged;
   final ValueChanged<String> onDayMonthChanged;
 
-  // Null when the row cannot be removed: a member's first membership is not an
-  // addition, it is the reason the dialog is open.
+  // Null when the row cannot be removed.
   final VoidCallback? onRemove;
 
   const MembershipEditRow({
@@ -60,9 +54,8 @@ class MembershipEditRow extends StatelessWidget
       onChanged: onDayMonthChanged,
     );
 
-    // Centred on the boxes and not on the whole field: the label above is part
-    // of the column's height, and centring on that put the button a dozen pixels
-    // too high.
+    // Centred on the boxes, not the whole field: the label above would put the
+    // button too high.
     final Widget remove = Padding(
       padding: const EdgeInsets.only(left: 10, top: kPersonFieldButtonInset),
       child: onRemove == null

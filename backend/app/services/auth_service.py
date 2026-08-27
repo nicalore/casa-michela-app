@@ -65,8 +65,7 @@ _EMAIL_LOGO_URL: Final[str] = (
     "logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100"
 )
 
-# The app's colours, written out by hand because an email cannot read the theme.
-# When they change over there, they change here.
+# App theme colours hand-copied: an email cannot read the theme.
 _INK: Final[str] = "#123A5E"
 _TEAL: Final[str] = "#0B6478"
 _PAPER: Final[str] = "#F5FAF9"
@@ -74,8 +73,7 @@ _LINE: Final[str] = "#DDE8E6"
 _MUTED: Final[str] = "#5B7280"
 _BODY: Final[str] = "#122438"
 
-# The same shape as the app's own dialogs. The styles sit on the elements
-# themselves because email clients guarantee nothing more than that.
+# Inline styles: email clients guarantee nothing more.
 _EMAIL_TEMPLATE: Final[str] = """
 <div style="margin: 0; padding: 32px 16px; background-color: {paper};
             font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
@@ -508,8 +506,7 @@ class AuthService:
 
         validate_password(new_password)
 
-        # The token is consumed before the password is written, so that a
-        # failure halfway through cannot leave it usable a second time.
+        # Token consumed before the write so a failure cannot leave it reusable.
         await self.refresh_token_repository.revoke(stored_token)
 
         account.password_hash = await hash_password_async(new_password)

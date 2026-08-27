@@ -29,47 +29,29 @@ import 'person_edit_report_dialog.dart';
 import 'person_edit_validation.dart';
 import 'widgets/person_edit_guide.dart';
 
-// The dialog that edits a person's details: a stack of pills like every other
-// one — the header, the step's question, and the choices below it.
-//
-// Two things about using it are deliberate:
-// - navigation is by arrows and the save button is always there. This dialog is
-//   opened to change one thing, and walking eight steps to reach the button was
-//   the price of a creation flow, not of an edit.
-// - validation does not block the step: it runs over everything and jumps to the
-//   first step that complains.
+// Save is always available; validation runs over everything and jumps to the
+// first step that complains.
 
 class PersonEditDialog extends StatefulWidget
 {
-  // The person to edit, or null when one is being created.
+  // Null when creating a new person.
   final PersonItem? person;
 
   final PersonEditPurpose purpose;
 
-  // See [PersonEditDialog.createParent]. Null in dialogs no other one opened,
-  // which is all the rest.
   final ResidenceOffer? offeredResidence;
 
   const PersonEditDialog({super.key, required PersonItem this.person})
       : purpose = PersonEditPurpose.edit,
         offeredResidence = null;
 
-  // The same dialog in front of an empty form: the same steps, the same cards,
-  // plus the ones asked only of someone joining — the identity to write, the
-  // consents, the psychological support.
   const PersonEditDialog.create({super.key})
       : person = null,
         purpose = PersonEditPurpose.create,
         offeredResidence = null;
 
-  // A parent created while registering their child, or a minor created while
-  // registering their parent. They do not reach the server on their own: they
-  // return what the server will have to create, and whoever opened them sends it
-  // along with the rest, because it is to that person they will be tied.
-  //
-  // [offeredResidence] is the residence of whoever opened the dialog: parent and
-  // child almost always live together, and the residence card offers it behind a
-  // checkbox instead of having the same address typed twice.
+  // Hands back the payload instead of saving: the opener sends it along with
+  // the person it will be tied to.
   const PersonEditDialog.createParent({super.key, this.offeredResidence})
       : person = null,
         purpose = PersonEditPurpose.createParent;
@@ -80,7 +62,6 @@ class PersonEditDialog extends StatefulWidget
 
   bool get isCreation => person == null;
 
-  // True when the dialog does not save by itself but hands over its work.
   bool get handsBackPayload =>
       purpose == PersonEditPurpose.createParent ||
       purpose == PersonEditPurpose.createMinor;
@@ -91,12 +72,7 @@ class PersonEditDialog extends StatefulWidget
 
 class _PersonEditDialogState extends State<PersonEditDialog>
 {
-  // How wide the card is, and how wide the stack holding it: the card plus the
-  // two arrows with the room around them.
-  //
-  // 1100 is the width of the dialog that edits the school years, and a year's
-  // row — year, school, programme, class — needs all of it: narrower, a school's
-  // name and a programme's ended up in a couple of fingers of space.
+  // 1100 matches the school-years dialog; a year's row needs all of it.
   static const double _contentMaxWidth = 1100;
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
@@ -121,10 +97,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             roles: widget.purpose == PersonEditPurpose.createParent
                 ? const {'GENITORE'}
                 : const {},
-            // A parent or a minor created on the fly is not put through the
-            // first step — the dialog they come from is already saying it — so
-            // the answer is given: they are involved in the activities. A new
-            // person starts without one and has to give it.
+            // Parents and minors created on the fly skip the first step, so
+            // their answer is already given.
             involvement: widget.handsBackPayload ? 0 : -1,
           )
         : PersonEditForm.fromPerson(widget.person!);
@@ -179,12 +153,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
-  // --------------------------------------------------------- navigation
-
   List<PersonEditStep> get _steps => buildEditSteps(_form, purpose: widget.purpose);
 
-  // The current step, found by name: ticking a role slips a step into the
-  // middle, and a hand-kept index would slide out from under the finger.
+  // Found by name: ticking a role can slip a step into the middle, invalidating
+  // any kept index.
   PersonEditStep get _step
   {
     final List<PersonEditStep> steps = _steps;
@@ -194,7 +166,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   int get _stepIndex => indexOfStep(_steps, _step.id);
 
-  // The card inside the step, also kept by name.
   PersonEditCard get _card
   {
     final List<PersonEditCard> cards = _step.cards;
@@ -204,7 +175,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   int get _cardIndex => _step.cards.indexWhere((card) => card.id == _card.id);
 
-  // What is wrong on the current step, checked when the arrow is pressed.
   bool _stepIsSound()
   {
     final PersonEditValidation validation = validatePersonEdit(_form);
@@ -221,15 +191,14 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         ..clear()
         ..addEntries(mine.map((issue) => MapEntry(issue.field, issue.message)));
 
-      // Onto the card that complains, which inside a step may not be the one
-      // being looked at.
+      // Onto the card that complains, which may not be the visible one.
       _cardId = mine.first.card;
     });
 
     CustomSnackBar.show(
       context: context,
-      // The validation message speaks of the first problem it found: it holds
-      // if that problem is this one's, otherwise what is known is said.
+      // The validation message describes the first problem overall; use it only
+      // when that problem is this step's.
       message: validation.firstCard == mine.first.card && validation.message != null
           ? validation.message!
           : 'Ci sono errori nei dati inseriti. Correggi i campi.',
@@ -239,7 +208,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return false;
   }
 
-  // The step forward: taken if what is written here holds up.
   void _goForward(int index)
   {
     if (!_stepIsSound())
@@ -270,8 +238,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     setState(() => _cardId = cards[index.clamp(0, cards.length - 1)].id);
   }
 
-  // Goes where the error is: the step holding that card, and the card inside
-  // it.
   void _jumpTo(PersonEditCardId cardId)
   {
     final List<PersonEditStep> steps = _steps;
@@ -292,8 +258,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
-  // What the person being edited is called, or the one being created as it is
-  // typed: needed by the pickup question, which names parent and child.
   String get _personName
   {
     final PersonItem? person = widget.person;
@@ -308,8 +272,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     return name.isEmpty ? 'questa persona' : name;
   }
-
-  // --------------------------------------------------------------- saving
 
   Future<void> _submit() async
   {
@@ -340,9 +302,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return;
     }
 
-    // A dialog that hands over its work calls no server: it returns what the
-    // server will have to create, and whoever opened it sends that at the right
-    // moment.
     if (widget.handsBackPayload)
     {
       Navigator.of(context).pop({
@@ -360,8 +319,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     {
       if (widget.isCreation)
       {
-        // The people created inside here first — a parent, a minor — because
-        // it is to them that this one will be tied.
+        // Pending people first: this person will be tied to them.
         for (final pending in _form.pendingPeople)
         {
           await ApiService().createPersonFromWizard(
@@ -424,8 +382,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
-  // The person just described, as their creator sees them: enough to show them
-  // selected in the list until the server knows about them.
+  // Enough to show the new person selected until the server knows about them.
   PersonItem _newPersonItem()
   {
     final List<String> roles = (_form.buildCreatePayload()['roles'] as List)
@@ -473,9 +430,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             accent: AppTheme.trialDanger,
             height: kPersonDialogButtonHeight,
             fontSize: kPersonDialogButtonFontSize,
-            // Three words and an icon in half of a 520-wide foot: with the
-            // usual air on the sides they miss one line by a couple of pixels
-            // and the button answers in two.
             horizontalPadding: 16,
             onPressed: () => Navigator.of(confirmContext).pop(true),
           ),
@@ -494,19 +448,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
-  // ---------------------------------------------- persone create per strada
-
-  // A parent or a minor not yet on the system is created from here. It does not
-  // go out at once: it waits in the queue and reaches the server before the
-  // person being created, which is the one it will be tied to.
   Future<Map<String, dynamic>?> _createParent() async
   {
     final Map<String, dynamic>? created = await showBlurredDialog<Map<String, dynamic>>(
       context: context,
       barrierLabel: 'ParentCreation',
-      // The parents step is only put to a minor, so whoever opens this dialog
-      // is the minor: their residence is the one the parent almost always
-      // shares.
+      // The parents step is only put to a minor, whose residence the parent
+      // almost always shares.
       builder: (context) => PersonEditDialog.createParent(
         offeredResidence: _form.residenceOffer(label: 'Stessa residenza del minore'),
       ),
@@ -525,7 +473,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final Map<String, dynamic>? created = await showBlurredDialog<Map<String, dynamic>>(
       context: context,
       barrierLabel: 'MinorCreation',
-      // And here the other way round: the minors step is only put to a parent.
       builder: (context) => PersonEditDialog.createMinor(
         offeredResidence: _form.residenceOffer(label: 'Stessa residenza del genitore'),
       ),
@@ -538,8 +485,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     return created;
   }
-
-  // ------------------------------------------------------------ le schede
 
   PersonEditCardContext get _ctx => PersonEditCardContext(
         form: _form,
@@ -555,8 +500,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       PersonEditCardId.involvement => InvolvementCard(ctx: _ctx),
       PersonEditCardId.roleChoice => RolesCard(
           ctx: _ctx,
-          // Parent, psychologist and administrator require being of age: a
-          // minor is not even offered them.
+          // Parent, psychologist and administrator require being of age.
           only: widget.purpose == PersonEditPurpose.createMinor
               ? const {'DOCENTE', 'STUDENTE', 'CORSISTA'}
               : const {},
@@ -631,8 +575,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     };
   }
 
-  // The step's question. It goes to the frame on its own rather than with the
-  // card: it travels with it, but the arrows turn the card and centre on it.
   Widget _buildStepQuestion()
   {
     final PersonEditStep step = _step;
@@ -661,10 +603,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // The step's cards are picked by name. They used to be a second
-            // carousel: two more arrows looking like the step ones, where
-            // reaching the contacts meant pressing forward twice instead of
-            // going there.
             if (step.cards.length > 1)
               AppSegmentedTabs(
                 labels: [

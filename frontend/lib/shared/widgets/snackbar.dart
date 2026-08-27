@@ -9,27 +9,13 @@ const Duration _enterDuration = Duration(milliseconds: 450);
 const Duration _exitDuration = Duration(milliseconds: 250);
 const Duration _defaultVisibleDuration = Duration(seconds: 5);
 
-// A banner that stays up until somebody takes it down.
-//
-// For the ones a gesture in flight raises: the sentence is true for as long as
-// the pointer is where it is, and one that faded out on its own would leave a
-// refusal on screen for five seconds and then a wrong place with nothing said
-// about it. [CustomSnackBar.dismiss] is what ends these.
 const Duration kUntilDismissed = Duration(days: 1);
 
-// The banner starts one and a half times its own height below the resting
-// position, so the easeOutBack overshoot stays outside the viewport.
 const Offset _enterOffset = Offset(0, 1.5);
 
 const double _bottomMargin = 24;
 const double _horizontalMargin = 20;
 
-// The three things a banner can be.
-//
-// A warning is not an error and not a confirmation: the calendar answers a save
-// that went through with something the server thought worth saying — a teacher
-// somebody named as not preferred, a room over its capacity — and neither of
-// the two existing tones can carry that without lying about it.
 enum SnackBarTone
 {
   info,
@@ -69,8 +55,6 @@ class _SnackBarStyle
     icon: Icons.check_circle_rounded,
   );
 
-  // The two colours the app already gives to a value that deviates from what
-  // was expected, which is exactly what a warning is.
   static final _SnackBarStyle warning = _SnackBarStyle(
     background: AppTheme.modifiedAccentSurface,
     border: AppTheme.modifiedAccent.withValues(alpha: 0.25),
@@ -94,13 +78,9 @@ abstract final class CustomSnackBar
 {
   static OverlayEntry? _currentOverlayEntry;
 
-  // The banner currently up, reachable so that its clock can be restarted
-  // without rebuilding it. See [keepShowing].
   static GlobalKey<_SnackBarAnimationWidgetState>? _currentKey;
 
-  // [tone] wins where it is given; [isError] is what the forty call sites
-  // written before there were three tones still say, and it keeps meaning what
-  // it meant.
+  // [tone] wins where given; [isError] keeps its old meaning for older call sites.
   static void show({
     required BuildContext context,
     required String message,
@@ -111,11 +91,8 @@ abstract final class CustomSnackBar
   {
     dismiss();
 
-    // The root one, not the nearest. A dialog is pushed on the root navigator,
-    // so a banner put in the overlay of the page underneath comes out below the
-    // window that asked for it — and, worse, behind that window's backdrop
-    // filter, which blurs it along with the page. The banner has to reach the
-    // top of the app whatever asked for it.
+    // The root overlay: a banner in a page's overlay would come out under a
+    // dialog and blurred by its backdrop filter.
     final overlay = Overlay.of(context, rootOverlay: true);
     late OverlayEntry entry;
 
@@ -127,8 +104,8 @@ abstract final class CustomSnackBar
         message: message,
         tone: tone ?? (isError ? SnackBarTone.error : SnackBarTone.info),
         duration: duration,
-        // The identity check matters: a newer snackbar may have replaced this
-        // entry while it was fading out, and it must not be removed twice.
+        // Identity check: a newer snackbar may have replaced this entry while it was
+        // fading, and it must not be removed twice.
         onDismissed: ()
         {
           if (_currentOverlayEntry == entry)
@@ -146,17 +123,6 @@ abstract final class CustomSnackBar
     overlay.insert(entry);
   }
 
-  // Puts the standard clock back on the banner that is already up, and touches
-  // nothing else about it.
-  //
-  // For a sentence that was raised by a gesture and outlives it: it has been on
-  // screen for as long as the pointer was in the wrong place, and now that the
-  // gesture is over it should go a few seconds later. Showing it again would say
-  // the same thing while replaying the entrance animation — under the eye of
-  // somebody in the middle of reading it.
-  //
-  // Answers false where there is no banner up to keep, and then the caller has
-  // to [show] one.
   static bool keepShowing()
   {
     final state = _currentKey?.currentState;
@@ -236,7 +202,6 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
     _dismissTimer = Timer(widget.duration, _startExitAnimation);
   }
 
-  // Start the clock again, leaving the banner exactly as it is on screen.
   void keepFor(Duration duration)
   {
     _dismissTimer?.cancel();
@@ -300,12 +265,8 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
                   Expanded(
                     child: Text(
                       widget.message,
-                      // Asked of google_fonts, the way the rest of the app asks
-                      // for this face. Nothing registers the family under the
-                      // spelling 'Plus Jakarta Sans' — google_fonts loads it
-                      // under a name of its own — so writing that out by hand
-                      // left the banner in whatever font the platform defaults
-                      // to, next to windows that were in Plus Jakarta Sans.
+                      // google_fonts registers the family under its own name: writing 'Plus Jakarta
+                      // Sans' by hand falls back to the platform font.
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,

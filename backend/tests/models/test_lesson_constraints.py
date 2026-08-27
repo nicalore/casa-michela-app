@@ -47,8 +47,7 @@ async def _scene(
     return availability, booking, presence
 
 
-# Both ends widened, or the lesson falls outside the availability rather than
-# outside the rule being tested.
+# Widened both ends so the lesson only breaks the rule under test.
 async def _wide_scene(db: AsyncSession) -> _Scene:
     availability, booking, presence = await _scene(
         db,
@@ -63,8 +62,7 @@ async def _wide_scene(db: AsyncSession) -> _Scene:
     return availability, booking, presence
 
 
-# Whatever the booking asked for: less would trip a rule these tests are not
-# about.
+# Matches the booking so no unrelated rule trips.
 def _lesson(
     availability: Availability,
     booking: Booking,
@@ -148,20 +146,19 @@ async def test_a_lesson_may_not_straddle_two_bands(db: AsyncSession) -> None:
         await db.flush()
 
 
-# What justifies the composite foreign key.
 async def test_a_lesson_cannot_disagree_with_its_availability(
     db: AsyncSession,
 ) -> None:
     availability, _, _ = await _scene(db)
 
-    # Pupil and lesson agree on the sixteenth, so the hook is satisfied. The
-    # availability is on the fifteenth, and only the foreign key can notice.
+    # Pupil and lesson agree; only the composite FK notices the
+    # availability's different day.
     other_day = date(2026, 9, 16)
     student = await make_student(db)
     presence = await make_presence(db, student, day=other_day)
     booking = await make_booking(db, presence)
 
-    # Column by column: the only way to state a day the availability has not.
+    # Raw columns: the only way to state a day the availability has not.
     db.add(
         Lesson(
             availability_id=availability.id,
@@ -201,9 +198,8 @@ async def test_a_teacher_in_the_building_may_teach_online(db: AsyncSession) -> N
     await db.flush()
 
 
-# A teacher taking two pupils from three o'clock, one each, is this shape and
-# the database has to let it through. What caps the day is the pupil count, in
-# the service, because no CHECK can count rows in another table.
+# Two one-pupil lessons at the same hour must pass: the pupil-count cap
+# lives in the service, since no CHECK can count rows in another table.
 async def test_one_availability_may_start_two_lessons_at_once(
     db: AsyncSession,
 ) -> None:

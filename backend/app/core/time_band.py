@@ -7,8 +7,7 @@ _OUTSIDE_DAY_ERROR: Final[str] = (
 )
 
 _ACROSS_BANDS_ERROR: Final[str] = (
-    "Una lezione deve stare tutta nella mattina, nel pomeriggio o nella "
-    "sera: le tre parti della giornata si pubblicano separatamente."
+    "Una lezione non può essere separata in fasce orarie diverse."
 )
 
 

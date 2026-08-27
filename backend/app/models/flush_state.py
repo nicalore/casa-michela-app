@@ -9,16 +9,14 @@ _PENDING: Final[str] = "pending"
 # ("pending", id(parent)) for one being written in this very flush.
 FlushKey = tuple[str, object]
 
-# The name this pair went by when bookings were the only parent that needed it.
+# Legacy alias from when bookings were the only parent needing this.
 BookingFlushKey = FlushKey
 
 
-# Rows inserted by the flush about to happen.
 def new_instances[T](session: Session, model: type[T]) -> list[T]:
     return [instance for instance in session.new if isinstance(instance, model)]
 
 
-# Rows either inserted or edited by the flush about to happen.
 def pending_instances[T](session: Session, model: type[T]) -> list[T]:
     return [
         instance
@@ -31,15 +29,9 @@ def deleted_instances[T](session: Session, model: type[T]) -> list[T]:
     return [instance for instance in session.deleted if isinstance(instance, model)]
 
 
-# Which parent a child row belongs to, even before it has been flushed. A child
-# built through the relationship has no foreign key yet, so it falls back on the
-# identity of the parent object itself — the only thing its siblings share
-# during this flush. The key is tagged because id() returns an int too, and
-# without the tag a memory address could end up in a WHERE clause.
-#
-# Safe without IO: when the foreign key is None the object came from the
-# relationship, so the parent is already in the instance __dict__ and reading it
-# triggers no lazy load (which under async would raise MissingGreenlet).
+# Falls back on parent object identity while the FK is unset; tagged because
+# id() is an int too and a bare address must never reach a WHERE clause.
+# Parent is read from __dict__, so no lazy load (MissingGreenlet under async).
 def parent_flush_key(
     child: Any,
     *,
@@ -75,8 +67,7 @@ def stored_key(entity_id: object) -> FlushKey:
     return (_STORED, entity_id)
 
 
-# The database id behind a flush key, or None for a brand-new parent: callers
-# use it to decide whether there are stored rows to reconcile against at all.
+# None for a brand-new parent: no stored rows to reconcile against.
 def stored_id(key: FlushKey) -> Any | None:
     kind, value = key
 

@@ -11,11 +11,6 @@ import '../models/person_item.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
 
-// Picking the people tied to this one: a minor's parents, or the minors they
-// are a parent of. The cards are the ones from the dedicated dialogs — same
-// face, same search, same ordering — because it is the same question asked from
-// another point of the app.
-
 enum PersonPickerSort
 {
   surnameAsc('Cognome (A-Z)'),
@@ -47,27 +42,20 @@ class PersonEditPeopleCard extends StatefulWidget
 {
   final List<PersonItem> people;
 
-  // Chi è scelto, con la sua autorizzazione al ritiro.
   final Map<String, ParentalRelationshipDraft> selected;
 
-  // The name of the person being edited: needed by the pickup question, which
-  // names both the parent and the child.
   final String personName;
 
-  // True when the person's parents are being picked: it swaps who is parent and
-  // who is child in the question, and applies the cap of two.
+  // Swaps parent and child in the pickup question, and applies the cap of two.
   final bool pickingParents;
 
   final String searchHint;
   final String emptyMessage;
   final VoidCallback onChanged;
 
-  // Opens the dialog that creates the missing person on the spot and returns
-  // what the server will have to create. Null where that is not allowed: editing
-  // an existing person's details, people are picked and not invented.
+  // Null when creating people on the fly is not allowed.
   final Future<Map<String, dynamic>?> Function()? onCreateMissing;
 
-  // What the button opening it is called.
   final String createLabel;
 
   const PersonEditPeopleCard({
@@ -121,7 +109,6 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
   {
     final bool wasSelected = widget.selected.containsKey(person.fiscalCode);
 
-    // Two parents is the maximum: a third is not added silently.
     if (!wasSelected && widget.pickingParents && widget.selected.length >= 2)
     {
       CustomSnackBar.show(
@@ -151,8 +138,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
     setState(() {});
   }
 
-  // Someone not yet on the books is created here and picked at once: on save
-  // they reach the server before the person they are tied to.
+  // Created here and picked at once; on save they reach the server first.
   Future<void> _createMissing() async
   {
     final Map<String, dynamic>? created = await widget.onCreateMissing!();

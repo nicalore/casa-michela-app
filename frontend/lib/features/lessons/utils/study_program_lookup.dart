@@ -2,11 +2,8 @@ import '../../association/models/study_program_item.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
 
-// Mirrors the backend's own tie-break for a student's "current" school
-// enrollment (api/people.py's _latest_enrollment): the one with the highest
-// start_year, so the study program resolved here always matches the one
-// shown elsewhere for the same student (school_name/study_program on
-// PersonItem).
+// Mirrors the backend's tie-break (api/people.py _latest_enrollment):
+// highest start_year wins, so results match PersonItem's flat fields.
 SchoolEnrollmentItem? _latestEnrollment(PersonItem student)
 {
   final enrollments = student.schoolEnrollments;
@@ -21,10 +18,7 @@ SchoolEnrollmentItem? _latestEnrollment(PersonItem student)
 
 int? currentStudyProgramId(PersonItem student) => _latestEnrollment(student)?.studyProgramId;
 
-// The ministry subject ids taught under the student's current study program,
-// used to narrow the booking form down to subjects actually relevant to that
-// student instead of the association's whole catalog. Empty when the
-// student has no enrollment or the matching study program isn't loaded.
+// Empty when the student has no enrollment or the program isn't loaded.
 Set<int> allowedMinistrySubjectIds(PersonItem student, List<StudyProgramItem> studyPrograms)
 {
   final programId = currentStudyProgramId(student);
@@ -45,11 +39,8 @@ Set<int> allowedMinistrySubjectIds(PersonItem student, List<StudyProgramItem> st
   return {};
 }
 
-// "Scuola - percorso di studi" for the student's current enrollment, shown
-// instead of the fiscal code in student pickers. Falls back to the flat,
-// precomputed fields on PersonItem (same data, reached a different way) when
-// the enrollment list itself isn't populated, and to null when the student
-// has no school data at all.
+// "Scuola - percorso di studi"; falls back to PersonItem's flat fields when
+// the enrollment list isn't populated, null with no school data at all.
 String? currentSchoolAndProgramLabel(PersonItem student)
 {
   final latest = _latestEnrollment(student);

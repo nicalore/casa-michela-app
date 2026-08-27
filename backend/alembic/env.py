@@ -5,9 +5,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Imported for its side effect only: it registers every model on
-# Base.metadata. Without it autogenerate compares against an empty schema and
-# produces a migration that drops every table.
+# Side-effect import: registers every model on Base.metadata; without it
+# autogenerate diffs against an empty schema and drops every table.
 import app.models  # noqa: F401
 from alembic import context
 from app.core.config import settings

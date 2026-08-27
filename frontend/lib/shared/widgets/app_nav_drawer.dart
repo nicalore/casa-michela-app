@@ -11,17 +11,8 @@ import 'shared_components.dart';
 
 const double _maxWidth = 320;
 
-// Never the whole window: the strip of page left uncovered is what says the
-// drawer is standing over something you can go back to, and it is also where
-// the finger lands to dismiss it.
 const double _minUncoveredWidth = 56;
 
-// Where the app goes on a window too narrow for the bar to carry it.
-//
-// It holds both levels of navigation at once — the destinations, and the
-// sections of the page you are on — because that is exactly what the two
-// surfaces it replaces do together, and a narrow window is no reason to make
-// somebody open two things to get somewhere.
 class AppNavDrawer extends StatelessWidget
 {
   static double widthFor(double windowWidth)
@@ -31,8 +22,6 @@ class AppNavDrawer extends StatelessWidget
 
   final String currentRoute;
 
-  // The module's own sections, when the page has any. Left out, the drawer is
-  // the destinations alone.
   final String? sectionTitle;
   final List<RailGroup> sectionGroups;
   final int selectedSection;
@@ -98,9 +87,6 @@ class AppNavDrawer extends StatelessWidget
     );
   }
 
-  // The drawer closes before the route changes: left open it would still be
-  // there, on the page you have already left, for as long as the transition
-  // takes.
   void _goTo(BuildContext context, String route)
   {
     onDismiss();
@@ -185,9 +171,6 @@ class AppNavDrawer extends StatelessWidget
             const SizedBox(height: 14),
             _buildHeader(),
             const Divider(height: 25, thickness: 1, color: AppTheme.trialLine),
-            // The list scrolls on its own: a phone lying on its side has room
-            // for about half of it, and a drawer you cannot reach the bottom of
-            // is worse than no drawer.
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),

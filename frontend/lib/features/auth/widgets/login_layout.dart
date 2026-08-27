@@ -15,36 +15,24 @@ import 'auth_pill_page.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 
-// Width kept from the previous dedicated login button; in the narrow layouts
-// the surrounding SizedBox overrides it and the button fills the row.
-
-// How wide the sign-in button is, and below which width the page stacks: the
-// central card is comfortable down to here.
 const double _loginButtonWidth = 190;
 const double _maxCardWidth = 1160;
 const double _narrowBreakpoint = 600;
 
-// Quanto prende l'etichetta accanto al campo: «Nome utente» ci sta larga.
 const double _labelColumnWidth = 200;
 
-// Below this width the label goes back above the box: alongside, it would leave
-// the field less room than what gets typed into it.
+// Below this width the label goes above the field.
 const double _labelBesideFieldFrom = 480;
 
-// The height and type size every dialog of the app gives its buttons.
 const double _authButtonHeight = 52;
 const double _authButtonFontSize = 14;
 
-// The gradient of the association's name, the same as the dashboard greeting.
-// The stops sit at the ends of the line and not at the centre, so on two short
-// lines both colours still show instead of landing on their blend.
+// Stops at the line's ends so both colours show even on short lines.
 const LinearGradient _titleGradient = LinearGradient(
   colors: [AppTheme.trialOcean, AppTheme.trialViolet],
   stops: [0.15, 0.95],
 );
 
-// The measurements of the command standing beside the primary one: the same as
-// the "add row" buttons elsewhere in the app.
 const double _secondaryButtonHeight = 46;
 const double _secondaryButtonFontSize = 13;
 const double _secondaryButtonRadius = 23;
@@ -89,10 +77,8 @@ class _LoginLayoutState extends State<LoginLayout>
 
     try
     {
-      // login() sets authState to passwordChangeRequired or authenticated
-      // internally, and the global router redirect listens to it: navigating to
-      // the dashboard here is enough, the redirect takes over when a password
-      // change is pending.
+      // login() updates authState; the global router redirect takes over when
+      // a password change is pending.
       await _apiService.login(username: username, password: password);
 
       if (!mounted)
@@ -109,8 +95,8 @@ class _LoginLayoutState extends State<LoginLayout>
         return;
       }
 
-      // 401 and 423 share the same message on purpose: telling the user that
-      // the account is locked would confirm that the username exists.
+      // 401 and 423 share a message: revealing a lock would confirm the
+      // username exists.
       final message = switch (e.response?.statusCode)
       {
         401 || 423 => "Nome utente o password non validi. Dopo 5 tentativi errati, l'account verrà bloccato per 20 minuti.",
@@ -131,10 +117,6 @@ class _LoginLayoutState extends State<LoginLayout>
     );
   }
 
-  // The association's name with its logo, which is this page's title: not an
-  // eyebrow inside a pill but the largest thing on screen. On a single line, as
-  // wide as the card underneath — the type grows to fill it, instead of sitting
-  // at a hand-picked size that lands differently at every window width.
   Widget _buildTitle(bool isNarrow)
   {
     return FittedBox(
@@ -149,13 +131,8 @@ class _LoginLayoutState extends State<LoginLayout>
             fit: BoxFit.contain,
           ),
           SizedBox(width: isNarrow ? 20 : 28),
-          // srcIn paints the gradient only where the letters are, which is why
-          // the text is white — that colour is never seen, it only acts as a
-          // mask.
-          //
-          // The line height stays the font's: the mask works on the box the text
-          // declares, and tightening it would push descenders outside it, where
-          // they would be clipped away.
+          // The white text is only a mask for the gradient; keep the font's own
+          // line height or descenders get clipped.
           ShaderMask(
             blendMode: BlendMode.srcIn,
             shaderCallback: (bounds) => _titleGradient.createShader(bounds),
@@ -174,9 +151,6 @@ class _LoginLayoutState extends State<LoginLayout>
     );
   }
 
-  // The label alongside the box rather than above it: there are only two
-  // questions here, and stacking them with their labels on top made four lines
-  // where two are enough.
   Widget _labelledField(String label, Widget field)
   {
     final Widget text = Text(
@@ -188,9 +162,6 @@ class _LoginLayoutState extends State<LoginLayout>
       ),
     );
 
-    // Decided on how much room there really is here and not on how wide the
-    // window is: the card and its margins sit between the two, and a label
-    // beside a hundred-pixel box is no longer a label beside anything.
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -214,10 +185,6 @@ class _LoginLayoutState extends State<LoginLayout>
 
   Widget _buildCredentials(bool isNarrow)
   {
-    // The measurements of the app's "add row" buttons: a command standing next
-    // to the primary one without weighing as much — shorter, smaller, rounder —
-    // but of the same family, with the same fade entering from the left under
-    // the pointer.
     final Widget forgotten = AppGradientButton(
       label: 'PASSWORD DIMENTICATA?',
       icon: Icons.lock_reset_rounded,
@@ -242,8 +209,6 @@ class _LoginLayoutState extends State<LoginLayout>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // No hint: what goes in here is something the user already knows, and
-          // a sample username looks like an already filled field.
           _labelledField(
             'Nome utente',
             AppTextField(
@@ -265,11 +230,6 @@ class _LoginLayoutState extends State<LoginLayout>
             ),
           ),
           const SizedBox(height: 28),
-          // The two commands at either end of the row while the row holds
-          // them, and stacked and centred once it no longer does. OverflowBar
-          // measures what they want and decides for itself: a hand-written
-          // threshold was decided on the window's width, whereas what counts is
-          // the width in here — and the whole card sits between the two.
           OverflowBar(
             alignment: MainAxisAlignment.spaceBetween,
             overflowAlignment: OverflowBarAlignment.center,
@@ -401,8 +361,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
 
       if (mounted)
       {
-        // Deliberately non committal: confirming that the username exists would
-        // turn this form into an account enumeration oracle.
+        // Non-committal on purpose: confirming the username exists would leak accounts.
         CustomSnackBar.show(
           context: context,
           message: 'Se il nome utente è corretto, riceverai un link via email.',

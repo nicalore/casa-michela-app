@@ -20,8 +20,8 @@ _SEPARATOR = "|"
 def upgrade() -> None:
     op.add_column("study_programs", sa.Column("sector", sa.String(length=100), nullable=True))
 
-    # Prima il settore, poi il nome accorciato: l'ordine conta, perché il secondo
-    # UPDATE cancella la sorgente da cui legge il primo.
+    # Sector first, shortened name second: the second UPDATE destroys the
+    # source the first one reads from.
     op.execute(
         f"""
         UPDATE study_programs
@@ -42,17 +42,16 @@ def upgrade() -> None:
         "sector IS NULL OR sector = btrim(sector)",
     )
 
-    # I vincoli vanno scambiati PRIMA di accorciare i nomi: senza il settore
-    # dentro name, (level, name) non è più una chiave.
+    # Swap the constraints BEFORE shortening names: without the sector inside
+    # name, (level, name) is no longer a key.
     op.drop_constraint("uq_level_program_name", "study_programs", type_="unique")
     op.execute(
         "CREATE UNIQUE INDEX uq_level_sector_program_name "
         "ON study_programs (level, coalesce(sector, ''), name)"
     )
 
-    # Solo dove lo spoglio lascia davvero un nome: una riga chiamata
-    # "Liceo classico |" resterebbe senza nome, e il vincolo di non vuoto la
-    # rifiuterebbe.
+    # Only where stripping still leaves a name: a row like "Liceo classico |"
+    # would end up empty and fail the not-blank check.
     op.execute(
         f"""
         UPDATE study_programs
@@ -66,8 +65,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS uq_level_sector_program_name")
 
-    # Il nome torna a portarsi dentro il settore, così la riga resta riconoscibile
-    # e il vincolo di prima può reggere di nuovo.
+    # Fold the sector back into the name so the old (level, name) key holds again.
     op.execute(
         f"""
         UPDATE study_programs

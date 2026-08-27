@@ -8,52 +8,31 @@ import 'app_gradient_button.dart';
 import 'app_text_field.dart';
 import 'overflow_tooltip_text.dart';
 
-// Shared between the ListView itemExtent and the height of a single tile: the
-// two must match exactly or the scroll math below lands on the wrong row. A row
-// carrying a second line needs the room for it.
+// Shared by the ListView itemExtent and the tile height: the two must match
+// exactly or the scroll math lands on the wrong row.
 const double _oneLineItemHeight = 44.0;
 const double _twoLineItemHeight = 58.0;
 
-// How much taller a row carrying a face is: the circle is taller than the two
-// lines of text, and without this it would be clipped.
 const double _avatarItemHeight = 76.0;
 
-// About four rows and a half either way, which is enough to be a list and few
-// enough that what is under it is still visible.
 const double _oneLineListHeight = 200;
 const double _twoLineListHeight = 290;
 
 const double _optionsListPadding = 8;
 
-// The height and type size every dialog of the app gives its buttons.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// One answer a filter can be given, and what to write on it.
-//
-// Keyed on a value rather than on the label, because the two are not always
-// the same thing: ministry subject names repeat across levels and are told
-// apart by their id, while a discipline taught by a teacher is the word
-// itself.
 class MultiSelectFilterOption<T extends Object>
 {
   final T value;
   final String label;
 
-  // Said in small at the end of the row, where two options can be called the
-  // same: the level of a ministry subject. Most have none.
   final String? subtitle;
 
   const MultiSelectFilterOption({required this.value, required this.label, this.subtitle});
 }
 
-// A filter whose answers are too many for a menu: they are searched for and
-// gathered, several at a time, and what comes back is a count the pill can
-// wear.
-//
-// The list in front of you keeps whatever matches at least one of them, which
-// is what makes it worth choosing more than one — three disciplines is "any of
-// these three", not "all three at once".
 class MultiSelectFilterDialog<T extends Object> extends StatefulWidget
 {
   final String title;
@@ -103,7 +82,6 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
     return selected;
   }
 
-  // Already selected options are not proposed again by the autocomplete.
   List<MultiSelectFilterOption<T>> get _availableOptions =>
       widget.options.where((option) => !_selected.contains(option.value)).toList();
 
@@ -142,8 +120,6 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
       title: widget.title,
       maxWidth: 520,
       footer: AppDialogFooter(
-        // Emptying a filter throws nothing away, so it speaks in violet like
-        // every other way out of a dialog rather than in red.
         secondary: AppGradientButton(
           label: 'AZZERA',
           icon: Icons.refresh_rounded,
@@ -227,7 +203,6 @@ class _FilterAutocompleteField<T extends Object> extends StatefulWidget
 
 class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutocompleteField<T>>
 {
-  // How wide the field is inside the card of the filter dialog.
   static const double width = 436;
 
   final FocusNode _focusNode = FocusNode();
@@ -261,8 +236,7 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
       {
         widget.onSelected(option);
 
-        // clear() alone leaves the selection collapsed at -1, which Flutter
-        // renders as no caret at all, so it is restored explicitly.
+        // clear() alone leaves the selection collapsed at -1, which renders no caret.
         Future.microtask(()
         {
           widget.controller.clear();
@@ -272,10 +246,6 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
       },
       fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
       {
-        // The app's own field and not one rebuilt here: a hand-drawn box with
-        // a fixed border answered neither the pointer nor focus, which made the
-        // one place on the page that is listening the only one not saying so.
-        // AppTextField takes a focus node from outside for exactly this.
         return AppTextField(
           controller: textEditingController,
           focusNode: focusNode,
@@ -323,39 +293,23 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
   }
 }
 
-// Where the second thing a row says belongs.
-//
-// A qualifier of a word or two — a province, the level of a subject — goes at
-// the end of the row, small, where it reads as part of the answer. A line of
-// its own — the subjects a teacher teaches — goes under the label, because at
-// the end of the row it would be squeezed into nothing.
 enum AutocompleteSubtitlePlacement
 {
   trailing,
   below,
 }
 
-// The list that opens under a field with completion. On subjects it carries
-// options with an id, on cities a city and its province, on teachers a name
-// and what they teach: what is written on a row is said by the two functions,
-// and the rest — the shape, the scrolling, the mark under the arrow — is the
-// same and is written once.
 class AutocompleteOptionsList<T extends Object> extends StatefulWidget
 {
   final Iterable<T> options;
   final String Function(T option) label;
   final String? Function(T option)? subtitle;
 
-  // Something before the name, where the entry is a person: a face is
-  // recognised before a surname, and is often the only handle a searcher has.
   final Widget? Function(T option)? leading;
 
   final AutocompleteSubtitlePlacement subtitlePlacement;
   final AutocompleteOnSelected<T> onSelected;
 
-  // The list stands above everything, in an overlay: the width of the field it
-  // opens under does not reach it through the constraints, so whoever opens it
-  // has to say.
   final double width;
 
   const AutocompleteOptionsList({
@@ -402,8 +356,6 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
     super.dispose();
   }
 
-  // Scrolls by the minimum needed to reveal the arrow-highlighted option,
-  // rather than always centring it.
   void _ensureHighlightedVisible(int index)
   {
     if (!_scrollController.hasClients)
@@ -439,16 +391,14 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
   @override
   Widget build(BuildContext context)
   {
-    // Reading it here is what creates the reactive dependency on the notifier,
-    // so this widget rebuilds on every arrow key press.
+    // Reading it here creates the reactive dependency on the notifier.
     final highlightedIndex = AutocompleteHighlightedOption.of(context);
 
     if (_lastHighlightedIndex != highlightedIndex)
     {
       _lastHighlightedIndex = highlightedIndex;
 
-      // Deferred: the scrollable must already be laid out to expose
-      // viewportDimension and maxScrollExtent.
+      // Deferred: the scrollable must be laid out to expose viewportDimension.
       WidgetsBinding.instance.addPostFrameCallback((_)
       {
         if (mounted)
@@ -466,7 +416,6 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
           width: widget.width,
           margin: const EdgeInsets.only(top: 8),
           constraints: BoxConstraints(maxHeight: _listHeight),
-          // Keeps the highlighted row from painting over the rounded corners.
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -514,8 +463,6 @@ class _AutocompleteItem extends StatefulWidget
 {
   final String label;
 
-  // The second thing the row says, where it has one: the level of a subject,
-  // the province of a city, the subjects of a teacher. A sector has none.
   final String? subtitle;
 
   final AutocompleteSubtitlePlacement placement;
@@ -628,7 +575,6 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
   }
 }
 
-// One answer already given to a filter, with the cross that takes it back.
 class AppDeletableChip extends StatefulWidget
 {
   final String label;

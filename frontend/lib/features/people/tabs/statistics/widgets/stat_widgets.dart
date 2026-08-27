@@ -5,21 +5,11 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../models/retention_rate_item.dart';
 
-// The recurring cards of the statistics tabs. The panel around them is AppCard's
-// — the same white, radius, badge, heading and rule every other card of the app
-// wears — so what is written here is only what goes inside.
-//
-// The two families are deliberately different sizes. A card carrying a figure or
-// two takes the compact chrome, a card carrying a chart takes the full one, and
-// the pages read as figures first, charts after.
-
 const double _figureSize = 36;
 const double _percentageSize = 24;
 const double _labelSize = 15;
 
-// Under this a card stops laying its figures out side by side. Three columns of
-// figures need about a hundred and forty pixels each before the labels start
-// coming apart, and a phone has half of that to give.
+// Below this a card stops laying its figures out side by side.
 const double _figuresStackBelow = 430;
 
 class EmptyChartMessage extends StatelessWidget
@@ -44,8 +34,6 @@ class EmptyChartMessage extends StatelessWidget
   }
 }
 
-// A heading inside a card, under the one the card itself carries: the three
-// sections of the competences card are one card, not three.
 class StatSectionTitle extends StatelessWidget
 {
   final String text;
@@ -66,7 +54,6 @@ class StatSectionTitle extends StatelessWidget
   }
 }
 
-// Between two figures standing side by side.
 class StatDivider extends StatelessWidget
 {
   const StatDivider({super.key});
@@ -83,8 +70,6 @@ class StatDivider extends StatelessWidget
   }
 }
 
-// And between two standing one over the other, which is what they do on a card
-// too narrow to hold three columns of figures.
 class StatRowDivider extends StatelessWidget
 {
   const StatRowDivider({super.key});
@@ -99,8 +84,6 @@ class StatRowDivider extends StatelessWidget
   }
 }
 
-// A labelled figure. Deltas are signed and get a trend arrow; the optional
-// percentage sits next to the figure, aligned on the same baseline.
 class StatBlock extends StatelessWidget
 {
   final String label;
@@ -119,15 +102,9 @@ class StatBlock extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Red is what the app says about something going the wrong way, and a month
-    // that lost members is the one figure here that qualifies. Everything else
-    // is the brand.
     final color = isDelta && value < 0 ? AppTheme.trialDanger : AppTheme.trialTealDeep;
     final sign = value > 0 ? '+' : '';
 
-    // Not flexible on its own: the card lays three of these across a row on a
-    // wide window and down a column on a narrow one, and only one of the two
-    // wants a flex factor.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -141,10 +118,8 @@ class StatBlock extends StatelessWidget
           ),
         ),
         const SizedBox(height: 8),
-        // Numbers cannot wrap, so scaling down is the right fallback here,
-        // unlike the text elsewhere. mainAxisSize.min is required: FittedBox
-        // hands out unbounded constraints and max would throw on infinite
-        // width.
+        // mainAxisSize.min is required: FittedBox hands out unbounded
+        // constraints and max would throw on infinite width.
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
@@ -190,8 +165,6 @@ class StatBlock extends StatelessWidget
   }
 }
 
-// Three figures about one population: how many there are, and how that has moved
-// since the start of the month and of the year.
 class SummaryStatCard extends StatelessWidget
 {
   final String title;
@@ -225,9 +198,6 @@ class SummaryStatCard extends StatelessWidget
       compact: true,
       selectable: false,
       leading: AppCardBadge(icon: icon, compact: true),
-      // Three columns of figures on a card narrower than this are three columns
-      // of one word each, with "Da inizio mese" broken over three lines above a
-      // number scaled down to nothing. Under it they go one to a row.
       child: LayoutBuilder(
         builder: (context, constraints) => constraints.maxWidth < _figuresStackBelow
             ? Column(
@@ -252,24 +222,19 @@ class SummaryStatCard extends StatelessWidget
   }
 }
 
-// Card hosting a chart of fixed height, with the empty state handled here so no
-// caller has to repeat it.
 class ChartCard extends StatelessWidget
 {
   static const double _chartHeight = 280;
 
   final String title;
 
-  // Every card of the app is introduced by a badge, and no two badges on the
-  // same page may be the same icon: that is the whole of what a badge says.
   final IconData icon;
 
   final Widget? filters;
   final bool isEmpty;
 
-  // Shows a spinner in place of the chart, without touching the title or the
-  // filters above it, so changing this card's own filters does not blank out
-  // the rest of the page while the new data loads.
+  // Replaces only the chart with a spinner, so changing this card's filters
+  // does not blank out the rest of it.
   final bool isLoading;
 
   final Widget chart;
@@ -313,14 +278,10 @@ class ChartCard extends StatelessWidget
   }
 }
 
-// Big percentage plus a sentence explaining it. The sentence is built by the
-// caller, because its wording depends on what is being retained.
 class RetentionCard extends StatelessWidget
 {
   static const double _percentageFigureSize = 48;
 
-  // Only for the card that has nothing to show yet: with a figure already on it
-  // the body keeps the height of that figure.
   static const double _bodyMinHeight = 62;
 
   static const Duration _fetchFade = Duration(milliseconds: 150);
@@ -331,12 +292,9 @@ class RetentionCard extends StatelessWidget
   final RetentionRateItem? data;
   final String Function(RetentionRateItem data) describe;
 
-  // Only this card's own figure is being fetched again: the rest of the page
-  // stays where it is.
   final bool isLoading;
 
-  // Both handed down by the pair this card stands in. See MatchedCardPair for
-  // why a card matched to another one may not measure itself.
+  // Handed down by MatchedCardPair: a matched card may not measure itself.
   final double width;
   final bool matched;
 
@@ -356,10 +314,8 @@ class RetentionCard extends StatelessWidget
   {
     final retention = data;
 
-    // A figure already on the card stays there while the next one is fetched,
-    // dimmed rather than taken away. Swapping it for a spinner shortened the
-    // card for as long as the request took and then let it back out — and with
-    // the two cards matched, the one beside it followed both ways.
+    // An existing figure stays, dimmed, while the next is fetched: swapping it
+    // for a spinner resized the card and its matched pair.
     if (retention == null)
     {
       if (isLoading)
@@ -395,10 +351,6 @@ class RetentionCard extends StatelessWidget
       ),
     );
 
-    // A figure of this size and a sentence of this length do not share a narrow
-    // card: what is left over for the sentence is a column two words wide. Under
-    // the breakpoint the figure stands over it and the sentence gets the whole
-    // width.
     if (width < _figuresStackBelow)
     {
       return Column(

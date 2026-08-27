@@ -33,6 +33,7 @@ EDUCATION: Final[int] = 500
 
 OTHER_ROLE: Final[int] = 100
 OTHER_DETAIL: Final[int] = 255
+DSA_DETAIL: Final[int] = 255
 
 PICKUP_REASON: Final[int] = 500
 

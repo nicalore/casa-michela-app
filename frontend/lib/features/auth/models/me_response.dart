@@ -11,7 +11,7 @@ class MeResponse
   final String status;
   final bool passwordResetRequired;
 
-  // The moment this session started, already brought onto the local clock.
+  // Already converted to the local clock.
   final DateTime? lastLogin;
 
   final String? gender;
@@ -64,9 +64,7 @@ class MeResponse
       activeRole: json['active_role'],
       status: json['status'],
       passwordResetRequired: json['password_reset_required'],
-      // Sent aware and in UTC by the server, so it has to be brought onto the
-      // local clock here: left as it arrives it would read two hours behind for
-      // half the year.
+      // The server sends UTC; convert to local or it reads hours behind.
       lastLogin: json['last_login'] != null
           ? DateTime.tryParse(json['last_login'])?.toLocal()
           : null,

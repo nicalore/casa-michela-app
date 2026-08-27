@@ -35,7 +35,7 @@ from tests.factories import (
 
 DAY = date(2026, 9, 15)
 
-# Opened wide on both sides, so each test states only the hour it cares about.
+# Wide window so each test only states the hour it cares about.
 _OPEN_FROM = time(14)
 _OPEN_TO = time(19)
 
@@ -113,7 +113,6 @@ def pupil_payload(
     )
 
 
-# An offer and a pupil's hours over the same afternoon, on one discipline.
 async def _hour_for(
     db: AsyncSession,
     teacher: Teacher,
@@ -139,8 +138,6 @@ async def _hour_for(
     return availability, booking
 
 
-# Another pupil the same teacher can take, on a discipline they are competent
-# in.
 async def _second_pupil_on(
     db: AsyncSession,
     teacher: Teacher,
@@ -205,8 +202,6 @@ async def scene(
     return Scene(availability, booking, subject.id, teacher, student, presence)
 
 
-# The pupil's programme says which grant applies: Matematica for a liceo is not
-# Matematica for a technical institute, even though the discipline matches.
 async def test_competence_is_read_against_the_pupils_programme(
     db: AsyncSession,
 ) -> None:
@@ -220,9 +215,8 @@ async def test_competence_is_read_against_the_pupils_programme(
     await make_competence(db, teacher, subject, taught_programme)
     await make_enrollment(db, student, other_programme)
 
-    # The discipline has to be part of the pupil's programme for the pair to be
-    # what decides: one nobody's programme covers is judged on the discipline
-    # alone.
+    # The (discipline, programme) check only applies when the discipline is in
+    # the pupil's programme; otherwise it falls back to the discipline alone.
     await make_discipline_in_programme(db, subject, other_programme)
 
     availability, booking = await _hour_for(db, teacher, student, subject)
@@ -268,8 +262,6 @@ async def test_competence_on_the_pupils_own_programme_passes(
     assert lesson.start_time == _LESSON_START
 
 
-# A discipline no programme covers has nothing to be compared against, even for
-# an enrolled pupil: read on the discipline alone.
 async def test_a_discipline_outside_the_programme_ignores_it(
     db: AsyncSession,
 ) -> None:
@@ -280,8 +272,7 @@ async def test_a_discipline_outside_the_programme_ignores_it(
     taught_programme = await make_study_program(db)
     enrolled_programme = await make_study_program(db)
 
-    # Granted for one programme, the pupil is in the other — and the discipline
-    # belongs to neither, which is what makes the pair irrelevant here.
+    # The discipline belongs to neither programme, so the pair check is skipped.
     await make_competence(db, teacher, subject, taught_programme)
     await make_enrollment(db, student, enrolled_programme)
 
@@ -299,8 +290,6 @@ async def test_a_discipline_outside_the_programme_ignores_it(
     assert lesson.start_time == _LESSON_START
 
 
-# An adult taking a language has no programme to check against, and refusing
-# would make the hour unplannable.
 async def test_a_pupil_with_no_school_is_checked_on_the_discipline_alone(
     db: AsyncSession,
 ) -> None:
@@ -311,8 +300,6 @@ async def test_a_pupil_with_no_school_is_checked_on_the_discipline_alone(
     assert lesson.start_time == _LESSON_START
 
 
-# One hour, two programmes: the teacher is in front of both pupils, so both
-# competences have to be there.
 async def test_a_group_hour_needs_the_competence_on_every_programme(
     db: AsyncSession,
 ) -> None:
@@ -400,14 +387,12 @@ async def test_a_lesson_must_fit_the_pupils_hours(db: AsyncSession) -> None:
     assert "ore di" in error.value.detail
 
 
-# What is capped is the pupils at any one moment, and two is the cap.
 async def test_a_teacher_may_take_two_pupils_at_once(db: AsyncSession) -> None:
     built = await scene(db)
     await service(db).create(ADMIN_IDENTITY, payload(built))
 
     second = await _second_pupil_on(db, built.teacher)
 
-    # The same hour as payload's own, so the two genuinely run together.
     lesson, _ = await service(db).create(
             ADMIN_IDENTITY,
         pupil_payload(built.availability, second),
@@ -416,8 +401,6 @@ async def test_a_teacher_may_take_two_pupils_at_once(db: AsyncSession) -> None:
     assert lesson.start_time == _LESSON_START
 
 
-# Only hours in the building may run together: a teacher in a call cannot turn
-# from it to somebody sitting beside them.
 async def test_an_online_hour_may_not_run_alongside_a_hour_in_the_building(
     db: AsyncSession,
 ) -> None:
@@ -463,8 +446,6 @@ async def test_two_online_hours_may_not_run_together_either(
     assert "online" in error.value.detail
 
 
-# One after the other is fine: what is refused is running together, not the two
-# existing on the same afternoon.
 async def test_an_online_hour_may_follow_one_in_the_building(
     db: AsyncSession,
 ) -> None:
@@ -496,7 +477,6 @@ async def test_an_online_hour_may_follow_one_in_the_building(
     assert lesson.teacher_mode == "online"
 
 
-# Heads and not rows: a group hour of two already fills the teacher up.
 async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> None:
     built = await scene(db)
     await service(db).create(ADMIN_IDENTITY, payload(built))
@@ -506,8 +486,6 @@ async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> 
 
     third = await _second_pupil_on(db, built.teacher)
 
-    # Half an hour inside the two that are already there: from half past three
-    # to four there would be three of them.
     with pytest.raises(HTTPException) as error:
         await service(db).create(
             ADMIN_IDENTITY,
@@ -523,15 +501,12 @@ async def test_a_teacher_may_not_take_three_pupils_at_once(db: AsyncSession) -> 
     assert "sovrapporre più di 2 lezioni" in error.value.detail
 
 
-# Touching at an endpoint is not overlapping: three in a row, none at once.
 async def test_hours_that_only_touch_do_not_count_as_at_once(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
     await service(db).create(ADMIN_IDENTITY, payload(built))
 
-    # Three to four, then two more from four to five: three on the afternoon,
-    # never more than two at once.
     for _ in range(2):
         pupil = await _second_pupil_on(db, built.teacher)
         lesson, _ = await service(db).create(
@@ -612,7 +587,6 @@ async def test_pupils_in_one_lesson_must_share_a_mode(db: AsyncSession) -> None:
     assert "modalità" in error.value.detail
 
 
-# Not a preference but a capability, so a refusal rather than a note.
 async def test_a_teacher_without_the_competence_is_refused(
     db: AsyncSession,
 ) -> None:
@@ -625,7 +599,6 @@ async def test_a_teacher_without_the_competence_is_refused(
     assert "competenza" in error.value.detail
 
 
-# NOT_PREFERRED says who the hour should go to last, not who is forbidden it.
 async def test_an_unwanted_teacher_is_a_warning_and_not_a_refusal(
     db: AsyncSession,
 ) -> None:
@@ -659,7 +632,6 @@ async def test_a_published_band_is_closed_to_new_lessons(db: AsyncSession) -> No
     assert error.value.status_code == 409
 
 
-# The morning going out does not freeze the afternoon.
 async def test_another_band_being_published_changes_nothing(
     db: AsyncSession,
 ) -> None:

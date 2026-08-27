@@ -9,9 +9,6 @@ import '../../core/theme/app_theme.dart';
 import 'app_check_mark.dart';
 import 'snackbar.dart';
 
-// A person's photo: the circle holding the current one, and the two commands to
-// change or remove it.
-
 class AppPhotoUploader extends StatefulWidget
 {
   final Uint8List? imageBytes;
@@ -133,10 +130,8 @@ class _AppPhotoUploaderState
           : null,
     );
 
-    // The buttons row has a minimum intrinsic width (~155px) that can exceed the
-    // available space even when stacked, and horizontal scroll would clip it with
-    // no visual cue. FittedBox scales the whole row as one block so it stays fully
-    // visible and clickable.
+    // The buttons row's minimum intrinsic width (~155px) can exceed the space;
+    // FittedBox scales the whole row so it stays visible and clickable.
     final Widget buttonsRow = FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -225,9 +220,6 @@ class _AppPhotoUploaderState
                     color: _isHoveringTrash
                         ? AppTheme.trialGoldSurface
                         : Colors.white,
-                    // A rounded square, like every other delete button in the
-                    // app: a gold circle here next to a gold rectangle elsewhere
-                    // would be two answers to the same question.
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
@@ -244,9 +236,6 @@ class _AppPhotoUploaderState
       ),
     );
 
-    // The row wants avatar (110) + spacing (24) + buttons (~150-190) of width,
-    // which the labelled form row above rarely grants, so on narrow screens it
-    // stacks vertically instead of overflowing to the right.
     return LayoutBuilder(
       builder: (context, constraints)
       {

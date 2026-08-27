@@ -17,7 +17,6 @@ class CalendarDraftClosed(BaseModel):
     resent: bool
 
 
-# Leaving a bozza without publishing answers one thing worth saying out loud.
 class CalendarDraftDiscarded(BaseModel):
     publication: "CalendarPublicationResponse"
 
@@ -38,8 +37,7 @@ class CalendarPublicationResponse(BaseModel):
 
     is_draft: bool = False
 
-    # Whose bozza it is. Only they can leave it without publishing, so the
-    # screen can say so instead of offering a button that would be refused.
+    # Whose bozza it is: only they may leave it without publishing.
     draft_opened_by: str | None = None
     draft_opener: PersonOption | None = None
 

@@ -2,26 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'person_edit_form.dart';
 
-// The steps of the edit dialog as data rather than a chain of ifs: the order
-// used to live inside the forward button, across eight blocks plus two counters
-// plus a chain to find the last one. Here it is a list computed from the roles,
-// and moving is arithmetic on an index.
-
-// What the dialog is for. The cards are the same; what changes is which
-// questions make sense.
 enum PersonEditPurpose
 {
-  // A person who already exists.
   edit,
 
-  // Una persona nuova, con tutte le sue domande.
   create,
 
-  // A parent created on the fly while registering their child: the role is
-  // already decided, and the ties are held by the dialog one arrived from.
   createParent,
 
-  // Un minore creato al volo mentre si registra il suo genitore.
   createMinor,
 }
 
@@ -37,7 +25,6 @@ enum PersonEditStepId
   subjects,
 }
 
-// The cards inside a step. A simple step has just one.
 enum PersonEditCardId
 {
   involvement,
@@ -67,8 +54,7 @@ class PersonEditCard
 {
   final PersonEditCardId id;
 
-  // The card's name, which sits above its controls. Null when the card is the
-  // whole step and the question has already named it.
+  // Null when the card is the whole step.
   final String? label;
 
   const PersonEditCard(this.id, {this.label});
@@ -78,7 +64,6 @@ class PersonEditStep
 {
   final PersonEditStepId id;
 
-  // The question the step answers, and the sentence saying how.
   final String question;
   final String hint;
 
@@ -92,9 +77,8 @@ class PersonEditStep
   });
 }
 
-// The cards of the association step: which ones there are is told by the roles.
-// The collaboration comes after the administrator details, because it is the
-// administrative role that decides whether the collaboration may be paid.
+// Collaboration comes after the admin details: the administrative role decides
+// whether the collaboration may be paid.
 List<PersonEditCard> associativeCardsFor(PersonEditForm form)
 {
   final List<PersonEditCard> cards = [];
@@ -141,8 +125,8 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     cards.add(const PersonEditCard(PersonEditCardId.staff, label: 'Collaborazione'));
   }
 
-  // Psychological support is asked of someone joining, not of the
-  // psychologists, and only of members.
+  // Psychological support: asked only on joining, of members, never of
+  // psychologists.
   if (form.isCreation && !onlyParent && !roles.contains('PSICOLOGO'))
   {
     cards.add(const PersonEditCard(
@@ -156,9 +140,7 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     cards.add(const PersonEditCard(PersonEditCardId.minorSafety, label: 'Sicurezza del minore'));
   }
 
-  // Last, because they are accepted after seeing everything else. Five on
-  // creation, two afterwards and changeable at any time: a consent that cannot
-  // be withdrawn is not a consent.
+  // Last: consents are accepted after seeing everything else.
   if (!onlyParent)
   {
     cards.add(const PersonEditCard(PersonEditCardId.consents, label: 'Consensi'));
@@ -167,9 +149,6 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
   return cards;
 }
 
-// The personal details step: who this person is, where they live and how they
-// are reached. The only one that does not speak of the association, which is why
-// it survives a revocation on its own — see [buildEditSteps].
 PersonEditStep _personalInfoStep(PersonEditForm form, {required bool revoked})
 {
   return PersonEditStep(
@@ -190,18 +169,12 @@ PersonEditStep _personalInfoStep(PersonEditForm form, {required bool revoked})
   );
 }
 
-// I passaggi da mostrare, nell'ordine.
 List<PersonEditStep> buildEditSteps(
   PersonEditForm form, {
   PersonEditPurpose purpose = PersonEditPurpose.edit,
 })
 {
-  // Expelled or resigned: the personal details remain and nothing else. Roles,
-  // memberships and consents all hold for somebody part of the association, and
-  // editing them would rewrite a relationship already closed — while an address
-  // is theirs and is still wrong after an expulsion.
-  //
-  // Creation is untouched: a person born here has no membership to revoke.
+  // Expelled or resigned: only the personal details remain editable.
   if (form.person?.isMembershipRevoked ?? false)
   {
     return [_personalInfoStep(form, revoked: true)];
@@ -209,9 +182,6 @@ List<PersonEditStep> buildEditSteps(
 
   final List<PersonEditStep> steps = [];
 
-  // Whoever arrives here to create a parent or a minor is not asked what their
-  // relationship with the association is: the dialog they came from is already
-  // saying it.
   final bool asksType = purpose == PersonEditPurpose.edit ||
       purpose == PersonEditPurpose.create;
 
@@ -259,8 +229,6 @@ List<PersonEditStep> buildEditSteps(
     ));
   }
 
-  // A parent or a minor created on the fly carry no ties of their own: what
-  // counts is the tie to the person one started from, and they hold it.
   final bool asksRelations = purpose == PersonEditPurpose.edit ||
       purpose == PersonEditPurpose.create;
 
@@ -298,12 +266,8 @@ List<PersonEditStep> buildEditSteps(
   return steps;
 }
 
-// Whether the step has had its answer. The three multiple-choice questions start
-// without one, so the forward arrow is off until they are answered rather than
-// letting through an answer nobody gave.
-//
-// The other steps are fields to write, checked on pressing the arrow, which is
-// the moment what is missing can be named.
+// Multiple-choice steps start unanswered, keeping the forward arrow off; field
+// steps are validated on pressing the arrow instead.
 bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
 {
   return switch (id)
@@ -315,9 +279,7 @@ bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
   };
 }
 
-// Where a step sits, kept by name and not by position: ticking a role slips a
-// step into the middle, and a hand-kept index would slide out from under the
-// finger.
+// By name, not position: ticking a role can slip a step into the middle.
 int indexOfStep(List<PersonEditStep> steps, PersonEditStepId id)
 {
   final int index = steps.indexWhere((step) => step.id == id);

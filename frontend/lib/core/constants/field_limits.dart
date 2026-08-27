@@ -1,6 +1,5 @@
-// Mirrored from backend/app/core/field_lengths.py — the server refuses
-// anything longer, so a box that let more be typed would be a box that fills
-// in a form the API then rejects.
+// Mirrored from backend/app/core/field_lengths.py: the server refuses
+// anything longer.
 abstract final class FieldLimits
 {
   static const int name = 255;
@@ -34,6 +33,7 @@ abstract final class FieldLimits
 
   static const int otherRole = 100;
   static const int otherDetail = 255;
+  static const int dsaDetail = 255;
 
   static const int pickupReason = 500;
 

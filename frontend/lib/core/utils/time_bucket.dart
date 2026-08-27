@@ -6,9 +6,8 @@ export 'week_range.dart' show kMinimumBandMinutes, kQuarterHour, minutesOfTimeOf
 
 enum TimeBucket { morning, afternoon, evening }
 
-// Mirrors app/core/time_band.py, which enforces these bands. Half-open by
-// convention — a band owns its start and hands its end to the next one —
-// except evening's close, which is a real closing time and stays selectable.
+// Mirrors app/core/time_band.py. Half-open, except evening's close, which is
+// a real closing time and stays selectable.
 const int _morningStartHour = kDayStartMinutes ~/ 60;
 const int _afternoonStartHour = 13;
 const int _eveningStartHour = 19;
@@ -84,9 +83,7 @@ int bandStartMinutes(TimeBucket bucket) => _bandStartHour(bucket) * 60;
 
 int bandEndMinutes(TimeBucket bucket) => _bandEndHour(bucket) * 60;
 
-// When the bookings close: before it a teacher offers hours and a family
-// books them, after it both lists are read-only to everybody but an
-// administrator. Mirrors app/core/booking_close.py, which enforces it.
+// Bookings close: mirrors app/core/booking_close.py.
 const Map<TimeBucket, (int daysBefore, int hour)> _closingTimes = {
   TimeBucket.morning: (1, 20),
   TimeBucket.afternoon: (0, 11),

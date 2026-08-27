@@ -37,9 +37,8 @@ async def _get_service_or_404(db: AsyncSession, name: str) -> Service:
 
 
 async def _assert_name_available(db: AsyncSession, name: str) -> None:
-    # Case-insensitive, like the other catalogues: "Tesina" and "tesina" are
-    # the same service written twice, and the primary key alone would let both
-    # through.
+    # Case-insensitive like the other catalogues; the PK alone would let
+    # "Tesina" and "tesina" both through.
     existing = (
         await db.execute(select(Service).where(Service.name.ilike(name)))
     ).scalars().first()
@@ -91,9 +90,8 @@ async def update_service(
     if service.name.lower() != payload.name.lower():
         await _assert_name_available(db, payload.name)
 
-    # Renaming rewrites the primary key. Nothing references services yet; once
-    # something does, its foreign key needs onupdate="CASCADE" for this to keep
-    # working.
+    # Renaming rewrites the PK; any future FK to services needs
+    # onupdate="CASCADE" for this to keep working.
     service.name = payload.name
     service.description = payload.description
 

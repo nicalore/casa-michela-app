@@ -6,23 +6,10 @@ import '../../core/theme/app_theme.dart';
 const Duration _hoverFade = Duration(milliseconds: 180);
 const double _radius = 20;
 
-// Something the thing you are looking at is related to: the study programmes of
-// a school, the ministry subjects of a programme, the internal disciplines of a
-// subject. One look for all of them, because they are all the same kind of
-// statement — a fact about what you have open, not a control.
-//
-// The turquoise laid on white until it is barely a colour, with the deep teal on
-// top of it, the same tint the roles wear in the settings.
-//
-// Some of these can be opened and some cannot. That difference is carried by the
-// gold outline the app gives to everything the pointer can act on, so it shows
-// up only when the pointer is actually there and never turns two lists of facts
-// into two different-looking things.
 class AppEntityChip extends StatefulWidget
 {
   final String label;
 
-  // Left out, the chip is inert: a fact with nothing behind it.
   final VoidCallback? onTap;
 
   const AppEntityChip({

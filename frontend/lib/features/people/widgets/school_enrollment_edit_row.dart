@@ -11,27 +11,15 @@ import '../../../shared/widgets/overflow_tooltip_text.dart';
 import 'person_detail_widgets.dart';
 import 'person_row_models.dart';
 
-// A school year to edit: year, school, programme and class in a row, with the
-// delete button at the end. Shared with the school tab's dialog, because editing
-// a person's details asks for the same four things, and two look-alike rows are
-// the quickest way to start diverging.
-//
-// The cascade is why this is one row and not four fields: picking the school
-// clears programme and class, picking the programme clears the class, because a
-// programme belongs to the school offering it and a class to the years the
-// programme has.
+// Cascade: picking the school clears programme and class; picking the
+// programme clears the class.
 
-// The grey a field says with that the one above has to be answered first.
 const Color kFormDisabledText = Color(0xFFCBD5E1);
 
-// The month the school year starts in: before September the current year is
-// still the previous one.
 const int _schoolYearStartMonth = 9;
 
-// Single source of truth for the grade labels, used both to show a saved grade and
-// to translate the chosen one back. Study programs can span up to eight years, so
-// the map has to cover them all: a shorter one would turn an unknown label back
-// into the first year.
+// Must cover all eight years a programme can span: a shorter map would turn an
+// unknown label back into the first year.
 const Map<int, String> kGradeLabels = {
   1: 'I',
   2: 'II',
@@ -47,7 +35,6 @@ final Map<String, int> kGradeNumbers = {
   for (final entry in kGradeLabels.entries) entry.value: entry.key,
 };
 
-// Start year of the running school year.
 int currentSchoolYearStart()
 {
   final now = DateTime.now();
@@ -58,8 +45,6 @@ int currentSchoolYearStart()
 String gradeLabel(int grade) => kGradeLabels[grade] ?? grade.toString();
 
 
-// The classes a programme allows, in Roman numerals. When the programme
-// declares a range the labels do not cover, it falls back to the first five.
 List<String> gradeOptionsFor(StudyProgramItem? program)
 {
   if (program == null)
@@ -82,12 +67,9 @@ List<String> gradeOptionsFor(StudyProgramItem? program)
   return options.isEmpty ? const ['I', 'II', 'III', 'IV', 'V'] : options;
 }
 
-// How a school is named where it has to be told from one of the same name:
-// with its city.
 String schoolLabel(SchoolItem school) => '${school.name} (${school.city})';
 
-// The programmes the chosen school really teaches, narrowed to those still in
-// the catalogue: a school can carry a programme the association has removed.
+// A school can carry a programme the association has removed.
 List<String> programNamesFor(SchoolItem? school, List<StudyProgramItem> allPrograms)
 {
   if (school == null)
@@ -99,9 +81,8 @@ List<String> programNamesFor(SchoolItem? school, List<StudyProgramItem> allProgr
 
   for (final option in school.studyPrograms)
   {
-    // The name arriving with the school is the full one, sector included: the
-    // comparison has to be made on the same, or two programmes sharing a name
-    // under different sectors cannot be told apart.
+    // Compare on fullName: two programmes can share a name under different
+    // sectors.
     final bool isKnown = allPrograms.any((program) => program.fullName == option.name);
 
     if (isKnown && !names.contains(option.name))
@@ -113,7 +94,6 @@ List<String> programNamesFor(SchoolItem? school, List<StudyProgramItem> allProgr
   return names;
 }
 
-// Un anno scolastico, con i suoi quattro campi e la sua cascata.
 class SchoolEnrollmentEditRow extends StatelessWidget
 {
   final SchoolEnrollmentRowData row;
@@ -123,7 +103,6 @@ class SchoolEnrollmentEditRow extends StatelessWidget
   // This row's errors, by field: `year`, `school`, `program`, `grade`.
   final Map<String, String?> errors;
 
-  // Called after every change, so whoever holds the row repaints.
   final VoidCallback onChanged;
   final VoidCallback onRemove;
 
@@ -225,23 +204,14 @@ class SchoolEnrollmentEditRow extends StatelessWidget
   }
 }
 
-// Year, school, programme and grade side by side, stacked below the threshold.
-// Once stacked the remove button moves next to the grade, on the middle of its
-// box as it is beside the fields in the wide layout.
 class _FourFieldRow extends StatelessWidget
 {
-  // Below this width four fields side by side become unreadable, school and
-  // programme in particular.
   static const double _breakpoint = 700;
 
-  // Year and grade only ever hold a short value (a 4-digit year, a roman
-  // numeral), so they stay a fixed width and leave the reclaimed space to
-  // school and program, which can both run long.
   static const double _shortFieldWidth = 110;
 
-  // The label above a field here, its gap, and half of what is left between the
-  // 50-pixel box and the 36-pixel button. Measured rather than guessed: the
-  // first arithmetic put the trash a pixel and a bit above the middle.
+  // Label height + gap + half the box/button difference, so the trash centres
+  // on the 50px box.
   static const double _labelBlockHeight = 14 + 8;
   static const double _removeInset =
       _labelBlockHeight + (50 - kPersonFieldButtonSize) / 2;
@@ -260,9 +230,6 @@ class _FourFieldRow extends StatelessWidget
     required this.onRemove,
   });
 
-  // The same trash the memberships rows carry, on the middle of the boxes rather
-  // than of the whole field: the label above them is part of the column's
-  // height, and centring against that puts the button too high.
   Widget _buildRemove()
   {
     return Padding(
@@ -322,9 +289,6 @@ class _FourFieldRow extends StatelessWidget
   }
 }
 
-// Dropdown for a form field, with a hint, an inline error and support for being
-// disabled when there is nothing to choose from. Separate from the filter menus in
-// shared/widgets, which are built around clearing rather than picking one value.
 class PersonFormDropdown extends StatefulWidget
 {
   final String? value;
@@ -354,8 +318,6 @@ class PersonFormDropdownState extends State<PersonFormDropdown>
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
 
-  // Empty options mean the field upstream has not been chosen yet, so there is
-  // nothing to open.
   bool get _isDisabled => widget.options.isEmpty;
 
   void _toggleMenu()
@@ -402,8 +364,7 @@ class PersonFormDropdownState extends State<PersonFormDropdown>
     Overlay.of(context).insert(_overlayEntry!);
   }
 
-  // The overlay is removed only after the collapse animation has run, so the menu
-  // does not disappear abruptly.
+  // Removed only after the collapse animation has run.
   void _closeMenu() async
   {
     if (_overlayEntry == null)
@@ -423,7 +384,6 @@ class PersonFormDropdownState extends State<PersonFormDropdown>
       return AppTheme.trialDanger;
     }
 
-    // Gold under the pointer, as every field and every control of the app.
     return _isHovered ? AppTheme.trialGold : AppTheme.trialLine;
   }
 
@@ -525,8 +485,8 @@ class _FormOverlayContent extends StatefulWidget
 
 class _FormOverlayContentState extends State<_FormOverlayContent>
 {
-  // The same value drives the AnimatedSize and the delay awaited by hide(): they
-  // must stay in sync or the overlay is torn down mid animation.
+  // Drives both the AnimatedSize and the delay awaited by hide(): out of sync,
+  // the overlay is torn down mid animation.
   static const Duration _expandDuration = Duration(milliseconds: 180);
 
   bool _expanded = false;
@@ -563,7 +523,6 @@ class _FormOverlayContentState extends State<_FormOverlayContent>
       color: Colors.transparent,
       child: Container(
         width: widget.width,
-        // Long lists scroll instead of running past the bottom of the dialog.
         constraints: const BoxConstraints(maxHeight: 250),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -664,9 +623,6 @@ class _FormOverlayMenuItemState extends State<_FormOverlayMenuItem>
     );
   }}
 
-// The field and the autocomplete a school is typed with, used by this row
-// alone.
-
 class _CompactTextField extends StatefulWidget
 {
   final TextEditingController controller;
@@ -675,8 +631,6 @@ class _CompactTextField extends StatefulWidget
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
 
-  // Sempre acceso: il campo spento serviva al vecchio wizard, qui l'anno si
-  // scrive sempre.
   bool get enabled => true;
 
   const _CompactTextField({
@@ -721,11 +675,7 @@ class __CompactTextFieldState extends State<_CompactTextField>
   Widget build(BuildContext context)
   {
     final bool hasError = widget.errorText != null;
-    // Gold on focus and the app's line at rest: the same answer AppTextField
-    // gives, so a field in an Orari dialog and a field anywhere else in the new
-    // interface behave alike. (This widget is still shared with the person
-    // wizard, which has not been migrated yet and will show these two colours
-    // ahead of the rest of it.)
+    // Still shared with the un-migrated person wizard.
     final Color borderColor = !widget.enabled
         ? const Color(0xFFCBD5E1)
         : (hasError
@@ -813,10 +763,6 @@ class __CompactTextFieldState extends State<_CompactTextField>
   }
 }
 
-// Free-text field with a filtered, tappable suggestions list, used to pick a
-// school by typing its name instead of scrolling a dropdown: school names are
-// often too long for a fixed-width dropdown button to show in full.
-
 class _SchoolAutocompleteField extends StatefulWidget
 {
   final String? value;
@@ -825,9 +771,8 @@ class _SchoolAutocompleteField extends StatefulWidget
   final String? errorText;
   final ValueChanged<String> onSelected;
 
-  // Called when the field is emptied and then loses focus, so the caller can
-  // clear the row's actual selection instead of the field silently reverting
-  // to the last confirmed value.
+  // Called when the field is emptied and loses focus, so the caller clears the
+  // row's actual selection.
   final VoidCallback onCleared;
 
   const _SchoolAutocompleteField({
@@ -865,9 +810,8 @@ class __SchoolAutocompleteFieldState
   {
     super.didUpdateWidget(oldWidget);
 
-    // Keeps the field in sync when the row's school changes from outside (for
-    // example a reset, or another row shifting into this position after one
-    // above it is removed), without fighting the user while they are typing.
+    // Syncs when the school changes from outside, without fighting the user
+    // while they are typing.
     if (!_focusNode.hasFocus && widget.value != oldWidget.value && widget.value != _controller.text)
     {
       _controller.text = widget.value ?? '';
@@ -882,15 +826,12 @@ class __SchoolAutocompleteFieldState
 
     if (hasFocus)
     {
-      // Selects the current text so the next keystroke replaces it outright,
-      // instead of the suggestions filtering against the old value with
-      // nothing new typed yet.
+      // Select-all so the next keystroke replaces the old value outright.
       _controller.selection = TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
       return;
     }
 
-    // An intentional clear stays cleared, instead of snapping back to the old
-    // school: the caller resets the row's actual selection to match.
+    // An intentional clear stays cleared; the caller resets the row's selection.
     if (_controller.text.isEmpty)
     {
       if (widget.value != null)
@@ -900,9 +841,7 @@ class __SchoolAutocompleteFieldState
       return;
     }
 
-    // Leaving the field without picking a real suggestion would otherwise show
-    // text that does not match the row's actual school, so it snaps back to
-    // the last confirmed value.
+    // Text not matching a real option snaps back to the last confirmed value.
     if (!widget.options.contains(_controller.text))
     {
       _controller.text = widget.value ?? '';
@@ -935,9 +874,6 @@ class __SchoolAutocompleteFieldState
   {
     final bool hasError = widget.errorText != null;
 
-    // Gold under the pointer and on focus, the app's line at rest: the same
-    // answer the year field and the two dropdowns beside it give, so the four
-    // boxes of a row do not light up in two different colours.
     final bool isLit = _isFocused || _isHovered;
 
     final Color borderColor = hasError
@@ -1015,10 +951,6 @@ class __SchoolAutocompleteFieldState
                         ),
                       )
                     else
-                      // The same grey whatever the box is doing: the lens says
-                      // the field is searchable, not that it is lit, and gold
-                      // on it read as a second thing lighting up inside the
-                      // one that already had.
                       const Padding(
                         padding: EdgeInsets.only(right: 12.0),
                         child: Icon(

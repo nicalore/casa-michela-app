@@ -11,6 +11,7 @@ from app.core.labels import time_band_label
 from app.core.time_band import TimeBandEnum
 from app.models.booking import Booking
 from app.models.calendar_publication import CalendarPublication
+from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.repositories.calendar_band_lock_repository import (
@@ -28,8 +29,9 @@ _HELD_BAND_ERROR: Final[str] = (
     "puoi guardarlo, non modificarlo."
 )
 
-# Whoever it is has an account and a name, and not finding it is not a reason to
-# let the write through: the band is taken either way.
+_EXCLUDED_TEACHER_ERROR: Final[str] = "Il docente è escluso dal calendario."
+
+# A missing account is not a reason to let the write through.
 _SOMEBODY_ELSE: Final[str] = "Un altro amministratore"
 
 
@@ -96,13 +98,9 @@ async def _holder_label(session: AsyncSession, tax_code: str) -> str:
     return f"{person.first_name} {person.last_name}".strip() or _SOMEBODY_ELSE
 
 
-# The twin of assert_band_editable, and deliberately not folded into it: being
-# published means nobody edits the band, being taken means only one person does.
-#
-# It takes the band as it checks it, in one statement, so the first write of a
-# sitting is what claims it — walking in to look claims nothing. Every write
-# after that renews it in passing, which is why nothing here has to be undone
-# when the sitting ends well.
+# Deliberately separate from assert_band_editable: published means nobody
+# edits, taken means one person does. Checks and claims in one statement — the
+# first write claims, later writes renew, so nothing needs undoing afterwards.
 async def assert_band_claimed(
     session: AsyncSession,
     identity: IdentityContext,
@@ -234,3 +232,28 @@ async def find_availability_lessons(
     )
 
     return list(rows)
+
+
+# An excluded teacher takes nothing in the calendar; this answers clients
+# whose exclusion happened after they loaded it.
+async def assert_teacher_not_excluded(
+    session: AsyncSession,
+    day: date,
+    band: str | TimeBandEnum,
+    teacher_tax_code: str,
+) -> None:
+    standing = await session.scalar(
+        select(CalendarTeacherExclusion.teacher_tax_code).where(
+            CalendarTeacherExclusion.date == day,
+            CalendarTeacherExclusion.band == str(band),
+            CalendarTeacherExclusion.teacher_tax_code == teacher_tax_code,
+        ),
+    )
+
+    if standing is None:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=_EXCLUDED_TEACHER_ERROR,
+    )

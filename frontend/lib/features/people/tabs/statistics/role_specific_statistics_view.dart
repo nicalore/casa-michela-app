@@ -31,12 +31,9 @@ import 'widgets/stats_constants.dart';
 
 const Color _sectionDivider = AppTheme.trialLine;
 
-// The ground every chip of the app that names something stands on: the brand
-// turquoise laid on white until it is barely a colour.
 const Color _subjectBadgeBackground = Color(0xFFE8F7F5);
 
-// Roles whose members have a residence and an age worth charting. The other
-// roles skip those two requests entirely.
+// Other roles skip the city/age requests entirely.
 const Set<String> _rolesWithDemographics = {
   'teacher',
   'student',
@@ -47,8 +44,7 @@ const String _studentRole = 'student';
 const String _teacherRole = 'teacher';
 const String _courseParticipantRole = 'course_participant';
 
-// Age brackets in the order the backend does not guarantee: the labels are
-// strings, so they have to be sorted against this explicit sequence.
+// The backend does not guarantee bracket order; the labels are strings.
 const Map<String, int> _ageGroupOrder = {
   '< 11': 1,
   '11-14': 2,
@@ -168,9 +164,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     catch (_) {}
   }
 
-  // Its own request and its own spinner: the period pill stands on the ranking
-  // card, and answering it by reloading the competences beside it would blank a
-  // card nobody asked about.
+  // Its own request and spinner, so the period pill does not blank the card
+  // beside it.
   Future<void> _loadTeacherAppreciationData() async
   {
     if (widget.roleKey != _teacherRole)
@@ -310,10 +305,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     }
   }
 
-  // Every card fetches and reloads on its own. A pill belongs to the card it
-  // stands on, and answering it by blanking the whole view behind a spinner —
-  // which is what a single shared load did — throws away the cards that were
-  // not asked about and makes a change of year read as a page change.
+  // Every card fetches and reloads on its own; a shared load blanked the view.
 
   Future<void> _loadRetentionData() async
   {
@@ -801,9 +793,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       children: [
         const StatSectionTitle('Distribuzione per area'),
         const SizedBox(height: 24),
-        // The explicit height is what keeps the IntrinsicHeight below working:
-        // it stops the intrinsic measurement before it reaches the LayoutBuilder
-        // inside the pie chart, which cannot answer it.
+        // The explicit height stops intrinsic measurement before the pie chart's
+        // LayoutBuilder, which cannot answer it.
         SizedBox(
           height: 320,
           child: areas.isEmpty
@@ -954,8 +945,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  // Two cards about the teachers, and neither waits for the other: what they can
-  // teach, and how often the pupils ask for them.
   List<Widget> _buildTeacherCards()
   {
     final stats = _teacherStats;
@@ -977,8 +966,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     ];
   }
 
-  // City and age are shown side by side when both are available, and alone when
-  // only one of the two came back.
   Widget? _buildDemographicsSection()
   {
     if (_cityData.isEmpty && _ageData.isEmpty)
@@ -997,8 +984,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     return _cityData.isNotEmpty ? _buildCityChartCard() : _buildAgeChartCard();
   }
 
-  // A list and not one card: the teachers have two, and each of them has to
-  // come in on a beat of its own like every other card of the page.
   List<Widget> _buildRoleSpecificCards()
   {
     switch (widget.roleKey)
@@ -1043,8 +1028,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             ),
           ),
           const SizedBox(height: 24),
-          // The one pair of the page that has to be the same height on both
-          // sides: they are the same question asked of two populations.
           MatchedCardPair(
             first: _buildMembersRetentionCard,
             second: _buildCollabRetentionCard,
@@ -1079,9 +1062,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       );
     }
 
-    // The charts are timed one by one inside, rather than the whole page being
-    // wrapped as one element out here: a page that left in a single slab was
-    // the odd one out beside every list in the app.
     return Navigator(
       onGenerateRoute: (settings) => MaterialPageRoute(builder: (context) => _buildContent()),
     );

@@ -51,8 +51,7 @@ class RoomSupervisionRepository(WritableRepository[RoomSupervision]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # Nobody watches two rooms at once, so an overlap is looked for across the
-    # whole day and not within one room.
+    # Day-wide overlap check: nobody watches two rooms at once.
     async def find_teacher_overlap(
         self,
         *,

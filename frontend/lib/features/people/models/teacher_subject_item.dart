@@ -1,6 +1,3 @@
-// A programme a teacher is competent on. Broken into parts rather than the
-// single composed name, so the programmes can be grouped under their level and
-// their sector, which is the only way to read twenty of them.
 class TeacherProgramItem
 {
   final int id;
@@ -25,8 +22,6 @@ class TeacherProgramItem
     );
   }
 
-  // The full name, sector included: needed where the programme is named on its
-  // own, outside the group that would say the sector for it.
   String get fullName => sector == null ? name : '$sector | $name';
 }
 
@@ -36,8 +31,6 @@ class TeacherSubjectItem
   final String subjectName;
   final String subjectArea;
 
-  // What the discipline is, where somebody wrote it: the same text read in the
-  // catalogue, carried here because this is where one meets it.
   final String? subjectDescription;
 
   final List<TeacherProgramItem> studyPrograms;

@@ -7,9 +7,6 @@ import '../../features/auth/widgets/auth_pill_page.dart';
 import 'app_dialog_stack.dart';
 import 'app_gradient_button.dart';
 
-// The address that leads nowhere, in the same shape as the pages seen before
-// signing in: a stack of pills on the paper, and a single command — going back
-// to where there is something.
 class NotFoundPage extends StatelessWidget
 {
   final String? requestedLocation;
@@ -50,8 +47,6 @@ class NotFoundPage extends StatelessWidget
                   color: AppTheme.trialMutedText,
                 ),
               ),
-              // Said only when known: which address was asked for is half the
-              // answer, when it is a typo.
               if (requestedLocation != null) ...[
                 const SizedBox(height: 14),
                 Text(

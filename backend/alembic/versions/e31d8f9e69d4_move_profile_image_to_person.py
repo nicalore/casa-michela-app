@@ -31,4 +31,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("people", "profile_image_url")
-    # ### end Alembic commands ###

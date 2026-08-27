@@ -4,25 +4,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
-// A large choice: the icon, the name, the sentence saying what it entails, and
-// the check mark. A full-width row rather than a card in a wrap, so the choices
-// read one under the other and the text explaining them gets the whole width.
 class AppChoiceCard extends StatefulWidget
 {
-  // The round icon on the left. Null where there is nothing to depict: a study
-  // programme has no symbol, a role does.
   final IconData? icon;
 
   final String title;
-  // The line under the name, saying what the choice entails. Null where the
-  // name is enough.
   final String? subtitle;
   final bool selected;
   final ValueChanged<bool> onSelected;
 
-  // A choice that exists but cannot be made yet. It stays in place, greyed, and
-  // the line under the name says what is missing: taking it away would make a
-  // possibility vanish without explaining why.
   final bool disabled;
 
   const AppChoiceCard({
@@ -61,8 +51,6 @@ class _AppChoiceCardState extends State<AppChoiceCard>
                 ? AppTheme.trialPaper
                 : (widget.selected ? kPickedSurface : Colors.white),
             borderRadius: BorderRadius.circular(20),
-            // Gold says where the pointer is; the border is always there, so
-            // lighting up does not shift the contents by two pixels.
             border: Border.all(
               color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
               width: 2,

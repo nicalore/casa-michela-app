@@ -11,8 +11,7 @@ from app.schemas.validators import TimeBandMixin
 class PresenceBase(TimeBandMixin):
     date: date
 
-    # Being in the building and being reachable at a screen are two different
-    # answers to the same day, and a pupil can give both.
+    # A pupil can give both modes for the same day.
     mode: OpeningModeEnum
 
 

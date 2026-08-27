@@ -16,6 +16,7 @@ import '../features/association/models/study_program_item.dart';
 import '../features/association/models/weekly_template_item.dart';
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
+import '../features/lessons/models/activity_item.dart';
 import '../features/lessons/models/availability_item.dart';
 import '../features/lessons/models/calendar_lock_item.dart';
 import '../features/lessons/models/calendar_publication_item.dart';
@@ -200,11 +201,8 @@ class ApiService
   {
     final detail = error.response?.data is Map ? error.response?.data['detail'] : null;
 
-    // A write that would take something away — a published calendar, the hours
-    // offered against the old opening, the requests booked into them — is
-    // refused rather than done, and the refusal carries what it would have
-    // cost. It is not an error to be shown: it is a question to be put to
-    // whoever asked for the write, and it comes back typed so it can be.
+    // A destructive write is refused with a typed cost, so the caller can ask
+    // for confirmation instead of showing an error.
     if (detail is Map && detail['error'] == WriteWouldTakeAway.code)
     {
       throw WriteWouldTakeAway.fromJson(detail.cast<String, dynamic>());
@@ -510,13 +508,8 @@ class ApiService
     }
   }
 
-  // A day's hours written whole: the rows of that day and mode are replaced by
-  // the bands given, and no bands at all is the day being closed.
-  //
-  // One call and not a delete followed by a create, because between the two the
-  // day stands with no hours on it — and a day with no hours, however briefly,
-  // is a day whose lessons are cleared and whose calendar is taken down. Written
-  // whole, a change of hours only sends the calendar back into bozza.
+  // One call, not delete+create: a day left momentarily without hours would
+  // clear its lessons and take down its calendar.
   Future<List<OpeningDayItem>> replaceOpeningDay({
     required DateTime date,
     required String mode,
@@ -1934,6 +1927,97 @@ class ApiService
     }
   }
 
+  Future<List<ActivityItem>> getCalendarActivities({
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async
+  {
+    final response = await _dio.get(
+      '/calendar-activities/',
+      queryParameters: {
+        'date_from': ?dateFrom.let(formatDateOnly),
+        'date_to': ?dateTo.let(formatDateOnly),
+      },
+    );
+
+    return parseList(response.data, ActivityItem.fromJson);
+  }
+
+  Future<ActivityItem> createCalendarActivity({
+    required DateTime day,
+    required TimeBucket band,
+    required String name,
+    String? description,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/calendar-activities/',
+        data: {
+          'date': formatDateOnly(day),
+          'band': LessonItem.formatBand(band),
+          'name': name,
+          'description': description,
+        },
+      );
+
+      return ActivityItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la creazione dell\'attività. Riprova più tardi.');
+    }
+  }
+
+  Future<ActivityItem> updateCalendarActivity({
+    required int id,
+    required String name,
+    String? description,
+    int? availabilityId,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
+    required DateTime expectedUpdatedAt,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/calendar-activities/$id',
+        data: {
+          'name': name,
+          'description': description,
+          'assignment': availabilityId == null || startTime == null || endTime == null
+              ? null
+              : {
+                  'availability_id': availabilityId,
+                  'start_time': formatTimeOfDay(startTime),
+                  'end_time': formatTimeOfDay(endTime),
+                },
+          'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+
+      return ActivityItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica dell\'attività. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteCalendarActivity(int id) async
+  {
+    try
+    {
+      await _dio.delete('/calendar-activities/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione dell\'attività. Riprova più tardi.');
+    }
+  }
+
   String _publicationPath(DateTime day, TimeBucket band)
   {
     return '/calendar-publications/${formatDateOnly(day)}/${LessonItem.formatBand(band)}';
@@ -1995,10 +2079,6 @@ class ApiService
     }
   }
 
-  // Leaving the bozza without publishing: the part of the day goes back to what
-  // it was when it was opened. Answers how many of its hours could not be put
-  // back, which is not a failure — a request cancelled while the bozza was open
-  // took its hour with it either way.
   Future<({CalendarPublicationItem publication, int lost})> discardDraft({
     required DateTime day,
     required TimeBucket band,
@@ -2043,6 +2123,72 @@ class ApiService
     }
   }
 
+  Future<Set<String>> getExcludedTeachers({
+    required DateTime day,
+    required TimeBucket band,
+  }) async
+  {
+    final response = await _dio.get(
+      '/calendar-teacher-exclusions/',
+      queryParameters: {
+        'exclusion_date': formatDateOnly(day),
+        'band': LessonItem.formatBand(band),
+      },
+    );
+
+    return {
+      for (final row in (response.data as List).cast<Map<String, dynamic>>())
+        row['teacher_tax_code'] as String,
+    };
+  }
+
+  Future<({int lessons, int activities})> excludeTeacher({
+    required DateTime day,
+    required TimeBucket band,
+    required String teacherTaxCode,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/calendar-teacher-exclusions/',
+        data: {
+          'date': formatDateOnly(day),
+          'band': LessonItem.formatBand(band),
+          'teacher_tax_code': teacherTaxCode,
+        },
+      );
+
+      return (
+        lessons: response.data['unplanned_lessons'] as int,
+        activities: response.data['unassigned_activities'] as int,
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'esclusione del docente.');
+    }
+  }
+
+  Future<void> readmitTeacher({
+    required DateTime day,
+    required TimeBucket band,
+    required String teacherTaxCode,
+  }) async
+  {
+    try
+    {
+      await _dio.delete(
+        '/calendar-teacher-exclusions/${formatDateOnly(day)}/'
+        '${LessonItem.formatBand(band)}/$teacherTaxCode',
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il reinserimento del docente.');
+    }
+  }
+
   String _lockPath(DateTime day, TimeBucket band)
   {
     return '/calendar-locks/${formatDateOnly(day)}/${LessonItem.formatBand(band)}';
@@ -2064,9 +2210,6 @@ class ApiService
     return parseList(response.data, CalendarLockItem.fromJson);
   }
 
-  // Saying the administrator is still at the screen, which is the whole of what
-  // holding a band means. There is no call for taking one: writing into the
-  // calendar is what does that.
   Future<CalendarLockState> heartbeatCalendarLock({
     required DateTime day,
     required TimeBucket band,
@@ -2077,9 +2220,6 @@ class ApiService
     return CalendarLockState.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // Leaving the calendar. Best effort and never the guarantee: a window that
-  // was closed rather than left says nothing at all, and the ninety seconds
-  // say it for it.
   Future<void> releaseCalendarLock({
     required DateTime day,
     required TimeBucket band,

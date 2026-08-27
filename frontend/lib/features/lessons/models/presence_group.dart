@@ -3,15 +3,8 @@ import 'person_option_item.dart';
 import 'presence_item.dart';
 import '../../../core/utils/week_range.dart';
 
-// One pupil's request for one day, however many stretches of hours and
-// whichever way of being there it is made of.
-//
-// The backend keeps a row per stretch and per mode, because a row is what has a
-// start, an end and a way. What the association means by "a request", though,
-// is a pupil asking for a day — two hours in the building in the
-// afternoon and one online in the evening are one answer to one question, and
-// they belong on one card. So the rows are gathered here on the way out of the
-// API and taken apart again on the way back in.
+// One pupil's request for one day. The backend keeps a row per stretch and
+// mode; rows are gathered here into one group and split again on write.
 class PresenceGroup
 {
   final String studentTaxCode;
@@ -19,8 +12,7 @@ class PresenceGroup
   final PersonOptionItem booker;
   final DateTime date;
 
-  // Every stretch the pupil gave that day, both ways of being there, in the
-  // order of the day. Never empty: a group exists because its rows do.
+  // Day-ordered, never empty: a group exists because its rows do.
   final List<PresenceItem> slots;
 
   const PresenceGroup({
@@ -35,16 +27,11 @@ class PresenceGroup
 
   int get startMinutes => first.startTime.hour * 60 + first.startTime.minute;
 
-  // The stretches given one way, in the order of the day. Empty where the
-  // pupil did not ask for that way at all.
   List<PresenceItem> slotsFor(String mode)
   {
     return slots.where((slot) => slot.mode == mode).toList();
   }
 
-  // And what was asked for inside them. A subject hangs off one of the
-  // stretches of its mode; which one is the timetable's business, not the
-  // reader's, so they are gathered.
   List<BookingSummaryItem> requestsFor(String mode)
   {
     return [
@@ -64,12 +51,8 @@ class PresenceGroup
     return minutes;
   }
 
-  // The same reckoning, discipline by discipline: an hour covering three of
-  // them is an hour of each and not a third apiece, because what it spends of
-  // a discipline is the whole lesson.
-  //
-  // [skip] leaves one row out — the one being rewritten in a window that counts
-  // its own duration itself. A service is on no discipline and adds to none.
+  // An hour covering three disciplines counts as a full hour of each.
+  // [skip] leaves out the row being rewritten by the caller.
   Map<int, int> minutesByDiscipline(String mode, {BookingSummaryItem? skip})
   {
     final minutes = <int, int>{};
@@ -90,9 +73,6 @@ class PresenceGroup
     return minutes;
   }
 
-  // And how much time there is to spend in that mode: the stretches the pupil
-  // asked for, added up. It is the ceiling of what can be put inside, and
-  // without it a duration is a number with nothing to be measured against.
   int minutesOfferedIn(String mode)
   {
     var minutes = 0;
@@ -106,9 +86,7 @@ class PresenceGroup
   }
 }
 
-// The rows gathered by pupil and day, each group's slots in the order of the
-// day. The groups themselves come out in no particular order: the tab sorts
-// them by whatever it is showing them for.
+// Groups come out in no particular order; callers sort.
 List<PresenceGroup> groupPresences(List<PresenceItem> presences)
 {
   final byKey = <String, List<PresenceItem>>{};
@@ -138,8 +116,6 @@ List<PresenceGroup> groupPresences(List<PresenceItem> presences)
   }).toList();
 }
 
-// Whether the pupil already asked for that day in that mode, whatever hours
-// they gave.
 bool hasPresenceOn(
   List<PresenceItem> presences,
   String studentTaxCode,

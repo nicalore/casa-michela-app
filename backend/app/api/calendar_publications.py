@@ -164,9 +164,8 @@ async def reopen_band(
     return (await _to_responses(db, [publication]))[0]
 
 
-# Leaving the bozza without publishing: the part of the day goes back to what it
-# was when it was opened. Answers how many of its hours could not be put back —
-# a request cancelled while the bozza was open took its hour with it either way.
+# Leaving the bozza restores the snapshot taken when it opened; answers how
+# many hours could not come back.
 @router.post("/{publication_date}/{band}/discard", response_model=CalendarDraftDiscarded)
 async def discard_draft(
     publication_date: date,

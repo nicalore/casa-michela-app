@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../models/person_option_item.dart';
@@ -15,8 +16,10 @@ import '../models/room_day_plan.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
+import 'calendar_activity_block.dart';
 import 'calendar_lesson_block.dart';
 import 'person_avatar.dart';
+import 'teacher_exclusion_overlay.dart';
 
 const double kTimelineLeadingWidth = 216;
 
@@ -469,10 +472,16 @@ class _MarkedAvatar extends StatelessWidget
 
   final bool isSupervisor;
 
+  final bool isExcluded;
+
+  final VoidCallback? onToggleExcluded;
+
   const _MarkedAvatar({
     required this.person,
     required this.standing,
     this.isSupervisor = false,
+    this.isExcluded = false,
+    this.onToggleExcluded,
   });
 
   static const double _size = 62;
@@ -530,7 +539,23 @@ class _MarkedAvatar extends StatelessWidget
                 shape: BoxShape.circle,
                 border: Border.all(color: ring, width: 2),
               ),
-              child: PersonAvatar(person: person, size: _size - 8),
+              child: Stack(
+                children: [
+                  AnimatedOpacity(
+                    duration: kExcludedLaneFade,
+                    curve: kExcludedLaneCurve,
+                    opacity: isExcluded ? kExcludedLaneOpacity : 1,
+                    child: PersonAvatar(person: person, size: _size - 8),
+                  ),
+                  if (onToggleExcluded != null)
+                    Positioned.fill(
+                      child: TeacherExclusionOverlay(
+                        isExcluded: isExcluded,
+                        onToggle: onToggleExcluded,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           if (mark != null)
@@ -570,6 +595,10 @@ class _LaneHeader extends StatelessWidget
 
   final ValueListenable<CarriedRequest?>? carried;
 
+  final bool isExcluded;
+
+  final VoidCallback? onToggleExcluded;
+
   const _LaneHeader({
     required this.lane,
     required this.bandStart,
@@ -577,6 +606,8 @@ class _LaneHeader extends StatelessWidget
     this.view = CalendarView.byTeacher,
     this.room,
     this.carried,
+    this.isExcluded = false,
+    this.onToggleExcluded,
   });
 
   ({bool preferred, bool avoided}) _standingFor(CalendarDragPayload? payload)
@@ -677,10 +708,16 @@ class _LaneHeader extends StatelessWidget
             person: lane.person,
             standing: standing,
             isSupervisor: room?.isSupervisor ?? false,
+            isExcluded: isExcluded,
+            onToggleExcluded: onToggleExcluded,
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
+            child: AnimatedOpacity(
+              duration: kExcludedLaneFade,
+              curve: kExcludedLaneCurve,
+              opacity: isExcluded ? kExcludedLaneOpacity : 1,
+              child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -732,7 +769,8 @@ class _LaneHeader extends StatelessWidget
                         ],
                       ),
                     ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -741,17 +779,23 @@ class _LaneHeader extends StatelessWidget
   }
 }
 
-typedef PlacedLesson = ({LessonItem lesson, double left, double width, double top});
+typedef Placed<T> = ({T item, double left, double width, double top});
+
+typedef PlacedLesson = Placed<LessonItem>;
+
+typedef PlacedActivity = Placed<ScheduledActivity>;
 
 const Duration _blockArrival = Duration(milliseconds: 220);
 const Duration _blockDeparture = Duration(milliseconds: 200);
 const Duration _blockTravel = Duration(milliseconds: 200);
 
-class _LaneBlocks extends StatefulWidget
+class _LaneBlocks<T> extends StatefulWidget
 {
-  final List<PlacedLesson> placed;
+  final List<Placed<T>> placed;
 
-  final Widget Function(PlacedLesson placed) builder;
+  final int Function(T item) idOf;
+
+  final Widget Function(Placed<T> placed) builder;
 
   final int? thrownAway;
 
@@ -760,28 +804,29 @@ class _LaneBlocks extends StatefulWidget
   const _LaneBlocks({
     super.key,
     required this.placed,
+    required this.idOf,
     required this.builder,
     required this.blockHeight,
     this.thrownAway,
   });
 
   @override
-  State<_LaneBlocks> createState() => _LaneBlocksState();
+  State<_LaneBlocks<T>> createState() => _LaneBlocksState<T>();
 }
 
-class _LaneBlocksState extends State<_LaneBlocks>
+class _LaneBlocksState<T> extends State<_LaneBlocks<T>>
 {
-  final Map<int, ({PlacedLesson placed, double from})> _leaving = {};
+  final Map<int, ({Placed<T> placed, double from})> _leaving = {};
 
   final Set<int> _arriving = {};
 
   @override
-  void didUpdateWidget(_LaneBlocks oldWidget)
+  void didUpdateWidget(_LaneBlocks<T> oldWidget)
   {
     super.didUpdateWidget(oldWidget);
 
-    final was = {for (final entry in oldWidget.placed) entry.lesson.id: entry};
-    final now = {for (final entry in widget.placed) entry.lesson.id: entry};
+    final was = {for (final entry in oldWidget.placed) widget.idOf(entry.item): entry};
+    final now = {for (final entry in widget.placed) widget.idOf(entry.item): entry};
 
     final gone = [for (final id in was.keys) if (!now.containsKey(id)) id];
 
@@ -817,14 +862,14 @@ class _LaneBlocksState extends State<_LaneBlocks>
     _arriving.removeWhere((id) => !now.containsKey(id));
   }
 
-  static bool _isSameRectangle(PlacedLesson a, PlacedLesson b)
+  static bool _isSameRectangle(Placed<Object?> a, Placed<Object?> b)
   {
     return a.left == b.left && a.width == b.width && a.top == b.top;
   }
 
-  Widget _buildStanding(PlacedLesson placed)
+  Widget _buildStanding(Placed<T> placed)
   {
-    final id = placed.lesson.id;
+    final id = widget.idOf(placed.item);
 
     return AnimatedPositioned(
       key: ValueKey(id),
@@ -844,10 +889,10 @@ class _LaneBlocksState extends State<_LaneBlocks>
     );
   }
 
-  Widget _buildLeaving(PlacedLesson placed, double from)
+  Widget _buildLeaving(Placed<T> placed, double from)
   {
     return Positioned(
-      key: ValueKey('leaving-${placed.lesson.id}'),
+      key: ValueKey('leaving-${widget.idOf(placed.item)}'),
       left: placed.left,
       width: placed.width,
       top: placed.top,
@@ -857,7 +902,7 @@ class _LaneBlocksState extends State<_LaneBlocks>
           tween: Tween(begin: from, end: 0.0),
           duration: _blockDeparture,
           curve: Curves.easeIn,
-          onEnd: () => setState(() => _leaving.remove(placed.lesson.id)),
+          onEnd: () => setState(() => _leaving.remove(widget.idOf(placed.item))),
           builder: _fade,
           child: widget.builder(placed),
         ),
@@ -878,9 +923,9 @@ class _LaneBlocksState extends State<_LaneBlocks>
       children: [
         for (final entry in _leaving.values) _buildLeaving(entry.placed, entry.from),
         for (final placed in widget.placed)
-          if (_arriving.contains(placed.lesson.id)) _buildStanding(placed),
+          if (_arriving.contains(widget.idOf(placed.item))) _buildStanding(placed),
         for (final placed in widget.placed)
-          if (!_arriving.contains(placed.lesson.id)) _buildStanding(placed),
+          if (!_arriving.contains(widget.idOf(placed.item))) _buildStanding(placed),
       ],
     );
   }
@@ -909,9 +954,15 @@ class CalendarTimeline extends StatefulWidget
 
   final Map<String, LaneRoomLabel> roomByTeacher;
 
+  final Set<String> excludedTeachers;
+
+  final void Function(CalendarLane lane, {required bool excluded})? onExcludedChanged;
+
   final int? nowMinutes;
 
   final void Function(LessonItem lesson)? onLessonTap;
+
+  final void Function(ActivityItem activity)? onActivityTap;
 
   final LessonPlacement Function(CalendarDragPayload payload, String teacherTaxCode, int startMinutes)? onPlan;
 
@@ -919,11 +970,16 @@ class CalendarTimeline extends StatefulWidget
 
   final LessonPlacement Function(LessonItem lesson, int startMinutes, int endMinutes)? onPlanResize;
 
+  final LessonPlacement Function(ScheduledActivity scheduled, int startMinutes, int endMinutes)?
+      onPlanActivityResize;
+
   final void Function(String refusal)? onRefused;
 
   final ValueListenable<CarriedRequest?>? carried;
 
   final void Function(LessonItem lesson)? onDroppedOutside;
+
+  final void Function(ActivityItem activity)? onActivityDroppedOutside;
 
   final void Function(CalendarDragPayload? payload)? onDragChanged;
 
@@ -946,14 +1002,19 @@ class CalendarTimeline extends StatefulWidget
     this.preferredLessonIds = const {},
     this.pastLessonIds = const {},
     this.roomByTeacher = const {},
+    this.excludedTeachers = const {},
+    this.onExcludedChanged,
     this.nowMinutes,
     this.onLessonTap,
+    this.onActivityTap,
     this.onPlan,
     this.onPlanResize,
+    this.onPlanActivityResize,
     this.onDrop,
     this.onRefused,
     this.carried,
     this.onDroppedOutside,
+    this.onActivityDroppedOutside,
     this.onDragChanged,
     this.carriedAt,
     this.scrollController,
@@ -992,6 +1053,8 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   Offset? _lastPointer;
 
   int? _thrownAway;
+
+  int? _thrownAwayActivity;
 
   (int, int)? _lastPlanned;
 
@@ -1127,6 +1190,23 @@ class _CalendarTimelineState extends State<CalendarTimeline>
         : resize(lesson, lesson.startMinutes, minute));
   }
 
+  void _onActivityEdgeDrag(ScheduledActivity scheduled, bool isLeftEdge, Offset globalPosition)
+  {
+    final resize = widget.onPlanActivityResize;
+    final box = _trackBox;
+
+    if (resize == null || box == null)
+    {
+      return;
+    }
+
+    final minute = metrics.snappedMinutesAt(box.globalToLocal(globalPosition).dx);
+
+    _showPlacement(isLeftEdge
+        ? resize(scheduled, minute, scheduled.endMinutes)
+        : resize(scheduled, scheduled.startMinutes, minute));
+  }
+
   void _onEdgeDragEnd()
   {
     final placement = _preview.value?.placement;
@@ -1148,6 +1228,23 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     }
 
     _carriedAt.value = CarriedPlacement.idle;
+
+    final activityId = placement.activityId;
+
+    if (activityId != null)
+    {
+      final scheduled = lanes
+          .expand((lane) => lane.activities)
+          .where((row) => row.id == activityId)
+          .firstOrNull;
+
+      if (scheduled != null)
+      {
+        widget.onDrop?.call(ActivityDragPayload.of(scheduled.activity), placement);
+      }
+
+      return;
+    }
 
     final lesson = lanes
         .expand((lane) => lane.lessons)
@@ -1356,11 +1453,9 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           child: Stack(
             children: [
               for (var index = 0; index < lanes.length; index++)
-                Positioned(
-                  top: metrics.topOfRow(index),
-                  left: 0,
-                  right: 0,
-                  height: metrics.heightOfRow(index),
+                _buildRowLayer(
+                  index,
+                  key: ValueKey('offered-${lanes[index].personTaxCode}'),
                   child: Stack(
                     children: _laneBackground(lanes[index], metrics.heightOfRow(index), outline, competent),
                   ),
@@ -1387,7 +1482,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return [
       for (final lesson in lane.lessons)
         (
-          lesson: lesson,
+          item: lesson,
           left: metrics.xOf(lesson.startMinutes),
           width: metrics.widthOf(lesson.startMinutes, lesson.endMinutes),
           top: _topOfSubLane(widget.subLaneOf[lesson.id] ?? 0),
@@ -1395,9 +1490,57 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     ];
   }
 
+  // Sub-lane 0 is always free at an activity's hours: nothing can be written over it.
+  List<PlacedActivity> _laneActivities(CalendarLane lane)
+  {
+    return [
+      for (final activity in lane.activities)
+        (
+          item: activity,
+          left: metrics.xOf(activity.startMinutes),
+          width: metrics.widthOf(activity.startMinutes, activity.endMinutes),
+          top: _topOfSubLane(0),
+        ),
+    ];
+  }
+
+  Widget _buildActivityBlock(PlacedActivity placed)
+  {
+    final scheduled = placed.item;
+
+    return CalendarActivityBlock(
+      scheduled: scheduled,
+      width: placed.width,
+      onTap: widget.onActivityTap == null ? null : () => widget.onActivityTap!(scheduled.activity),
+      isMovable: !scheduled.isLocked && widget.onPlan != null,
+      carriedAt: _carriedAt,
+      onDragChanged: (payload)
+      {
+        if (payload != null)
+        {
+          _thrownAwayActivity = null;
+        }
+
+        widget.onDragChanged?.call(payload);
+      },
+      onDroppedOutside: widget.onActivityDroppedOutside == null
+          ? null
+          : ()
+            {
+              _carriedAt.value = CarriedPlacement.idle;
+              _thrownAwayActivity = scheduled.id;
+              widget.onActivityDroppedOutside!(scheduled.activity);
+            },
+      onEdgeDrag: widget.onPlanActivityResize == null
+          ? null
+          : (isLeftEdge, position) => _onActivityEdgeDrag(scheduled, isLeftEdge, position),
+      onEdgeDragEnd: _onEdgeDragEnd,
+    );
+  }
+
   Widget _buildLessonBlock(PlacedLesson placed)
   {
-    final lesson = placed.lesson;
+    final lesson = placed.item;
 
     return CalendarLessonBlock(
       lesson: lesson,
@@ -1438,6 +1581,16 @@ class _CalendarTimelineState extends State<CalendarTimeline>
   int _ghostSubLane(CalendarLane lane, LessonPlacement placement)
   {
     final taken = <int>{};
+
+    // Activities always occupy sub-lane 0.
+    for (final activity in lane.activities)
+    {
+      if (activity.id != placement.activityId &&
+          spansOverlap(placement.startMinutes, placement.endMinutes, activity.startMinutes, activity.endMinutes))
+      {
+        taken.add(0);
+      }
+    }
 
     for (final lesson in lane.lessons)
     {
@@ -1485,9 +1638,19 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       }
     }
 
+    for (final activity in lane.activities)
+    {
+      if (activity.id != placement.activityId &&
+          spansOverlap(placement.startMinutes, placement.endMinutes, activity.startMinutes, activity.endMinutes))
+      {
+        return true;
+      }
+    }
+
     return false;
   }
 
+  // Lessons only: overlapping an activity is refused elsewhere, not flagged here.
   bool _wouldRunAlongside(CalendarLane lane, LessonPlacement placement)
   {
     for (final lesson in lane.lessons)
@@ -1538,6 +1701,14 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       for (final lesson in lane.lessons)
       {
         if (lesson.startMinutes == placement.startMinutes && lesson.endMinutes == placement.endMinutes)
+        {
+          return true;
+        }
+      }
+
+      for (final activity in lane.activities)
+      {
+        if (activity.startMinutes == placement.startMinutes && activity.endMinutes == placement.endMinutes)
         {
           return true;
         }
@@ -1599,6 +1770,50 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     );
   }
 
+  bool _isExcluded(CalendarLane lane)
+  {
+    return widget.excludedTeachers.contains(lane.personTaxCode);
+  }
+
+  Widget _buildRowLayer(
+    int index, {
+    required Key key,
+    required Widget child,
+    // The name column handles its own fading, so the exclusion control stays legible.
+    bool fades = true,
+  })
+  {
+    return AnimatedPositioned(
+      key: key,
+      duration: kExcludedLaneTravel,
+      curve: kExcludedLaneCurve,
+      top: metrics.topOfRow(index),
+      left: 0,
+      right: 0,
+      height: metrics.heightOfRow(index),
+      child: fades
+          ? AnimatedOpacity(
+              duration: kExcludedLaneFade,
+              curve: kExcludedLaneCurve,
+              opacity: _isExcluded(lanes[index]) ? kExcludedLaneOpacity : 1,
+              child: child,
+            )
+          : child,
+    );
+  }
+
+  VoidCallback? _toggleExcluded(CalendarLane lane)
+  {
+    final say = widget.onExcludedChanged;
+
+    if (say == null || widget.view != CalendarView.byTeacher)
+    {
+      return null;
+    }
+
+    return () => say(lane, excluded: !_isExcluded(lane));
+  }
+
   Widget _buildTrackStack()
   {
     final now = widget.nowMinutes;
@@ -1618,19 +1833,33 @@ class _CalendarTimelineState extends State<CalendarTimeline>
           ),
         ),
         for (var index = 0; index < lanes.length; index++)
-          Positioned(
-            top: metrics.topOfRow(index),
-            left: 0,
-            right: 0,
-            height: metrics.heightOfRow(index),
-            child: _LaneBlocks(
+          _buildRowLayer(
+            index,
+            key: ValueKey('lessons-${lanes[index].personTaxCode}'),
+            child: _LaneBlocks<LessonItem>(
               blockHeight: lessonBlockHeight(widget.view),
               key: ValueKey(lanes[index].personTaxCode),
               placed: _lanePlacements(lanes[index]),
+              idOf: (lesson) => lesson.id,
               builder: _buildLessonBlock,
               thrownAway: _thrownAway,
             ),
           ),
+
+        for (var index = 0; index < lanes.length; index++)
+          if (lanes[index].activities.isNotEmpty)
+            _buildRowLayer(
+              index,
+              key: ValueKey('activity-row-${lanes[index].personTaxCode}'),
+              child: _LaneBlocks<ScheduledActivity>(
+                blockHeight: lessonBlockHeight(widget.view),
+                key: ValueKey('activities-${lanes[index].personTaxCode}'),
+                placed: _laneActivities(lanes[index]),
+                idOf: (scheduled) => scheduled.id,
+                builder: _buildActivityBlock,
+                thrownAway: _thrownAwayActivity,
+              ),
+            ),
 
         if (now != null) CalendarNowLine(metrics: metrics, minutes: now),
 
@@ -1655,13 +1884,17 @@ class _CalendarTimelineState extends State<CalendarTimeline>
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // A Stack, not a Column: names must animate with their rows when reordered.
             SizedBox(
               width: kTimelineLeadingWidth,
-              child: Column(
+              height: metrics.trackHeight,
+              child: Stack(
                 children: [
                   for (var index = 0; index < lanes.length; index++)
-                    SizedBox(
-                      height: metrics.heightOfRow(index),
+                    _buildRowLayer(
+                      index,
+                      key: ValueKey('name-${lanes[index].personTaxCode}'),
+                      fades: false,
                       child: _LaneHeader(
                         lane: lanes[index],
                         bandStart: bandStart,
@@ -1669,6 +1902,8 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                         view: widget.view,
                         room: widget.roomByTeacher[lanes[index].personTaxCode],
                         carried: widget.carried,
+                        isExcluded: _isExcluded(lanes[index]),
+                        onToggleExcluded: _toggleExcluded(lanes[index]),
                       ),
                     ),
                 ],

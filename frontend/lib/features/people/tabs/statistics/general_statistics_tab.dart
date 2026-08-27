@@ -117,10 +117,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     }
   }
 
-  // Every card fetches and reloads on its own. A pill belongs to the card it
-  // stands on, and answering it by blanking the whole tab behind a spinner —
-  // which is what a single shared load did — throws away four cards that were
-  // not asked about and makes a change of year read as a page change.
+  // Every card fetches and reloads on its own; a shared load blanked the tab.
 
   Future<void> _loadRetentionData() async
   {
@@ -255,8 +252,6 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     _loadCollabTrendData();
   }
 
-  // Shared shell of the two retention cards: they differ only in the filters
-  // above and in the sentence explaining the percentage.
   String _membersRetentionSentence(RetentionRateItem data)
   {
     final subject = data.retainedMembers == 1
@@ -460,8 +455,6 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
             ),
           ),
           const SizedBox(height: 24),
-          // The one pair of the page that has to be the same height on both
-          // sides: they are the same question asked of two populations.
           MatchedCardPair(
             first: _buildMembersRetentionCard,
             second: _buildCollabRetentionCard,
@@ -484,12 +477,8 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
-    // The nested Navigator gives this tab its own Overlay, which is why the
-    // filter menus below insert into the root overlay instead.
-    //
-    // The charts are timed one by one inside, rather than the whole page being
-    // wrapped as one element out here: a page that left in a single slab was
-    // the odd one out beside every list in the app.
+    // The nested Navigator gives this tab its own Overlay; the filter menus
+    // insert into the root overlay instead.
     return Navigator(
       onGenerateRoute: (settings) => MaterialPageRoute(
         builder: (context) => _buildContent(),

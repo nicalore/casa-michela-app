@@ -3,11 +3,8 @@ import '../models/person_item.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
 
-// The validation of the edit dialog.
-//
-// An error carries the *name* of the card to jump to, and names do not slide.
-// The number used to be kept by hand with a counter walking card by card, a
-// correspondence that would break silently at the first change of order.
+// An issue carries the name of the card to jump to; names do not slide when the
+// step order changes.
 
 class PersonEditIssue
 {
@@ -27,7 +24,6 @@ class PersonEditValidation
   final Map<String, String> errors;
   final List<PersonEditIssue> issues;
 
-  // What is said at the bottom of the screen, when there is something to say.
   final String? message;
 
   const PersonEditValidation({
@@ -40,12 +36,7 @@ class PersonEditValidation
 
   PersonEditCardId? get firstCard => issues.isEmpty ? null : issues.first.card;
 
-  // What is wrong among the cards of a single step.
-  //
-  // There is one validation and it runs over the whole form, because the checks
-  // are kept in one place. Walking the steps, though, one room is looked at at a
-  // time: what is missing from questions still to come is not the fault of
-  // whoever is still reading them. On save, everything is looked at.
+  // Validation runs over the whole form; per step only that step's cards count.
   List<PersonEditIssue> issuesOn(PersonEditStep step)
   {
     final Set<PersonEditCardId> here = {for (final card in step.cards) card.id};
@@ -66,7 +57,6 @@ class _Collector
   }
 }
 
-// Ripulisce i campi come faceva la vecchia convalida, prima di guardarli.
 void tidyForm(PersonEditForm form)
 {
   form.firstNameCtrl.text = form.firstNameCtrl.text.trim();
@@ -86,9 +76,6 @@ void tidyForm(PersonEditForm form)
   form.residenceProvinceCtrl.text = form.residenceProvinceCtrl.text.trim().toUpperCase();
   form.postalCodeCtrl.text = form.postalCodeCtrl.text.trim();
   form.emailCtrl.text = form.emailCtrl.text.trim();
-  // Spaced rather than stripped: it is how the number is written everywhere
-  // it is read, and the payload takes the digits out of it on the way to the
-  // server.
   form.phoneCtrl.text = formatPhoneNumber(form.phoneCtrl.text);
 
   form.certificateExpirationCtrl.text = form.certificateExpirationCtrl.text.trim();
@@ -98,19 +85,17 @@ void tidyForm(PersonEditForm form)
   form.studiUniversitariCtrl.text = form.studiUniversitariCtrl.text.trim();
   form.otherPaymentMethodCtrl.text = form.otherPaymentMethodCtrl.text.trim();
   form.otherCertificationCtrl.text = form.otherCertificationCtrl.text.trim();
+  form.dsaCertificationCtrl.text = form.dsaCertificationCtrl.text.trim();
   form.emergencyContactNameCtrl.text = form.emergencyContactNameCtrl.text.trim();
   form.emergencyContactPhoneCtrl.text = formatPhoneNumber(form.emergencyContactPhoneCtrl.text);
 }
 
-// Checks everything the dialog asks for, in the order of the steps.
 PersonEditValidation validatePersonEdit(PersonEditForm form)
 {
   tidyForm(form);
 
   final _Collector collector = _Collector();
   final List<String> activeRoles = form.activeRoles;
-
-  // ------------------------------------------------------------------ ruoli
 
   if (form.involvementType == 0 && activeRoles.isEmpty)
   {
@@ -163,8 +148,6 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     );
   }
 
-  // ------------------------------------------------------------- identità
-
   if (form.isCreation)
   {
     if (form.firstNameCtrl.text.trim().isEmpty)
@@ -209,9 +192,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
           form.genderValue!,
         ))
     {
-      // The tax code carries the birth date and the gender inside itself: when
-      // they do not match, one of the two is wrong and there is no telling
-      // which.
+      // The tax code encodes birth date and gender; a mismatch means one is wrong.
       collector.add(
         'cf',
         'Non combacia con data di nascita e sesso',
@@ -234,8 +215,6 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       collector.add('nazioneNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
     }
   }
-
-  // ------------------------------------------------------- dati personali
 
   if (form.streetTypeCtrl.text.isEmpty)
   {
@@ -279,7 +258,10 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add('email', 'Campo obbligatorio', PersonEditCardId.contacts);
   }
-  else if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(form.emailCtrl.text))
+  // Must stay exactly as wide as the database CHECK ck_people_email_format, so
+  // nothing passes here and is rejected there.
+  else if (!RegExp(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+      .hasMatch(form.emailCtrl.text))
   {
     collector.add('email', 'Formato email non valido', PersonEditCardId.contacts);
   }
@@ -288,14 +270,11 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add('telefono', 'Campo obbligatorio', PersonEditCardId.contacts);
   }
-  // The digits, not what they were written with: a number given as
-  // 333 111 2222 is the number 3331112222 and no less valid for being legible.
+  // Validates the bare digits, not the formatted text.
   else if (!RegExp(r'^\+?[0-9]+$').hasMatch(barePhoneNumber(form.phoneCtrl.text)))
   {
     collector.add('telefono', 'Formato telefono non valido', PersonEditCardId.contacts);
   }
-
-  // ------------------------------------------------------ dati associativi
 
   final bool onlyParent = form.isOnlyParentNotMember;
   final bool isStudent = activeRoles.contains('STUDENTE');
@@ -413,6 +392,11 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     if (form.certificationTypeValue == 'Altro' && form.otherCertificationCtrl.text.isEmpty)
     {
       collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.student);
+    }
+
+    if (form.certificationTypeValue == 'DSA' && form.dsaCertificationCtrl.text.isEmpty)
+    {
+      collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.student);
     }
 
     if (form.certificationTypeValue != null &&
@@ -548,8 +532,6 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     }
   }
 
-  // ------------------------------------------------------------- i legami
-
   if (form.isMinor && form.selectedParents.isEmpty)
   {
     collector.add(
@@ -602,8 +584,7 @@ String _messageFor(PersonEditCardId card, bool futureSchoolYear)
   };
 }
 
-// The name of the child who would be left without parents if the role were
-// removed.
+// The child who would be left without parents if the role were removed.
 String? _childLeftWithoutParents(PersonEditForm form)
 {
   final PersonItem? person = form.person;

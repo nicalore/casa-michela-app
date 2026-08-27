@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../models/room_day_plan.dart';
+import 'calendar_activity_block.dart';
 import 'calendar_lane_panel.dart';
 import 'calendar_lesson_block.dart';
 
@@ -22,6 +24,9 @@ double _boardCardWidth(double available)
 
   return columns == 1 ? fitted : math.min(fitted, kBoardCardMax);
 }
+
+// Hours kept beside the widget: the "now" line needs to find the card a minute falls in.
+typedef _BoardCard = ({int startMinutes, int endMinutes, Widget card});
 
 const double _nowLineWidth = 2;
 const double _nowLineBleed = 4;
@@ -84,6 +89,8 @@ class CalendarLessonBoard extends StatelessWidget
 
   final void Function(LessonItem lesson)? onLessonTap;
 
+  final void Function(ActivityItem activity)? onActivityTap;
+
   const CalendarLessonBoard({
     super.key,
     required this.lanes,
@@ -97,13 +104,48 @@ class CalendarLessonBoard extends StatelessWidget
     this.pastLessonIds = const {},
     this.roomByTeacher = const {},
     this.onLessonTap,
+    this.onActivityTap,
   });
 
-  Widget _buildLessons(CalendarLane lane, double cardWidth, double available)
+  // Lessons and activities in one list, in clock order.
+  List<_BoardCard> _cardsOf(CalendarLane lane, double cardWidth)
   {
-    final lessons = [...lane.lessons]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+    final cards = <_BoardCard>[
+      for (final lesson in lane.lessons)
+        (
+          startMinutes: lesson.startMinutes,
+          endMinutes: lesson.endMinutes,
+          card: CalendarLessonBlock(
+            lesson: lesson,
+            width: cardWidth,
+            view: view,
+            ministrySubjects: ministrySubjects,
+            hasWarning: warnedLessonIds.contains(lesson.id),
+            isPreferred: preferredLessonIds.contains(lesson.id),
+            isPast: pastLessonIds.contains(lesson.id),
+            onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
+          ),
+        ),
+      for (final scheduled in lane.activities)
+        (
+          startMinutes: scheduled.startMinutes,
+          endMinutes: scheduled.endMinutes,
+          card: CalendarActivityBlock(
+            scheduled: scheduled,
+            width: cardWidth,
+            onTap: onActivityTap == null ? null : () => onActivityTap!(scheduled.activity),
+          ),
+        ),
+    ];
 
-    if (lessons.isEmpty)
+    return cards..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+  }
+
+  Widget _buildLane(CalendarLane lane, double cardWidth, double available)
+  {
+    final cards = _cardsOf(lane, cardWidth);
+
+    if (cards.isEmpty)
     {
       return const Padding(
         padding: EdgeInsets.only(top: 10),
@@ -111,7 +153,7 @@ class CalendarLessonBoard extends StatelessWidget
       );
     }
 
-    return _buildCards(lessons, cardWidth, available);
+    return _buildCards(cards, cardWidth, available);
   }
 
   int _perRun(double cardWidth, double available)
@@ -120,14 +162,14 @@ class CalendarLessonBoard extends StatelessWidget
   }
 
   ({double left, double top})? _nowLineAt(
-    List<LessonItem> lessons,
+    List<_BoardCard> cards,
     double cardWidth,
     double available,
   )
   {
     final now = nowMinutes;
 
-    if (now == null || now < lessons.first.startMinutes)
+    if (now == null || now < cards.first.startMinutes)
     {
       return null;
     }
@@ -143,19 +185,19 @@ class CalendarLessonBoard extends StatelessWidget
       );
     }
 
-    for (var index = 0; index < lessons.length; index++)
+    for (var index = 0; index < cards.length; index++)
     {
-      final lesson = lessons[index];
+      final card = cards[index];
 
-      if (now < lesson.startMinutes)
+      if (now < card.startMinutes)
       {
         return at(index - 1, cardWidth + _cardGap / 2);
       }
 
-      if (now < lesson.endMinutes)
+      if (now < card.endMinutes)
       {
-        final span = lesson.endMinutes - lesson.startMinutes;
-        final through = span <= 0 ? 0.0 : (now - lesson.startMinutes) / span;
+        final span = card.endMinutes - card.startMinutes;
+        final through = span <= 0 ? 0.0 : (now - card.startMinutes) / span;
 
         return at(index, cardWidth * through);
       }
@@ -164,15 +206,15 @@ class CalendarLessonBoard extends StatelessWidget
     return null;
   }
 
-  Widget _buildCards(List<LessonItem> lessons, double cardWidth, double available)
+  Widget _buildCards(List<_BoardCard> cards, double cardWidth, double available)
   {
-    final now = _nowLineAt(lessons, cardWidth, available);
+    final now = _nowLineAt(cards, cardWidth, available);
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Stack(
         children: [
-          _buildWrap(lessons, cardWidth),
+          _buildWrap(cards, cardWidth),
           if (now != null)
             Positioned(
               left: now.left - _nowLineWidth,
@@ -186,27 +228,18 @@ class CalendarLessonBoard extends StatelessWidget
     );
   }
 
-  Widget _buildWrap(List<LessonItem> lessons, double cardWidth)
+  Widget _buildWrap(List<_BoardCard> cards, double cardWidth)
   {
     return Wrap(
       spacing: _cardGap,
       runSpacing: _cardGap,
       children: [
-          for (final lesson in lessons)
-            SizedBox(
-              width: cardWidth,
-              height: lessonBlockHeight(view),
-              child: CalendarLessonBlock(
-                lesson: lesson,
-                width: cardWidth,
-                view: view,
-                ministrySubjects: ministrySubjects,
-                hasWarning: warnedLessonIds.contains(lesson.id),
-                isPreferred: preferredLessonIds.contains(lesson.id),
-                isPast: pastLessonIds.contains(lesson.id),
-                onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
-              ),
-            ),
+        for (final entry in cards)
+          SizedBox(
+            width: cardWidth,
+            height: lessonBlockHeight(view),
+            child: entry.card,
+          ),
       ],
     );
   }
@@ -234,7 +267,7 @@ class CalendarLessonBoard extends StatelessWidget
               bandStart: bandStart,
               bandEnd: bandEnd,
               room: roomByTeacher[lane.personTaxCode],
-              child: _buildLessons(lane, cardWidth, available),
+              child: _buildLane(lane, cardWidth, available),
             );
           },
         );

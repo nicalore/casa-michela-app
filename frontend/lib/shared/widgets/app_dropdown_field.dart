@@ -4,20 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
 
-// What a field of a dialog is made of. The same numbers AppTextField uses,
-// which is what makes a dropdown here look like a plain field there.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorder = 2;
 
-// The rounded box a menu opens in, and the room its scrollbar needs on the
-// right so that it does not run under the last letters of an option.
 const double _menuRadius = 16;
 const double _scrollbarLane = 10;
 
-// One row of a dropdown: what it stands for, and what is written on it. A
-// separator is a line with nothing behind it, for telling one group of answers
-// from the next.
 class AppDropdownOption<T>
 {
   final T?     value;
@@ -31,13 +24,6 @@ class AppDropdownOption<T>
   });
 }
 
-// A field that opens its answers under itself.
-//
-// The app's other way of asking — a field that opens a window with a search in
-// it — is what a long list needs: a school, a person, a discipline out of
-// hundreds. Where the answers are ten and they all fit under the field, that
-// window is a room to walk into and back out of for something that could have
-// been a glance.
 class AppDropdownField<T> extends StatefulWidget
 {
   final String                   hint;
@@ -156,8 +142,6 @@ class _AppDropdownFieldState<T> extends State<AppDropdownField<T>>
           decoration: BoxDecoration(
             color: _fieldSurface,
             borderRadius: BorderRadius.circular(_fieldRadius),
-            // Gold while the pointer is on it or the list is open, which is the
-            // mark this app puts wherever the attention is.
             border: Border.all(
               color: _isHovered || isExpanded ? AppTheme.trialGold : AppTheme.trialLine,
               width: _fieldBorder,
@@ -248,9 +232,6 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
       color: Colors.transparent,
       child: Container(
         constraints: const BoxConstraints(maxHeight: 250),
-        // Clipped, or the scrollbar of a long list is painted down the outside
-        // of the rounded box instead of inside it — which is what the list of
-        // suggestions next door has always done.
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color:        Colors.white,
@@ -344,8 +325,6 @@ class _DropdownItemState extends State<_DropdownItem>
           curve: Curves.easeOut,
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          // The bar on the left is the whole mark, as it is in the rail: a row
-          // that also fills reads as chosen rather than as pointed at.
           color: Colors.transparent,
           child: Row(
             children: [

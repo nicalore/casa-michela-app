@@ -1,23 +1,4 @@
-"""il calendario in costruzione si prende in carico
-
-Costruire il calendario di una fascia è il lavoro di una persona per una mezz'
-ora, e finora niente impediva a due amministratori di farlo insieme senza
-saperlo. La riga dice chi la sta costruendo adesso.
-
-Si prende scrivendo — entrare a guardare non prende niente — e la si tiene
-finché arrivano battiti: heartbeat_at è l'ultimo segno di vita, e un lock più
-vecchio di novanta secondi è libero per chiunque lo legga dopo. Non c'è niente
-da spazzare e niente che possa non partire, perché l'età si legge insieme alla
-riga.
-
-Tabella a parte e non una colonna su calendar_publications: lì una riga che
-esiste *significa* pubblicato, e una fascia ha bisogno di un titolare proprio
-mentre non è mai stata pubblicata.
-
-La seconda colonna è per la bozza, che il lock non arriva a coprire: la bozza
-resta aperta per giorni e il lock dura un minuto e mezzo. Uscirne senza
-pubblicare rimette la fascia com'era quando si è aperta, quindi chi non l'ha
-aperta annullerebbe anche il proprio lavoro senza poterlo sapere.
+"""heartbeat locks so a calendar band is built by one administrator at a time
 
 Revision ID: 77997e6cdae9
 Revises: b8d3e5f21a47
@@ -60,8 +41,7 @@ def upgrade() -> None:
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("band", sa.String(length=_BAND_LENGTH), nullable=False),
         sa.Column(_HOLDER, sa.String(length=_TAX_CODE_LENGTH), nullable=False),
-        # Quando la fascia è stata presa, che è quello che il banner dice ad
-        # alta voce. Il battito muove heartbeat_at e lascia stare questa.
+        # When the band was taken; heartbeats update heartbeat_at, never this.
         sa.Column(
             "acquired_at",
             sa.DateTime(timezone=True),
@@ -78,8 +58,7 @@ def upgrade() -> None:
             "band IN ('MORNING', 'AFTERNOON', 'EVENING')",
             name=op.f("ck_calendar_band_locks_calendar_band_lock_band_valid"),
         ),
-        # Se l'amministratore non c'è più, non c'è più nemmeno il lock: una
-        # fascia trattenuta da nessuno non si libererebbe mai.
+        # CASCADE: a lock held by a deleted administrator would never be freed.
         sa.ForeignKeyConstraint(
             [_HOLDER],
             ["administrators.tax_code"],
@@ -91,9 +70,8 @@ def upgrade() -> None:
     )
     op.create_index(op.f(_HOLDER_INDEX), _LOCKS, [_HOLDER], unique=False)
 
-    # Le bozze già aperte al momento del passaggio restano senza autore, e chi
-    # le trova può uscirne: è la stessa convenzione dell'expected_updated_at
-    # assente, dove quello che è nato prima della regola continua a passare.
+    # Drafts already open at migration time keep a NULL author and can still be
+    # exited — same convention as a missing expected_updated_at.
     op.add_column(
         _PUBLICATIONS,
         sa.Column(_DRAFT_OPENED_BY, sa.String(length=_TAX_CODE_LENGTH), nullable=True),

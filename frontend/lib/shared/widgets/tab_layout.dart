@@ -18,8 +18,6 @@ const double _actionFontSize = 14;
 const double _filterSpacing = 12;
 const double _countFontSize = 17;
 
-// The four orderings the sort pill offers, over anything that has a name and a
-// date it was entered on.
 void sortByCriterion<T>(
   List<T> items,
   SortCriterion sort, {
@@ -36,9 +34,6 @@ void sortByCriterion<T>(
   });
 }
 
-// The head every entity list wears: a search box beside a create button, the
-// sort pill and whatever else the page filters by, then how many rows the
-// filters left behind.
 List<Widget> entityTabHeader({
   required TextEditingController searchController,
   required ValueChanged<String> onSearchChanged,

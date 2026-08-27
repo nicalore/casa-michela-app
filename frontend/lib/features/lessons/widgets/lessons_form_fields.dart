@@ -9,30 +9,21 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 
-// What AppTextField is made of, read off it so a picker in this feature and a
-// typed field in the association are the same object with different insides:
-// the barely-there green ground, the two-pixel outline that goes gold under the
-// pointer, and the same corner.
+// Mirrors AppTextField's surface, radius, border and height.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorderWidth = 2;
 const double _fieldHeight = 50;
 
-// Label used above every field in this file, so they all read as the same
-// family of control regardless of which picker sits underneath.
 Widget _fieldLabel(String text, [TextStyle? style])
 {
   return Padding(
     padding: const EdgeInsets.only(bottom: 6),
-    // The label AppTextField writes over its own box, so a field here and a
-    // field in Associazione are named the same way.
     child: style == null ? AppFieldLabel(text) : Text(text, style: style),
   );
 }
 
-// Shared bordered, tappable field shell used by every picker in this
-// feature (person, ministry subject, date, time), so they all read as the
-// same family of control despite opening different pickers.
+// Shared tappable field shell used by every picker in this feature.
 class _PickerFieldShell extends StatefulWidget
 {
   final String label;
@@ -82,9 +73,6 @@ class _PickerFieldShellState extends State<_PickerFieldShell>
                 border: Border.all(
                   color: isEnabled
                       ? (_isHovered ? AppTheme.trialGold : AppTheme.trialLine)
-                      // On the grey of a disabled field the normal rule no
-                      // longer stands off: the same rule one step darker, so it
-                      // reads as far as it does on an enabled field.
                       : AppTheme.closedLine,
                   width: _fieldBorderWidth,
                 ),
@@ -114,15 +102,12 @@ class _PickerFieldShellState extends State<_PickerFieldShell>
   }
 }
 
-// A single option offered by a SelectionField: a generic id/label pair with
-// an optional subtitle to disambiguate options that share a label.
 class SelectionOption<T>
 {
   final T value;
   final String label;
   final String? subtitle;
 
-  // Something before the name: the face, where the entry is a person.
   final Widget? leading;
 
   const SelectionOption({
@@ -133,9 +118,7 @@ class SelectionOption<T>
   });
 }
 
-// Tappable field that opens a searchable single-select list. Used for every
-// "pick one entity from a list" input in this feature (teacher, student,
-// booker, ministry subject).
+// Tappable field opening a searchable single-select list.
 class SelectionField<T> extends StatelessWidget
 {
   final String label;
@@ -261,11 +244,7 @@ class _SelectionListDialogState<T> extends State<_SelectionListDialog<T>>
       eyebrow: 'Selezione',
       title: widget.title,
       maxWidth: 520,
-      // Off centre, so the wizard this was opened from stays plainly behind it
-      // rather than being covered up.
       alignment: const Alignment(0, -0.1),
-      // The list is the last piece and takes what height is left, scrolling
-      // inside itself instead of making the whole window taller.
       fillLast: true,
       children: [
         AppDialogPill(
@@ -399,9 +378,7 @@ class _SelectionListItemState<T> extends State<_SelectionListItem<T>>
   }
 }
 
-// Free-text field with filtered, keyboard-navigable suggestions, used to pick a
-// single value by typing instead of opening a whole list dialog. Generic over
-// `SelectionOption<T>`, so a suggestion can also show a subtitle line.
+// Free-text field with filtered, keyboard-navigable suggestions.
 class AutocompleteField<T> extends StatefulWidget
 {
   final String label;
@@ -410,32 +387,20 @@ class AutocompleteField<T> extends StatefulWidget
   final String hint;
   final ValueChanged<T> onSelected;
 
-  // Called when the field is emptied and then loses focus, so the caller
-  // can clear the actual selection instead of the field silently reverting
-  // to the last confirmed value.
+  // Called when the field is emptied and then loses focus, so the caller can
+  // clear the selection instead of the field reverting to the last value.
   final VoidCallback? onCleared;
 
-  // When true, an empty field shows every option instead of none — suited to
-  // a small fixed option set (e.g. quarter-hour times) meant to be browsed by
-  // click as well as filtered by typing, unlike a large searched-only list
-  // (teacher, student) where showing everything unfiltered isn't useful.
+  // When true, an empty field shows every option — for small fixed sets meant
+  // to be browsed by click.
   final bool showAllOptionsWhenEmpty;
 
-  // Trailing affordance. Defaults to the magnifier that suits a searched
-  // list; a caller whose options are a short fixed set to pick from rather
-  // than search through (times, say) can pass something more apt.
-  //
-  // Null leaves the end of the field bare, for a field whose own label and
-  // placeholder already say that a name is being looked for: the glyph then
-  // only repeats them.
+  // Trailing icon; null leaves the end of the field bare.
   final IconData? icon;
 
-  // Overrides the default field-label style. Used where the label sits under
-  // a heading that has to stay visually dominant, so it must not compete.
   final TextStyle? labelStyle;
 
-  // Lets a caller drive focus, e.g. to jump to the next field once this one
-  // has a value. When null the field owns its node, as before.
+  // When null the field owns its node.
   final FocusNode? focusNode;
 
   const AutocompleteField({
@@ -494,9 +459,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
   {
     super.didUpdateWidget(oldWidget);
 
-    // Keeps the field in sync when the selection changes from outside (for
-    // example a reset after a successful create), without fighting the user
-    // while they are typing.
+    // Sync external selection changes, without fighting the user while typing.
     if (!_focusNode.hasFocus && widget.value != oldWidget.value)
     {
       final label = _labelFor(widget.value) ?? '';
@@ -516,9 +479,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
 
     if (hasFocus)
     {
-      // Selects the current text so the next keystroke replaces it outright,
-      // instead of the suggestions filtering against the old value with
-      // nothing new typed yet.
+      // Select-all so the next keystroke replaces the old value outright.
       _controller.selection = TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
       return;
     }
@@ -532,9 +493,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
       return;
     }
 
-    // Leaving the field without picking a real suggestion would otherwise
-    // show text that does not match the actual selection, so it snaps back
-    // to the last confirmed value.
+    // Snap back to the confirmed value when leaving without picking a suggestion.
     final confirmedLabel = _labelFor(widget.value);
 
     if (confirmedLabel != _controller.text)
@@ -547,7 +506,6 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
   void dispose()
   {
     _focusNode.removeListener(_handleFocusChange);
-    // Only the node this field created is ours to dispose.
     _ownedFocusNode?.dispose();
     _controller.dispose();
     super.dispose();
@@ -585,12 +543,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
               onSelected: (option) => widget.onSelected(option.value),
               fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
               {
-                // The box AppTextField draws, down to the numbers: the same
-                // ground, the same 14 of radius, the same 2 of border and the
-                // same ring of gold opening around it when it takes focus. A
-                // field that offers a list instead of a free line is still a
-                // field, and in a dialog beside one of the others it cannot be
-                // a different object.
+                // Same box AppTextField draws, down to the numbers.
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
@@ -653,8 +606,6 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
                 options: options,
                 label: (option) => option.label,
                 leading: (option) => option.leading,
-                // What a teacher teaches is a line, not a word: at the end of
-                // the row it would be squeezed into nothing.
                 subtitle: (option) => option.subtitle,
                 subtitlePlacement: AutocompleteSubtitlePlacement.below,
                 onSelected: onSelected,
@@ -667,15 +618,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
   }
 }
 
-// Something the dialog no longer asks for: it is there, and is only read.
-//
-// Opening an availability or a request already written, the teacher — or the
-// pupil — and the day are not questions: they are what that availability is, and
-// changing them would make it another one. So they stand in place of the first
-// card, said in the same blue these wizards name all their fields with.
-//
-// One for both wizards: each had written its own, and the two twins had ended up
-// saying the same thing in two different ways.
+// Read-only fact shown in place of a field the dialog no longer asks for.
 class WizardFact extends StatelessWidget
 {
   final String label;

@@ -4,33 +4,20 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
 
-// Same duration and curve as the mark under a destination in the top bar, so
-// the two navigation surfaces answer the pointer with one gesture.
 const Duration _markFade = Duration(milliseconds: 150);
 
 const double _markWidth = 3;
 const double _markHeight = 20;
 
-// The mark stands off the edge of the card rather than on it: flush against the
-// rounded corner it read as part of the card, and the entries above and below
-// had nothing to line up with.
 const double _markInset = 9;
 
 const double _entryHeight = 42;
 
-// Left edge of a label. Entries under a heading start further in, which is the
-// whole reason the rail can hold a level the top bar could not: nesting costs a
-// few pixels of indent instead of a second row of words.
 const double _labelInset = 20;
 const double _nestedLabelInset = 32;
 
-// Kept clear on the right so a long label ellipsises inside the card instead of
-// running into its rounded edge.
 const double _labelTrailingInset = 14;
 
-// One heading and the entries under it. A group with no title is a run of
-// entries standing on their own, which is what a module with no sub-sections
-// needs.
 class RailGroup
 {
   final String? title;
@@ -39,9 +26,6 @@ class RailGroup
   const RailGroup({this.title, required this.entries});
 }
 
-// The label of the entry a page is showing, counted the way the rail counts:
-// entries only, headings skipped, in the order they are declared. The pages need
-// it where the rail is not on screen to say it for them.
 String railEntryAt(List<RailGroup> groups, int index)
 {
   final entries = [for (final group in groups) ...group.entries];
@@ -54,26 +38,12 @@ String railEntryAt(List<RailGroup> groups, int index)
   return entries[index];
 }
 
-// The sections of a module, down the left of the page. Vertical is what makes
-// it work: under the top bar a second row of words read as the same control
-// twice, and nesting a level costs an indent rather than a third row.
-//
-// selectedIndex counts entries only, headings excluded, in declaration order —
-// deliberately the order of the page's own IndexedStack.
 class AppSectionRail extends StatelessWidget
 {
-  // Wide enough for "Informazioni personali", the longest label any module
-  // puts in here, at the size below and with a nested entry's indent in front
-  // of it.
   static const double width = 240;
 
-  // Air between the rail and whatever stands beside it. At the page minimum of
-  // 1440 the two together leave the content 1088, which keeps the Orari boards
-  // above the width where they fold into their compact form.
   static const double gap = 32;
 
-  // The module's name, which is also the page's title: the pages lost theirs
-  // when the header pill went away, and the rail is the natural place for it.
   final String title;
 
   final List<RailGroup> groups;
@@ -108,8 +78,6 @@ class AppSectionRail extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Runs alongside the groups so that every entry knows the index the page
-    // will hear back, headings taking no number of their own.
     var entryIndex = 0;
 
     final children = <Widget>[];
@@ -124,9 +92,6 @@ class AppSectionRail extends StatelessWidget
       }
       else if (children.isNotEmpty)
       {
-        // A heading brings its own air with it; a run of entries standing on
-        // their own after one would otherwise butt straight against the last
-        // entry of the group above and read as part of it.
         children.add(const SizedBox(height: 16));
       }
 
@@ -156,9 +121,6 @@ class AppSectionRail extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildTitle(),
-          // A module whose sections are counted rather than named can outrun
-          // the page — Lezioni lists a day at a time — so they scroll inside the
-          // card. Loose, so a rail that fits is as tall as its entries.
           Flexible(
             child: SingleChildScrollView(
               child: Column(
@@ -174,9 +136,6 @@ class AppSectionRail extends StatelessWidget
   }
 }
 
-// Set like the upper line of the wordmark in the top bar: upper case, tracked,
-// muted, small. It names a group without ever looking like something you can
-// click.
 class AppRailHeading extends StatelessWidget
 {
   final String text;
@@ -204,8 +163,6 @@ class AppRailHeading extends StatelessWidget
   }
 }
 
-// One line of the rail. Public because the drawer that replaces it on a narrow
-// window is made of these same rows.
 class AppRailEntry extends StatefulWidget
 {
   final String label;
@@ -250,9 +207,6 @@ class _AppRailEntryState extends State<AppRailEntry>
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  // Squeezed by a transform and not by a size, so it takes no
-                  // part in layout and the column cannot shift under the
-                  // pointer.
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(begin: 0, end: marked ? 1 : 0),
                     duration: _markFade,
@@ -301,8 +255,6 @@ class _AppRailEntryState extends State<AppRailEntry>
   }
 }
 
-// What the rail says on a window too narrow to hold it: the module quietly over
-// the section you are in, the same eyebrow-and-title pairing the dialogs use.
 class AppSectionHeading extends StatelessWidget
 {
   final String module;

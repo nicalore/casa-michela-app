@@ -22,35 +22,29 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     
-    # 1. Definisce e CREA il nuovo Enum per le Aree
+    # New enum type must exist before any column references it.
     subject_area_enum = postgresql.ENUM('HUMANITIES', 'LINGUISTICS', 'SCIENCES', name='subject_area_enum')
     subject_area_enum.create(op.get_bind(), checkfirst=True)
-    
-    # 2. Definisce il riferimento all'Enum dei Livelli GIA' ESISTENTE
+
+    # Already-existing enum: create_type=False keeps it from being created again.
     education_level_enum = postgresql.ENUM('PRIMARY_SCHOOL', 'MIDDLE_SCHOOL', 'HIGH_SCHOOL', name='education_level_enum', create_type=False)
 
-    # --- ASSOCIATION SUBJECTS ---
-    # Aggiunge le colonne temporaneamente con server_default per popolare le vecchie righe
+    # server_default only backfills existing rows; dropped right after.
     op.add_column('association_subjects', sa.Column('area', subject_area_enum, server_default='HUMANITIES', nullable=False))
     op.add_column('association_subjects', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False))
-    # Rimuove il server_default se non lo si desidera più per i futuri insert
     op.alter_column('association_subjects', 'area', server_default=None)
     
     
-    # --- MINISTRY SUBJECTS ---
     op.add_column('ministry_subjects', sa.Column('level', education_level_enum, server_default='HIGH_SCHOOL', nullable=False))
     op.add_column('ministry_subjects', sa.Column('area', subject_area_enum, server_default='HUMANITIES', nullable=False))
     op.add_column('ministry_subjects', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False))
-    # Rimuove il server_default
     op.alter_column('ministry_subjects', 'level', server_default=None)
     op.alter_column('ministry_subjects', 'area', server_default=None)
     
-    # Gestione constraint unicità
     op.drop_constraint(op.f('uq_ministry_subject_name'), 'ministry_subjects', type_='unique')
     op.create_unique_constraint('uq_level_ministry_subject_name', 'ministry_subjects', ['level', 'name'])
     
     
-    # --- SCHOOLS e STUDY PROGRAMS ---
     op.add_column('schools', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False))
     op.add_column('study_programs', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False))
 
@@ -70,6 +64,6 @@ def downgrade() -> None:
     op.drop_column('association_subjects', 'created_at')
     op.drop_column('association_subjects', 'area')
 
-    # ELIMINA il nuovo Enum per le Aree durante il downgrade
+    # Dropped last, after no column references it.
     subject_area_enum = postgresql.ENUM('HUMANITIES', 'LINGUISTICS', 'SCIENCES', name='subject_area_enum')
     subject_area_enum.drop(op.get_bind(), checkfirst=True)

@@ -24,8 +24,7 @@ import '../widgets/person_detail_widgets.dart';
 const int _adultAge = 18;
 const int _maxParentsPerPerson = 2;
 
-// Role label the backend uses for a parent, matched case insensitively because
-// the endpoints are not consistent on capitalisation.
+// Matched case-insensitively: the endpoints are inconsistent on capitalisation.
 const String _parentRoleLabel = 'GENITORE';
 
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
@@ -62,15 +61,10 @@ class PersonParentsTab extends StatefulWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // Called only after the parental responsibilities have been removed. This tab
-  // disappears from the list at that point, and the IndexedStack would otherwise
-  // stay on a position that no longer exists: the caller redirects to the
-  // personal information tab instead.
+  // Called after the parental responsibilities are removed: this tab disappears
+  // then, and the caller redirects elsewhere.
   final VoidCallback onResponsibilityRemoved;
 
-  // Which of the linked parents is being shown. The page holds it, because the
-  // rail beside the page is what chooses: one entry per parent under a heading,
-  // as the sections of every other module are chosen.
   final int selectedIndex;
 
   const PersonParentsTab({
@@ -106,8 +100,8 @@ class _PersonParentsTabState extends State<PersonParentsTab>
         a.restrictionReason != b.restrictionReason;
   }
 
-  // Removals go first: freeing a slot before adding avoids hitting the two
-  // parents limit when one parent is being swapped for another.
+  // Removals first: frees a slot before adding when one parent is swapped for
+  // another, avoiding the two-parents limit.
   Future<void> _applyChanges(
     Map<String, ParentalRelationshipDraft> before,
     Map<String, ParentalRelationshipDraft> after,
@@ -149,8 +143,8 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     for (final code in changed)
     {
       final draft = after[code]!;
-      // The parent code is passed twice on purpose: the endpoint can also
-      // replace a parent, and here only the pickup fields change.
+      // The code is passed twice on purpose: the endpoint can also replace a
+      // parent, and here only the pickup fields change.
       await api.updateParent(
         childCode,
         code,
@@ -226,8 +220,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
         isError: false,
       );
 
-      // Not onUpdate() here: this tab is about to disappear, so the caller has to
-      // move the selection elsewhere.
+      // Not onUpdate(): this tab is about to disappear.
       widget.onResponsibilityRemoved();
     }
     catch (e)
@@ -247,7 +240,6 @@ class _PersonParentsTabState extends State<PersonParentsTab>
       builder: (dialogContext) => AppDialogStack(
         eyebrow: 'Responsabilità genitoriali',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
@@ -391,13 +383,11 @@ class _PersonParentsTabState extends State<PersonParentsTab>
       return _buildEmptyState();
     }
 
-    // Guards against a selection left over from a longer list, for instance after
-    // removing the parent that was being shown.
+    // Guards against a selection left over from a longer list.
     final index = widget.selectedIndex < parents.length ? widget.selectedIndex : 0;
     final parent = parents[index];
 
-    // Only an adult can be released from parental responsibility, so the button
-    // is absent for minors.
+    // Only an adult can be released from parental responsibility.
     final isAdult = widget.person.age != null && widget.person.age! >= _adultAge;
 
     return SingleChildScrollView(
@@ -424,9 +414,6 @@ class _PersonParentsTabState extends State<PersonParentsTab>
   }
 }
 
-// The two things that can be done from this tab. Side by side while there is
-// room, one over the other when there is not, and never stretched: a button is
-// as wide as what is written on it.
 class _ResponsiveParentActionButtonsRow extends StatelessWidget
 {
   final VoidCallback onModify;
@@ -446,8 +433,6 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
       onPressed: onModify,
     );
 
-    // Only an adult can be released from parental responsibility, so for a minor
-    // there is nothing here but the first button.
     if (onRemoveResponsibility == null)
     {
       return modify;
@@ -513,9 +498,7 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
     super.dispose();
   }
 
-  // Candidates are adults holding the parent role, excluding the person whose
-  // parents are being chosen. A missing birth date counts as adult, so an
-  // incomplete record is not silently hidden.
+  // A missing birth date counts as adult, so an incomplete record is not hidden.
   bool _isCandidate(PersonItem person)
   {
     if (person.fiscalCode == widget.childTaxCode)
@@ -612,7 +595,6 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
     Navigator.of(context).pop(_selected);
   }
 
-  // The same head every list of the app carries.
   Widget _buildFilters()
   {
     return Column(
@@ -624,8 +606,6 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
           onChanged: (value) => setState(() => _searchText = value),
         ),
         const SizedBox(height: 16),
-        // In a Wrap rather than on its own in a stretched column: a pill is as
-        // wide as what is written on it, here as everywhere else.
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -662,8 +642,6 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
       return const PersonEmptyState(message: 'Nessun genitore disponibile trovato.');
     }
 
-    // The pill this stands in has been handed the height left in the window, so
-    // this is what moves when there are more people than there is room for.
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
       child: Wrap(
@@ -695,8 +673,6 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
       eyebrow: 'Genitori',
       title: 'Gestisci genitori',
       maxWidth: 1160,
-      // The search and the filter stay where they are; only the list under them
-      // moves.
       fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(

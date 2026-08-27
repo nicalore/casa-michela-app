@@ -9,9 +9,6 @@ import '../../features/association/models/study_program_item.dart';
 const Color _tooltipLabel = AppTheme.slate400;
 const Color _tooltipBullet = AppTheme.slate500;
 
-// A ministry subject rendered as a chip that, on hover, reveals its internal
-// disciplines in a dark tooltip. Shared by the school and study program detail
-// dialogs, which display the same information the same way.
 class MinistrySubjectChip extends StatelessWidget
 {
   final MinistrySubjectOption option;
@@ -23,9 +20,6 @@ class MinistrySubjectChip extends StatelessWidget
     required this.availableMinistrySubjects,
   });
 
-  // Resolves the option against the full list to recover its disciplines,
-  // falling back to a placeholder built from the option itself when the
-  // subject is not present in the loaded data.
   MinistrySubjectItem get _resolvedSubject
   {
     return availableMinistrySubjects.firstWhere(
@@ -42,7 +36,6 @@ class MinistrySubjectChip extends StatelessWidget
     );
   }
 
-  // Builds the "name • name • name" run, inserting a bullet between names.
   List<Widget> _buildDisciplineRun(MinistrySubjectItem subject)
   {
     final widgets = <Widget>[];

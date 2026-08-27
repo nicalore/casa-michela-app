@@ -23,6 +23,7 @@ import '../association/models/room_item.dart';
 import '../association/models/service_item.dart';
 import '../association/models/study_program_item.dart';
 import '../people/models/person_item.dart';
+import 'models/activity_item.dart';
 import 'models/availability_item.dart';
 import 'models/booking_summary_item.dart';
 import 'models/calendar_lock_item.dart';
@@ -31,6 +32,7 @@ import 'models/lesson_item.dart';
 import 'models/presence_item.dart';
 import 'models/room_day_plan.dart';
 import 'models/room_supervision_item.dart';
+import 'utils/excluded_teachers.dart';
 import 'models/subject_request.dart';
 import 'models/teacher_room_assignment_item.dart';
 import 'tabs/availability_tab.dart';
@@ -98,18 +100,20 @@ class _LessonsPageState extends State<LessonsPage>
 
   List<LessonItem> _lessons = [];
 
+  List<ActivityItem> _activities = [];
+
   List<CalendarPublicationItem> _publications = [];
 
-  // Who is building which band right now. Only the live ones ever arrive, so a
-  // row here means somebody is at the screen.
+  // Only live locks arrive: a row here means somebody is at the screen.
   List<CalendarLockItem> _locks = [];
 
   String? _meTaxCode;
 
-  // What the calendar is showing. The beat and the reload are about this band
-  // and no other, so the tab says which one and the page acts on it.
   DateTime? _shownDay;
   TimeBucket? _shownBand;
+
+  // Exclusions for the shown band only; re-fetched on every band change.
+  Set<String> _excludedTeachers = const {};
 
   late final CalendarBandWatch _watch = CalendarBandWatch(
     beat: _beat,
@@ -198,9 +202,6 @@ class _LessonsPageState extends State<LessonsPage>
     ];
   }
 
-  // Who is at this screen, which is the whole of what tells a band held by us
-  // from one held by somebody else. Read from what the session already knows,
-  // and asked for only where nothing has asked yet.
   Future<void> _readWhoIAm() async
   {
     try
@@ -251,6 +252,10 @@ class _LessonsPageState extends State<LessonsPage>
           dateFrom: _availableDays.first,
           dateTo: _availableDays.last,
         ),
+        _apiService.getCalendarActivities(
+          dateFrom: _availableDays.first,
+          dateTo: _availableDays.last,
+        ),
       ]);
 
       if (!mounted)
@@ -284,6 +289,11 @@ class _LessonsPageState extends State<LessonsPage>
         _publications = _keepingDaysOutsideWindow(
           _publications,
           results[11] as List<CalendarPublicationItem>,
+          (item) => item.date,
+        );
+        _activities = _keepingDaysOutsideWindow(
+          _activities,
+          results[12] as List<ActivityItem>,
           (item) => item.date,
         );
         _isLoading = false;
@@ -611,6 +621,7 @@ class _LessonsPageState extends State<LessonsPage>
         _apiService.getOpeningDays(dateFrom: day, dateTo: day, mode: kOnlineMode),
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getCalendarPublications(dateFrom: day, dateTo: day),
+        _apiService.getCalendarActivities(dateFrom: day, dateTo: day),
       ]);
 
       if (!mounted)
@@ -640,6 +651,10 @@ class _LessonsPageState extends State<LessonsPage>
         _publications = [
           ..._publications.where((item) => !isSameDate(item.date, day)),
           ...results[5] as List<CalendarPublicationItem>,
+        ];
+        _activities = [
+          ..._activities.where((item) => !isSameDate(item.date, day)),
+          ...results[6] as List<ActivityItem>,
         ];
       });
 
@@ -691,10 +706,6 @@ class _LessonsPageState extends State<LessonsPage>
 
     await _writeRoomSupervisions(day, shifts, report);
 
-    // Both, and in one go: the rooms are on the hours and the shifts are part
-    // of what the families were shown, so a room moved changes what is drawn
-    // and whether the bozza has anything in it. Asking for one without the
-    // other is how a page comes out half-answered.
     await _refreshDay(day);
 
     if (failure != null)
@@ -743,9 +754,7 @@ class _LessonsPageState extends State<LessonsPage>
     );
   }
 
-  // Leaving the bozza without publishing. Answers how many hours could not be
-  // put back, or null where the server refused: it is worth saying, and it is
-  // not the same sentence as an ordinary undo.
+  // Returns how many hours could not be restored, or null if the server refused.
   Future<int?> _executeDiscardDraft({
     required DateTime day,
     required TimeBucket band,
@@ -756,11 +765,8 @@ class _LessonsPageState extends State<LessonsPage>
 
     final undone = await write(
       call: () => _apiService.discardDraft(day: day, band: band),
-      // Only the count. The band is deliberately not moved out of bozza here,
-      // the way the other two writes move it: what the calendar looks like has
-      // just been undone on the server, and saying "published" before the hours
-      // that went back have arrived is how the changes flashed up and vanished.
-      // The reload below is the one change anybody sees.
+      // Deliberately does not move the band out of draft here: showing
+      // "published" before the restored hours arrive flashes stale changes.
       apply: (answer) => lost = answer.lost,
       onError: onError,
       cascade: () => _refreshDay(day),
@@ -791,7 +797,6 @@ class _LessonsPageState extends State<LessonsPage>
     return closed ? resent ?? false : null;
   }
 
-  // Who is holding the band on the screen, if anybody.
   CalendarLockItem? get _shownLock
   {
     final day = _shownDay;
@@ -813,7 +818,6 @@ class _LessonsPageState extends State<LessonsPage>
     return null;
   }
 
-  // Somebody else is building it, so what is drawn can be read and not touched.
   bool get _isCalendarReadOnly
   {
     final lock = _shownLock;
@@ -833,9 +837,7 @@ class _LessonsPageState extends State<LessonsPage>
     _watch.says(holding: _holdsTheShownBand, watching: _isCalendarReadOnly);
   }
 
-  // The calendar moved to another day, or to another part of one. Whatever was
-  // held is let go at once: the ninety seconds would do it anyway, and making
-  // the next person wait them out for a band nobody is building is only a wait.
+  // Releases any held lock immediately rather than waiting for the 90s expiry.
   void _onCalendarViewChanged({required DateTime day, required TimeBucket band})
   {
     final wasDay = _shownDay;
@@ -855,18 +857,137 @@ class _LessonsPageState extends State<LessonsPage>
     {
       _shownDay = day;
       _shownBand = band;
+      _excludedTeachers = const {};
     });
 
     _syncTheBand();
     unawaited(_readTheLocks(day));
+    unawaited(_readTheExclusions(day, band));
+  }
+
+  // Failure is silent: an unanswered read leaves the safe default (nobody excluded).
+  Future<void> _readTheExclusions(DateTime day, TimeBucket band) async
+  {
+    try
+    {
+      final excluded = await _apiService.getExcludedTeachers(day: day, band: band);
+
+      if (!mounted || !_isShowing(day, band))
+      {
+        return;
+      }
+
+      setState(() => _excludedTeachers = excluded);
+    }
+    catch (_)
+    {
+      // Keep the empty default: everybody in.
+    }
+  }
+
+  bool _isShowing(DateTime day, TimeBucket band)
+  {
+    final shown = _shownDay;
+
+    return shown != null && isSameDate(shown, day) && _shownBand == band;
+  }
+
+  // Applies the server's answer locally instead of re-reading the whole day
+  // (an unconditional read-back made the row clear before its hours did);
+  // only a disagreeing count triggers a full reload. Publications are always
+  // re-fetched, since excluding can turn the band into a draft with changes.
+  Future<HandedBack?> _executeExcludeTeacher({
+    required DateTime day,
+    required TimeBucket band,
+    required String teacherTaxCode,
+    required Function(String) onError,
+  }) async
+  {
+    try
+    {
+      final back = await _apiService.excludeTeacher(
+        day: day,
+        band: band,
+        teacherTaxCode: teacherTaxCode,
+      );
+
+      final off = takeTheRowOff(
+        lessons: _lessons,
+        activities: _activities,
+        day: day,
+        band: band,
+        teacherTaxCode: teacherTaxCode,
+      );
+
+      if (mounted)
+      {
+        setState(()
+        {
+          _lessons = off.lessons;
+          _activities = off.activities;
+
+          if (_isShowing(day, band))
+          {
+            _excludedTeachers = {..._excludedTeachers, teacherTaxCode};
+          }
+        });
+      }
+
+      // Counts disagree only if this side was looking at a stale day.
+      if (off.back != back)
+      {
+        await _executeLoadDay(day, onError);
+      }
+      else if (back.lessons > 0 || back.activities > 0)
+      {
+        await _refreshPublications(day);
+      }
+
+      return back;
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+
+      return null;
+    }
+  }
+
+  Future<bool> _executeReadmitTeacher({
+    required DateTime day,
+    required TimeBucket band,
+    required String teacherTaxCode,
+    required Function(String) onError,
+  }) async
+  {
+    try
+    {
+      await _apiService.readmitTeacher(
+        day: day,
+        band: band,
+        teacherTaxCode: teacherTaxCode,
+      );
+
+      if (mounted && _isShowing(day, band))
+      {
+        setState(() => _excludedTeachers = {..._excludedTeachers}..remove(teacherTaxCode));
+      }
+
+      return true;
+    }
+    catch (e)
+    {
+      onError(readableApiError(e));
+
+      return false;
+    }
   }
 
   void _letTheBandGo(DateTime day, TimeBucket band)
   {
     _foldLock(day, band, null);
 
-    // Best effort and never the guarantee: a window that is closed rather than
-    // left says nothing at all, and the ninety seconds say it for it.
+    // Best effort: the 90s expiry covers a window closed without releasing.
     unawaited(
       _apiService
           .releaseCalendarLock(day: day, band: band)
@@ -897,8 +1018,7 @@ class _LessonsPageState extends State<LessonsPage>
     }
     catch (e, stackTrace)
     {
-      // Said to the log and not to the screen: a beat that did not arrive is
-      // not news, and two more will follow before the band is gone.
+      // Log only: two more beats follow before the lock expires.
       reportCaughtError(e, stackTrace, during: 'il battito del calendario');
     }
   }
@@ -962,8 +1082,6 @@ class _LessonsPageState extends State<LessonsPage>
     };
   }
 
-  // The whole day read back, and then what moved under whoever is building it
-  // said out loud.
   Future<void> _pollShownDay() async
   {
     final day = _shownDay;
@@ -991,12 +1109,8 @@ class _LessonsPageState extends State<LessonsPage>
     _sayWhatMovedUnderneath(hours, requests, day, band);
   }
 
-  // Only the two things that move without anybody in this window having touched
-  // them: an hour that went because what it stood on was withdrawn, and a
-  // request that arrived after the calendar was built. Both are ordinary — a
-  // docente can still take back a disponibilità, a studente can still book —
-  // and neither is worth a refusal. What they are worth is being told, because
-  // otherwise a block simply vanishes off the board and nothing says why.
+  // Reports external changes: lessons gone because their availability was
+  // withdrawn, and requests that arrived after the calendar was built.
   void _sayWhatMovedUnderneath(
     Set<int> hours,
     Set<int> requests,
@@ -1176,14 +1290,8 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  // Both lists of a day, asked together and written together.
-  //
-  // Together and not one after the other, which is what this used to do: the
-  // hours and the state of the band are two halves of one answer, and between
-  // two setStates there is a frame showing half of it. Leaving a bozza is where
-  // that showed — the band said "published" while the hours were still the ones
-  // being undone, so the calendar appeared with the changes in it and dropped
-  // them a moment later.
+  // Fetches and applies lessons, publications and activities in one setState:
+  // two sequential setStates showed a frame with half the answer.
   Future<void> _refreshDay(DateTime day) async
   {
     try
@@ -1191,6 +1299,7 @@ class _LessonsPageState extends State<LessonsPage>
       final results = await Future.wait([
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getCalendarPublications(dateFrom: day, dateTo: day),
+        _apiService.getCalendarActivities(dateFrom: day, dateTo: day),
       ]);
 
       if (!mounted)
@@ -1208,20 +1317,152 @@ class _LessonsPageState extends State<LessonsPage>
           ..._publications.where((item) => !isSameDate(item.date, day)),
           ...results[1] as List<CalendarPublicationItem>,
         ];
+        _activities = [
+          ..._activities.where((item) => !isSameDate(item.date, day)),
+          ...results[2] as List<ActivityItem>,
+        ];
       });
     }
     catch (e, stackTrace)
     {
-      // Said to the log and not to the screen: whatever asked for this has
-      // already answered for itself, and what is drawn is a day old at worst.
       reportCaughtError(e, stackTrace, during: 'il ricaricamento del calendario');
     }
 
-    // Every write into a calendar comes back through here, and a write is what
-    // takes a band. Reading who holds it is how this window learns the band is
-    // now its own and starts saying it is still there — asking never takes
-    // anything, so the days this runs for that were only looked at are unharmed.
+    // Every calendar write comes back through here, and a write takes the
+    // band: reading the locks is how this window learns it now holds it.
     await _readTheLocks(day);
+  }
+
+  Future<bool> _executeCreateActivity({
+    required DateTime day,
+    required TimeBucket band,
+    required String name,
+    required String? description,
+    required Function(String) onError,
+  })
+  {
+    return write(
+      call: () => _apiService.createCalendarActivity(
+        day: day,
+        band: band,
+        name: name,
+        description: description,
+      ),
+      apply: (created) => _activities = [..._activities, created],
+      onError: onError,
+      cascade: () => _refreshPublications(day),
+    );
+  }
+
+  // Optimistic placement so a dragged activity moves under the hand; the
+  // server's answer replaces it, and a refusal puts it back.
+  ActivityItem _optimisticActivity({
+    required ActivityItem existing,
+    required String name,
+    required String? description,
+    required int? availabilityId,
+    required TimeOfDay? startTime,
+    required TimeOfDay? endTime,
+  })
+  {
+    final availability = _availabilities.where((slot) => slot.id == availabilityId).firstOrNull;
+
+    final placement = availability == null || startTime == null || endTime == null
+        ? null
+        : ActivityPlacementItem(
+            availabilityId: availability.id,
+            teacherTaxCode: availability.teacherTaxCode,
+            teacher: availability.teacher,
+            teacherMode: availability.mode,
+            startTime: startTime,
+            endTime: endTime,
+          );
+
+    return existing.asWritten(
+      name: name,
+      description: description,
+      placement: placement,
+    );
+  }
+
+  void _drawActivity(ActivityItem activity)
+  {
+    setState(()
+    {
+      _activities = [
+        for (final row in _activities)
+          if (row.id != activity.id) row,
+        activity,
+      ];
+    });
+  }
+
+  Future<bool> _executeUpdateActivity({
+    required ActivityItem existing,
+    required String name,
+    required String? description,
+    required int? availabilityId,
+    required TimeOfDay? startTime,
+    required TimeOfDay? endTime,
+    required Function(String) onError,
+  }) async
+  {
+    if (mounted)
+    {
+      _drawActivity(_optimisticActivity(
+        existing: existing,
+        name: name,
+        description: description,
+        availabilityId: availabilityId,
+        startTime: startTime,
+        endTime: endTime,
+      ));
+    }
+
+    try
+    {
+      final written = await _apiService.updateCalendarActivity(
+        id: existing.id,
+        name: name,
+        description: description,
+        availabilityId: availabilityId,
+        startTime: startTime,
+        endTime: endTime,
+        expectedUpdatedAt: existing.updatedAt,
+      );
+
+      if (mounted)
+      {
+        _drawActivity(written);
+      }
+
+      await _refreshPublications(existing.date);
+
+      return true;
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        _drawActivity(existing);
+      }
+
+      onError(readableApiError(e));
+
+      return false;
+    }
+  }
+
+  Future<bool> _executeDeleteActivity(int id, Function(String) onError) async
+  {
+    final removed = _activities.where((activity) => activity.id == id).firstOrNull;
+
+    return erase(
+      call: () => _apiService.deleteCalendarActivity(id),
+      apply: () => _activities = _activities.where((activity) => activity.id != id).toList(),
+      onError: onError,
+      cascade: removed == null ? null : () => _refreshPublications(removed.date),
+    );
   }
 
   Future<void> _refreshPublications(DateTime day) async
@@ -1718,6 +1959,7 @@ class _LessonsPageState extends State<LessonsPage>
             ? CalendarTab(
                 availableDays: _availableDays,
                 lessons: _lessons,
+                activities: _activities,
                 availabilities: _availabilities,
                 presences: _presences,
                 openingDays: _openingDays,
@@ -1732,21 +1974,22 @@ class _LessonsPageState extends State<LessonsPage>
                 onViewChanged: _onCalendarViewChanged,
                 onLoadDay: _executeLoadDay,
                 onLoadRoomPlan: _executeLoadRoomPlan,
-                // Withheld while somebody else has the band. The screen shows
-                // it as read the whole way through, so nothing here is a
-                // second line of defence against a button that can be pressed
-                // — it is the same answer said in the one place a write could
-                // still be started from.
                 onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
                 onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,
                 onCloseDraft: _isCalendarReadOnly ? null : _executeCloseDraft,
                 onDiscardDraft: _isCalendarReadOnly ? null : _executeDiscardDraft,
                 onSaveRoomPlan: _isCalendarReadOnly ? null : _executeSaveRoomPlan,
+                excludedTeachers: _excludedTeachers,
+                onExcludeTeacher: _isCalendarReadOnly ? null : _executeExcludeTeacher,
+                onReadmitTeacher: _isCalendarReadOnly ? null : _executeReadmitTeacher,
                 onCreateLesson: _isCalendarReadOnly ? null : _executeCreateLesson,
                 onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
                 onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
                 onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
                 onMoveBooking: _isCalendarReadOnly ? null : _executeMoveBooking,
+                onCreateActivity: _isCalendarReadOnly ? null : _executeCreateActivity,
+                onUpdateActivity: _isCalendarReadOnly ? null : _executeUpdateActivity,
+                onDeleteActivity: _isCalendarReadOnly ? null : _executeDeleteActivity,
               )
             : const SizedBox.shrink(),
       ],
@@ -1781,9 +2024,8 @@ class _LessonsPageState extends State<LessonsPage>
     _watchTheShownSection();
   }
 
-  // Walking away from the calendar stops the beat, and the band comes free
-  // within the minute and a half. Coming back does not take it again: the
-  // first hour written does that, the way it did the first time.
+  // Leaving the calendar stops the beat; coming back does not retake the lock
+  // (the first write does).
   void _watchTheShownSection()
   {
     final onTheCalendar = _contentIndex == _calendarContentIndex;

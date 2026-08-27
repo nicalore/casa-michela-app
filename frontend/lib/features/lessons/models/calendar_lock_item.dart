@@ -6,10 +6,7 @@ import '../../../core/utils/week_range.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
 
-// Who is building a part of a day right now, mirroring the backend's
-// calendar_band_locks. Only the live ones ever arrive: an expired row is not a
-// lock any more, and putting a banner on a calendar nobody is working on would
-// be worse than saying nothing.
+// Mirrors the backend's calendar_band_locks; only live locks ever arrive.
 class CalendarLockItem
 {
   final DateTime date;
@@ -19,11 +16,9 @@ class CalendarLockItem
 
   final PersonOptionItem? holder;
 
-  // When they started, which is the hour the banner says. The beat moves the
-  // deadline below and leaves this where it is.
+  // Fixed at acquisition; the beat only moves expiresAt.
   final DateTime acquiredAt;
 
-  // When the band comes free if nothing more is heard from them.
   final DateTime expiresAt;
 
   const CalendarLockItem({
@@ -52,9 +47,7 @@ class CalendarLockItem
   }
 }
 
-// What the heartbeat answers: the band as it stands, and whether it is still
-// ours. A lock present and [mine] false is how a window that was away learns
-// somebody else has taken over.
+// Heartbeat answer. A lock present with [mine] false means somebody else took over.
 class CalendarLockState
 {
   final CalendarLockItem? lock;
@@ -75,9 +68,6 @@ class CalendarLockState
   }
 }
 
-// The sentence the others read. Named where the name is known — a tax code is
-// not something to show anybody — and the hour they started, not the hour they
-// last beat: what matters is how long this has been going on.
 String lockedSentence(CalendarLockItem lock)
 {
   final at = lock.acquiredAt.toLocal();

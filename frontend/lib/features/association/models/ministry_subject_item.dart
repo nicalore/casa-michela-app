@@ -24,9 +24,6 @@ class AssociationSubjectOption
   final int id;
   final String name;
 
-  // What the discipline is, where somebody wrote it. It sits under the name in
-  // the lists it is picked from: the name says what it is called, the
-  // description says what is done in it.
   final String? description;
 
   const AssociationSubjectOption({
@@ -35,8 +32,6 @@ class AssociationSubjectOption
     this.description,
   });
 
-  // One parser for every place the server names a discipline. There used to be
-  // six hand-written copies, and the description would have reached five.
   factory AssociationSubjectOption.fromJson(Map<String, dynamic> json)
   {
     return AssociationSubjectOption(

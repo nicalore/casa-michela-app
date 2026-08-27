@@ -14,14 +14,6 @@ import '../models/school_enrollment_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../widgets/person_row_models.dart';
 
-// Everything the person edit dialog holds: the fields, the choices, the rows
-// that get added, and the way all of it becomes the request body.
-//
-// It lives outside the widgets for one decisive reason: the dialog calls four
-// endpoints as soon as it opens and cannot be exercised in a test, whereas this
-// class touches no network and can be built in a single line.
-
-// The roles that can be ticked, in the order they are offered.
 class PersonRoleOption
 {
   final String id;
@@ -35,20 +27,11 @@ class PersonRoleOption
   });
 }
 
-// The courses the association runs, as they read and as the server writes them.
-// A two-value enum in the database, so there is no third course to type by hand.
-// The server sends the label already translated and expects the code back, which
-// is why the translation is written once: written twice, one of the two had
-// already drifted.
 const Map<String, String> kCourseTypes = {
   'Yoga': 'YOGA',
   'Pilates': 'PILATES',
 };
 
-// The other fixed-value choices, as they read and as the server writes them.
-// They sit next to the courses for the same reason: each of these translations
-// used to be written twice, once in the update payload and once in the create
-// one — which is exactly the shape in which the course type broke.
 const Map<String, String> kCollaborationTypes = {
   'Volontario': 'VOLUNTEER',
   'Retribuito': 'PAID',
@@ -76,10 +59,7 @@ const Map<String, String> kCertificationTypes = {
   'Altro': 'OTHER',
 };
 
-// The label matching whatever the server sent, be it the code or the label
-// itself. The server is not consistent with itself — some fields arrive
-// translated and others as codes — so asking here rather than listing the two
-// cases by hand is what makes seeding indifferent to which one turns up.
+// The server is inconsistent: some fields arrive as labels, others as codes.
 String? labelForServerValue(Map<String, String> table, String? value)
 {
   if (value == null)
@@ -138,8 +118,6 @@ const List<PersonRoleOption> kPersonRoleOptions = [
   ),
 ];
 
-// The school years, as the Roman numerals they are written in, and the number
-// each one stands for.
 const Map<String, int> kGradeNumbers = {
   'I': 1,
   'II': 2,
@@ -151,7 +129,6 @@ const Map<String, int> kGradeNumbers = {
   'VIII': 8,
 };
 
-// The current school year: from September on it is the one starting.
 int currentSchoolYearStart()
 {
   final DateTime now = DateTime.now();
@@ -159,13 +136,8 @@ int currentSchoolYearStart()
   return now.month < 9 ? now.year - 1 : now.year;
 }
 
-// The residence of whoever opened a dialog, offered to whoever is inside it. A
-// parent is created from a minor's page and a minor from a parent's, and nine
-// times out of ten they live together. Residence only: birth, contacts and
-// everything else belong to each person.
 class ResidenceOffer
 {
-  // What the checkbox calls it, which depends on who is offering it.
   final String label;
 
   final String streetTypeValue;
@@ -185,8 +157,6 @@ class ResidenceOffer
     required this.postalCodeValue,
   });
 
-  // A residence that was never written cannot be offered: the checkbox would
-  // fill six empty fields with six empty fields.
   bool get isEmpty =>
       streetTypeValue.trim().isEmpty &&
       addressValue.trim().isEmpty &&
@@ -198,25 +168,14 @@ class ResidenceOffer
 
 class PersonEditForm
 {
-  // The person being edited. Null when one is being created: the only
-  // substantial difference between the two dialogs, and the others follow from
-  // it — the identity is written instead of read, the consents are asked for,
-  // and there is no last-modified moment to respect.
   final PersonItem? person;
 
   bool get isCreation => person == null;
 
-  // 0 = involved in the activities, 1 = member only, -1 neither.
-  //
-  // A new person starts with no answer, and without one there is no going on:
-  // pre-ticking "involved" was an answer the user never gave, passing for
-  // theirs because nobody had asked. Someone being edited always has an answer,
-  // and parents and minors created on the fly have one because the question is
-  // never put to them.
+  // 0 = involved in the activities, 1 = member only, -1 = unanswered.
   int involvementType = -1;
 
-  // Whether the parent joins as well. Null until they say so: a two-answer
-  // question, and a pre-ticked "No" was one of them given by default.
+  // Whether the parent joins as well; null until answered.
   bool? parentIsMember;
 
   bool wasMember = false;
@@ -241,9 +200,6 @@ class PersonEditForm
   final TextEditingController residenceProvinceCtrl = TextEditingController();
   final TextEditingController postalCodeCtrl = TextEditingController();
 
-  // Whether the residence was copied from whoever opened this dialog, and what
-  // was written before copying it: unticking puts it back as it was instead of
-  // leaving fields nobody chose to write.
   bool copiesResidence = false;
   ResidenceOffer? _residenceBeforeCopy;
 
@@ -261,17 +217,21 @@ class PersonEditForm
   final TextEditingController studiScolasticiCtrl = TextEditingController();
   final TextEditingController studiUniversitariCtrl = TextEditingController();
 
-  // False by default: a minor is collected by a parent unless said otherwise,
-  // which is the server's starting value too.
+  // True hides university studies instead of clearing them.
+  bool isHighSchoolStudent = false;
+
+  // Null for non-admin viewers and on creation; omitted from the payload.
+  double? teacherRating;
+
   bool uscitaAnticipata = false;
 
   String? paymentMethodValue;
   final TextEditingController otherPaymentMethodCtrl = TextEditingController();
 
-  // This dialog has no consents card: the certification type is read and
-  // written back as it was, never asked for.
   String? certificationTypeValue = 'No';
   final TextEditingController otherCertificationCtrl = TextEditingController();
+  // Required for a DSA certification; the server rejects it without this.
+  final TextEditingController dsaCertificationCtrl = TextEditingController();
   bool? mandatoryPsychMeetingsAcknowledgedExisting;
 
   final TextEditingController emergencyContactNameCtrl = TextEditingController();
@@ -279,8 +239,6 @@ class PersonEditForm
   final TextEditingController allergiesCtrl = TextEditingController();
   final TextEditingController medicationsCtrl = TextEditingController();
 
-  // What is asked only of someone not yet on the books: the consents are signed
-  // once, on joining.
   bool statuteAcknowledged = false;
   bool regulationAcknowledged = false;
   bool videoSurveillanceAcknowledged = false;
@@ -291,14 +249,9 @@ class PersonEditForm
   final TextEditingController psychologicalSupportStartDateCtrl = TextEditingController();
   bool psychMeetingsAcknowledgedValue = false;
 
-  // The course the participant attends, picked from the ones the association
-  // runs. Free text when editing, because older courses are no longer on that
-  // list.
   String? courseTypeValue;
 
-  // The people created inside this dialog — a parent, a minor — which have to
-  // reach the server before the one being created, because it is to them that it
-  // will be tied.
+  // People created inside this dialog; they must reach the server first.
   final List<Map<String, dynamic>> pendingPeople = [];
 
   final Map<String, ParentalRelationshipDraft> selectedParents = {};
@@ -307,11 +260,8 @@ class PersonEditForm
   final Map<int, bool> subjectToggles = {};
   final Map<int, Set<int>> selectedProgramsForSubject = {};
 
-  // The services the teacher can take on, by name: a service has no programmes
-  // to narrow it down, so the set of chosen ones is enough.
   final Set<String> selectedServices = {};
 
-  // The catalogues, which arrive later over the network.
   List<SchoolItem> allSchools = [];
   List<StudyProgramItem> allPrograms = [];
   List<AssociationSubjectItem> allSubjects = [];
@@ -319,13 +269,10 @@ class PersonEditForm
   List<PersonItem> allAdults = [];
   List<PersonItem> allMinors = [];
 
-  // The programmes each discipline is taught in, computed once when the
-  // catalogues arrive.
   final Map<int, List<StudyProgramItem>> programsBySubjectId = {};
 
   PersonEditForm._(this.person);
 
-  // Fills the form with what the person is right now.
   factory PersonEditForm.fromPerson(PersonItem person)
   {
     final PersonEditForm form = PersonEditForm._(person);
@@ -334,13 +281,6 @@ class PersonEditForm
     return form;
   }
 
-  // An empty form, for a person not yet on the books.
-  //
-  // The roles can already be decided by whoever opens the dialog: a parent
-  // created on the fly while registering their child is a parent, and there is
-  // nothing to ask. [involvement] is the answer to the first step, where it is
-  // already given — the dialog one arrives from is saying it — so it cannot be
-  // left unanswered either.
   factory PersonEditForm.blank({
     Set<String> roles = const {},
     int involvement = -1,
@@ -389,8 +329,6 @@ class PersonEditForm
     postalCodeCtrl.text = person.zipCode ?? '';
 
     emailCtrl.text = person.email ?? '';
-    // Spaced on the way in, the way it is read everywhere else. What is sent
-    // back is the run of digits: see [barePhoneNumber] at the payloads below.
     phoneCtrl.text = formatPhoneNumber(person.phoneNumber);
 
     final Set<String> roles = person.roles.map((role) => role.toUpperCase()).toSet();
@@ -402,9 +340,7 @@ class PersonEditForm
     involvementType = roles.length == 1 && roles.contains('ASSOCIATO') ? 1 : 0;
     parentIsMember = roles.contains('GENITORE') && roles.contains('ASSOCIATO');
 
-    // The memberships already paid. MembershipItem carries no id: the "id" key
-    // has never left this dialog and still does not — the server rebuilds the
-    // whole list.
+    // MembershipItem carries no id; the server rebuilds the whole list.
     for (final membership in person.memberships ?? const [])
     {
       membershipRows.add(MembershipRowData.empty(
@@ -426,8 +362,6 @@ class PersonEditForm
     certificateExpirationCtrl.text = person.medicalCertificateExpiration != null
         ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!)
         : '';
-    // What the server sends is already the label, and that is what the chips
-    // show.
     courseTypeValue = person.courseType;
     ibanCtrl.text = person.iban ?? '';
 
@@ -438,9 +372,6 @@ class PersonEditForm
 
     if (adminRole != null)
     {
-      // A role the table does not know is necessarily "Altro": the field next
-      // to it holds how it is spelled out, which is the only place that name
-      // exists.
       adminRoleValue = labelForServerValue(kAdminRoles, adminRole) ?? 'Altro';
 
       if (adminRoleValue == 'Altro')
@@ -449,6 +380,8 @@ class PersonEditForm
       }
     }
 
+    isHighSchoolStudent = person.isHighSchoolStudent ?? false;
+    teacherRating = person.teacherRating;
     studiScolasticiCtrl.text = person.schoolEducation ?? '';
     studiUniversitariCtrl.text = person.universityEducation ?? '';
 
@@ -464,8 +397,6 @@ class PersonEditForm
       otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
     }
 
-    // The starting value is "No", and a person without a certification has
-    // nothing to send: whatever the table does not recognise is left as it is.
     certificationTypeValue =
         labelForServerValue(kCertificationTypes, person.certificationType) ??
             certificationTypeValue;
@@ -473,6 +404,11 @@ class PersonEditForm
     if (certificationTypeValue == 'Altro')
     {
       otherCertificationCtrl.text = person.certificationOtherDetail ?? '';
+    }
+
+    if (certificationTypeValue == 'DSA')
+    {
+      dsaCertificationCtrl.text = person.certificationDsaDetail ?? '';
     }
 
     mandatoryPsychMeetingsAcknowledgedExisting = person.mandatoryPsychMeetingsAcknowledged;
@@ -512,9 +448,6 @@ class PersonEditForm
     selectedServices.addAll(person.teacherServices ?? const <String>[]);
   }
 
-  // What arrives over the network: the catalogues, the people to choose from,
-  // and the school years, which can only be composed once schools and
-  // programmes have a name.
   void applyCatalogues({
     required List<StudyProgramItem> programs,
     required List<SchoolItem> schools,
@@ -588,10 +521,7 @@ class PersonEditForm
     SchoolItem? matchedSchool;
     StudyProgramItem? matchedProgram;
 
-    // The name alone no longer identifies a school, now that two schools of
-    // the same name in different cities are allowed. Only the denormalised name
-    // is here: when more than one matches, nothing is guessed and the field is
-    // left empty.
+    // School names are not unique; with multiple matches the field is left empty.
     final List<SchoolItem> byName =
         allSchools.where((school) => school.name == person.schoolName).toList();
 
@@ -636,8 +566,6 @@ class PersonEditForm
   List<StudyProgramItem> programsFor(int subjectId) =>
       programsBySubjectId[subjectId] ?? const [];
 
-  // ---------------------------------------------------------------- questions
-
   bool get isMinor
   {
     if (!isValidDate(birthDateCtrl.text))
@@ -660,7 +588,6 @@ class PersonEditForm
     return age < 18;
   }
 
-  // The roles that count: member is not an answer, it is a consequence.
   List<String> get activeRoles => selectedRoles.where((role) => role != 'ASSOCIATO').toList();
 
   bool get isOnlyParentNotMember =>
@@ -689,27 +616,14 @@ class PersonEditForm
     }
   }
 
-  // The membership question is only put to someone who is a parent and nothing
-  // else and was not already a member: a parent can enrol their child without
-  // joining themselves.
   bool get asksAssociationQuestion =>
       involvementType == 0 &&
       activeRoles.length == 1 &&
       activeRoles.contains('GENITORE') &&
       !wasMember;
 
-  // Skipping the question counts as answering yes. Now that the steps are a
-  // computed list this has to be called every time the roles change, or a
-  // removed role would leave the previous answer lying around.
-  //
-  // If the question comes back, on creation it comes back unanswered: that
-  // "yes" was nobody's, it was the consequence of a role that is no longer
-  // there, and leaving it ticked is the default answer removed from the rest of
-  // the form.
-  //
-  // Not when editing: there an answer already exists, it is the one the person
-  // is written with, and dropping it because a role was ticked and unticked
-  // would mean asking again about something nobody meant to change.
+  // Must be called on every role change: skipping the question counts as yes,
+  // and on creation a re-shown question resets to unanswered.
   void normaliseAssociationAnswer()
   {
     if (involvementType != 0)
@@ -727,8 +641,6 @@ class PersonEditForm
     }
   }
 
-  // «Coinvolto nelle attività» o «Solo socio». Scegliere il secondo lascia
-  // cadere i ruoli, come faceva il vecchio AVANTI del primo passaggio.
   void chooseInvolvement(int type)
   {
     involvementType = type;
@@ -741,7 +653,6 @@ class PersonEditForm
     normaliseAssociationAnswer();
   }
 
-  // Spunta o toglie un ruolo, tenendo dietro le conseguenze.
   void toggleRole(String roleId, bool selected)
   {
     if (selected)
@@ -757,9 +668,6 @@ class PersonEditForm
     syncCollaborationWithAdminRole();
   }
 
-  // --------------------------------------------------------------- residence
-
-  // The residence written here, to offer to a dialog opened from this one.
   ResidenceOffer residenceOffer({String label = ''}) => ResidenceOffer(
         label: label,
         streetTypeValue: streetTypeCtrl.text,
@@ -780,8 +688,6 @@ class PersonEditForm
     postalCodeCtrl.text = residence.postalCodeValue;
   }
 
-  // The box ticked: what was there is set aside and the offered one is
-  // written.
   void takeResidence(ResidenceOffer offered)
   {
     _residenceBeforeCopy = residenceOffer();
@@ -789,7 +695,6 @@ class PersonEditForm
     copiesResidence = true;
   }
 
-  // The box unticked: what was there before ticking it comes back.
   void giveBackResidence()
   {
     final ResidenceOffer? before = _residenceBeforeCopy;
@@ -803,16 +708,11 @@ class PersonEditForm
     copiesResidence = false;
   }
 
-  // A residence field typed by hand while the box is ticked: it is no longer
-  // the same residence, so the tick goes. What is written stays — this is a
-  // deliberate change, not a step back.
   void residenceEditedByHand()
   {
     _residenceBeforeCopy = null;
     copiesResidence = false;
   }
-
-  // ---------------------------------------------------------------- helpers
 
   static String? toIsoDate(String? itaDate)
   {
@@ -881,11 +781,8 @@ class PersonEditForm
 
   static int romanToNumeric(String roman) => kGradeNumbers[roman] ?? 1;
 
-  // ------------------------------------------------------------------ saving
-
-  // The request body, identical to the one this dialog has always sent. The
-  // `expected_updated_at` keys appear only when the moment is known: absent,
-  // not null — the server leaves alone what it is not told.
+  // `expected_updated_at` keys are omitted (not null) when unknown: the server
+  // leaves alone what it is not told.
   Map<String, dynamic> buildPayload()
   {
     final Set<String> finalRolesSet = selectedRoles.where((role) => role != 'ASSOCIATO').toSet();
@@ -921,20 +818,15 @@ class PersonEditForm
           'start_date': '$year-${parts[1]}-${parts[0]}',
           'end_date': '$year-12-31',
           'renewal_period_days': 30,
-          // As it was. Hard-coded back to 'NO', editing the details of an
-          // expelled person used to readmit them without anyone asking — and,
-          // since a revoked person's dialog shows the details alone, without
-          // even showing the membership it was reopening.
+          // Preserved as-is: hard-coding 'NO' silently readmitted expelled people.
           'revocation': row.revocation,
           if (row.id != null) 'id': row.id,
         });
       }
     }
 
-    // The three declarations signed on joining — statute, regulation, video
-    // surveillance — are not sent at all: absent rather than null, because the
-    // server leaves as-is whatever it does not find in the JSON and those are
-    // never withdrawn. The two real consents can be changed.
+    // The joining declarations (statute, regulation, video surveillance) are
+    // omitted entirely: they are never withdrawn, and absent keys stay as-is.
     Map<String, dynamic>? memberData;
 
     if (!onlyParentNotMember && membershipsData.isNotEmpty)
@@ -997,10 +889,13 @@ class PersonEditForm
     if (finalRoles.contains('DOCENTE'))
     {
       teacherData = {
+        'is_high_school_student': isHighSchoolStudent,
         'school_education':
             studiScolasticiCtrl.text.isNotEmpty ? studiScolasticiCtrl.text.trim() : null,
-        'university_education':
-            studiUniversitariCtrl.text.isNotEmpty ? studiUniversitariCtrl.text.trim() : null,
+        // The server rejects university education for a high-school student.
+        'university_education': !isHighSchoolStudent && studiUniversitariCtrl.text.isNotEmpty
+            ? studiUniversitariCtrl.text.trim()
+            : null,
         'competences': subjectToggles.entries
             .where((entry) => entry.value)
             .map((entry) => {
@@ -1009,6 +904,8 @@ class PersonEditForm
                 })
             .toList(),
         'service_names': selectedServices.toList(),
+        // Omitted when null; the server rejects a rating from non-admins.
+        if (teacherRating != null) 'rating': teacherRating,
         if (person?.teacherUpdatedAt != null)
           'expected_updated_at': person!.teacherUpdatedAt!.toIso8601String(),
       };
@@ -1028,16 +925,14 @@ class PersonEditForm
     {
       final String? certificationType = kCertificationTypes[certificationTypeValue];
 
-      // The whole school history goes in the same body rather than in a call
-      // of its own: the server rebuilds the years in one go inside the same
-      // transaction, with a single concurrency check.
+      // Enrollments ride in the same body: one transaction, one concurrency check.
       studentData = {
         'authorized_early_exit': isMinor ? uscitaAnticipata : true,
         'certification_type': certificationType,
         'certification_other_detail':
             certificationType == 'OTHER' ? otherCertificationCtrl.text.trim() : null,
-        // Editable from here now: it starts from what the person had and goes
-        // back with whatever was ticked.
+        'certification_dsa_detail':
+            certificationType == 'DSA' ? dsaCertificationCtrl.text.trim() : null,
         'mandatory_psych_meetings_acknowledged': psychMeetingsAcknowledgedValue,
         'school_enrollments': schoolRows
             .map((row) => {
@@ -1085,11 +980,8 @@ class PersonEditForm
     };
   }
 
-  // The body a person is created with. It resembles the update one but is not
-  // the same, and every difference is substantial: the consents are signed now,
-  // psychological support is asked for only on joining, the school year starts
-  // as a Roman numeral rather than a number, and there is no last-modified
-  // moment to respect because there is nothing to overwrite yet.
+  // Differs from the update payload: consents signed now, psych support asked,
+  // grade sent as a Roman numeral, no expected_updated_at.
   Map<String, dynamic> buildCreatePayload()
   {
     final Set<String> finalRolesSet = selectedRoles.where((role) => role != 'ASSOCIATO').toSet();
@@ -1190,10 +1082,13 @@ class PersonEditForm
     if (finalRoles.contains('DOCENTE'))
     {
       teacherData = {
+        'is_high_school_student': isHighSchoolStudent,
         'school_education':
             studiScolasticiCtrl.text.isNotEmpty ? studiScolasticiCtrl.text.trim() : null,
-        'university_education':
-            studiUniversitariCtrl.text.isNotEmpty ? studiUniversitariCtrl.text.trim() : null,
+        // The server rejects university education for a high-school student.
+        'university_education': !isHighSchoolStudent && studiUniversitariCtrl.text.isNotEmpty
+            ? studiUniversitariCtrl.text.trim()
+            : null,
         'competences': subjectToggles.entries
             .where((entry) => entry.value)
             .map((entry) => {
@@ -1215,7 +1110,7 @@ class PersonEditForm
       };
     }
 
-    // Aperto a chiunque sia socio, tranne agli psicologi stessi.
+    // Open to any member except psychologists themselves.
     if (!onlyParentNotMember &&
         !finalRoles.contains('PSICOLOGO') &&
         hasPsychologicalSupport)
@@ -1235,6 +1130,8 @@ class PersonEditForm
         'certification_type': certificationType,
         'certification_other_detail':
             certificationType == 'OTHER' ? otherCertificationCtrl.text.trim() : null,
+        'certification_dsa_detail':
+            certificationType == 'DSA' ? dsaCertificationCtrl.text.trim() : null,
         'mandatory_psych_meetings_acknowledged':
             certificationType != null ? psychMeetingsAcknowledgedValue : false,
         'school_enrollments': schoolRows
@@ -1282,9 +1179,6 @@ class PersonEditForm
     };
   }
 
-  // -------------------------------------------------------------- tax code
-
-  // True when the tax code is well formed and its check character adds up.
   static bool isFiscalCodeValid(String cf)
   {
     if (!RegExp(r'^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$').hasMatch(cf))
@@ -1317,9 +1211,7 @@ class PersonEditForm
     return cf[15] == String.fromCharCode((sum % 26) + 65);
   }
 
-  // True when birth date and gender are the ones the tax code declares: the
-  // code carries the year, the month as a letter and the day, with forty added
-  // for a woman.
+  // The tax code encodes year, month letter, and day, with 40 added for women.
   static bool fiscalCodeMatchesData(String cf, String dateStr, String gender)
   {
     if (cf.length != 16)
@@ -1378,6 +1270,7 @@ class PersonEditForm
     studiUniversitariCtrl.dispose();
     otherPaymentMethodCtrl.dispose();
     otherCertificationCtrl.dispose();
+    dsaCertificationCtrl.dispose();
     psychologicalSupportStartDateCtrl.dispose();
     emergencyContactNameCtrl.dispose();
     emergencyContactPhoneCtrl.dispose();

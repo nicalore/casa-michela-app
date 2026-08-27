@@ -1,10 +1,11 @@
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import time
 from typing import Final
 
 from app.models.lesson import Lesson
 from app.models.room import Room
+from app.models.room_supervision import RoomSupervision
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 
 _OVER_CAPACITY_WARNING: Final[str] = (
@@ -62,8 +63,7 @@ def peak_occupancy(lessons: Sequence[Lesson]) -> int:
 
     events: list[tuple[time, int]] = []
 
-    # A teacher is one head from their first lesson to their last, not one per
-    # lesson: they do not leave the room between two of their own hours.
+    # A teacher counts as one head from first to last lesson, not per lesson.
     for teacher_lessons in spans.values():
         events.append((min(row.start_time for row in teacher_lessons), 1))
         events.append((max(row.end_time for row in teacher_lessons), -1))
@@ -78,8 +78,8 @@ def peak_occupancy(lessons: Sequence[Lesson]) -> int:
             events.append((lesson.start_time, heads))
             events.append((lesson.end_time, -heads))
 
-    # Ties break on the delta, so departures land before arrivals at the same
-    # minute and a back-to-back handover is not counted twice.
+    # Departures sort before arrivals at the same minute, so a back-to-back
+    # handover is not counted twice.
     events.sort(key=lambda event: (event[0], event[1]))
 
     peak = 0
@@ -117,6 +117,84 @@ def capacity_warnings(
             )
 
     return warnings
+
+
+# Merges adjacent as well as overlapping spans. Mirrors mergeSpans in
+# frontend/lib/features/lessons/utils/timeline_geometry.dart.
+def _merged(spans: Iterable[tuple[time, time]]) -> list[tuple[time, time]]:
+    merged: list[tuple[time, time]] = []
+
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+
+            continue
+
+        merged.append((start, end))
+
+    return merged
+
+
+def _left_open(
+    occupied: Sequence[tuple[time, time]],
+    covered: Sequence[tuple[time, time]],
+) -> bool:
+    shifts = _merged(covered)
+
+    for start, end in _merged(occupied):
+        reached = start
+
+        for shift_start, shift_end in shifts:
+            if shift_start > reached:
+                break
+
+            reached = max(reached, shift_end)
+
+            if reached >= end:
+                break
+
+        if reached < end:
+            return True
+
+    return False
+
+
+# A room is uncovered only where a non-supervisor teaches past every hour its
+# supervisors teach; gaps and attività never count. Mirrors isRoomPlanSettled in
+# frontend/lib/features/lessons/widgets/room_assignment_wizard.dart.
+def rooms_left_open(
+    lessons: Sequence[Lesson],
+    assignments: Sequence[TeacherRoomAssignment],
+    supervisions: Sequence[RoomSupervision],
+) -> set[int]:
+    rooms = rooms_by_teacher(assignments)
+    watching = {
+        (shift.room_id, shift.teacher_tax_code) for shift in supervisions
+    }
+
+    occupied: dict[int, list[tuple[time, time]]] = defaultdict(list)
+    covered: dict[int, list[tuple[time, time]]] = defaultdict(list)
+
+    for lesson in lessons:
+        if lesson.teacher_mode != "presence":
+            continue
+
+        teacher = teacher_of(lesson)
+        room_id = rooms.get(teacher)
+
+        if room_id is None:
+            continue
+
+        occupied[room_id].append((lesson.start_time, lesson.end_time))
+
+        if (room_id, teacher) in watching:
+            covered[room_id].append((lesson.start_time, lesson.end_time))
+
+    return {
+        room_id
+        for room_id, hours in occupied.items()
+        if _left_open(hours, covered.get(room_id, []))
+    }
 
 
 def teachers_in_building(lessons: Sequence[Lesson]) -> set[str]:

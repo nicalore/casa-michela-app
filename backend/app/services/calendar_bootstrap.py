@@ -21,9 +21,8 @@ _MODES: Final[tuple[str, ...]] = ("presence", "online")
 # The month the yearly generation runs in, materialising the whole year after.
 _GENERATION_MONTH: Final[int] = 12
 
-# Nothing here is worth waiting on. A TRUNCATE or an ALTER on opening_days holds
-# an ACCESS EXCLUSIVE lock until its transaction ends, and a lock wait has no
-# deadline of its own: without these the bootstrap would sit on it forever.
+# TRUNCATE/ALTER on opening_days holds ACCESS EXCLUSIVE with no lock-wait
+# deadline of its own; without these timeouts the bootstrap could hang forever.
 _LOCK_TIMEOUT: Final[str] = "5s"
 _STATEMENT_TIMEOUT: Final[str] = "60s"
 
@@ -31,19 +30,15 @@ logger = logging.getLogger("calendar-bootstrap")
 
 
 # Mirrors calendarHorizon() in the frontend's calendar_bounds.dart: 31 December
-# of the current year, and of the next one from December on, which is when the
-# yearly generation produces it. The calendar cannot be browsed past that date,
-# so there is nothing to gain by materialising beyond it.
+# of this year (of next year from December on); the UI cannot browse past it.
 def calendar_horizon(today: date) -> date:
     year = today.year + 1 if today.month >= _GENERATION_MONTH else today.year
 
     return date(year, 12, 31)
 
 
-# Whether the calendar fails to reach today in at least one mode, which is what
-# a never-generated database looks like: the migrations seed weekly_templates
-# and materialise no opening_day at all. A calendar whose last day is behind us
-# is the same case — every propagation is bounded by that date.
+# A calendar not reaching today in some mode marks a never-generated or
+# stale database.
 async def _needs_bootstrap(repository: OpeningDayRepository, today: date) -> bool:
     for mode in _MODES:
         last_generated = await repository.last_generated_date(mode)
@@ -54,13 +49,8 @@ async def _needs_bootstrap(repository: OpeningDayRepository, today: date) -> boo
     return False
 
 
-# Generates from today to the horizon exactly as scripts/generate_opening_days
-# does, holidays included, skipping what is already materialised. None where
-# there was nothing to do.
-#
-# Not a second way of producing the calendar but the guarantee that a fresh
-# environment has one: without it the hours can be saved, be reported as saved,
-# and reach no day at all.
+# Same generation as scripts/generate_opening_days, skipping materialised
+# days; guarantees a fresh environment has a calendar. None when nothing to do.
 async def bootstrap_calendar(session: AsyncSession) -> GenerationResult | None:
     opening_days = OpeningDayRepository(session)
     today = today_in_rome()
@@ -76,17 +66,14 @@ async def bootstrap_calendar(session: AsyncSession) -> GenerationResult | None:
     return await service.generate_opening_days(today, calendar_horizon(today))
 
 
-# Bounded on its own connection, never on the pool's shared settings: whatever
-# the bootstrap runs into, it gives up rather than holding on.
+# Timeouts are set on this connection only, never on the pool's shared settings.
 async def _bound_waiting(session: AsyncSession) -> None:
     await session.execute(text(f"SET lock_timeout = '{_LOCK_TIMEOUT}'"))
     await session.execute(text(f"SET statement_timeout = '{_STATEMENT_TIMEOUT}'"))
 
 
-# Startup hook. A calendar that could not be written is a degraded app and not a
-# dead one, so the failure is logged and the API serves regardless. Run detached
-# by the lifespan for the same reason: nothing about the database can keep the
-# port from opening.
+# Startup hook: failures are logged and the API serves regardless; run
+# detached so nothing about the database can keep the port from opening.
 async def bootstrap_calendar_on_startup() -> None:
     try:
         async with AsyncSessionLocal() as session:

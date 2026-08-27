@@ -5,6 +5,7 @@ import '../../../core/utils/week_range.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../people/models/person_item.dart';
+import '../models/activity_item.dart';
 import '../models/availability_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
@@ -19,7 +20,7 @@ const String kOutsideAvailabilityRefusal = 'Fuori dalla disponibilità del docen
 const String kTeacherAtHomeRefusal = 'Un docente collegato da casa non può tenere una lezione in presenza.';
 const String kMixedModesRefusal = 'Una lezione si deve svolgere interamente nella stessa modalità.';
 const String kAcrossBandsRefusal =
-    'Una lezione deve stare tutta nella mattina, nel pomeriggio o nella sera.';
+    'Una lezione non può essere separata in fasce orarie diverse.';
 const String kNoBookingRefusal = 'Una lezione deve avere almeno una prenotazione.';
 const String kSettledRefusal = 'Questo calendario è pubblicato: riportalo in bozza '
     'per modificare le lezioni.';
@@ -34,9 +35,7 @@ const String kTooManyPartsRefusal = 'Una prenotazione può essere divisa in al m
 const String kFreedMinutesGoBackNotice =
     'Una prenotazione può essere divisa in al massimo due lezioni: la porzione rimossa torna da pianificare.';
 
-// Two students in the same hour is allowed, and for a student whose file
-// declares a certification it is allowed too — but it is not what should
-// happen, so the calendar says so rather than standing in the way.
+// Overlapping a certified student is allowed but warned about, not refused.
 const String kCertifiedOverlapWarning =
     'Gli studenti con una certificazione non dovrebbero essere sovrapposti.';
 
@@ -50,6 +49,27 @@ const String kOnlineCannotOverlapRefusal =
 
 const String kOtherPartBandRefusal =
     'Le lezioni di una prenotazione devono stare nella stessa parte della giornata.';
+
+// Activities can be as short as a quarter hour, unlike lessons (half hour).
+const int kDefaultActivityMinutes = 60;
+
+const int kMinimumActivityMinutes = kQuarterHour;
+
+const String kActivityTooShortRefusal = "Un'attività dura almeno un quarto d'ora.";
+
+const String kActivityAcrossBandsRefusal =
+    "Un'attività non può essere separata in fasce orarie diverse.";
+
+const String kActivitySettledRefusal = 'Questo calendario è pubblicato: riportalo in bozza '
+    'per modificare le attività.';
+
+const String kActivityOverLessonRefusal = "Il docente ha una lezione a quest'ora.";
+
+const String kActivityOverActivityRefusal = "Il docente ha un'altra attività a quest'ora.";
+
+const String kLessonOverActivityRefusal = "Il docente ha un'attività in calendario a quest'ora.";
+
+const String kExcludedTeacherRefusal = 'Il docente è escluso dal calendario.';
 
 String outsidePresenceRefusal(String student, String range) => 'La lezione non rientra nelle ore di presenza di $student ($range).';
 
@@ -91,13 +111,16 @@ class CalendarDayIndex
 
   final Map<String, int> studyProgrammeByStudent;
 
-  // The students whose anagrafica declares a certification. Only the people
-  // list knows it, so it is read once here rather than looked up per drop.
+  // Read once from the people list rather than looked up per drop.
   final Set<String> certifiedStudents;
 
   final Map<int, Set<int>> disciplinesByProgramme;
 
   final Map<int, String> disciplineNames;
+
+  // Excluded teachers keep their lanes (drawn lighter, at the bottom) but
+  // nothing is offered to or lands on them.
+  final Set<String> excludedTeachers;
 
   const CalendarDayIndex({
     required this.day,
@@ -113,9 +136,18 @@ class CalendarDayIndex
     required this.certifiedStudents,
     required this.disciplinesByProgramme,
     required this.disciplineNames,
+    this.excludedTeachers = const {},
   });
 
   int get bandStart => bandStartMinutes(band);
+
+  // Anything proposing, counting or searching teachers reads this, not [lanes].
+  List<TeacherLane> get callableLanes
+  {
+    return excludedTeachers.isEmpty
+        ? lanes
+        : [for (final lane in lanes) if (!excludedTeachers.contains(lane.teacherTaxCode)) lane];
+  }
 
   int get bandEnd => bandEndMinutes(band);
 
@@ -128,6 +160,7 @@ class CalendarDayIndex
     required List<PersonItem> people,
     required List<AssociationSubjectItem> associationSubjects,
     List<StudyProgramItem> studyPrograms = const [],
+    Set<String> excludedTeachers = const {},
   })
   {
     final subjectIdByName = <String, int>{
@@ -219,6 +252,7 @@ class CalendarDayIndex
           },
       },
       disciplineNames: {for (final subject in associationSubjects) subject.id: subject.name},
+      excludedTeachers: excludedTeachers,
     );
   }
 
@@ -330,6 +364,10 @@ class CarriedRequest
       {
         take(link.presence.startMinutes, link.presence.endMinutes, link.booking);
       }
+
+    // No window for activities: any row is as good as any other.
+    case ActivityDragPayload():
+      break;
   }
 
   final held = window;
@@ -347,6 +385,25 @@ class LessonDragPayload extends CalendarDragPayload
   final LessonItem lesson;
 
   const LessonDragPayload({required this.lesson});
+}
+
+class ActivityDragPayload extends CalendarDragPayload
+{
+  final ActivityItem activity;
+
+  final int minutes;
+
+  const ActivityDragPayload({required this.activity, required this.minutes});
+
+  factory ActivityDragPayload.of(ActivityItem activity)
+  {
+    return ActivityDragPayload(
+      activity: activity,
+      minutes: activity.placement?.minutes ?? kDefaultActivityMinutes,
+    );
+  }
+
+  bool get isAssigned => activity.isAssigned;
 }
 
 enum LessonPlacementKind
@@ -379,6 +436,9 @@ class LessonPlacement
 
   final int? deleteLessonId;
 
+  // Set instead of [lessonId] when placing an activity; never both.
+  final int? activityId;
+
   final String? refusal;
   final List<String> warnings;
 
@@ -393,6 +453,7 @@ class LessonPlacement
     this.associationSubjectIds = const [],
     this.lessonId,
     this.deleteLessonId,
+    this.activityId,
     this.refusal,
     this.warnings = const [],
   });
@@ -417,6 +478,7 @@ class LessonPlacement
       associationSubjectIds: associationSubjectIds,
       lessonId: lessonId,
       deleteLessonId: deleteLessonId,
+      activityId: activityId,
       refusal: refusal,
       warnings: warnings,
     );
@@ -514,6 +576,16 @@ String? _refuseOccupancy({
   int? deleteLessonId,
 })
 {
+  // Mirrored by the activity-side check: lessons and activities never overlap.
+  final busy = lane.activities.any(
+    (activity) => spansOverlap(startMinutes, endMinutes, activity.startMinutes, activity.endMinutes),
+  );
+
+  if (busy)
+  {
+    return kLessonOverActivityRefusal;
+  }
+
   final others = [
     for (final lesson in lane.lessons)
       if (lesson.id != lessonId && lesson.id != deleteLessonId) lesson,
@@ -675,8 +747,7 @@ String? _refuseBudget({
 
     if (leftOut.isNotEmpty && otherParts.length + 1 < kMaxLessonParts)
     {
-      // Room is kept back for the disciplines this part leaves out, so they
-      // still fit in a second one.
+      // Keep room for the disciplines this part leaves out to fit a second part.
       final ceiling = available - kMinimumBandMinutes;
 
       if (endMinutes - startMinutes > ceiling)
@@ -735,6 +806,11 @@ LessonPlacement validatePlacement({
   if (hoursRefusal != null)
   {
     return placement(hoursRefusal);
+  }
+
+  if (index.excludedTeachers.contains(teacherTaxCode))
+  {
+    return placement(kExcludedTeacherRefusal);
   }
 
   final lane = index.lanesByTeacher[teacherTaxCode];
@@ -825,10 +901,7 @@ LessonPlacement validatePlacement({
   return placement(null, availabilityId: availability.id, mode: mode, warnings: warnings);
 }
 
-// Whether the lesson about to be written lands beside another one in the same
-// lane with a certified student on either side of the overlap. Asked of the
-// index as it stands before the write, which is where the lessons it would sit
-// next to still are.
+// Must be asked of the index as it stands before the write.
 bool overlapsACertifiedStudent(CalendarDayIndex index, LessonPlacement placement)
 {
   if (index.certifiedStudents.isEmpty)
@@ -867,7 +940,7 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
 
   if (service != null)
   {
-    final offering = index.lanes.where(
+    final offering = index.callableLanes.where(
       (lane) => (index.serviceNamesByTeacher[lane.teacherTaxCode] ?? const <String>{}).contains(service),
     );
 
@@ -878,7 +951,7 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
 
   final programmes = programmesOf(index, [entry.presence.studentTaxCode]);
 
-  final competent = index.lanes.where((lane) => missingCompetence(
+  final competent = index.callableLanes.where((lane) => missingCompetence(
         index,
         teacherTaxCode: lane.teacherTaxCode,
         disciplineIds: disciplineIds,
@@ -904,7 +977,7 @@ bool canPlanSomething(CalendarDayIndex index, SchedulableBooking entry)
       ? <Set<int>>[const {}]
       : [for (final id in entry.requestedDisciplineIds) {id}];
 
-  for (final lane in index.lanes)
+  for (final lane in index.callableLanes)
   {
     for (final availability in lane.availabilitiesTaking(presence.mode))
     {
@@ -1011,12 +1084,14 @@ Set<String> teachersWhoCouldTeach(CalendarDayIndex index, CalendarDragPayload pa
         },
         lesson.studentTaxCodes,
       ),
+    // Activities require no competence: any teacher qualifies.
+    ActivityDragPayload() => (const <int>{}, const <String>{}, const <String>{}),
   };
 
   final programmes = programmesOf(index, students);
 
   return {
-    for (final lane in index.lanes)
+    for (final lane in index.callableLanes)
       if (missingCompetence(
                 index,
                 teacherTaxCode: lane.teacherTaxCode,
@@ -1477,4 +1552,190 @@ List<SchedulableBooking> _bookingsOf(CalendarDayIndex index, LessonItem lesson)
     for (final entry in lesson.bookings)
       if (index.bookingsById[entry.id] != null) index.bookingsById[entry.id]!,
   ];
+}
+
+// Unlike lessons, checks no competence and no pupils: an activity only needs
+// the teacher to be free.
+LessonPlacement validateActivityPlacement({
+  required CalendarDayIndex index,
+  required ActivityItem activity,
+  required String teacherTaxCode,
+  required int startMinutes,
+  required int endMinutes,
+  LessonPlacementKind kind = LessonPlacementKind.create,
+})
+{
+  LessonPlacement placement(String? refusal, {int? availabilityId})
+  {
+    return LessonPlacement(
+      teacherTaxCode: teacherTaxCode,
+      startMinutes: startMinutes,
+      endMinutes: endMinutes,
+      kind: kind,
+      availabilityId: availabilityId,
+      activityId: activity.id,
+      refusal: refusal,
+    );
+  }
+
+  if (activity.isLocked)
+  {
+    return placement(kActivitySettledRefusal);
+  }
+
+  if (endMinutes - startMinutes < kMinimumActivityMinutes)
+  {
+    return placement(kActivityTooShortRefusal);
+  }
+
+  if (activity.band != index.band || startMinutes < index.bandStart || endMinutes > index.bandEnd)
+  {
+    return placement(kActivityAcrossBandsRefusal);
+  }
+
+  if (index.excludedTeachers.contains(teacherTaxCode))
+  {
+    return placement(kExcludedTeacherRefusal);
+  }
+
+  final lane = index.lanesByTeacher[teacherTaxCode];
+
+  if (lane == null)
+  {
+    return placement(kOutsideAvailabilityRefusal);
+  }
+
+  final availability = resolveAvailability(
+    teacherAvailabilities: lane.availabilities,
+    // kOnlineMode accepts either kind of availability: an activity needs the
+    // teacher's time, not a room.
+    lessonMode: kOnlineMode,
+    startMinutes: startMinutes,
+    endMinutes: endMinutes,
+  );
+
+  if (availability == null)
+  {
+    return placement(kOutsideAvailabilityRefusal);
+  }
+
+  for (final lesson in lane.lessons)
+  {
+    if (spansOverlap(startMinutes, endMinutes, lesson.startMinutes, lesson.endMinutes))
+    {
+      return placement(kActivityOverLessonRefusal);
+    }
+  }
+
+  for (final other in lane.activities)
+  {
+    if (other.id != activity.id &&
+        spansOverlap(startMinutes, endMinutes, other.startMinutes, other.endMinutes))
+    {
+      return placement(kActivityOverActivityRefusal);
+    }
+  }
+
+  return placement(null, availabilityId: availability.id);
+}
+
+// Only used to shorten a new activity: a moved one keeps its length, and a
+// misfit is refused instead of silently resized.
+int _activityRoomAt(CalendarDayIndex index, TeacherLane lane, int startMinutes, {int? ignoring})
+{
+  var ceiling = index.bandEnd;
+
+  for (final slot in lane.availabilities)
+  {
+    final start = minutesOfTimeOfDay(slot.startTime);
+    final end = minutesOfTimeOfDay(slot.endTime);
+
+    if (start <= startMinutes && end > startMinutes && end < ceiling)
+    {
+      ceiling = end;
+    }
+  }
+
+  for (final lesson in lane.lessons)
+  {
+    if (lesson.startMinutes >= startMinutes && lesson.startMinutes < ceiling)
+    {
+      ceiling = lesson.startMinutes;
+    }
+  }
+
+  for (final activity in lane.activities)
+  {
+    if (activity.id != ignoring &&
+        activity.startMinutes >= startMinutes &&
+        activity.startMinutes < ceiling)
+    {
+      ceiling = activity.startMinutes;
+    }
+  }
+
+  return ceiling - startMinutes;
+}
+
+LessonPlacement planActivityDrop(
+  CalendarDayIndex index,
+  ActivityDragPayload drag,
+  String teacherTaxCode,
+  int startMinutes,
+)
+{
+  final activity = drag.activity;
+  final kind = drag.isAssigned ? LessonPlacementKind.move : LessonPlacementKind.create;
+  final lane = index.lanesByTeacher[teacherTaxCode];
+
+  if (lane == null)
+  {
+    return LessonPlacement(
+      teacherTaxCode: teacherTaxCode,
+      startMinutes: startMinutes,
+      endMinutes: startMinutes + drag.minutes,
+      kind: kind,
+      activityId: activity.id,
+      refusal: kOutsideAvailabilityRefusal,
+    );
+  }
+
+  final room = snapQuarterDown(
+    _activityRoomAt(index, lane, startMinutes, ignoring: activity.id),
+  );
+
+  final minutes = drag.isAssigned
+      ? drag.minutes
+      : math.max(kMinimumActivityMinutes, math.min(drag.minutes, room));
+
+  return validateActivityPlacement(
+    index: index,
+    activity: activity,
+    teacherTaxCode: teacherTaxCode,
+    startMinutes: startMinutes,
+    endMinutes: startMinutes + minutes,
+    kind: kind,
+  );
+}
+
+// A handle dragged past the fixed end stops instead of inverting the block.
+LessonPlacement planActivityResize(
+  CalendarDayIndex index,
+  ScheduledActivity scheduled,
+  int startMinutes,
+  int endMinutes,
+)
+{
+  final moving = endMinutes == scheduled.endMinutes
+      ? (math.min(startMinutes, endMinutes - kMinimumActivityMinutes), endMinutes)
+      : (startMinutes, math.max(endMinutes, startMinutes + kMinimumActivityMinutes));
+
+  return validateActivityPlacement(
+    index: index,
+    activity: scheduled.activity,
+    teacherTaxCode: scheduled.teacherTaxCode,
+    startMinutes: moving.$1,
+    endMinutes: moving.$2,
+    kind: LessonPlacementKind.resize,
+  );
 }

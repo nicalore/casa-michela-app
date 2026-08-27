@@ -44,7 +44,5 @@ class WeeklyTemplate(UpdatedAtMixin, Base):
 
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
 
-    # When this rule starts to apply. Generation only reaches days from this
-    # date on, so an opening decided today but valid from March does not land
-    # on the days of January.
+    # Generation applies this rule only from this date on.
     effective_from: Mapped[date] = mapped_column(Date, nullable=False)

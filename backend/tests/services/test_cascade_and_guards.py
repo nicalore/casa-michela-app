@@ -78,10 +78,8 @@ async def _afternoon_with_a_room(db: AsyncSession):
     return built
 
 
-# A day that shuts takes everything on it, the published as well as the drafts:
-# what was sent out for a day the association has since closed is not a calendar
-# any more. The row saying it was published goes with it — that part is
-# calendar_hours_sync, which every write of the hours ends in.
+# A closed day deletes everything on it, published included; the
+# publication row goes via calendar_hours_sync.
 async def test_closing_a_published_day_clears_it_too(db: AsyncSession) -> None:
     await _afternoon_with_a_room(db)
 

@@ -8,9 +8,7 @@ import '../../../../../shared/widgets/overflow_tooltip_text.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-// The palette of the app, ordered so that no two neighbours in the ring are the
-// same colour twice over: the brand pair first, then the two accents that only
-// ever appear beside it. Cycled when there are more slices than colours.
+// Cycled when there are more slices than colours.
 const List<Color> _sliceColors = [
   AppTheme.trialTealDeep,
   AppTheme.trialTurquoise,
@@ -23,17 +21,15 @@ const List<Color> _sliceColors = [
 
 const double _ringThickness = 30.0;
 
-// What the slice under the pointer grows by. The ring answers the pointer the
-// way everything else in the app does, only it cannot do it with gold: gold is
-// one of the slices.
+// Hover growth: gold cannot mark hover here because it is one of the slices.
 const double _hoveredExtraThickness = 8.0;
 
-// Angular gap between slices, in radians. Dropped when there is a single slice,
-// which would otherwise show a seam in a full circle.
+// Angular gap between slices, in radians. Dropped for a single slice, which
+// would otherwise show a seam.
 const double _sliceGap = 0.04;
 
-// Tolerance around the ring for hover detection: a few pixels outside and most
-// of the thickness inside, so thin slices stay reachable.
+// Hover tolerance: a few pixels outside and most of the thickness inside, so
+// thin slices stay reachable.
 const double _hoverOuterTolerance = 15.0;
 const double _hoverInnerTolerance = 35.0;
 
@@ -55,8 +51,6 @@ class _PieChartState extends State<PieChart>
 
   int get _total => widget.data.fold(0, (sum, item) => sum + item.count);
 
-  // Walks the slices accumulating their angles and returns the one containing the
-  // pointer, or null when the pointer is outside the ring.
   int? _sliceAt(Offset position, Offset center, double radius, int total)
   {
     final delta = position - center;
@@ -111,8 +105,7 @@ class _PieChartState extends State<PieChart>
         final datum = widget.data[foundIndex];
         final share = total == 0 ? 0.0 : datum.count / total * 100;
 
-        // The popup follows the pointer here rather than the slice: a ring
-        // segment has no single obvious anchor point.
+        // The popup follows the pointer: a ring segment has no obvious anchor.
         _popupTarget = position;
         _popupText = '${datum.label}: ${datum.count} (${share.toStringAsFixed(1)}%)';
       }
@@ -182,8 +175,6 @@ class _PieChartState extends State<PieChart>
   {
     final total = _total;
 
-    // Ring and legend occupy two separate flex regions, which makes it
-    // structurally impossible for them to overlap however long the labels are.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -230,7 +221,6 @@ class _PieChartState extends State<PieChart>
           ),
         ),
         const SizedBox(width: 16),
-        // Scrollable, so a long list of categories never overflows vertically.
         Expanded(
           flex: 2,
           child: SingleChildScrollView(

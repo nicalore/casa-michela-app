@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 class PeopleFilterState
 {
-  // Full extent of the two range sliders. A range filter counts as active only
-  // when it has been moved away from these bounds, so the dialog hosting the
-  // sliders must initialise them from here.
+  // A range filter counts as active only when moved away from these bounds, so
+  // the dialog must initialise its sliders from here.
   static const RangeValues defaultAgeRange = RangeValues(5, 99);
   static const RangeValues defaultTaughtSubjectsCount = RangeValues(1, 15);
 

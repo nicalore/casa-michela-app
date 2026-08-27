@@ -71,9 +71,8 @@ class CourseDistributionItem(BaseModel):
 class TeacherAppreciationItem(BaseModel):
     teacher: PersonOption
 
-    # How many requests named this teacher on that side over the period: a
-    # request may name three on each side, so the counts of a period sum to more
-    # than the requests it holds.
+    # A request may name three teachers per side, so a period's counts sum
+    # to more than its requests.
     request_count: int
 
 

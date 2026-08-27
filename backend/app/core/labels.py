@@ -34,8 +34,7 @@ TEACHER_PREFERENCE_TYPE_LABELS: Final[dict[str, str]] = {
     "NOT_PREFERRED": "Non preferito",
 }
 
-# Reads as a complement inside a sentence ("non è aperta in presenza"), which is
-# how every message naming a mode is built.
+# Reads as a complement inside a sentence, like every message naming a mode.
 OPENING_MODE_LABELS: Final[dict[str, str]] = {
     "presence": "in presenza",
     "online": "online",

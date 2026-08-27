@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-// Side by side above the breakpoint, stacked below it. No IntrinsicHeight here:
-// the two cards are allowed to have different heights rather than being
-// stretched to match.
+// No IntrinsicHeight: the two cards may have different heights.
 class ResponsiveCardPair extends StatelessWidget
 {
   static const double _breakpoint = 900.0;
@@ -47,21 +45,9 @@ class ResponsiveCardPair extends StatelessWidget
   }
 }
 
-// The header these cards used to build for themselves — title on the left,
-// filters on the right, stacked below a breakpoint — now lives in AppCard, which
-// is where every card of the app gets its heading.
-
-// Two cards that have to read as one row rather than as two: the same height,
-// whichever of them is taller, and the shorter one spreading its content into
-// what it was given instead of leaving a hole under itself.
-//
-// The cards are built by the callers rather than passed in, because each of them
-// has to be told two things it cannot work out for itself. How wide it will be:
-// matching the heights means asking a card how tall it would be at a given
-// width, and nothing in the subtree of a card being asked that question may
-// measure itself — a LayoutBuilder in there cannot answer at all. And whether
-// its height is the pair's or its own, which decides whether there is any room
-// to spread into.
+// Cards are builders handed (width, matched): intrinsic height matching means
+// nothing in a card's subtree may measure itself — a LayoutBuilder cannot
+// answer an intrinsic query.
 class MatchedCardPair extends StatelessWidget
 {
   static const double _breakpoint = 900.0;
@@ -82,8 +68,6 @@ class MatchedCardPair extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        // One under the other, each as tall as it needs: there is no row for
-        // them to share, so there is nothing to match.
         if (constraints.maxWidth < _breakpoint)
         {
           return Column(

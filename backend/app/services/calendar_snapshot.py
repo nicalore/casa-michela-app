@@ -7,27 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.availability import Availability
 from app.models.booking import Booking
+from app.models.calendar_activity import CalendarActivity
+from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.room_supervision import RoomSupervision
+from app.models.teacher import Teacher
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 
-# What a band looked like when its bozza was opened, kept whole so that closing
-# the bozza without publishing can put it back.
-#
-# An impression would be cheaper and was what this held first, but an impression
-# can only answer "is this different" — and leaving a bozza is meant to undo the
-# work in it, not merely to decline to send it. So the rows themselves are kept,
-# in the plainest shape that can be written back: no ids, since the rows are
-# recreated rather than resurrected, and nothing derived, since the database
-# computes the band from the hour on its own.
-#
-# Only the timetable and the rooms, because only they are what went out.
+# Full row snapshot (not a hash) so closing a bozza without publishing can
+# recreate the band; rows carry no ids because they are recreated, not resurrected.
 
 _LESSONS: Final[str] = "lessons"
 _ASSIGNMENTS: Final[str] = "assignments"
 _SUPERVISIONS: Final[str] = "supervisions"
+_ACTIVITIES: Final[str] = "activities"
+_EXCLUSIONS: Final[str] = "exclusions"
 
 
 def _lesson_row(lesson: Lesson) -> dict[str, Any]:
@@ -38,9 +34,7 @@ def _lesson_row(lesson: Lesson) -> dict[str, Any]:
         "mode": lesson.mode,
         "start_time": lesson.start_time.isoformat(),
         "end_time": lesson.end_time.isoformat(),
-        # Sorted, both of them: the order the database hands rows back in is not
-        # a fact about the calendar, and two reads of one afternoon have to come
-        # out the same string.
+        # Sorted so two reads of the same data serialize identically.
         "disciplines": sorted(
             row.association_subject_id for row in lesson.lesson_disciplines
         ),
@@ -64,40 +58,70 @@ def _supervision_row(shift: RoomSupervision) -> dict[str, Any]:
     }
 
 
+def _activity_row(activity: CalendarActivity) -> dict[str, Any]:
+    availability = activity.availability
+
+    return {
+        "name": activity.name,
+        "description": activity.description,
+        "availability_id": activity.availability_id,
+        "teacher_tax_code": (
+            availability.teacher_tax_code if availability is not None else None
+        ),
+        "teacher_mode": activity.teacher_mode,
+        "start_time": (
+            activity.start_time.isoformat() if activity.start_time is not None else None
+        ),
+        "end_time": (
+            activity.end_time.isoformat() if activity.end_time is not None else None
+        ),
+    }
+
+
 def _ordered(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: sorted(row.items(), key=lambda p: p[0]))
 
 
-# The rooms of the whole day and not of the band: a teacher takes one room for
-# the day, so the afternoon's arrangement is visibly the morning's as well.
+# Sorts via str() because activity fields may be None, which _ordered cannot compare.
+def _ordered_activities(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        rows,
+        key=lambda row: [(key, str(row[key])) for key in sorted(row)],
+    )
+
+
+# Room assignments span the whole day, not just the band.
 def snapshot_of(
     lessons: Sequence[Lesson],
     assignments: Sequence[TeacherRoomAssignment],
     supervisions: Sequence[RoomSupervision],
+    activities: Sequence[CalendarActivity] = (),
+    exclusions: Sequence[CalendarTeacherExclusion] = (),
 ) -> dict[str, Any]:
     return {
         _LESSONS: _ordered([_lesson_row(lesson) for lesson in lessons]),
         _ASSIGNMENTS: _ordered([_assignment_row(row) for row in assignments]),
         _SUPERVISIONS: _ordered([_supervision_row(row) for row in supervisions]),
+        _ACTIVITIES: _ordered_activities(
+            [_activity_row(activity) for activity in activities],
+        ),
+        _EXCLUSIONS: sorted(row.teacher_tax_code for row in exclusions),
     }
 
 
-# Two snapshots of the same afternoon are the same afternoon. Compared as data
-# and not as a hash: the rows are already in one order, and a dict comparison
-# says the same thing without a second thing to keep in step.
+# Exclusions were never published, so they don't count toward "changed".
+def _as_published(snapshot: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in snapshot.items() if key != _EXCLUSIONS}
+
+
 def differs(before: dict[str, Any], after: dict[str, Any]) -> bool:
-    return before != after
+    return _as_published(before) != _as_published(after)
 
 
 def _time(value: str) -> time:
     return time.fromisoformat(value)
 
 
-# Everything the snapshot rests on that may have gone while the bozza was open:
-# an availability withdrawn, a request cancelled. A lesson standing on one of
-# those cannot come back — the calendar it was part of is not a state the
-# database would accept any more — so it is left out, and the count of what was
-# left out goes back to the caller to be said out loud.
 async def _surviving(
     session: AsyncSession,
     rows: list[dict[str, Any]],
@@ -129,9 +153,7 @@ async def _surviving(
     ]
 
 
-# Puts the band back as the snapshot has it. Answers how many of its hours could
-# not be put back, which is not a failure: a request withdrawn while the bozza
-# was open takes its hour with it either way.
+# Restores the band; returns how many snapshot lessons could not be restored.
 async def restore(
     session: AsyncSession,
     day: date,
@@ -174,17 +196,125 @@ async def restore(
 
     await session.flush()
     await _restore_rooms(session, day, snapshot, surviving)
+    await _restore_activities(session, day, band, snapshot)
+    await _restore_exclusions(session, day, band, snapshot)
 
     return len(stored) - len(surviving)
 
 
-# Only the teachers this band's hours are about.
-#
-# A room is one row per teacher for the whole day, so it is shared with the
-# other parts of that day: putting back every room of the day would undo the
-# arrangement somebody made for the evening while the afternoon was in bozza.
-# Whoever teaches in both is genuinely one row and there is no answer that is
-# right for both, so the band being put back wins.
+async def _restore_exclusions(
+    session: AsyncSession,
+    day: date,
+    band: str,
+    snapshot: dict[str, Any],
+) -> None:
+    current = (
+        await session.scalars(
+            select(CalendarTeacherExclusion).where(
+                CalendarTeacherExclusion.date == day,
+                CalendarTeacherExclusion.band == band,
+            ),
+        )
+    ).all()
+
+    for exclusion in current:
+        await session.delete(exclusion)
+
+    await session.flush()
+
+    wanted = set(snapshot.get(_EXCLUSIONS, []))
+
+    if not wanted:
+        return
+
+    teaching = set(
+        (
+            await session.scalars(
+                select(Teacher.tax_code).where(Teacher.tax_code.in_(wanted)),
+            )
+        ).all(),
+    )
+
+    for tax_code in sorted(wanted & teaching):
+        session.add(
+            CalendarTeacherExclusion(
+                date=day,
+                band=band,
+                teacher_tax_code=tax_code,
+            ),
+        )
+
+    await session.flush()
+
+
+# Matches on (id, date, mode): an availability moved to another day no longer counts.
+async def _still_offered(
+    session: AsyncSession,
+    rows: list[dict[str, Any]],
+) -> set[tuple[int, date, str]]:
+    wanted = {row["availability_id"] for row in rows if row["availability_id"]}
+
+    if not wanted:
+        return set()
+
+    found = (
+        await session.execute(
+            select(
+                Availability.id,
+                Availability.date,
+                Availability.mode,
+            ).where(Availability.id.in_(wanted)),
+        )
+    ).all()
+
+    return {(identifier, day, mode) for identifier, day, mode in found}
+
+
+# Activities whose hours have gone come back unassigned, never lost.
+async def _restore_activities(
+    session: AsyncSession,
+    day: date,
+    band: str,
+    snapshot: dict[str, Any],
+) -> None:
+    rows = snapshot.get(_ACTIVITIES, [])
+
+    current = (
+        await session.scalars(
+            select(CalendarActivity).where(
+                CalendarActivity.date == day,
+                CalendarActivity.band == band,
+            ),
+        )
+    ).all()
+
+    for activity in current:
+        await session.delete(activity)
+
+    await session.flush()
+
+    offered = await _still_offered(session, rows)
+
+    for row in rows:
+        kept = (row["availability_id"], day, row["teacher_mode"]) in offered
+
+        session.add(
+            CalendarActivity(
+                date=day,
+                band=band,
+                name=row["name"],
+                description=row["description"],
+                availability_id=row["availability_id"] if kept else None,
+                teacher_mode=row["teacher_mode"] if kept else None,
+                start_time=_time(row["start_time"]) if kept else None,
+                end_time=_time(row["end_time"]) if kept else None,
+            ),
+        )
+
+    await session.flush()
+
+
+# Only this band's teachers: assignments are day-wide and shared with other bands.
 async def _restore_rooms(
     session: AsyncSession,
     day: date,
@@ -205,7 +335,7 @@ async def _restore_rooms(
         )
     ).all()
 
-    # The shifts hang off the assignment and go with it, by cascade.
+    # Supervisions are deleted by cascade with the assignment.
     for assignment in current:
         await session.delete(assignment)
 

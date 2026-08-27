@@ -6,10 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-# A constraint the database enforces, and that the service cannot check without
-# losing a race, surfaces here as an IntegrityError. The transaction is unwound
-# first, so the session is usable again, and the failure reaches the caller as a
-# 400 carrying a message they can read.
+# Unwinds the transaction after an IntegrityError and surfaces it as a
+# readable 400; the session stays usable.
 @asynccontextmanager
 async def integrity_guard(session: AsyncSession, detail: str) -> AsyncIterator[None]:
     try:

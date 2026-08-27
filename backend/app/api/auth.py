@@ -174,10 +174,8 @@ async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
         "active_role": active_role,
         "status": account.status,
         "password_reset_required": account.password_reset_required,
-        # Written at every successful login, so what this carries is the moment
-        # the session asking for it began. It is stored aware and in UTC: the
-        # offset travels with the value, and the client is the one that knows
-        # which wall clock to show it on.
+        # Written at every successful login; stored aware, in UTC — the
+        # client picks the wall clock.
         "last_login": account.last_login.isoformat() if account.last_login else None,
         "gender": person.gender.value if person.gender else None,
         "email": person.email,
@@ -213,9 +211,8 @@ async def upload_profile_image(
 
     PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # The stored filename carries the extension, so uploading a different
-    # format writes a new file instead of overwriting: the previous one must
-    # be removed explicitly or it stays on disk forever.
+    # Filenames carry the extension: a different format writes a new file,
+    # so the previous one must be removed explicitly.
     previous_url = current_account.person.profile_image_url
 
     if previous_url is not None:

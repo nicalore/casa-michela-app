@@ -57,9 +57,7 @@ _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
 _TOP_TEACHERS_LIMIT: Final[int] = 5
 
-# How far back a ranking of appreciation may be asked: the calendars older
-# than a year are deleted, so a thirteenth month back would answer with an
-# empty list and read as "nobody ever asked for them".
+# Calendars older than a year are deleted, so only 12 months back are rankable.
 _APPRECIATION_MONTHS: Final[int] = 12
 
 _MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR: Final[str] = (
@@ -251,9 +249,7 @@ def _accumulate_monthly_trend(
     items: list[MemberTrendItem] = []
 
     for year in range(first_year, last_year + 1):
-        # A membership is a yearly enrollment, so the running total resets at
-        # January and builds up to the same figure the year resolution reports,
-        # instead of the count of members who joined in that specific month.
+        # Memberships are yearly, so the running total resets each January.
         running_total = 0
 
         for month in range(1, 13):
@@ -421,8 +417,6 @@ async def _execute_collaborating_retention(
     )
 
 
-# A month as one number, so that "twelve months back" is a subtraction and not
-# a pair of wrap-around cases.
 def _month_index(year: int, month: int) -> int:
     return year * 12 + month - 1
 
@@ -431,8 +425,6 @@ def _first_day_of_index(index: int) -> date:
     return date(index // 12, index % 12 + 1, 1)
 
 
-# The window a ranking covers, as a half-open interval of days: one month, or —
-# when neither is given — the current month and the eleven before it.
 def _appreciation_window(year: int | None, month: int | None) -> tuple[date, date]:
     today = today_in_rome()
     current = _month_index(today.year, today.month)
@@ -446,23 +438,14 @@ def _appreciation_window(year: int | None, month: int | None) -> tuple[date, dat
 
     selected = _month_index(year, month)
 
-    # A month still to come is refused along with one already deleted: a
-    # calendar nobody has booked yet is not a ranking of nobody.
     if not oldest <= selected <= current:
         raise ValueError(_MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR)
 
     return _first_day_of_index(selected), _first_day_of_index(selected + 1)
 
 
-# Who was named most often on one side of the requests falling in the window.
-#
-# Dated by the day the hour was asked for and not by the day the request was
-# written: that is the day the calendar is deleted by, and the month a ranking
-# is read as being about.
-#
-# Whoever received the requests is counted whether or not they are still
-# collaborating: a month already gone was taught by the staff of that month, and
-# hiding whoever has since left would silently change what that month said.
+# Dated by Presence.date (not request date) and counts teachers even if no
+# longer collaborating.
 async def _appreciation_ranking(
     db: AsyncSession,
     preference_type: TeacherPreferenceTypeEnum,
@@ -471,8 +454,6 @@ async def _appreciation_ranking(
     start, end = window
     requests = func.count(BookingTeacherPreference.booking_id)
 
-    # Teachers, staff, members and people are all keyed by the same tax code, so
-    # the face at the end of the chain is one join away.
     query = (
         select(
             Person.tax_code,
@@ -496,8 +477,7 @@ async def _appreciation_ranking(
             Person.last_name,
             Person.profile_image_url,
         )
-        # By name after the count, so that two teachers on the same figure keep
-        # the same order between one read and the next.
+        # Name tiebreak keeps equal counts in a stable order.
         .order_by(requests.desc(), Person.last_name, Person.first_name)
         .limit(_TOP_TEACHERS_LIMIT)
     )
@@ -695,9 +675,7 @@ async def get_student_education_distribution(
         query = query.join(
             SchoolStudyProgram, _ENROLLMENT_TO_PROGRAM_JOIN
         ).join(StudyProgram, SchoolStudyProgram.study_program_id == StudyProgram.id)
-        # The sector lives in a column of its own, and a programme named in a
-        # chart has to be recognisable without the context surrounding it
-        # elsewhere: concat_ws skips the sector where it is null.
+        # concat_ws skips a null sector.
         label_column = (
             func.concat_ws(" | ", StudyProgram.sector, StudyProgram.name)
             if distribution_type == "program"
@@ -762,9 +740,6 @@ async def get_teacher_subjects_statistics(
 
     subjects_by_teacher: dict[str, set[int]] = {}
     teachers_by_group: dict[str, set[str]] = {}
-    # Kept separate rather than concatenated into one label, so the frontend can
-    # style the discipline and its study program differently instead of showing
-    # one long run-on string.
     subject_name_by_group: dict[str, str] = {}
     program_name_by_group: dict[str, str | None] = {}
     teachers_by_area: dict[str, set[str]] = {}
@@ -803,10 +778,8 @@ async def get_teacher_subjects_statistics(
         else 0.0
     )
 
-    # The ranking universe must also contain disciplines (and, in "program"
-    # mode, discipline/study-program pairs) that currently have zero teachers,
-    # otherwise the "least covered" list skips the genuinely uncovered ones and
-    # starts from those already covered by a single teacher.
+    # The universe must include groups with zero teachers, or the "least
+    # covered" ranking skips the genuinely uncovered ones.
     group_labels: dict[str, tuple[str, str | None]] = {}
 
     if ranking_mode == "program":
@@ -843,9 +816,7 @@ async def get_teacher_subjects_statistics(
         for subject_id, subject_name in universe_result.all():
             group_labels[str(subject_id)] = (subject_name, None)
 
-    # Keep any covered group whose taxonomy mapping is missing from the universe
-    # (e.g. a competence left over after the taxonomy changed), so a pair that
-    # actually has teachers is never dropped from the ranking.
+    # Keep covered groups missing from the universe (stale taxonomy mappings).
     for key in teachers_by_group:
         group_labels.setdefault(
             key, (subject_name_by_group[key], program_name_by_group[key])

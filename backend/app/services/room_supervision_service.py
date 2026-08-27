@@ -55,9 +55,7 @@ class RoomSupervisionService:
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
 
-    # Every band the stretch touches, and not the one it starts in: a shift is
-    # free to run from noon to two, and it belongs to both halves of the day it
-    # is written into.
+    # Every band the stretch touches, not just the one it starts in.
     async def _assert_claimed(
         self,
         identity: IdentityContext,
@@ -71,8 +69,7 @@ class RoomSupervisionService:
             [(day, band) for band in bands_of(start_time, end_time)],
         )
 
-    # The composite foreign key already makes this impossible; the check is here
-    # for the sentence, so the answer is not a bare integrity error.
+    # The composite FK already enforces this; checked for a readable message.
     async def _assert_assigned(
         self,
         day: date,
@@ -87,9 +84,7 @@ class RoomSupervisionService:
                 detail=_NOT_ASSIGNED_ERROR,
             )
 
-    # Whoever watches over a room is in the building, so the shift has to fall
-    # inside hours the teacher actually offered there. Checked against the union
-    # of their in-person stretches, which may be several across a day.
+    # The shift must fall inside the union of the teacher's in-person stretches.
     async def _assert_within_availability(
         self,
         day: date,
@@ -125,8 +120,7 @@ class RoomSupervisionService:
             detail=_OUTSIDE_AVAILABILITY_ERROR,
         )
 
-    # Across the whole day and not within one room: nobody answers for two
-    # rooms at the same time.
+    # Day-wide: nobody supervises two rooms at once.
     async def _assert_no_overlap(
         self,
         day: date,
@@ -227,8 +221,7 @@ class RoomSupervisionService:
             entity_label=_ENTITY_LABEL,
         )
 
-        # Where it was as well as where it is going: dragging a shift out of a
-        # morning is a change to that morning.
+        # Both the old and the new position are affected bands.
         await self._assert_claimed(
             identity,
             supervision.date,
@@ -265,8 +258,7 @@ class RoomSupervisionService:
 
         return supervision
 
-    # No precondition beyond existing: a gap left behind is caught when the band
-    # is published, and arranging shifts in whatever order suits is the point.
+    # Gaps left behind are caught at publication; any ordering is allowed.
     async def delete(self, identity: IdentityContext, supervision_id: int) -> None:
         supervision = await self.get_or_404(supervision_id)
 

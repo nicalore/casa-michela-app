@@ -15,18 +15,14 @@ import '../models/school_item.dart';
 import '../models/study_program_item.dart';
 import '../models/subject_taxonomy.dart';
 
-// The read-only panel opens over the details dialog, not over the page, so it
-// needs more depth than the usual dialog shadow to lift off the white behind it.
+// Deeper than the usual dialog shadow: this panel opens over another dialog.
 const List<BoxShadow> _floatingPanelShadow = [
   BoxShadow(color: Color(0x2A000000), offset: Offset(0, 12), blurRadius: 36),
 ];
 
-// Both dialogs of this file stand at the same height and type size as the ones
-// in the settings and in the role switch.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// Narrow: a question of one sentence, and the two answers under it.
 const double _confirmWidth = 480;
 
 class SchoolCard extends StatelessWidget
@@ -58,8 +54,7 @@ class SchoolCard extends StatelessWidget
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The callback that reopens the details carries the card's context
-          // along, not that of the dialog about to close.
+          // Reopen with the card's context, not the closing dialog's.
           onEditRequested(() => _showDetailsDialog(context));
         },
         onDelete: onDelete,
@@ -70,8 +65,6 @@ class SchoolCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // The name and where it is. There is nothing else about a school needed to
-    // recognise it in a list: two of the same name are told apart by the city.
     return AppCatalogueCard(
       title: school.name,
       details: [
@@ -98,9 +91,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws a school
-  // away, and the answer that does it should not be quieter than the one that
-  // walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -109,7 +99,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -163,9 +152,8 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // The program id carried by a SchoolStudyProgramOption is resolved against
-  // the full StudyProgramItem list loaded elsewhere, so the read only dialog
-  // can show ministry subjects and years that the option does not carry.
+  // The option only carries the program id; the full StudyProgramItem is
+  // resolved from the loaded list to show subjects and years.
   void _openReadOnlyProgramDialog(BuildContext context, int programId)
   {
     final fullProgram = availableStudyPrograms.firstWhere(
@@ -173,12 +161,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       orElse: () => throw Exception('Percorso non trovato nei dati caricati'),
     );
 
-    // Through the same door as every other dialog of the app, which is what
-    // blurs what is behind it. It used to open its own way, with a transparent
-    // barrier and no blur, so that the school it came from stayed readable
-    // underneath — and once that school became a handful of floating pieces
-    // itself, the two sets of pieces read as one heap. Blurred, the school is
-    // still there and plainly behind.
     showBlurredDialog<void>(
       context: context,
       barrierLabel: 'ReadOnlyProgramDetails',
@@ -189,10 +171,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -216,8 +194,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
       eyebrow: 'Scuola',
       title: school.name,
       maxWidth: 600,
-      // Selection stops at the body: the buttons underneath are not text you
-      // would ever want to drag a cursor through.
       footer: AppDialogFooter(
         secondary: AppGradientButton(
           label: 'ELIMINA',
@@ -285,8 +261,6 @@ class _SchoolDetailsDialogContent extends StatelessWidget
             ),
           ),
         ),
-        // The programmes a school runs are not one of its fields: they are the
-        // other things it is tied to, and they get a piece of their own.
         AppDialogPill(
           expand: true,
           child: Column(
@@ -337,10 +311,6 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
     required this.availableMinistrySubjects,
   });
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -364,8 +334,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
       eyebrow: 'Percorso di studio',
       title: program.name,
       maxWidth: 560,
-      // To the right of centre, so the school details it was opened from stay
-      // readable behind it rather than being covered up.
+      // Right of centre so the school details stay readable behind it.
       alignment: const Alignment(0.5, 0),
       children: [
         AppDialogPill(

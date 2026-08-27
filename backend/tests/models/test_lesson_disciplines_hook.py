@@ -64,8 +64,7 @@ def _lesson(availability, bookings, subject_ids, *, start=time(15), end=time(16)
     )
 
 
-# Two pupils in one hour, each there for their own discipline: a shared lesson,
-# and a legitimate one.
+# A shared lesson: each pupil there for their own discipline.
 async def test_two_pupils_on_different_disciplines_share_an_hour(
     db: AsyncSession,
 ) -> None:
@@ -135,9 +134,8 @@ async def test_services_and_disciplines_do_not_mix(db: AsyncSession) -> None:
         await db.flush()
 
 
-# The two cases that tell a covering apart from a partition, and both of them
-# have to pass: the parts of one request may repeat a discipline, and a request
-# on a single discipline is still splittable.
+# Covering, not partition: parts may repeat a discipline, and a
+# single-discipline request is still splittable.
 async def test_two_parts_may_repeat_a_discipline(db: AsyncSession) -> None:
     availability = await _availability(db)
     latin = await make_discipline(db, name="Latino diviso")

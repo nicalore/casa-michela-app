@@ -48,9 +48,8 @@ class WeeklyTemplateService:
 
         return template
 
-    # Only to the last generated date: the horizon belongs to
-    # generate_opening_days, and days invented past it would open on holidays
-    # never seeded. The next generation already reads the updated templates.
+    # Propagate only up to the last generated date; beyond it holidays are not
+    # seeded yet and the next generation reads the updated templates anyway.
     async def _propagation_horizon(self, mode: str) -> date | None:
         return await self.opening_day_repository.last_generated_date(mode)
 
@@ -62,8 +61,6 @@ class WeeklyTemplateService:
         horizon: date,
         overridden: set[date],
     ) -> list[date]:
-        # Aligned onto the first matching weekday instead of walking the six
-        # days that cannot match.
         current = effective_from + timedelta(
             days=(weekday - effective_from.isoweekday()) % _DAYS_IN_WEEK
         )
@@ -78,10 +75,8 @@ class WeeklyTemplateService:
 
         return dates
 
-    # Rewrites the days of that weekday from that date on: the whole day and not
-    # the rows a change is recognised by, since a band that moved its start used
-    # to leave its old rows behind. Idempotent, and overrides — holidays,
-    # closures, extraordinary openings — are left untouched.
+    # Rewrites whole days (a moved band would otherwise leave stale rows).
+    # Idempotent; override days are left untouched.
     async def reconcile_weekday(
         self,
         *,
@@ -93,8 +88,7 @@ class WeeklyTemplateService:
         horizon = await self._propagation_horizon(mode)
 
         if horizon is None or horizon < effective_from:
-            # Nothing materialised in that window: the next
-            # generate_opening_days will handle it, reading the new templates.
+            # Nothing materialised in that window; next generation handles it.
             return
 
         overridden = await self.opening_day_repository.dates_with_override(
@@ -119,9 +113,7 @@ class WeeklyTemplateService:
             if template.mode == mode
         ]
 
-        # The hours of these days are about to be rewritten, and a calendar that
-        # has gone out on the old ones has to hear about it: it goes back into
-        # bozza, or away altogether where the day no longer opens.
+        # Published calendars on these dates must revert to bozza or be dropped.
         watch = await CalendarHoursWatch.taken(
             self.opening_day_repository.session,
             dates,
@@ -139,13 +131,9 @@ class WeeklyTemplateService:
             )
             for day in dates
             for template in templates
-            # A rule only applies from its effective date on.
             if template.effective_from <= day
         ])
 
-        # An availability is an offer to be there while the association is
-        # open, and a presence a pupil's answer to the same hours: what the new
-        # standard hours leave outside is not an offer any more.
         purged = await purge_hours_outside_openings(
             self.opening_day_repository.session,
             dates,
@@ -154,8 +142,6 @@ class WeeklyTemplateService:
 
         await watch.settle(confirmed=confirmed, purged=purged)
 
-    # Withdraws a band. The rows already materialised are rewritten by the
-    # weekday reconcile, which reads the templates that are left.
     async def _discard_slot(
         self,
         *,
@@ -177,14 +163,12 @@ class WeeklyTemplateService:
             )
 
     async def create(self, payload: WeeklyTemplateCreate) -> WeeklyTemplate:
-        # The effective date is a property of the rule and not just a parameter
-        # of the request: without it, next year's generation would apply from
-        # 1 January an opening decided for March.
+        # effective_from is part of the rule: next year's generation must not
+        # apply earlier than the date the rule was decided for.
         rule_start = payload.effective_from or today_in_rome()
 
         async with integrity_guard(self.repository.session, _CREATE_ERROR):
-            # (weekday, mode, start_time) is unique, so adding an existing time
-            # overwrites it. The reconcile below rewrites the whole day.
+            # (weekday, mode, start_time) is unique: an existing slot is overwritten.
             existing = await self.repository.get_by_slot(
                 payload.weekday, payload.mode.value, payload.start_time
             )
@@ -229,15 +213,14 @@ class WeeklyTemplateService:
             entity_label=_ENTITY_LABEL,
         )
 
-        # weekday/mode are immutable: they stay stable to identify the
-        # opening_days rows produced by this template row.
+        # weekday/mode are immutable: they identify the generated opening_days rows.
         old_start_time = template.start_time
         weekday = template.weekday
         mode = template.mode
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
-            # Moving a band onto a time another row holds overwrites it, so that
-            # row is withdrawn first or the unique constraint is hit.
+            # Moving onto an occupied slot withdraws that row first, or the
+            # unique constraint is hit.
             if payload.start_time != old_start_time:
                 clashing = await self.repository.get_by_slot(
                     weekday, mode, payload.start_time
@@ -252,9 +235,7 @@ class WeeklyTemplateService:
             if payload.effective_from is not None:
                 template.effective_from = payload.effective_from
 
-            # The day is rewritten from scratch, so the old band's rows go with
-            # it. Without an effective date the default is from tomorrow, so what
-            # has passed is left alone.
+            # Default effective date is tomorrow so past days are untouched.
             await self.reconcile_weekday(
                 weekday=weekday,
                 mode=mode,
@@ -265,9 +246,8 @@ class WeeklyTemplateService:
             )
 
             await self.repository.commit()
-            # updated_at has a server-side onupdate: after the UPDATE is flushed
-            # the attribute stays expired, and serialising the response would
-            # attempt a lazy load outside the async context (MissingGreenlet).
+            # updated_at is server-side: without refresh, serialising would lazy
+            # load outside the async context (MissingGreenlet).
             await self.repository.refresh(template)
 
         return template
@@ -279,9 +259,8 @@ class WeeklyTemplateService:
         *,
         confirmed: bool = False,
     ) -> None:
-        # No FK towards opening_days, by design: without effective_from only the
-        # next generation is affected, with it the rows already generated are
-        # withdrawn too, leaving the overrides intact.
+        # No FK to opening_days by design: effective_from decides whether rows
+        # already generated are withdrawn too (overrides always kept).
         template = await self.get_or_404(template_id)
 
         await self._discard_slot(

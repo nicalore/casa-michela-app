@@ -10,8 +10,7 @@ from app.schemas.validators import QuarterHourTimeRangeMixin
 class AvailabilityBase(QuarterHourTimeRangeMixin):
     date: date
 
-    # The same two the opening hours are kept in: an availability is offered
-    # against one of them, never against both at once.
+    # Offered against exactly one of the two opening-hour modes.
     mode: OpeningModeEnum
 
 

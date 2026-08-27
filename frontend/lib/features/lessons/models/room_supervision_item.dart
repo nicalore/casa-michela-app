@@ -5,12 +5,8 @@ import '../../../core/utils/week_range.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
 
-// One stretch a teacher is answerable for a room over. Several per room, since
-// one teacher rarely covers the whole of it; that they join up is checked when
-// the band is published.
-//
-// The shift's key points at the assignment, so taking the assignment away takes
-// the shifts with it.
+// One supervision stretch; several per room. Coverage continuity is checked
+// at publication. Keyed to the assignment: removing it removes the shifts.
 class RoomSupervisionItem
 {
   final int id;

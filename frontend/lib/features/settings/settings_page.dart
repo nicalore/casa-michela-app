@@ -45,9 +45,8 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
     visitedSections.add(_selectedSection);
   }
 
-  // The two profile sections are one tab showing one half or the other, so the
-  // rail's four entries stand over three children. Keeping them a single tab is
-  // what makes the profile load once instead of once per half.
+  // The two profile entries share one tab (four rail entries, three children),
+  // so the profile loads once instead of once per half.
   bool get _showingProfile => _selectedSection <= _associationProfileIndex;
 
   bool get _profileVisited =>
@@ -78,9 +77,6 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
             color: AppTheme.trialPaper,
             child: Stack(
               children: [
-                // The same pair of glows the dashboard wears, on the same paper.
-                // See the note in DashboardLayout for why they both fade towards
-                // a blue.
                 const CornerGlow(
                   corner: GlowCorner.topRight,
                   tint: AppTheme.trialDeepWater,
@@ -97,27 +93,18 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // The top inset clears the bar floating above the page: it
-                    // is laid over the content rather than in the column with
-                    // it, so the room it needs has to be left here.
+                    // Top inset clears the bar, which floats over the content.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    // Aligned to the top rather than stretched, unlike the other
-                    // module pages: this page has no fixed height, it is as tall
-                    // as its content, and stretching a row inside an unbounded
-                    // height has nothing to stretch to.
+                    // Top-aligned, not stretched: the page height is unbounded.
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // The rail steps aside below the breakpoint; the drawer
-                        // behind the bar is holding these same sections.
                         if (size.hasRail) ...[
-                          // First out and first back in on a change of page: the
-                          // rail is what frames the content beside it.
                           PageTransitionItem(
                             slot: PageTransitionItem.frame,
                             child: AppSectionRail(
@@ -133,8 +120,6 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // What the rail was saying about where you are has
-                              // to keep being said.
                               if (size.isCompact) ...[
                                 PageTransitionItem(
                                   slot: PageTransitionItem.frame,
@@ -145,11 +130,8 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                                 ),
                                 const SizedBox(height: 18),
                               ],
-                              // Nothing wrapped out here: each of the three
-                              // sections times its own cards, one under the
-                              // next, the way a list page times its own.
-                              // Wrapped as one element from this side, a section
-                              // would leave in a single slab.
+                              // Not wrapped as one transition element: each
+                              // section times its own cards, not one slab.
                               PageSections(
                                 index: _stackIndex,
                                 children: [
@@ -175,8 +157,6 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                     ),
                   ),
                 ),
-                // Last in the stack, so the bar and the menu it opens stay above
-                // the page.
                 AppTopBar(
                   currentRoute: '/settings',
                   sectionTitle: 'Impostazioni',

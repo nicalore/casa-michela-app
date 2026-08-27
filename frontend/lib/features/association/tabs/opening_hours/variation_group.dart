@@ -3,22 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../models/opening_day_item.dart';
 
-// One variation as the Orari tab presents it: a run of consecutive days that
-// all carry the same bands and the same note.
-//
-// Grouped by day rather than by band — three "14:00–17:00" rows for the 20th,
-// 21st and 22nd say far less than a single "Dal 20 al 22 agosto" — and by the
-// whole day rather than one band of it, so a row maps to exactly one thing the
-// admin can edit or undo. Splitting a day across two rows would mean editing
-// one of them silently rewrote the other, since a variation is applied to
-// whole days.
+// A run of consecutive days carrying the same bands and note. Grouped by whole
+// day: variations apply to whole days, so a row maps to one editable thing.
 class VariationGroup
 {
   final DateTime start;
   final DateTime end;
 
-  // The bands of one day of the run; every day in it carries the same ones.
-  // A closure is the single band with no hours on it.
+  // Bands of one day of the run (every day carries the same ones); a closure
+  // is a single band with no hours.
   final List<OpeningDayItem> bands;
 
   final String? note;
@@ -34,9 +27,7 @@ class VariationGroup
 
   bool get isClosed => bands.first.startTime == null;
 
-  // Public holidays are seeded by the calendar generation, not by an admin:
-  // they carry no edit or delete action, since the next run would put them
-  // back anyway.
+  // Holidays are seeded by calendar generation; they carry no edit/delete.
   bool get isHoliday => bands.any((band) => band.isHoliday);
 
   String get dateLabel => isSingleDay ? formatWeekdayColumnLabel(start) : formatDateSpan(start, end);
@@ -51,16 +42,8 @@ class VariationGroup
     return bands.map((band) => formatTimeRange(band.startTime!, band.endTime!)).join(', ');
   }
 
-  // The variations of a mode, collapsed into the rows the card shows.
-  //
-  // Two passes: first every date is reduced to the signature of what happens
-  // on it, then runs of consecutive dates sharing a signature are folded into
-  // one group.
-  //
-  // [startsOnOrBefore] bounds the result to the runs that begin within it, and
-  // is applied to whole groups rather than to the rows going in: a variation
-  // that starts inside the window and carries on past it belongs here, and
-  // keeps its real end date instead of being cut short at the boundary.
+  // [startsOnOrBefore] filters whole groups, not the rows going in: a run
+  // starting inside the window keeps its real end date.
   static List<VariationGroup> from(List<OpeningDayItem> variations, {DateTime? startsOnOrBefore})
   {
     final byDate = <DateTime, List<OpeningDayItem>>{};
@@ -111,8 +94,7 @@ class VariationGroup
     return groups;
   }
 
-  // What has to match for two days to belong to the same run: the same bands
-  // and the same note.
+  // Two days join a run only when bands and note match.
   static String _signature(List<OpeningDayItem> bands)
   {
     final hours = bands

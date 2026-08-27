@@ -20,8 +20,8 @@ class SchoolItem
     this.studyPrograms = const [],
   });
 
-  // The sentinel default tells an omitted argument apart from one explicitly
-  // set to null, which is what allows the mechanographic code to be cleared.
+  // Sentinel default tells omitted apart from explicit null, so the code can
+  // be cleared.
   SchoolItem copyWith({
     int? id,
     String? name,

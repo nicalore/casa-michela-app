@@ -81,9 +81,6 @@ mixin WizardDialogState<T extends StatefulWidget> on State<T>
     }
   }
 
-  // The tail every wizard shares: an edit closes on success, a new entry empties
-  // itself so the next one can be typed straight in, and a refusal leaves the
-  // form exactly as it was so nothing has to be retyped.
   Future<void> runSave(
     Future<bool> Function(void Function(String) onError) save,
   ) async
@@ -174,8 +171,7 @@ mixin TwoStepWizardState<T extends StatefulWidget> on WizardDialogState<T>
     });
   }
 
-  // Called from inside the caller's own setState, while the rest of the form is
-  // being emptied — hence no setState of its own.
+  // Called from inside the caller's own setState — hence no setState here.
   void rewindSteps()
   {
     _step = 0;
@@ -196,9 +192,6 @@ mixin TwoStepWizardState<T extends StatefulWidget> on WizardDialogState<T>
     return true;
   }
 
-  // The arrows are the only way between the two steps, and the first one holds
-  // the second shut until it is filled in — hence forwardBlockedReason, which
-  // is what the arrow says when it refuses.
   Widget buildTwoStepDialog({
     required String title,
     required double contentMaxWidth,

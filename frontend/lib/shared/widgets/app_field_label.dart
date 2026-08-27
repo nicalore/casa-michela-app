@@ -3,20 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
-// The two ways this app writes the name of something above the thing itself.
-//
-// [AppFieldLabel] names a single field: the one datum under it. [AppEyebrow]
-// names a block: a dialog, a page, a group of things of the same shape.
-//
-// The test for picking one: if it is one of several blocks of the same shape,
-// it is an eyebrow; if it names a single datum, it is a field label.
-
 const double _fieldFontSize = 13;
 
 const double _eyebrowFontSize = 11;
 
-// Kept here because the text field uses it to reserve the label's height even
-// when it does not show one.
+// Used by the text field to reserve the label's height even when it shows none.
 const double _fieldLineHeightRatio = 1.28;
 
 const double kFieldLabelLineHeight = _fieldFontSize * _fieldLineHeightRatio;
@@ -42,8 +33,6 @@ class AppFieldLabel extends StatelessWidget
   }
 }
 
-// Exposed for callers that cannot use [AppEyebrow] as it is — a card that has
-// to ellipsize its own and spell it out on hover.
 TextStyle eyebrowTextStyle()
 {
   return GoogleFonts.plusJakartaSans(

@@ -42,27 +42,17 @@ class OpeningDayBand(TimeRangeMixin):
     pass
 
 
-# One day's hours written whole, which is the only way they are changed from
-# the association's page: the rows of that day and mode are replaced by these.
-#
-# Whole and not row by row, because between a deletion and the creation that
-# follows it the day stands closed — and a day standing closed, however
-# briefly, is a day whose lessons are cleared and whose calendar is taken
-# down.
-
-
+# Replaces the whole day's rows at once: a row-by-row rewrite would leave the
+# day transiently closed, clearing its lessons and unpublishing its calendar.
 class OpeningDayReplace(BaseModel):
     date: date
     mode: OpeningModeEnum
     note: OptionalCleanStr = Field(None, max_length=field_lengths.NOTES)
 
-    # Said by a caller that has been told what the write takes away and has
-    # answered for it. Without it a write that would take a published calendar
-    # down is refused rather than done.
+    # Without confirm, a write that would unpublish a calendar is refused.
     confirm: bool = False
 
-    # The bands the day opens in. Empty is a closure, written as the day's one
-    # row with no hours on it.
+    # Empty means the day is closed.
     bands: list[OpeningDayBand] = Field(default_factory=list)
 
     @model_validator(mode="after")

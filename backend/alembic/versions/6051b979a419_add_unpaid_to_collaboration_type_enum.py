@@ -15,18 +15,15 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ALTER TYPE ... ADD VALUE non può girare nella transazione di default
-    # di Alembic (Postgres non permette di usare un nuovo valore enum
-    # nella stessa transazione in cui viene aggiunto). Lo eseguiamo quindi
-    # in un blocco autocommit dedicato.
+    # ALTER TYPE ... ADD VALUE cannot run in Alembic's default transaction:
+    # Postgres forbids using a new enum value in the transaction that adds it.
     with op.get_context().autocommit_block():
         op.execute("ALTER TYPE collaboration_type_enum ADD VALUE 'UNPAID'")
 
 
 def downgrade() -> None:
-    # Postgres non supporta DROP VALUE su un enum nativo: un downgrade
-    # pulito richiederebbe ricreare il tipo da zero e gestire eventuali
-    # righe che nel frattempo avessero usato UNPAID. Non gestito.
+    # Postgres has no DROP VALUE for native enums; a clean downgrade would need
+    # to recreate the type and handle rows already using UNPAID. Not handled.
     raise NotImplementedError(
         "Downgrade non supportato: Postgres non permette di rimuovere "
         "un valore da un enum nativo."

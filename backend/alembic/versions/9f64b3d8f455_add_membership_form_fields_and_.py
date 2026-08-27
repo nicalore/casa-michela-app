@@ -16,9 +16,8 @@ branch_labels = None
 depends_on = None
 
 
-# Definizioni degli enum Postgres usate sia per la CREATE TYPE esplicita
-# sia per le colonne che le referenziano (create_type=False su queste
-# ultime per evitare che SQLAlchemy tenti di ricreare il tipo).
+# Enum definitions used both for the explicit CREATE TYPE and for the columns
+# referencing them (those use create_type=False so SQLAlchemy won't recreate them).
 certification_type_enum = postgresql.ENUM(
     "DSA", "BES", "ADHD", "OTHER",
     name="certification_type_enum",
@@ -36,15 +35,13 @@ payment_method_enum = postgresql.ENUM(
 
 
 def upgrade() -> None:
-    # L'autogenerate di Alembic non emette il CREATE TYPE per gli enum
-    # Postgres: va fatto esplicitamente, prima di qualunque colonna che
-    # li usi.
+    # Alembic autogenerate does not emit CREATE TYPE for Postgres enums: create
+    # them explicitly, before any column that uses them.
     bind = op.get_bind()
     certification_type_enum.create(bind, checkfirst=True)
     course_type_enum.create(bind, checkfirst=True)
     payment_method_enum.create(bind, checkfirst=True)
 
-    # --- people: nazione di nascita ---------------------------------
     op.add_column(
         "people",
         sa.Column(
@@ -64,11 +61,10 @@ def upgrade() -> None:
         "people",
         "birth_nation IS NULL OR birth_nation = btrim(birth_nation)",
     )
-    # Il default serve solo per il backfill delle righe storiche: da qui
-    # in poi il valore va sempre fornito esplicitamente, come da modello.
+    # The default only backfills historical rows; from here on the value must
+    # always be provided explicitly, as the model requires.
     op.alter_column("people", "birth_nation", server_default=None)
 
-    # --- students: certificazioni -----------------------------------
     op.add_column(
         "students",
         sa.Column(
@@ -117,18 +113,10 @@ def upgrade() -> None:
         "OR certification_other_detail = btrim(certification_other_detail)",
     )
 
-    # --- course_participants: course_type da testo libero a enum -----
-    # I due vincoli storici (creati in 5653d8989dad) non hanno più senso
-    # su una colonna enum e vanno rimossi prima della conversione.
-    #
-    # NON usiamo op.drop_constraint con nome fisso: sul DB di sviluppo
-    # questi vincoli portano ancora il prefisso storico "partecipants"
-    # invece di "participants" (la tabella è stata rinominata in passato,
-    # ma Postgres non rinomina i vincoli insieme alla tabella). Non è
-    # garantito che ambienti diversi (dev/test/prod) abbiano lo stesso
-    # refuso, quindi cerchiamo il vincolo per suffisso del nome — che
-    # non cambia, essendo generato dal nome della colonna, non da quello
-    # della tabella — invece che per nome completo.
+    # The two legacy CHECKs from 5653d8989dad are dropped by name SUFFIX, not
+    # full name: they may still carry the historical "partecipants" prefix (the
+    # table was renamed but Postgres kept the constraint names), and the suffix
+    # comes from the column name, so it is stable across environments.
     op.execute(
         """
         DO $$
@@ -161,19 +149,14 @@ def upgrade() -> None:
         END $$;
         """
     )
-    # Valori residui diversi da YOGA/PILATES (es. dati di prova inseriti
-    # in sviluppo, come "SS") vengono normalizzati a YOGA prima della
-    # conversione a enum. Confermato dal committente: non sono dati reali
-    # da preservare, sono scarti di test — quindi va bene sovrascriverli
-    # invece di bloccare la migration.
+    # Residual values other than YOGA/PILATES (e.g. "SS") are confirmed test
+    # junk, not real data: overwrite to YOGA instead of blocking the migration.
     op.execute(
         "UPDATE course_participants "
         "SET course_type = 'YOGA' "
         "WHERE UPPER(course_type) NOT IN ('YOGA', 'PILATES')"
     )
-    # UPPER() tollera dati storici scritti in minuscolo/misto (es.
-    # "Pilates"); dopo la normalizzazione sopra, ogni valore rimasto è
-    # garantito essere YOGA o PILATES in qualche variante di maiuscole.
+    # UPPER() tolerates historical lowercase/mixed-case values (e.g. "Pilates").
     op.alter_column(
         "course_participants",
         "course_type",
@@ -183,7 +166,6 @@ def upgrade() -> None:
         existing_nullable=False,
     )
 
-    # --- members: pagamento, dichiarazioni/consensi, sicurezza minore ---
     op.add_column(
         "members",
         sa.Column(
@@ -328,7 +310,6 @@ def upgrade() -> None:
         "medications_notes IS NULL OR medications_notes = btrim(medications_notes)",
     )
 
-    # --- psychological_supports: nuova tabella ------------------------
     op.create_table(
         "psychological_supports",
         sa.Column("tax_code", sa.String(length=16), nullable=False),
@@ -350,7 +331,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("psychological_supports")
 
-    # --- members ------------------------------------------------------
     op.drop_constraint(
         op.f("ck_members_medications_notes_no_surrounding_whitespace"),
         "members",
@@ -409,7 +389,6 @@ def downgrade() -> None:
     op.drop_column("members", "payment_method_other")
     op.drop_column("members", "payment_method")
 
-    # --- course_participants ------------------------------------------
     op.alter_column(
         "course_participants",
         "course_type",
@@ -429,7 +408,6 @@ def downgrade() -> None:
         "length(trim(course_type)) > 0",
     )
 
-    # --- students -------------------------------------------------------
     op.drop_constraint(
         op.f("ck_students_certification_other_detail_no_surrounding_whitespace"),
         "students",
@@ -449,7 +427,6 @@ def downgrade() -> None:
     op.drop_column("students", "certification_other_detail")
     op.drop_column("students", "certification_type")
 
-    # --- people -----------------------------------------------------
     op.drop_constraint(
         op.f("ck_people_birth_nation_no_surrounding_whitespace"),
         "people",
@@ -460,8 +437,7 @@ def downgrade() -> None:
     )
     op.drop_column("people", "birth_nation")
 
-    # I tipi enum vanno droppati per ultimi, solo dopo che nessuna
-    # colonna li referenzia più.
+    # Enum types are dropped last, once no column references them.
     bind = op.get_bind()
     payment_method_enum.drop(bind, checkfirst=True)
     course_type_enum.drop(bind, checkfirst=True)

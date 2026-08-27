@@ -4,9 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../models/room_day_plan.dart';
+import 'calendar_activity_block.dart';
 import 'calendar_lane_panel.dart';
 import 'calendar_lesson_block.dart';
 
@@ -33,7 +35,13 @@ class CalendarDayAgenda extends StatelessWidget
 
   final Map<String, LaneRoomLabel> roomByTeacher;
 
+  final Set<String> excludedTeachers;
+
+  final void Function(CalendarLane lane, {required bool excluded})? onExcludedChanged;
+
   final void Function(LessonItem lesson)? onLessonTap;
+
+  final void Function(ActivityItem activity)? onActivityTap;
 
   const CalendarDayAgenda({
     super.key,
@@ -47,10 +55,19 @@ class CalendarDayAgenda extends StatelessWidget
     this.preferredLessonIds = const {},
     this.pastLessonIds = const {},
     this.roomByTeacher = const {},
+    this.excludedTeachers = const {},
+    this.onExcludedChanged,
     this.onLessonTap,
+    this.onActivityTap,
   });
 
-  int get _lessonCount => lanes.fold<int>(0, (total, lane) => total + lane.lessons.length);
+  int get _rowCount
+  {
+    return lanes.fold<int>(
+      0,
+      (total, lane) => total + lane.lessons.length + lane.activities.length,
+    );
+  }
 
   Widget _buildHeader()
   {
@@ -68,7 +85,7 @@ class CalendarDayAgenda extends StatelessWidget
           ),
         ),
         Text(
-          '$_lessonCount',
+          '$_rowCount',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w700,
@@ -80,9 +97,52 @@ class CalendarDayAgenda extends StatelessWidget
     );
   }
 
+  // Lessons and activities interleaved in clock order.
+  List<Widget> _buildRows(CalendarLane lane)
+  {
+    final rows = <({int startMinutes, Widget row})>[
+      for (final lesson in lane.lessons)
+        (
+          startMinutes: lesson.startMinutes,
+          row: _AgendaRow(
+            isComposing: isComposing,
+            lesson: lesson,
+            view: view,
+            ministrySubjects: ministrySubjects,
+            hasWarning: warnedLessonIds.contains(lesson.id),
+            isPreferred: preferredLessonIds.contains(lesson.id),
+            isPast: pastLessonIds.contains(lesson.id),
+            onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
+          ),
+        ),
+      for (final scheduled in lane.activities)
+        (
+          startMinutes: scheduled.startMinutes,
+          row: _ActivityAgendaRow(
+            scheduled: scheduled,
+            onTap: onActivityTap == null ? null : () => onActivityTap!(scheduled.activity),
+          ),
+        ),
+    ]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+    return [for (final entry in rows) entry.row];
+  }
+
+  VoidCallback? _toggleExcluded(CalendarLane lane)
+  {
+    final say = onExcludedChanged;
+
+    if (say == null || view != CalendarView.byTeacher)
+    {
+      return null;
+    }
+
+    return () => say(lane, excluded: !excludedTeachers.contains(lane.personTaxCode));
+  }
+
   Widget _buildLaneBlock(CalendarLane lane)
   {
-    final lessons = [...lane.lessons]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+    final rows = _buildRows(lane);
 
     return CalendarLanePanel(
       lane: lane,
@@ -90,25 +150,18 @@ class CalendarDayAgenda extends StatelessWidget
       bandStart: bandStart,
       bandEnd: bandEnd,
       room: roomByTeacher[lane.personTaxCode],
+      isExcluded: excludedTeachers.contains(lane.personTaxCode),
+      onToggleExcluded: _toggleExcluded(lane),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (lessons.isEmpty) ...[
+          if (rows.isEmpty) ...[
             const SizedBox(height: 10),
             const CalendarLaneEmpty(),
           ],
-          for (final lesson in lessons) ...[
+          for (final row in rows) ...[
             const SizedBox(height: 8),
-            _AgendaRow(
-              isComposing: isComposing,
-              lesson: lesson,
-              view: view,
-              ministrySubjects: ministrySubjects,
-              hasWarning: warnedLessonIds.contains(lesson.id),
-              isPreferred: preferredLessonIds.contains(lesson.id),
-              isPast: pastLessonIds.contains(lesson.id),
-              onTap: onLessonTap == null || lesson.isProvisional ? null : () => onLessonTap!(lesson),
-            ),
+            row,
           ],
         ],
       ),
@@ -348,6 +401,155 @@ class _AgendaRowState extends State<_AgendaRow>
                               ),
                               const SizedBox(height: 3),
                               _buildWhere(),
+                            ],
+                          ),
+                        ),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.chevron_right_rounded, size: 20, color: AppTheme.trialMutedText),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityAgendaRow extends StatefulWidget
+{
+  final ScheduledActivity scheduled;
+
+  final VoidCallback? onTap;
+
+  const _ActivityAgendaRow({required this.scheduled, this.onTap});
+
+  @override
+  State<_ActivityAgendaRow> createState() => _ActivityAgendaRowState();
+}
+
+class _ActivityAgendaRowState extends State<_ActivityAgendaRow>
+{
+  bool _hover = false;
+
+  ScheduledActivity get _scheduled => widget.scheduled;
+
+  Color get _borderColor
+  {
+    if (_hover && widget.onTap != null)
+    {
+      return AppTheme.trialGold;
+    }
+
+    return kActivityAccent.withValues(alpha: 0.35);
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final onTap = widget.onTap;
+    final description = _scheduled.description;
+
+    return MouseRegion(
+      cursor: onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: kActivitySurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _borderColor, width: 1.5),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 10,
+                bottom: 10,
+                left: _modeBarInset,
+                width: _modeBarWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: kActivityAccent,
+                    borderRadius: BorderRadius.circular(_modeBarWidth / 2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(_modeBarInset + _modeBarWidth + 9, 9, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(kActivityIcon, size: 13, color: kActivityAccent),
+                        const SizedBox(width: 5),
+                        Text(
+                          activityHours(_scheduled),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                            color: kActivityAccent,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '· ${formatMinutes(_scheduled.minutes)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                              color: AppTheme.trialMutedText,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _scheduled.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.2,
+                                  color: AppTheme.trialOcean,
+                                ),
+                              ),
+                              if (description != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  description,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.25,
+                                    color: AppTheme.trialMutedText,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

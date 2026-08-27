@@ -2,14 +2,9 @@ import 'dart:math' as math;
 
 import '../../../core/utils/week_range.dart' show kQuarterHour;
 
-// Minutes into pixels and back, plus the span algebra between. Nothing here
-// knows about widgets, deliberately: a rule that can only be exercised by
-// pumping a widget is a rule nobody tests.
-//
 // A span is a pair of minutes since midnight, half-open like TimeBucket.
 
-// Nearest and not down: a drag aims at a place, and rounding down always puts
-// the block a quarter before where the pointer was let go.
+// Rounds to nearest: rounding down would land drops a quarter early.
 int snapToQuarter(int minutes)
 {
   return (minutes / kQuarterHour).round() * kQuarterHour;
@@ -20,10 +15,8 @@ int snapQuarterDown(int minutes)
   return (minutes / kQuarterHour).floor() * kQuarterHour;
 }
 
-// Slides a span inside [lower, upper] keeping its length rather than clipping:
-// a block that shortened against an edge would change the lesson's duration by
-// a gesture about its position. Too long for the room, it comes back flush with
-// the lower bound and too long, and the caller refuses it.
+// Slides a span inside [lower, upper] keeping its length (never clips). A span
+// longer than the range comes back flush left and too long, for the caller to refuse.
 (int, int) clampSpanInto(int start, int end, int lower, int upper)
 {
   final length = end - start;
@@ -60,8 +53,7 @@ bool spansOverlap(int aStart, int aEnd, int bStart, int bEnd)
   return start < end ? (start, end) : null;
 }
 
-// Adjacent as well as overlapping: 09:00–11:00 and 11:00–13:00 are one stretch
-// of the morning, and a seam between them would draw a gap that is not there.
+// Merges adjacent spans as well as overlapping ones.
 List<(int, int)> mergeSpans(List<(int, int)> spans)
 {
   if (spans.isEmpty)
@@ -89,8 +81,7 @@ List<(int, int)> mergeSpans(List<(int, int)> spans)
   return merged;
 }
 
-// What is left of [from] once [holes] is taken out of it. Both are merged
-// first, so the answer does not depend on the order they arrive in.
+// [from] minus [holes]; both merged first so input order does not matter.
 List<(int, int)> subtractSpans(List<(int, int)> from, List<(int, int)> holes)
 {
   final remaining = <(int, int)>[];
@@ -123,11 +114,8 @@ List<(int, int)> subtractSpans(List<(int, int)> from, List<(int, int)> holes)
   return remaining;
 }
 
-// The busiest moment of a teacher's day, in pupils. Summing is sound because
-// the same pupil cannot be in two overlapping lessons, a rule of its own.
-//
-// The same arithmetic as teacher_occupancy.peak_concurrent_students, and it has
-// to stay the same: this copy exists so the refusal arrives under the pointer.
+// Must stay identical to teacher_occupancy.peak_concurrent_students on the
+// backend; this copy exists so the refusal arrives under the pointer.
 int peakConcurrentStudents(List<(int, int, int)> spans)
 {
   final events = <(int, int)>[];
@@ -138,8 +126,7 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
     events.add((span.$2, -span.$3));
   }
 
-  // Closures before openings at the same minute, which falls out of a negative
-  // delta sorting first: 15:00 to 15:00 is not an overlap.
+  // Negative deltas sort first, so closures precede openings at the same minute.
   events.sort((a, b) => a.$1 != b.$1 ? a.$1.compareTo(b.$1) : a.$2.compareTo(b.$2));
 
   var peak = 0;
@@ -154,17 +141,9 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
   return peak;
 }
 
-// Which sub-lane each span belongs to, by index into [spans].
-//
-// Every span takes the first sub-lane free over its stretch, always: nothing
-// holds a place it does not need, which is what makes an hour rise back to the
-// top once it stops overlapping.
-//
-// [preferred] changes only the order they are asked in, and that is the trick.
-// In time order, dragging the lower of two stacked hours earlier makes it first
-// by time, so it takes lane zero and pushes the untouched one down — two blocks
-// moving for one gesture. Asked in the order they were drawn last time, the one
-// that had zero keeps it and only the dragged block moves.
+// Assigns each span the first free sub-lane. [preferred] only changes the
+// order spans are served in: honoring last frame's lanes keeps untouched
+// blocks in place while one is dragged.
 ({List<int> laneOf, int laneCount}) assignSubLanes(
   List<(int, int)> spans, {
   List<int?> preferred = const [],
@@ -172,7 +151,6 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
 {
   int claimOf(int index) => (index < preferred.length ? preferred[index] : null) ?? _noClaim;
 
-  // Whoever had a lane is served first, lowest first, and time settles ties.
   final order = [for (var i = 0; i < spans.length; i++) i]
     ..sort((a, b)
     {
@@ -183,8 +161,8 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
 
   final laneOf = List<int>.filled(spans.length, 0);
 
-  // Checked against all of a lane and not only its last span: served out of
-  // time order, "the last one has ended" is no longer the whole story.
+  // Check the whole lane, not just its last span: spans are served out of
+  // time order.
   final laneSpans = <List<(int, int)>>[];
 
   for (final index in order)
@@ -210,10 +188,10 @@ int peakConcurrentStudents(List<(int, int, int)> spans)
   return (laneOf: laneOf, laneCount: laneSpans.isEmpty ? 1 : laneSpans.length);
 }
 
-// A span nobody has drawn yet waits behind the ones with a place to keep.
+// Unclaimed spans sort after every claimed one.
 const int _noClaim = 1 << 20;
 
-// The smallest span containing both, or whichever of the two exists.
+// Smallest span containing both, or whichever of the two exists.
 (int, int)? hullOf((int, int)? a, (int, int)? b)
 {
   if (a == null)
@@ -229,15 +207,9 @@ const int _noClaim = 1 << 20;
   return (math.min(a.$1, b.$1), math.max(a.$2, b.$2));
 }
 
-// The stretch of the day the axis covers: the opening and nothing more. A band
-// is six hours wide and the place is open for three, so an axis drawn on the
-// band would spend half its width where nothing can ever be put.
-//
-// [content] does not size the axis. It only stretches it where something
-// already written falls outside the opening, which happens when the hours are
-// changed after a lesson exists: clipped away it would be out of reach.
-//
-// Null for a band that is closed and has never been written into.
+// The axis covers the opening hours, not the whole band. [content] only
+// stretches it where existing items fall outside the opening (hours changed
+// after a lesson existed). Null for a closed, never-written band.
 (int, int)? timelineWindow({
   required int bandStartMinutes,
   required int bandEndMinutes,
@@ -245,8 +217,6 @@ const int _noClaim = 1 << 20;
   List<(int, int)> content = const [],
 })
 {
-  // Only what the opening does not already cover: a rescue for the unreachable,
-  // not a second opinion on where the axis should start.
   final outside = opening == null
       ? content
       : content.where((span) => span.$1 < opening.$1 || span.$2 > opening.$2).toList();
@@ -273,8 +243,7 @@ const int _noClaim = 1 << 20;
     return null;
   }
 
-  // Narrower than an hour has no scale: widened towards whichever side has
-  // room.
+  // Windows narrower than an hour are widened towards whichever side has room.
   if (end - start < 60)
   {
     end = math.min(bandEndMinutes, start + 60);
@@ -284,24 +253,16 @@ const int _noClaim = 1 << 20;
   return (start, end);
 }
 
-// Where every minute and row falls, once the width is known. Built inside a
-// LayoutBuilder and cheap enough to rebuild on every frame.
+// Built inside a LayoutBuilder; cheap enough to rebuild every frame.
 class TimelineMetrics
 {
   final int windowStartMinutes;
   final int windowEndMinutes;
 
-  // The track alone: the column of names on the left is not part of it, so
-  // that nothing here has to know the column exists.
+  // The track alone, excluding the name column on the left.
   final double trackWidth;
 
-  // One height per row, because the rows are not all the same height any more:
-  // a teacher taking two pupils at once needs two sub-lanes and gets a taller
-  // row for them.
-  //
-  // This is what [rowAt] used to get for free from a division. It is a walk
-  // down the list now — which is nothing for the ten or twenty rows a band
-  // holds, and is the price of rows that fit what is in them.
+  // Rows vary in height: a row with concurrent lessons needs extra sub-lanes.
   final List<double> rowHeights;
 
   const TimelineMetrics({
@@ -328,9 +289,7 @@ class TimelineMetrics
     return (clamped - windowStartMinutes) * pixelsPerMinute;
   }
 
-  // Never zero, even for a span entirely outside the window: a block one pixel
-  // wide is something the eye can find and click, while a block of no width is
-  // a lesson that has vanished.
+  // Never zero: a zero-width block is a lesson that has vanished.
   double widthOf(int startMinutes, int endMinutes)
   {
     return math.max(1, xOf(endMinutes) - xOf(startMinutes));
@@ -353,11 +312,8 @@ class TimelineMetrics
     return snapToQuarter(minutesAt(x)).clamp(windowStartMinutes, windowEndMinutes);
   }
 
-  // Which row a vertical position falls on, or null above and below them.
-  //
-  // The air between two rows is padding *inside* a row, so there are no dead
-  // bands where a drop would land nowhere — that part matters as much as the
-  // arithmetic, and it is why the rows are drawn edge to edge.
+  // Row at a vertical position, or null outside the rows. Inter-row air is
+  // padding inside a row, so no drop lands in a dead band.
   int? rowAt(double y)
   {
     if (y < 0)
@@ -392,7 +348,6 @@ class TimelineMetrics
     return top;
   }
 
-  // Whole hours inside the window, both ends included where they fall on one.
   List<int> hourTicks()
   {
     final ticks = <int>[];
@@ -405,7 +360,6 @@ class TimelineMetrics
     return ticks;
   }
 
-  // The half hours between them, which are where most lessons start and end.
   List<int> halfTicks()
   {
     final ticks = <int>[];
@@ -422,7 +376,6 @@ class TimelineMetrics
     return ticks;
   }
 
-  // The quarters between the hours: the grid a lesson snaps to, drawn thin.
   List<int> quarterTicks()
   {
     final ticks = <int>[];

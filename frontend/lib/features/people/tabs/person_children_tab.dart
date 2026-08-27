@@ -25,8 +25,7 @@ import '../widgets/authorized_pickup_dialog.dart';
 const int _adultAge = 18;
 const int _maxParentsPerMinor = 2;
 
-// Value of the "solo associato" option. Derived from the label so that renaming
-// the role in RoleLabelMapper cannot leave the filter pointing at a stale string.
+// Derived from the label so a rename in RoleLabelMapper cannot leave this stale.
 final String _memberOnlyFilterValue = RoleLabelMapper.memberLabel.toUpperCase();
 
 enum _MinorSort
@@ -60,12 +59,8 @@ class PersonChildrenTab extends StatefulWidget
 {
   final PersonItem person;
 
-  // Called once the linked children have changed, so the page can fetch the
-  // person again: the rail beside it carries one entry per child, and it would
-  // otherwise keep offering a child that is no longer there.
   final VoidCallback onUpdate;
 
-  // Which of the children is being shown, chosen from that rail.
   final int selectedIndex;
 
   const PersonChildrenTab({
@@ -89,8 +84,6 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
       builder: (context) => ChildrenEditDialog(person: widget.person),
     );
 
-    // The page owns the person and the list of children in the rail, so the
-    // refresh belongs there rather than in a copy kept here.
     if (changed == true)
     {
       widget.onUpdate();
@@ -114,8 +107,6 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     );
   }
 
-  // The residence type and street name are stored separately but read as one
-  // line, so they are joined here rather than shown as two rows.
   String _residenceAddress(ChildItem child)
   {
     final joined = '${child.residenceType?.trim() ?? ''} ${child.address?.trim() ?? ''}'.trim();
@@ -123,7 +114,6 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     return joined.isEmpty ? missingValue : joined;
   }
 
-  // Full width card telling whether the current parent may collect this child.
   Widget _buildAuthorizationCard(ChildItem child)
   {
     return SizedBox(
@@ -147,7 +137,6 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
         : missingValue;
 
     return [
-      // Stacks vertically below the breakpoint, the same policy as PersonInfoTab.
       PersonDetailCardPair(
         first: PersonDetailCard(
           title: 'Identità',
@@ -208,8 +197,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
       return _buildEmptyState();
     }
 
-    // Guards against a selection left over from a longer list, for instance
-    // after removing the child that was being shown.
+    // Guards against a selection left over from a longer list.
     final index = widget.selectedIndex < children.length ? widget.selectedIndex : 0;
     final child = children[index];
 
@@ -281,8 +269,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     }
   }
 
-  // Candidates are the minors plus whoever is already a child of this person:
-  // an existing relationship stays editable even after the child turns adult.
+  // An existing relationship stays editable even after the child turns adult.
   bool _isCandidate(PersonItem person)
   {
     if (person.fiscalCode == widget.person.fiscalCode)
@@ -337,9 +324,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     }
   }
 
-  // "Solo Associato" means exactly that: a student or a teacher is a member too,
-  // but must not appear under this filter. Every other option is a plain match on
-  // the role label, compared case insensitively.
+  // "Solo Associato" excludes people who are also student, teacher, etc.
   bool _matchesRole(PersonItem minor)
   {
     final role = _filterRole;
@@ -395,8 +380,8 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
         .toList();
   }
 
-  // Removing a relationship is refused when it would leave a minor with no
-  // parent at all, and only warned about when the child is already an adult.
+  // Refused when a minor would be left with no parent; only warned about when
+  // the child is already an adult.
   String? _validateRemovals()
   {
     var hasAdultRemoval = false;
@@ -441,8 +426,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     return null;
   }
 
-  // A minor cannot have more than two parents, so adding this one has to leave
-  // room for it.
+  // A minor cannot have more than two parents.
   String? _validateAdditions()
   {
     for (final fiscalCode in _selectedMinors.keys)
@@ -464,8 +448,8 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     return null;
   }
 
-  // The endpoint takes the whole person, so the unchanged fields are sent back
-  // as they are: omitting one would clear it server side.
+  // The endpoint takes the whole person: an omitted field would be cleared
+  // server side.
   Map<String, dynamic> _buildPayload()
   {
     final person = widget.person;
@@ -480,9 +464,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
             ? DateFormat('yyyy-MM-dd').format(person.birthDate!)
             : null,
         'birth_city': person.birthCity,
-        // Required by GeneralDataUpdate, and this payload is a whole person: the
-        // endpoint that links children is the one that updates everything, so a
-        // field left out here is a field the server refuses the whole call over.
+        // Required by GeneralDataUpdate; leaving it out fails the whole call.
         'birth_nation': person.birthNation ?? '',
         'birth_province': person.birthProvince,
         'residence_type': person.residenceType,
@@ -559,7 +541,6 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     }
   }
 
-  // The same head every list of the app carries.
   Widget _buildFilters()
   {
     return Column(
@@ -622,8 +603,6 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       return const PersonEmptyState(message: 'Nessun minore trovato per questa ricerca.');
     }
 
-    // The pill this stands in has been handed the height left in the window, so
-    // this is what moves when there are more minors than there is room for.
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
       child: Wrap(
@@ -655,8 +634,6 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       eyebrow: 'Figli',
       title: 'Gestisci figli',
       maxWidth: 1160,
-      // The search and the filters stay where they are; only the list under them
-      // moves.
       fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(

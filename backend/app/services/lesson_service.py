@@ -28,6 +28,9 @@ from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.repositories.booking_repository import BOOKING_EAGER_LOADER
+from app.repositories.calendar_activity_repository import (
+    CalendarActivityRepository,
+)
 from app.repositories.lesson_repository import LessonRepository, LessonVisibility
 from app.repositories.person_repository import PersonRepository
 from app.schemas.lesson import LessonCreate, LessonUpdate
@@ -36,6 +39,7 @@ from app.services.lesson_guard import (
     assert_band_editable,
     assert_bands_claimed,
     assert_bands_editable,
+    assert_teacher_not_excluded,
 )
 from app.services.teacher_occupancy import (
     MAX_CONCURRENT_STUDENTS,
@@ -79,6 +83,11 @@ _OUTSIDE_PRESENCE_ERROR: Final[str] = (
 
 _STUDENT_OVERLAP_ERROR: Final[str] = (
     "Uno studente ha già un'altra lezione a quest'ora."
+)
+
+# An activity occupies the teacher outright: unlike lessons, it never overlaps.
+_ACTIVITY_OVERLAP_ERROR: Final[str] = (
+    "Il docente ha un'attività in calendario a quest'ora."
 )
 
 _MISSING_COMPETENCE_ERROR: Final[str] = (
@@ -329,6 +338,21 @@ class LessonService:
                 detail=too_many_students_error(),
             )
 
+        occupied = await CalendarActivityRepository(
+            self.session,
+        ).find_teacher_overlap(
+            teacher_tax_code=availability.teacher_tax_code,
+            day=availability.date,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        if occupied is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_ACTIVITY_OVERLAP_ERROR,
+            )
+
         busy = await self.repository.find_student_overlap(
             student_tax_codes=student_tax_codes,
             day=availability.date,
@@ -544,6 +568,12 @@ class LessonService:
         band = assert_within_single_band(payload.start_time, payload.end_time)
         await assert_band_editable(self.session, availability.date, band)
         await assert_band_claimed(self.session, identity, availability.date, band)
+        await assert_teacher_not_excluded(
+            self.session,
+            availability.date,
+            band,
+            availability.teacher_tax_code,
+        )
 
         self._assert_within_availability(
             availability,
@@ -667,9 +697,7 @@ class LessonService:
             self.session,
             [(lesson.date, lesson.band)],
         )
-        # The band it is leaving as well as the one it is going to, which
-        # _validate takes care of: moving an hour out of an afternoon somebody
-        # else is building is as much a change to that afternoon as adding one.
+        # Both the band it leaves and the one it enters are affected.
         await assert_bands_claimed(
             self.session,
             identity,

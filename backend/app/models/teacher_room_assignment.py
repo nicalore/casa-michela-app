@@ -13,24 +13,14 @@ if TYPE_CHECKING:
     from app.models.room import Room
 
 
-# Where a teacher works on a given day. Assigned once the lessons are settled
-# and for the whole day, because that is how the association actually runs: a
-# teacher takes a room in the afternoon and stays in it, teaching whoever is in
-# front of them and whoever is on a screen out of the same seat.
-#
-# Only teachers who are in the building get one. Someone connecting from home
-# occupies no room, and asking which one they are in has no answer.
-#
-# Both foreign keys restrict: this table is as much a record as the lessons
-# are — who was in which room is exactly what has to be reconstructible months
-# later — so neither the teacher nor the room can be deleted out from under it.
+# One room per teacher for the whole day; only in-building teachers get one.
+# Both FKs RESTRICT: who was in which room must stay reconstructible later.
 class TeacherRoomAssignment(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "teacher_room_assignments"
 
     __table_args__ = (
-        # Trivially satisfied, since the first two columns are already the
-        # primary key. It exists to be the target of the supervisions' composite
-        # foreign key: Postgres wants a UNIQUE on exactly the columns referenced.
+        # Trivially satisfied (the columns are the PK); exists only because the
+        # supervisions' composite FK needs a UNIQUE on the referenced columns.
         UniqueConstraint(
             "date",
             "teacher_tax_code",

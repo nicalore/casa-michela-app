@@ -17,21 +17,14 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 
-// Both values are short, so the labels only need the room the longer of the two
-// asks for.
 const double _labelWidth = 170;
 
-// Side by side at the foot of the dialog, so both stand at the height and the
-// type size the role dialog gives its own.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// The date the app writes everywhere, and the clock this country reads.
 final DateFormat _lastLoginFormat = DateFormat('dd/MM/yyyy, HH:mm');
 
-// It is written at every successful login, so on a session that just started it
-// says now. Absent only for an account that has never been through the login
-// screen at all.
+// Null only for an account that has never logged in.
 String _formatLastLogin(DateTime? lastLogin)
 {
   if (lastLogin == null)
@@ -135,9 +128,8 @@ class _AccountTabState extends State<AccountTab>
     final me = _me!;
 
     return SingleChildScrollView(
-      // The side padding is on top of the page's own margin, which is why it
-      // goes on a narrow window: sixteen and thirty-two together are a fifth of
-      // a phone screen spent on air.
+      // Side padding adds to the page margin, so it is dropped on narrow
+      // windows.
       padding: EdgeInsets.only(
         top: 16,
         left: AppBreakpoints.of(context).isCompact ? 0 : 32,
@@ -145,8 +137,6 @@ class _AccountTabState extends State<AccountTab>
         bottom: 32,
       ),
       child: Center(
-        // Narrow: the card carries two values, and stretched to the width of the
-        // profile's cards it would be mostly empty paper.
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: Column(
@@ -177,9 +167,6 @@ class _AccountTabState extends State<AccountTab>
                   ],
                 ),
               ),
-              // Out of the card and in the middle of the page: it is the one
-              // thing this section is for, and inside the card it read as a
-              // footnote to the username above it.
               const SizedBox(height: 40),
               Center(
                 child: AppGradientButton(
@@ -230,15 +217,11 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
     super.dispose();
   }
 
-  // Rebuilds so the meter follows the new password and the two fields can say
-  // whether they agree, both as they are typed.
   void _onTypedPasswordChanged()
   {
     setState(() {});
   }
 
-  // Nothing to say until there is something to compare: an empty confirmation is
-  // a field waiting to be filled in, not a mismatch.
   Widget _buildMatchHint()
   {
     final String newPassword = _newPasswordController.text;
@@ -316,9 +299,9 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
 
     try
     {
-      // changePassword reuses the current session refresh token internally. The
-      // session stays valid afterwards (the backend revokes every refresh token
-      // except the one just used), so no re-login is needed.
+      // changePassword reuses the current session refresh token; the backend
+      // revokes every other one, so the session stays valid and no re-login is
+      // needed.
       await ApiService().changePassword(
         currentPassword: oldPassword,
         newPassword: newPassword,
@@ -364,7 +347,6 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
         ),
       ),
       children: [
-        // Chi sei ora, e cosa diventi: due domande diverse, due pilloline.
         AppDialogPill(
           expand: true,
           child: PasswordField(
@@ -395,10 +377,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
                 hintText: 'Ripeti nuova password',
               ),
               const SizedBox(height: 8),
-              // Said while typing rather than after pressing save: two fields
-              // that do not match are the one mistake that can be pointed out
-              // before it is finished. The line keeps its height even with
-              // nothing to say, so the buttons below do not move.
+              // Keeps its height even when empty, so the buttons do not move.
               _buildMatchHint(),
             ],
           ),

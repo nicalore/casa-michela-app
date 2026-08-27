@@ -64,8 +64,7 @@ class OpeningDayService:
         return opening_day
 
     async def create(self, payload: OpeningDayCreate) -> OpeningDay:
-        # Every row written through the API is by definition a manual touch by
-        # an admin: is_override is never accepted from the client.
+        # is_override is never accepted from the client; API writes are always manual.
         opening_day = OpeningDay(
             date=payload.date,
             mode=payload.mode.value,
@@ -85,13 +84,8 @@ class OpeningDayService:
 
         return opening_day
 
-    # A day's hours written whole: the rows of that day and mode are replaced by
-    # the bands given, and no bands at all is the day being closed.
-    #
-    # One call and one transaction, which is what makes the difference between
-    # changing a day's hours and closing it: written row by row, a change passes
-    # through a moment with no hours on the day, and a day with no hours is one
-    # whose lessons are cleared and whose calendar is taken down.
+    # Replaces the day's rows for the mode in one transaction (no bands = closed);
+    # row-by-row writes would pass through a no-hours moment that clears the calendar.
     async def replace_day(self, payload: OpeningDayReplace) -> list[OpeningDay]:
         mode = payload.mode.value
         day = payload.date
@@ -145,8 +139,7 @@ class OpeningDayService:
             entity_label=_ENTITY_LABEL,
         )
 
-        # Read before the row is touched: a query made after it would autoflush
-        # the new hours and find them already in place.
+        # Read before the row is touched: a later query would autoflush the new hours.
         watch = await self._watch([opening_day.date])
 
         opening_day.start_time = payload.start_time
@@ -159,9 +152,8 @@ class OpeningDayService:
             purged = await self._purge_closed([opening_day.date], opening_day.mode)
             await watch.settle(confirmed=payload.confirm, purged=purged)
             await self.repository.commit()
-            # updated_at has a server-side onupdate: after the UPDATE is flushed
-            # the attribute stays expired, and serialising the response would
-            # attempt a lazy load outside the async context (MissingGreenlet).
+            # updated_at has a server-side onupdate; without a refresh, serializing
+            # would lazy-load outside the async context (MissingGreenlet).
             await self.repository.refresh(opening_day)
 
         return opening_day
@@ -178,9 +170,6 @@ class OpeningDayService:
         await watch.settle(confirmed=confirmed, purged=purged)
         await self.repository.commit()
 
-    # Every way of writing the calendar ends here: an hour offered or booked
-    # against the old opening and left outside the new one goes, and a date with
-    # no opening left is only the widest case of that.
     async def _purge_closed(self, dates: Sequence[date], mode: str) -> PurgedHours:
         return await purge_hours_outside_openings(
             self.repository.session,
@@ -188,9 +177,7 @@ class OpeningDayService:
             mode,
         )
 
-    # And here: a band whose hours moved sends its calendar back into bozza, and
-    # one left with no hours at all loses it. Taken before the write and settled
-    # after it, so what it compares is the change itself.
+    # Taken before the write and settled after, so it compares the change itself.
     async def _watch(self, dates: Sequence[date]) -> CalendarHoursWatch:
         return await CalendarHoursWatch.taken(self.repository.session, dates)
 
@@ -215,10 +202,8 @@ class OpeningDayService:
         for current in dates:
             label = holiday_label(current)
 
-            # Holidays stay holidays: on those dates the closure is rewritten
-            # with the name of the recurrence rather than the template hours,
-            # otherwise undoing a special opening on a holiday would leave the
-            # association open.
+            # Holidays are rewritten as closures, not template hours; otherwise
+            # undoing a special opening on a holiday would leave the association open.
             if label is not None:
                 rows.append(
                     OpeningDay(
@@ -247,17 +232,8 @@ class OpeningDayService:
 
         return rows
 
-    # Brings a range back to the standard hours, discarding the variations: the
-    # inverse of an extraordinary closure or opening. The rows of those dates are
-    # deleted and rewritten from the weekly templates with is_override False, so
-    # the days become indistinguishable from generated ones — deleting alone
-    # would leave them with no band at all, that is neither open nor closed.
-    #
-    # It stops at the last already materialised date, like template propagation
-    # does: beyond that horizon the calendar does not exist yet, and writing it
-    # from here would produce days whose holidays were never seeded.
-    #
-    # Returns (restored days, rows written).
+    # Rewrites the range from the weekly templates (is_override False), stopping at
+    # the last materialised date. Returns (restored days, rows written).
     async def restore_standard(
         self,
         *,
@@ -266,8 +242,7 @@ class OpeningDayService:
         mode: str,
         confirmed: bool = False,
     ) -> tuple[int, int]:
-        # Read before the deletion: afterwards the horizon could be one of the
-        # very dates being removed.
+        # Read before the deletion: the horizon could be one of the dates removed.
         horizon = await self.repository.last_generated_date(mode)
 
         watch = await self._watch([
@@ -282,8 +257,7 @@ class OpeningDayService:
         )
 
         if horizon is None:
-            # Nothing materialised for this mode: there is no standard to
-            # rewrite, and inventing one here would be generation.
+            # Nothing materialised for this mode: no standard to rewrite.
             last_date = date_from - timedelta(days=1)
         else:
             last_date = min(date_to, horizon)
@@ -298,9 +272,7 @@ class OpeningDayService:
         async with integrity_guard(self.repository.session, _RESTORE_ERROR):
             await self.repository.create_many(to_create)
 
-            # Going back to the standard hours can shut a day a special opening
-            # had opened, or narrow it: what was given against the opening that
-            # is gone goes with it.
+            # Restoring standard hours can narrow or shut a day a special opening opened.
             purged = await self._purge_closed(restored_dates, mode)
             await watch.settle(confirmed=confirmed, purged=purged)
             await self.repository.commit()

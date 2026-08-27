@@ -6,22 +6,24 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_widgets.dart';
+import '../widgets/teacher_rating_dots.dart';
 
 const int _adultAge = 18;
 
-// Convention of the backend: an empty birth province means born abroad, and the
-// nation is shown in its place.
+// Backend convention: province 'EE' means born abroad; the nation is shown
+// instead.
 const String _abroadProvinceCode = 'EE';
 
 const String _otherOptionCode = 'OTHER';
+
+const String _dsaOptionCode = 'DSA';
 
 String _formatDate(DateTime? date)
 {
   return date == null ? missingValue : DateFormat('dd/MM/yyyy').format(date);
 }
 
-// Both the backend code and the already translated label are accepted, because
-// the two forms are not consistent across endpoints.
+// Accepts both the code and the label: endpoints are inconsistent.
 String? _adminRoleLabel(String role)
 {
   return switch (role)
@@ -58,8 +60,6 @@ class PersonInfoTab extends StatelessWidget
 
   Set<String> get _upperCaseRoles => person.roles.map((role) => role.toUpperCase()).toSet();
 
-  // When the value is "other" the free text is shown directly, without the word
-  // "Altro" in front of it.
   String get _adminRoleText
   {
     final role = person.adminRole;
@@ -94,8 +94,7 @@ class PersonInfoTab extends StatelessWidget
     return _paymentMethodLabel(method) ?? method;
   }
 
-  // Null when no certification is declared, so the row can be omitted entirely
-  // rather than shown as a dash.
+  // Null when no certification is declared, so the row can be omitted entirely.
   String? get _certificationText
   {
     final type = person.certificationType;
@@ -108,7 +107,6 @@ class PersonInfoTab extends StatelessWidget
     return type == _otherOptionCode ? orDash(person.certificationOtherDetail) : type;
   }
 
-  // Type and street name are stored apart but read as one line.
   String get _residenceAddress
   {
     final joined =
@@ -132,6 +130,18 @@ class PersonInfoTab extends StatelessWidget
     }
 
     return earlyExit ? 'Autorizzata' : 'Non autorizzata';
+  }
+
+  String get _highSchoolStudentText
+  {
+    final isHighSchoolStudent = person.isHighSchoolStudent;
+
+    if (isHighSchoolStudent == null)
+    {
+      return missingValue;
+    }
+
+    return isHighSchoolStudent ? 'Sì' : 'No';
   }
 
   Widget _buildIdentityAndResidence()
@@ -197,9 +207,6 @@ class PersonInfoTab extends StatelessWidget
     return SizedBox(width: double.infinity, child: card);
   }
 
-  // Cards that only make sense for some roles or ages. Each entry is built lazily
-  // by the caller and null ones are dropped, so the spacing between them stays
-  // consistent whatever combination applies.
   List<Widget> _buildRoleSpecificCards()
   {
     final roles = _upperCaseRoles;
@@ -210,7 +217,7 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Modalità di pagamento',
         icon: Icons.payments_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [DetailRowData('Modalità', _paymentMethodText)],
       ));
     }
@@ -224,7 +231,7 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Dettagli collaborazione',
         icon: Icons.account_balance_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [
           DetailRowData('Tipo collaborazione', orDash(person.collaborationType)),
           DetailRowData('IBAN', orDash(person.iban), isSensitive: true),
@@ -237,7 +244,7 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Dettagli amministratore',
         icon: Icons.computer_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [DetailRowData('Ruolo', _adminRoleText)],
       ));
     }
@@ -247,10 +254,18 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Dettagli docente',
         icon: Icons.school_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [
+          // Only admins receive the rating from the server.
+          if (person.teacherRating != null)
+            DetailRowData.drawn(
+              'Valutazione',
+              TeacherRatingDots(value: person.teacherRating!),
+            ),
+          DetailRowData('Studente delle superiori', _highSchoolStudentText),
           DetailRowData('Studi scolastici', orDash(person.schoolEducation)),
-          DetailRowData('Studi universitari', orDash(person.universityEducation)),
+          if (person.isHighSchoolStudent != true)
+            DetailRowData('Studi universitari', orDash(person.universityEducation)),
         ],
       ));
     }
@@ -262,11 +277,17 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Dettagli studente',
         icon: Icons.menu_book_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [
           DetailRowData('Uscita anticipata', _earlyExitText),
           if (certification != null)
             DetailRowData('Certificazione', certification, isSensitive: true),
+          if (person.certificationType == _dsaOptionCode)
+            DetailRowData(
+              'Tipo di DSA',
+              orDash(person.certificationDsaDetail),
+              isSensitive: true,
+            ),
         ],
       ));
     }
@@ -276,7 +297,7 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Dettagli corsista',
         icon: Icons.self_improvement_rounded,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [
           DetailRowData('Tipo corso', orDash(person.courseType)),
           DetailRowData(
@@ -292,7 +313,7 @@ class PersonInfoTab extends StatelessWidget
       cards.add(PersonDetailCard(
         title: 'Sicurezza del minore',
         icon: Icons.health_and_safety_outlined,
-        labelWidth: 205,
+        labelWidth: kPersonWideCardLabelWidth,
         rows: [
           DetailRowData('Contatto emergenza', orDash(person.emergencyContactName)),
           DetailRowData('Telefono emergenza', orDash(formatPhoneNumber(person.emergencyContactPhone))),

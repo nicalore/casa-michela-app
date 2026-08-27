@@ -4,16 +4,14 @@ from typing import Final
 
 from app.models.lesson import Lesson
 
-# The limit is on people and not on rows: overlapping lessons are legitimate at
-# a doposcuola, but a group hour of two already fills the teacher up.
+# The limit counts people, not lessons: a group hour of two fills the teacher.
 MAX_CONCURRENT_STUDENTS: Final[int] = 2
 
 _TOO_MANY_STUDENTS_ERROR: Final[str] = (
     "Non è possibile sovrapporre più di {maximum} lezioni."
 )
 
-# A remote hour is alone for its whole length: a teacher in a call cannot turn
-# from it to somebody sitting beside them.
+# A remote hour is exclusive for its whole length.
 _ONLINE_CANNOT_OVERLAP_ERROR: Final[str] = (
     "Le lezioni online non possono avere sovrapposizioni."
 )
@@ -34,12 +32,8 @@ def online_cannot_overlap_error() -> str:
     return _ONLINE_CANNOT_OVERLAP_ERROR
 
 
-# The busiest moment of a teacher's day, in pupils. Summing the weights is safe
-# because the same pupil cannot be in two overlapping lessons — a rule of its
-# own, checked beside this one.
-#
-# Sorting by (moment, delta) puts closures before openings at the same instant,
-# so an hour ending at 15:00 and one starting at 15:00 do not overlap.
+# Summing weights is safe: a pupil cannot overlap themselves (checked
+# elsewhere). (moment, delta) sorts closures first, so touching hours never overlap.
 def peak_concurrent_students(spans: Sequence[StudentSpan]) -> int:
     events: list[tuple[time, int]] = []
 
@@ -59,8 +53,6 @@ def peak_concurrent_students(spans: Sequence[StudentSpan]) -> int:
     return peak
 
 
-# Whether any of these overlapping hours is remote, the new one included. With
-# nothing to overlap there is nothing to refuse, whatever mode it is in.
 def overlaps_an_online_hour(overlapping: Sequence[Lesson], *, mode: str) -> bool:
     if not overlapping:
         return False
@@ -68,8 +60,7 @@ def overlaps_an_online_hour(overlapping: Sequence[Lesson], *, mode: str) -> bool
     return mode == "online" or any(row.mode == "online" for row in overlapping)
 
 
-# The stored spans plus the one being written. A lesson being rewritten has to
-# have been left out by the caller, or it is counted twice.
+# A lesson being rewritten must be excluded by the caller or it counts twice.
 def spans_with(
     lessons: Sequence[Lesson],
     *,

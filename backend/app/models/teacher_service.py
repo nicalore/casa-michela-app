@@ -12,10 +12,8 @@ if TYPE_CHECKING:
     from app.models.teacher import Teacher
 
 
-# A service a teacher can take on: the twin of TeachingCompetence, minus the
-# study programme. A discipline is taught differently to a first year and to a
-# fifth, whereas a service is the same help whoever asks for it, so the key is
-# just the teacher and the service.
+# Twin of TeachingCompetence minus the study programme: a service is the same
+# help whoever asks, so the key is just (teacher, service).
 class TeacherService(Base):
     __tablename__ = "teacher_services"
 
@@ -25,8 +23,7 @@ class TeacherService(Base):
     )
 
     service_name: Mapped[str] = mapped_column(
-        # A service is keyed by its name, which can be renamed: onupdate keeps
-        # the teachers who offer it attached across a rename.
+        # Services are keyed by a renameable name: onupdate keeps rows attached.
         ForeignKey("services.name", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
         index=True,

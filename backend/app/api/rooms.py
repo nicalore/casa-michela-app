@@ -6,8 +6,7 @@ from app.repositories.room_repository import RoomRepository
 from app.schemas.room import RoomCreate, RoomResponse, RoomUpdate
 from app.services.room_service import RoomService
 
-# Administrators only, throughout. A teacher never needs to browse the
-# catalogue: the room they are in arrives inside the lesson itself.
+# Administrators only: teachers get their room inside the lesson itself.
 router = APIRouter(
     prefix="/rooms",
     tags=["rooms"],

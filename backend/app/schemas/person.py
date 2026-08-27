@@ -1,9 +1,41 @@
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated, Final, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.core import field_lengths
+from app.models.student import CertificationTypeEnum
 from app.models.study_program import EducationLevelEnum
+from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
+from app.schemas.validators import OptionalCleanStr
+
+_UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
+    "Un docente che frequenta le superiori non può dichiarare studi universitari."
+)
+
+_MISSING_DSA_DETAIL_ERROR: Final[str] = (
+    "Per una certificazione DSA va indicato di quale disturbo si tratta."
+)
+
+_RATING_STEP_ERROR: Final[str] = (
+    "La valutazione di un docente si muove di mezzo punto alla volta."
+)
+
+
+def _half_point(value: Decimal) -> Decimal:
+    if value % RATING_STEP != 0:
+        raise ValueError(_RATING_STEP_ERROR)
+
+    return value
+
+
+# Decimal, not float: a float like 3.4999 would pass here and fail in the DB.
+TeacherRating = Annotated[
+    Decimal,
+    Field(ge=RATING_MINIMUM, le=RATING_MAXIMUM),
+    AfterValidator(_half_point),
+]
 
 
 class PersonOption(BaseModel):
@@ -107,10 +139,31 @@ class TeacherCompetenceUpdateItem(BaseModel):
     study_program_ids: list[int]
 
 
-class TeacherUpdateData(BaseModel):
-    school_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
-    university_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
+class TeacherEducationData(BaseModel):
+    # False means university or beyond.
+    is_high_school_student: bool
+    school_education: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.EDUCATION,
+    )
+    university_education: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.EDUCATION,
+    )
+
+    @model_validator(mode="after")
+    def _university_education_only_after_high_school(self) -> Self:
+        if self.is_high_school_student and self.university_education is not None:
+            raise ValueError(_UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR)
+
+        return self
+
+
+class TeacherUpdateData(TeacherEducationData):
     competences: list[TeacherCompetenceUpdateItem] | None = None
+
+    # None means "leave unchanged": only administrators see or write the rating.
+    rating: TeacherRating | None = None
 
     service_names: list[str] | None = None
     expected_updated_at: datetime | None = None
@@ -132,13 +185,30 @@ class SchoolEnrollmentUpdateItem(BaseModel):
     grade: int
 
 
-class StudentUpdateData(BaseModel):
-    authorized_early_exit: bool
+class StudentCertificationData(BaseModel):
     certification_type: str | None = None
-    certification_other_detail: str | None = Field(
+    certification_other_detail: OptionalCleanStr = Field(
         None,
         max_length=field_lengths.OTHER_DETAIL,
     )
+    certification_dsa_detail: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.DSA_DETAIL,
+    )
+
+    @model_validator(mode="after")
+    def _a_dsa_certification_says_which(self) -> Self:
+        if (
+            self.certification_type == CertificationTypeEnum.DSA
+            and self.certification_dsa_detail is None
+        ):
+            raise ValueError(_MISSING_DSA_DETAIL_ERROR)
+
+        return self
+
+
+class StudentUpdateData(StudentCertificationData):
+    authorized_early_exit: bool
     mandatory_psych_meetings_acknowledged: bool
 
     school_enrollments: list[SchoolEnrollmentUpdateItem]
@@ -288,6 +358,7 @@ class PersonResponse(BaseModel):
 
     certification_type: str | None = None
     certification_other_detail: str | None = None
+    certification_dsa_detail: str | None = None
     mandatory_psych_meetings_acknowledged: bool | None = None
 
     payment_method: str | None = None
@@ -307,8 +378,11 @@ class PersonResponse(BaseModel):
     iban: str | None = None
     admin_role: str | None = None
     admin_other_role: str | None = None
+    is_high_school_student: bool | None = None
     school_education: str | None = None
     university_education: str | None = None
+    # None for non-teachers, and never sent to non-administrator viewers.
+    teacher_rating: float | None = None
     medical_certificate_expiration: date | None = None
 
     member_updated_at: datetime | None = None

@@ -75,9 +75,7 @@ async def _assert_name_available(
     *,
     exclude_id: int | None = None,
 ) -> None:
-    # Checked up front only to return a readable message: UNIQUE(name, city)
-    # stays the actual guarantee against a concurrent insert, and is handled
-    # by the IntegrityError branch of each endpoint.
+    # Pre-checked only for a readable message; UNIQUE(name, city) handles races.
     stmt = select(School).where(School.name == name, School.city == city)
 
     if exclude_id is not None:
@@ -180,8 +178,7 @@ async def update_school(
     to_remove = current_ids - requested_ids
     to_add = requested_ids - current_ids
 
-    # A study program can only be detached from the school if no enrollment,
-    # current or past, ever referenced it.
+    # Detachable only if no enrollment, current or past, ever referenced it.
     if to_remove:
         await _assert_programs_not_attended(db, school_id, to_remove)
 

@@ -3,17 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
-// A secondary command: an outlined pill that lights up gold under the pointer,
-// like every other pressable thing in the app. It replaced the underlined links,
-// which were the only thing answering the pointer with a rule instead of an
-// outline.
-
 class AppQuietButton extends StatefulWidget
 {
   final String label;
   final VoidCallback onTap;
 
-  // The symbol to the left of the word.
   final IconData icon;
 
   const AppQuietButton({
@@ -59,9 +53,6 @@ class _AppQuietButtonState extends State<AppQuietButton>
             children: [
               Icon(widget.icon, size: 18, color: AppTheme.trialTealDeep),
               const SizedBox(width: 8),
-              // Flexible: on a narrow screen a phrase like "Password
-              // dimenticata?" is wider than the pill holding it, and a pill
-              // cannot overflow.
               Flexible(
                 child: Text(
                   widget.label,

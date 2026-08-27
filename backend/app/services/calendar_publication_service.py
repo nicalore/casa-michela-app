@@ -16,11 +16,17 @@ from app.models.booking_disciplines import loaded_disciplines
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
 from app.repositories.booking_repository import BookingRepository
+from app.repositories.calendar_activity_repository import (
+    CalendarActivityRepository,
+)
 from app.repositories.calendar_band_lock_repository import (
     CalendarBandLockRepository,
 )
 from app.repositories.calendar_publication_repository import (
     CalendarPublicationRepository,
+)
+from app.repositories.calendar_teacher_exclusion_repository import (
+    CalendarTeacherExclusionRepository,
 )
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.person_repository import PersonRepository
@@ -32,7 +38,11 @@ from app.repositories.teacher_room_assignment_repository import (
 from app.schemas.calendar_publication import CalendarPublicationCreate
 from app.services.calendar_snapshot import differs, restore, snapshot_of
 from app.services.lesson_guard import assert_band_claimed
-from app.services.room_occupancy import capacity_warnings, teachers_in_building
+from app.services.room_occupancy import (
+    capacity_warnings,
+    rooms_left_open,
+    teachers_in_building,
+)
 
 _NOT_FOUND_ERROR: Final[str] = "Questo calendario non è pubblicato."
 _NOT_IN_DRAFT_ERROR: Final[str] = "Questo calendario non è in bozza."
@@ -57,6 +67,20 @@ _UNCOVERED_DISCIPLINES_ERROR: Final[str] = (
 _UNPLANNED_ERROR: Final[str] = (
     "Alcune prenotazioni non sono state pianificate: {students}. Mettile in "
     "calendario o annullale prima di pubblicare."
+)
+
+_UNASSIGNED_ACTIVITIES_ERROR: Final[str] = (
+    "Alcune attività non sono state assegnate a nessun docente: {names}. "
+    "Assegnale o eliminale prima di pubblicare."
+)
+
+_TEACHERS_WITHOUT_A_ROOM_ERROR: Final[str] = (
+    "Alcuni docenti in presenza non hanno una stanza assegnata: {teachers}."
+)
+
+_ROOMS_LEFT_OPEN_ERROR: Final[str] = (
+    "Alcune stanze non hanno un responsabile per tutte le ore di lezione: "
+    "{rooms}."
 )
 
 _NOT_YOURS_TO_DISCARD_ERROR: Final[str] = (
@@ -102,13 +126,8 @@ class CalendarPublicationService:
     def session(self):  # noqa: ANN201 - mirrors the other services
         return self.repository.session
 
-    # The requests of the band that are on no lesson at all.
-    #
-    # Everything below reads the requests through the lessons that teach them,
-    # so a request nobody ever looked at was checked nowhere: the band went out
-    # ignoring it. Building a calendar before the requests close is the ordinary
-    # way of ending up with one — the ones that arrive afterwards land on a
-    # calendar that is already finished.
+    # Coverage checks below read requests through their lessons, so a request on
+    # no lesson at all must be caught here.
     async def _assert_nothing_left_out(self, day: date, band: str) -> None:
         start_time, end_time = band_bounds(TimeBandEnum(band))
 
@@ -210,16 +229,92 @@ class CalendarPublicationService:
     ) -> Sequence[CalendarPublication]:
         return await self.repository.list(date_from=date_from, date_to=date_to)
 
-    # The band as the people it was sent to can see it, kept whole so that
-    # leaving the bozza can put it back.
+    # Full snapshot of the band, so leaving the draft can restore it.
     async def picture_of(self, day: date, band: str) -> dict:
         lessons = await self.lessons.list_for_band(day, band)
         assignments = await self.assignments.list_for_day(day)
         supervisions = await self.supervisions.list_for_day(day)
+        activities = await CalendarActivityRepository(self.session).list_for_band(
+            day,
+            band,
+        )
+        exclusions = await CalendarTeacherExclusionRepository(
+            self.session,
+        ).list_for_band(day, band)
 
-        return snapshot_of(lessons, assignments, supervisions)
+        return snapshot_of(
+            lessons,
+            assignments,
+            supervisions,
+            activities,
+            exclusions,
+        )
 
-    # Whether closing the bozza would send the calendar out again.
+    # Unassigned activities become unreachable once the band is published.
+    async def _assert_activities_assigned(self, day: date, band: str) -> None:
+        waiting = await CalendarActivityRepository(
+            self.session,
+        ).find_unassigned_for_band(day, band)
+
+        if not waiting:
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNASSIGNED_ACTIVITIES_ERROR.format(
+                names=_joined([activity.name for activity in waiting]),
+            ),
+        )
+
+    # Scoped to the band's lessons (days are published a band at a time) but the
+    # day's supervision shifts. Checked only at publish: later edits could undo it.
+    async def _assert_rooms_settled(
+        self,
+        day: date,
+        lessons: Sequence[Lesson],
+    ) -> None:
+        expected = teachers_in_building(lessons)
+
+        if not expected:
+            return
+
+        assignments = await self.assignments.find_for_teachers(day, expected)
+        adrift = expected - {row.teacher_tax_code for row in assignments}
+
+        if adrift:
+            people = await PersonRepository(self.session).get_options(adrift)
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_TEACHERS_WITHOUT_A_ROOM_ERROR.format(
+                    teachers=_joined(
+                        [_person_label(people.get(code)) for code in adrift],
+                    ),
+                ),
+            )
+
+        left_open = rooms_left_open(
+            lessons,
+            assignments,
+            await self.supervisions.find_for_rooms(
+                day,
+                {row.room_id for row in assignments},
+            ),
+        )
+
+        if not left_open:
+            return
+
+        rooms = await self.rooms.find_by_ids(sorted(left_open))
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ROOMS_LEFT_OPEN_ERROR.format(
+                rooms=_joined([room.name for room in rooms]),
+            ),
+        )
+
+    # Whether closing the draft would send the calendar out again.
     async def has_changes(self, publication: CalendarPublication) -> bool:
         stored = publication.draft_snapshot
 
@@ -275,6 +370,8 @@ class CalendarPublicationService:
         lessons = await self.lessons.list_for_band(day, band)
 
         await self._assert_requests_covered(day, band, lessons)
+        await self._assert_activities_assigned(day, band)
+        await self._assert_rooms_settled(day, lessons)
 
         changed = await self.has_changes(publication)
 
@@ -295,14 +392,8 @@ class CalendarPublicationService:
 
         return publication, warnings, changed
 
-    # Leaving a bozza puts the band back as it was when the bozza opened, so it
-    # is only ever the opener's to leave: anybody else would be undoing their
-    # own afternoon along with everyone else's, and would have no way of seeing
-    # it coming. The band lock cannot answer this — it lasts a minute and a
-    # half, and a bozza can stay open overnight.
-    #
-    # A bozza with nobody's name on it was opened before this existed, and is
-    # left alone: the same as an expected_updated_at that never arrives.
+    # Only the opener may discard, since discarding undoes everything since the
+    # draft opened. Drafts with no opener predate this check and are left alone.
     async def _assert_theirs_to_discard(
         self,
         publication: CalendarPublication,
@@ -322,9 +413,6 @@ class CalendarPublicationService:
             ),
         )
 
-    # The sitting is over, so the band goes back to everybody. Holding it any
-    # longer would only keep the next person out of a calendar nobody is
-    # working on.
     async def _let_go(self, identity: IdentityContext, day: date, band: str) -> None:
         await CalendarBandLockRepository(self.session).release(
             day,
@@ -380,14 +468,14 @@ class CalendarPublicationService:
 
         assert_ready_to_publish(payload.date, payload.band, self.now())
 
-        # Publishing is the last thing done to a band, so it is done by whoever
-        # was doing the others: it takes the lock like any other change, which
-        # is also what keeps two administrators from publishing at once.
+        # Takes the band lock; also keeps two administrators from publishing at once.
         await assert_band_claimed(self.session, identity, payload.date, band)
 
         lessons = await self.lessons.list_for_band(payload.date, band)
 
         await self._assert_requests_covered(payload.date, band, lessons)
+        await self._assert_activities_assigned(payload.date, band)
+        await self._assert_rooms_settled(payload.date, lessons)
 
         warnings = await self._capacity_warnings(payload.date, lessons)
 
@@ -406,14 +494,8 @@ class CalendarPublicationService:
 
         return publication, warnings
 
-    # Leaving the bozza without publishing, which undoes the work in it: the
-    # part of the day goes back to what it was when the bozza was opened.
-    #
-    # This is what the whole picture is kept for, where an impression would only
-    # ever have been able to say whether something had changed. What cannot come
-    # back is an hour whose availability was withdrawn or whose request was
-    # cancelled while the bozza was open — those took it with them either way —
-    # and how many of them there were goes back to the caller to be said.
+    # Restores the band to its snapshot; returns how many lessons could not come
+    # back (availability withdrawn or request cancelled while the draft was open).
     async def discard(
         self,
         identity: IdentityContext,

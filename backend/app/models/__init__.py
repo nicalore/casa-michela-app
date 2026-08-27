@@ -4,8 +4,10 @@ from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_teacher_preference import BookingTeacherPreference
+from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
+from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
@@ -46,8 +48,10 @@ __all__ = [
     "Availability",
     "Booking",
     "BookingTeacherPreference",
+    "CalendarActivity",
     "CalendarBandLock",
     "CalendarPublication",
+    "CalendarTeacherExclusion",
     "CourseParticipant",
     "Lesson",
     "LessonBooking",

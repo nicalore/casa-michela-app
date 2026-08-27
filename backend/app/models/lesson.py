@@ -51,31 +51,18 @@ _DATE_MISMATCH_ERROR: Final[str] = (
     "Le prenotazioni di una lezione devono essere nello stesso giorno della lezione"
 )
 
-# The same bounds as app/core/time_band.py, and they have to move with it.
+# Must stay in sync with the bounds in app/core/time_band.py.
 _BAND_EXPRESSION: Final[str] = (
     "CASE WHEN start_time < TIME '13:00' THEN 'MORNING' "
     "WHEN start_time < TIME '19:00' THEN 'AFTERNOON' "
     "ELSE 'EVENING' END"
 )
 
-# A (parent id, child id) pair of a link row this flush is removing.
 _LinkKey = tuple[Any, Any]
 
 
-# One hour of teaching: a teacher's offer, the hours it is spent on, and the
-# disciplines it covers out of what those hours asked for.
-#
-# Two modes because they answer different questions. teacher_mode says where the
-# teacher is, mode says how the hour reaches the pupils, and a teacher at home
-# cannot take a pupil in the room — that asymmetry is lesson_mode_compatible.
-#
-# date and teacher_mode cannot drift: they are three quarters of a composite
-# foreign key. They are on the row because a day is read by day, and an index
-# cannot reach across two tables.
-#
-# RESTRICT and no onupdate: a stored lesson makes its availability neither
-# movable nor deletable, so moving it fails loudly instead of dragging the
-# lesson to a day nothing has been checked against.
+# date and teacher_mode are denormalized but kept honest by the composite FK;
+# RESTRICT (and no onupdate) makes moving or deleting a booked availability fail.
 class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "lessons"
 
@@ -92,8 +79,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
         ),
         CheckConstraint("id > 0", name="positive_lesson_id"),
         CheckConstraint("end_time > start_time", name="lesson_end_after_start"),
-        # Subsumes the check above, which stays because it names a different
-        # mistake.
+        # Subsumes the check above, kept for its distinct error name.
         CheckConstraint(
             "end_time - start_time >= INTERVAL '30 minutes'",
             name="lesson_minimum_duration",
@@ -116,14 +102,13 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
             "teacher_mode = 'presence' OR mode = 'online'",
             name="lesson_mode_compatible",
         ),
-        # What makes the CASE of the generated column total.
+        # Keeps the band CASE expression total.
         CheckConstraint(
             "start_time >= TIME '06:00' AND start_time < TIME '23:00' "
             "AND end_time <= TIME '23:00'",
             name="lesson_within_day",
         ),
-        # Half-open, so the end may touch its band's end: noon to one is all
-        # morning. Publishing happens a band at a time.
+        # Bands are half-open: end_time may touch the band's end.
         CheckConstraint(
             "(start_time < TIME '13:00' AND end_time <= TIME '13:00') "
             "OR (start_time >= TIME '13:00' AND start_time < TIME '19:00' "
@@ -131,16 +116,14 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
             "OR start_time >= TIME '19:00'",
             name="lesson_within_band",
         ),
-        # Deliberately no unique index over (availability_id, start_time): a
-        # teacher taking two pupils from two o'clock is two rows with the same
-        # availability and start, and no natural key separates that from a
-        # double-click. What caps a day is the pupil count in teacher_occupancy.
+        # No unique (availability_id, start_time): two pupils at the same hour
+        # are two legitimate rows; teacher_occupancy caps the day.
         Index("ix_lesson_day", "date", "band"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    # Plain Integer: the foreign key is the composite one above.
+    # Plain Integer: the FK is the composite one above.
     availability_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -153,8 +136,6 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
 
     mode: Mapped[str] = mapped_column(String(20), nullable=False)
 
-    # A pure function of start_time, so the database computes it. Stored
-    # because an index is built on it.
     band: Mapped[str] = mapped_column(
         String(20),
         Computed(_BAND_EXPRESSION, persisted=True),
@@ -167,10 +148,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
 
     availability: Mapped[Availability] = relationship(back_populates="lessons")
 
-    # No room here: a room belongs to the teacher for the day, not to the hour.
-    # It is read through teacher_room_assignments.
-
-    # Ordered so two reads of the same lesson come back the same way.
+    # No room column: the room comes from teacher_room_assignments.
     lesson_bookings: Mapped[list[LessonBooking]] = relationship(
         back_populates="lesson",
         cascade="all, delete-orphan",
@@ -184,9 +162,7 @@ class Lesson(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
 
-# A related object as this flush leaves it. Read out of __dict__ and not off the
-# attribute: an unloaded attribute would be a lazy load, and under async that
-# cannot do IO.
+# Reads from __dict__, not the attribute: a lazy load cannot do IO under async.
 def _related[T](
     session: Session,
     instance: Any,
@@ -205,8 +181,6 @@ def _related[T](
     return session.get(model, identifier) if identifier is not None else None
 
 
-# Every lesson this flush says anything about. Keyed by identity, because a
-# lesson with no id yet is still one lesson.
 def _affected_lessons(session: Session) -> list[Lesson]:
     from app.models.lesson_booking import LessonBooking
     from app.models.lesson_discipline import LessonDiscipline
@@ -231,9 +205,8 @@ def _affected_lessons(session: Session) -> list[Lesson]:
     return list(affected.values())
 
 
-# The bookings a lesson is teaching, as this flush leaves it. A collection just
-# reassigned is the truth: the rows a replacement discards are not in
-# session.deleted yet, so the database would give the old answer.
+# A just-reassigned collection is authoritative: rows a replacement discards
+# are not in session.deleted yet, so the database would give the old answer.
 def _linked_bookings(
     session: Session,
     lesson: Lesson,
@@ -304,9 +277,8 @@ def _lesson_disciplines(
     }
 
 
-# The day a lesson falls on, filled in or not: SQLAlchemy synchronises composite
-# foreign key columns after this hook runs, so on a new lesson the availability
-# in __dict__ is the only thing that knows.
+# Composite FK columns sync after this hook, so a new lesson's date may only
+# exist on the availability in __dict__.
 def _lesson_date(lesson: Lesson) -> date | None:
     if lesson.date is not None:
         return lesson.date
@@ -334,13 +306,8 @@ def _deleted_discipline_keys(session: Session) -> set[_LinkKey]:
     }
 
 
-# What a lesson teaches has to be something its pupils asked for, and every
-# pupil has to be there for something it teaches. Both directions, which is what
-# makes a shared hour legitimate: Latin and Greek with one pupil for each is
-# fine, a pupil there for neither is in the wrong room.
-#
-# That the parts of a request cover all of it cannot be asked here — in a draft
-# the second half does not exist — so it is a condition for publishing.
+# Every taught discipline must be requested by some booking and every booking
+# must share a discipline with the lesson; full coverage is checked at publish.
 @event.listens_for(Session, "before_flush")
 def _validate_lesson_disciplines(
     session: Session,
@@ -380,9 +347,7 @@ def _validate_lesson_disciplines(
             raise ValueError(_BOOKING_NOT_ON_LESSON_SUBJECT_ERROR)
 
 
-# mode is the one denormalisation no foreign key can keep honest: it comes from
-# presences three tables away. One hour means all its pupils are in it the same
-# way and on the same day.
+# mode duplicates the presences' mode and no FK can enforce it; this hook does.
 @event.listens_for(Session, "before_flush")
 def _validate_lesson_student_mode(
     session: Session,

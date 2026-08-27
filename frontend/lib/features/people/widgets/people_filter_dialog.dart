@@ -38,11 +38,8 @@ class PeopleFilterDialog extends StatefulWidget
 
 class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 {
-  // Wide enough for a label over a field, and no wider: the filters are read
-  // one line at a time.
   static const double _cardWidth = 560;
 
-  // Which card of the filters is on screen, and which way it was reached.
   int _card = 0;
   bool _movingForward = true;
 
@@ -155,12 +152,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  // A choice among few, inside a filter.
-  //
-  // No chip lit means "any", which is why pressing the lit one switches it off:
-  // unlike a form field — where an answer is changed and not removed — a filter
-  // has to be able to go back to asking nothing. It is also why there is no
-  // "any" chip: it would be an answer saying nothing was answered.
+  // No chip lit means "any"; pressing the lit one switches it off.
   Widget _buildChoiceChips<T>({
     required T? value,
     required List<(T, String)> options,
@@ -189,23 +181,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     );
   }
 
-  // Not a heading drawn in place: a mark saying "a new piece starts here". The
-  // body is one long list of fields and the pieces are cut out of it at these,
-  // so a section that only shows up for one role does not have to know anything
-  // about the piece it ends up in.
+  // Marker, not a heading: _cardsOf cuts the body into cards at these.
   Widget _buildSectionTitle(String title) => _SectionBreak(title);
 
-  // A new piece on the same card. The roles and the filters everybody has
-  // belong together — they are what you set before anything else — but they are
-  // two different questions, and a piece each is what says so.
+  // Marker: starts a new piece on the same card.
   Widget _buildPillBreak() => const _PillBreak();
 
-  // Everything between one mark and the next, as a card of its own.
-  //
-  // The roles and the filters everybody has open the run; each role that has
-  // been ticked adds a card of its own after them. Which cards exist therefore
-  // changes as the roles are ticked, which is why the one on screen is clamped
-  // back into range on every build.
+  // Which cards exist changes as roles are ticked, so the card on screen is
+  // clamped back into range on every build.
   List<Widget> _cardsOf(List<Widget> parts)
   {
     final cards = <Widget>[];
@@ -266,9 +249,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         children: [
           for (var i = 0; i < pieces.length; i++) ...[
             if (i > 0) const SizedBox(height: _pieceGap),
-            // The stack counts the title as 0 and the body as 1, so the pieces
-            // inside the body carry on from there and keep arriving one after
-            // the other rather than all at once.
+            // The stack counts the title as 0 and the body as 1; pieces carry on.
             AppDialogPiece(index: 1 + i, named: false, child: pieces[i]),
           ],
         ],
@@ -332,8 +313,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     return AppDialogStack(
       eyebrow: 'Persone',
       title: 'Filtri di ricerca',
-      // The card plus an arrow and its gap on either side, so the two stay
-      // beside it rather than dropping underneath.
       maxWidth: _cardWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap),
       footer: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
@@ -666,9 +645,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       height:     50,
       padding:    const EdgeInsets.only(left: 16, right: 8),
       decoration: BoxDecoration(
-        // The ground, radius and border every field of the app stands on: see
-        // AppTextField, which these cannot simply be replaced by because they
-        // carry their own suggestions underneath.
+        // Cannot simply be AppTextField: these fields carry their own suggestions.
         color: _fieldSurface,
         borderRadius: BorderRadius.circular(_fieldRadius),
         border: Border.all(
@@ -753,25 +730,14 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   }
 }
 
-// What a field of this dialog is made of. The same numbers AppTextField uses,
-// which is what makes a suggestion box here look like a plain field there.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorder = 2;
 
-// The same fade AppTextField uses between resting and focused, so a field here
-// answers at the speed of a field anywhere else.
 const Duration _fieldFade = Duration(milliseconds: 180);
 
-// Air between two pieces of the same card, the same the dialog leaves between
-// its own.
 const double _pieceGap = 20;
 
-// A mark in the body saying that the piece before it has ended. It draws
-// nothing: _pillsOf reads it and cuts.
-// A field that takes the app's gold outline while the pointer is on it, and
-// fades in and out of it. The box it is given already carries the border; this
-// only says when it is gold.
 class _HoverFieldBox extends StatefulWidget
 {
   final Widget Function(bool hover) builder;
@@ -797,7 +763,6 @@ class _HoverFieldBoxState extends State<_HoverFieldBox>
   }
 }
 
-// The lighter of the two marks: it ends a piece without ending the card.
 class _PillBreak extends StatelessWidget
 {
   const _PillBreak();
@@ -815,8 +780,6 @@ class _SectionBreak extends StatelessWidget
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
-
-// Local components
 
 class _AutocompleteField extends StatefulWidget
 {
@@ -850,8 +813,6 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
   void initState()
   {
     super.initState();
-    // The gold ring is drawn by this widget rather than by an InputDecoration,
-    // so it has to hear about the focus itself.
     _focusNode.addListener(_onFocusChanged);
   }
 
@@ -929,8 +890,6 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                 width: _fieldBorder,
               ),
               boxShadow: [
-                // The ring a focused field opens in this app: a shadow with no
-                // blur, which is what makes it a ring and not a glow.
                 BoxShadow(
                   color: AppTheme.trialGold.withValues(alpha: _isFocused ? 0.15 : 0),
                   spreadRadius: _isFocused ? 4 : 0,
@@ -1006,9 +965,8 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         return AutocompleteOptionsList<String>(
           options:    options,
           label:      (option) => option,
-          // The list opens in an overlay, where the width of the field under it
-          // does not reach through the constraints: it is the width of the card
-          // this dialog puts its fields in.
+          // The overlay does not inherit the field's width; this is the card's
+          // field width.
           width:      436,
           onSelected: onSelected,
         );

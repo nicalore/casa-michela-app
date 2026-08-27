@@ -4,7 +4,11 @@ from typing import Final, Self
 from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
-from app.schemas.person import ParentalRelationshipInput
+from app.schemas.person import (
+    ParentalRelationshipInput,
+    StudentCertificationData,
+    TeacherEducationData,
+)
 
 _MISSING_CONSENTS_ERROR: Final[str] = (
     "Per completare l'iscrizione è necessario accettare: {consents}."
@@ -110,9 +114,7 @@ class WizardTeachingCompetence(BaseModel):
     study_program_ids: list[int]
 
 
-class WizardTeacherData(BaseModel):
-    school_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
-    university_education: str | None = Field(None, max_length=field_lengths.EDUCATION)
+class WizardTeacherData(TeacherEducationData):
     competences: list[WizardTeachingCompetence] = Field(default_factory=list)
 
     service_names: list[str] = Field(default_factory=list)
@@ -134,13 +136,8 @@ class WizardSchoolEnrollmentData(BaseModel):
     school_class: str
 
 
-class WizardStudentData(BaseModel):
+class WizardStudentData(StudentCertificationData):
     authorized_early_exit: bool
-    certification_type: str | None = None
-    certification_other_detail: str | None = Field(
-        None,
-        max_length=field_lengths.OTHER_DETAIL,
-    )
     mandatory_psych_meetings_acknowledged: bool
     school_enrollments: list[WizardSchoolEnrollmentData] = Field(default_factory=list)
 

@@ -37,8 +37,7 @@ class School(CreatedAtMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    # Generous length: some institutes hold more than one official code, one
-    # per site or school level.
+    # Generous: some institutes hold one official code per site or level.
     mechanographic_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -52,8 +51,7 @@ class School(CreatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    # Read-only view over the same join table: lets serialization read the list
-    # of programs directly, without going through the association rows.
+    # Read-only view over the join table, for direct serialization.
     study_programs: Mapped[list[StudyProgram]] = relationship(
         "StudyProgram",
         secondary="school_study_programs",

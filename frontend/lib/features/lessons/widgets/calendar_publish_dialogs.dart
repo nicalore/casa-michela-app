@@ -27,9 +27,6 @@ Widget _question(String sentence)
   );
 }
 
-// The docenti the calendar is about to go out without. Yellow and under the
-// sentence that says who receives it, because it is not a reason to stop —
-// only something to have read before pressing PUBBLICA.
 Widget _caution(List<String> warnings)
 {
   return AppDialogPill(
@@ -146,8 +143,6 @@ Future<bool?> showDraftConfirmation({required BuildContext context})
   );
 }
 
-// Asked only where there is something to throw away: a bozza nobody touched
-// simply closes, and a question about nothing is a window about nothing.
 Future<bool?> showDiscardDraftConfirmation({required BuildContext context})
 {
   return showBlurredDialog<bool>(

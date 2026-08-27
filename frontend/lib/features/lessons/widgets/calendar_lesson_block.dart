@@ -50,9 +50,30 @@ const Color kSupervisorColor = AppTheme.trialTealDeep;
 
 const String kLessonDoneLabel = 'Lezione svolta';
 
+const String kRemoveFromCalendarLabel = 'RIMUOVI DAL CALENDARIO';
+
+const String kRemoveFromCalendarAwayLabel = 'Rimuovi dal calendario';
+
 const double _markGap = 4;
 
 const String kSupervisorLabel = 'Responsabile di stanza';
+
+const Duration kCalendarTooltipWait = Duration(milliseconds: 300);
+
+// Longer: the pointer crosses the face column on its way to a row.
+const Duration kTeacherExclusionTooltipWait = Duration(milliseconds: 600);
+
+const String kExcludeTeacherLabel = 'Escludi dal calendario';
+
+const String kReadmitTeacherLabel = 'Riaggiungi al calendario';
+
+const double kExcludedLaneOpacity = 0.42;
+
+const Duration kExcludedLaneFade = Duration(milliseconds: 220);
+
+const Duration kExcludedLaneTravel = Duration(milliseconds: 340);
+
+const Curve kExcludedLaneCurve = Curves.easeOutCubic;
 
 Color lessonAccent(String mode) => mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
 
@@ -253,6 +274,11 @@ class CalendarDragFeedback extends StatelessWidget
 
   final String? awayLabel;
 
+  // When left out, both fall back to the mode's own word and colour.
+  final String? lead;
+
+  final Color? accent;
+
   final ValueListenable<CarriedPlacement>? carriedAt;
 
   const CalendarDragFeedback({
@@ -262,6 +288,8 @@ class CalendarDragFeedback extends StatelessWidget
     required this.hours,
     this.width = kDragFeedbackWidth,
     this.awayLabel,
+    this.lead,
+    this.accent,
     this.carriedAt,
   });
 
@@ -297,7 +325,7 @@ class CalendarDragFeedback extends StatelessWidget
     final mark = leaving && awayLabel == null ? null : carriedMark(carried);
 
     final isWrong = mark?.accent == AppTheme.trialDanger;
-    final accent = mark?.accent ?? lessonAccent(mode);
+    final accent = mark?.accent ?? this.accent ?? lessonAccent(mode);
     final span = carried.span;
 
     return Material(
@@ -346,7 +374,7 @@ class CalendarDragFeedback extends StatelessWidget
                     child: Text(
                       saysLeaving
                           ? awayLabel!
-                          : '${modeLabel(mode)} · ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
+                          : '${lead ?? modeLabel(mode)} · ${span == null ? hours : formatMinutesRange(span.$1, span.$2)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -683,7 +711,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
 
   Widget _buildHandle({required bool isLeft})
   {
-    return _BlockHandle(
+    return CalendarBlockHandle(
       isLeft: isLeft,
       onDrag: (position)
       {
@@ -773,7 +801,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       mode: widget.lesson.mode,
       hours: _hours,
       width: widget.width,
-      awayLabel: 'Rimuovi dal calendario',
+      awayLabel: kRemoveFromCalendarAwayLabel,
       carriedAt: widget.carriedAt,
     );
   }
@@ -885,25 +913,31 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       message: _fullDetails,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,
-      waitDuration: const Duration(milliseconds: 300),
+      waitDuration: kCalendarTooltipWait,
       child: shown,
     );
   }
 }
 
-class _BlockHandle extends StatefulWidget
+// Resize handle at either end of a block; shared by lessons and activities.
+class CalendarBlockHandle extends StatefulWidget
 {
   final bool isLeft;
   final void Function(Offset globalPosition) onDrag;
   final VoidCallback? onDragEnd;
 
-  const _BlockHandle({required this.isLeft, required this.onDrag, this.onDragEnd});
+  const CalendarBlockHandle({
+    super.key,
+    required this.isLeft,
+    required this.onDrag,
+    this.onDragEnd,
+  });
 
   @override
-  State<_BlockHandle> createState() => _BlockHandleState();
+  State<CalendarBlockHandle> createState() => _CalendarBlockHandleState();
 }
 
-class _BlockHandleState extends State<_BlockHandle>
+class _CalendarBlockHandleState extends State<CalendarBlockHandle>
 {
   bool _hover = false;
 

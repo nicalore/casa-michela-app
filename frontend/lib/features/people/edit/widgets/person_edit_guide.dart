@@ -3,11 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
-// The pill above the choices: the question the step answers, and the sentence
-// saying how to answer it. The card pager that used to live here was a second
-// pair of arrows next to the large ones at the sides, looking like them and
-// doing something else; the cards are now picked by name, with the tabs above
-// the controls.
 class PersonEditGuide extends StatelessWidget
 {
   final String question;

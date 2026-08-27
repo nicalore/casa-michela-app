@@ -40,9 +40,7 @@ def _taught_by(teacher_tax_code: str) -> Exists:
     )
 
 
-# Alternatives rather than a switch on one role: an account can be a parent and
-# a teacher at once. A branch left None is not asked about, and an administrator
-# asks about none of them.
+# Branches are OR-ed: an account can be a parent and a teacher at once.
 @dataclass(frozen=True)
 class LessonVisibility:
     teacher_tax_code: str | None = None
@@ -84,8 +82,7 @@ class LessonRepository(WritableRepository[Lesson]):
         if visibility.teacher_tax_code is not None:
             branches.append(_taught_by(visibility.teacher_tax_code))
 
-        # Whenever a parent books, the pupil and the booker are two people and
-        # both have to see the hour.
+        # When a parent books, both pupil and booker must see the lesson.
         pupil_branch = []
 
         if visibility.student_tax_codes:
@@ -155,8 +152,7 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return await self.session.scalar(self._visible(stmt, visibility))
 
-    # Eager: the callers walk from a lesson to its teacher and its pupils, and
-    # every step would otherwise be a lazy load under async.
+    # Eager-loads relations that would otherwise lazy-load under async.
     async def _list_for_day(
         self,
         day: date,
@@ -180,9 +176,26 @@ class LessonRepository(WritableRepository[Lesson]):
     async def list_for_day(self, day: date) -> Sequence[Lesson]:
         return await self._list_for_day(day)
 
-    # Everything running into the stretch being written, pupils loaded: the rule
-    # is "how many pupils at once", which the first row found cannot answer.
-    # Across modes, since attention does not divide by how a pupil arrives.
+    async def list_for_teacher_in_band(
+        self,
+        day: date,
+        band: str,
+        teacher_tax_code: str,
+    ) -> Sequence[Lesson]:
+        return (
+            await self.session.scalars(
+                select(Lesson)
+                .options(*_EAGER_LOADER)
+                .where(
+                    Lesson.date == day,
+                    Lesson.band == band,
+                    _taught_by(teacher_tax_code),
+                )
+                .order_by(Lesson.start_time, Lesson.id),
+            )
+        ).all()
+
+    # Loads pupils (the rule counts pupils at once) and does not filter by mode.
     async def find_overlapping_teacher_lessons(
         self,
         *,
@@ -213,7 +226,6 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return (await self.session.scalars(stmt)).all()
 
-    # Same rule from the other side of the room.
     async def find_student_overlap(
         self,
         *,
@@ -271,7 +283,6 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return set(rows)
 
-    # For the guards that refuse to let a scheduled request be edited away.
     async def find_scheduled_booking_ids_for_presence(
         self,
         presence_id: int,
@@ -284,7 +295,6 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return set(rows)
 
-    # For the coverage check: what each request has been given so far.
     async def list_links_for_bookings(
         self,
         booking_ids: Collection[int],

@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/date_input_formatters.dart';
 
-// True for a real gg/mm/aaaa date — rejects both malformed input and
-// impossible days like 31/02, which DateTime would silently roll over into
-// the next month.
+// Rejects malformed input and impossible days like 31/02, which DateTime
+// would silently roll over into the next month.
 bool isValidDateString(String value)
 {
   final parts = value.split('/');
@@ -43,10 +42,6 @@ String formatDateString(DateTime date)
       '${date.month.toString().padLeft(2, '0')}/${date.year}';
 }
 
-// Labelled gg/mm/aaaa field. No date picker anywhere in this app yet, so it
-// follows the same typed-with-auto-slashes convention already used for birth
-// dates in the person wizard — on the app's own field, so that a date in an
-// Orari dialog is the same object as a name in an Associazione one.
 class HoursDateField extends StatelessWidget
 {
   final String label;

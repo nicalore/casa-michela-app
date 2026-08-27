@@ -24,7 +24,6 @@ class ResetPasswordPage extends StatefulWidget
 
 class _ResetPasswordPageState extends State<ResetPasswordPage>
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _buttonHeight = 52;
   static const double _buttonFontSize = 14;
 
@@ -118,11 +117,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     {
       await _apiService.confirmPasswordReset(token: widget.token, newPassword: newPassword);
 
-      // The reset link is an out of band action, unrelated to this browser. Any
-      // session already open here (possibly another account, on a shared
-      // device) has to be closed explicitly, otherwise the router redirect
-      // would still see AuthState.authenticated and send the user straight into
-      // that session's dashboard instead of the login screen.
+      // Close any session already open in this browser (possibly another
+      // account), or the router redirect would enter that session's dashboard.
       await _apiService.logout();
 
       if (mounted)

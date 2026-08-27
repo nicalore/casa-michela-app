@@ -18,10 +18,8 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
+import '../../people/widgets/person_detail_widgets.dart' show kPersonWideCardLabelWidth;
 
-// The two halves of the profile. They used to be a row of chips at the top of
-// this tab; the rail on the left of the page holds them now, and the tab is
-// told which one to show.
 enum ProfileSection
 {
   personal,
@@ -186,12 +184,8 @@ class _ProfileTabState extends State<ProfileTab>
                          rawRoles.contains('PSICOLOGO') ||
                          rawRoles.contains('PSYCHOLOGIST');
 
-    // The two halves of the profile are two entries in the rail and were one
-    // child: choosing the other one changed what was drawn with nothing handing
-    // over, so the one step made from a rail that did not move was this one.
-    //
-    // They are two sections here, and the tab holding them is still one — which
-    // is what keeps the profile loading once instead of once per half.
+    // Both rail entries are sections of this one tab, so the profile loads
+    // once instead of once per half.
     Widget half(bool personal)
     {
       return SingleChildScrollView(
@@ -208,9 +202,8 @@ class _ProfileTabState extends State<ProfileTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: pageTransitionBlocks([
                 if (personal) ...[
-                  // Stacks vertically below the breakpoint; the LayoutBuilder stays
-                  // outside IntrinsicHeight (same fix as in PersonInfoTab — never nest
-                  // a LayoutBuilder inside an IntrinsicHeight).
+                  // Never nest a LayoutBuilder inside IntrinsicHeight (same
+                  // fix as PersonInfoTab).
                   _ResponsiveCardPair(
                     first: _ProfileSectionCard(
                       title:       'Identità',
@@ -298,12 +291,10 @@ class _ProfileTabState extends State<ProfileTab>
                       width: double.infinity,
                       child: _ProfileSectionCard(
                         title:       'Dettagli collaborazione',
-                        labelWidth:  205,
+                        labelWidth:  kPersonWideCardLabelWidth,
                         leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
                         rows: [
                           _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                          // IBAN hidden by default, revealed only when the eye icon
-                          // is tapped (see isSensitive on _InfoRowData).
                           _InfoRowData(
                             'IBAN',
                             person.iban?.isNotEmpty == true ? person.iban! : '-',
@@ -320,7 +311,7 @@ class _ProfileTabState extends State<ProfileTab>
                       width: double.infinity,
                       child: _ProfileSectionCard(
                         title:       'Dettagli amministratore',
-                        labelWidth:  205,
+                        labelWidth:  kPersonWideCardLabelWidth,
                         leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
                         rows: [
                           _InfoRowData('Ruolo', _getAdminRoleText(person)),
@@ -335,11 +326,13 @@ class _ProfileTabState extends State<ProfileTab>
                       width: double.infinity,
                       child: _ProfileSectionCard(
                         title:       'Dettagli docente',
-                        labelWidth:  205,
+                        labelWidth:  kPersonWideCardLabelWidth,
                         leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
                         rows: [
+                          _InfoRowData('Studente delle superiori', person.isHighSchoolStudent == null ? '-' : (person.isHighSchoolStudent! ? 'Sì' : 'No')),
                           _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
-                          _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
+                          if (person.isHighSchoolStudent != true)
+                            _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
                         ],
                       ),
                     ),
@@ -351,7 +344,7 @@ class _ProfileTabState extends State<ProfileTab>
                       width: double.infinity,
                       child: _ProfileSectionCard(
                         title:       'Dettagli studente',
-                        labelWidth:  205,
+                        labelWidth:  kPersonWideCardLabelWidth,
                         leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
                         rows: [
                           _InfoRowData(
@@ -371,7 +364,7 @@ class _ProfileTabState extends State<ProfileTab>
                       width: double.infinity,
                       child: _ProfileSectionCard(
                         title:       'Dettagli corsista',
-                        labelWidth:  205,
+                        labelWidth:  kPersonWideCardLabelWidth,
                         leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
                         rows: [
                           _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
@@ -499,7 +492,6 @@ class _ProfileSectionCard extends StatelessWidget
       } 
       else if (rowData.isSensitive)
       {
-        // Masked by default; the show/hide toggle is handled inside _ObscurableInfoRow.
         rowWidget = _ObscurableInfoRow(
           label:      rowData.label,
           value:      rowData.value,
@@ -545,9 +537,8 @@ class _StaticAvatar extends StatelessWidget
   }
 }
 
-// A single clickable icon shown inside the dark overlay on the avatar.
-// Stateful because it needs its own hover state, independent from the parent
-// avatar's _isHovering (which only drives the icon pair appearing/disappearing).
+// Stateful for its own hover state, independent of the parent avatar's
+// _isHovering.
 class _AvatarIconButton extends StatefulWidget
 {
   final IconData      icon;
@@ -621,13 +612,9 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  // Hover-flicker fix: the cache buster is generated once (initState) and
-  // regenerated only when profileImageUrl actually changes (didUpdateWidget),
-  // not on every rebuild. Previously the getter recomputed it each time, so
-  // every hover ran setState -> rebuild -> new timestamp -> new ValueKey ->
-  // CircleAvatar rebuilt from scratch -> backgroundColor flash while the
-  // NetworkImage reloaded. Same cause/fix as in DashboardHeader
-  // (_sessionCacheBuster).
+  // Regenerated only when profileImageUrl changes: recomputing per rebuild
+  // made every hover reload the NetworkImage and flash (same fix as
+  // DashboardHeader).
   late String _cacheBuster;
 
   @override
@@ -665,8 +652,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     return '$url?v=$_cacheBuster';
   }
 
-  // Same logic as PersonCard: first letter of the first name plus first letter
-  // of the last name.
   String get _initials
   {
     final String first = widget.firstName.isNotEmpty ? widget.firstName[0] : '';
@@ -721,11 +706,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
     }
   }
 
-  // The same window as every other question the app asks — the one in
-  // PersonParentsTab is the nearest relative: title, the sentence, the two
-  // answers, each arriving on its own beat over the blurred page. It was the
-  // last AlertDialog left in the app, and an AlertDialog has none of that: one
-  // white panel, arriving whole.
   Future<void> _confirmAndDeleteImage() async
   {
     final bool? confirmed = await showBlurredDialog<bool>(
@@ -734,7 +714,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       builder: (dialogContext) => AppDialogStack(
         eyebrow: 'Foto profilo',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: 520,
         footer: AppDialogFooter(
@@ -832,10 +811,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
       child:  Stack(
         fit:      StackFit.expand,
         children: [
-          // With no picture the circle falls back to the brand ramp with the
-          // initials reversed out of it, so the identity card carries the same
-          // badge as every other card in the settings until a photo takes its
-          // place.
           DecoratedBox(
             decoration: const BoxDecoration(
               gradient: AppTheme.brandGradient,
@@ -877,8 +852,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
               ),
             )
           else
-            // Single overlay over the whole circle; the edit and delete icons
-            // appear together on hover.
             MouseRegion(
               cursor:  SystemMouseCursors.click,
               onEnter: (_) => setState(() => _isHovering = true),
@@ -929,8 +902,6 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
   }
 }
 
-// Same show/hide toggle as LoginTextField, but the state lives on the single
-// row instead of an input field. Hidden by default (_isVisible starts false).
 class _ObscurableInfoRow extends StatefulWidget
 {
   final String label;
@@ -951,11 +922,8 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
 {
   bool _isVisible = false;
 
-  // No toggle icon when the value is absent — toggling a dash makes no sense.
   bool get _hasValue => widget.value.isNotEmpty && widget.value != '-';
 
-  // Replaces every non-space character with a bullet, keeping the group
-  // structure readable.
   String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
 
   @override

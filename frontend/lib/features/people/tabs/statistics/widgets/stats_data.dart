@@ -2,10 +2,6 @@ import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../models/member_trend_item.dart';
 import 'stats_constants.dart';
 
-// Data preparation and filter options shared by every statistics tab. They are
-// top level functions rather than methods, because none of them needs the state
-// of the tab that calls them.
-
 MemberTrendItem? _findPoint(List<MemberTrendItem> data, int year, {int? month})
 {
   for (final item in data)
@@ -26,8 +22,7 @@ MemberTrendItem? _findPoint(List<MemberTrendItem> data, int year, {int? month})
   return null;
 }
 
-// Fills the gaps of a trend series with explicit zeros. The backend omits
-// periods with no members, but a chart needs a continuous sequence.
+// The backend omits periods with no members; a chart needs a continuous series.
 List<MemberTrendItem> padTrendData(
   List<MemberTrendItem> rawData,
   String resolution,
@@ -72,7 +67,6 @@ List<FilterOption<String>> resolutionOptions()
   ];
 }
 
-// Every year with data, most recent first.
 List<FilterOption<int>> yearOptions()
 {
   final currentYear = DateTime.now().year;
@@ -82,8 +76,7 @@ List<FilterOption<int>> yearOptions()
       .toList();
 }
 
-// Months selectable for [selectedYear]. The first year only has data from
-// [dataStartMonth] on, so offering earlier months would point at nothing.
+// The first year only has data from [dataStartMonth] on.
 List<FilterOption<int>> monthOptions(int selectedYear)
 {
   final firstMonth = selectedYear == dataStartYear ? dataStartMonth : 1;
@@ -94,11 +87,10 @@ List<FilterOption<int>> monthOptions(int selectedYear)
   ];
 }
 
-// The whole window, as against one month inside it.
 const String wholeWindowPeriod = 'all';
 
-// How far back a ranking of appreciation reaches. The calendars older than a
-// year are deleted, so a thirteenth month back would point at nothing.
+// Calendars older than a year are deleted; a thirteenth month back points at
+// nothing.
 const int appreciationMonthsWindow = 12;
 
 String _periodValue(int year, int month)
@@ -106,11 +98,7 @@ String _periodValue(int year, int month)
   return '$year-${month.toString().padLeft(2, '0')}';
 }
 
-// The periods a ranking may be asked about: the whole window, then the current
-// month and the eleven before it, most recent first.
-//
-// One pill and not a year beside a month: what is being chosen is a single
-// period out of thirteen, and two pills would let a pair be picked that has
+// One pill: separate year and month pills would let a pair be picked that has
 // nothing behind it.
 List<FilterOption<String>> appreciationPeriodOptions()
 {
@@ -135,7 +123,6 @@ List<FilterOption<String>> appreciationPeriodOptions()
   return options;
 }
 
-// The year and month a period names, or null where it names the whole window.
 ({int year, int month})? periodParts(String period)
 {
   if (period == wholeWindowPeriod)

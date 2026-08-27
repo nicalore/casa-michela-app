@@ -30,9 +30,8 @@ class StudyProgramSubject(Base):
         primary_key=True,
     )
 
-    # These rows are also reached through the StudyProgram <-> MinistrySubject
-    # many-to-many shortcut: `overlaps` declares that as intentional and changes
-    # nothing at runtime.
+    # Also reached via the many-to-many shortcut; `overlaps` declares that
+    # intentional (no runtime effect).
     study_program: Mapped[StudyProgram] = relationship(
         back_populates="study_program_subjects",
         overlaps="ministry_subjects,study_programs",

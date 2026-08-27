@@ -20,9 +20,8 @@ from tests.factories import (
 
 DAY = date(2026, 9, 15)
 
-# The calendar is kept as a record. Everything holding a lesson up restricts
-# rather than cascades, so nothing can be pulled out from under it — and these
-# are that decision, checked from the bottom.
+# Everything holding a lesson up RESTRICTs rather than cascades; these
+# tests check that from the bottom.
 
 
 async def _lesson(db: AsyncSession):
@@ -69,9 +68,8 @@ async def test_a_scheduled_request_cannot_be_deleted(db: AsyncSession) -> None:
         await db.flush()
 
 
-# The restriction travels up a chain that cascades: presences cascade onto their
-# bookings, and the booking is the one that cannot go. This is the case that
-# gets discovered late.
+# The RESTRICT travels up a cascading chain: presences cascade onto
+# bookings, and the booking is the one that cannot go.
 async def test_deleting_the_presence_underneath_fails_too(
     db: AsyncSession,
 ) -> None:
@@ -104,9 +102,8 @@ async def test_a_teacher_with_lessons_cannot_be_deleted(db: AsyncSession) -> Non
         await db.flush()
 
 
-# Moving the availability is refused as well, and by the same key: without
-# ON UPDATE the change fails loudly instead of dragging the lesson to a day
-# where nothing has been checked.
+# No ON UPDATE: moving the availability fails loudly instead of dragging
+# the lesson to an unchecked day.
 async def test_an_availability_with_lessons_cannot_move_day(
     db: AsyncSession,
 ) -> None:
@@ -118,8 +115,7 @@ async def test_an_availability_with_lessons_cannot_move_day(
         await db.flush()
 
 
-# The other direction: what belongs to the lesson goes with it, and what the
-# lesson was built on stays.
+# The other direction: what belongs to the lesson goes with it.
 async def test_deleting_a_lesson_leaves_its_ingredients_alone(
     db: AsyncSession,
 ) -> None:

@@ -23,7 +23,6 @@ class ForcePasswordChangePage extends StatefulWidget
 
 class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _buttonHeight = 52;
   static const double _buttonFontSize = 14;
 
@@ -119,9 +118,8 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
     try
     {
-      // changePassword also updates apiService.authState internally: as soon as
-      // it turns to authenticated, the global router redirect takes the user to
-      // the dashboard without a second login.
+      // changePassword updates authState; the router redirect then takes the
+      // user to the dashboard without a second login.
       await _apiService.changePassword(
         currentPassword: currentPassword,
         newPassword: newPassword,
@@ -161,8 +159,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   @override
   Widget build(BuildContext context)
   {
-    // The change is mandatory, so the back gesture does not take the user
-    // away: it is intercepted and answered with an explanation.
+    // The change is mandatory, so the back gesture is intercepted.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result)

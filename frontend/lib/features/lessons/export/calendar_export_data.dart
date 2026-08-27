@@ -2,6 +2,7 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
+import '../models/activity_item.dart';
 import '../models/availability_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_publication_item.dart';
@@ -10,6 +11,7 @@ import '../models/presence_item.dart';
 import '../models/room_day_plan.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
+import '../widgets/calendar_activity_block.dart';
 import '../widgets/calendar_lesson_block.dart';
 
 class CalendarExportData
@@ -57,14 +59,30 @@ class CalendarExportData
     return byId.values.toList()..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
   }
 
-  ({int teachers, int students, int lessons}) get counts
+  List<ScheduledActivity> get activities
+  {
+    final byId = <int, ScheduledActivity>{
+      for (final lane in lanes)
+        for (final activity in lane.activities) activity.id: activity,
+    };
+
+    return byId.values.toList()..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+  }
+
+  // Teacher count includes teachers convoked only for activities.
+  ({int teachers, int students, int lessons, int activities}) get counts
   {
     final all = lessons;
+    final given = activities;
 
     return (
-      teachers: all.map((lesson) => lesson.teacherTaxCode).toSet().length,
+      teachers: {
+        ...all.map((lesson) => lesson.teacherTaxCode),
+        ...given.map((activity) => activity.teacherTaxCode),
+      }.length,
       students: all.expand((lesson) => lesson.studentTaxCodes).toSet().length,
       lessons: all.length,
+      activities: given.length,
     );
   }
 
@@ -73,6 +91,7 @@ class CalendarExportData
 CalendarExportData teachersExport({
   required List<AvailabilityItem> availabilities,
   required List<LessonItem> lessons,
+  required List<ActivityItem> activities,
   required List<OpeningDayItem> openingDays,
   required List<MinistrySubjectItem> ministrySubjects,
   required RoomDayPlan? roomPlan,
@@ -86,6 +105,7 @@ CalendarExportData teachersExport({
     lessons: lessons,
     day: day,
     band: band,
+    activities: activities,
   ));
 
   final rooms = laneRoomLabels(lanes: called, plan: roomPlan);
@@ -211,4 +231,18 @@ List<ExportLessonFields> exportLessonRows(CalendarExportData data)
       for (final lesson in lane.lessons)
         exportLessonFields(lesson, view: data.view, ministrySubjects: data.ministrySubjects),
   ];
+}
+
+// An activity printed in the same columns as a lesson, e.g. subject column
+// "Attività (description)".
+ExportLessonFields exportActivityFields(ScheduledActivity scheduled)
+{
+  final description = scheduled.description;
+
+  return (
+    hours: formatMinutesRange(scheduled.startMinutes, scheduled.endMinutes),
+    who: scheduled.name,
+    subject: description == null ? kActivityWord : '$kActivityWord ($description)',
+    place: null,
+  );
 }

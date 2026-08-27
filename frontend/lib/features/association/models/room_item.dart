@@ -1,13 +1,10 @@
-// A place in the building, assigned to a teacher for a day.
 class RoomItem
 {
   final int id;
   final String name;
   final String? description;
 
-  // Null wherever nobody has counted, and null is not zero: an unmeasured room
-  // holds as many as it holds, so whoever shows one says nothing about it
-  // rather than writing a number that was never checked.
+  // Null when uncounted; null is not zero.
   final int? capacity;
 
   final DateTime createdAt;

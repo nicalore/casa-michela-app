@@ -33,8 +33,6 @@ enum _PeopleSort
   const _PeopleSort(this.label);
 }
 
-// Four cards to a row is the shape of this list: past that they get small
-// enough that the grid reads as a wall rather than as people.
 const int _maxColumns = 4;
 const double _cardGap = 20;
 
@@ -42,8 +40,6 @@ class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
 
-  // Drops the search, sorting and filters kept across navigation. Called when
-  // the caller wants the tab to reopen in its pristine state.
   static void clearSavedState()
   {
     _PeopleSearchTabState._savedSearchText = '';
@@ -57,11 +53,8 @@ class PeopleSearchTab extends StatefulWidget
 
 class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefresh
 {
-  // Static on purpose: search text, sorting and filters have to survive the tab
-  // being taken down and put back. Since the destinations of the shell are kept
-  // alive that no longer happens on the way to a person and back — the tab is
-  // simply still there — and what these are left holding is the session: they
-  // outlive a logout, which is why clearSavedState above exists.
+  // Static: these survive the tab being rebuilt, and therefore outlive a
+  // logout — hence clearSavedState.
   static String _savedSearchText = '';
   static _PeopleSort _savedSort = _PeopleSort.nameAsc;
   static PeopleFilterState _savedFilterState = const PeopleFilterState();
@@ -95,9 +88,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     _loadData();
   }
 
-  // People can have been edited while away — by you, from a person's page — so
-  // they are asked for again on return. Quietly: the list already there stays on
-  // screen until the new one arrives.
+  // Reload on return; the current list stays until the new one arrives.
   @override
   void onDestinationShown() => _loadData(quiet: true);
 
@@ -108,8 +99,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     super.dispose();
   }
 
-  // The filter dialog offers only values that actually occur in the loaded
-  // people, so no filter can produce an empty result by construction.
+  // The filter dialog offers only values that occur in the loaded people.
   List<String> _distinctSorted(Iterable<String?> values)
   {
     final result = values
@@ -123,8 +113,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     return result;
   }
 
-  // A person is created in a dialog over the list and not on a page of its own:
-  // where one started from stays visible, and closing it lands exactly there.
   Future<void> _openCreationDialog() async
   {
     final String? created = await showBlurredDialog<String>(
@@ -139,9 +127,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     }
   }
 
-  // Quiet means asked for again rather than asked for the first time: the page
-  // is already showing a list, so a failure leaves it standing and says nothing
-  // instead of raising an error over a list that is perfectly readable.
+  // quiet: a failure leaves the existing list standing without an error.
   Future<void> _loadData({bool quiet = false}) async
   {
     try
@@ -226,8 +212,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       return true;
     }
 
-    // The top of the slider means "this age and above", so it must not exclude
-    // anybody older than the maximum.
+    // The top of the slider means "this age and above".
     return range.end == PeopleFilterState.defaultAgeRange.end &&
         age >= PeopleFilterState.defaultAgeRange.end;
   }
@@ -373,9 +358,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
   Widget _buildResultList(List<PersonItem> people)
   {
     return Expanded(
-      // A row at a time, not the whole register at once: everybody the
-      // association has ever had is a long list, and described whole it is also
-      // that many boxes to move and compose on every frame of a step.
       child: PageTransitionScrollView.slivers(
         slivers: [
           SliverLayoutBuilder(
@@ -383,21 +365,11 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
             {
               final available = constraints.crossAxisExtent;
 
-              // Four to a row wherever four fit, and the row shared out between
-              // them rather than packed with as many as will go: at 1920 that is
-              // six narrow cards or four roomy ones, and four of a person is
-              // easier to read than six.
-              //
-              // Narrower windows drop a column at a time, and past the widest a
-              // card is allowed to be the row simply centres what is left over.
               final columns = _columnsFor(available);
               final width = ((available - _cardGap * (columns - 1)) / columns)
                   .clamp(PersonCard.minWidth, PersonCard.maxWidth);
 
-              // Past the widest a card may be, the row has room for more than
-              // the count above asked for and takes it. What decides which row a
-              // card lands on — and so when it moves on a change of page — is
-              // how many actually fit, not how many were aimed at.
+              // How many actually fit decides the rows, not how many were aimed at.
               final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
 
               return CardRows(
@@ -441,9 +413,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // The page head leaves all at once: field, button, filters and count
-        // read as a single block, and it is the cards below that carry the
-        // stagger from one item to the next.
         PageTransitionItem(
           slot: PageTransitionItem.header,
           child: TabHeaderRow(
@@ -460,8 +429,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
               label: 'NUOVA PERSONA',
               icon: Icons.person_add_alt_1_rounded,
               height: 50,
-              // Half its own height: the shape of the search bar it stands
-              // beside, and of the button that adds a school.
               radius: 25,
               fontSize: 14,
               onPressed: _openCreationDialog,
@@ -476,8 +443,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
             runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // A list is always sorted somehow, so this one can never be off
-              // and has nothing to clear.
               AppFilterPill<_PeopleSort>.setting(
                 prefix: 'Ordina',
                 hint: 'Ordina per',
@@ -494,8 +459,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
                     .toList(),
               ),
               const FilterGroupDivider(),
-              // Everything else lives in a window of its own, so the pill says
-              // how many of them are on rather than what they are.
               AppCountFilterPill(
                 label: 'Filtri',
                 icon: Icons.tune_rounded,
@@ -532,7 +495,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
   }
 }
 
-// Last option of the children filter: an open ended bucket rather than an exact
-// figure. The label and the threshold must stay in step with the filter dialog.
+// Open-ended bucket; label and threshold must stay in step with the filter dialog.
 const String _openEndedChildrenCount = '4+';
 const int _openEndedChildrenThreshold = 4;

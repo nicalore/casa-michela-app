@@ -5,12 +5,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_field_label.dart';
 import '../../../../shared/widgets/app_selectable_chip.dart';
 
-// A choice among few: the field's label and the chips under it.
-//
-// In place of a dropdown. Payment method, collaboration type, administrative
-// role and certification are three to five fixed values: opening them in a
-// dropdown hides the whole question behind a click, whereas the chips show all
-// of it.
 class PersonChipGroupField extends StatelessWidget
 {
   final String label;
@@ -18,11 +12,8 @@ class PersonChipGroupField extends StatelessWidget
   final String? value;
   final ValueChanged<String?> onChanged;
 
-  // Disabled: the answer is decided by something else — a president cannot be
-  // paid — and the chip stays there saying which.
   final bool enabled;
 
-  // The line explaining why it is disabled, or what the choice entails.
   final String? note;
 
   final String? errorText;
@@ -59,8 +50,7 @@ class PersonChipGroupField extends StatelessWidget
                   AppSelectableChip(
                     label: option,
                     selected: value == option,
-                    // Pressing the lit one again switches nothing off: here an
-                    // answer is changed, not removed.
+                    // Pressing the lit chip again switches nothing off.
                     onSelected: (selected) => onChanged(selected ? option : value),
                   ),
               ],

@@ -1,14 +1,5 @@
 """add services catalogue
 
-What the association offers besides school subjects: "metodo di studio",
-"tesina", "orientamento scolastico". Asked for the same way a subject is, but
-with no ministry subject behind them and no syllabus, so they are a catalogue
-of their own rather than rows in association_subjects.
-
-Keyed by name: there are a handful of them and the association calls them by
-name. It is a mutable natural key, so anything that comes to reference a
-service needs onupdate="CASCADE" on its foreign key.
-
 Revision ID: f205d001bebd
 Revises: 674a015f7bf2
 Create Date: 2026-08-04 12:46:26.887944

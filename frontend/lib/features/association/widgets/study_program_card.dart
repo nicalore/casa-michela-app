@@ -39,8 +39,7 @@ class StudyProgramCard extends StatelessWidget
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The callback that reopens the details carries the card's context
-          // along, not that of the dialog about to close.
+          // Reopen with the card's context, not the closing dialog's.
           onEditRequested(() => _showDetailsDialog(context));
         },
         onDelete: onDelete,
@@ -51,10 +50,6 @@ class StudyProgramCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // The sector above the name, and nothing else below. The sector says which
-    // family the programme belongs to, which the name alone would not; the
-    // description used to sit below taking two lines the name uses better —
-    // whoever wants to read it opens the card.
     return AppCatalogueCard(
       eyebrow: program.sector,
       title: program.name,
@@ -65,10 +60,8 @@ class StudyProgramCard extends StatelessWidget
 
 class _StudyProgramDetailsDialogContent extends StatelessWidget
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
 
-  // Narrow: a question of one sentence, and the two answers under it.
   static const double _confirmWidth = 480;
   static const double _dialogButtonFontSize = 14;
 
@@ -84,9 +77,6 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws
-  // something away, and the answer that does it should not be quieter than the
-  // one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -95,7 +85,6 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -149,10 +138,6 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -173,8 +158,6 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
     final hasDescription = program.description.isNotEmpty;
 
     return AppDialogStack(
-      // The sector in place of the generic category: it says the same thing and
-      // says which, and sits where the eyebrow always sits, above the name.
       eyebrow: program.sector ?? 'Percorso di studio',
       title: program.name,
       maxWidth: 650,
@@ -243,8 +226,6 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
             ),
           ),
         ),
-        // The subjects are what the programme is made of, not one more of its
-        // fields, so they stand on their own.
         AppDialogPill(
           expand: true,
           child: Column(

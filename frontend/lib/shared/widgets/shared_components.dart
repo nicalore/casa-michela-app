@@ -9,8 +9,6 @@ class AnimatedActionButton extends StatefulWidget
   final Color hoverColor;
   final VoidCallback onPressed;
 
-  // 56 suits a dialog footer; page-level actions sit at 50, matching the
-  // search bar and the "Nuova …" buttons.
   final double height;
 
   const AnimatedActionButton({
@@ -92,8 +90,6 @@ class _AnimatedActionButtonState extends State<AnimatedActionButton>
   }
 }
 
-// Icon button whose background fades in on hover. StaticHoverIconButton below
-// was a byte for byte copy of this widget and is now an alias of it.
 class FadeHoverIconButton extends StatefulWidget
 {
   final IconData icon;
@@ -140,7 +136,6 @@ class _FadeHoverIconButtonState extends State<FadeHoverIconButton>
   }
 }
 
-// Transitional alias: the two widgets were identical, so the duplicate
-// implementation was dropped. Call sites can migrate to FadeHoverIconButton and
-// this line can then be deleted.
+// Transitional alias: call sites can migrate to FadeHoverIconButton, then
+// this can be deleted.
 typedef StaticHoverIconButton = FadeHoverIconButton;

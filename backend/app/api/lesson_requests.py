@@ -33,10 +33,8 @@ def _service(db: DbSession) -> LessonRequestService:
     response_model=list[PresenceResponse],
     status_code=status.HTTP_201_CREATED,
 )
-# Books a day's hours and the lessons to hold in them, in one transaction, and
-# answers with the stretches created and the lessons hanging off each, which is
-# how the client groups them anyway. /presences and /bookings stay for editing
-# one row at a time.
+# One transaction for a day's hours plus their lessons; /presences and
+# /bookings stay for single-row edits.
 async def create_lesson_request(
     payload: LessonRequestCreate,
     identity: CurrentIdentity,

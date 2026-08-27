@@ -9,8 +9,8 @@ import 'chart_common.dart';
 import 'chart_value_popup.dart';
 import 'stats_constants.dart';
 
-// Chart geometry shared by the hit testing widget and the painter: if these
-// drift apart the hover targets no longer sit on the drawn points.
+// Shared by the hit-testing widget and the painter: if these drift apart the
+// hover targets no longer sit on the drawn points.
 const double _chartPaddingLeft = 40.0;
 const double _chartPaddingBottom = 30.0;
 
@@ -76,8 +76,7 @@ class _TrendLineChartState extends State<TrendLineChart>
       _hoverPosition = position;
       _hoveredIndex = foundIndex;
 
-      // The target and the value survive the pointer leaving the point, so the
-      // popup can fade out in place instead of jumping.
+      // Target and value survive pointer exit, so the popup fades out in place.
       if (foundIndex != null)
       {
         _popupTargetPosition = points[foundIndex];
@@ -163,12 +162,8 @@ class _TrendLineChartPainter extends CustomPainter
     return '${monthAbbreviations[(item.month ?? 1) - 1]}\n${item.year}';
   }
 
-  // Picks which points get a label, based on how much room each one has versus
-  // the width of a representative label.
-  //
-  // The last point is always labelled, to give context on the most recent
-  // period. When the fixed stride would place the previous label too close to
-  // it, that previous one is dropped rather than letting the two overlap.
+  // The last point is always labelled; a stride label too close to it is
+  // dropped rather than letting the two overlap.
   Set<int> _visibleLabelIndices(double stepX)
   {
     if (data.length <= 1)
@@ -302,9 +297,6 @@ class _TrendLineChartPainter extends CustomPainter
       linePath.lineTo(points[i].dx, points[i].dy);
     }
 
-    // The line runs the brand ramp along its own length, deep teal where the
-    // series starts into turquoise where it arrives — the same pair the buttons
-    // and the bars are made of, laid the way this chart is read.
     canvas.drawPath(
       linePath,
       Paint()

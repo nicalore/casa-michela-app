@@ -3,8 +3,8 @@ import 'dart:js_interop';
 @JS('__hideCasaMichelaSplash')
 external void _hideCasaMichelaSplash();
 
-// Contract with index.html: calling this hook triggers the CSS blur fade of
-// #splash-overlay, and must happen once the first Flutter frame is painted.
+// Contract with index.html: triggers the CSS fade of #splash-overlay once the
+// first frame is painted.
 void hideInitialSplash()
 {
   try
@@ -13,7 +13,7 @@ void hideInitialSplash()
   }
   catch (_)
   {
-    // The hook is absent when a cached index.html predates the overlay:
-    // failing to hide it must never prevent the app from starting.
+    // The hook is absent when a cached index.html predates the overlay: never
+    // block startup on it.
   }
 }

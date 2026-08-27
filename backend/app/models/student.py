@@ -37,15 +37,31 @@ class Student(UpdatedAtMixin, Base):
 
     __table_args__ = (
         CheckConstraint(
-            # IS NOT DISTINCT FROM is NULL-safe: with a plain "=", a NULL
-            # certification_type would make the comparison NULL, not false,
-            # and the constraint would pass.
+            # IS NOT DISTINCT FROM is NULL-safe: with "=", a NULL
+            # certification_type would make the constraint pass.
             "certification_other_detail IS NULL "
             "OR certification_type IS NOT DISTINCT FROM 'OTHER'",
             name="certification_other_detail_requires_other_type",
         ),
-        *not_blank_when_present_constraints("certification_other_detail"),
-        *no_surrounding_whitespace_constraints("certification_other_detail"),
+        # A DSA certification must name its disorder, here as in the form.
+        CheckConstraint(
+            "certification_type IS DISTINCT FROM 'DSA' "
+            "OR certification_dsa_detail IS NOT NULL",
+            name="dsa_certification_says_which",
+        ),
+        CheckConstraint(
+            "certification_dsa_detail IS NULL "
+            "OR certification_type IS NOT DISTINCT FROM 'DSA'",
+            name="certification_dsa_detail_requires_dsa_type",
+        ),
+        *not_blank_when_present_constraints(
+            "certification_other_detail",
+            "certification_dsa_detail",
+        ),
+        *no_surrounding_whitespace_constraints(
+            "certification_other_detail",
+            "certification_dsa_detail",
+        ),
     )
 
     tax_code: Mapped[str] = mapped_column(
@@ -66,6 +82,12 @@ class Student(UpdatedAtMixin, Base):
     )
 
     certification_other_detail: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    # Free text: often several disorders at once, named as the diagnosis does.
+    certification_dsa_detail: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )

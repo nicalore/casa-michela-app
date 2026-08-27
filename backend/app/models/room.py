@@ -12,14 +12,8 @@ from app.models.constraints import (
 from app.models.mixins import CreatedAtMixin
 
 
-# A place in the building, which is why only teaching done in the building needs
-# one. A room is not held by a lesson but assigned to a teacher for a day, and
-# more than one teacher shares it — that is how a study hall works. So what a
-# room constrains is not who is in it but how many people fit.
-#
-# capacity is null wherever nobody has counted, and null is not zero: an
-# unmeasured room holds as many as it holds, and the calendar warns instead of
-# refusing rather than enforce a number no one has checked.
+# Rooms are shared between teachers: the constraint is capacity, not
+# exclusivity. capacity NULL means unmeasured — the calendar then only warns.
 class Room(CreatedAtMixin, Base):
     __tablename__ = "rooms"
 

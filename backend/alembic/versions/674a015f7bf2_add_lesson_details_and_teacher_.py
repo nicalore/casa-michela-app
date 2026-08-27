@@ -1,21 +1,4 @@
-"""add lesson details and teacher preferences
-
-What a booking could say until now was a length and a set of subjects. This
-adds the rest of what the person asking for a lesson is asked: what kind of
-hour it is, what it is about, anything the teacher should know beforehand, and
-up to three teachers they would rather have — and three they would rather not.
-
-The teachers live in one table and not two so that the composite primary key
-makes it impossible for the same teacher to be named on both sides of the same
-lesson. The cap of three per side is not expressible as a CHECK on a child
-table and is enforced in the ORM (see BookingTeacherPreference).
-
-Also adds the half-hour floor on presences, which was only ever enforced by the
-screen that asked. Rows shorter than that were legitimate until now, so this
-will fail on a database that holds one — check before running:
-
-    SELECT id, date, start_time, end_time FROM presences
-    WHERE end_time - start_time < INTERVAL '30 minutes';
+"""add booking details, teacher preferences and presence minimum duration
 
 Revision ID: 674a015f7bf2
 Revises: c1a93b7e5d24

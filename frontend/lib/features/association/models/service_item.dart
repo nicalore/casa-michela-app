@@ -1,6 +1,4 @@
-// A service offered besides the subjects. The name is the key: there is no id,
-// and renaming a service changes its identity, so whoever edits one has to keep
-// the previous name to tell the server which row is being rewritten.
+// The name is the key: no id, so an edit must send the previous name.
 class ServiceItem
 {
   final String name;

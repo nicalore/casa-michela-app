@@ -16,8 +16,7 @@ from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.repositories.base import WritableRepository
 
-# Public because the lessons read bookings the same way, and a lesson that
-# loaded them any less fully would answer with half a request.
+# Public: the lessons read bookings the same way.
 BOOKING_EAGER_LOADER = (
     selectinload(Booking.presence),
     selectinload(Booking.subjects_requested)
@@ -58,12 +57,8 @@ class BookingRepository(WritableRepository[Booking]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # The students of a band whose requests no lesson teaches at all.
-    #
-    # "At all" and not "here": a presence straddling one o'clock has the one
-    # request, and having planned it in the afternoon is no reason to refuse the
-    # morning. What this catches is the request nobody has looked at — which is
-    # what arriving after the calendar was built looks like.
+    # Students of the band whose requests no lesson teaches anywhere in the
+    # day: the requests nobody has looked at.
     async def find_unplanned_students(
         self,
         day: date,
@@ -135,8 +130,7 @@ class BookingRepository(WritableRepository[Booking]):
         if not unique:
             return set()
 
-        # One query for both sides of the preference: the caller only needs to
-        # know which of the named teachers exist, not which list they came from.
+        # One query for both sides: only existence of the named teachers matters.
         rows = await self.session.scalars(
             select(Teacher.tax_code).where(Teacher.tax_code.in_(unique))
         )

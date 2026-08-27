@@ -12,12 +12,9 @@ import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import 'person_detail_widgets.dart';
 
-// Past this many programmes the list gets a field to shorten it: under it,
-// searching a list you can already see is a control that does nothing.
+// Past this many programmes the list gets a search field.
 const int _searchFrom = 12;
 
-// A programme as the picker reads it: which group it belongs to, and the name
-// it keeps once the group has said the rest.
 class _ScopedProgram
 {
   final StudyProgramItem program;
@@ -28,25 +25,13 @@ class _ScopedProgram
   String get label => program.name;
 }
 
-// Where a discipline is taught, chosen programme by programme.
-//
-// The list used to be a flat wrap of chips carrying the whole name of every
-// programme — ten of them, each wrapping onto three lines, for a discipline as
-// common as Italian grammar. Here they are gathered by school level and by
-// sector, so that a row carries only what tells it apart from its neighbours.
-//
-// The sector is a field of the programme. An earlier draft read it out of the
-// name, splitting on the bar somebody had typed there by habit: it worked on
-// the data at hand and would have quietly stopped grouping anything the day
-// someone wrote a name their own way.
 class ProgramScopeDialog extends StatefulWidget
 {
   final String subjectName;
   final List<StudyProgramItem> programs;
   final Set<int> initialSelected;
 
-  // Called with the chosen ids on confirm. An empty set means the discipline is
-  // being given up: the caller decides what that means.
+  // An empty set means the discipline is being given up.
   final ValueChanged<Set<int>> onSave;
 
   const ProgramScopeDialog({
@@ -82,9 +67,6 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     super.dispose();
   }
 
-  // The heading a programme stands under: the level, which every programme has,
-  // and the sector where there is one — primary and middle school have no
-  // streams to tell apart.
   _ScopedProgram _scope(StudyProgramItem program)
   {
     return _ScopedProgram(
@@ -93,8 +75,6 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     );
   }
 
-  // Groups in the order their first programme appears, so a list read twice
-  // reads the same way.
   Map<String, List<_ScopedProgram>> get _groups
   {
     final query = _query.toLowerCase();
@@ -104,8 +84,8 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     {
       final scoped = _scope(program);
 
-      // Matched against the full name, sector included: the sector is on the
-      // heading rather than on the row, but it is still what someone might type.
+      // Matched against the full name: the sector is on the heading, not the
+      // row, but is still what someone might type.
       if (query.isNotEmpty && !program.fullName.toLowerCase().contains(query))
       {
         continue;
@@ -132,9 +112,7 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     });
   }
 
-  // A heading answers for the rows under it: all of them on, or all of them off.
-  // Half chosen counts as off, so the first press turns the group on rather than
-  // wiping what was already there.
+  // Half chosen counts as off, so the first press turns the group on.
   void _toggleGroup(List<_ScopedProgram> group, bool selected)
   {
     setState(()
@@ -153,9 +131,6 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
     });
   }
 
-  // How many programmes are inside. The count alone: the "all / none" that sat
-  // next to it answered for the whole dialog, whereas the answer needed is
-  // almost always for one sector, and that is given by its header's tick.
   Widget _buildSummary()
   {
     final int total = widget.programs.length;
@@ -259,8 +234,6 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
   }
 }
 
-// The name of a group and, at its right, the mark that answers for the whole of
-// it: full, empty, or half filled where only some of the rows are on.
 class _GroupHeading extends StatelessWidget
 {
   final String title;
@@ -306,8 +279,6 @@ class _GroupHeading extends StatelessWidget
   }
 }
 
-// One programme. A row rather than a chip: these names run to a line of text,
-// and a chip that wraps three times has stopped being a chip.
 class _ProgramRow extends StatefulWidget
 {
   final String label;
@@ -343,14 +314,12 @@ class _ProgramRowState extends State<_ProgramRow>
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            // Transparent in this colour: `Colors.transparent` is black at
-            // zero opacity, and fading over it the row passes through grey.
+            // Not Colors.transparent (black at zero alpha): the fade would pass
+            // through grey.
             color: widget.selected
                 ? kPickedSurface
                 : kPickedSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(14),
-            // As in the disciplines: gold says where the pointer is, grey says
-            // nothing and flickers.
             border: Border.all(
               color: _hover
                   ? AppTheme.trialGold

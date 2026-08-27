@@ -37,8 +37,8 @@ class WeeklyTemplateRepository(WritableRepository[WeeklyTemplate]):
         mode: str,
         start_time: time,
     ) -> WeeklyTemplate | None:
-        # The table's natural key: it recognises a band already present at the
-        # same time instead of running into the uniqueness constraint.
+        # Natural-key lookup: finds an existing band instead of hitting the
+        # unique constraint.
         stmt = select(WeeklyTemplate).where(
             WeeklyTemplate.weekday == weekday,
             WeeklyTemplate.mode == mode,

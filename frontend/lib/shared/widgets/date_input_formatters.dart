@@ -1,8 +1,5 @@
 import 'package:flutter/services.dart';
 
-// The slashes of a date insert themselves while typing: filling in a form
-// should not mean typing the punctuation too.
-
 class DateInputFormatter extends TextInputFormatter
 {
   @override
@@ -17,8 +14,6 @@ class DateInputFormatter extends TextInputFormatter
     }
 
     String text = newValue.text;
-    // Follows the caret instead of forcing it to the end, so editing a digit
-    // in the middle of an already typed date leaves the cursor where it was.
     int caret = newValue.selection.baseOffset;
 
     if (text.length == 2 && !text.contains('/'))

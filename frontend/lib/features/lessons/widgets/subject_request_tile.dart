@@ -20,11 +20,9 @@ import 'booking_fields_section.dart';
 import 'person_avatar.dart';
 import 'subject_pick_row.dart';
 
-// The height and type size every dialog of the app gives its buttons.
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
-// The name of a ministry subject, or what to say where none has been chosen.
 String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String fallback = 'Materia da scegliere'})
 {
   for (final subject in subjects)
@@ -38,7 +36,6 @@ String ministrySubjectName(List<MinistrySubjectItem> subjects, int? id, {String 
   return fallback;
 }
 
-// The disciplines of a request, by name.
 List<String> disciplineNames(List<MinistrySubjectItem> subjects, SubjectRequestDraft request)
 {
   final names = <String>[];
@@ -62,7 +59,6 @@ List<String> disciplineNames(List<MinistrySubjectItem> subjects, SubjectRequestD
   return names;
 }
 
-// The names behind a list of tax codes, in the order they were given.
 List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
 {
   final names = <String>[];
@@ -81,37 +77,24 @@ List<String> teacherNames(List<PersonItem> teachers, List<String> taxCodes)
   return names;
 }
 
-// A list of subjects asked for, each one a row that opens onto its own window.
-//
-// The rows are a list and stay a list: what a subject holds is seven things,
-// and seven things unfolding inside a row pushed every other row off the
-// bottom of the window. Pressing one opens them in the middle of the screen
-// instead, where there is room to read them.
 class SubjectRequestList extends StatelessWidget
 {
   final List<SubjectRequestDraft> requests;
 
-  // Every subject there is, for naming what is already asked for: a booking
-  // written before the pupil changed programme still has to say what it is.
+  // The full catalogue, for naming bookings written before the pupil changed programme.
   final List<MinistrySubjectItem> ministrySubjects;
 
-  // And the ones that may be chosen now — what the pupil's own programme
-  // teaches. Left out, they are the same.
+  // The subjects choosable now; null means same as ministrySubjects.
   final List<MinistrySubjectItem>? offeredSubjects;
 
   final List<PersonItem> teachers;
 
-  // Said in place of the list where there is nothing in it yet.
   final String emptyLabel;
 
-  // Left out where nothing may be added — a way of being there with no hours
-  // on it has nothing to spend.
   final VoidCallback? onAdd;
 
   final void Function(int index) onRemove;
 
-  // Where the pencil goes: the window that asks a subject a question at a
-  // time. Left out, the rows only open on what they say.
   final void Function(int index)? onEdit;
 
   const SubjectRequestList({
@@ -165,7 +148,6 @@ class SubjectRequestList extends StatelessWidget
   }
 }
 
-// One subject asked for: a line that opens onto a card of everything it holds.
 class SubjectRequestTile extends StatefulWidget
 {
   final SubjectRequestDraft draft;
@@ -194,9 +176,6 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
 {
   bool _hover = false;
 
-  // How it is called, whichever of the three kinds it is: a ministry subject is
-  // looked up in the catalogue, while a discipline asked on its own and a
-  // service carry their own name with them.
   String get _title
   {
     if (widget.draft.kind != BookingRequestKind.ministrySubject)
@@ -207,8 +186,6 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
     return ministrySubjectName(widget.ministrySubjects, widget.draft.ministrySubjectId);
   }
 
-  // What it costs and what it is made of, in that order: the duration is what
-  // one line of a list is read for.
   String get _summary
   {
     final disciplines = disciplineNames(widget.ministrySubjects, widget.draft);
@@ -221,10 +198,6 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
     return pieces.join(' · ');
   }
 
-  // The card the row opens onto, in the middle of the screen. The two buttons
-  // under it do what the two icons on the row do: whoever came in by pressing
-  // the name should not have to go back out to the row to act on what they have
-  // just read.
   void _showDetails()
   {
     showBlurredDialog<void>(
@@ -322,8 +295,7 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,
         borderRadius: BorderRadius.circular(16),
-        // The outline is always there, transparent: what lights up must not
-        // move by two pixels what is inside it.
+        // Border always present (transparent when idle) so hover does not shift layout.
         border: Border.all(
           color: _hover
               ? AppTheme.trialGold
@@ -336,40 +308,20 @@ class _SubjectRequestTileState extends State<SubjectRequestTile>
   }
 }
 
-// Everything a requested subject holds, opened at the centre of the screen.
-//
-// The entries sit in a row like the facts of a school year, and for the same
-// reason: seven short values in a column make a tall card saying very little,
-// whereas in a row they read at a glance. Above them the pill with the subject's
-// name, which is what holds the seven answers together.
 class _SubjectRequestDetailsDialog extends StatelessWidget
 {
-  // The size of the read-only dialogs — the same as an availability's page.
-  // Seven values side by side want more than a thousand pixels not to be
-  // squeezed, and three of them are sentences that wrapped four times each in a
-  // narrow column.
   static const double _maxWidth = 560;
 
-  // How wide the single remaining button is where there is nothing to edit —
-  // barely half of what two take, so it does not turn into a band.
   static const double _loneButtonWidth = 240;
 
-  // What stands in for an answer that was not given. Every entry is there
-  // regardless: that a subject's topic went unsaid is something worth reading,
-  // and a card changing columns depending on what is filled in does not read the
-  // same way twice.
   static const String _empty = '—';
 
-  // What the thing being looked at is called: it sits in the pill above the
-  // card, because every entry that follows speaks of it.
   final String title;
 
   final SubjectRequestDraft draft;
   final List<MinistrySubjectItem> ministrySubjects;
   final List<PersonItem> teachers;
 
-  // Off where the rows cannot be edited: the card is then read-only, and the
-  // only button left at the bottom is the one that removes.
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
 
@@ -382,15 +334,10 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
     this.onEdit,
   });
 
-  // All seven, always, with a dash where nothing was answered, and in the order
-  // they are asked in.
   List<(String, String)> get _voices
   {
     String said(String value) => value.trim().isEmpty ? _empty : value.trim();
 
-    // The disciplines only where there is more than one: a single one already
-    // sits in the row this dialog opened from, under the subject's name, and
-    // here the dash is left as for any other entry with nothing to say.
     final disciplines = disciplineNames(ministrySubjects, draft);
 
     return [
@@ -404,9 +351,6 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
     ];
   }
 
-  // Name above, value below: the pair every detail dialog of the app says one
-  // thing with. The value wraps as much as it needs — a topic and a note are
-  // sentences, not words.
   Widget _buildVoice(String label, String value, {required bool first})
   {
     final isEmpty = value == _empty;
@@ -425,8 +369,6 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
               fontSize: 16,
               fontWeight: FontWeight.w600,
               height: 1.45,
-              // The dash is not an answer and does not read as one: it is
-              // there to say the question was left blank.
               color: isEmpty ? AppTheme.trialMutedText : AppTheme.trialInk,
             ),
           ),
@@ -469,8 +411,6 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
       children: [
         AppDialogPill(
           expand: true,
-          // Selection stops at the body: the buttons underneath are not text
-          // you would ever want to drag a cursor through.
           child: SelectionArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -487,25 +427,17 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
   }
 }
 
-// How tall the teacher list gets before it starts scrolling on its own.
 const double _teacherListMaxHeight = 340;
 
-// Who the pupil would rather have, or rather not. Searched for by name and
-// gathered as chips: an association with forty teachers cannot put forty chips
-// on a form, and the one being looked for is known by name rather than found
-// by reading the list.
 class TeacherPicker extends StatefulWidget
 {
   final String label;
   final IconData icon;
 
-  // What the field says while it is empty. The same either way: it is a name
-  // being looked for, whichever of the two lists it is going into.
   final String hint;
 
-  // The list being written, and the one on the other side of the same
-  // question: a teacher named here leaves the other rather than standing on
-  // both.
+  // A teacher added to `chosen` is removed from `other`: the two lists are
+  // mutually exclusive.
   final List<String> chosen;
   final List<String> other;
 
@@ -545,10 +477,6 @@ class _TeacherPickerState extends State<TeacherPicker>
 
   bool get _full => widget.chosen.length >= SubjectRequestDraft.maxPreferredTeachers;
 
-  // Who can still be picked, and who has already been picked here. Whoever is
-  // on the other list does not show up: preferred and not preferred are mutually
-  // exclusive answers, and offering someone here would be offering to
-  // contradict oneself.
   List<PersonItem> get _available
   {
     final query = _query.trim().toLowerCase();
@@ -578,8 +506,6 @@ class _TeacherPickerState extends State<TeacherPicker>
 
     setState(()
     {
-      // The two lists are two sides of one answer, so a teacher moves between
-      // them rather than standing on both.
       widget.other.remove(teacher.fiscalCode);
       widget.chosen.add(teacher.fiscalCode);
     });
@@ -606,16 +532,10 @@ class _TeacherPickerState extends State<TeacherPicker>
             children: [
               Icon(widget.icon, size: 15, color: AppTheme.trialMutedText),
               const SizedBox(width: 8),
-              // The label gives way rather than running off the end: inside the
-              // window that opens off a day this row is a column of a pair, and
-              // "DOCENTI DA EVITARE" is wider than half of it.
               Expanded(
                 child: AppFieldLabel(widget.label),
               ),
               const SizedBox(width: 8),
-              // Like the time taken next to the duration: same line, same
-              // size, same colour. They say the same thing — how much of what
-              // there is has been used — and have to read the same way.
               Text(
                 '${widget.chosen.length} di ${SubjectRequestDraft.maxPreferredTeachers}',
                 style: GoogleFonts.plusJakartaSans(
@@ -638,11 +558,6 @@ class _TeacherPickerState extends State<TeacherPicker>
             ),
           )
         else ...[
-          // A list that stays put instead of a dropdown that opens and closes.
-          // As a dropdown, picking one left it open — and one had to press
-          // elsewhere to get rid of it — while closing it forced a return to the
-          // field for the second name. A list that stays has neither problem:
-          // one ticks and carries on.
           AppSearchField(
             controller: _controller,
             hintText: _full
@@ -680,10 +595,6 @@ class _TeacherPickerState extends State<TeacherPicker>
                         SubjectPickRow(
                           key: ValueKey(teacher.fiscalCode),
                           name: '${teacher.firstName} ${teacher.lastName}',
-                          // The face and nothing else, with no second line:
-                          // what they teach is not what one looks at to
-                          // recognise them, and it was the line that grew the
-                          // list here while saying nothing.
                           leading: PersonAvatar(person: teacher, size: PersonAvatar.pickerSize),
                           selected: widget.chosen.contains(teacher.fiscalCode),
                           hasChoice: false,
@@ -697,9 +608,6 @@ class _TeacherPickerState extends State<TeacherPicker>
                 ),
               ),
             ),
-          // No chips below carrying the picked names: the tick in the list
-          // already says so, and repeating it was the same answer written
-          // twice.
         ],
       ],
     );

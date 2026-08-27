@@ -1,50 +1,35 @@
 import 'booking_summary_item.dart';
 
-// One thing a pupil asks for: a booking before it has been written, and the
-// shape the window that asks for one works on.
-//
-// Three kinds live in here and what is worth asking changes with the kind: a
-// ministry subject has disciplines under it, a discipline asked on its own has
-// none, and a service has neither those nor a topic — "metodo di studio" is the
-// thing itself, not a lesson about something.
 class SubjectRequestDraft
 {
   BookingRequestKind kind;
 
-  // For a ministry subject: the subject and the disciplines chosen under it.
-  // Empty for the other two kinds.
+  // Ministry-subject kind only; empty for the other two kinds.
   int? ministrySubjectId;
   Set<int> associationSubjectIds;
 
-  // For a discipline asked for on its own: which one. The name is kept next to
-  // the id because the card showing it has no catalogue at hand.
+  // Standalone-discipline kind only. Name kept beside the id: the card
+  // showing it has no catalogue at hand.
   int? associationSubjectId;
   String? associationSubjectName;
 
-  // For a service: its name, which is also its key.
+  // Service kind only: the name is also the key.
   String? serviceName;
 
   int? duration;
 
-  // The kind of hour — oral test, homework, study. More than one, or none: an
-  // hour is often two things at once. Meaningless on a service.
+  // Meaningless on a service.
   List<String> tags;
 
-  // Who the pupil would rather be taught by, at most three. A preference and
-  // not a booking: who actually teaches the hour is decided when the timetable
-  // is put together, out of the teachers who offered that day.
+  // Preferences, not constraints: the timetable decides who actually teaches.
   List<String> preferredTeacherTaxCodes;
 
-  // And who they would rather not. Also at most three, and also a preference:
-  // it says who the hour should go to last, not who is forbidden it — an
-  // association with two teachers of a subject cannot honour a veto.
+  // Also a preference (go-to-last), not a veto.
   List<String> excludedTeacherTaxCodes;
 
-  // What the lesson is about, in the pupil's own words. Optional, and
-  // meaningless on a service.
+  // Meaningless on a service.
   String topic;
 
-  // Anything else the teacher should know before the hour starts. Optional.
   String notes;
 
   // The stored row this is, where it is one already.
@@ -69,10 +54,8 @@ class SubjectRequestDraft
         preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[],
         excludedTeacherTaxCodes = excludedTeacherTaxCodes ?? <String>[];
 
-  // Everything a stored row holds and not only what a summary shows: whoever
-  // edits a booking writes back what they were handed, so a draft built from
-  // half of one is a booking about to lose the other half.
-  // [ministrySubjectName] is the caller's to resolve.
+  // Copies every stored field: edits write back what they were handed, so a
+  // partial draft would lose the rest. [ministrySubjectName] is the caller's to resolve.
   factory SubjectRequestDraft.fromBooking(
     BookingSummaryItem booking, {
     String? ministrySubjectName,
@@ -96,17 +79,13 @@ class SubjectRequestDraft
     )..ministrySubjectName = ministrySubjectName;
   }
 
-  // The most teachers a pupil may name on either side of one subject. More
-  // than three is not a preference any more, it is the whole staff in order.
+  // Max teachers a pupil may name on either side of one subject.
   static const int maxPreferredTeachers = 3;
 
-  // A service has neither topic nor tags, and no kind other than the ministry
-  // subject has disciplines to list.
   bool get asksForDisciplines => kind == BookingRequestKind.ministrySubject;
   bool get asksForTopicAndTag => kind != BookingRequestKind.service;
 
-  // The disciplines this hour is spent on, however it was asked for. A service
-  // is spent on none, so it counts against no discipline's daily ceiling.
+  // A service has no disciplines, so it counts against no daily ceiling.
   Set<int> get disciplineIds => switch (kind)
   {
     BookingRequestKind.ministrySubject => {...associationSubjectIds},
@@ -131,11 +110,9 @@ class SubjectRequestDraft
     };
   }
 
-  // The ministry subject's name, which the draft only knows if whoever built it
-  // said so: it is what calls it by name in a list, with no catalogue at hand.
+  // Only known if the builder provided it; used for display without a catalogue.
   String? ministrySubjectName;
 
-  // What to call it in a list, whichever of the three kinds it is.
   String get displayName => switch (kind)
   {
     BookingRequestKind.ministrySubject => ministrySubjectName ?? 'Materia',
@@ -162,7 +139,6 @@ class SubjectRequestDraft
     )..ministrySubjectName = ministrySubjectName;
   }
 
-  // What the backend expects for this request, inside its mode's block.
   Map<String, dynamic> toJson()
   {
     return {

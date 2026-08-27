@@ -19,8 +19,7 @@ from tests.services.test_lesson_service import (
     service as lesson_service,
 )
 
-# The whole point of these is that visibility is a union of the roles held and
-# not a switch on one of them.
+# Visibility is a union of the roles held, not a switch on one.
 
 
 @pytest_asyncio.fixture
@@ -43,9 +42,8 @@ def as_user(identity: IdentityContext) -> None:
     app.dependency_overrides[get_current_identity] = lambda: identity
 
 
-# Two lessons of two different teachers, for two different pupils, both
-# published. Every test below asks which of the two a given person sees, and
-# checking the count alone would pass just as well on the wrong one.
+# Two lessons, two teachers, two pupils: counting alone would pass on the
+# wrong one, so tests check which is seen.
 async def _two_published_lessons(db: AsyncSession):
     first = await scene(db)
     second = await scene(db)
@@ -79,8 +77,7 @@ async def test_an_administrator_sees_everything(
     assert await _ids(client) == {mine, theirs}
 
 
-# An unpublished band has not gone out, so for everybody but an administrator
-# it is not there.
+# Unpublished bands are invisible to everyone but administrators.
 async def test_a_draft_is_invisible_to_a_teacher(
     db: AsyncSession,
     client: AsyncClient,
@@ -151,8 +148,7 @@ async def test_a_parent_sees_nothing_of_other_families(
     assert await _ids(client) == set()
 
 
-# The case a switch on roles gets wrong: someone who teaches and is also a
-# parent sees both, not whichever role was checked first.
+# A teacher-parent sees both, not whichever role was checked first.
 async def test_a_teacher_who_is_also_a_parent_sees_the_union(
     db: AsyncSession,
     client: AsyncClient,

@@ -30,8 +30,8 @@ class RoomRepository(WritableRepository[Room]):
             .all()
         )
 
-    # Case-insensitive, because the UNIQUE alone would let "Aula blu" stand
-    # beside "Aula Blu" and nobody would know which one they were sent to.
+    # Case-insensitive: the UNIQUE alone would let "Aula blu" stand beside
+    # "Aula Blu".
     async def find_by_name(
         self,
         name: str,

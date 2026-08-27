@@ -5,11 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../people/models/current_totals_item.dart';
 import 'dashboard_section_card.dart';
 
-// The four figures saying how the association stands. Only the figures, with
-// their change: the charts already have a page of their own, and a home page
-// repeating them becomes a statistics page with a greeting on top.
-
-// A total with how much it changed over the last month.
 class DashboardStat
 {
   final String label;
@@ -25,13 +20,11 @@ class DashboardStat
 
 class DashboardStatsSection extends StatelessWidget
 {
-  // How wide the card has to be for the four figures to sit in a row without
-  // clipping their labels, and how wide for two of them. The first is measured
-  // on the longest of the four labels.
+  // Minimum widths for four and two figures per row, measured on the longest
+  // label.
   static const double fourInARowFrom = 670;
   static const double twoInARowFrom = 300;
 
-  // How many columns of figures fit in the given width.
   static int columnsForWidth(double width)
   {
     if (width >= fourInARowFrom)
@@ -47,19 +40,14 @@ class DashboardStatsSection extends StatelessWidget
   final CurrentTotalsItem? students;
   final bool isLoading;
 
-  // The short form of a tile: the change said on the same line as the figure
-  // rather than under it. It is what the card wears where it stands in a
-  // column with another card rather than alone in a row — a third of the height
-  // for the same four numbers, which is what leaves room for the other one.
+  // Compact puts the change on the same line as the figure instead of under
+  // it.
   final bool compact;
 
-  // How many figures per row. Decided by the page, the only one that knows how
-  // much room it gave this card: measuring it here would want a LayoutBuilder,
-  // and a LayoutBuilder inside a row of equal-height cards cannot answer how
-  // tall it would be.
+  // Decided by the page: measuring here would need a LayoutBuilder, which
+  // cannot report a height inside a row of equal-height cards.
   final int columns;
 
-  // Passati alla card: quanto è alta almeno e se il contenuto riempie.
   final double minHeight;
   final bool fill;
 
@@ -81,9 +69,6 @@ class DashboardStatsSection extends StatelessWidget
           value: general?.currentTotalMembers ?? 0,
           deltaMonth: general?.membersDeltaMonth ?? 0,
         ),
-        // The full label does not fit in a quarter of the card, and truncated
-        // it says nothing: these are all current figures, and the section
-        // already says so.
         DashboardStat(
           label: 'Collaboratori',
           value: general?.currentActiveCollaborators ?? 0,
@@ -121,9 +106,7 @@ class DashboardStatsSection extends StatelessWidget
     );
   }
 
-  // The figures in rows of [columns], with the last row keeping its height even
-  // when not full: two tiles twice as wide as the other two would say that those
-  // two count for more.
+  // A partial last row keeps normal-width tiles rather than stretching them.
   Widget _grid()
   {
     final List<DashboardStat> stats = _stats;
@@ -176,8 +159,6 @@ class _StatTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Green for a rise, red for a fall, grey for standing still: a plus in
-    // front of a zero is news that is not there.
     final bool still = stat.deltaMonth == 0;
     final bool up = stat.deltaMonth > 0;
 
@@ -210,9 +191,6 @@ class _StatTile extends StatelessWidget
     final Widget change = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // The arrow goes in the short form: beside the figure rather than under
-        // it there is no room for both it and the words, and of the two it is
-        // the words that say when. The colour keeps saying which way.
         if (!compact) ...[
           Icon(
             still
@@ -249,17 +227,11 @@ class _StatTile extends StatelessWidget
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        // If the tile is stretched taller — because the row holds a card
-        // taller than this one — the figure stays centred instead of hanging at
-        // the top.
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           label,
           SizedBox(height: compact ? 5 : 10),
-          // Short form: the change stands beside the figure on its own
-          // baseline. Under it, as it stands in the full tile, it would spend a
-          // third of the height on the smallest thing the tile says.
           if (compact)
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,

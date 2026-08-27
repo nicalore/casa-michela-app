@@ -5,16 +5,12 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_watermark.dart';
 
-// The background of the pages seen before signing in, and of the one seen when
-// an address leads nowhere. The same as every other page of the app: the paper,
-// the two corner glows — the two ends of the brand ramp, split between the
-// corners — and the watermark.
+// Background for pre-sign-in pages and the not-found page.
 class AuthPageBackground extends StatelessWidget
 {
   final Widget child;
 
-  // The watermark. Off on the login page, where the association's logo is
-  // already the largest thing on screen and the two overlapped.
+  // Off on the login page, where it would overlap the logo.
   final bool watermark;
 
   const AuthPageBackground({super.key, required this.child, this.watermark = true});
@@ -26,8 +22,7 @@ class AuthPageBackground extends StatelessWidget
       backgroundColor: AppTheme.trialPaper,
       body: Stack(
         children: [
-          // They position themselves: inside a Positioned they would get two
-          // positions, one overriding the other.
+          // CornerGlows position themselves; do not wrap them in Positioned.
           const CornerGlow(
             corner: GlowCorner.topRight,
             tint: AppTheme.trialDeepWater,
@@ -49,8 +44,6 @@ class AuthPageBackground extends StatelessWidget
   }
 }
 
-// One of those pages shaped like a dialog of the app: the header, and under it
-// the pills carrying what has to be answered.
 class AuthPillPage extends StatelessWidget
 {
   final String eyebrow;
@@ -75,7 +68,6 @@ class AuthPillPage extends StatelessWidget
       child: AppDialogStack(
         eyebrow: eyebrow,
         title: title,
-        // There is no dialog to close: what lies underneath is the page.
         showClose: false,
         maxWidth: maxWidth,
         footer: footer,

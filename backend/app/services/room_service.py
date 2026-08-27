@@ -23,9 +23,8 @@ class RoomService:
     def __init__(self, repository: RoomRepository) -> None:
         self.repository = repository
 
-    # Case-insensitive, and checked before writing: the UNIQUE index would let
-    # "Aula blu" stand beside "Aula Blu", and then nobody knows which one they
-    # were sent to. The integrity_guard below still catches the race.
+    # Case-insensitive pre-check: the UNIQUE index alone would allow "Aula blu"
+    # beside "Aula Blu". integrity_guard still catches the race.
     async def _assert_name_available(
         self,
         name: str,
@@ -83,9 +82,7 @@ class RoomService:
 
         return room
 
-    # A room that has ever been used is part of the record and stays. Counted
-    # first so the refusal can say why; the RESTRICT is what holds if two
-    # requests race.
+    # Counted first for a readable refusal; the RESTRICT holds under races.
     async def delete(self, room_id: int) -> None:
         room = await self.get_or_404(room_id)
         assignments = await self.repository.count_assignments(room.id)

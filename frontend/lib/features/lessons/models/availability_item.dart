@@ -8,8 +8,7 @@ class AvailabilityItem
   final int id;
   final DateTime date;
 
-  // 'presence' or 'online', the same two the association's opening hours are
-  // kept in: an availability is offered against one of them.
+  // 'presence' or 'online', matching the opening-hours modes.
   final String mode;
 
   final TimeOfDay startTime;

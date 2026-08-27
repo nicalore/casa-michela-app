@@ -28,12 +28,6 @@ import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 import 'widgets/role_chips_row.dart';
 
-// The card of identity over the sections: it is the same person whichever
-// section is open, so it stands outside them rather than being repeated in each.
-//
-// It is deliberately not as wide as the page. What it holds is a picture, a name
-// and two or three roles, and stretched over a 1440 window that is a strip of
-// white with everything huddled at its left end.
 const double _identityWidth = 800;
 const double _identityAvatar = 96;
 const double _compactIdentityAvatar = 72;
@@ -74,9 +68,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     _fetchCurrentUser();
   }
 
-  // Loads the logged-in account to compare its tax code with the displayed
-  // person (see _isOwnProfile). Failure is silent: _currentUser stays null and
-  // _isOwnProfile stays false, which is not worth blocking the page over.
+  // Failure is silent: _isOwnProfile just stays false.
   Future<void> _fetchCurrentUser() async
   {
     try
@@ -91,8 +83,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     catch (_) {}
   }
 
-  // True when the logged-in account is the person shown here. Used to hide
-  // actions an account must not perform on itself (for example REVOCA ISCRIZIONE).
+  // Hides actions an account must not perform on itself (e.g. revocation).
   bool get _isOwnProfile
   {
     if (_currentUser == null || _person == null)
@@ -123,9 +114,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
           _isLoading = false;
 
-          // If the refresh drops the currently selected section — a role lost, a
-          // parent unlinked — fall back to the first one instead of leaving the
-          // IndexedStack pointed at a child that is no longer there.
+          // A refresh can drop the selected section; fall back to the first.
           if (_selectedSection >= _sections.length)
           {
             _selectedSection = 0;
@@ -146,10 +135,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
-  // Called by PersonParentsTab right after the parental responsibilities are
-  // removed. The "Genitori" section always disappears then (adult with no linked
-  // parents), so the redirect to the first section is explicit and immediate
-  // rather than relying only on the generic guard in _fetchPersonData.
+  // The "Genitori" section always disappears after removal, so redirect
+  // immediately instead of relying on the guard in _fetchPersonData.
   void _onParentalResponsibilityRemoved()
   {
     setState(() => _selectedSection = 0);
@@ -169,16 +156,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return memberships.first.revocation != 'NO';
   }
 
-  // The sections of this page, as the rail groups them and as the stack of
-  // views under it orders them. The two are built from one description on
-  // purpose: they used to be two lists kept in step by hand, and a role that
-  // added a section to one and not to the other pointed the page at the wrong
-  // content.
-  //
-  // A person with linked parents or children gets a heading with one entry per
-  // name under it, the way the statistics list their roles: the names are
-  // sections of this page, and choosing them belongs in the rail rather than in
-  // a second row of chips inside the section.
+  // Rail groups and the view stack are built from this one description so they
+  // cannot drift apart.
   List<PersonSection> get _sections
   {
     if (_person == null)
@@ -224,8 +203,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     if (isMinor || parents.isNotEmpty)
     {
-      // With none linked yet there is nothing to name, and the one entry leads
-      // to the page that offers to add them.
       if (parents.isEmpty)
       {
         sections.add(PersonSection(
@@ -354,8 +331,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       width: size,
       height: size,
       decoration: BoxDecoration(
-        // The same barely-there turquoise the person cards on the list stand
-        // their initials on.
         color: AppTheme.trialTurquoise.withValues(alpha: 0.12),
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
@@ -372,9 +347,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  // Who this page is about, over whichever section is open. It wears the chrome
-  // of a card without being one: there is no heading and no rule, because the
-  // name is the heading.
   Widget _buildIdentityCard(bool compact)
   {
     final List<String> roles = RoleLabelMapper.processRoles(_person!.roles);
@@ -438,16 +410,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  // The way out on the left, the person over the middle of the page.
-  //
-  // The header is laid out on the same grid as the body below it: the button
-  // takes the column the rail takes, and the card is centred in what is left —
-  // which is the column the cards of a section stand in. Centred on the window
-  // instead, it sat a rail's width to the left of everything under it.
+  // Laid out on the same grid as the body: the button takes the rail's column.
   Widget _buildHeader(AppWindowSize size)
   {
-    // Nothing to introduce yet: while the person is being fetched the header is
-    // the way out and nothing else.
     if (_person == null)
     {
       return Align(alignment: Alignment.centerLeft, child: _buildBackButton());
@@ -477,10 +442,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  // Back to the list of people. This page hangs off that list rather than
-  // standing beside it in the app's navigation, which is why it has an arrow of
-  // its own instead of the bar every other page carries: from here the only way
-  // out is back the way you came in.
   Widget _buildBackButton()
   {
     return _BackButton(onTap: () => context.go('/people'));
@@ -508,10 +469,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       );
     }
 
-    // Nothing wrapped out here: each section times its own cards, one under the
-    // next, the way a list page times its own. Wrapped as one element from this
-    // side, a section would leave in a single slab — which is what it did, and
-    // what it was told not to.
+    // Each section times its own transitions; wrapping from here would animate
+    // it as a single slab.
     final Widget content = PageSections(
       index: _selectedSection,
       children: [for (final section in sections) section.view],
@@ -520,9 +479,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Two hundred and forty pixels of a phone cannot go to a column of
-        // section names, so below the breakpoint they become a row of segments
-        // over the content instead.
         if (size.hasRail) ...[
           Align(
             alignment: Alignment.topLeft,
@@ -620,14 +576,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   }
 }
 
-// Consecutive sections carrying the same heading become one group under it, and
-// the ones with no heading become one run of entries standing on their own —
-// they have to be gathered rather than left one per group, because the rail
-// leaves air before every group and a run broken into three would read as three
-// unrelated things.
-//
-// The order is the order of the page's own IndexedStack, which is what the rail
-// counts in: entries only, headings taking no number of their own.
+// Consecutive sections with the same heading merge into one group. Order
+// matches the page's IndexedStack: entries only, headings take no index.
 List<RailGroup> personRailGroups(List<PersonSection> sections)
 {
   final groups = <RailGroup>[];
@@ -650,8 +600,6 @@ List<RailGroup> personRailGroups(List<PersonSection> sections)
   return groups;
 }
 
-// One section of this page: what the rail calls it, the heading it stands under
-// where it has one, and what it shows.
 class PersonSection
 {
   final String label;
@@ -661,8 +609,6 @@ class PersonSection
   const PersonSection({required this.label, required this.view, this.group});
 }
 
-// The way out, in the shape the app gives a control that goes somewhere: white,
-// raised, and gold under the pointer.
 class _BackButton extends StatefulWidget
 {
   final VoidCallback onTap;

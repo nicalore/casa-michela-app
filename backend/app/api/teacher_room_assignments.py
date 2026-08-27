@@ -24,8 +24,7 @@ from app.services.teacher_room_assignment_service import (
     TeacherRoomAssignmentService,
 )
 
-# Readable by teachers, who have to know which room to go to; written by
-# administrators, who decide.
+# Read by teachers, written by administrators.
 router = APIRouter(
     prefix="/teacher-room-assignments",
     tags=["teacher-room-assignments"],

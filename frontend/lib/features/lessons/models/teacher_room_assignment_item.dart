@@ -2,8 +2,7 @@ import '../../../core/utils/json_parsing.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
 
-// Where a teacher works on a day. One per teacher per day and not per hour: a
-// teacher takes a room and stays in it. Only those in the building have one.
+// One per teacher per day (not per hour); only teachers in the building have one.
 class TeacherRoomAssignmentItem
 {
   final DateTime date;
@@ -13,8 +12,7 @@ class TeacherRoomAssignmentItem
   // Not [RoomItem]: the catalogue row insists on a created_at this lacks.
   final RoomOptionItem room;
 
-  // Raised by the write and gone by the next read: a room over its declared
-  // capacity is worth saying and not worth refusing.
+  // Present only on the write's answer, not on later reads.
   final List<String> warnings;
 
   final DateTime createdAt;

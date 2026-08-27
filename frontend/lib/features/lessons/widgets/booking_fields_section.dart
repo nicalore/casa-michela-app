@@ -7,24 +7,16 @@ import '../../../shared/widgets/app_dropdown_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../association/models/ministry_subject_item.dart';
 
-// Allowed booking durations: 30-120 minutes in 15 minute steps, mirroring the
-// backend's booking_duration_step check constraint.
+// Mirrors the backend's booking_duration_step check constraint.
 final List<int> bookingDurationOptions = [
   for (var minutes = 30; minutes <= 120; minutes += 15) minutes,
 ];
 
-// The most one pupil may spend on one discipline in a day, in one mode. Two
-// hours of the same subject in a day is where a lesson stops teaching and
-// starts filling time; a third asked online on top of two in the building is
-// two different days' worth of that subject, and stays allowed.
-//
-// The backend holds the same ceiling and is what actually refuses: this is here
-// so the window can say so while the day is being written, rather than after
-// the round trip.
+// Per-discipline daily ceiling per mode. The backend holds the same ceiling and
+// is what actually refuses; this only lets the window say so before the round trip.
 const int maxDailyMinutesPerDiscipline = 120;
 
-// The kind of hour being asked for, with the name it carries on screen. The
-// values have to stay aligned with BookingTagEnum on the backend.
+// Values must stay aligned with BookingTagEnum on the backend.
 class BookingTagOption
 {
   final String value;
@@ -33,8 +25,6 @@ class BookingTagOption
   const BookingTagOption(this.value, this.label);
 }
 
-// In the order they are asked in: study and homework are the everyday bread,
-// the rest happens when it happens.
 const List<BookingTagOption> bookingTagOptions = <BookingTagOption>[
   BookingTagOption('STUDY', 'Studio'),
   BookingTagOption('HOMEWORK', 'Compiti'),
@@ -46,10 +36,7 @@ const List<BookingTagOption> bookingTagOptions = <BookingTagOption>[
   BookingTagOption('CERTIFICATION', 'Preparazione certificazione'),
 ];
 
-// The chosen kinds, called by the name they carry on screen and in the order
-// they are asked in — not in the order they were pressed, which is nobody's
-// order. A value the backend knows and these do not is left out: better one
-// entry fewer than a code among the names.
+// Labels in option order, not press order; unknown values are left out.
 List<String> bookingTagLabels(List<String> tags)
 {
   return [
@@ -58,9 +45,8 @@ List<String> bookingTagLabels(List<String> tags)
   ];
 }
 
-// Controlled form section for a booking's own fields (ministry subject,
-// association subjects, duration), reused both standalone and embedded as an
-// optional step of the presence creation wizard.
+// Controlled form section for a booking's own fields, reused standalone and
+// inside the presence creation wizard.
 class BookingFieldsSection extends StatelessWidget
 {
   final List<MinistrySubjectItem> ministrySubjects;
@@ -95,8 +81,6 @@ class BookingFieldsSection extends StatelessWidget
     return null;
   }
 
-  // Small, tracked and muted over what it names: the label every field of the
-  // app wears since the dialogs became floating pieces.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(
@@ -123,10 +107,6 @@ class BookingFieldsSection extends StatelessWidget
             ),
           ),
         _buildFieldLabel('Materia ministeriale', first: true),
-        // A dropdown and not a window with a search in it: the subjects a study
-        // programme teaches are ten or so, and they all fit under the field.
-        // Sending someone into a screen of their own to pick one of ten is a
-        // room to walk into and back out of for something that is a glance.
         AppDropdownField<int?>(
           hint: 'Seleziona una materia',
           options: ministrySubjects
@@ -137,11 +117,8 @@ class BookingFieldsSection extends StatelessWidget
           {
             onMinistrySubjectChanged(value);
 
-            // A new ministry subject invalidates the previously selected
-            // disciplines: they belong to the old subject's pivot list. When
-            // it has exactly one discipline there is nothing to choose, so it
-            // is selected on the student's behalf instead of asking them to
-            // pick the only option available.
+            // A new ministry subject invalidates the old disciplines; a lone
+            // discipline is auto-selected.
             final newSubject = ministrySubjects.where((subject) => subject.id == value).firstOrNull;
             final disciplines = newSubject?.associationSubjects ?? const [];
 

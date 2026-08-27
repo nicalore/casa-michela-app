@@ -14,8 +14,7 @@ import 'tabs/people_search_tab.dart';
 import 'tabs/statistics/general_statistics_tab.dart';
 import 'tabs/statistics/role_specific_statistics_view.dart';
 
-// The order here is the order of the IndexedStack below: search first, then the
-// statistics, which used to be a second row of chips inside their own tab.
+// Order matches the IndexedStack below.
 const List<RailGroup> _sections = [
   RailGroup(entries: ['Ricerca']),
   RailGroup(
@@ -31,9 +30,6 @@ const List<RailGroup> _sections = [
   ),
 ];
 
-// All six are const widgets, so declaring them here costs nothing: the
-// expensive part is the State, which Flutter creates only for the entries the
-// IndexedStack actually mounts.
 const List<Widget> _sectionContents = [
   PeopleSearchTab(),
   GeneralStatisticsTab(),
@@ -56,8 +52,7 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
 {
   int _selectedSection = 0;
 
-  // Held from here on, because in dispose the context can no longer be asked
-  // for it.
+  // Held here: in dispose the context can no longer be asked for it.
   GoRouter? _router;
 
   @override
@@ -74,18 +69,12 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
     _router = GoRouter.of(context);
   }
 
-  // Search text, sorting and filters are static in the tab, so they outlive it.
-  //
-  // This page is not taken down when you walk to another destination any more —
-  // it is kept, and so is everything it was showing — so what is left here is
-  // the end of the session: the page goes with the shell when the account does,
-  // and what was being looked for must not be waiting for whoever logs in next.
+  // Clears the tab's static state at end of session: it must not survive into
+  // the next login.
   @override
   void dispose()
   {
-    // Read off the configuration rather than off GoRouter.state, which throws
-    // when there is no route left at all: on the way down with the whole app,
-    // this asks the question at exactly that moment.
+    // Read off the configuration: GoRouter.state throws when no route is left.
     final destination = _router?.routerDelegate.currentConfiguration.uri.path ?? '';
 
     if (!destination.startsWith('/people'))
@@ -130,9 +119,6 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
             color: AppTheme.trialPaper,
             child: Stack(
               children: [
-                // The same pair of glows the dashboard wears, on the same paper.
-                // See the note in DashboardLayout for why they both fade towards
-                // a blue.
                 const CornerGlow(
                   corner: GlowCorner.topRight,
                   tint: AppTheme.trialDeepWater,
@@ -149,30 +135,19 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // The top inset clears the bar floating above the page: it
-                    // is laid over the content rather than in the column with
-                    // it, so the room it needs has to be left here.
+                    // The top inset clears the bar floating above the page.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    // Stretched, so the content keeps being handed the full
-                    // height it was given when it sat in a column; the rail is
-                    // pinned back to its own height inside that.
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // The rail steps aside below the breakpoint. Two hundred
-                        // and seventy pixels of a phone cannot go to a column of
-                        // section names, and the drawer behind the bar is
-                        // already holding them.
                         if (size.hasRail) ...[
                           Align(
                             alignment: Alignment.topLeft,
-                            // First out and first back in on a change of page:
-                            // the rail is what frames the content beside it.
                             child: PageTransitionItem(
                               slot: PageTransitionItem.frame,
                               child: AppSectionRail(
@@ -187,9 +162,6 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                         ],
                         Expanded(
                           child: size.isCompact
-                              // What the rail was saying about where you are has
-                              // to keep being said: the module quietly, over the
-                              // section you are in.
                               ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
@@ -210,8 +182,6 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                     ),
                   ),
                 ),
-                // Last in the stack, so the bar and the menu it opens stay above
-                // the page.
                 AppTopBar(
                   currentRoute: '/people',
                   sectionTitle: 'Persone',

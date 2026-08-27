@@ -16,12 +16,8 @@ from app.services.presence_service import PresenceService
 _CREATE_ERROR: Final[str] = "Errore durante la creazione della richiesta."
 
 
-# Hangs each lesson off one of the stretches the pupil gave. A booking has no
-# hours of its own, only a length, and the rule the domain enforces is a total
-# for the day: so this is first fit in clock order, the earliest stretch with
-# room left. When no single stretch is long enough it falls back on the roomiest
-# one rather than refusing — that is a timetabling problem, not an invalid
-# request, and rejecting it here would be stricter than the invariant.
+# First fit in clock order; when no stretch is long enough, falls back on the
+# roomiest one rather than refusing (the domain limit is only a daily total).
 def assign_presences(
     presences: list[Presence],
     subjects: list[LessonRequestSubject],
@@ -50,11 +46,8 @@ def assign_presences(
         yield target, subject
 
 
-# One booking session written in one transaction: the hours, then the lessons.
-# Every rule it applies belongs to PresenceService and BookingService; what it
-# owns is the transaction. The two services hand back rows that are staged but
-# not committed, and the single commit at the end makes the request
-# all-or-nothing.
+# Owns only the transaction: the services stage uncommitted rows and the
+# single commit at the end makes the request all-or-nothing.
 class LessonRequestService:
     def __init__(
         self,
@@ -75,9 +68,7 @@ class LessonRequestService:
 
         async with integrity_guard(self.session, _CREATE_ERROR):
             try:
-                # Mode by mode, because each has its own bands and its own
-                # hours: assigning an online lesson to a band in the building
-                # would put it in a time it was never asked for.
+                # Per mode: each mode has its own bands and hours.
                 for block in payload.modes:
                     block_presences = [
                         await self.presence_service.prepare_create(
@@ -98,9 +89,8 @@ class LessonRequestService:
                         block_presences,
                         block.subjects,
                     ):
-                        # Passing presence= also fills presence.bookings in
-                        # memory via back_populates, so the response is built
-                        # with no further IO.
+                        # presence= fills presence.bookings via
+                        # back_populates: no further IO for the response.
                         self.session.add(
                             await self.booking_service.build_for_presence(
                                 presence,
@@ -114,10 +104,8 @@ class LessonRequestService:
                 await self.session.commit()
 
             except HTTPException:
-                # Nothing has been committed, so this leaves no half-written
-                # request behind; the rollback is explicit rather than left to
-                # the session closing, so the transaction is not held open
-                # meanwhile.
+                # Explicit rollback so the transaction is not held open
+                # until the session closes.
                 await self.session.rollback()
                 raise
 

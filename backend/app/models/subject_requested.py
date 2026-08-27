@@ -83,10 +83,8 @@ def _validate_subject_requested_ministry_subject_consistency(
         for instance in deleted_instances(session, SubjectRequested)
     }
 
-    # Keyed through booking_flush_key and not through booking_id alone: rows
-    # hanging off a booking that has not been flushed yet have no booking_id,
-    # and grouping on it would skip every brand-new booking — which is exactly
-    # what the transactional endpoint creates.
+    # Keyed via booking_flush_key: unflushed bookings have no booking_id yet
+    # and grouping on it would skip them.
     staged_by_booking: dict[BookingFlushKey, set[int]] = defaultdict(set)
 
     for request in pending_requests:
@@ -98,14 +96,10 @@ def _validate_subject_requested_ministry_subject_consistency(
     for key, staged_ministry_subject_ids in staged_by_booking.items():
         ministry_subject_ids = set(staged_ministry_subject_ids)
 
-        # Only a booking that already exists has stored rows to reconcile
-        # against; a brand-new one has nothing to read.
+        # Only a stored booking has rows to reconcile against.
         booking_id = stored_booking_id(key)
 
-        # Queried explicitly rather than navigated through
-        # booking.subjects_requested, so this is correct regardless of whether
-        # related objects were built via the relationship or via the raw
-        # booking_id column.
+        # Queried explicitly: relationship collections may be unbuilt or stale.
         if booking_id is not None:
             persisted_rows = session.execute(
                 select(

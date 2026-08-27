@@ -1,6 +1,4 @@
-# Turns stored bookings into the shape the API answers with. Shared by
-# /bookings, /presences and /lesson-requests, which all have to say the same
-# thing about a booking and would otherwise say it three times.
+# Shared response shaping for /bookings, /presences and /lesson-requests.
 
 from collections.abc import Iterable, Iterator, Sequence
 
@@ -12,10 +10,8 @@ from app.schemas.booking import BookingSummaryResponse
 from app.schemas.person import PersonOption
 
 
-# Every teacher named across these bookings, for one batched lookup. Teachers
-# carry no name of their own — it lives on Person — so they are resolved through
-# PersonRepository.get_options like everyone else, and this keeps that to a
-# single query per response rather than one per booking.
+# Teacher names live on Person; resolved via PersonRepository.get_options in
+# one batched query per response.
 def teacher_tax_codes(bookings: Iterable[Booking]) -> Iterator[str]:
     return (
         preference.teacher_tax_code
@@ -48,8 +44,7 @@ def booking_summary(
         for subject_requested in booking.subjects_requested
     ]
 
-    # The three shapes of request are told apart by what is filled in: a
-    # ministry subject has its disciplines listed, the other two do not.
+    # Request kinds are told apart by what is filled in.
     ministry_subject_id = (
         booking.subjects_requested[0].ministry_subject_id
         if booking.subjects_requested

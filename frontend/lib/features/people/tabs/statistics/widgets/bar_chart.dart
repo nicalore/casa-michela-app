@@ -7,28 +7,21 @@ import '../../../../../core/theme/app_theme.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
-// The brand ramp stood on end, turquoise at the top into teal at the foot: the
-// same pair the buttons and the badges are made of, only vertical, because a bar
-// is read from its head down to the axis.
 const LinearGradient _barGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   colors: [AppTheme.trialTurquoise, AppTheme.trialTealDeep],
 );
 
-// Gold is where the pointer is, here as everywhere else in the app.
 const Color _hoveredBarColor = AppTheme.trialGold;
 
-// Width reserved for the Y axis, which is painted outside the scrollable area so
-// the labels stay visible while the bars scroll.
+// The Y axis is painted outside the scrollable area so labels stay visible.
 const double _yAxisWidth = 45.0;
 
-// Room below the plot for the category labels. Shared by the widget and the
-// painter: if they disagree, the bars and their labels drift apart.
+// Shared by the widget and the painter: if they disagree, bars and labels drift.
 const double _plotBottomPadding = 40.0;
 
-// Below this the bars become unreadable, so the plot starts scrolling
-// horizontally instead of shrinking further.
+// Below this slot width the plot scrolls horizontally instead of shrinking.
 const double _minBarSlotWidth = 75.0;
 
 const double _barWidthRatio = 0.6;
@@ -85,8 +78,7 @@ class _BarChartState extends State<BarChart>
     {
       _hoveredIndex = foundIndex;
 
-      // Target and text survive the pointer leaving the bar, so the popup can
-      // fade out in place instead of jumping.
+      // Target and text survive pointer exit, so the popup fades out in place.
       if (foundIndex != null)
       {
         final datum = widget.data[foundIndex];
@@ -164,8 +156,6 @@ class _BarChartState extends State<BarChart>
   }
 }
 
-// Painted in its own non scrolling column, so the scale stays readable while the
-// bars scroll sideways.
 class _YAxisPainter extends CustomPainter
 {
   final int maxValue;
@@ -239,9 +229,8 @@ class _BarChartPainter extends CustomPainter
 
       final barPaint = Paint()..style = PaintingStyle.fill;
 
-      // The gradient is built per bar because a shader is measured against the
-      // rectangle it fills: one made for the whole plot would leave every bar
-      // showing whichever slice of the ramp it happens to stand in.
+      // Per bar: a shader is measured against the rect it fills, and one for
+      // the whole plot would leave each bar showing a slice of the ramp.
       if (hovered)
       {
         barPaint.color = _hoveredBarColor;

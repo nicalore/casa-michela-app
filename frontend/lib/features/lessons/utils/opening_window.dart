@@ -6,18 +6,13 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/opening_day_item.dart';
 
-// The two ways the association is open, written the way the backend keeps them.
+// Mode values as the backend stores them.
 const String kPresenceMode = 'presence';
 const String kOnlineMode = 'online';
 
 String modeLabel(String mode) => mode == kOnlineMode ? 'Online' : 'In presenza';
 
 // When the association is open on one day, in one band, in one mode.
-//
-// The opening hours are rows on the association's own calendar: one per band it
-// opens, and a row with no hours at all where the day is shut. A teacher can
-// only be available inside one of these, so this is what the wizard reads to
-// know what it may offer — and, where nothing comes back, what it must refuse.
 class OpeningWindow
 {
   final int startMinutes;
@@ -37,11 +32,8 @@ class OpeningWindow
   }
 }
 
-// The association's opening on that day, in that band, in that mode, or null
-// where it is shut. Rows with no hours are closures and never produce one.
-//
-// A row is taken as belonging to the band its start falls in, which is how the
-// association's own table reads them.
+// Null where shut; rows with no hours are closures. A row belongs to the band
+// its start falls in.
 OpeningWindow? openingWindowFor(
   List<OpeningDayItem> openingDays,
   DateTime day,
@@ -67,9 +59,7 @@ OpeningWindow? openingWindowFor(
       continue;
     }
 
-    // More than one row in a band is not what the association's editor writes,
-    // but nothing stops the calendar from holding it: the widest of them is the
-    // honest answer to "when could a teacher be here".
+    // Multiple rows in one band should not happen but can; take the widest.
     final rowStartMinutes = minutesOfTimeOfDay(rowStart);
     final rowEndMinutes = minutesOfTimeOfDay(rowEnd);
 
@@ -85,9 +75,7 @@ OpeningWindow? openingWindowFor(
   return OpeningWindow(startMinutes: start, endMinutes: end);
 }
 
-// The opening shared by every one of those days: a teacher offering the same
-// hours on three days can only offer what all three have open. Null as soon as
-// one of them is shut in that band, or where the openings do not overlap.
+// Intersection across days; null if any day is shut or the openings do not overlap.
 OpeningWindow? sharedOpeningWindow(
   List<OpeningDayItem> openingDays,
   Iterable<DateTime> days,
@@ -119,12 +107,8 @@ OpeningWindow? sharedOpeningWindow(
   return OpeningWindow(startMinutes: start, endMinutes: end);
 }
 
-// The opening of that band whichever way the association is open.
-//
-// Union and not intersection, and it is the calendar that needs it: the two
-// modes have opening rows of their own — the building from two, the screens
-// from three — and a timeline drawn on what they have in common would leave
-// out the hour a teacher can legitimately be booked in one of them.
+// Union of the two modes' openings: an intersection would hide hours bookable
+// in only one mode.
 OpeningWindow? unionOpeningWindow(
   List<OpeningDayItem> openingDays,
   DateTime day,
@@ -147,7 +131,6 @@ OpeningWindow? unionOpeningWindow(
   );
 }
 
-// Whether the association opens at all on that day in that mode.
 bool isOpenOn(List<OpeningDayItem> openingDays, DateTime day, String mode)
 {
   return TimeBucket.values.any((bucket) => openingWindowFor(openingDays, day, mode, bucket) != null);

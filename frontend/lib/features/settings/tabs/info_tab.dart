@@ -23,9 +23,8 @@ class InfoTab extends StatelessWidget
     ];
 
     return SingleChildScrollView(
-      // The side padding is on top of the page's own margin, which is why it
-      // goes on a narrow window: sixteen and thirty-two together are a fifth of
-      // a phone screen spent on air.
+      // Side padding adds to the page margin, so it is dropped on narrow
+      // windows.
       padding: EdgeInsets.only(
         top: 16,
         left: AppBreakpoints.of(context).isCompact ? 0 : 32,
@@ -95,9 +94,6 @@ class _InfoDocumentCardState extends State<_InfoDocumentCard>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            // Gold under the pointer, the same mark a module card on the
-            // dashboard takes: on a page of white rows it is the one warm thing
-            // on screen, so the row being pointed at needs no other signal.
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold

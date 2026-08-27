@@ -21,13 +21,8 @@ import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart';
 
-// How wide the year cards are allowed to grow. School and programme names run
-// long — "Istituto Comprensivo Statale Alessandro Volta" beside "Scuola
-// secondaria di primo grado" — and five facts across a card need the room.
 const double _cardsWidth = 1600;
 
-// A select with nothing to choose from yet: the field upstream has not been
-// answered, and the grey says so without a second sentence.
 class PersonSchoolsTab extends StatelessWidget
 {
   final PersonItem person;
@@ -39,9 +34,8 @@ class PersonSchoolsTab extends StatelessWidget
     required this.onUpdate,
   });
 
-  // Repeating a year means the same grade at the same education level as the year
-  // before: moving from third year of middle school to third of high school is a
-  // progression, not a repeat.
+  // Same grade at the same education level as the year before: third of middle
+  // school to third of high school is a progression, not a repeat.
   bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
   {
     final previous =
@@ -77,23 +71,15 @@ class PersonSchoolsTab extends StatelessWidget
       title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
       compact: true,
       leading: AppCardBadge(
-        // The year being attended carries the school; the ones behind it are
-        // history, and wear the same mark the past memberships do.
         icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
         compact: true,
       ),
-      // The row is shared out by what each fact has to say: a school and a
-      // programme are names and take four parts each, a level is one of three
-      // fixed sentences and takes three, while a class is a roman numeral and a
-      // repeated year is one word — one part is more than either needs.
       child: PersonFactsRow(
         facts: [
           PersonFact('Scuola', item.schoolName, flex: 4),
           PersonFact('Livello', item.educationLevel, flex: 3),
           PersonFact('Percorso', item.studyProgramName, flex: 4),
           PersonFact('Classe', gradeLabel(item.grade)),
-          // Red where it says yes: a year done twice is the one thing on this
-          // card worth stopping at.
           PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
         ],
       ),
@@ -218,8 +204,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
           yearCtrl: TextEditingController(text: enrollment.startYear.toString()),
           school: school,
           program: program,
-          // Only meaningful once the programme is known, since the grade is picked
-          // from that programme's range.
+          // Only meaningful once the programme is known.
           grade: program == null ? null : kGradeLabels[enrollment.grade],
         ));
       }
@@ -254,8 +239,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
     setState(()
     {
-      // Proposes the year before the most recent one, since rows are added going
-      // back in time.
+      // New rows go back in time: the year before the most recent one.
       _rows.add(SchoolEnrollmentRowData(
         yearCtrl: TextEditingController(text: (latestYear - 1).toString()),
       ));
@@ -268,11 +252,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
   }
 
 
-  // Grades allowed by the chosen programme. Falls back to the first five when the
-  // programme declares a range the labels do not cover.
-
-  // Fills _errors and reports whether every row is usable. Each row is checked on
-  // its own, so one bad year does not hide the problems of the rows below it.
+  // Each row is checked independently so one bad year does not hide the rest.
   bool _validateRows()
   {
     _errors.clear();
@@ -367,8 +347,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
     try
     {
-      // studentUpdatedAt is the optimistic concurrency token for the student
-      // aggregate: the server refuses the update if it changed meanwhile.
+      // studentUpdatedAt is the optimistic concurrency token.
       await _apiService.updatePersonSchoolEnrollments(
         widget.person.fiscalCode,
         _buildPayload(),
@@ -461,9 +440,6 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                   children: [
                     const AppFieldLabel('Anni scolastici'),
                     const SizedBox(height: 12),
-                    // One row per school year: the list scrolls inside the pill
-                    // instead of stretching it, with the label above and the
-                    // button below staying put.
                     CardScrollArea(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,

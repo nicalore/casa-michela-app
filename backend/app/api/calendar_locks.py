@@ -15,8 +15,6 @@ from app.repositories.person_repository import PersonRepository
 from app.schemas.calendar_lock import CalendarLockResponse, CalendarLockState
 from app.schemas.person import PersonOption
 
-# Who is building which part of which day. Administrators only, like the
-# calendar itself: nobody else has a band to take or a banner to read.
 router = APIRouter(
     prefix="/calendar-locks",
     tags=["calendar-locks"],
@@ -55,8 +53,6 @@ def _repository(db: DbSession) -> CalendarBandLockRepository:
     return CalendarBandLockRepository(db)
 
 
-# Only the live ones. An expired row is not a lock any more, and saying so would
-# put a banner on a calendar nobody is working on.
 @router.get("/", response_model=list[CalendarLockResponse])
 async def list_locks(
     db: DbSession,
@@ -69,13 +65,9 @@ async def list_locks(
     )
 
 
-# There is no endpoint for taking a band: it is taken by writing into it, and
-# the write itself is what does it. This one is for staying — it says the
-# administrator is still at the screen, which is the whole of what holding a
-# band means.
-#
-# It answers with the band as it stands either way, so a client that has lost it
-# while it was away learns so here rather than from a refused drag.
+# There is no separate acquire endpoint: the heartbeat itself takes the band.
+# Responds with the current lock state either way, so a client learns here that
+# it lost the band.
 @router.post("/{lock_date}/{band}/heartbeat", response_model=CalendarLockState)
 async def heartbeat(
     lock_date: date,
@@ -102,8 +94,7 @@ async def heartbeat(
     )
 
 
-# Leaving the calendar. Best effort and not the guarantee: what a browser that
-# was closed rather than left cannot say, the ninety seconds say for it.
+# Best effort: the TTL covers browsers that closed without calling this.
 @router.delete("/{lock_date}/{band}")
 async def release_lock(
     lock_date: date,

@@ -3,39 +3,25 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-// A section of the home page: a white pill on the paper, with the eyebrow and
-// the title on top and below them whatever it has to say. The same grammar as
-// the app's dialogs, because the home page is not somewhere apart — it is the
-// first page, and has to look like the others.
 class DashboardSectionCard extends StatelessWidget
 {
   static const double radius = 28;
   static const EdgeInsets _padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
 
-  // The same card with its margins pulled in and its title a size down. It is
-  // what the small cards wear where two of them stand one over the other in the
-  // height of a third: two full headings there cost more than the figures they
-  // announce, and the room they take is taken from the card beside them.
   static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
 
   final String eyebrow;
   final String title;
   final Widget child;
 
-  // Un comando in alto a destra: «vedi tutte», di solito.
   final Widget? action;
 
-  // How tall it is at least. The sections still to come already have the size
-  // they will have once filled, so the home page does not resettle the day they
-  // are ready.
   final double minHeight;
 
-  // Whether the content takes all the remaining height. True inside a row,
-  // where the tallest card decides the height and the others would be left blank
-  // underneath; false in a column, where the height is the one needed.
+  // True inside a row, where the tallest card sets the height and the content
+  // must fill it; false in a column.
   final bool fill;
 
-  // The narrower heading, for a card that shares its height with another.
   final bool compact;
 
   const DashboardSectionCard({
@@ -111,9 +97,6 @@ class DashboardSectionCard extends StatelessWidget
   }
 }
 
-// A section that is there but not there yet: it says what will be, so whoever
-// opens the home page knows the place has been thought about and is not empty by
-// oversight.
 class DashboardComingSoon extends StatelessWidget
 {
   final IconData icon;
@@ -131,9 +114,6 @@ class DashboardComingSoon extends StatelessWidget
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
-      // Inside a card as tall as it will be once filled, the text is centred:
-      // at the top it would leave half a white box below it, which looks like a
-      // drawing mistake rather than space set aside.
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,

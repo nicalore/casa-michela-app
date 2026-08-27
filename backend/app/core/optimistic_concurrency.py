@@ -5,8 +5,7 @@ from fastapi import HTTPException, status
 
 from app.models.mixins import UpdatedAtMixin
 
-# The subject is the author, not the edited entity, so the sentence reads well
-# with both a singular and a plural label — which the passive form did not.
+# The subject is the author, so the sentence reads well with any label.
 _STALE_ENTITY_ERROR: Final[str] = (
     "Un altro utente ha modificato {entity_label} nel frattempo. "
     "Ricarica la pagina e riprova."

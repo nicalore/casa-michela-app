@@ -6,9 +6,8 @@ class SessionRepository:
         self.session = session
 
 
-# The transaction is driven by the services, so the unit-of-work surface every
-# writable repository shares lives here once. Read-only repositories extend
-# SessionRepository instead, and are not handed a write API they never use.
+# Services drive the transaction; the shared unit-of-work surface lives here.
+# Read-only repositories extend SessionRepository instead.
 class WritableRepository[T](SessionRepository):
     async def create(self, entity: T) -> None:
         self.session.add(entity)

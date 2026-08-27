@@ -59,9 +59,8 @@ class TeacherRoomAssignmentRepository(WritableRepository[TeacherRoomAssignment])
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # The shifts go with the assignment, and saying so out loud is the point:
-    # they are removed here rather than left to the cascade, so the service can
-    # tell the administrator how many were taken away.
+    # Shifts are removed here rather than by the cascade so the service can
+    # report how many were taken away.
     async def count_supervisions(self, day: date, teacher_tax_code: str) -> int:
         rows = await self.session.scalars(
             select(RoomSupervision.id).where(

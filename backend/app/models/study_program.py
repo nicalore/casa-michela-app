@@ -34,13 +34,8 @@ class StudyProgram(CreatedAtMixin, Base):
     __tablename__ = "study_programs"
 
     __table_args__ = (
-        # The sector is part of a programme's identity: the same name exists
-        # under two different sectors, and with the sector out of the name the
-        # two would collapse into one row.
-        #
-        # coalesce rather than the bare column because primary and middle school
-        # have no sector: with NULL, Postgres treats even two otherwise
-        # identical rows as distinct, and the constraint would say nothing.
+        # The sector is part of a programme's identity. coalesce because with a
+        # NULL sector Postgres would never see two rows as duplicates.
         Index(
             "uq_level_sector_program_name",
             "level",
@@ -82,8 +77,7 @@ class StudyProgram(CreatedAtMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # The sector the programme belongs to. Null where none exists, since primary
-    # and middle school have no branches.
+    # Null where none exists: primary and middle school have no branches.
     sector: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
@@ -107,10 +101,8 @@ class StudyProgram(CreatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    # The association table is reachable both as an entity (StudyProgramSubject)
-    # and through this many-to-many shortcut, which is exactly the overlap
-    # SQLAlchemy warns about. Declaring it says the two views of the same rows
-    # are intentional; `overlaps` changes nothing at runtime.
+    # The association rows are reachable both as entities and via this
+    # shortcut; `overlaps` declares that intentional (no runtime effect).
     ministry_subjects = relationship(
         "MinistrySubject",
         secondary="study_program_subjects",
@@ -124,8 +116,7 @@ class StudyProgram(CreatedAtMixin, Base):
         viewonly=True,
     )
 
-    # Full name, sector included: needed wherever a programme is named outside
-    # its own context, where the name alone does not identify it.
+    # Full name, sector included, for contexts where the name alone is ambiguous.
     @property
     def display_name(self) -> str:
         return f"{self.sector} | {self.name}" if self.sector else self.name

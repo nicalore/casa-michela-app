@@ -9,8 +9,6 @@ class PresenceItem
   final int id;
   final DateTime date;
 
-  // In the building, or reachable at a screen. In the first the hours are when
-  // the pupil is here; in the second they are when the pupil can be taught.
   final String mode;
 
   final TimeOfDay startTime;

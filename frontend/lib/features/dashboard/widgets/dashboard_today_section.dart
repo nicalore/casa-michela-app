@@ -13,31 +13,10 @@ import '../../lessons/utils/opening_window.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import 'dashboard_section_card.dart';
 
-// The day the home page opens on: when the association is open, and who is
-// expected in those hours.
-//
-// One row per band it opens in, and none for the bands it keeps shut: hours
-// nobody can be booked in have no figures to carry. What the figures count
-// changes the moment a band's calendar goes out. Before it they are what has
-// been asked for — the teachers who offered hours, the pupils who booked them.
-// After it they are what was decided and told to everybody: the teachers
-// called in, the pupils they will see, and the lessons between them.
-//
-// Everything a row has to say is written on it, and written once: nothing is
-// behind a hover, and no hour is said twice in two sizes. This is a page read
-// at a glance on the way somewhere else.
-
-// A row of one person on one day: the shape both the teachers' hours and the
-// pupils' bookings are counted through, so the two are counted the same way.
 typedef _DayRow = ({DateTime date, TimeOfDay start, TimeOfDay end, String who});
 
-// How many different people the rows of [day] name inside the band. People and
-// not rows: a teacher who left two windows open is one teacher, and a pupil
-// booked twice over is one pupil.
-//
-// A row belongs to the band it reaches into rather than the one it starts in,
-// which is how the calendar reads them too: somebody here from noon to three is
-// here in the morning and in the afternoon both.
+// Distinct people, not rows; a row counts in every band it overlaps, matching
+// how the calendar reads it.
 int _peopleIn(List<_DayRow> rows, DateTime day, int bandStart, int bandEnd)
 {
   return rows
@@ -54,9 +33,6 @@ int _peopleIn(List<_DayRow> rows, DateTime day, int bandStart, int bandEnd)
       .length;
 }
 
-// An opening, and the way of being open it belongs to: the building, the
-// screens, or — where the two keep the same hours — both at once, which is one
-// opening and is said once.
 class DashboardBandOpening
 {
   final int startMinutes;
@@ -72,7 +48,6 @@ class DashboardBandOpening
   String get hours => formatMinutesRange(startMinutes, endMinutes);
 }
 
-// A figure and what it counts.
 class DashboardBandFigure
 {
   final int value;
@@ -84,20 +59,15 @@ class DashboardBandFigure
   String get label => value == 1 ? singular : plural;
 }
 
-// What one band of the day amounts to.
 class DashboardBandStatus
 {
   final TimeBucket band;
 
-  // When the association is open in this band: one opening where the building
-  // and the screens keep the same hours, two where they part, and one alone
-  // where it opens only the one way. Never empty — a band with no opening at
-  // all is not a band of this day.
+  // Never empty: a band with no opening at all is omitted from the day.
   final List<DashboardBandOpening> openings;
 
-  // The publication of this band, where the calendar has gone out. A bozza is
-  // one that went out and was reopened to be changed, so it counts as
-  // published: the lessons in it are the ones people were told about.
+  // A draft is a publication reopened for changes, so it still counts as
+  // published.
   final CalendarPublicationItem? publication;
 
   final int teachers;
@@ -117,9 +87,6 @@ class DashboardBandStatus
 
   bool get isDraft => publication?.isDraft ?? false;
 
-  // The figures, in the words the band's own state gives them. A published band
-  // is read off the calendar and says so; one still being put together is read
-  // off what has been offered and asked for.
   List<DashboardBandFigure> get figures
   {
     if (isPublished)
@@ -138,15 +105,13 @@ class DashboardBandStatus
   }
 }
 
-// How the association is open, said after the hours it is open for.
 const String _inBuilding = 'in presenza';
 const String _onScreen = 'online';
 const String _bothWays = 'in presenza e online';
 
 List<DashboardBandOpening> _openingsOf(OpeningWindow? presence, OpeningWindow? online)
 {
-  // The same hours both ways: one opening, said once. Written as two rows it
-  // would be the same time twice over, and a reader made to compare them.
+  // Same hours both ways: merged into one opening.
   if (presence != null &&
       online != null &&
       presence.startMinutes == online.startMinutes &&
@@ -177,7 +142,6 @@ List<DashboardBandOpening> _openingsOf(OpeningWindow? presence, OpeningWindow? o
   ];
 }
 
-// The bands of [day] the association opens in, in the order of the day.
 List<DashboardBandStatus> openBands({
   required DateTime day,
   required List<OpeningDayItem> openingDays,
@@ -236,9 +200,8 @@ List<DashboardBandStatus> openBands({
       band: band,
       openings: openings,
       publication: publication,
-      // Once the calendar is out it is the calendar that is counted, and the
-      // hours it was built from stop being the answer: a teacher who offered a
-      // morning and was not called in is not a teacher expected this morning.
+      // Once published, counts come from the calendar, not from what was
+      // offered or booked.
       teachers: publication == null
           ? _peopleIn(offered, day, bandStart, bandEnd)
           : planned.map((lesson) => lesson.teacherTaxCode).toSet().length,
@@ -252,13 +215,8 @@ List<DashboardBandStatus> openBands({
   return bands;
 }
 
-// Quanto la giornata ha da dire decide quanto in grande lo dice.
-//
-// La card è alta quanto le due che le stanno a fianco, e quell'altezza non
-// cambia col numero delle fasce: tre ci stanno strette e vanno scritte piccole,
-// due hanno mezza card a testa, una ha tutta la card per sé. Scritta sempre
-// nella misura più piccola, una giornata corta diventa tre righe in mezzo a un
-// riquadro vuoto.
+// Type and spacing scale grow as the band count shrinks: the card height is
+// fixed, so fewer bands are written larger to fill it.
 class _BandScale
 {
   final double name;
@@ -319,7 +277,6 @@ class _BandScale
     return bands == 2 ? _roomy : _alone;
   }
 
-  // Fra una fascia e l'altra, e quanto la riga fa respirare le sue voci.
   double get between => this == _tight ? 10.0 : 12.0;
 
   double get spacing => this == _tight ? 14.0 : 18.0;
@@ -327,14 +284,12 @@ class _BandScale
 
 class DashboardTodaySection extends StatelessWidget
 {
-  // The bands of today, or null where they could not be read: the opening hours
-  // are an administrator's to see, and a home page that cannot read them says
-  // so rather than drawing a day the association never closed.
+  // Null when the opening hours could not be read (they are admin-only),
+  // distinct from an empty day.
   final List<DashboardBandStatus>? bands;
 
   final bool isLoading;
 
-  // Passati alla card: quanto è alta almeno e se il contenuto riempie.
   final double minHeight;
   final bool fill;
 
@@ -390,15 +345,8 @@ class DashboardTodaySection extends StatelessWidget
       return const _ClosedToday();
     }
 
-    // The day is the tallest thing on the page and the two cards beside it
-    // divide its height, so this card is regularly given more room than its
-    // lines need. Two bands take that room and share it, each holding its lines
-    // in the middle; three do the same with less of it to share.
-    //
-    // One band does not: a single row stretched over a whole card is a wide
-    // grey box with three lines adrift in it. It keeps the height its lines ask
-    // for — a larger one, since it has the card to itself — and sits in the
-    // middle of the card, so the air is around the panel rather than inside it.
+    // Multiple bands share the card's extra height; a single band keeps its
+    // natural height, centred in the card.
     final _BandScale scale = _BandScale.of(open.length);
     final bool shares = fill && open.length > 1;
 
@@ -429,8 +377,6 @@ class DashboardTodaySection extends StatelessWidget
   }
 }
 
-// A day the association does not open at all. It is said in the same box the
-// figures would have stood in, so the card keeps its shape on a Sunday.
 class _ClosedToday extends StatelessWidget
 {
   const _ClosedToday();
@@ -441,9 +387,6 @@ class _ClosedToday extends StatelessWidget
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      // Inside a card as tall as the one beside it, the notice is centred: at
-      // the top it would leave half a grey box under it, which reads as a
-      // drawing mistake rather than as a quiet day.
       alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,
@@ -487,9 +430,6 @@ class _ClosedToday extends StatelessWidget
   }
 }
 
-// One band: what it is called, when the association is open in it, and who is
-// expected. Three lines, each read left to right and none of them repeating
-// what another has already said.
 class _BandRow extends StatelessWidget
 {
   final DashboardBandStatus status;
@@ -509,8 +449,6 @@ class _BandRow extends StatelessWidget
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        // Held in the middle where the tile is taller than its lines, which is
-        // whenever the card has been given more height than the day needs.
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -569,9 +507,6 @@ class _BandRow extends StatelessWidget
   }
 }
 
-// A value and what it is: the value dark and heavy, the words after it small
-// and grey. An hour and a headcount are read the same way — a figure and its
-// unit — so they are written the same way, one line under the other.
 class _Reading extends StatelessWidget
 {
   final String value;
@@ -618,8 +553,6 @@ class _Reading extends StatelessWidget
   }
 }
 
-// The same mark the calendar carries over a band that has gone out, in the size
-// the home page has room for.
 class _PublishedPill extends StatelessWidget
 {
   final bool isDraft;

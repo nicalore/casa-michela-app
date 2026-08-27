@@ -41,10 +41,6 @@ class Staff(Base):
             "iban IS NULL OR iban ~ '^IT[0-9]{2}[A-Z][0-9]{10}[A-Z0-9]{12}$'",
             name="iban_format",
         ),
-        CheckConstraint(
-            "collaboration_type <> 'PAID' OR iban IS NOT NULL",
-            name="paid_staff_requires_iban",
-        ),
         *not_blank_when_present_constraints("iban"),
         *no_surrounding_whitespace_constraints("iban"),
     )

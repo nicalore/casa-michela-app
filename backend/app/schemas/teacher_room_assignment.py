@@ -29,9 +29,7 @@ class TeacherRoomAssignmentResponse(BaseModel):
     teacher: PersonOption
     room: RoomOption
 
-    # Over capacity is worth saying and not worth refusing: the number is
-    # optional to begin with, and nobody should be stopped by a count that was
-    # never taken.
+    # Over capacity warns rather than refuses: the count is optional anyway.
     warnings: list[str] = Field(default_factory=list)
 
     created_at: datetime

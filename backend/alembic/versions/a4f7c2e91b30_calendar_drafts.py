@@ -1,16 +1,4 @@
-"""il calendario pubblicato si riapre in bozza
-
-Riportare una fascia in bozza non la toglie più dalle mani di chi la sta
-guardando: docenti, genitori e studenti continuano a vedere il calendario
-pubblicato mentre l'amministrazione lo rilavora. Quello che cambia è se, alla
-chiusura della bozza, il calendario viene mandato di nuovo.
-
-Serve quindi ricordare com'era la fascia quando la bozza si è aperta, e la
-colonna tiene esattamente quello: l'impronta del suo contenuto pubblico.
-Non nulla significa "in bozza", com'è la riga stessa a significare
-"pubblicato"; e all'uscita basta ricalcolare l'impronta e confrontarla per
-sapere se qualcosa è davvero cambiato — una lezione spostata e rimessa dov'era
-non è una modifica.
+"""published calendars reopen as drafts, tracked by a content fingerprint
 
 Revision ID: a4f7c2e91b30
 Revises: 80eaead2769d

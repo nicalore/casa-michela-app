@@ -14,13 +14,11 @@ class WeeklyTemplateBase(TimeRangeMixin):
 
 
 class _EffectiveFromMixin(BaseModel):
-    # The date from which a change to the standard hours reaches the opening_days
-    # rows already generated. None means no propagation: the change only applies
-    # to future generations.
+    # From when the change reaches already-generated opening_days rows;
+    # None means no propagation.
     effective_from: date | None = None
 
-    # Said by a caller that has been told what the change takes away from the
-    # calendars already published on those days, and has answered for it.
+    # Caller confirms they know what the change costs published calendars.
     confirm: bool = False
 
 

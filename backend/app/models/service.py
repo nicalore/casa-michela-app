@@ -17,10 +17,8 @@ if TYPE_CHECKING:
     from app.models.teacher_service import TeacherService
 
 
-# Something the association offers besides a school subject: asked for the same
-# way a subject is, but with no ministry subject behind it and no syllabus,
-# which is why it is a catalogue of its own. The name is a mutable natural key,
-# so any foreign key pointing here needs onupdate="CASCADE", as tax_code does.
+# Catalogue of non-subject offers. The name is a mutable natural key: any FK
+# pointing here needs onupdate="CASCADE".
 class Service(CreatedAtMixin, Base):
     __tablename__ = "services"
 

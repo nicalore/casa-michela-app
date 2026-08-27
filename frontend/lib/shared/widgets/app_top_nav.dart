@@ -8,20 +8,13 @@ import '../../features/dashboard/dashboard_modules.dart';
 const double _fontSize = 17;
 const double _itemGap = 22;
 
-// The same row, set tighter for the middle width. Type set smaller beats type
-// scaled down: a scale shrinks the spaces along with the letters.
 const double _denseFontSize = 15;
 const double _denseItemGap = 14;
 const double _underlineHeight = 3;
 const double _underlineGap = 7;
 
-// Breathing room on either side of a word, inside its clickable area. It also
-// carries the underline a little past the word, which keeps the mark from
-// looking like it is squeezing the text it belongs to.
 const double _entryPadding = 5;
 
-// Same duration and curve as the bar that opens beside a user menu entry, so
-// the two hover marks of the interface move as one gesture.
 const Duration _hoverFade = Duration(milliseconds: 150);
 
 class AppDestination
@@ -32,9 +25,6 @@ class AppDestination
   const AppDestination(this.label, this.route);
 }
 
-// The destinations of the app, in the order they are offered. The bar writes
-// them along a row and the drawer writes them down a column, and they read the
-// same list so the two can never end up offering different places to go.
 List<AppDestination> get appDestinations
 {
   return [
@@ -44,9 +34,6 @@ List<AppDestination> get appDestinations
   ];
 }
 
-// Whether the app is at a destination, given where it actually is. True as well
-// for whatever is opened out of one: a person's page is /people with a name on
-// the end, and the row should go on saying you are in Persone.
 bool _isCurrent(String? route, String path)
 {
   if (route == null)
@@ -57,12 +44,8 @@ bool _isCurrent(String? route, String path)
   return path == route || path.startsWith('$route/');
 }
 
-// The modules, written along the header bar, with Home opening the row and
-// Impostazioni closing it. Those two are not modules and have no card on the
-// page, which is why they live here and not in dashboardModules.
 class AppTopNav extends StatelessWidget
 {
-  // Set for a bar that has less room to give: see the two constants above.
   final bool dense;
 
   const AppTopNav({super.key, this.dense = false});
@@ -70,17 +53,8 @@ class AppTopNav extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Where the app is, asked of the router and not of the page.
-    //
-    // Every destination carries a bar of its own, and one told its own route
-    // never learns the page was left: it went out in the crossfade with the mark
-    // still under its word while the bar arriving came up with the new one
-    // drawn — two pictures where there should be one movement.
-    //
-    // Read from the router, every bar answers the same thing at the same moment.
-    //
-    // The delegate is listened to and not the router: GoRouter.of makes nobody a
-    // dependent, so nothing here would rebuild when the location changes.
+    // Asked of the router's delegate, not GoRouter.of, which makes nobody a
+    // dependent: nothing would rebuild when the location changes.
     final GoRouterDelegate delegate = GoRouter.of(context).routerDelegate;
 
     return ListenableBuilder(
@@ -142,9 +116,6 @@ class _NavEntryState extends State<_NavEntry>
     final enabled = route != null;
     final underlined = widget.current || (_hover && enabled);
 
-    // The word is laid out first and the line stretched to it. An IntrinsicWidth
-    // imposes a width worked out once, so when the real font arrived after the
-    // first layout the text no longer fitted and the last letters were cut.
     final Widget entry = Stack(
       children: [
         Padding(
@@ -156,22 +127,15 @@ class _NavEntryState extends State<_NavEntry>
           child: Text(
             widget.label,
             textAlign: TextAlign.center,
-            // A destination is one word on one line. Left to wrap, a bar that
-            // ran short would break "Contabilità" in half rather than let the
-            // caller know it has no room.
             maxLines: 1,
             softWrap: false,
             style: GoogleFonts.plusJakartaSans(
               fontSize: widget.fontSize,
-              // The weight is the same in every state on purpose: a bolder
-              // hover would widen the word and shove its neighbours sideways.
               fontWeight: FontWeight.w600,
               color: enabled ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
             ),
           ),
         ),
-        // Squeezed by a transform and not by a width, so it takes no part in
-        // layout and the row cannot move as the line comes and goes.
         Positioned(
           left: 0,
           right: 0,

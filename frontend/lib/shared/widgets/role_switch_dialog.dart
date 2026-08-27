@@ -5,8 +5,6 @@ import '../../core/theme/app_theme.dart';
 import 'app_dialog_stack.dart';
 import 'dialog_components.dart';
 
-// Of the whole stack, the round close included, so the piece under the title
-// comes out about as wide as the single panel this window used to be.
 const double _stackMaxWidth = 560;
 
 const double _rowHeight = 58;
@@ -15,8 +13,8 @@ const double _rowGap = 10;
 
 const Duration _hoverFade = Duration(milliseconds: 150);
 
-// Keyed by the Italian labels produced by RoleLabelMapper, not by the backend
-// role codes: renaming a label there silently falls back to the default icon.
+// Keyed by the Italian labels from RoleLabelMapper, not backend role codes:
+// a renamed label silently falls back to the default icon.
 const Map<String, IconData> _roleIcons = <String, IconData>{
   'AMMINISTRATORE': Icons.computer_outlined,
   'DOCENTE': Icons.school_outlined,
@@ -57,22 +55,12 @@ class _RoleSwitchDialog extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Only what you can move to. The role you are wearing is the title of the
-    // window, and listing it again would offer you the one choice that changes
-    // nothing.
     final roles = availableRoles.where((role) => role != activeRole).toList();
 
     return AppDialogStack(
-      // The eyebrow the top bar puts over the role, said again over the same
-      // word: this window is opened from that block, and it reads as that block
-      // continuing rather than as a window from another screen. The stack sets
-      // it upper case and tracked, which is why it is written plainly here.
       eyebrow: 'Sei autenticato come',
       title: activeRole,
       maxWidth: _stackMaxWidth,
-      // Nothing at the foot: this window offers a list and asks nothing, so
-      // there is nothing to answer. The way out is the cross at its head, as
-      // everywhere else.
       children: [
         AppDialogPill(
           expand: true,
@@ -84,9 +72,7 @@ class _RoleSwitchDialog extends StatelessWidget
                 if (i > 0) const SizedBox(height: _rowGap),
                 _RoleRow(
                   label: roles[i],
-                  // Selecting a role is inert for now: the pages the other
-                  // roles would land on do not exist yet, so switching would
-                  // leave you looking at an interface that is not yours.
+                  // Inert for now: the pages the other roles would land on do not exist yet.
                   onTap: () {},
                 ),
               ],

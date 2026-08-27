@@ -6,6 +6,7 @@ import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
 import 'calendar_lesson_block.dart';
 import 'person_avatar.dart';
+import 'teacher_exclusion_overlay.dart';
 
 const double kLanePanelRadius = 20;
 
@@ -22,6 +23,10 @@ class CalendarLanePanel extends StatelessWidget
 
   final LaneRoomLabel? room;
 
+  final bool isExcluded;
+
+  final VoidCallback? onToggleExcluded;
+
   final Widget child;
 
   const CalendarLanePanel({
@@ -32,6 +37,8 @@ class CalendarLanePanel extends StatelessWidget
     required this.child,
     this.view = CalendarView.byTeacher,
     this.room,
+    this.isExcluded = false,
+    this.onToggleExcluded,
   });
 
   Widget _buildWhen()
@@ -80,39 +87,65 @@ class CalendarLanePanel extends StatelessWidget
 
     return Row(
       children: [
-        PersonAvatar(person: lane.person, size: PersonAvatar.listSize),
+        SizedBox(
+          width: PersonAvatar.listSize,
+          height: PersonAvatar.listSize,
+          child: Stack(
+            children: [
+              AnimatedOpacity(
+                duration: kExcludedLaneFade,
+                curve: kExcludedLaneCurve,
+                opacity: isExcluded ? kExcludedLaneOpacity : 1,
+                child: PersonAvatar(person: lane.person, size: PersonAvatar.listSize),
+              ),
+              if (onToggleExcluded != null)
+                Positioned.fill(
+                  child: TeacherExclusionOverlay(
+                    isExcluded: isExcluded,
+                    onToggle: onToggleExcluded,
+                    signSize: 20,
+                  ),
+                ),
+            ],
+          ),
+        ),
         const SizedBox(width: 11),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      lane.person.fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                        color: AppTheme.trialOcean,
+          child: AnimatedOpacity(
+            duration: kExcludedLaneFade,
+            curve: kExcludedLaneCurve,
+            opacity: isExcluded ? kExcludedLaneOpacity : 1,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        lane.person.fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          color: AppTheme.trialOcean,
+                        ),
                       ),
                     ),
-                  ),
-                  if (isSupervisor) ...[
-                    const SizedBox(width: 6),
-                    const Tooltip(
-                      message: kSupervisorLabel,
-                      child: Icon(Icons.shield_rounded, size: 14, color: kSupervisorColor),
-                    ),
+                    if (isSupervisor) ...[
+                      const SizedBox(width: 6),
+                      const Tooltip(
+                        message: kSupervisorLabel,
+                        child: Icon(Icons.shield_rounded, size: 14, color: kSupervisorColor),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              _buildWhen(),
-            ],
+                ),
+                const SizedBox(height: 2),
+                _buildWhen(),
+              ],
+            ),
           ),
         ),
       ],

@@ -19,15 +19,8 @@ _DEFAULT_WEEKDAYS = (1, 2, 3, 4, 5)
 
 
 def upgrade() -> None:
-    # Orario standard di partenza, in presenza e online.
-    #
-    # Riempie i buchi per singolo (giorno, modalità), non solo su una tabella
-    # del tutto vuota: un'associazione che ha già configurato la presenza ma
-    # non l'online resterebbe altrimenti senza alcun default sull'online. Le
-    # combinazioni già configurate non vengono toccate.
-    #
-    # I letterali in VALUES arrivano come text: senza cast espliciti Postgres
-    # non li accetta per le colonne smallint/time.
+    # Fills gaps per (weekday, mode) pair, not only on an empty table; already
+    # configured pairs are untouched. VALUES literals need explicit casts.
     values = ", ".join(
         f"({weekday}::smallint, '{mode}', "
         f"'{_DEFAULT_START}'::time, '{_DEFAULT_END}'::time)"
@@ -49,8 +42,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Rimuove solo le righe identiche al default, così un orario modificato
-    # dall'amministratore non viene toccato.
+    # Removes only rows still identical to the seeded default, leaving
+    # admin-modified schedules alone.
     weekdays = ", ".join(str(weekday) for weekday in _DEFAULT_WEEKDAYS)
 
     op.execute(

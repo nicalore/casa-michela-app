@@ -17,9 +17,6 @@ const EdgeInsets _itemPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 1
 
 class UserMenu extends StatelessWidget
 {
-  // Whether the person holds more than one role. With a single one there is
-  // nothing to switch to, so the menu is left with logging out alone rather
-  // than offering a choice that leads to a dialog listing one entry.
   final bool canChangeRole;
 
   final VoidCallback onChangeRole;
@@ -103,8 +100,6 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
         borderRadius: BorderRadius.circular(_itemRadius),
         child: Padding(
           padding: _itemPadding,
-          // The hover bar sits in a Stack under the Row rather than inside it,
-          // so growing it does not shift icon and text sideways.
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.centerLeft,
@@ -115,9 +110,6 @@ class _HoverMenuItemState extends State<_HoverMenuItem>
                 width: 2,
                 height: _hover ? _hoverBarHeight : 0,
                 decoration: BoxDecoration(
-                  // Gold, whatever the entry's own colour is: the bar answers
-                  // for the pointer, not for the entry, and it is the same gold
-                  // that outlines a module card under the mouse.
                   color: AppTheme.trialGold,
                   borderRadius: BorderRadius.circular(2),
                 ),

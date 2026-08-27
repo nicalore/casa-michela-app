@@ -34,8 +34,7 @@ class ServiceCard extends StatelessWidget
         onEditRequested: ()
         {
           Navigator.of(dialogContext).pop();
-          // The callback that reopens the details carries the card's context
-          // along, not that of the dialog about to close.
+          // Reopen with the card's context, not the closing dialog's.
           onEditRequested(() => _showDetailsDialog(context));
         },
         onDelete: onDelete,
@@ -46,9 +45,6 @@ class ServiceCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // The name and what it is, like the disciplines it sits beside: a service
-    // without a description is its card with the name alone, rather than a line
-    // spent saying there is nothing to say.
     final String? description = descriptionOrNull(service.description);
 
     return AppCatalogueCard(
@@ -63,10 +59,8 @@ class ServiceCard extends StatelessWidget
 
 class _ServiceDetailsDialogContent extends StatelessWidget
 {
-  // The height and type size every dialog of the app gives its buttons.
   static const double _dialogButtonHeight = 52;
 
-  // Narrow: a question of one sentence, and the two answers under it.
   static const double _confirmWidth = 480;
 
   static const double _detailsWidth = 600;
@@ -82,9 +76,6 @@ class _ServiceDetailsDialogContent extends StatelessWidget
     required this.onDelete,
   });
 
-  // Two full buttons rather than two words in a corner: this one throws
-  // something away, and the answer that does it should not be quieter than the
-  // one that walks away from it.
   void _showDeleteConfirmation(BuildContext context)
   {
     showBlurredDialog<void>(
@@ -93,7 +84,6 @@ class _ServiceDetailsDialogContent extends StatelessWidget
       builder: (confirmContext) => AppDialogStack(
         eyebrow: 'Eliminazione',
         title: 'Confermi?',
-        // ANNULLA is already the way out of this one.
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -147,10 +137,6 @@ class _ServiceDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // Small, tracked and muted over the value it names: the same pairing the
-  // settings cards use, and the same the top bar uses over a role.
-  // The first label of a piece sits at its top edge; the ones after it open a
-  // gap from what they follow.
   Widget _buildFieldLabel(String text, {bool first = false})
   {
     return Padding(

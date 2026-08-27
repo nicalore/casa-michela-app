@@ -4,6 +4,7 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
+import 'activity_item.dart';
 import 'availability_item.dart';
 import 'lesson_item.dart';
 import 'person_option_item.dart';
@@ -55,6 +56,9 @@ abstract class CalendarLane
 
   List<LessonItem> get lessons;
 
+  // Only teacher lanes ever have activities.
+  List<ScheduledActivity> get activities => const [];
+
   List<(TimeOfDay, TimeOfDay)> rowsIn(String mode);
 
   List<(int, int)> spansIn(String mode, int bandStart, int bandEnd)
@@ -85,6 +89,7 @@ abstract class CalendarLane
       ...spansIn(kPresenceMode, bandStart, bandEnd),
       ...spansIn(kOnlineMode, bandStart, bandEnd),
       for (final lesson in lessons) (lesson.startMinutes, lesson.endMinutes),
+      for (final activity in activities) (activity.startMinutes, activity.endMinutes),
     ];
   }
 
@@ -107,11 +112,17 @@ class TeacherLane extends CalendarLane
   @override
   final List<LessonItem> lessons;
 
+  // Never overlaps [lessons] (both sides refuse it), so activities always
+  // draw on the top sub-lane.
+  @override
+  final List<ScheduledActivity> activities;
+
   const TeacherLane({
     required this.teacherTaxCode,
     required this.teacher,
     required this.availabilities,
     required this.lessons,
+    this.activities = const [],
   });
 
   @override
@@ -188,9 +199,10 @@ String laneWhenLabel(
 String whenNothingLabel(CalendarView view) =>
     view == CalendarView.byStudent ? 'Nessuna presenza' : 'Nessuna disponibilità';
 
+// Includes teachers with only activities, not just those who teach.
 List<TeacherLane> convokedTeachers(List<TeacherLane> lanes)
 {
-  return lanes.where((lane) => lane.lessons.isNotEmpty).toList();
+  return lanes.where((lane) => lane.lessons.isNotEmpty || lane.activities.isNotEmpty).toList();
 }
 
 int _byPresenceThenName(TeacherLane a, TeacherLane b)
@@ -211,6 +223,7 @@ List<TeacherLane> buildTeacherLanes({
   required List<LessonItem> lessons,
   required DateTime day,
   required TimeBucket band,
+  List<ActivityItem> activities = const [],
 })
 {
   final bandStart = bandStartMinutes(band);
@@ -218,6 +231,7 @@ List<TeacherLane> buildTeacherLanes({
 
   final slotsByTeacher = <String, List<AvailabilityItem>>{};
   final lessonsByTeacher = <String, List<LessonItem>>{};
+  final activitiesByTeacher = <String, List<ScheduledActivity>>{};
   final faces = <String, PersonOptionItem>{};
 
   for (final slot in availabilities)
@@ -250,6 +264,19 @@ List<TeacherLane> buildTeacherLanes({
     faces.putIfAbsent(lesson.teacherTaxCode, () => lesson.teacher);
   }
 
+  for (final activity in activities)
+  {
+    final scheduled = ScheduledActivity.of(activity);
+
+    if (scheduled == null || !isSameDate(activity.date, day) || activity.band != band)
+    {
+      continue;
+    }
+
+    activitiesByTeacher.putIfAbsent(scheduled.teacherTaxCode, () => []).add(scheduled);
+    faces.putIfAbsent(scheduled.teacherTaxCode, () => scheduled.teacher);
+  }
+
   final lanes = [
     for (final entry in faces.entries)
       TeacherLane(
@@ -257,6 +284,8 @@ List<TeacherLane> buildTeacherLanes({
         teacher: entry.value,
         availabilities: slotsByTeacher[entry.key] ?? <AvailabilityItem>[],
         lessons: (lessonsByTeacher[entry.key] ?? <LessonItem>[])
+          ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)),
+        activities: (activitiesByTeacher[entry.key] ?? <ScheduledActivity>[])
           ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)),
       ),
   ];
@@ -407,9 +436,6 @@ int _byLastName(CalendarLane a, CalendarLane b)
   return surname != 0 ? surname : _byFirstName(a, b);
 }
 
-// The same order read backwards, tie-break and all: two people both called Anna
-// come out by surname the other way round too. It is what "the same list upside
-// down" means, and the only rule that can be said in one line.
 Comparator<CalendarLane> _reversed(Comparator<CalendarLane> by)
 {
   return (a, b) => by(b, a);
