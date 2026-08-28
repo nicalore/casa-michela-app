@@ -89,6 +89,7 @@ StudyProgramItem _studyProgramFromJson(dynamic json)
     sector: json['sector'],
     description: json['description'] ?? '',
     level: json['level'],
+    highSchoolTrack: json['high_school_track'],
     minYear: json['min_year'],
     maxYear: json['max_year'],
     createdAt: DateTime.parse(json['created_at']),
@@ -1028,7 +1029,7 @@ class ApiService
     return parseList(response.data, _studyProgramFromJson);
   }
 
-  Future<StudyProgramItem> createStudyProgram({required String name, required String? sector, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
+  Future<StudyProgramItem> createStudyProgram({required String name, required String? sector, required String description, required String level, required String? highSchoolTrack, required int? minYear, required int? maxYear, required List<int> ministrySubjectIds}) async
   {
     try
     {
@@ -1039,6 +1040,9 @@ class ApiService
           'sector': sector,
           'description': description,
           'level': level,
+          // Null for high school: the server derives the years from the track,
+          // so an old build cannot write an inconsistent row.
+          'high_school_track': highSchoolTrack,
           'min_year': minYear,
           'max_year': maxYear,
           'ministry_subject_ids': ministrySubjectIds,
@@ -1053,7 +1057,7 @@ class ApiService
     }
   }
 
-  Future<StudyProgramItem> updateStudyProgram({required int id, required String name, required String? sector, required String description, required String level, required int minYear, required int maxYear, required List<int> ministrySubjectIds}) async
+  Future<StudyProgramItem> updateStudyProgram({required int id, required String name, required String? sector, required String description, required String level, required String? highSchoolTrack, required int? minYear, required int? maxYear, required List<int> ministrySubjectIds}) async
   {
     try
     {
@@ -1064,6 +1068,9 @@ class ApiService
           'sector': sector,
           'description': description,
           'level': level,
+          // Null for high school: the server derives the years from the track,
+          // so an old build cannot write an inconsistent row.
+          'high_school_track': highSchoolTrack,
           'min_year': minYear,
           'max_year': maxYear,
           'ministry_subject_ids': ministrySubjectIds,

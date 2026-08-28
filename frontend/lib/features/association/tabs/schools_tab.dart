@@ -494,6 +494,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                     subtitle: programScopeTitle(
                       level: program.level,
                       sector: program.sector,
+                      track: program.highSchoolTrack,
                     ),
                     selected: _selectedPrograms.contains(program.id),
                     onSelected: (selected) => setState(()

@@ -13,6 +13,19 @@ EDUCATION_LEVEL_LABELS: Final[dict[str, str]] = {
     "HIGH_SCHOOL": "Scuola secondaria di II grado",
 }
 
+HIGH_SCHOOL_TRACK_LABELS: Final[dict[str, str]] = {
+    "BIENNIO": "Biennio",
+    "TRIENNIO": "Triennio",
+    "QUADRIENNALE": "Percorso quadriennale",
+}
+
+# Short forms for the line above the name, where the sector already sits.
+HIGH_SCHOOL_TRACK_SHORT_LABELS: Final[dict[str, str]] = {
+    "BIENNIO": "Biennio",
+    "TRIENNIO": "Triennio",
+    "QUADRIENNALE": "Quadriennale",
+}
+
 COURSE_TYPE_LABELS: Final[dict[str, str]] = {
     "YOGA": "Yoga",
     "PILATES": "Pilates",

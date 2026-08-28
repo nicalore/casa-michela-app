@@ -27,7 +27,7 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
 from app.models.staff import Staff
 from app.models.student import Student
-from app.models.study_program import StudyProgram
+from app.models.study_program import HighSchoolTrackEnum, StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
@@ -192,8 +192,10 @@ async def make_study_program(db: AsyncSession) -> StudyProgram:
         StudyProgram(
             level="HIGH_SCHOOL",
             name=f"Indirizzo {next(_counter)}",
+            # The widest cycle that still holds make_enrollment's default grade.
+            high_school_track=HighSchoolTrackEnum.QUADRIENNALE,
             min_year=1,
-            max_year=5,
+            max_year=4,
         ),
     )
 

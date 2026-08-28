@@ -6,7 +6,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validat
 
 from app.core import field_lengths
 from app.models.student import CertificationTypeEnum
-from app.models.study_program import EducationLevelEnum
+from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
 from app.schemas.validators import OptionalCleanStr
 
@@ -301,6 +301,9 @@ class TeacherProgramResponse(BaseModel):
     name: str
     sector: str | None = None
     level: EducationLevelEnum
+
+    # Same name, same sector: the cycle is what tells two programmes apart.
+    high_school_track: HighSchoolTrackEnum | None = None
 
 
 class TeacherSubjectResponse(BaseModel):

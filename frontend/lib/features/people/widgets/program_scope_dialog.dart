@@ -71,7 +71,11 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
   {
     return _ScopedProgram(
       program: program,
-      group: programScopeTitle(level: program.level, sector: program.sector),
+      group: programScopeTitle(
+        level: program.level,
+        sector: program.sector,
+        track: program.highSchoolTrack,
+      ),
     );
   }
 

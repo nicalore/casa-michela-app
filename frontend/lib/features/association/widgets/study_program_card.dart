@@ -51,7 +51,7 @@ class StudyProgramCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCatalogueCard(
-      eyebrow: program.sector,
+      eyebrow: program.scopeLine,
       title: program.name,
       onTap: () => _showDetailsDialog(context),
     );
@@ -158,7 +158,7 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
     final hasDescription = program.description.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: program.sector ?? 'Percorso di studio',
+      eyebrow: program.scopeLine ?? 'Percorso di studio',
       title: program.name,
       maxWidth: 650,
       footer: AppDialogFooter(
@@ -204,8 +204,8 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Anni di corso', first: true),
-                          Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
+                          _buildFieldLabel(program.yearsFieldLabel, first: true),
+                          Text(program.yearsLabel, style: _valueStyle),
                         ],
                       ),
                     ),

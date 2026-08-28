@@ -32,7 +32,8 @@ _LEVEL_MISMATCH_ERROR: Final[str] = (
     "Tutte le materie ministeriali devono avere lo stesso livello del percorso."
 )
 _DUPLICATE_PROGRAM_ERROR: Final[str] = (
-    "Esiste già un percorso di studio con questo nome e livello."
+    "Esiste già un percorso di studio con questo nome, livello, settore e "
+    "articolazione."
 )
 _CREATE_ERROR: Final[str] = "Dati non validi (es. intervallo anni)."
 _UPDATE_ERROR: Final[str] = (
@@ -103,12 +104,16 @@ async def _assert_name_available(
     name: str,
     level: EducationLevelEnum,
     sector: str | None,
+    years: tuple[int, int],
 ) -> None:
-    # The sector is part of the programme's identity.
+    # Sector and span are both part of the programme's identity: one course
+    # exists as a biennio and as a triennio under the very same name.
     stmt = select(StudyProgram).where(
         StudyProgram.name.ilike(name),
         StudyProgram.level == level,
         func.coalesce(StudyProgram.sector, "") == (sector or ""),
+        StudyProgram.min_year == years[0],
+        StudyProgram.max_year == years[1],
     )
 
     if (await db.execute(stmt)).scalars().first() is not None:
@@ -166,7 +171,15 @@ async def create_study_program(
             detail=_NO_MINISTRY_SUBJECTS_ERROR,
         )
 
-    await _assert_name_available(db, payload.name, payload.level, payload.sector)
+    min_year, max_year = payload.years
+
+    await _assert_name_available(
+        db,
+        payload.name,
+        payload.level,
+        payload.sector,
+        payload.years,
+    )
 
     subjects = await _load_ministry_subjects(
         db,
@@ -179,8 +192,9 @@ async def create_study_program(
         sector=payload.sector,
         description=payload.description,
         level=payload.level,
-        min_year=payload.min_year,
-        max_year=payload.max_year,
+        high_school_track=payload.high_school_track,
+        min_year=min_year,
+        max_year=max_year,
         ministry_subjects=list(subjects),
     )
 
@@ -212,12 +226,23 @@ async def update_study_program(
 
     program = await _get_program_or_404(db, program_id, load_subjects=True)
 
+    min_year, max_year = payload.years
+
+    # The span belongs to the identity too, so changing only the cycle still
+    # has to go through the duplicate check.
     if (
         program.name.lower() != payload.name.lower()
         or program.level != payload.level
         or (program.sector or "") != (payload.sector or "")
+        or (program.min_year, program.max_year) != payload.years
     ):
-        await _assert_name_available(db, payload.name, payload.level, payload.sector)
+        await _assert_name_available(
+            db,
+            payload.name,
+            payload.level,
+            payload.sector,
+            payload.years,
+        )
 
     subjects = await _load_ministry_subjects(
         db,
@@ -229,8 +254,9 @@ async def update_study_program(
     program.sector = payload.sector
     program.description = payload.description
     program.level = payload.level
-    program.min_year = payload.min_year
-    program.max_year = payload.max_year
+    program.high_school_track = payload.high_school_track
+    program.min_year = min_year
+    program.max_year = max_year
     program.ministry_subjects = list(subjects)
 
     try:

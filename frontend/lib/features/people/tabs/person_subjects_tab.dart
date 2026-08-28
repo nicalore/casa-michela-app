@@ -430,6 +430,7 @@ class _ReadOnlyProgramsDialog extends StatelessWidget
       final String title = programScopeTitle(
         level: program.level,
         sector: program.sector,
+        track: program.highSchoolTrack,
       );
 
       groups.putIfAbsent(title, () => []).add(program);

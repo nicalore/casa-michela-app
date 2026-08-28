@@ -35,8 +35,8 @@ class StudyProgramsTab extends StatefulWidget
 
   final List<AssociationSubjectItem> associationSubjects;
 
-  final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
-  final Future<bool> Function(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
+  final Future<bool> Function(String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError) onCreate;
+  final Future<bool> Function(int id, String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError) onEdit;
   final void Function(StudyProgramItem item) onDelete;
 
   const StudyProgramsTab({
@@ -124,14 +124,14 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         availableMinistrySubjects: widget.ministrySubjects,
         knownSectors: _knownSectors,
         onCancelEdit: onCancelEdit,
-        onSave: (name, sector, level, minYear, maxYear, description, subjectIds, onError) async
+        onSave: (name, sector, level, highSchoolTrack, minYear, maxYear, description, subjectIds, onError) async
         {
           if (program == null)
           {
-            return await widget.onCreate(name, sector, level, minYear, maxYear, description, subjectIds, onError);
+            return await widget.onCreate(name, sector, level, highSchoolTrack, minYear, maxYear, description, subjectIds, onError);
           }
 
-          return await widget.onEdit(program.id, name, sector, level, minYear, maxYear, description, subjectIds, onError);
+          return await widget.onEdit(program.id, name, sector, level, highSchoolTrack, minYear, maxYear, description, subjectIds, onError);
         },
       ),
     );
@@ -270,7 +270,7 @@ class _StudyProgramWizardDialog extends StatefulWidget
 
   final List<String> knownSectors;
   final VoidCallback? onCancelEdit;
-  final Future<bool> Function(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
+  final Future<bool> Function(String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
 
   const _StudyProgramWizardDialog({
     this.existingProgram,
@@ -299,6 +299,10 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   static const double _optionsMaxHeight = 300;
 
   String? _selectedLevel;
+
+  // High school picks a cycle instead of typing a range.
+  String? _selectedTrack;
+
   List<int> _selectedSubjects = [];
 
   bool _isClampingYears = false;
@@ -310,6 +314,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   VoidCallback? get onCancelEdit => widget.onCancelEdit;
 
   int get _maxYearForSelectedLevel => _maxYearForLevel(_selectedLevel);
+
+  bool get _isHighSchool => _selectedLevel == 'HIGH_SCHOOL';
 
   @override
   void initState()
@@ -328,6 +334,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _sectorController.text = program.sector ?? '';
       _descController.text = program.description;
       _selectedLevel = program.level;
+      _selectedTrack = program.highSchoolTrack;
       _minYearController.text = program.minYear.toString();
       _maxYearController.text = program.maxYear.toString();
       _selectedSubjects = program.ministrySubjects.map((subject) => subject.id).toList();
@@ -369,6 +376,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _maxYearController.clear();
       _subjectSearchController.clear();
       _selectedLevel = null;
+      _selectedTrack = null;
       _selectedSubjects.clear();
       rewindSteps();
     });
@@ -422,7 +430,19 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       if (_selectedLevel != level)
       {
         _selectedSubjects.clear();
-        _clampYearsToLevel(level);
+        _selectedTrack = null;
+
+        if (level == 'HIGH_SCHOOL')
+        {
+          // Nothing reads them there any more, so stale digits would sail
+          // past the blocked-reason check and reach the payload.
+          _minYearController.clear();
+          _maxYearController.clear();
+        }
+        else
+        {
+          _clampYearsToLevel(level);
+        }
       }
 
       _selectedLevel = level;
@@ -499,6 +519,13 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return 'Seleziona un livello scolastico per andare avanti.';
     }
 
+    if (_isHighSchool)
+    {
+      return _selectedTrack == null
+          ? "Seleziona l'articolazione per andare avanti."
+          : null;
+    }
+
     if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty)
     {
       return "Compila l'intervallo degli anni per andare avanti.";
@@ -507,11 +534,18 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     return null;
   }
 
-  bool _validateYears()
+  bool _validateScope()
   {
     if (!validateFirstStep())
     {
       return false;
+    }
+
+    // firstStepBlockedReason already required the track, and the track is the
+    // only thing high school sends.
+    if (_isHighSchool)
+    {
+      return true;
     }
 
     final minYear = int.tryParse(_minYearController.text);
@@ -539,7 +573,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   Future<void> _submit() async
   {
-    if (!_validateYears())
+    if (!_validateScope())
     {
       goToStep(0);
 
@@ -561,8 +595,10 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         _nameController.text.trim(),
         sector.isEmpty ? null : sector,
         _selectedLevel!,
-        int.parse(_minYearController.text),
-        int.parse(_maxYearController.text),
+        _isHighSchool ? _selectedTrack : null,
+        // Null for high school: the server derives them from the track.
+        _isHighSchool ? null : int.parse(_minYearController.text),
+        _isHighSchool ? null : int.parse(_maxYearController.text),
         _descController.text.trim(),
         _selectedSubjects,
         onError,
@@ -586,6 +622,85 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     );
   }
 
+  Widget _buildHint(String text)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.trialMutedText,
+          fontStyle: FontStyle.italic,
+        ),
+      ),
+    );
+  }
+
+  // Primary and middle school still type the span they cover.
+  Widget _buildYearRangeFields()
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildYearField(_minYearController, 'Anno inizio', 'Es. 1', isMinField: true),
+                ],
+              ),
+            ),
+            const SizedBox(width: 32),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildYearField(_maxYearController, 'Anno fine', 'Es. 5', isMinField: false),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (_selectedLevel != null)
+          _buildHint('Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel'),
+      ],
+    );
+  }
+
+  // High school picks one of three cycles instead: the years follow from it.
+  Widget _buildTrackField()
+  {
+    final HighSchoolTrack? chosen = highSchoolTrackOf(_selectedTrack);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const WizardFieldLabel('Articolazione'),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: highSchoolTracks.map((track)
+          {
+            return AppSelectableChip(
+              label: track.label,
+              selected: _selectedTrack == track.value,
+              onSelected: (selected) => setState(()
+              {
+                _selectedTrack = selected ? track.value : null;
+              }),
+            );
+          }).toList(),
+        ),
+        if (chosen != null)
+          _buildHint('Anni di corso: ${chosen.minYear} - ${chosen.maxYear}'),
+      ],
+    );
+  }
+
   Widget _buildStep1()
   {
     return SingleChildScrollView(
@@ -602,7 +717,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             AppTextField(
               controller: _nameController,
               label: 'Nome',
-              hintText: 'Es. Amministrazione finanza e marketing (triennio)',
+              hintText: 'Es. Amministrazione finanza e marketing',
               maxLength: FieldLimits.name,
               textCapitalization: TextCapitalization.sentences,
             ),
@@ -620,40 +735,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
               }).toList(),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildYearField(_minYearController, 'Anno inizio', 'Es. 1', isMinField: true),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 32),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildYearField(_maxYearController, 'Anno fine', 'Es. 5', isMinField: false),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (_selectedLevel != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Intervallo consentito per il livello selezionato: 1 - $_maxYearForSelectedLevel',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
+            if (_isHighSchool) _buildTrackField() else _buildYearRangeFields(),
             DescriptionField(_descController),
           ],
         ),

@@ -47,6 +47,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "gender": "Sesso",
     "general_data": "Dati anagrafici",
     "grade": "Anno di corso",
+    "high_school_track": "Articolazione",
     "iban": "IBAN",
     "is_high_school_student": "Studente delle superiori",
     "last_name": "Cognome",

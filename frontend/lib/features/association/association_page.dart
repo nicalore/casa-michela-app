@@ -283,13 +283,14 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError)
+  Future<bool> _executeCreateStudyProgram(String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError)
   {
     return write(
       call: () => _apiService.createStudyProgram(
         name: name,
         sector: sector,
         level: level,
+        highSchoolTrack: highSchoolTrack,
         minYear: minYear,
         maxYear: maxYear,
         description: description,
@@ -301,7 +302,7 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  Future<bool> _executeEditStudyProgram(int id, String name, String? sector, String level, int minYear, int maxYear, String description, List<int> subjectIds, Function(String) onError)
+  Future<bool> _executeEditStudyProgram(int id, String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError)
   {
     return write(
       call: () => _apiService.updateStudyProgram(
@@ -309,6 +310,7 @@ class _AssociationPageState extends State<AssociationPage>
         name: name,
         sector: sector,
         level: level,
+        highSchoolTrack: highSchoolTrack,
         minYear: minYear,
         maxYear: maxYear,
         description: description,
