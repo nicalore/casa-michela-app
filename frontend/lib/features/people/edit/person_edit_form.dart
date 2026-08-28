@@ -129,9 +129,11 @@ const Map<String, int> kGradeNumbers = {
   'VIII': 8,
 };
 
-int currentSchoolYearStart()
+// Kept in step with the copy in school_enrollment_edit_row.dart, which the
+// person's school-years tab reads: the year turns over on 1 September.
+int currentSchoolYearStart([DateTime? today])
 {
-  final DateTime now = DateTime.now();
+  final DateTime now = today ?? DateTime.now();
 
   return now.month < 9 ? now.year - 1 : now.year;
 }

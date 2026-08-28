@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -22,6 +23,7 @@ import '../widgets/competence_picker.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../widgets/person_detail_widgets.dart';
 import 'person_edit_cards.dart';
+import 'person_edit_enrollment_request.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
 import 'person_edit_people_card.dart';
@@ -77,6 +79,10 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
+  // Wide enough that 'GENERA DOCUMENTI DI ISCRIZIONE' keeps to one line, both
+  // on its own and beside the button that creates the person.
+  static const double _enrollmentFooterWidth = 820;
+
   late final PersonEditForm _form;
 
   final Map<String, String> _errors = {};
@@ -87,6 +93,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isGenerating = false;
+
+  // Creating the person is only offered once the form has been printed at
+  // least once; regenerating afterwards keeps it on screen.
+  bool _formGenerated = false;
 
   @override
   void initState()
@@ -273,7 +284,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return name.isEmpty ? 'questa persona' : name;
   }
 
-  Future<void> _submit() async
+  // Both footer actions start here, so "the same checks" is literal and not a
+  // promise: same validation, same jump, same message.
+  bool _formIsSound()
   {
     final PersonEditValidation validation = validatePersonEdit(_form);
 
@@ -284,21 +297,111 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         ..addAll(validation.errors);
     });
 
-    if (!validation.isValid)
+    if (validation.isValid)
     {
-      final PersonEditCardId? card = validation.firstCard;
+      return true;
+    }
 
-      if (card != null)
+    final PersonEditCardId? card = validation.firstCard;
+
+    if (card != null)
+    {
+      _jumpTo(card);
+    }
+
+    CustomSnackBar.show(
+      context: context,
+      message: validation.message ?? 'Ci sono errori nei dati inseriti. Correggi i campi.',
+      isError: true,
+    );
+
+    return false;
+  }
+
+  Future<void> _generateEnrollmentForm() async
+  {
+    if (_isGenerating || !_formIsSound())
+    {
+      return;
+    }
+
+    final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
+    final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
+
+    // Every tab is asked for inside the click and before the first await: one
+    // opened after that is a popup, and the browser kills it.
+    final List<PdfTab?> tabs = [
+      for (final EnrollmentForm form in forms)
+        openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
+    ];
+
+    setState(() => _isGenerating = true);
+
+    var downloaded = false;
+
+    try
+    {
+      for (final (int index, EnrollmentForm form) in forms.indexed)
       {
-        _jumpTo(card);
+        final Uint8List bytes =
+            await ApiService().generateEnrollmentForm(form.request);
+        final String fileName =
+            'Modulo di iscrizione ${form.personName} $day.pdf';
+        final PdfTab? tab = tabs[index];
+
+        if (tab != null)
+        {
+          tab.present(bytes, fileName: fileName);
+        }
+        else
+        {
+          downloaded = downloadPdf(bytes, fileName: fileName) || downloaded;
+        }
       }
 
-      CustomSnackBar.show(
-        context: context,
-        message: validation.message ?? 'Ci sono errori nei dati inseriti. Correggi i campi.',
-        isError: true,
-      );
+      if (!mounted)
+      {
+        return;
+      }
 
+      if (downloaded)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: forms.length == 1
+              ? 'Il browser ha bloccato la scheda: il modulo è stato scaricato.'
+              : 'Il browser ha bloccato una scheda: il modulo è stato scaricato.',
+          isError: false,
+        );
+      }
+
+      setState(() => _formGenerated = true);
+    }
+    catch (e)
+    {
+      for (final PdfTab? tab in tabs)
+      {
+        tab?.fail('Non è stato possibile generare il modulo.');
+      }
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isGenerating = false);
+      }
+    }
+  }
+
+  Future<void> _submit() async
+  {
+    if (!_formIsSound())
+    {
       return;
     }
 
@@ -493,6 +596,60 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         offeredResidence: widget.offeredResidence,
       );
 
+  Widget _buildFooter()
+  {
+    // Nobody being created is joining — a parent who declined membership, tied
+    // to a minor already on file — so there is no form to print and the wizard
+    // keeps the single button it always had.
+    if (widget.purpose != PersonEditPurpose.create || !needsEnrollmentForms(_form))
+    {
+      return AppDialogFooter.single(_submitButton());
+    }
+
+    if (!_formGenerated)
+    {
+      // Same width it will keep once the create button joins it, so nothing
+      // resizes under the pointer.
+      return AppDialogFooter.single(_generateButton(), maxWidth: _enrollmentFooterWidth);
+    }
+
+    return AppDialogFooter(
+      secondary: _generateButton(),
+      primary: _submitButton(),
+      maxWidth: _enrollmentFooterWidth,
+    );
+  }
+
+  AppGradientButton _submitButton()
+  {
+    return AppGradientButton(
+      label: switch (widget.purpose)
+      {
+        PersonEditPurpose.edit => 'SALVA MODIFICHE',
+        PersonEditPurpose.create => 'CREA PERSONA',
+        PersonEditPurpose.createParent => 'AGGIUNGI GENITORE',
+        PersonEditPurpose.createMinor => 'AGGIUNGI MINORE',
+      },
+      icon: Icons.check_rounded,
+      busy: _isSaving,
+      height: kPersonDialogButtonHeight,
+      fontSize: kPersonDialogButtonFontSize,
+      onPressed: _submit,
+    );
+  }
+
+  AppGradientButton _generateButton()
+  {
+    return AppGradientButton(
+      label: 'GENERA DOCUMENTI DI ISCRIZIONE',
+      icon: Icons.picture_as_pdf_outlined,
+      busy: _isGenerating,
+      height: kPersonDialogButtonHeight,
+      fontSize: kPersonDialogButtonFontSize,
+      onPressed: _generateEnrollmentForm,
+    );
+  }
+
   Widget _buildCard(PersonEditCardId id)
   {
     return switch (id)
@@ -635,22 +792,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       },
       onClose: _confirmDiscard,
       maxWidth: _stackMaxWidth,
-      footer: AppDialogFooter.single(
-        AppGradientButton(
-          label: switch (widget.purpose)
-          {
-            PersonEditPurpose.edit => 'SALVA MODIFICHE',
-            PersonEditPurpose.create => 'CREA PERSONA',
-            PersonEditPurpose.createParent => 'AGGIUNGI GENITORE',
-            PersonEditPurpose.createMinor => 'AGGIUNGI MINORE',
-          },
-          icon: Icons.check_rounded,
-          busy: _isSaving,
-          height: kPersonDialogButtonHeight,
-          fontSize: kPersonDialogButtonFontSize,
-          onPressed: _submit,
-        ),
-      ),
+      footer: _buildFooter(),
       children: [
         AppCarouselFrame(
           index: index,

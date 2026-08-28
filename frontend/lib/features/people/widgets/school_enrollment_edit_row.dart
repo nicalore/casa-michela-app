@@ -35,9 +35,12 @@ final Map<String, int> kGradeNumbers = {
   for (final entry in kGradeLabels.entries) entry.value: entry.key,
 };
 
-int currentSchoolYearStart()
+// The school year turns over on 1 September: until then the year that started
+// last September is still the current one. The date is an argument so the
+// turnover can be pinned by a test.
+int currentSchoolYearStart([DateTime? today])
 {
-  final now = DateTime.now();
+  final now = today ?? DateTime.now();
 
   return now.month < _schoolYearStartMonth ? now.year - 1 : now.year;
 }

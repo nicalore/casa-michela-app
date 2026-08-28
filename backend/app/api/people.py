@@ -1,9 +1,11 @@
 import shutil
+import unicodedata
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Final
+from urllib.parse import quote
 
 import resend
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
 from pydantic import StringConstraints
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -40,6 +42,7 @@ from app.models.student import CertificationTypeEnum, Student
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
     AdminUpdateData,
     ChildInfoResponse,
@@ -64,6 +67,10 @@ from app.schemas.person import (
     TeacherUpdateData,
 )
 from app.schemas.person_wizard import PersonWizardPayload
+from app.services.enrollment_form import (
+    build_enrollment_form,
+    enrollment_form_file_name,
+)
 from app.services.person_wizard_service import create_person_from_wizard
 from app.services.role_service import RoleService
 
@@ -124,6 +131,9 @@ _SCHOOL_ENROLLMENTS_LABEL: Final[str] = "Le iscrizioni scolastiche"
 _TEACHING_SUBJECTS_LABEL: Final[str] = "Le discipline insegnate"
 _TEACHER_DATA_LABEL: Final[str] = "I dati del docente"
 
+_ENROLLMENT_FORM_ERROR: Final[str] = (
+    "Non è stato possibile generare il modulo di iscrizione: {error}"
+)
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
     "La modifica del Codice Fiscale non è consentita per preservare "
@@ -1831,6 +1841,46 @@ async def wizard_create_person(
         ) from err
 
     return {"message": _PERSON_CREATED_MESSAGE, "tax_code": new_person.tax_code}
+
+
+# Reads a school name and writes nothing: the filled form is handed to the
+# browser and forgotten, and only the blank template is kept.
+@router.post(
+    "/wizard/enrollment-form",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+)
+async def wizard_enrollment_form(
+    payload: EnrollmentFormRequest,
+    db: DbSession,
+    # Unused in the body and there on purpose: the response echoes back a whole
+    # personal record, health disclosures included.
+    identity: CurrentIdentity,
+) -> Response:
+    try:
+        pdf = await build_enrollment_form(db, payload)
+
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_ENROLLMENT_FORM_ERROR.format(error=err),
+        ) from err
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": _disposition(enrollment_form_file_name(payload))},
+    )
+
+
+# A name carries spaces and may carry accents, so the header needs both forms:
+# the quoted one for readers that only know it, and the encoded one they are
+# meant to prefer.
+def _disposition(file_name: str) -> str:
+    folded = unicodedata.normalize("NFKD", file_name).encode("ascii", "ignore").decode()
+    fallback = folded.replace('"', "").replace("\\", "")
+
+    return f'inline; filename="{fallback}"; filename*=UTF-8\'\'{quote(file_name)}'
 
 
 @router.post("/{tax_code}/image", status_code=status.HTTP_200_OK)

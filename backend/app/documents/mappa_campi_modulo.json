@@ -1,0 +1,402 @@
+{
+  "_meta": {
+    "template": "modulo_iscrizione_26-27_acroform.pdf",
+    "anno_sociale": "2026/2027",
+    "campi_totali": 77,
+    "checkbox_valore_spunta": "/Yes",
+    "checkbox_valore_vuoto": "/Off",
+    "note": [
+      "Compilare con pypdf: PdfWriter(clone_from=...) + update_page_form_field_values su ogni pagina.",
+      "Le checkbox si spuntano passando il valore '/Yes'; i campi non passati restano vuoti.",
+      "Campi lasciati volutamente senza widget: firma, sezione 'Riservato alla Segreteria' (compilazione a mano).",
+      "socio_email / genitore1_email / genitore2_email hanno cella stretta (~121pt): font 7.5, circa 30 caratteri."
+    ]
+  },
+  "campi": {
+    "socio_sesso_m": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso M (socio)"
+    },
+    "socio_sesso_f": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso F (socio)"
+    },
+    "socio_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nome del socio richiedente"
+    },
+    "socio_cognome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Cognome del socio richiedente"
+    },
+    "socio_luogo_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Luogo di nascita"
+    },
+    "socio_prov_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di nascita"
+    },
+    "socio_nazione_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nazione di nascita"
+    },
+    "socio_data_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data di nascita gg/mm/aaaa"
+    },
+    "socio_indirizzo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Indirizzo di residenza (via/piazza e civico)"
+    },
+    "socio_comune": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Comune di residenza"
+    },
+    "socio_prov_residenza": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di residenza"
+    },
+    "socio_cap": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "CAP"
+    },
+    "socio_telefono": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Telefono / Cellulare"
+    },
+    "socio_codice_fiscale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Codice fiscale"
+    },
+    "socio_email": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Indirizzo e-mail (font ridotto, cella stretta)"
+    },
+    "socio_scuola": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Istituto / Scuola frequentata"
+    },
+    "socio_classe": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Classe"
+    },
+    "socio_anno_scolastico": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Anno scolastico"
+    },
+    "genitore1_sesso_m": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso M (genitore 1)"
+    },
+    "genitore1_sesso_f": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso F (genitore 1)"
+    },
+    "genitore1_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nome genitore/tutore 1"
+    },
+    "genitore1_cognome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Cognome genitore/tutore 1"
+    },
+    "genitore1_luogo_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Luogo di nascita genitore 1"
+    },
+    "genitore1_prov_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di nascita genitore 1"
+    },
+    "genitore1_nazione_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nazione di nascita genitore 1"
+    },
+    "genitore1_data_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data di nascita genitore 1"
+    },
+    "genitore1_indirizzo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Indirizzo di residenza genitore 1"
+    },
+    "genitore1_comune": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Comune di residenza genitore 1"
+    },
+    "genitore1_prov_residenza": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di residenza genitore 1"
+    },
+    "genitore1_cap": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "CAP genitore 1"
+    },
+    "genitore1_telefono": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Telefono genitore 1"
+    },
+    "genitore1_codice_fiscale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Codice fiscale genitore 1"
+    },
+    "genitore1_email": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "E-mail genitore 1 (font ridotto, cella stretta)"
+    },
+    "genitore2_sesso_m": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso M (genitore 2)"
+    },
+    "genitore2_sesso_f": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Sesso F (genitore 2)"
+    },
+    "genitore2_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nome genitore/tutore 2"
+    },
+    "genitore2_cognome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Cognome genitore/tutore 2"
+    },
+    "genitore2_luogo_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Luogo di nascita genitore 2"
+    },
+    "genitore2_prov_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di nascita genitore 2"
+    },
+    "genitore2_nazione_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nazione di nascita genitore 2"
+    },
+    "genitore2_data_nascita": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data di nascita genitore 2"
+    },
+    "genitore2_indirizzo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Indirizzo di residenza genitore 2"
+    },
+    "genitore2_comune": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Comune di residenza genitore 2"
+    },
+    "genitore2_prov_residenza": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Provincia di residenza genitore 2"
+    },
+    "genitore2_cap": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "CAP genitore 2"
+    },
+    "genitore2_telefono": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Telefono genitore 2"
+    },
+    "genitore2_codice_fiscale": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Codice fiscale genitore 2"
+    },
+    "genitore2_email": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "E-mail genitore 2 (font ridotto, cella stretta)"
+    },
+    "consenso_notiziari": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Consenso a notiziari e comunicazioni e-mail"
+    },
+    "adesione_socio_iscritto": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tipologia adesione: SOCIO ISCRITTO (alunno/a)"
+    },
+    "adesione_socio_sostenitore": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tipologia adesione: SOCIO SOSTENITORE (genitore)"
+    },
+    "adesione_socio_ordinario": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tipologia adesione: SOCIO ORDINARIO (docente/non docente)"
+    },
+    "adesione_socio_volontario": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tipologia adesione: SOCIO VOLONTARIO"
+    },
+    "aiuto_compiti_adesione": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Adesione al servizio Aiuto Compiti (Sez. 4)"
+    },
+    "diagnosi_altro_testo": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Specifica diagnosi Altro"
+    },
+    "diagnosi_dichiarazione": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Dichiarazione possesso diagnosi (Sez. 5)"
+    },
+    "diagnosi_dsa": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Diagnosi DSA"
+    },
+    "diagnosi_bes": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Diagnosi BES"
+    },
+    "diagnosi_adhd": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Diagnosi ADHD"
+    },
+    "diagnosi_altro": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Diagnosi: Altro"
+    },
+    "diagnosi_incontri_psicologo": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Presa d'atto dei 2 incontri con psicologa/o"
+    },
+    "sostegno_psicologico_adesione": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Adesione al servizio di sostegno psicologico (Sez. 6)"
+    },
+    "corso_yoga": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Corso YOGA - pacchetto 5 lezioni"
+    },
+    "corso_pilates": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Corso PILATES - pacchetto 5 lezioni"
+    },
+    "pagamento_altro_testo": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Specifica altra modalita' di pagamento"
+    },
+    "pagamento_contanti": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Modalita' pagamento: contanti"
+    },
+    "pagamento_bonifico": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Modalita' pagamento: bonifico bancario"
+    },
+    "pagamento_altro": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Modalita' pagamento: altro"
+    },
+    "consenso_statuto": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Presa visione e approvazione Statuto"
+    },
+    "consenso_regolamento": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Accettazione Regolamento"
+    },
+    "consenso_videosorveglianza": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Consapevolezza videosorveglianza locali"
+    },
+    "consenso_dati_particolari": {
+      "tipo": "checkbox",
+      "pagina": 2,
+      "descrizione": "Consenso trattamento dati particolari (art. 9 GDPR)"
+    },
+    "emergenza_contatto": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Contatto di emergenza (nome e cognome)"
+    },
+    "emergenza_telefono": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Telefono contatto di emergenza"
+    },
+    "allergie_patologie": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Allergie, intolleranze o patologie"
+    },
+    "farmaci_note": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Farmaci in uso / note aggiuntive"
+    },
+    "luogo_data": {
+      "tipo": "testo",
+      "pagina": 2,
+      "descrizione": "Luogo e data (es. 'Thiene, 18/08/2026')"
+    }
+  }
+}

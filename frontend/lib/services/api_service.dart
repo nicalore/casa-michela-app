@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
@@ -209,6 +211,32 @@ class ApiService
     }
 
     throw Exception(detail ?? fallback);
+  }
+
+  // Asking Dio for bytes means it hands back the refusal as bytes too: the
+  // Italian detail the server wrote is in there, and _refused only sees a Map.
+  Never _refusedBytes(DioException error, String fallback)
+  {
+    final data = error.response?.data;
+
+    if (data is List<int>)
+    {
+      try
+      {
+        final decoded = jsonDecode(utf8.decode(data));
+
+        if (decoded is Map && decoded['detail'] != null)
+        {
+          throw Exception(decoded['detail'].toString());
+        }
+      }
+      on FormatException
+      {
+        // A binary or truncated body says nothing; the fallback speaks instead.
+      }
+    }
+
+    _refused(error, fallback);
   }
 
   Future<void> _adoptSession(LoginResponse loginResponse) async
@@ -1184,6 +1212,26 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
+    }
+  }
+
+  // The filled enrollment form is never stored: the server stamps a copy of
+  // the blank template and hands the bytes straight back.
+  Future<Uint8List> generateEnrollmentForm(Map<String, dynamic> payload) async
+  {
+    try
+    {
+      final response = await _dio.post<List<int>>(
+        '/people/wizard/enrollment-form',
+        data: payload,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
     }
   }
 

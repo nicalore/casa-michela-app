@@ -17,6 +17,8 @@ dependencies = [
     "python-multipart>=0.0.20",
     "resend>=2.30.1",
     "email-validator>=2.3.0",
+    "pypdf>=6.16.2",
+    "fonttools>=4.63.0",
 ]
 
 [dependency-groups]

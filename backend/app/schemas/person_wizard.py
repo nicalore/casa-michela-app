@@ -19,15 +19,13 @@ _MANDATORY_PSYCH_MEETINGS_ERROR: Final[str] = (
     "lo psicologo."
 )
 
+# The consent to special category data and the newsletter one are offered as
+# optional switches by the wizard, and asking for them here rejected anyone who
+# declined either.
 _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
     ("statute_acknowledged", "presa visione dello Statuto"),
     ("regulation_acknowledged", "accettazione del Regolamento"),
     ("video_surveillance_acknowledged", "consapevolezza della videosorveglianza"),
-    (
-        "special_category_data_consent",
-        "consenso al trattamento dei dati particolari",
-    ),
-    ("newsletter_consent", "consenso alla ricezione dei notiziari periodici"),
 )
 
 
@@ -62,7 +60,7 @@ class WizardMembershipData(BaseModel):
     revocation: str
 
 
-class WizardMemberData(BaseModel):
+class WizardMemberDataBase(BaseModel):
     memberships: list[WizardMembershipData] = Field(default_factory=list)
     payment_method: str | None = None
     payment_method_other: str | None = Field(
@@ -83,6 +81,10 @@ class WizardMemberData(BaseModel):
     allergies_notes: str | None = Field(None, max_length=field_lengths.NOTES)
     medications_notes: str | None = Field(None, max_length=field_lengths.NOTES)
 
+
+# Joining the association is where the consents become mandatory; printing the
+# form that collects them is not, so the check lives in the subclass.
+class WizardMemberData(WizardMemberDataBase):
     @model_validator(mode="after")
     def _check_mandatory_consents(self) -> Self:
         missing = [
@@ -157,10 +159,10 @@ class WizardRelationships(BaseModel):
     parents_tax_codes: list[ParentalRelationshipInput] = Field(default_factory=list)
 
 
-class PersonWizardPayload(BaseModel):
+class PersonWizardPayloadBase(BaseModel):
     general_data: WizardGeneralData
     roles: list[str]
-    member_data: WizardMemberData | None = None
+    member_data: WizardMemberDataBase | None = None
     staff_data: WizardStaffData | None = None
     admin_data: WizardAdminData | None = None
     teacher_data: WizardTeacherData | None = None
@@ -168,3 +170,7 @@ class PersonWizardPayload(BaseModel):
     psychological_support_data: WizardPsychologicalSupportData | None = None
     student_data: WizardStudentData | None = None
     relationships: WizardRelationships
+
+
+class PersonWizardPayload(PersonWizardPayloadBase):
+    member_data: WizardMemberData | None = None

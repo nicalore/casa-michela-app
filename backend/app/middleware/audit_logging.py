@@ -28,6 +28,8 @@ _FAILURE_STATUS: Final[str] = "Failure"
 _BODY_METHODS: Final[frozenset[str]] = frozenset({"POST", "PUT", "PATCH"})
 _UPDATE_METHODS: Final[frozenset[str]] = frozenset({"PUT", "PATCH"})
 
+_ENROLLMENT_FORM_PATH: Final[str] = "/people/wizard/enrollment-form"
+
 _LOGIN_PATH: Final[str] = "/auth/login"
 
 _AUTH_OPERATIONS: Final[dict[str, str]] = {
@@ -245,6 +247,11 @@ def _resolve_people_operation(
     status: str,
     response_body: bytes,
 ) -> tuple[str | None, str]:
+    # A generated form creates nobody, and its body is a PDF: without this it
+    # would be logged as a person creation whose target could not be read.
+    if _ENROLLMENT_FORM_PATH in path:
+        return "Enrollment form generation", ""
+
     if method == "POST":
         target = (
             _extract_response_field(response_body, "tax_code")
@@ -300,7 +307,11 @@ async def audit_logging_middleware(request: Request, call_next: Callable) -> Res
     status = _SUCCESS_STATUS if response.status_code < 400 else _FAILURE_STATUS
     response_body = b""
 
-    if status == _SUCCESS_STATUS and request.method in _BODY_METHODS:
+    if (
+        status == _SUCCESS_STATUS
+        and request.method in _BODY_METHODS
+        and _ENROLLMENT_FORM_PATH not in path
+    ):
         response_body, response = await _buffer_response(response)
 
     auth_operation = _match_by_path_fragment(path, _AUTH_OPERATIONS)

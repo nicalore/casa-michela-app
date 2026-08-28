@@ -1,6 +1,7 @@
+import '../../../shared/export/pdf_tab.dart';
+
 import 'calendar_export_data.dart';
 import 'calendar_pdf_document.dart';
-import 'calendar_pdf_tab.dart';
 
 export 'calendar_export_data.dart';
 
@@ -17,8 +18,8 @@ class CalendarExportTabs
 {
   const CalendarExportTabs({required this.teachers, required this.students});
 
-  final CalendarPdfTab? teachers;
-  final CalendarPdfTab? students;
+  final PdfTab? teachers;
+  final PdfTab? students;
 
   bool get isEmpty => teachers == null && students == null;
 }
