@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
@@ -49,6 +50,8 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
   String? _filterArea;
   String? _filterLevel;
 
+  Set<int> _selectedAssociationSubjectIds = {};
+
   List<MinistrySubjectItem> get _filteredSubjects
   {
     final query = _searchText.toLowerCase();
@@ -59,7 +62,12 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       final matchesArea = _filterArea == null || subject.areas.contains(_filterArea);
       final matchesLevel = _filterLevel == null || subject.level == _filterLevel;
 
-      return matchesSearch && matchesArea && matchesLevel;
+      final matchesAssociationSubjects = _selectedAssociationSubjectIds.isEmpty ||
+          subject.associationSubjects.any(
+            (discipline) => _selectedAssociationSubjectIds.contains(discipline.id),
+          );
+
+      return matchesSearch && matchesArea && matchesLevel && matchesAssociationSubjects;
     }).toList();
 
     sortByCriterion(
@@ -90,6 +98,23 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
 
           return await widget.onEdit(subject.id, name, level, areas, description, associationIds, onError);
         },
+      ),
+    );
+  }
+
+  void _showAssociationSubjectFilterDialog()
+  {
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'SubjectFilterDialog',
+      builder: (context) => MultiSelectFilterDialog<int>(
+        title: 'Filtra per disciplina interna',
+        hint: 'Es. Aritmetica',
+        options: widget.associationSubjects
+            .map((subject) => MultiSelectFilterOption(value: subject.id, label: subject.name))
+            .toList(),
+        initialSelected: _selectedAssociationSubjectIds,
+        onApply: (ids) => setState(() => _selectedAssociationSubjectIds = ids),
       ),
     );
   }
@@ -136,6 +161,13 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
             options: subjectAreas
                 .map((area) => FilterOption(value: area.value, label: area.label))
                 .toList(),
+          ),
+          AppCountFilterPill(
+            icon: Icons.auto_stories_outlined,
+            label: 'Discipline interne',
+            count: _selectedAssociationSubjectIds.length,
+            onOpen: _showAssociationSubjectFilterDialog,
+            onClear: () => setState(() => _selectedAssociationSubjectIds = {}),
           ),
         ],
       ),
@@ -358,7 +390,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
               children: subjectAreas.map((area)
               {
                 return AppSelectableChip(
-                  label: area.label,
+                  label: area.compactLabel,
                   selected: _selectedAreas.contains(area.value),
                   onSelected: (selected) => _onAreaChanged(area.value, selected),
                 );

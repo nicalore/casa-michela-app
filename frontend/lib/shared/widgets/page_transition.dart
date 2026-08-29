@@ -570,6 +570,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   void initState()
   {
     super.initState();
+    _controller.addListener(_onProgress);
     _controller.addStatusListener(_onStatusChanged);
   }
 
@@ -580,9 +581,22 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
 
     if (widget.index != _arriving)
     {
-      _leaving = _arriving;
+      final int left = _arriving;
+
       _arriving = widget.index;
       _held = null;
+
+      // Inside a moving page: skip the local handover, it would paint both
+      // sections at once over the outer one.
+      if (_PageTransitionScope.maybeOf(context)?.moving ?? false)
+      {
+        _leaving = null;
+        _controller.value = 1;
+
+        return;
+      }
+
+      _leaving = left;
 
       _controller.forward(from: 0);
 
@@ -607,6 +621,16 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   {
     _controller.dispose();
     super.dispose();
+  }
+
+  // The leaving section is dropped at _exitEnd: held to the end of the handover
+  // it would stay laid out, and visible, under the arriving one.
+  void _onProgress()
+  {
+    if (_leaving != null && _controller.value >= _exitEnd)
+    {
+      setState(() => _leaving = null);
+    }
   }
 
   void _onStatusChanged(AnimationStatus status)
@@ -641,7 +665,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
       child: TickerMode(
         enabled: onScreen,
         child: IgnorePointer(
-          ignoring: !arriving || _leaving != null || inPlace,
+          ignoring: !arriving || _controller.isAnimating || inPlace,
           child: _DestinationScope(
             current: widget.announces
                 ? arriving && !covered

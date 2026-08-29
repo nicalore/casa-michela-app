@@ -51,7 +51,8 @@ class PersonItem implements PersonFace
   final String? courseType;
   final bool? isMedicalCertificateValid;
 
-  final String? certificationType;
+  // Empty means no certification at all.
+  final List<String> certificationTypes;
   final String? certificationOtherDetail;
   final String? certificationDsaDetail;
   final bool? mandatoryPsychMeetingsAcknowledged;
@@ -79,8 +80,7 @@ class PersonItem implements PersonFace
   final bool? specialCategoryDataConsent;
   final bool? newsletterConsent;
 
-  // Optimistic-concurrency tokens (RNF-IAM-REL-07): sent back as
-  // expected_updated_at and compared for equality by the backend.
+  // Optimistic-concurrency tokens: sent back to the API as expected_updated_at.
   final DateTime? memberUpdatedAt;
   final DateTime? studentUpdatedAt;
   final DateTime? teacherUpdatedAt;
@@ -125,7 +125,7 @@ class PersonItem implements PersonFace
     this.taughtSubjects = const [],
     this.courseType,
     this.isMedicalCertificateValid,
-    this.certificationType,
+    this.certificationTypes = const [],
     this.certificationOtherDetail,
     this.certificationDsaDetail,
     this.mandatoryPsychMeetingsAcknowledged,
@@ -191,7 +191,7 @@ class PersonItem implements PersonFace
       taughtSubjects: parseStringList(json['taught_subjects']),
       courseType: json['course_type'],
       isMedicalCertificateValid: json['is_medical_certificate_valid'],
-      certificationType: json['certification_type'],
+      certificationTypes: parseStringList(json['certification_types']),
       certificationOtherDetail: json['certification_other_detail'],
       certificationDsaDetail: json['certification_dsa_detail'],
       mandatoryPsychMeetingsAcknowledged: json['mandatory_psych_meetings_acknowledged'],
@@ -263,8 +263,6 @@ class PersonItem implements PersonFace
   }
 }
 
-// Who can be picked for future work: active collaborators with an unrevoked
-// membership. Past records still carry former collaborators' names.
 List<PersonItem> activeCollaborators(List<PersonItem> people)
 {
   return people

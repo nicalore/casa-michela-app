@@ -18,6 +18,10 @@ _MISSING_DSA_DETAIL_ERROR: Final[str] = (
     "Per una certificazione DSA va indicato di quale disturbo si tratta."
 )
 
+_REPEATED_CERTIFICATION_ERROR: Final[str] = (
+    "Ogni certificazione può essere indicata una sola volta."
+)
+
 _RATING_STEP_ERROR: Final[str] = (
     "La valutazione di un docente si muove di mezzo punto alla volta."
 )
@@ -140,7 +144,6 @@ class TeacherCompetenceUpdateItem(BaseModel):
 
 
 class TeacherEducationData(BaseModel):
-    # False means university or beyond.
     is_high_school_student: bool
     school_education: OptionalCleanStr = Field(
         None,
@@ -186,7 +189,8 @@ class SchoolEnrollmentUpdateItem(BaseModel):
 
 
 class StudentCertificationData(BaseModel):
-    certification_type: str | None = None
+    # Empty list means no certification.
+    certification_types: list[str] = Field(default_factory=list)
     certification_other_detail: OptionalCleanStr = Field(
         None,
         max_length=field_lengths.OTHER_DETAIL,
@@ -197,9 +201,16 @@ class StudentCertificationData(BaseModel):
     )
 
     @model_validator(mode="after")
+    def _no_certification_is_asked_for_twice(self) -> Self:
+        if len(set(self.certification_types)) != len(self.certification_types):
+            raise ValueError(_REPEATED_CERTIFICATION_ERROR)
+
+        return self
+
+    @model_validator(mode="after")
     def _a_dsa_certification_says_which(self) -> Self:
         if (
-            self.certification_type == CertificationTypeEnum.DSA
+            CertificationTypeEnum.DSA in self.certification_types
             and self.certification_dsa_detail is None
         ):
             raise ValueError(_MISSING_DSA_DETAIL_ERROR)
@@ -302,7 +313,6 @@ class TeacherProgramResponse(BaseModel):
     sector: str | None = None
     level: EducationLevelEnum
 
-    # Same name, same sector: the cycle is what tells two programmes apart.
     high_school_track: HighSchoolTrackEnum | None = None
 
 
@@ -359,7 +369,7 @@ class PersonResponse(BaseModel):
     course_type: str | None = None
     is_medical_certificate_valid: bool | None = None
 
-    certification_type: str | None = None
+    certification_types: list[str] = Field(default_factory=list)
     certification_other_detail: str | None = None
     certification_dsa_detail: str | None = None
     mandatory_psych_meetings_acknowledged: bool | None = None

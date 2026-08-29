@@ -70,6 +70,7 @@ from app.schemas.person_wizard import PersonWizardPayload
 from app.services.enrollment_form import (
     build_enrollment_form,
     enrollment_form_file_name,
+    request_for_person,
 )
 from app.services.person_wizard_service import create_person_from_wizard
 from app.services.role_service import RoleService
@@ -388,7 +389,7 @@ def _map_teacher_subjects(
     return sorted(subject_names), teacher_subjects
 
 
-# The rating is administrator-only: not for the teacher or colleagues to read.
+# The rating is administrator-only.
 def _map_person_to_response(
     person: Person,
     *,
@@ -422,7 +423,7 @@ def _map_person_to_response(
     teacher_rating = None
     medical_certificate_expiration = None
 
-    certification_type = None
+    certification_types: list[str] = []
     certification_other_detail = None
     certification_dsa_detail = None
     mandatory_psych_meetings_acknowledged = None
@@ -520,7 +521,7 @@ def _map_person_to_response(
             early_exit = student.authorized_early_exit
             student_updated_at = student.updated_at
 
-            certification_type = student.certification_type
+            certification_types = list(student.certification_types)
             certification_other_detail = student.certification_other_detail
             certification_dsa_detail = student.certification_dsa_detail
             mandatory_psych_meetings_acknowledged = (
@@ -652,7 +653,7 @@ def _map_person_to_response(
         university_education=university_education,
         teacher_rating=teacher_rating,
         medical_certificate_expiration=medical_certificate_expiration,
-        certification_type=certification_type,
+        certification_types=certification_types,
         certification_other_detail=certification_other_detail,
         certification_dsa_detail=certification_dsa_detail,
         mandatory_psych_meetings_acknowledged=mandatory_psych_meetings_acknowledged,
@@ -906,19 +907,17 @@ async def _sync_student_profile(
         select(Student).where(Student.tax_code == person.tax_code)
     )
 
-    certification_type = (
-        CertificationTypeEnum(student_data.certification_type)
-        if student_data.certification_type
-        else None
-    )
+    certification_types = [
+        CertificationTypeEnum(kind) for kind in student_data.certification_types
+    ]
     certification_other_detail = (
         student_data.certification_other_detail
-        if certification_type == CertificationTypeEnum.OTHER
+        if CertificationTypeEnum.OTHER in certification_types
         else None
     )
     certification_dsa_detail = (
         student_data.certification_dsa_detail
-        if certification_type == CertificationTypeEnum.DSA
+        if CertificationTypeEnum.DSA in certification_types
         else None
     )
 
@@ -933,7 +932,7 @@ async def _sync_student_profile(
             .where(Student.tax_code == person.tax_code)
             .values(
                 authorized_early_exit=student_data.authorized_early_exit,
-                certification_type=certification_type,
+                certification_types=certification_types,
                 certification_other_detail=certification_other_detail,
                 certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
@@ -947,7 +946,7 @@ async def _sync_student_profile(
             Student(
                 tax_code=person.tax_code,
                 authorized_early_exit=student_data.authorized_early_exit,
-                certification_type=certification_type,
+                certification_types=certification_types,
                 certification_other_detail=certification_other_detail,
                 certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
@@ -1093,8 +1092,7 @@ async def _sync_teacher_profile(
         "university_education": teacher_data.university_education,
     }
 
-    # Omitted when not sent: a save by someone who cannot see the rating
-    # leaves it unchanged; a new teacher starts from the column default.
+    # Omitted when not sent: the stored rating stays unchanged.
     if teacher_data.rating is not None:
         values["rating"] = teacher_data.rating
 
@@ -1367,7 +1365,7 @@ async def update_person(
             detail=_TAX_CODE_IMMUTABLE_ERROR,
         )
 
-    # Refused, not dropped: a silent save would read as an accepted rating.
+    # Rejected rather than silently dropped for non-administrators.
     if (
         payload.teacher_data is not None
         and payload.teacher_data.rating is not None
@@ -1843,8 +1841,6 @@ async def wizard_create_person(
     return {"message": _PERSON_CREATED_MESSAGE, "tax_code": new_person.tax_code}
 
 
-# Reads a school name and writes nothing: the filled form is handed to the
-# browser and forgotten, and only the blank template is kept.
 @router.post(
     "/wizard/enrollment-form",
     status_code=status.HTTP_200_OK,
@@ -1853,8 +1849,7 @@ async def wizard_create_person(
 async def wizard_enrollment_form(
     payload: EnrollmentFormRequest,
     db: DbSession,
-    # Unused in the body and there on purpose: the response echoes back a whole
-    # personal record, health disclosures included.
+    # Unused in the body but required: the response carries a full personal record.
     identity: CurrentIdentity,
 ) -> Response:
     try:
@@ -1873,14 +1868,54 @@ async def wizard_enrollment_form(
     )
 
 
-# A name carries spaces and may carry accents, so the header needs both forms:
-# the quoted one for readers that only know it, and the encoded one they are
-# meant to prefer.
+# Both filename forms: an ASCII-folded quoted fallback plus the UTF-8 encoded one.
 def _disposition(file_name: str) -> str:
     folded = unicodedata.normalize("NFKD", file_name).encode("ascii", "ignore").decode()
     fallback = folded.replace('"', "").replace("\\", "")
 
     return f'inline; filename="{fallback}"; filename*=UTF-8\'\'{quote(file_name)}'
+
+
+@router.get(
+    "/{tax_code}/enrollment-form",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+)
+async def person_enrollment_form(
+    tax_code: str,
+    db: DbSession,
+    identity: CurrentIdentity,
+) -> Response:
+    stmt = (
+        select(Person)
+        .options(*_person_load_options())
+        .where(Person.tax_code == tax_code.upper())
+    )
+    result = await db.execute(stmt)
+    person = result.unique().scalar_one_or_none()
+
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_PERSON_NOT_FOUND_ERROR,
+        )
+
+    payload = request_for_person(person)
+
+    try:
+        pdf = await build_enrollment_form(db, payload)
+
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_ENROLLMENT_FORM_ERROR.format(error=err),
+        ) from err
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": _disposition(enrollment_form_file_name(payload))},
+    )
 
 
 @router.post("/{tax_code}/image", status_code=status.HTTP_200_OK)

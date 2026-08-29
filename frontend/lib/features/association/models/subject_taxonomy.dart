@@ -5,16 +5,17 @@ class SubjectArea
   final String value;
   final String label;
 
-  const SubjectArea(this.value, this.label);
+  final String compactLabel;
+
+  const SubjectArea(this.value, this.label, this.compactLabel);
 }
 
 const List<SubjectArea> subjectAreas = <SubjectArea>[
-  SubjectArea('HUMANITIES', 'Area Umanistica'),
-  SubjectArea('LINGUISTICS', 'Area Linguistica'),
-  SubjectArea('SCIENCES', 'Area Scientifica'),
+  SubjectArea('HUMANITIES', 'Area Umanistica', 'Umanistica'),
+  SubjectArea('LINGUISTICS', 'Area Linguistica', 'Linguistica'),
+  SubjectArea('SCIENCES', 'Area Scientifica', 'Scientifica'),
 ];
 
-// Unknown values are returned unchanged so new backend codes stay visible.
 String subjectAreaLabel(String value)
 {
   for (final area in subjectAreas)
@@ -33,7 +34,6 @@ class SchoolLevel
   final String value;
   final String label;
 
-  // Without the "Scuola" prefix, for contexts that already say so.
   final String compactLabel;
 
   final String shortLabel;
@@ -47,7 +47,6 @@ const List<SchoolLevel> schoolLevels = <SchoolLevel>[
   SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Sec. II Grado'),
 ];
 
-// Unknown values are returned unchanged so new backend codes stay visible.
 String schoolLevelLabel(String value)
 {
   for (final level in schoolLevels)
@@ -74,14 +73,13 @@ String schoolLevelShortLabel(String value)
   return value;
 }
 
-// Values must stay aligned with HighSchoolTrackEnum on the backend. The years
-// are shown to the user; the server is what actually derives them.
+// Values must stay aligned with HighSchoolTrackEnum on the backend; the server
+// derives the years.
 class HighSchoolTrack
 {
   final String value;
   final String label;
 
-  // Without "Percorso", for the line above the name where space is tight.
   final String shortLabel;
 
   final int minYear;
@@ -96,7 +94,6 @@ const List<HighSchoolTrack> highSchoolTracks = <HighSchoolTrack>[
   HighSchoolTrack('QUADRIENNALE', 'Percorso quadriennale', 'Quadriennale', 1, 4),
 ];
 
-// Null for an absent or unknown value, so callers can fall back to the range.
 HighSchoolTrack? highSchoolTrackOf(String? value)
 {
   for (final track in highSchoolTracks)
@@ -110,9 +107,8 @@ HighSchoolTrack? highSchoolTrackOf(String? value)
   return null;
 }
 
-// Shared so every place listing programmes groups them the same way. The
-// track is part of it: without it a biennio and a triennio of one course fall
-// into the same group under the same name.
+// The track is part of the key: without it a biennio and a triennio of the same
+// course collapse into one group.
 String programScopeTitle({required String level, String? sector, String? track})
 {
   final HighSchoolTrack? cycle = highSchoolTrackOf(track);
@@ -124,7 +120,6 @@ String programScopeTitle({required String level, String? sector, String? track})
   ].join(' · ');
 }
 
-// Null, empty, and whitespace-only descriptions are all treated as absent.
 String? descriptionOrNull(String? description)
 {
   final String? said = description?.trim();

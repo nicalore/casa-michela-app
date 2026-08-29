@@ -21,7 +21,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "capacity": "Capienza",
     "certification_dsa_detail": "Tipo di DSA",
     "certification_other_detail": "Altra certificazione",
-    "certification_type": "Tipo di certificazione",
+    "certification_types": "Tipo di certificazione",
     "city": "Città",
     "collaborating_active": "Collaborazione attiva",
     "collaboration_type": "Tipo di collaborazione",
@@ -140,9 +140,7 @@ _LOCATION_SECTIONS: Final[frozenset[str]] = frozenset(
 
 _GENERIC_ERROR: Final[str] = "I dati inviati non sono validi."
 
-# Pydantic writes a ValueError raised inside a validator as
-# "Value error, <message>". The half after the comma is already an Italian
-# sentence of ours, so only the English half is dropped.
+# Pydantic prefixes validator ValueErrors with "Value error, "; only that half is stripped.
 _VALUE_ERROR_PREFIX: Final[str] = "Value error, "
 
 _MOST_SAID: Final[int] = 3

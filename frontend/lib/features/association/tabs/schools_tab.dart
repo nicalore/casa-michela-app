@@ -52,6 +52,8 @@ class _SchoolsTabState extends State<SchoolsTab>
   SortCriterion _sortBy = SortCriterion.nameAsc;
   String? _filterCity;
 
+  Set<int> _selectedProgramIds = {};
+
   List<FilterOption<String>> get _cityOptions
   {
     final cities = widget.schools.map((school) => school.city).toSet().toList();
@@ -86,7 +88,10 @@ class _SchoolsTabState extends State<SchoolsTab>
           (school.mechanographicCode ?? '').toLowerCase().contains(query);
       final matchesCity = _filterCity == null || school.city == _filterCity;
 
-      return matchesSearch && matchesCity;
+      final matchesPrograms = _selectedProgramIds.isEmpty ||
+          school.studyPrograms.any((program) => _selectedProgramIds.contains(program.id));
+
+      return matchesSearch && matchesCity && matchesPrograms;
     }).toList();
 
     sortByCriterion(
@@ -122,6 +127,32 @@ class _SchoolsTabState extends State<SchoolsTab>
     );
   }
 
+  void _showStudyProgramFilterDialog()
+  {
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'StudyProgramFilterDialog',
+      builder: (context) => MultiSelectFilterDialog<int>(
+        title: 'Filtra per percorso di studio',
+        hint: 'Es. Scientifico',
+        subtitlePlacement: AutocompleteSubtitlePlacement.above,
+        options: widget.studyPrograms
+            .map((program) => MultiSelectFilterOption(
+                  value: program.id,
+                  label: program.name,
+                  subtitle: programScopeTitle(
+                    level: program.level,
+                    sector: program.sector,
+                    track: program.highSchoolTrack,
+                  ),
+                ))
+            .toList(),
+        initialSelected: _selectedProgramIds,
+        onApply: (ids) => setState(() => _selectedProgramIds = ids),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -150,6 +181,13 @@ class _SchoolsTabState extends State<SchoolsTab>
             onChanged: (value) => setState(() => _filterCity = value),
             onClear: () => setState(() => _filterCity = null),
             options: _cityOptions,
+          ),
+          AppCountFilterPill(
+            icon: Icons.route_outlined,
+            label: 'Percorsi di studio',
+            count: _selectedProgramIds.length,
+            onOpen: _showStudyProgramFilterDialog,
+            onClear: () => setState(() => _selectedProgramIds = {}),
           ),
         ],
       ),

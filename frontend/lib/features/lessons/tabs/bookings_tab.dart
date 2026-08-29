@@ -425,7 +425,7 @@ enum _WizardCard
   ),
   presenceHours(
     'Quando è in Associazione?',
-    'Gli orari in cui lo studente sarà presente in Associazione.',
+    'Indica gli orari in cui lo studente sarà presente in Associazione.',
   ),
   presenceSubjects(
     'Che lezioni vuole fare in Associazione?',
@@ -433,7 +433,7 @@ enum _WizardCard
   ),
   onlineHours(
     'Quando può essere presente online?',
-    'Gli orari in cui lo studente è disponibile per essere seguito a distanza.',
+    'Indica gli orari in cui lo studente è disponibile per essere seguito a distanza.',
   ),
   onlineSubjects(
     'Che lezioni vuole fare online?',
@@ -517,16 +517,25 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
 
   final Set<String> _selectedModes = {};
 
+  static const List<String> _subjectCategoryLabels = ['Materie', 'Discipline', 'Servizi'];
+
+  static const int _ministryCategory = 0;
+  static const int _disciplineCategory = 1;
+  static const int _serviceCategory = 2;
+
   final Map<String, int> _subjectCategory = {
-    for (final mode in const [kPresenceMode, kOnlineMode]) mode: 0,
+    for (final mode in const [kPresenceMode, kOnlineMode]) mode: _ministryCategory,
   };
 
-  final Map<String, TextEditingController> _disciplineSearchControllers = {
-    for (final mode in const [kPresenceMode, kOnlineMode]) mode: TextEditingController(),
+  // Each category keeps its own query, so switching tab back restores it.
+  final Map<String, List<TextEditingController>> _subjectSearchControllers = {
+    for (final mode in const [kPresenceMode, kOnlineMode])
+      mode: List.generate(_subjectCategoryLabels.length, (_) => TextEditingController()),
   };
 
-  final Map<String, String> _disciplineQuery = {
-    for (final mode in const [kPresenceMode, kOnlineMode]) mode: '',
+  final Map<String, List<String>> _subjectQueries = {
+    for (final mode in const [kPresenceMode, kOnlineMode])
+      mode: List.filled(_subjectCategoryLabels.length, ''),
   };
 
   final Map<String, ScrollController> _subjectScrollControllers = {
@@ -632,9 +641,12 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       controller.dispose();
     }
 
-    for (final controller in _disciplineSearchControllers.values)
+    for (final controllers in _subjectSearchControllers.values)
     {
-      controller.dispose();
+      for (final controller in controllers)
+      {
+        controller.dispose();
+      }
     }
 
     super.dispose();
@@ -828,9 +840,14 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         _hours[mode]!.clear();
         _requests[mode]!.clear();
 
-        _subjectCategory[mode] = 0;
-        _disciplineSearchControllers[mode]!.clear();
-        _disciplineQuery[mode] = '';
+        _subjectCategory[mode] = _ministryCategory;
+
+        for (final controller in _subjectSearchControllers[mode]!)
+        {
+          controller.clear();
+        }
+
+        _subjectQueries[mode]!.fillRange(0, _subjectQueries[mode]!.length, '');
       }
 
       _droppedBookings.clear();
@@ -1323,14 +1340,14 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       return _buildHint('Scegli prima lo studente.');
     }
 
-    final category = _subjectCategory[mode] ?? 0;
+    final category = _subjectCategory[mode] ?? _ministryCategory;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppSegmentedTabs(
-          labels: const ['Materie', 'Discipline', 'Servizi'],
+          labels: _subjectCategoryLabels,
           selectedIndex: category,
           onSelected: (index) => setState(() => _subjectCategory[mode] = index),
         ),
@@ -1344,8 +1361,8 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
               padding: const EdgeInsets.only(right: 12),
               child: switch (category)
               {
-                0 => _buildMinistryList(mode),
-                1 => _buildDisciplineList(mode),
+                _ministryCategory => _buildMinistryList(mode),
+                _disciplineCategory => _buildDisciplineList(mode),
                 _ => _buildServiceList(mode),
               },
             ),
@@ -1439,6 +1456,23 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         child: _buildHint(message),
       );
 
+  Widget _buildCategorySearch(String mode, int category, String hint)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppSearchField(
+        controller: _subjectSearchControllers[mode]![category],
+        hintText: hint,
+        onChanged: (value) => setState(() => _subjectQueries[mode]![category] = value),
+      ),
+    );
+  }
+
+  bool _matchesQuery(String name, String mode, int category)
+  {
+    return name.toLowerCase().contains(_subjectQueries[mode]![category].toLowerCase());
+  }
+
   Widget _buildPickRow({
     required String mode,
     required String name,
@@ -1464,18 +1498,27 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
 
   Widget _buildMinistryList(String mode)
   {
-    if (_filteredMinistrySubjects.isEmpty)
+    final all = _filteredMinistrySubjects;
+
+    if (all.isEmpty)
     {
       return _buildEmptyCategory(
         'Il percorso di studi dello studente non ha materie collegate.',
       );
     }
 
+    final subjects = all
+        .where((subject) => _matchesQuery(subject.name, mode, _ministryCategory))
+        .toList();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final subject in _filteredMinistrySubjects)
+        _buildCategorySearch(mode, _ministryCategory, 'Cerca materia...'),
+        if (subjects.isEmpty)
+          _buildEmptyCategory('Nessuna materia trovata per questa ricerca.'),
+        for (final subject in subjects)
           _buildPickRow(
             mode: mode,
             name: subject.name,
@@ -1505,23 +1548,15 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       );
     }
 
-    final query = _disciplineQuery[mode]!.toLowerCase();
     final disciplines = all
-        .where((discipline) => discipline.name.toLowerCase().contains(query))
+        .where((discipline) => _matchesQuery(discipline.name, mode, _disciplineCategory))
         .toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: AppSearchField(
-            controller: _disciplineSearchControllers[mode]!,
-            hintText: 'Cerca disciplina...',
-            onChanged: (value) => setState(() => _disciplineQuery[mode] = value),
-          ),
-        ),
+        _buildCategorySearch(mode, _disciplineCategory, 'Cerca disciplina...'),
         if (disciplines.isEmpty)
           _buildEmptyCategory('Nessuna disciplina trovata per questa ricerca.'),
         for (final discipline in disciplines)
@@ -1554,11 +1589,18 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
       return _buildEmptyCategory('Nessun servizio disponibile.');
     }
 
+    final services = widget.services
+        .where((service) => _matchesQuery(service.name, mode, _serviceCategory))
+        .toList();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final service in widget.services)
+        _buildCategorySearch(mode, _serviceCategory, 'Cerca servizio...'),
+        if (services.isEmpty)
+          _buildEmptyCategory('Nessun servizio trovato per questa ricerca.'),
+        for (final service in services)
           _buildPickRow(
             mode: mode,
             name: service.name,

@@ -126,27 +126,35 @@ class _ProfileTabState extends State<ProfileTab>
   @override
   Widget build(BuildContext context) 
   {
+    // Part of the section handover: on their own these would paint over the
+    // section still leaving.
     if (_isLoading) 
     {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.only(top: 40.0),
-          child:   CircularProgressIndicator(color: AppTheme.trialTealDeep),
+      return const PageTransitionItem(
+        slot:  PageTransitionItem.header,
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 40.0),
+            child:   CircularProgressIndicator(color: AppTheme.trialTealDeep),
+          ),
         ),
       );
     }
 
     if (_errorMessage != null || _me == null || _person == null) 
     {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 40.0),
-          child:   Text(
-            'Errore durante il caricamento del profilo. Riprova più tardi.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize:   18,
-              fontWeight: FontWeight.w600,
-              color:      AppTheme.trialMutedText,
+      return PageTransitionItem(
+        slot:  PageTransitionItem.header,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 40.0),
+            child:   Text(
+              'Errore durante il caricamento del profilo. Riprova più tardi.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize:   18,
+                fontWeight: FontWeight.w600,
+                color:      AppTheme.trialMutedText,
+              ),
             ),
           ),
         ),
@@ -184,197 +192,198 @@ class _ProfileTabState extends State<ProfileTab>
                          rawRoles.contains('PSICOLOGO') ||
                          rawRoles.contains('PSYCHOLOGIST');
 
-    // Both rail entries are sections of this one tab, so the profile loads
-    // once instead of once per half.
+    // Both rail entries are sections of this one tab: the profile loads once.
     Widget half(bool personal)
     {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.only(
-          top:    16, 
-          left:   0, 
-          right:  0, 
-          bottom: 32,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: pageTransitionBlocks([
-                if (personal) ...[
-                  // Never nest a LayoutBuilder inside IntrinsicHeight (same
-                  // fix as PersonInfoTab).
-                  _ResponsiveCardPair(
-                    first: _ProfileSectionCard(
-                      title:       'Identità',
-                      labelWidth:  160,
-                      leadingIcon: _ProfileAvatar(
-                        profileImageUrl: me.profileImageUrl,
-                        firstName:       firstNameValue,
-                        lastName:        lastNameValue,
-                        onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
+      return PageTransitionScrollView(
+        child: Padding(
+          padding: const EdgeInsets.only(
+            top:    16, 
+            left:   0, 
+            right:  0, 
+            bottom: 32,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: pageTransitionBlocks([
+                  if (personal) ...[
+                    // Never nest a LayoutBuilder inside IntrinsicHeight (same
+                    // fix as PersonInfoTab).
+                    _ResponsiveCardPair(
+                      first: _ProfileSectionCard(
+                        title:       'Identità',
+                        labelWidth:  160,
+                        leadingIcon: _ProfileAvatar(
+                          profileImageUrl: me.profileImageUrl,
+                          firstName:       firstNameValue,
+                          lastName:        lastNameValue,
+                          onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
+                        ),
+                        rows: [
+                          _InfoRowData('Nome',           firstNameValue),
+                          _InfoRowData('Cognome',        lastNameValue),
+                          _InfoRowData('Sesso',          genderValue),
+                          _InfoRowData('Codice fiscale', cf),
+                          null,
+                        ],
                       ),
-                      rows: [
-                        _InfoRowData('Nome',           firstNameValue),
-                        _InfoRowData('Cognome',        lastNameValue),
-                        _InfoRowData('Sesso',          genderValue),
-                        _InfoRowData('Codice fiscale', cf),
-                        null,
-                      ],
+                      second: _ProfileSectionCard(
+                        title:       'Residenza',
+                        labelWidth:  110,
+                        leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
+                        rows: [
+                          _InfoRowData('Indirizzo', addressValue),
+                          _InfoRowData('N°',        streetNumberValue),
+                          _InfoRowData('Città',     residenceCityValue),
+                          _InfoRowData('Provincia', residenceProvinceValue),
+                          _InfoRowData('CAP',       postalCodeValue),
+                        ],
+                      ),
                     ),
-                    second: _ProfileSectionCard(
-                      title:       'Residenza',
-                      labelWidth:  110,
-                      leadingIcon: const _StaticAvatar(icon: Icons.home_rounded),
-                      rows: [
-                        _InfoRowData('Indirizzo', addressValue),
-                        _InfoRowData('N°',        streetNumberValue),
-                        _InfoRowData('Città',     residenceCityValue),
-                        _InfoRowData('Provincia', residenceProvinceValue),
-                        _InfoRowData('CAP',       postalCodeValue),
-                      ],
+                    const SizedBox(height: 24),
+                    _ResponsiveCardPair(
+                      first: _ProfileSectionCard(
+                        title:       'Dati anagrafici',
+                        labelWidth:  160,
+                        leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
+                        rows: [
+                          _InfoRowData('Data di nascita',  birthDateValue),
+                          _InfoRowData('Città di nascita', birthCityValue),
+                          _InfoRowData('Provincia',        birthProvinceValue),
+                        ],
+                      ),
+                      second: _ProfileSectionCard(
+                        title:       'Contatti',
+                        labelWidth:  110,
+                        leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
+                        rows: [
+                          _InfoRowData('Email',    email),
+                          _InfoRowData('Telefono', phoneValue),
+                          null,
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _ResponsiveCardPair(
-                    first: _ProfileSectionCard(
-                      title:       'Dati anagrafici',
-                      labelWidth:  160,
-                      leadingIcon: const _StaticAvatar(icon: Icons.cake_rounded),
-                      rows: [
-                        _InfoRowData('Data di nascita',  birthDateValue),
-                        _InfoRowData('Città di nascita', birthCityValue),
-                        _InfoRowData('Provincia',        birthProvinceValue),
-                      ],
-                    ),
-                    second: _ProfileSectionCard(
-                      title:       'Contatti',
-                      labelWidth:  110,
-                      leadingIcon: const _StaticAvatar(icon: Icons.alternate_email_rounded),
-                      rows: [
-                        _InfoRowData('Email',    email),
-                        _InfoRowData('Telefono', phoneValue),
-                        null,
-                      ],
-                    ),
-                  ),
-                ] 
-                else ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: _ProfileSectionCard(
-                      title:       'Ruoli',
-                      labelWidth:  160,
-                      leadingIcon: const _StaticAvatar(icon: Icons.admin_panel_settings_rounded),
-                      customContent: Align(
-                        alignment: Alignment.topLeft,
-                        child:     translatedRoles.isNotEmpty
-                            ? Wrap(
-                                spacing:    8,
-                                runSpacing: 8,
-                                children:   translatedRoles.map((role) => AppEntityChip(label: role)).toList(),
-                              )
-                            : Text(
-                                'Nessun ruolo assegnato',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 16,
-                                  color:    AppTheme.trialMutedText,
+                  ] 
+                  else ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: _ProfileSectionCard(
+                        title:       'Ruoli',
+                        labelWidth:  160,
+                        leadingIcon: const _StaticAvatar(icon: Icons.admin_panel_settings_rounded),
+                        customContent: Align(
+                          alignment: Alignment.topLeft,
+                          child:     translatedRoles.isNotEmpty
+                              ? Wrap(
+                                  spacing:    8,
+                                  runSpacing: 8,
+                                  children:   translatedRoles.map((role) => AppEntityChip(label: role)).toList(),
+                                )
+                              : Text(
+                                  'Nessun ruolo assegnato',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 16,
+                                    color:    AppTheme.trialMutedText,
+                                  ),
                                 ),
-                              ),
+                        ),
                       ),
                     ),
-                  ),
 
-                  if (isStaff) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _ProfileSectionCard(
-                        title:       'Dettagli collaborazione',
-                        labelWidth:  kPersonWideCardLabelWidth,
-                        leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
-                        rows: [
-                          _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
-                          _InfoRowData(
-                            'IBAN',
-                            person.iban?.isNotEmpty == true ? person.iban! : '-',
-                            isSensitive: true,
-                          ),
-                        ],
+                    if (isStaff) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _ProfileSectionCard(
+                          title:       'Dettagli collaborazione',
+                          labelWidth:  kPersonWideCardLabelWidth,
+                          leadingIcon: const _StaticAvatar(icon: Icons.account_balance_outlined),
+                          rows: [
+                            _InfoRowData('Tipo collaborazione', person.collaborationType ?? '-'),
+                            _InfoRowData(
+                              'IBAN',
+                              person.iban?.isNotEmpty == true ? person.iban! : '-',
+                              isSensitive: true,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
 
-                  if (rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN')) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _ProfileSectionCard(
-                        title:       'Dettagli amministratore',
-                        labelWidth:  kPersonWideCardLabelWidth,
-                        leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
-                        rows: [
-                          _InfoRowData('Ruolo', _getAdminRoleText(person)),
-                        ],
+                    if (rawRoles.contains('AMMINISTRATORE') || rawRoles.contains('ADMIN')) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _ProfileSectionCard(
+                          title:       'Dettagli amministratore',
+                          labelWidth:  kPersonWideCardLabelWidth,
+                          leadingIcon: const _StaticAvatar(icon: Icons.computer_outlined),
+                          rows: [
+                            _InfoRowData('Ruolo', _getAdminRoleText(person)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
 
-                  if (rawRoles.contains('DOCENTE') || rawRoles.contains('TEACHER')) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _ProfileSectionCard(
-                        title:       'Dettagli docente',
-                        labelWidth:  kPersonWideCardLabelWidth,
-                        leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
-                        rows: [
-                          _InfoRowData('Studente delle superiori', person.isHighSchoolStudent == null ? '-' : (person.isHighSchoolStudent! ? 'Sì' : 'No')),
-                          _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
-                          if (person.isHighSchoolStudent != true)
-                            _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
-                        ],
+                    if (rawRoles.contains('DOCENTE') || rawRoles.contains('TEACHER')) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _ProfileSectionCard(
+                          title:       'Dettagli docente',
+                          labelWidth:  kPersonWideCardLabelWidth,
+                          leadingIcon: const _StaticAvatar(icon: Icons.school_outlined),
+                          rows: [
+                            _InfoRowData('Studente delle superiori', person.isHighSchoolStudent == null ? '-' : (person.isHighSchoolStudent! ? 'Sì' : 'No')),
+                            _InfoRowData('Studi scolastici',   person.schoolEducation?.isNotEmpty == true ? person.schoolEducation! : '-'),
+                            if (person.isHighSchoolStudent != true)
+                              _InfoRowData('Studi universitari', person.universityEducation?.isNotEmpty == true ? person.universityEducation! : '-'),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
 
-                  if (rawRoles.contains('STUDENTE') || rawRoles.contains('STUDENT')) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _ProfileSectionCard(
-                        title:       'Dettagli studente',
-                        labelWidth:  kPersonWideCardLabelWidth,
-                        leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
-                        rows: [
-                          _InfoRowData(
-                            'Uscita anticipata',
-                            person.earlyExit == null
-                                ? '-'
-                                : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
-                          ),
-                        ],
+                    if (rawRoles.contains('STUDENTE') || rawRoles.contains('STUDENT')) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _ProfileSectionCard(
+                          title:       'Dettagli studente',
+                          labelWidth:  kPersonWideCardLabelWidth,
+                          leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
+                          rows: [
+                            _InfoRowData(
+                              'Uscita anticipata',
+                              person.earlyExit == null
+                                  ? '-'
+                                  : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
 
-                  if (rawRoles.contains('CORSISTA') || rawRoles.contains('COURSE_PARTICIPANT')) ...[
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: _ProfileSectionCard(
-                        title:       'Dettagli corsista',
-                        labelWidth:  kPersonWideCardLabelWidth,
-                        leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
-                        rows: [
-                          _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
-                          _InfoRowData('Scadenza certificato', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
-                        ],
+                    if (rawRoles.contains('CORSISTA') || rawRoles.contains('COURSE_PARTICIPANT')) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: _ProfileSectionCard(
+                          title:       'Dettagli corsista',
+                          labelWidth:  kPersonWideCardLabelWidth,
+                          leadingIcon: const _StaticAvatar(icon: Icons.self_improvement_rounded),
+                          rows: [
+                            _InfoRowData('Tipo corso',            person.courseType?.isNotEmpty == true ? person.courseType! : '-'),
+                            _InfoRowData('Scadenza certificato', person.medicalCertificateExpiration != null ? DateFormat('dd/MM/yyyy').format(person.medicalCertificateExpiration!) : '-'),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ]),
+                ]),
+              ),
             ),
           ),
         ),
@@ -537,8 +546,7 @@ class _StaticAvatar extends StatelessWidget
   }
 }
 
-// Stateful for its own hover state, independent of the parent avatar's
-// _isHovering.
+// Stateful for its own hover state, independent of the parent avatar's.
 class _AvatarIconButton extends StatefulWidget
 {
   final IconData      icon;
@@ -612,9 +620,8 @@ class _ProfileAvatarState extends State<_ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  // Regenerated only when profileImageUrl changes: recomputing per rebuild
-  // made every hover reload the NetworkImage and flash (same fix as
-  // DashboardHeader).
+  // Regenerated only when profileImageUrl changes: per-rebuild values made
+  // every hover reload the NetworkImage and flash (as in DashboardHeader).
   late String _cacheBuster;
 
   @override

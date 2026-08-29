@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
 )
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -37,21 +38,18 @@ class Student(UpdatedAtMixin, Base):
 
     __table_args__ = (
         CheckConstraint(
-            # IS NOT DISTINCT FROM is NULL-safe: with "=", a NULL
-            # certification_type would make the constraint pass.
             "certification_other_detail IS NULL "
-            "OR certification_type IS NOT DISTINCT FROM 'OTHER'",
+            "OR 'OTHER' = ANY(certification_types)",
             name="certification_other_detail_requires_other_type",
         ),
-        # A DSA certification must name its disorder, here as in the form.
         CheckConstraint(
-            "certification_type IS DISTINCT FROM 'DSA' "
+            "NOT ('DSA' = ANY(certification_types)) "
             "OR certification_dsa_detail IS NOT NULL",
             name="dsa_certification_says_which",
         ),
         CheckConstraint(
             "certification_dsa_detail IS NULL "
-            "OR certification_type IS NOT DISTINCT FROM 'DSA'",
+            "OR 'DSA' = ANY(certification_types)",
             name="certification_dsa_detail_requires_dsa_type",
         ),
         *not_blank_when_present_constraints(
@@ -76,9 +74,11 @@ class Student(UpdatedAtMixin, Base):
         server_default="false",
     )
 
-    certification_type: Mapped[CertificationTypeEnum | None] = mapped_column(
-        SqlEnum(CertificationTypeEnum, name="certification_type_enum"),
-        nullable=True,
+    certification_types: Mapped[list[CertificationTypeEnum]] = mapped_column(
+        ARRAY(SqlEnum(CertificationTypeEnum, name="certification_type_enum")),
+        nullable=False,
+        default=list,
+        server_default="{}",
     )
 
     certification_other_detail: Mapped[str | None] = mapped_column(
@@ -86,7 +86,6 @@ class Student(UpdatedAtMixin, Base):
         nullable=True,
     )
 
-    # Free text: often several disorders at once, named as the diagnosis does.
     certification_dsa_detail: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

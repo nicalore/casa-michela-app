@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from app.core.labels import roman_numeral
 from app.core.pdf_forms import (
     asset_bytes,
     enrollment_field_map,
@@ -17,15 +18,15 @@ from app.core.storage import (
 )
 from app.models.course_participant import CourseTypeEnum
 from app.models.member import PaymentMethodEnum
-from app.models.person import GenderEnum
+from app.models.parental_responsibility import ParentalResponsibility
+from app.models.person import GenderEnum, Person
 from app.models.staff import CollaborationTypeEnum
 from app.models.student import CertificationTypeEnum
 from app.repositories.school_repository import SchoolRepository
-from app.schemas.enrollment_form import EnrollmentFormRequest
+from app.schemas.enrollment_form import EnrollmentFormParent, EnrollmentFormRequest
 from app.schemas.person_wizard import PersonWizardPayloadBase
 
-# The association signs its forms from its own seat; the wizard has no field
-# for it and never will.
+# Fixed signing place: the association's seat.
 _PLACE: Final[str] = "Thiene"
 
 _TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
@@ -61,6 +62,151 @@ _PAYMENT_FIELDS: Final[dict[str, str]] = {
 }
 
 
+# Must match the wizard's role codes.
+_ROLE_MEMBER: Final[str] = "ASSOCIATO"
+_ROLE_TEACHER: Final[str] = "DOCENTE"
+_ROLE_ADMIN: Final[str] = "AMMINISTRATORE"
+_ROLE_PSYCHOLOGIST: Final[str] = "PSICOLOGO"
+_ROLE_COURSE_PARTICIPANT: Final[str] = "CORSISTA"
+
+
+def request_for_person(person: Person) -> EnrollmentFormRequest:
+    """Rebuild the wizard's payload for someone already in the register."""
+    member = person.member_profile
+    student = member.student_profile if member else None
+    staff = member.staff_profile if member else None
+
+    payload: dict[str, Any] = {
+        "general_data": _general_data_of(person),
+        "roles": _roles_of(person),
+        "relationships": {"minors_tax_codes": [], "parents_tax_codes": []},
+    }
+
+    if member is not None:
+        payload["member_data"] = {
+            "memberships": [],
+            "payment_method": member.payment_method,
+            "payment_method_other": member.payment_method_other,
+            "statute_acknowledged": member.statute_acknowledged,
+            "regulation_acknowledged": member.regulation_acknowledged,
+            "video_surveillance_acknowledged": member.video_surveillance_acknowledged,
+            "special_category_data_consent": member.special_category_data_consent,
+            "newsletter_consent": member.newsletter_consent,
+            "emergency_contact_name": member.emergency_contact_name,
+            "emergency_contact_phone": member.emergency_contact_phone,
+            "allergies_notes": member.allergies_notes,
+            "medications_notes": member.medications_notes,
+        }
+
+        if member.psychological_support_profile is not None:
+            payload["psychological_support_data"] = {
+                "start_date": member.psychological_support_profile.start_date,
+            }
+
+        course = member.course_participant_profile
+
+        if course is not None:
+            payload["course_participant_data"] = {
+                "medical_certificate_expiration": course.medical_certificate_expiration,
+                "course_type": course.course_type,
+            }
+
+    if staff is not None:
+        payload["staff_data"] = {"collaboration_type": staff.collaboration_type}
+
+    if student is not None:
+        payload["student_data"] = {
+            "authorized_early_exit": student.authorized_early_exit,
+            "certification_types": list(student.certification_types),
+            "certification_other_detail": student.certification_other_detail,
+            "certification_dsa_detail": student.certification_dsa_detail,
+            "mandatory_psych_meetings_acknowledged": (
+                student.mandatory_psych_meetings_acknowledged
+            ),
+            "school_enrollments": [
+                {
+                    "start_year": enrollment.start_year,
+                    "school_id": enrollment.school_study_program.school_id,
+                    "study_program_id": enrollment.school_study_program.study_program_id,
+                    # The payload carries a Roman numeral; the column stores the number.
+                    "school_class": roman_numeral(enrollment.grade),
+                }
+                for enrollment in student.school_enrollments
+                if enrollment.school_study_program is not None
+            ],
+        }
+
+    return EnrollmentFormRequest(
+        person=payload,
+        # The form has room for two parents.
+        parents=[
+            _parent_of(relationship)
+            for relationship in person.parental_relationships[:2]
+        ],
+    )
+
+
+def _general_data_of(person: Person) -> dict[str, Any]:
+    return {
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "tax_code": person.tax_code,
+        "gender": person.gender,
+        "birth_date": person.birth_date,
+        "birth_city": person.birth_city,
+        "birth_nation": person.birth_nation,
+        "birth_province": person.birth_province,
+        "residence_type": person.residence_type,
+        "residence_address": person.residence_address,
+        "residence_street_number": person.residence_street_number,
+        "residence_city": person.residence_city,
+        "residence_province": person.residence_province,
+        "postal_code": person.postal_code,
+        "email": person.email,
+        "phone": person.phone,
+    }
+
+
+def _parent_of(relationship: ParentalResponsibility) -> EnrollmentFormParent:
+    return EnrollmentFormParent(**_general_data_of(relationship.parent.person))
+
+
+def _roles_of(person: Person) -> list[str]:
+    roles: list[str] = []
+
+    if person.parent_profile is not None:
+        roles.append(_ROLE_PARENT)
+
+    member = person.member_profile
+
+    if member is None:
+        return roles
+
+    roles.append(_ROLE_MEMBER)
+
+    if member.student_profile is not None:
+        roles.append(_ROLE_STUDENT)
+
+    if member.course_participant_profile is not None:
+        roles.append(_ROLE_COURSE_PARTICIPANT)
+
+    staff = member.staff_profile
+
+    if staff is None:
+        return roles
+
+    if staff.administrator_profile is not None:
+        roles.append(_ROLE_ADMIN)
+
+    if staff.teacher_profile is not None:
+        roles.append(_ROLE_TEACHER)
+
+    if staff.psychologist_profile is not None:
+        roles.append(_ROLE_PSYCHOLOGIST)
+
+    return roles
+
+
 async def build_enrollment_form(
     db: AsyncSession,
     request: EnrollmentFormRequest,
@@ -75,9 +221,7 @@ async def build_enrollment_form(
         checked=field_map.checked,
     )
 
-    # Embedding the typeface and re-serialising a 900 KB template costs a
-    # quarter of a second of pure CPU; off the loop, so one form being built
-    # does not stall every other request.
+    # Roughly a quarter second of CPU per form, so keep it off the event loop.
     return await run_in_threadpool(
         fill_acroform,
         asset_bytes(ENROLLMENT_FORM_TEMPLATE),
@@ -91,7 +235,7 @@ def enrollment_form_file_name(
     *,
     today: date | None = None,
 ) -> str:
-    """What the browser calls the form: whose it is and the day it was made."""
+    """Download file name for the form."""
     general = request.person.general_data
 
     return _FILE_NAME.format(
@@ -102,8 +246,7 @@ def enrollment_form_file_name(
 
 
 def _today() -> date:
-    # The server may well run UTC, and a form dated the previous day at one in
-    # the morning would be wrong on the paper and in its own name.
+    # Local Rome date: a UTC server would date the form a day early.
     return datetime.now(_TIMEZONE).date()
 
 
@@ -114,13 +257,7 @@ def enrollment_form_values(
     today: date,
     checked: str,
 ) -> dict[str, str]:
-    """Map the wizard's payload onto the template's field names.
-
-    Only non-empty values are returned: a text field left out keeps the
-    template's empty value and a checkbox left out keeps its /Off. That is what
-    makes zero, one or two parents — and a person with no member data — fall
-    out without a branch of their own.
-    """
+    """Map the wizard's payload onto the template's field names, omitting empty values."""
     values: dict[str, str] = {}
     person = request.person
 
@@ -153,8 +290,7 @@ async def _school_name(
 
 
 def _latest_enrollment(person: PersonWizardPayloadBase) -> Any | None:
-    # The form has room for one school year, so the current one wins. Ties are
-    # impossible: uq_student_school_year forbids them.
+    # The form holds one school year, so the latest enrollment wins.
     student = person.student_data
 
     if student is None or not student.school_enrollments:
@@ -170,7 +306,7 @@ def _identity(
     *,
     checked: str,
 ) -> None:
-    """The 13 text fields and 2 sex boxes shared by the socio and both parents."""
+    """Identity fields shared by the member and both parents."""
     _text(values, f"{prefix}_nome", data.first_name)
     _text(values, f"{prefix}_cognome", data.last_name)
     _tick(values, f"{prefix}_sesso_m", data.gender == GenderEnum.M, checked=checked)
@@ -208,8 +344,6 @@ def _schooling(
         return
 
     _text(values, "socio_scuola", school_name)
-    # The payload already carries the Roman numeral the dropdown wrote; only
-    # persistence converts it to a number.
     _text(values, "socio_classe", enrollment.school_class)
     _text(
         values,
@@ -224,8 +358,7 @@ def _membership_kind(
     *,
     checked: str,
 ) -> None:
-    # Exactly one of the four boxes: volunteering outranks whatever else the
-    # person also is, then being a pupil, then being a parent.
+    # Exactly one box, by priority: volunteer, then pupil, then parent.
     staff = person.staff_data
 
     if staff is not None and staff.collaboration_type == CollaborationTypeEnum.VOLUNTEER:
@@ -254,18 +387,17 @@ def _diagnosis(
     if student is None:
         return
 
-    certification = student.certification_type
+    certifications = set(student.certification_types)
 
-    _tick(values, "diagnosi_dichiarazione", certification is not None, checked=checked)
+    _tick(values, "diagnosi_dichiarazione", bool(certifications), checked=checked)
 
     for kind, field in _CERTIFICATION_FIELDS.items():
-        _tick(values, field, certification == kind, checked=checked)
+        _tick(values, field, kind in certifications, checked=checked)
 
-    if certification == CertificationTypeEnum.OTHER:
+    if CertificationTypeEnum.OTHER in certifications:
         _text(values, "diagnosi_altro_testo", student.certification_other_detail)
 
-    # The form has no cell for the DSA detail: it stays in the database, and
-    # only the tick reaches the paper.
+    # The form has no cell for the DSA detail; only the tick is printed.
     _tick(
         values,
         "diagnosi_incontri_psicologo",
@@ -287,8 +419,7 @@ def _services(
         checked=checked,
     )
 
-    # Every pupil joins the homework service: it is what being a pupil of the
-    # association means, so the wizard has no separate question for it.
+    # Every pupil is enrolled in the homework service; the wizard never asks.
     _tick(
         values,
         "aiuto_compiti_adesione",
@@ -372,8 +503,6 @@ def _address_line(
     address: str | None,
     street_number: str | None,
 ) -> str:
-    # Nothing in the app joins the three parts today: they are always shown
-    # apart, so the one-line form the paper wants is defined here.
     street = " ".join(part.strip() for part in (residence_type, address) if part)
     number = street_number.strip() if street_number else ""
 

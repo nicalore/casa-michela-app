@@ -8,8 +8,8 @@ import 'app_gradient_button.dart';
 import 'app_text_field.dart';
 import 'overflow_tooltip_text.dart';
 
-// Shared by the ListView itemExtent and the tile height: the two must match
-// exactly or the scroll math lands on the wrong row.
+// Used as both ListView itemExtent and tile height: the two must match exactly
+// or the scroll math lands on the wrong row.
 const double _oneLineItemHeight = 44.0;
 const double _twoLineItemHeight = 58.0;
 
@@ -22,6 +22,15 @@ const double _optionsListPadding = 8;
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
+
+TextStyle _subtitleTextStyle()
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: AppTheme.trialMutedText,
+  );
+}
 
 class MultiSelectFilterOption<T extends Object>
 {
@@ -41,6 +50,8 @@ class MultiSelectFilterDialog<T extends Object> extends StatefulWidget
   final Set<T> initialSelected;
   final ValueChanged<Set<T>> onApply;
 
+  final AutocompleteSubtitlePlacement subtitlePlacement;
+
   const MultiSelectFilterDialog({
     super.key,
     required this.title,
@@ -48,6 +59,7 @@ class MultiSelectFilterDialog<T extends Object> extends StatefulWidget
     required this.options,
     required this.initialSelected,
     required this.onApply,
+    this.subtitlePlacement = AutocompleteSubtitlePlacement.trailing,
   });
 
   @override
@@ -147,6 +159,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
                 controller: _searchController,
                 hint: widget.hint,
                 options: _availableOptions,
+                subtitlePlacement: widget.subtitlePlacement,
                 onSelected: _addOption,
               ),
               const SizedBox(height: 18),
@@ -171,6 +184,7 @@ class _MultiSelectFilterDialogState<T extends Object> extends State<MultiSelectF
                   {
                     return AppDeletableChip(
                       label: option.label,
+                      subtitle: option.subtitle,
                       onDelete: () => _removeOption(option.value),
                     );
                   }).toList(),
@@ -188,12 +202,14 @@ class _FilterAutocompleteField<T extends Object> extends StatefulWidget
   final TextEditingController controller;
   final String hint;
   final List<MultiSelectFilterOption<T>> options;
+  final AutocompleteSubtitlePlacement subtitlePlacement;
   final ValueChanged<MultiSelectFilterOption<T>> onSelected;
 
   const _FilterAutocompleteField({
     required this.controller,
     required this.hint,
     required this.options,
+    required this.subtitlePlacement,
     required this.onSelected,
   });
 
@@ -259,21 +275,17 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
               : MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: ()
                     {
                       textEditingController.clear();
                       setState(() {});
                     },
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.trialGoldSurface,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(4, 4, 16, 4),
+                      child: Icon(
                         Icons.close_rounded,
-                        size: 16,
+                        size: 24,
                         color: AppTheme.trialTealDeep,
                       ),
                     ),
@@ -286,6 +298,7 @@ class _FilterAutocompleteFieldState<T extends Object> extends State<_FilterAutoc
         options: options,
         label: (option) => option.label,
         subtitle: (option) => option.subtitle,
+        subtitlePlacement: widget.subtitlePlacement,
         width: width,
         onSelected: onSelected,
       ),
@@ -297,6 +310,7 @@ enum AutocompleteSubtitlePlacement
 {
   trailing,
   below,
+  above,
 }
 
 class AutocompleteOptionsList<T extends Object> extends StatefulWidget
@@ -333,7 +347,7 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
 
   int? _lastHighlightedIndex;
 
-  bool get _isTwoLine => widget.subtitlePlacement == AutocompleteSubtitlePlacement.below;
+  bool get _isTwoLine => widget.subtitlePlacement != AutocompleteSubtitlePlacement.trailing;
 
   bool get _hasLeading => widget.leading != null;
 
@@ -491,6 +505,19 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
 {
   bool _hover = false;
 
+  Widget _buildStackedSubtitle(String subtitle, {required bool above})
+  {
+    return Padding(
+      padding: above ? const EdgeInsets.only(bottom: 2) : const EdgeInsets.only(top: 2),
+      child: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _subtitleTextStyle(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -530,6 +557,8 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.above)
+                      _buildStackedSubtitle(subtitle, above: true),
                     OverflowTooltipText(
                       text: widget.label,
                       maxLines: 1,
@@ -540,32 +569,13 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
                       ),
                     ),
                     if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.below)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.trialMutedText,
-                          ),
-                        ),
-                      ),
+                      _buildStackedSubtitle(subtitle, above: false),
                   ],
                 ),
               ),
               if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.trailing) ...[
                 const SizedBox(width: 8),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.trialMutedText,
-                  ),
-                ),
+                Text(subtitle, style: _subtitleTextStyle()),
               ],
             ],
           ),
@@ -578,9 +588,17 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
 class AppDeletableChip extends StatefulWidget
 {
   final String label;
+
+  final String? subtitle;
+
   final VoidCallback onDelete;
 
-  const AppDeletableChip({super.key, required this.label, required this.onDelete});
+  const AppDeletableChip({
+    super.key,
+    required this.label,
+    this.subtitle,
+    required this.onDelete,
+  });
 
   @override
   State<AppDeletableChip> createState() => _AppDeletableChipState();
@@ -589,6 +607,41 @@ class AppDeletableChip extends StatefulWidget
 class _AppDeletableChipState extends State<AppDeletableChip>
 {
   bool _isHovered = false;
+
+  Widget _buildLabel()
+  {
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: AppTheme.trialTealDeep,
+    );
+
+    final Widget name = OverflowTooltipText(text: widget.label, maxLines: 1, style: style);
+
+    final String? subtitle = widget.subtitle;
+
+    if (subtitle == null)
+    {
+      return name;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _subtitleTextStyle(),
+          ),
+        ),
+        name,
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -610,14 +663,7 @@ class _AppDeletableChipState extends State<AppDeletableChip>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              widget.label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialTealDeep,
-              ),
-            ),
+            Flexible(child: _buildLabel()),
             const SizedBox(width: 8),
             MouseRegion(
               cursor: SystemMouseCursors.click,

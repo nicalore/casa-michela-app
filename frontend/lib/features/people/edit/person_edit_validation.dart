@@ -3,9 +3,6 @@ import '../models/person_item.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
 
-// An issue carries the name of the card to jump to; names do not slide when the
-// step order changes.
-
 class PersonEditIssue
 {
   final String field;
@@ -36,7 +33,6 @@ class PersonEditValidation
 
   PersonEditCardId? get firstCard => issues.isEmpty ? null : issues.first.card;
 
-  // Validation runs over the whole form; per step only that step's cards count.
   List<PersonEditIssue> issuesOn(PersonEditStep step)
   {
     final Set<PersonEditCardId> here = {for (final card in step.cards) card.id};
@@ -192,7 +188,6 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
           form.genderValue!,
         ))
     {
-      // The tax code encodes birth date and gender; a mismatch means one is wrong.
       collector.add(
         'cf',
         'Non combacia con data di nascita e sesso',
@@ -258,8 +253,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
   {
     collector.add('email', 'Campo obbligatorio', PersonEditCardId.contacts);
   }
-  // Must stay exactly as wide as the database CHECK ck_people_email_format, so
-  // nothing passes here and is rejected there.
+  // Must match the database CHECK ck_people_email_format exactly.
   else if (!RegExp(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
       .hasMatch(form.emailCtrl.text))
   {
@@ -389,19 +383,18 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (isStudent)
   {
-    if (form.certificationTypeValue == 'Altro' && form.otherCertificationCtrl.text.isEmpty)
+    if (form.certificationValues.contains('Altro') &&
+        form.otherCertificationCtrl.text.isEmpty)
     {
       collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.student);
     }
 
-    if (form.certificationTypeValue == 'DSA' && form.dsaCertificationCtrl.text.isEmpty)
+    if (form.certificationValues.contains('DSA') && form.dsaCertificationCtrl.text.isEmpty)
     {
       collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.student);
     }
 
-    if (form.certificationTypeValue != null &&
-        form.certificationTypeValue != 'No' &&
-        !form.psychMeetingsAcknowledgedValue)
+    if (form.certificationValues.isNotEmpty && !form.psychMeetingsAcknowledgedValue)
     {
       collector.add(
         'presaVisioneIncontri',

@@ -43,8 +43,37 @@ flutter:
 
   assets:
     - assets/images/
-    # Sotto `assets` e non sotto `fonts`: non è una famiglia di testo dell'app —
-    # che prende il suo Plus Jakarta Sans da google_fonts — ma tre file che solo
-    # l'export legge, con rootBundle, la prima volta che qualcuno stampa.
+    # Anche fra gli `assets`, e non solo sotto `fonts`: l'export PDF li legge con
+    # rootBundle la prima volta che qualcuno stampa, e google_fonts li ritrova
+    # nel manifest, così i pesi presenti qui non passano dalla rete.
     - assets/fonts/
     - ../backend/.env
+
+  # La famiglia registrata dal motore prima del primo frame, con ogni variante
+  # che l'app chiede: nessuna arriva più dalla rete a pagina già disegnata. Il
+  # nome senza spazi è quello che google_fonts mette in ogni fontFamilyFallback,
+  # quindi anche un peso che dovesse sfuggire cade qui, sul carattere giusto,
+  # invece che sul ripiego del motore — più alto e più stretto, quello che si
+  # vedeva comparire per un attimo negli hint dei dialog.
+  fonts:
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/PlusJakartaSans-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/PlusJakartaSans-MediumItalic.ttf
+          weight: 500
+          style: italic
+        - asset: assets/fonts/PlusJakartaSans-SemiBoldItalic.ttf
+          weight: 600
+          style: italic

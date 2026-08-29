@@ -33,8 +33,7 @@ class StudyProgramItem
     this.ministrySubjects = const [],
   });
 
-  // The line shown above the name: sector and cycle, whichever exist. Mirrors
-  // StudyProgram.scope_line on the backend.
+  // Mirrors StudyProgram.scope_line on the backend.
   String? get scopeLine
   {
     final HighSchoolTrack? cycle = highSchoolTrackOf(highSchoolTrack);
@@ -50,11 +49,6 @@ class StudyProgramItem
   // Must stay identical to display_name on the backend: it is the key the
   // enrolment form matches a school's programmes against the catalogue with.
   String get fullName => scopeLine == null ? name : '${scopeLine!} | $name';
-
-  // Biennio/triennio/quadriennale where there is one; the range elsewhere.
-  String get yearsLabel => highSchoolTrackOf(highSchoolTrack)?.label ?? '$minYear - $maxYear';
-
-  String get yearsFieldLabel => highSchoolTrack == null ? 'Anni di corso' : 'Articolazione';
 }
 
 class MinistrySubjectOption

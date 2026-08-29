@@ -1,4 +1,4 @@
-"""add teacher rating (numeric 0-5 in half-point steps, default 3.5)
+"""add teacher rating (numeric 0-5 in half-point steps, default 2.5)
 
 Revision ID: d7c4b91e08a3
 Revises: f3b6a0d52c74
@@ -21,10 +21,9 @@ _TEACHERS: Final[str] = "teachers"
 
 _COLUMN: Final[str] = "rating"
 
-_DEFAULT: Final[str] = "3.5"
+_DEFAULT: Final[str] = "2.5"
 
-# Name and expression exactly as app/models/teacher.py renders them, so a
-# later autogenerate does not propose recreating them.
+# Names and expressions must match app/models/teacher.py or autogenerate recreates them.
 _CHECKS: Final[tuple[tuple[str, str], ...]] = (
     (f"{_COLUMN}_within_bounds", f"{_COLUMN} BETWEEN 0 AND 5"),
     (f"{_COLUMN}_in_half_points", f"{_COLUMN} % 0.5 = 0"),

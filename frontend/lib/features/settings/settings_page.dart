@@ -38,6 +38,10 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
 {
   int _selectedSection = _personalProfileIndex;
 
+  // The profile half last opened, kept apart from _selectedSection so it does
+  // not swap back while the profile is leaving.
+  int _profileSection = _personalProfileIndex;
+
   @override
   void initState()
   {
@@ -45,8 +49,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
     visitedSections.add(_selectedSection);
   }
 
-  // The two profile entries share one tab (four rail entries, three children),
-  // so the profile loads once instead of once per half.
+  // The two profile entries share one tab: four rail entries, three children.
   bool get _showingProfile => _selectedSection <= _associationProfileIndex;
 
   bool get _profileVisited =>
@@ -57,7 +60,38 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
 
   void _selectSection(int index)
   {
-    openSection(index, () => _selectedSection = index);
+    openSection(index, ()
+    {
+      _selectedSection = index;
+
+      if (index <= _associationProfileIndex)
+      {
+        _profileSection = index;
+      }
+    });
+  }
+
+  // Not one transition element: each section times its own cards.
+  Widget _buildSectionContent()
+  {
+    return PageSections(
+      index: _stackIndex,
+      children: [
+        _profileVisited
+            ? ProfileTab(
+                section: _profileSection == _associationProfileIndex
+                    ? ProfileSection.association
+                    : ProfileSection.personal,
+              )
+            : const SizedBox.shrink(),
+        visitedSections.contains(_accountIndex)
+            ? const AccountTab()
+            : const SizedBox.shrink(),
+        visitedSections.contains(_infoIndex)
+            ? const InfoTab()
+            : const SizedBox.shrink(),
+      ],
+    );
   }
 
   @override
@@ -74,6 +108,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
 
           return Container(
             width: width,
+            height: height,
             color: AppTheme.trialPaper,
             child: Stack(
               children: [
@@ -100,58 +135,41 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                       top: AppTopBar.contentTopInsetFor(size),
                       bottom: 24,
                     ),
-                    // Top-aligned, not stretched: the page height is unbounded.
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (size.hasRail) ...[
-                          PageTransitionItem(
-                            slot: PageTransitionItem.frame,
-                            child: AppSectionRail(
-                              title: 'Impostazioni',
-                              groups: _sections,
-                              selectedIndex: _selectedSection,
-                              onSelected: _selectSection,
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: PageTransitionItem(
+                              slot: PageTransitionItem.frame,
+                              child: AppSectionRail(
+                                title: 'Impostazioni',
+                                groups: _sections,
+                                selectedIndex: _selectedSection,
+                                onSelected: _selectSection,
+                              ),
                             ),
                           ),
                           const SizedBox(width: AppSectionRail.gap),
                         ],
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              if (size.isCompact) ...[
-                                PageTransitionItem(
-                                  slot: PageTransitionItem.frame,
-                                  child: AppSectionHeading(
-                                    module: 'Impostazioni',
-                                    section: railEntryAt(_sections, _selectedSection),
-                                  ),
-                                ),
-                                const SizedBox(height: 18),
-                              ],
-                              // Not wrapped as one transition element: each
-                              // section times its own cards, not one slab.
-                              PageSections(
-                                index: _stackIndex,
-                                children: [
-                                  _profileVisited
-                                      ? ProfileTab(
-                                          section: _selectedSection == _associationProfileIndex
-                                              ? ProfileSection.association
-                                              : ProfileSection.personal,
-                                        )
-                                      : const SizedBox.shrink(),
-                                  visitedSections.contains(_accountIndex)
-                                      ? const AccountTab()
-                                      : const SizedBox.shrink(),
-                                  visitedSections.contains(_infoIndex)
-                                      ? const InfoTab()
-                                      : const SizedBox.shrink(),
-                                ],
-                              ),
-                            ],
-                          ),
+                          child: size.isCompact
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    PageTransitionItem(
+                                      slot: PageTransitionItem.frame,
+                                      child: AppSectionHeading(
+                                        module: 'Impostazioni',
+                                        section: railEntryAt(_sections, _selectedSection),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Expanded(child: _buildSectionContent()),
+                                  ],
+                                )
+                              : _buildSectionContent(),
                         ),
                       ],
                     ),

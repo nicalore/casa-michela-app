@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 
-const String _fontFamily = 'Plus Jakarta Sans';
+const String _fontFamily = 'PlusJakartaSans';
 
 class AppPrimaryButton extends StatefulWidget
 {

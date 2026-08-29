@@ -133,7 +133,9 @@ abstract final class AppTheme
       colorScheme: colorScheme,
       scaffoldBackgroundColor: trialPaper,
       canvasColor: Colors.white,
-      fontFamily: 'Plus Jakarta Sans',
+      // Must match the family in pubspec.yaml and the one google_fonts uses in
+      // its fallbacks, or the app falls back to the engine font.
+      fontFamily: 'PlusJakartaSans',
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: trialTurquoise,
       ),

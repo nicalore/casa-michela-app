@@ -300,7 +300,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   String? _selectedLevel;
 
-  // High school picks a cycle instead of typing a range.
   String? _selectedTrack;
 
   List<int> _selectedSubjects = [];
@@ -434,8 +433,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
         if (level == 'HIGH_SCHOOL')
         {
-          // Nothing reads them there any more, so stale digits would sail
-          // past the blocked-reason check and reach the payload.
+          // Cleared so stale digits cannot slip past the blocked-reason check
+          // into the payload.
           _minYearController.clear();
           _maxYearController.clear();
         }
@@ -541,8 +540,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return false;
     }
 
-    // firstStepBlockedReason already required the track, and the track is the
-    // only thing high school sends.
+    // firstStepBlockedReason already required the track, the only field high
+    // school sends.
     if (_isHighSchool)
     {
       return true;
@@ -638,7 +637,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     );
   }
 
-  // Primary and middle school still type the span they cover.
   Widget _buildYearRangeFields()
   {
     return Column(
@@ -671,7 +669,6 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
     );
   }
 
-  // High school picks one of three cycles instead: the years follow from it.
   Widget _buildTrackField()
   {
     final HighSchoolTrack? chosen = highSchoolTrackOf(_selectedTrack);
@@ -717,7 +714,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             AppTextField(
               controller: _nameController,
               label: 'Nome',
-              hintText: 'Es. Amministrazione finanza e marketing',
+              hintText: 'Es. Amministrazione, finanza e marketing',
               maxLength: FieldLimits.name,
               textCapitalization: TextCapitalization.sentences,
             ),

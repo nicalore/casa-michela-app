@@ -13,7 +13,7 @@ class InfoTab extends StatelessWidget
   Widget build(BuildContext context)
   {
     final int currentYear = DateTime.now().year;
-    const String appVersion = '0.1.3';
+    const String appVersion = '0.1.4';
 
     final List<String> documents = [
       'Condizioni d\'uso',
@@ -22,40 +22,41 @@ class InfoTab extends StatelessWidget
       'Regolamento dell\'Associazione',
     ];
 
-    return SingleChildScrollView(
-      // Side padding adds to the page margin, so it is dropped on narrow
-      // windows.
-      padding: EdgeInsets.only(
-        top: 16,
-        left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-        right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-        bottom: 32,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              ...documents.map((title)
-              {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _InfoDocumentCard(title: title, onTap: () {}),
-                );
-              }),
-              const SizedBox(height: 48),
-              Text(
-                '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.trialMutedText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 1.5,
+    return PageTransitionScrollView(
+      child: Padding(
+        // Side padding adds to the page margin, so it is dropped when compact.
+        padding: EdgeInsets.only(
+          top: 16,
+          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
+          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
+          bottom: 32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                ...documents.map((title)
+                {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: _InfoDocumentCard(title: title, onTap: () {}),
+                  );
+                }),
+                const SizedBox(height: 48),
+                Text(
+                  '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppTheme.trialMutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),

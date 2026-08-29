@@ -204,8 +204,8 @@ class _StudyProgramDetailsDialogContent extends StatelessWidget
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel(program.yearsFieldLabel, first: true),
-                          Text(program.yearsLabel, style: _valueStyle),
+                          _buildFieldLabel('Anni di corso', first: true),
+                          Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
                         ],
                       ),
                     ),

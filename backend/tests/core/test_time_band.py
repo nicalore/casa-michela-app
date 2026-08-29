@@ -35,5 +35,5 @@ def test_a_lesson_may_end_exactly_on_the_boundary() -> None:
 
 
 def test_a_lesson_may_not_cross_the_boundary() -> None:
-    with pytest.raises(ValueError, match="parti della giornata"):
+    with pytest.raises(ValueError, match="fasce orarie diverse"):
         assert_within_single_band(time(12, 30), time(13, 30))

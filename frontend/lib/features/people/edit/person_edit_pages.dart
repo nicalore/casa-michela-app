@@ -77,8 +77,6 @@ class PersonEditStep
   });
 }
 
-// Collaboration comes after the admin details: the administrative role decides
-// whether the collaboration may be paid.
 List<PersonEditCard> associativeCardsFor(PersonEditForm form)
 {
   final List<PersonEditCard> cards = [];
@@ -125,8 +123,6 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     cards.add(const PersonEditCard(PersonEditCardId.staff, label: 'Collaborazione'));
   }
 
-  // Psychological support: asked only on joining, of members, never of
-  // psychologists.
   if (form.isCreation && !onlyParent && !roles.contains('PSICOLOGO'))
   {
     cards.add(const PersonEditCard(
@@ -140,7 +136,6 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
     cards.add(const PersonEditCard(PersonEditCardId.minorSafety, label: 'Sicurezza del minore'));
   }
 
-  // Last: consents are accepted after seeing everything else.
   if (!onlyParent)
   {
     cards.add(const PersonEditCard(PersonEditCardId.consents, label: 'Consensi'));
@@ -256,9 +251,10 @@ List<PersonEditStep> buildEditSteps(
   {
     steps.add(const PersonEditStep(
       id: PersonEditStepId.subjects,
-      question: 'Quali discipline insegna?',
-      hint: 'Spuntare una disciplina la assegna a tutti i percorsi in cui è insegnata; '
-          'il riquadro a destra della riga restringe la scelta.',
+      question: 'Cosa insegna?',
+      hint: 'Seleziona le discipline in cui il docente è competente. Per ognuna '
+            'di esse è possibile indicare i percorsi di studio in cui è disponibile a insegnare.\n'
+            'È inoltre possibile selezionare i servizi offerti dall\'Associazione.',
       cards: [PersonEditCard(PersonEditCardId.subjects)],
     ));
   }
@@ -266,8 +262,7 @@ List<PersonEditStep> buildEditSteps(
   return steps;
 }
 
-// Multiple-choice steps start unanswered, keeping the forward arrow off; field
-// steps are validated on pressing the arrow instead.
+// Field steps answer true: they are validated when the forward arrow is pressed.
 bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
 {
   return switch (id)
@@ -279,7 +274,6 @@ bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
   };
 }
 
-// By name, not position: ticking a role can slip a step into the middle.
 int indexOfStep(List<PersonEditStep> steps, PersonEditStepId id)
 {
   final int index = steps.indexWhere((step) => step.id == id);

@@ -187,25 +187,24 @@ async def create_person_from_wizard(
 
         if _ROLE_STUDENT in roles and payload.student_data:
             student_data = payload.student_data
-            certification_type = (
-                CertificationTypeEnum(student_data.certification_type)
-                if student_data.certification_type
-                else None
-            )
+            certification_types = [
+                CertificationTypeEnum(kind)
+                for kind in student_data.certification_types
+            ]
 
             db.add(
                 Student(
                     tax_code=person.tax_code,
                     authorized_early_exit=student_data.authorized_early_exit,
-                    certification_type=certification_type,
+                    certification_types=certification_types,
                     certification_other_detail=(
                         student_data.certification_other_detail
-                        if certification_type == CertificationTypeEnum.OTHER
+                        if CertificationTypeEnum.OTHER in certification_types
                         else None
                     ),
                     certification_dsa_detail=(
                         student_data.certification_dsa_detail
-                        if certification_type == CertificationTypeEnum.DSA
+                        if CertificationTypeEnum.DSA in certification_types
                         else None
                     ),
                     mandatory_psych_meetings_acknowledged=(

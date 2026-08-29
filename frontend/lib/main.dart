@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
@@ -10,7 +11,11 @@ import 'services/api_service.dart';
 void main() async 
 {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // All font variants are bundled in assets/fonts: no runtime fetching, so an
+  // unbundled weight fails at startup instead of reflowing text later.
+  GoogleFonts.config.allowRuntimeFetching = false;
+
   usePathUrlStrategy();
   await ApiService().restoreSession();
 

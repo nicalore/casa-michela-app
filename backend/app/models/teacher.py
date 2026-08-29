@@ -26,20 +26,18 @@ if TYPE_CHECKING:
     from app.models.teaching_competence import TeachingCompetence
 
 
-# Teacher rating, 0 to 5 in half-point steps.
 RATING_MINIMUM: Final[Decimal] = Decimal("0")
 RATING_MAXIMUM: Final[Decimal] = Decimal("5")
 RATING_STEP: Final[Decimal] = Decimal("0.5")
 
-# Default for a not-yet-rated teacher: above the midpoint on purpose.
-RATING_DEFAULT: Final[Decimal] = Decimal("3.5")
+# Value carried by a not-yet-rated teacher.
+RATING_DEFAULT: Final[Decimal] = Decimal("2.5")
 
 
 class Teacher(UpdatedAtMixin, Base):
     __tablename__ = "teachers"
 
     __table_args__ = (
-        # A still-in-high-school teacher cannot have university education set.
         CheckConstraint(
             "NOT is_high_school_student OR university_education IS NULL",
             name="high_school_student_has_no_university_education",
@@ -67,7 +65,6 @@ class Teacher(UpdatedAtMixin, Base):
         primary_key=True,
     )
 
-    # False means university or beyond — the right value for pre-existing rows.
     is_high_school_student: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,

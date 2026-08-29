@@ -152,8 +152,8 @@ class _SchoolDetailsDialogContent extends StatelessWidget
     );
   }
 
-  // The option only carries the program id; the full StudyProgramItem is
-  // resolved from the loaded list to show subjects and years.
+  // The option carries only the program id; the full item is resolved from the
+  // loaded list.
   void _openReadOnlyProgramDialog(BuildContext context, int programId)
   {
     final fullProgram = availableStudyPrograms.firstWhere(
@@ -331,7 +331,7 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
     final hasDescription = program.description.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: 'Percorso di studio',
+      eyebrow: program.scopeLine ?? 'Percorso di studio',
       title: program.name,
       maxWidth: 560,
       // Right of centre so the school details stay readable behind it.
@@ -361,8 +361,8 @@ class _ReadOnlyStudyProgramDialogContent extends StatelessWidget
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildFieldLabel(program.yearsFieldLabel, first: true),
-                            Text(program.yearsLabel, style: _valueStyle),
+                            _buildFieldLabel('Anni di corso', first: true),
+                            Text('${program.minYear} - ${program.maxYear}', style: _valueStyle),
                           ],
                         ),
                       ),

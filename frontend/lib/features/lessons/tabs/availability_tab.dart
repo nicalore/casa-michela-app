@@ -15,6 +15,7 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/availability_group.dart';
 import '../models/availability_item.dart';
@@ -862,9 +863,34 @@ class _AvailabilityWizardDialogState extends State<_AvailabilityWizardDialog>
     );
   }
 
+  ({String question, String hint}) get _guide
+  {
+    if (_cardIndex == 0)
+    {
+      return (
+        question: 'Per chi e quando?',
+        hint: 'Indica il docente per cui stai creando la disponibilità e i giorni. '
+            'Puoi indicare anche più giornate.',
+      );
+    }
+
+    return _modes[_cardIndex - 1] == kPresenceMode
+        ? (
+            question: 'Quando è disponibile in presenza?',
+            hint: 'Indica gli orari in cui il docente può essere presente in associazione '
+                'per le lezioni.',
+          )
+        : (
+            question: 'Quando è disponibile online?',
+            hint: 'Indica gli orari in cui il docente può effettuare lezioni a distanza.',
+          );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final guide = _guide;
+
     return AppDialogStack(
       eyebrow: 'Disponibilità',
       title: _isEditing ? 'Modifica disponibilità' : 'Nuova disponibilità',
@@ -881,6 +907,15 @@ class _AvailabilityWizardDialogState extends State<_AvailabilityWizardDialog>
         ),
       ),
       children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _wizardMaxWidth),
+            child: AppDialogPill(
+              expand: true,
+              child: PersonEditGuide(question: guide.question, hint: guide.hint),
+            ),
+          ),
+        ),
         AppCarouselFrame(
           index: _cardIndex,
           movingForward: _movingForward,

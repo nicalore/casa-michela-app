@@ -67,8 +67,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       DashboardStatsSection.twoInARowFrom * (_dayFlex + _sideFlex) / _sideFlex + _sectionGap;
   static const double _twoColumnsFrom = 700;
 
-  // Row minimums, not maximums: cards can grow, these keep the page shape
-  // stable while data loads.
+  // Row minimums, not maximums: cards can grow past them.
   static const double _dayRowHeight = 300;
   static const double _listHeight = 286;
 
@@ -96,8 +95,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     super.initState();
 
-    // Seed from the last known identity so returning here does not swap the
-    // top bar for a spinner mid page transition.
+    // Seeded from the last known identity: no spinner in the top bar on return.
     _currentUser = _apiService.lastKnownIdentity;
     _loadingUser = _currentUser == null;
 
@@ -106,8 +104,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadTodayData();
   }
 
-  // Refreshes on return without clearing what is shown: the loaders below
-  // only ever switch the spinner off, never back on.
+  // Refreshes without clearing: the loaders only ever switch the spinner off.
   @override
   void onDestinationShown()
   {
@@ -185,8 +182,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       return;
     }
 
-    // Both opening modes or neither: one missing would misreport the day as
-    // open one way only.
+    // Both opening modes or neither: one missing would misreport the day.
     final inBuilding = results[0] as List<OpeningDayItem>?;
     final onScreen = results[1] as List<OpeningDayItem>?;
 
@@ -336,8 +332,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // The transition slot is the card's reading-order position, which differs
-  // across the three grids below, so the caller assigns it.
+  // The slot is the card's reading-order position, which differs per grid, so
+  // callers assign it.
   Widget _staggered({required int slot, required Widget card})
   {
     return PageTransitionItem(slot: PageTransitionItem.header + slot, child: card);
@@ -424,7 +420,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       card: DashboardBirthdaysSection(
         birthdays: _birthdays,
         isLoading: _loadingHome,
-        onTap: (person) => context.go('/people/${person.fiscalCode}'),
+        // from= sends the detail page's back button here.
+        onTap: (person) => context.go('/people/${person.fiscalCode}?from=/dashboard'),
         columns: DashboardBirthdaysSection.columnsForWidth(cardWidth),
         compact: compact,
         minHeight: inRow && !compact ? _listHeight : 0,
@@ -518,8 +515,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
   Widget _buildWebLayout(BuildContext context)
   {
-    // Page width, not window width: the grid is centred on the page it is
-    // drawn in.
+    // widget.width is the page width, not the window width.
     final AppWindowSize size = AppBreakpoints.fromWidth(widget.width);
     final double margin = AppBreakpoints.pageMargin(size);
 

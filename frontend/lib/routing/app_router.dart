@@ -49,8 +49,8 @@ final appRouter = GoRouter(
     final authState = apiService.authState.value;
     final path = state.uri.path;
 
-    // The reset link is authenticated by the token in the URL, not the session:
-    // it must stay reachable regardless of authState, so it is checked first.
+    // Authenticated by the token in the URL, not the session: must stay
+    // reachable regardless of authState.
     if (path == '/reset-password')
     {
       return null;
@@ -133,7 +133,13 @@ final appRouter = GoRouter(
               {
                 final fiscalCode = state.pathParameters['fiscalCode']!;
 
-                return _buildPage(state, PersonDetailPage(fiscalCode: fiscalCode));
+                return _buildPage(
+                  state,
+                  PersonDetailPage(
+                    fiscalCode: fiscalCode,
+                    origin: state.uri.queryParameters['from'],
+                  ),
+                );
               },
             ),
           ],

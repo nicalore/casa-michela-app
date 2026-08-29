@@ -98,27 +98,35 @@ class _AccountTabState extends State<AccountTab>
   @override
   Widget build(BuildContext context)
   {
+    // Part of the section handover: on their own these would paint over the
+    // section still leaving.
     if (_isLoading)
     {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.only(top: 40.0),
-          child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+      return const PageTransitionItem(
+        slot: PageTransitionItem.header,
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 40.0),
+            child: CircularProgressIndicator(color: AppTheme.trialTealDeep),
+          ),
         ),
       );
     }
 
     if (_errorMessage != null || _me == null)
     {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 40.0),
-          child: Text(
-            'Errore durante il caricamento dell\'account. Riprova più tardi.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
+      return PageTransitionItem(
+        slot: PageTransitionItem.header,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 40.0),
+            child: Text(
+              'Errore durante il caricamento dell\'account. Riprova più tardi.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialMutedText,
+              ),
             ),
           ),
         ),
@@ -127,54 +135,55 @@ class _AccountTabState extends State<AccountTab>
 
     final me = _me!;
 
-    return SingleChildScrollView(
-      // Side padding adds to the page margin, so it is dropped on narrow
-      // windows.
-      padding: EdgeInsets.only(
-        top: 16,
-        left: AppBreakpoints.of(context).isCompact ? 0 : 32,
-        right: AppBreakpoints.of(context).isCompact ? 0 : 32,
-        bottom: 32,
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              AppCard(
-                title: 'Credenziali di accesso',
-                compact: true,
-                leading: const AppCardBadge(
-                  icon: Icons.manage_accounts_rounded,
+    return PageTransitionScrollView(
+      child: Padding(
+        // Side padding adds to the page margin, so it is dropped when compact.
+        padding: EdgeInsets.only(
+          top: 16,
+          left: AppBreakpoints.of(context).isCompact ? 0 : 32,
+          right: AppBreakpoints.of(context).isCompact ? 0 : 32,
+          bottom: 32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                AppCard(
+                  title: 'Credenziali di accesso',
                   compact: true,
+                  leading: const AppCardBadge(
+                    icon: Icons.manage_accounts_rounded,
+                    compact: true,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppInfoRow(
+                        label: 'Nome utente',
+                        value: me.username,
+                        labelWidth: _labelWidth,
+                      ),
+                      const SizedBox(height: 16),
+                      AppInfoRow(
+                        label: 'Ultimo accesso',
+                        value: _formatLastLogin(me.lastLogin),
+                        labelWidth: _labelWidth,
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppInfoRow(
-                      label: 'Nome utente',
-                      value: me.username,
-                      labelWidth: _labelWidth,
-                    ),
-                    const SizedBox(height: 16),
-                    AppInfoRow(
-                      label: 'Ultimo accesso',
-                      value: _formatLastLogin(me.lastLogin),
-                      labelWidth: _labelWidth,
-                    ),
-                  ],
+                const SizedBox(height: 40),
+                Center(
+                  child: AppGradientButton(
+                    label: 'MODIFICA PASSWORD',
+                    onPressed: () => _showChangePasswordDialog(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-              Center(
-                child: AppGradientButton(
-                  label: 'MODIFICA PASSWORD',
-                  onPressed: () => _showChangePasswordDialog(context),
-                ),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),

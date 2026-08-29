@@ -251,7 +251,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
           children: subjectAreas.map((area)
           {
             return AppSelectableChip(
-              label: area.label,
+              label: area.compactLabel,
               selected: _selectedArea == area.value,
               onSelected: (selected) => setState(()
               {

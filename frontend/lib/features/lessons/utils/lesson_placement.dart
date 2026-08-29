@@ -118,8 +118,7 @@ class CalendarDayIndex
 
   final Map<int, String> disciplineNames;
 
-  // Excluded teachers keep their lanes (drawn lighter, at the bottom) but
-  // nothing is offered to or lands on them.
+  // Excluded teachers keep their lanes but nothing is offered to or lands on them.
   final Set<String> excludedTeachers;
 
   const CalendarDayIndex({
@@ -194,7 +193,7 @@ class CalendarDayIndex
         programmes[person.fiscalCode] = programme;
       }
 
-      if (person.certificationType != null)
+      if (person.certificationTypes.isNotEmpty)
       {
         certified.add(person.fiscalCode);
       }
@@ -1554,8 +1553,7 @@ List<SchedulableBooking> _bookingsOf(CalendarDayIndex index, LessonItem lesson)
   ];
 }
 
-// Unlike lessons, checks no competence and no pupils: an activity only needs
-// the teacher to be free.
+// Unlike lessons: no competence or pupil checks, only teacher availability.
 LessonPlacement validateActivityPlacement({
   required CalendarDayIndex index,
   required ActivityItem activity,
@@ -1607,8 +1605,7 @@ LessonPlacement validateActivityPlacement({
 
   final availability = resolveAvailability(
     teacherAvailabilities: lane.availabilities,
-    // kOnlineMode accepts either kind of availability: an activity needs the
-    // teacher's time, not a room.
+    // kOnlineMode accepts either availability kind: an activity needs time, not a room.
     lessonMode: kOnlineMode,
     startMinutes: startMinutes,
     endMinutes: endMinutes,

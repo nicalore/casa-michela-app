@@ -117,8 +117,6 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
     }
   }
 
-  // Every card fetches and reloads on its own; a shared load blanked the tab.
-
   Future<void> _loadRetentionData() async
   {
     setState(() => _isRetentionLoading = true);
@@ -369,7 +367,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildMembersTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend iscritti totali',
+      title: 'Andamento iscritti totali',
       icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
@@ -377,7 +375,6 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       startYear: _startTrendYear,
       endYear: _endTrendYear,
       onResolutionChanged: (value) => _reloadTrend(() => _trendResolution = value),
-      // The two bounds push each other, so the range can never invert.
       onStartYearChanged: (value) => _reloadTrend(()
       {
         _startTrendYear = value;
@@ -402,7 +399,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
   Widget _buildCollabTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend collaboratori attivi',
+      title: 'Andamento collaboratori attivi',
       icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
@@ -477,8 +474,7 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
       return const Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise));
     }
 
-    // The nested Navigator gives this tab its own Overlay; the filter menus
-    // insert into the root overlay instead.
+    // Nested Navigator so this tab has its own Overlay for the filter menus.
     return Navigator(
       onGenerateRoute: (settings) => MaterialPageRoute(
         builder: (context) => _buildContent(),

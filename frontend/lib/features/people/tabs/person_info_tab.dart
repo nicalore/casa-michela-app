@@ -10,8 +10,7 @@ import '../widgets/teacher_rating_dots.dart';
 
 const int _adultAge = 18;
 
-// Backend convention: province 'EE' means born abroad; the nation is shown
-// instead.
+// Backend convention: province 'EE' means born abroad, so the nation is shown.
 const String _abroadProvinceCode = 'EE';
 
 const String _otherOptionCode = 'OTHER';
@@ -50,10 +49,17 @@ class PersonInfoTab extends StatelessWidget
   final PersonItem person;
   final VoidCallback onEdit;
 
+  // Null when the person has no enrollment form to generate.
+  final VoidCallback? onGenerateForm;
+
+  final bool isGeneratingForm;
+
   const PersonInfoTab({
     super.key,
     required this.person,
     required this.onEdit,
+    this.onGenerateForm,
+    this.isGeneratingForm = false,
   });
 
   bool get _isAdult => person.age != null && person.age! >= _adultAge;
@@ -94,17 +100,18 @@ class PersonInfoTab extends StatelessWidget
     return _paymentMethodLabel(method) ?? method;
   }
 
-  // Null when no certification is declared, so the row can be omitted entirely.
+  // Null when no certification is declared, so the row can be omitted.
   String? get _certificationText
   {
-    final type = person.certificationType;
-
-    if (type == null)
+    if (person.certificationTypes.isEmpty)
     {
       return null;
     }
 
-    return type == _otherOptionCode ? orDash(person.certificationOtherDetail) : type;
+    return person.certificationTypes
+        .map((type) =>
+            type == _otherOptionCode ? orDash(person.certificationOtherDetail) : type)
+        .join(', ');
   }
 
   String get _residenceAddress
@@ -282,7 +289,7 @@ class PersonInfoTab extends StatelessWidget
           DetailRowData('Uscita anticipata', _earlyExitText),
           if (certification != null)
             DetailRowData('Certificazione', certification, isSensitive: true),
-          if (person.certificationType == _dsaOptionCode)
+          if (person.certificationTypes.contains(_dsaOptionCode))
             DetailRowData(
               'Tipo di DSA',
               orDash(person.certificationDsaDetail),
@@ -348,10 +355,24 @@ class PersonInfoTab extends StatelessWidget
               ..._buildRoleSpecificCards(),
               const SizedBox(height: 48),
               Center(
-                child: AppGradientButton(
-                  label: 'MODIFICA ANAGRAFICA',
-                  icon: Icons.edit_rounded,
-                  onPressed: onEdit,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    AppGradientButton(
+                      label: 'MODIFICA ANAGRAFICA',
+                      icon: Icons.edit_rounded,
+                      onPressed: onEdit,
+                    ),
+                    if (onGenerateForm case final VoidCallback generate)
+                      AppGradientButton(
+                        label: 'GENERA DOCUMENTI DI ISCRIZIONE',
+                        icon: Icons.picture_as_pdf_outlined,
+                        busy: isGeneratingForm,
+                        onPressed: generate,
+                      ),
+                  ],
                 ),
               ),
             ]),
