@@ -22,6 +22,7 @@ import '../models/person_item.dart';
 import '../widgets/competence_picker.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../widgets/person_detail_widgets.dart';
+import '../widgets/school_enrollment_edit_row.dart' show kSchoolYearsDialogWidth;
 import 'person_edit_cards.dart';
 import 'person_edit_enrollment_request.dart';
 import 'person_edit_form.dart';
@@ -30,9 +31,6 @@ import 'person_edit_people_card.dart';
 import 'person_edit_report_dialog.dart';
 import 'person_edit_validation.dart';
 import 'widgets/person_edit_guide.dart';
-
-// Save is always available; validation runs over everything and jumps to the
-// first step that complains.
 
 class PersonEditDialog extends StatefulWidget
 {
@@ -52,8 +50,7 @@ class PersonEditDialog extends StatefulWidget
         purpose = PersonEditPurpose.create,
         offeredResidence = null;
 
-  // Hands back the payload instead of saving: the opener sends it along with
-  // the person it will be tied to.
+  // Hands the payload back to the opener instead of saving it.
   const PersonEditDialog.createParent({super.key, this.offeredResidence})
       : person = null,
         purpose = PersonEditPurpose.createParent;
@@ -74,13 +71,11 @@ class PersonEditDialog extends StatefulWidget
 
 class _PersonEditDialogState extends State<PersonEditDialog>
 {
-  // 1100 matches the school-years dialog; a year's row needs all of it.
-  static const double _contentMaxWidth = 1100;
+  static const double _contentMaxWidth = kSchoolYearsDialogWidth;
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
-  // Wide enough that 'GENERA DOCUMENTI DI ISCRIZIONE' keeps to one line, both
-  // on its own and beside the button that creates the person.
+  // Keeps 'GENERA DOCUMENTI DI ISCRIZIONE' on one line beside the create button.
   static const double _enrollmentFooterWidth = 820;
 
   late final PersonEditForm _form;
@@ -95,8 +90,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   bool _isSaving = false;
   bool _isGenerating = false;
 
-  // Creating the person is only offered once the form has been printed at
-  // least once; regenerating afterwards keeps it on screen.
+  // The create button appears only once the form has been generated at least once.
   bool _formGenerated = false;
 
   @override
@@ -108,8 +102,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             roles: widget.purpose == PersonEditPurpose.createParent
                 ? const {'GENITORE'}
                 : const {},
-            // Parents and minors created on the fly skip the first step, so
-            // their answer is already given.
+            // The involvement step is skipped here, so the answer is preset.
             involvement: widget.handsBackPayload ? 0 : -1,
           )
         : PersonEditForm.fromPerson(widget.person!);
@@ -166,8 +159,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   List<PersonEditStep> get _steps => buildEditSteps(_form, purpose: widget.purpose);
 
-  // Found by name: ticking a role can slip a step into the middle, invalidating
-  // any kept index.
+  // Looked up by id, not index: ticking a role can insert a step in the middle.
   PersonEditStep get _step
   {
     final List<PersonEditStep> steps = _steps;
@@ -202,14 +194,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         ..clear()
         ..addEntries(mine.map((issue) => MapEntry(issue.field, issue.message)));
 
-      // Onto the card that complains, which may not be the visible one.
       _cardId = mine.first.card;
     });
 
     CustomSnackBar.show(
       context: context,
-      // The validation message describes the first problem overall; use it only
-      // when that problem is this step's.
+      // validation.message describes the first problem overall, not this step's.
       message: validation.firstCard == mine.first.card && validation.message != null
           ? validation.message!
           : 'Ci sono errori nei dati inseriti. Correggi i campi.',
@@ -284,8 +274,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return name.isEmpty ? 'questa persona' : name;
   }
 
-  // Both footer actions start here, so "the same checks" is literal and not a
-  // promise: same validation, same jump, same message.
   bool _formIsSound()
   {
     final PersonEditValidation validation = validatePersonEdit(_form);
@@ -328,8 +316,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
     final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
-    // Every tab is asked for inside the click and before the first await: one
-    // opened after that is a popup, and the browser kills it.
+    // Tabs must open before the first await, or the browser blocks them as popups.
     final List<PdfTab?> tabs = [
       for (final EnrollmentForm form in forms)
         openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
@@ -485,7 +472,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
   }
 
-  // Enough to show the new person selected until the server knows about them.
+  // Stub item: enough to show the new person selected until the next reload.
   PersonItem _newPersonItem()
   {
     final List<String> roles = (_form.buildCreatePayload()['roles'] as List)
@@ -556,8 +543,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     final Map<String, dynamic>? created = await showBlurredDialog<Map<String, dynamic>>(
       context: context,
       barrierLabel: 'ParentCreation',
-      // The parents step is only put to a minor, whose residence the parent
-      // almost always shares.
       builder: (context) => PersonEditDialog.createParent(
         offeredResidence: _form.residenceOffer(label: 'Stessa residenza del minore'),
       ),
@@ -598,9 +583,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   Widget _buildFooter()
   {
-    // Nobody being created is joining — a parent who declined membership, tied
-    // to a minor already on file — so there is no form to print and the wizard
-    // keeps the single button it always had.
     if (widget.purpose != PersonEditPurpose.create || !needsEnrollmentForms(_form))
     {
       return AppDialogFooter.single(_submitButton());
@@ -608,8 +590,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     if (!_formGenerated)
     {
-      // Same width it will keep once the create button joins it, so nothing
-      // resizes under the pointer.
+      // Same width as the two-button footer, so nothing resizes on generation.
       return AppDialogFooter.single(_generateButton(), maxWidth: _enrollmentFooterWidth);
     }
 

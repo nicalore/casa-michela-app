@@ -20,6 +20,7 @@ import '../models/school_enrollment_item.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart';
+import '../widgets/school_year_wizard.dart';
 
 const double _cardsWidth = 1600;
 
@@ -34,8 +35,7 @@ class PersonSchoolsTab extends StatelessWidget
     required this.onUpdate,
   });
 
-  // Same grade at the same education level as the year before: third of middle
-  // school to third of high school is a progression, not a repeat.
+  // A repeat is the same grade at the same education level as the previous year.
   bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
   {
     final previous =
@@ -204,10 +204,11 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
           yearCtrl: TextEditingController(text: enrollment.startYear.toString()),
           school: school,
           program: program,
-          // Only meaningful once the programme is known.
           grade: program == null ? null : kGradeLabels[enrollment.grade],
         ));
       }
+
+      sortSchoolYearRows(_rows);
 
       if (mounted)
       {
@@ -223,36 +224,45 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     }
   }
 
-  void _addEmptyRow()
+  void _openWizard({int? index})
   {
-    var latestYear = DateTime.now().year;
-
-    for (final row in _rows)
-    {
-      final year = int.tryParse(row.yearCtrl.text) ?? 0;
-
-      if (year > latestYear)
+    showSchoolYearWizard(
+      context: context,
+      allSchools: _allSchools,
+      allPrograms: _allPrograms,
+      takenYears: takenSchoolYears(_rows, except: index),
+      isEditing: index != null,
+      initial: index == null
+          ? previousSchoolYearOf(_rows)
+          : SchoolYearChoice.ofRow(_rows[index]),
+      onConfirmed: (choice) => setState(()
       {
-        latestYear = year;
-      }
-    }
+        if (index == null)
+        {
+          _rows.add(schoolEnrollmentRowOf(choice));
+        }
+        else
+        {
+          applySchoolYearChoice(_rows[index], choice);
+        }
 
-    setState(()
-    {
-      // New rows go back in time: the year before the most recent one.
-      _rows.add(SchoolEnrollmentRowData(
-        yearCtrl: TextEditingController(text: (latestYear - 1).toString()),
-      ));
-    });
+        // Errors are keyed by row position, so sorting invalidates them.
+        sortSchoolYearRows(_rows);
+        _errors.clear();
+      }),
+    );
   }
 
   void _removeRow(int index)
   {
-    setState(() => _rows.removeAt(index).dispose());
+    setState(()
+    {
+      _rows.removeAt(index).dispose();
+      _errors.clear();
+    });
   }
 
 
-  // Each row is checked independently so one bad year does not hide the rest.
   bool _validateRows()
   {
     _errors.clear();
@@ -384,25 +394,15 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
 
   Widget _buildRow(int index)
   {
-    final row = _rows[index];
-
-    return SchoolEnrollmentEditRow(
-      row: row,
-      allSchools: _allSchools,
-      allPrograms: _allPrograms,
+    return SchoolEnrollmentSummaryRow(
+      row: _rows[index],
       errors: {
         'year': _errors['year_$index'],
         'school': _errors['school_$index'],
         'program': _errors['program_$index'],
         'grade': _errors['grade_$index'],
       },
-      onChanged: () => setState(()
-      {
-        _errors.remove('year_$index');
-        _errors.remove('school_$index');
-        _errors.remove('program_$index');
-        _errors.remove('grade_$index');
-      }),
+      onEdit: () => _openWizard(index: index),
       onRemove: () => _removeRow(index),
     );
   }
@@ -413,7 +413,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     return AppDialogStack(
       eyebrow: 'Scuola',
       title: 'Modifica anni scolastici',
-      maxWidth: 1100,
+      maxWidth: kSchoolYearsDialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
           label: 'SALVA',
@@ -450,7 +450,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    AppAddRowButton(label: 'AGGIUNGI ANNO', onTap: _addEmptyRow),
+                    AppAddRowButton(label: 'AGGIUNGI ANNO', onTap: () => _openWizard()),
                   ],
                 ),
         ),

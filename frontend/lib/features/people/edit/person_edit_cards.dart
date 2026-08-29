@@ -18,10 +18,14 @@ import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart' hide currentSchoolYearStart;
+import '../widgets/school_year_wizard.dart';
 import '../widgets/teacher_rating_dots.dart';
 import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
+
+// UI-only chip for "no certification"; the form stores it as an empty set.
+const String _noCertification = 'No';
 
 class PersonEditCardContext
 {
@@ -661,7 +665,7 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           _consent(
-            label: 'Notiziari periodici',
+            label: 'Notiziari periodici (opzionale)',
             description: 'Acconsente a ricevere i notiziari periodici dell\'Associazione.',
             value: ctx.form.newsletterConsentValue,
             errorText: null,
@@ -1109,7 +1113,7 @@ class TeacherCard extends StatelessWidget
         const SizedBox(height: 24),
         AppTextField(
           controller: ctx.form.studiScolasticiCtrl,
-          label: 'Studi scolastici',
+          label: 'Studi scolastici (opzionale)',
           hintText: 'Es. Liceo Classico',
           maxLength: FieldLimits.education,
           errorText: ctx.errors['studiScolastici'],
@@ -1119,7 +1123,7 @@ class TeacherCard extends StatelessWidget
         if (!ctx.form.isHighSchoolStudent)
           AppTextField(
             controller: ctx.form.studiUniversitariCtrl,
-            label: 'Studi universitari',
+            label: 'Studi universitari (opzionale)',
             hintText: 'Es. Laurea in Informatica',
             maxLength: FieldLimits.education,
             errorText: ctx.errors['studiUniversitari'],
@@ -1196,18 +1200,31 @@ class StudentCard extends StatelessWidget
           ),
           const SizedBox(height: 24),
         ],
-        PersonChipGroupField(
+        PersonChipGroupField.multiple(
           label: 'Certificazione',
-          options: const ['No', 'DSA', 'BES', 'ADHD', 'Altro'],
-          value: ctx.form.certificationTypeValue,
+          options: const [_noCertification, 'DSA', 'BES', 'ADHD', 'Altro'],
+          values: ctx.form.certificationValues.isEmpty
+              ? const {_noCertification}
+              : ctx.form.certificationValues,
           errorText: ctx.errors['tipoCertificazione'],
-          onChanged: (value)
+          onToggled: (option)
           {
-            ctx.form.certificationTypeValue = value;
+            final Set<String> chosen = ctx.form.certificationValues;
+
+            if (option == _noCertification)
+            {
+              chosen.clear();
+            }
+            else if (!chosen.remove(option))
+            {
+              chosen.add(option);
+            }
+
             ctx.clearError('tipoCertificazione');
+            ctx.onChanged();
           },
         ),
-        if (ctx.form.certificationTypeValue == 'Altro')
+        if (ctx.form.certificationValues.contains('Altro'))
           AppTextField(
             controller: ctx.form.otherCertificationCtrl,
             label: 'Altra certificazione',
@@ -1216,8 +1233,7 @@ class StudentCard extends StatelessWidget
             errorText: ctx.errors['altraCertificazione'],
             onChanged: (_) => ctx.clearError('altraCertificazione'),
           ),
-        // Free text: diagnoses often name several disorders together.
-        if (ctx.form.certificationTypeValue == 'DSA')
+        if (ctx.form.certificationValues.contains('DSA'))
           AppTextField(
             controller: ctx.form.dsaCertificationCtrl,
             label: 'Tipo di DSA',
@@ -1226,7 +1242,7 @@ class StudentCard extends StatelessWidget
             errorText: ctx.errors['tipoDsa'],
             onChanged: (_) => ctx.clearError('tipoDsa'),
           ),
-        if (ctx.form.certificationTypeValue != null && ctx.form.certificationTypeValue != 'No') ...[
+        if (ctx.form.certificationValues.isNotEmpty) ...[
           const SizedBox(height: 24),
           const AppFieldLabel('Presa visione incontri'),
           const SizedBox(height: 8),
@@ -1262,6 +1278,48 @@ class SchoolEnrollmentsCard extends StatelessWidget
 
   const SchoolEnrollmentsCard({super.key, required this.ctx});
 
+  // School errors are keyed by row position, so any list change must clear them.
+  void _clearSchoolErrors()
+  {
+    ctx.errors.removeWhere((key, _) =>
+        key == 'schoolGeneral' ||
+        key.startsWith('schoolYear_') ||
+        key.startsWith('school_') ||
+        key.startsWith('program_') ||
+        key.startsWith('grade_'));
+  }
+
+  void _openWizard(BuildContext context, {int? index})
+  {
+    final List<SchoolEnrollmentRowData> rows = ctx.form.schoolRows;
+
+    showSchoolYearWizard(
+      context: context,
+      allSchools: ctx.form.allSchools,
+      allPrograms: ctx.form.allPrograms,
+      takenYears: takenSchoolYears(rows, except: index),
+      isEditing: index != null,
+      initial: index == null
+          ? previousSchoolYearOf(rows)
+          : SchoolYearChoice.ofRow(rows[index]),
+      onConfirmed: (choice)
+      {
+        if (index == null)
+        {
+          rows.add(schoolEnrollmentRowOf(choice));
+        }
+        else
+        {
+          applySchoolYearChoice(rows[index], choice);
+        }
+
+        sortSchoolYearRows(rows);
+        _clearSchoolErrors();
+        ctx.onChanged();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -1279,28 +1337,20 @@ class SchoolEnrollmentsCard extends StatelessWidget
               if (rows.isEmpty)
                 const PersonEmptyState(message: 'Nessun anno scolastico inserito.'),
               for (var i = 0; i < rows.length; i++)
-                SchoolEnrollmentEditRow(
+                SchoolEnrollmentSummaryRow(
                   key: ValueKey(rows[i]),
                   row: rows[i],
-                  allSchools: ctx.form.allSchools,
-                  allPrograms: ctx.form.allPrograms,
                   errors: {
                     'year': ctx.errors['schoolYear_$i'],
                     'school': ctx.errors['school_$i'],
                     'program': ctx.errors['program_$i'],
                     'grade': ctx.errors['grade_$i'],
                   },
-                  onChanged: ()
-                  {
-                    ctx.errors.remove('schoolYear_$i');
-                    ctx.errors.remove('school_$i');
-                    ctx.errors.remove('program_$i');
-                    ctx.errors.remove('grade_$i');
-                    ctx.onChanged();
-                  },
+                  onEdit: () => _openWizard(context, index: i),
                   onRemove: ()
                   {
                     rows.removeAt(i).dispose();
+                    _clearSchoolErrors();
                     ctx.onChanged();
                   },
                 ),
@@ -1310,17 +1360,7 @@ class SchoolEnrollmentsCard extends StatelessWidget
         const SizedBox(height: 6),
         AppAddRowButton(
           label: 'AGGIUNGI ANNO',
-          onTap: ()
-          {
-            final int oldest = rows.isEmpty
-                ? currentSchoolYearStart() + 1
-                : rows
-                    .map((row) => int.tryParse(row.yearCtrl.text.trim()) ?? currentSchoolYearStart())
-                    .reduce((a, b) => a < b ? a : b);
-
-            rows.add(SchoolEnrollmentRowData.empty(year: (oldest - 1).toString()));
-            ctx.onChanged();
-          },
+          onTap: () => _openWizard(context),
         ),
       ],
     );

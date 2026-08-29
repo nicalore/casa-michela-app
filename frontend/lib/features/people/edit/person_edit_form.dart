@@ -129,8 +129,7 @@ const Map<String, int> kGradeNumbers = {
   'VIII': 8,
 };
 
-// Kept in step with the copy in school_enrollment_edit_row.dart, which the
-// person's school-years tab reads: the year turns over on 1 September.
+// Duplicated in school_enrollment_edit_row.dart: the year turns over on 1 September.
 int currentSchoolYearStart([DateTime? today])
 {
   final DateTime now = today ?? DateTime.now();
@@ -230,7 +229,8 @@ class PersonEditForm
   String? paymentMethodValue;
   final TextEditingController otherPaymentMethodCtrl = TextEditingController();
 
-  String? certificationTypeValue = 'No';
+  // Certification labels; empty means none held.
+  final Set<String> certificationValues = {};
   final TextEditingController otherCertificationCtrl = TextEditingController();
   // Required for a DSA certification; the server rejects it without this.
   final TextEditingController dsaCertificationCtrl = TextEditingController();
@@ -297,9 +297,6 @@ class PersonEditForm
     form.membershipRows.add(MembershipRowData.empty(
       year: now.year.toString(),
       date: DateFormat('dd/MM').format(now),
-    ));
-    form.schoolRows.add(SchoolEnrollmentRowData.empty(
-      year: currentSchoolYearStart().toString(),
     ));
 
     return form;
@@ -399,16 +396,18 @@ class PersonEditForm
       otherPaymentMethodCtrl.text = person.paymentMethodOther ?? '';
     }
 
-    certificationTypeValue =
-        labelForServerValue(kCertificationTypes, person.certificationType) ??
-            certificationTypeValue;
+    certificationValues
+      ..clear()
+      ..addAll(person.certificationTypes
+          .map((code) => labelForServerValue(kCertificationTypes, code))
+          .whereType<String>());
 
-    if (certificationTypeValue == 'Altro')
+    if (certificationValues.contains('Altro'))
     {
       otherCertificationCtrl.text = person.certificationOtherDetail ?? '';
     }
 
-    if (certificationTypeValue == 'DSA')
+    if (certificationValues.contains('DSA'))
     {
       dsaCertificationCtrl.text = person.certificationDsaDetail ?? '';
     }
@@ -624,8 +623,7 @@ class PersonEditForm
       activeRoles.contains('GENITORE') &&
       !wasMember;
 
-  // Must be called on every role change: skipping the question counts as yes,
-  // and on creation a re-shown question resets to unanswered.
+  // Must be called on every role change; a question never shown counts as yes.
   void normaliseAssociationAnswer()
   {
     if (involvementType != 0)
@@ -783,8 +781,7 @@ class PersonEditForm
 
   static int romanToNumeric(String roman) => kGradeNumbers[roman] ?? 1;
 
-  // `expected_updated_at` keys are omitted (not null) when unknown: the server
-  // leaves alone what it is not told.
+  // `expected_updated_at` keys are omitted (not null) when unknown; absent keys are left untouched.
   Map<String, dynamic> buildPayload()
   {
     final Set<String> finalRolesSet = selectedRoles.where((role) => role != 'ASSOCIATO').toSet();
@@ -827,8 +824,7 @@ class PersonEditForm
       }
     }
 
-    // The joining declarations (statute, regulation, video surveillance) are
-    // omitted entirely: they are never withdrawn, and absent keys stay as-is.
+    // Joining declarations are omitted entirely: absent keys keep their value.
     Map<String, dynamic>? memberData;
 
     if (!onlyParentNotMember && membershipsData.isNotEmpty)
@@ -925,16 +921,21 @@ class PersonEditForm
 
     if (finalRoles.contains('STUDENTE'))
     {
-      final String? certificationType = kCertificationTypes[certificationTypeValue];
+      final List<String> certificationTypes = certificationValues
+          .map((label) => kCertificationTypes[label])
+          .whereType<String>()
+          .toList();
 
-      // Enrollments ride in the same body: one transaction, one concurrency check.
+      // Enrollments go in the same body: one transaction, one concurrency check.
       studentData = {
         'authorized_early_exit': isMinor ? uscitaAnticipata : true,
-        'certification_type': certificationType,
-        'certification_other_detail':
-            certificationType == 'OTHER' ? otherCertificationCtrl.text.trim() : null,
-        'certification_dsa_detail':
-            certificationType == 'DSA' ? dsaCertificationCtrl.text.trim() : null,
+        'certification_types': certificationTypes,
+        'certification_other_detail': certificationTypes.contains('OTHER')
+            ? otherCertificationCtrl.text.trim()
+            : null,
+        'certification_dsa_detail': certificationTypes.contains('DSA')
+            ? dsaCertificationCtrl.text.trim()
+            : null,
         'mandatory_psych_meetings_acknowledged': psychMeetingsAcknowledgedValue,
         'school_enrollments': schoolRows
             .map((row) => {
@@ -982,8 +983,7 @@ class PersonEditForm
     };
   }
 
-  // Differs from the update payload: consents signed now, psych support asked,
-  // grade sent as a Roman numeral, no expected_updated_at.
+  // Differs from the update payload: consents signed now, Roman-numeral grade, no expected_updated_at.
   Map<String, dynamic> buildCreatePayload()
   {
     final Set<String> finalRolesSet = selectedRoles.where((role) => role != 'ASSOCIATO').toSet();
@@ -1125,17 +1125,22 @@ class PersonEditForm
 
     if (finalRoles.contains('STUDENTE'))
     {
-      final String? certificationType = kCertificationTypes[certificationTypeValue];
+      final List<String> certificationTypes = certificationValues
+          .map((label) => kCertificationTypes[label])
+          .whereType<String>()
+          .toList();
 
       studentData = {
         'authorized_early_exit': isMinor ? uscitaAnticipata : true,
-        'certification_type': certificationType,
-        'certification_other_detail':
-            certificationType == 'OTHER' ? otherCertificationCtrl.text.trim() : null,
-        'certification_dsa_detail':
-            certificationType == 'DSA' ? dsaCertificationCtrl.text.trim() : null,
+        'certification_types': certificationTypes,
+        'certification_other_detail': certificationTypes.contains('OTHER')
+            ? otherCertificationCtrl.text.trim()
+            : null,
+        'certification_dsa_detail': certificationTypes.contains('DSA')
+            ? dsaCertificationCtrl.text.trim()
+            : null,
         'mandatory_psych_meetings_acknowledged':
-            certificationType != null ? psychMeetingsAcknowledgedValue : false,
+            certificationTypes.isNotEmpty ? psychMeetingsAcknowledgedValue : false,
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
