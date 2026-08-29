@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
+import '../../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../lessons/widgets/person_avatar.dart';
+import '../../../models/person_face.dart';
+import '../../../models/student_presence_statistics_item.dart';
 import '../../../models/retention_rate_item.dart';
 
 const double _figureSize = 36;
@@ -118,8 +122,7 @@ class StatBlock extends StatelessWidget
           ),
         ),
         const SizedBox(height: 8),
-        // mainAxisSize.min is required: FittedBox hands out unbounded
-        // constraints and max would throw on infinite width.
+        // mainAxisSize.min required: FittedBox gives unbounded constraints.
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
@@ -233,8 +236,7 @@ class ChartCard extends StatelessWidget
   final Widget? filters;
   final bool isEmpty;
 
-  // Replaces only the chart with a spinner, so changing this card's filters
-  // does not blank out the rest of it.
+  // Replaces only the chart with a spinner, not the whole card.
   final bool isLoading;
 
   final Widget chart;
@@ -314,8 +316,6 @@ class RetentionCard extends StatelessWidget
   {
     final retention = data;
 
-    // An existing figure stays, dimmed, while the next is fetched: swapping it
-    // for a spinner resized the card and its matched pair.
     if (retention == null)
     {
       if (isLoading)
@@ -393,6 +393,185 @@ class RetentionCard extends StatelessWidget
           child: _buildBody(),
         ),
       ),
+    );
+  }
+}
+
+
+class PersonRankRow extends StatelessWidget
+{
+  final int position;
+  final PersonFace person;
+  final String badgeText;
+  final Color accent;
+
+  const PersonRankRow({
+    super.key,
+    required this.position,
+    required this.person,
+    required this.badgeText,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: Text(
+              '$position°',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          PersonAvatar(person: person),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OverflowTooltipText(
+              text: '${person.firstName} ${person.lastName}',
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialInk,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              badgeText,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PersonRankingSection extends StatelessWidget
+{
+  final String title;
+  final List<PersonRankRow> rows;
+
+  const PersonRankingSection({super.key, required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StatSectionTitle(title),
+        const SizedBox(height: 24),
+        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else ...rows,
+      ],
+    );
+  }
+}
+
+
+class RequestedSubjectsSection extends StatelessWidget
+{
+  static const Color _badgeBackground = Color(0xFFE8F7F5);
+
+  final RequestedSubjectRankings rankings;
+  final RequestedSubjectKind kind;
+
+  final int limit;
+
+  const RequestedSubjectsSection({
+    super.key,
+    required this.rankings,
+    required this.kind,
+    required this.limit,
+  });
+
+  Widget _row(RequestedSubjectItem subject)
+  {
+    final unit = subject.requestCount == 1 ? 'richiesta' : 'richieste';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: OverflowTooltipText(
+              text: subject.name,
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialInk,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${subject.percentage.toStringAsFixed(1)}%',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              color: _badgeBackground,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${subject.requestCount} $unit',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.trialTealDeep,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final subjects = rankings.of(kind);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StatSectionTitle('$limit ${kind.rankingTitle}'),
+        const SizedBox(height: 24),
+        if (subjects.isEmpty)
+          const EmptyChartMessage(fontSize: 14)
+        else
+          ...subjects.map(_row),
+      ],
     );
   }
 }

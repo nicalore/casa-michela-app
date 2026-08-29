@@ -1,15 +1,20 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
 from app.core.booking_window import today_in_rome
-from app.core.labels import course_type_label, education_level_label
+from app.core.labels import (
+    certification_type_label,
+    course_type_label,
+    education_level_label,
+)
 from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
+from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_teacher_preference import (
     BookingTeacherPreference,
@@ -19,6 +24,7 @@ from app.models.course_participant import CourseParticipant
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.ministry_association_subject import MinistryAssociationSubject
+from app.models.ministry_subject import MinistrySubject
 from app.models.person import Person
 from app.models.presence import Presence
 from app.models.psychologist import Psychologist
@@ -29,21 +35,33 @@ from app.models.staff import Staff
 from app.models.student import Student
 from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
+from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person import PersonOption
 from app.schemas.statistics import (
     AgeDistributionItem,
     AreaDistributionItem,
+    CertificationDistributionItem,
     CityDistributionItem,
     CourseDistributionItem,
     CurrentTotalsResponse,
     EducationDistributionItem,
+    LowAvailabilityTeacherItem,
     MemberTrendItem,
+    MonthlyCountItem,
+    RequestedSubjectItem,
+    RequestedSubjectRankings,
     RetentionRateItem,
+    StudentPersonalStatisticsResponse,
+    StudentPresenceRankItem,
+    StudentPresenceStatisticsResponse,
     SubjectDistributionItem,
     TeacherAppreciationItem,
     TeacherAppreciationRankingResponse,
+    TeacherAvailabilityRankItem,
+    TeacherAvailabilityStatisticsResponse,
+    TeacherPersonalStatisticsResponse,
     TeacherSubjectsStatisticsResponse,
 )
 
@@ -55,19 +73,35 @@ router = APIRouter(
 _MONTH_RESOLUTION: Final[str] = "month"
 _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
-_TOP_TEACHERS_LIMIT: Final[int] = 5
+_TOP_PEOPLE_LIMIT: Final[int] = 10
 
-# Calendars older than a year are deleted, so only 12 months back are rankable.
-_APPRECIATION_MONTHS: Final[int] = 12
+_APPRECIATION_LIMIT: Final[int] = 5
 
-_MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR: Final[str] = (
-    "La classifica di gradimento copre solo gli ultimi dodici mesi"
+# Calendars older than a year are deleted, so only 12 months back are askable.
+_STATS_MONTHS_WINDOW: Final[int] = 12
+
+_MONTH_OUT_OF_STATS_WINDOW_ERROR: Final[str] = (
+    "Le statistiche coprono solo gli ultimi dodici mesi"
 )
 
-_INCOMPLETE_APPRECIATION_MONTH_ERROR: Final[str] = (
+_INCOMPLETE_STATS_MONTH_ERROR: Final[str] = (
     "Indica anno e mese insieme, oppure nessuno dei due per gli ultimi "
     "dodici mesi"
 )
+
+_CONFLICTING_STATS_PERIOD_ERROR: Final[str] = (
+    "Indica gli ultimi mesi oppure un mese preciso, non entrambi"
+)
+
+# Weekly slots below this flag a collaborating teacher.
+_LOW_AVAILABILITY_WEEKLY_THRESHOLD: Final[int] = 2
+
+# Monthly slots below this flag a teacher; only meaningful for a single-month period.
+_LOW_AVAILABILITY_MONTHLY_THRESHOLD: Final[int] = 9
+
+_TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
+_DISCIPLINE_NOT_FOUND_ERROR: Final[str] = "Disciplina non trovata"
+_STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
 
 _ROLE_JOINS: Final[dict[str, tuple[tuple[Any, Any], ...]]] = {
     "administrator": (
@@ -425,27 +459,63 @@ def _first_day_of_index(index: int) -> date:
     return date(index // 12, index % 12 + 1, 1)
 
 
-def _appreciation_window(year: int | None, month: int | None) -> tuple[date, date]:
+# Half-open day interval: the last `months`, one named month, or the full twelve.
+def _stats_window(
+    months: int | None,
+    year: int | None,
+    month: int | None,
+) -> tuple[date, date]:
     today = today_in_rome()
     current = _month_index(today.year, today.month)
-    oldest = current - (_APPRECIATION_MONTHS - 1)
+    oldest = current - (_STATS_MONTHS_WINDOW - 1)
+
+    if months is not None:
+        if year is not None or month is not None:
+            raise ValueError(_CONFLICTING_STATS_PERIOD_ERROR)
+
+        return (
+            _first_day_of_index(current - (months - 1)),
+            _first_day_of_index(current + 1),
+        )
 
     if year is None and month is None:
         return _first_day_of_index(oldest), _first_day_of_index(current + 1)
 
     if year is None or month is None:
-        raise ValueError(_INCOMPLETE_APPRECIATION_MONTH_ERROR)
+        raise ValueError(_INCOMPLETE_STATS_MONTH_ERROR)
 
     selected = _month_index(year, month)
 
     if not oldest <= selected <= current:
-        raise ValueError(_MONTH_OUT_OF_APPRECIATION_WINDOW_ERROR)
+        raise ValueError(_MONTH_OUT_OF_STATS_WINDOW_ERROR)
 
     return _first_day_of_index(selected), _first_day_of_index(selected + 1)
 
 
-# Dated by Presence.date (not request date) and counts teachers even if no
-# longer collaborating.
+# Counts and averages stop at today, so the current month is not diluted by its future.
+def _elapsed_window(window: tuple[date, date]) -> tuple[date, date]:
+    start, end = window
+    tomorrow = today_in_rome() + timedelta(days=1)
+
+    return start, min(end, tomorrow)
+
+
+def _weeks_of(window: tuple[date, date]) -> float:
+    start, end = _elapsed_window(window)
+
+    return max((end - start).days, 0) / 7
+
+
+def _person_option_of(row: Any) -> PersonOption:
+    return PersonOption(
+        tax_code=row.tax_code,
+        first_name=row.first_name,
+        last_name=row.last_name,
+        profile_image_url=row.profile_image_url,
+    )
+
+
+# Dated by Presence.date, and includes teachers who no longer collaborate.
 async def _appreciation_ranking(
     db: AsyncSession,
     preference_type: TeacherPreferenceTypeEnum,
@@ -477,21 +547,15 @@ async def _appreciation_ranking(
             Person.last_name,
             Person.profile_image_url,
         )
-        # Name tiebreak keeps equal counts in a stable order.
         .order_by(requests.desc(), Person.last_name, Person.first_name)
-        .limit(_TOP_TEACHERS_LIMIT)
+        .limit(_APPRECIATION_LIMIT)
     )
 
     result = await db.execute(query)
 
     return [
         TeacherAppreciationItem(
-            teacher=PersonOption(
-                tax_code=row.tax_code,
-                first_name=row.first_name,
-                last_name=row.last_name,
-                profile_image_url=row.profile_image_url,
-            ),
+            teacher=_person_option_of(row),
             request_count=row.request_count,
         )
         for row in result.all()
@@ -702,6 +766,49 @@ async def get_student_education_distribution(
 
 
 @router.get(
+    "/students/certification-distribution",
+    response_model=list[CertificationDistributionItem],
+)
+async def get_student_certification_distribution(
+    db: DbSession,
+) -> list[CertificationDistributionItem]:
+    # One count per certification, not per pupil, so the slices exceed the pupil count.
+    kind = func.unnest(Student.certification_types).label("kind")
+    certified = select(kind).subquery()
+
+    result = await db.execute(
+        select(certified.c.kind, func.count().label("student_count"))
+        .group_by(certified.c.kind)
+        .order_by(func.count().desc()),
+    )
+
+    distribution = [
+        CertificationDistributionItem(
+            label=certification_type_label(row.kind),
+            count=row.student_count,
+        )
+        for row in result.all()
+    ]
+
+    # unnest yields nothing for an empty set, so uncertified pupils are counted apart.
+    without = await db.scalar(
+        select(func.count(Student.tax_code)).where(
+            func.cardinality(Student.certification_types) == 0
+        ),
+    )
+
+    if without:
+        distribution.append(
+            CertificationDistributionItem(
+                label=certification_type_label(None),
+                count=without,
+            )
+        )
+
+    return sorted(distribution, key=lambda item: item.count, reverse=True)
+
+
+@router.get(
     "/teachers/subjects-statistics",
     response_model=TeacherSubjectsStatisticsResponse,
 )
@@ -778,8 +885,7 @@ async def get_teacher_subjects_statistics(
         else 0.0
     )
 
-    # The universe must include groups with zero teachers, or the "least
-    # covered" ranking skips the genuinely uncovered ones.
+    # The universe must include groups with zero teachers for the least-covered ranking.
     group_labels: dict[str, tuple[str, str | None]] = {}
 
     if ranking_mode == "program":
@@ -868,10 +974,11 @@ async def get_teacher_subjects_statistics(
 )
 async def get_teacher_appreciation_ranking(
     db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
 ) -> TeacherAppreciationRankingResponse:
-    window = _appreciation_window(year, month)
+    window = _stats_window(months, year, month)
 
     return TeacherAppreciationRankingResponse(
         most_appreciated=await _appreciation_ranking(
@@ -883,6 +990,565 @@ async def get_teacher_appreciation_ranking(
             db,
             TeacherPreferenceTypeEnum.NOT_PREFERRED,
             window,
+        ),
+    )
+
+
+def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
+    start, end = _elapsed_window(window)
+
+    return (
+        select(
+            Availability.teacher_tax_code,
+            func.count(Availability.id).label("availability_count"),
+        )
+        .where(Availability.date >= start, Availability.date < end)
+        .group_by(Availability.teacher_tax_code)
+    )
+
+
+# Active collaborators under the threshold; outer-joined so those with zero slots appear.
+async def _teachers_under(
+    db: AsyncSession,
+    window: tuple[date, date],
+    threshold: int,
+) -> list[LowAvailabilityTeacherItem]:
+    counts = _availability_counts_stmt(window).subquery()
+    given = func.coalesce(counts.c.availability_count, 0)
+    weeks = _weeks_of(window)
+
+    query = (
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+            given.label("given"),
+        )
+        .select_from(Teacher)
+        .join(Staff, Staff.tax_code == Teacher.tax_code)
+        .join(Member, Member.tax_code == Staff.tax_code)
+        .join(Person, Person.tax_code == Teacher.tax_code)
+        .outerjoin(counts, counts.c.teacher_tax_code == Teacher.tax_code)
+        .where(Member.collaborating_active.is_(True), given < threshold)
+        .order_by(given, Person.last_name, Person.first_name)
+    )
+
+    result = await db.execute(query)
+
+    return [
+        LowAvailabilityTeacherItem(
+            teacher=_person_option_of(row),
+            weekly_average=round(row.given / weeks, 1) if weeks > 0 else 0.0,
+            availability_count=row.given,
+        )
+        for row in result.all()
+    ]
+
+
+@router.get(
+    "/teachers/availability-statistics",
+    response_model=TeacherAvailabilityStatisticsResponse,
+)
+async def get_teacher_availability_statistics(
+    db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> TeacherAvailabilityStatisticsResponse:
+    window = _stats_window(months, year, month)
+    weeks = _weeks_of(window)
+
+    # One named month or "the last month": both are a single calendar month.
+    is_single_month = months == 1 or (year is not None and month is not None)
+
+    counts = _availability_counts_stmt(window).subquery()
+
+    # sum() comes back from Postgres as a Decimal.
+    total_availabilities = int(
+        await db.scalar(
+            select(func.coalesce(func.sum(counts.c.availability_count), 0)),
+        )
+        or 0
+    )
+
+    weekly_average = total_availabilities / weeks if weeks > 0 else 0.0
+
+    top_query = (
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+            counts.c.availability_count,
+        )
+        .join(Person, Person.tax_code == counts.c.teacher_tax_code)
+        .order_by(
+            counts.c.availability_count.desc(),
+            Person.last_name,
+            Person.first_name,
+        )
+        .limit(_TOP_PEOPLE_LIMIT)
+    )
+    top_result = await db.execute(top_query)
+
+    return TeacherAvailabilityStatisticsResponse(
+        weekly_average=round(weekly_average, 1),
+        total_availabilities=total_availabilities,
+        top_teachers=[
+            TeacherAvailabilityRankItem(
+                teacher=_person_option_of(row),
+                availability_count=row.availability_count,
+            )
+            for row in top_result.all()
+        ],
+        low_availability_teachers=await _teachers_under(
+            db,
+            window,
+            round(_LOW_AVAILABILITY_WEEKLY_THRESHOLD * weeks),
+        ),
+        is_single_month=is_single_month,
+        low_monthly_teachers=(
+            await _teachers_under(db, window, _LOW_AVAILABILITY_MONTHLY_THRESHOLD)
+            if is_single_month
+            else []
+        ),
+    )
+
+
+# Standard competition ranking: equal counts share a place.
+def _rank_among(counts: dict[str, int], tax_code: str) -> int | None:
+    mine = counts.get(tax_code, 0)
+
+    if mine == 0:
+        return None
+
+    return 1 + sum(1 for count in counts.values() if count > mine)
+
+
+async def _preference_counts(
+    db: AsyncSession,
+    preference_type: TeacherPreferenceTypeEnum,
+    window: tuple[date, date],
+) -> dict[str, int]:
+    start, end = window
+
+    result = await db.execute(
+        select(
+            BookingTeacherPreference.teacher_tax_code,
+            func.count(BookingTeacherPreference.booking_id),
+        )
+        .join(Booking, Booking.id == BookingTeacherPreference.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+        .where(
+            BookingTeacherPreference.preference_type == preference_type,
+            Presence.date >= start,
+            Presence.date < end,
+        )
+        .group_by(BookingTeacherPreference.teacher_tax_code)
+    )
+
+    return dict(result.all())
+
+
+@router.get(
+    "/teachers/{tax_code}/personal-statistics",
+    response_model=TeacherPersonalStatisticsResponse,
+)
+async def get_teacher_personal_statistics(
+    db: DbSession,
+    tax_code: str,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> TeacherPersonalStatisticsResponse:
+    if await db.scalar(select(Teacher.tax_code).where(Teacher.tax_code == tax_code)) is None:
+        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+
+    window = _stats_window(months, year, month)
+    start, end = _elapsed_window(window)
+    is_single_month = months == 1 or (year is not None and month is not None)
+
+    total = (
+        await db.scalar(
+            select(func.count(Availability.id)).where(
+                Availability.teacher_tax_code == tax_code,
+                Availability.date >= start,
+                Availability.date < end,
+            ),
+        )
+        or 0
+    )
+    weeks = _weeks_of(window)
+    weekly_average = total / weeks if weeks > 0 else 0.0
+
+    # The chart is always the last twelve months, whatever period was requested.
+    trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
+
+    trend_rows = (
+        await db.execute(
+            select(
+                func.extract("year", Availability.date).label("year"),
+                _month_of(Availability.date).label("month"),
+                func.count(Availability.id).label("availability_count"),
+            )
+            .where(
+                Availability.teacher_tax_code == tax_code,
+                Availability.date >= trend_start,
+                Availability.date < trend_end,
+            )
+            .group_by(
+                func.extract("year", Availability.date),
+                _month_of(Availability.date),
+            ),
+        )
+    ).all()
+    monthly_trend = _pad_monthly(
+        {
+            (int(row.year), int(row.month)): row.availability_count
+            for row in trend_rows
+        },
+    )
+
+    preferred = await _preference_counts(
+        db, TeacherPreferenceTypeEnum.PREFERRED, window
+    )
+    not_preferred = await _preference_counts(
+        db, TeacherPreferenceTypeEnum.NOT_PREFERRED, window
+    )
+
+    return TeacherPersonalStatisticsResponse(
+        weekly_average=round(weekly_average, 1),
+        total_availabilities=total,
+        monthly_trend=monthly_trend,
+        is_below_weekly_threshold=weekly_average < _LOW_AVAILABILITY_WEEKLY_THRESHOLD,
+        is_single_month=is_single_month,
+        is_below_monthly_threshold=(
+            is_single_month and total < _LOW_AVAILABILITY_MONTHLY_THRESHOLD
+        ),
+        preferred_count=preferred.get(tax_code, 0),
+        preferred_rank=_rank_among(preferred, tax_code),
+        not_preferred_count=not_preferred.get(tax_code, 0),
+        not_preferred_rank=_rank_among(not_preferred, tax_code),
+    )
+
+
+# One row per (student, day): two presences on the same day count once.
+def _presence_days_stmt(window: tuple[date, date]) -> Select[Any]:
+    start, end = _elapsed_window(window)
+
+    return (
+        select(Presence.student_tax_code, Presence.date)
+        .where(Presence.date >= start, Presence.date < end)
+        .distinct()
+    )
+
+
+def _pad_monthly(counts_by_month: dict[tuple[int, int], int]) -> list[MonthlyCountItem]:
+    window = _stats_window(None, None, None)
+    first_index = _month_index(window[0].year, window[0].month)
+    trend: list[MonthlyCountItem] = []
+
+    for index in range(first_index, first_index + _STATS_MONTHS_WINDOW):
+        month_start = _first_day_of_index(index)
+        trend.append(
+            MonthlyCountItem(
+                year=month_start.year,
+                month=month_start.month,
+                count=counts_by_month.get((month_start.year, month_start.month), 0),
+            ),
+        )
+
+    return trend
+
+
+def _ranked(rows: Any, limit: int) -> list[RequestedSubjectItem]:
+    counts: dict[str, int] = {}
+
+    for name, count in rows:
+        counts[name] = counts.get(name, 0) + count
+
+    # Share taken over the whole kind, before the list is cut to its top places.
+    total = sum(counts.values())
+
+    items = [
+        RequestedSubjectItem(
+            name=name,
+            request_count=count,
+            percentage=round(count / total * 100, 1) if total > 0 else 0.0,
+        )
+        for name, count in counts.items()
+    ]
+    items.sort(key=lambda item: (-item.request_count, item.name))
+
+    return items[:limit]
+
+
+# A ministry request counts in both the subject ranking and the discipline one.
+async def _requested_subjects(
+    db: AsyncSession,
+    window: tuple[date, date],
+    *,
+    student_tax_code: str | None = None,
+    limit: int,
+) -> RequestedSubjectRankings:
+    start, end = window
+
+    def bookings_in_window(stmt: Select[Any]) -> Select[Any]:
+        stmt = stmt.join(Presence, Presence.id == Booking.presence_id).where(
+            Presence.date >= start,
+            Presence.date < end,
+        )
+
+        if student_tax_code is not None:
+            stmt = stmt.where(Presence.student_tax_code == student_tax_code)
+
+        return stmt
+
+    direct_rows = (
+        await db.execute(
+            bookings_in_window(
+                select(AssociationSubject.name, func.count(Booking.id))
+                .join(
+                    AssociationSubject,
+                    AssociationSubject.id == Booking.association_subject_id,
+                )
+                .where(Booking.association_subject_id.is_not(None)),
+            ).group_by(AssociationSubject.name),
+        )
+    ).all()
+
+    ministry_discipline_rows = (
+        await db.execute(
+            bookings_in_window(
+                select(
+                    AssociationSubject.name,
+                    func.count(func.distinct(SubjectRequested.booking_id)),
+                )
+                .select_from(SubjectRequested)
+                .join(Booking, Booking.id == SubjectRequested.booking_id)
+                .join(
+                    AssociationSubject,
+                    AssociationSubject.id == SubjectRequested.association_subject_id,
+                ),
+            ).group_by(AssociationSubject.name),
+        )
+    ).all()
+
+    # Counted per booking, not per row: one request names its subject once.
+    ministry_subject_rows = (
+        await db.execute(
+            bookings_in_window(
+                select(
+                    MinistrySubject.name,
+                    func.count(func.distinct(SubjectRequested.booking_id)),
+                )
+                .select_from(SubjectRequested)
+                .join(Booking, Booking.id == SubjectRequested.booking_id)
+                .join(
+                    MinistrySubject,
+                    MinistrySubject.id == SubjectRequested.ministry_subject_id,
+                ),
+            ).group_by(MinistrySubject.name),
+        )
+    ).all()
+
+    service_rows = (
+        await db.execute(
+            bookings_in_window(
+                select(Booking.service_name, func.count(Booking.id)).where(
+                    Booking.service_name.is_not(None),
+                ),
+            ).group_by(Booking.service_name),
+        )
+    ).all()
+
+    return RequestedSubjectRankings(
+        ministry_subjects=_ranked(ministry_subject_rows, limit),
+        disciplines=_ranked([*direct_rows, *ministry_discipline_rows], limit),
+        services=_ranked(service_rows, limit),
+    )
+
+
+@router.get(
+    "/students/presence-statistics",
+    response_model=StudentPresenceStatisticsResponse,
+)
+async def get_student_presence_statistics(
+    db: DbSession,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> StudentPresenceStatisticsResponse:
+    window = _stats_window(months, year, month)
+    days = _presence_days_stmt(window).subquery()
+
+    totals_row = (
+        await db.execute(
+            select(
+                func.count(),
+                func.count(func.distinct(days.c.date)),
+            ).select_from(days)
+        )
+    ).one()
+    total_presence_days, distinct_dates = totals_row
+
+    # Averaged over days somebody came, not over calendar days.
+    daily_average = (
+        total_presence_days / distinct_dates if distinct_dates > 0 else 0.0
+    )
+
+    top_query = (
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+            func.count().label("presence_days"),
+        )
+        .select_from(days)
+        .join(Person, Person.tax_code == days.c.student_tax_code)
+        .group_by(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+        )
+        .order_by(func.count().desc(), Person.last_name, Person.first_name)
+        .limit(_TOP_PEOPLE_LIMIT)
+    )
+    top_result = await db.execute(top_query)
+
+    return StudentPresenceStatisticsResponse(
+        daily_average=round(daily_average, 1),
+        total_presence_days=total_presence_days,
+        top_students=[
+            StudentPresenceRankItem(
+                student=_person_option_of(row),
+                presence_days=row.presence_days,
+            )
+            for row in top_result.all()
+        ],
+        requested=await _requested_subjects(db, window, limit=_TOP_SUBJECTS_LIMIT),
+    )
+
+
+@router.get(
+    "/students/discipline-trend",
+    response_model=list[MonthlyCountItem],
+)
+async def get_discipline_request_trend(
+    db: DbSession,
+    association_subject_id: Annotated[int, Query()],
+) -> list[MonthlyCountItem]:
+    if (
+        await db.scalar(
+            select(AssociationSubject.id).where(
+                AssociationSubject.id == association_subject_id,
+            ),
+        )
+        is None
+    ):
+        raise HTTPException(status_code=404, detail=_DISCIPLINE_NOT_FOUND_ERROR)
+
+    start, end = _elapsed_window(_stats_window(None, None, None))
+
+    # Direct and ministry-nested requests both count; distinct, so twice named is one.
+    asked_directly = select(Booking.id).where(
+        Booking.association_subject_id == association_subject_id,
+    )
+    asked_within = select(SubjectRequested.booking_id).where(
+        SubjectRequested.association_subject_id == association_subject_id,
+    )
+
+    rows = (
+        await db.execute(
+            select(
+                func.extract("year", Presence.date).label("year"),
+                _month_of(Presence.date).label("month"),
+                func.count(func.distinct(Booking.id)).label("request_count"),
+            )
+            .join(Presence, Presence.id == Booking.presence_id)
+            .where(
+                Presence.date >= start,
+                Presence.date < end,
+                Booking.id.in_(asked_directly.union(asked_within)),
+            )
+            .group_by(
+                func.extract("year", Presence.date),
+                _month_of(Presence.date),
+            ),
+        )
+    ).all()
+
+    return _pad_monthly(
+        {(int(row.year), int(row.month)): row.request_count for row in rows},
+    )
+
+
+@router.get(
+    "/students/{tax_code}/personal-statistics",
+    response_model=StudentPersonalStatisticsResponse,
+)
+async def get_student_personal_statistics(
+    db: DbSession,
+    tax_code: str,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> StudentPersonalStatisticsResponse:
+    if await db.scalar(select(Student.tax_code).where(Student.tax_code == tax_code)) is None:
+        raise HTTPException(status_code=404, detail=_STUDENT_NOT_FOUND_ERROR)
+
+    window = _stats_window(months, year, month)
+    start, end = _elapsed_window(window)
+
+    total_days = (
+        await db.scalar(
+            select(func.count(func.distinct(Presence.date))).where(
+                Presence.student_tax_code == tax_code,
+                Presence.date >= start,
+                Presence.date < end,
+            ),
+        )
+        or 0
+    )
+    weeks = _weeks_of(window)
+
+    trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
+    trend_rows = (
+        await db.execute(
+            select(
+                func.extract("year", Presence.date).label("year"),
+                _month_of(Presence.date).label("month"),
+                func.count(func.distinct(Presence.date)).label("presence_days"),
+            )
+            .where(
+                Presence.student_tax_code == tax_code,
+                Presence.date >= trend_start,
+                Presence.date < trend_end,
+            )
+            .group_by(
+                func.extract("year", Presence.date),
+                _month_of(Presence.date),
+            ),
+        )
+    ).all()
+
+    return StudentPersonalStatisticsResponse(
+        weekly_presence_days=round(total_days / weeks, 1) if weeks > 0 else 0.0,
+        total_presence_days=total_days,
+        monthly_trend=_pad_monthly(
+            {
+                (int(row.year), int(row.month)): row.presence_days
+                for row in trend_rows
+            },
+        ),
+        requested=await _requested_subjects(
+            db,
+            window,
+            student_tax_code=tax_code,
+            limit=_TOP_SUBJECTS_LIMIT,
         ),
     )
 

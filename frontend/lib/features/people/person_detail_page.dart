@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/config/api_config.dart';
@@ -9,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
+import '../../shared/export/pdf_tab.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/page_transition.dart';
@@ -16,6 +20,7 @@ import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../../shared/widgets/overflow_tooltip_text.dart';
 import '../../shared/widgets/page_watermark.dart';
+import '../../shared/widgets/snackbar.dart';
 import '../../shared/widgets/app_segmented_tabs.dart';
 import '../auth/models/me_response.dart';
 import 'models/person_item.dart';
@@ -24,6 +29,7 @@ import 'tabs/person_children_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_parents_tab.dart';
+import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 import 'widgets/role_chips_row.dart';
@@ -41,7 +47,10 @@ class PersonDetailPage extends StatefulWidget
 {
   final String fiscalCode;
 
-  const PersonDetailPage({super.key, required this.fiscalCode});
+  // Route the back button returns to; a record can be opened from several pages.
+  final String? origin;
+
+  const PersonDetailPage({super.key, required this.fiscalCode, this.origin});
 
   @override
   State<PersonDetailPage> createState() => _PersonDetailPageState();
@@ -51,6 +60,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 {
   int _selectedSection = 0;
   bool _isLoading = true;
+  bool _isGeneratingForm = false;
   String? _errorMessage;
   PersonItem? _person;
   MeResponse? _currentUser;
@@ -135,8 +145,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
-  // The "Genitori" section always disappears after removal, so redirect
-  // immediately instead of relying on the guard in _fetchPersonData.
+  // The "Genitori" section disappears after removal, so jump back to the first one.
   void _onParentalResponsibilityRemoved()
   {
     setState(() => _selectedSection = 0);
@@ -156,8 +165,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return memberships.first.revocation != 'NO';
   }
 
-  // Rail groups and the view stack are built from this one description so they
-  // cannot drift apart.
   List<PersonSection> get _sections
   {
     if (_person == null)
@@ -174,7 +181,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final sections = <PersonSection>[
       PersonSection(
         label: 'Informazioni personali',
-        view: PersonInfoTab(person: person, onEdit: _openEditDialog),
+        view: PersonInfoTab(
+          person: person,
+          onEdit: _openEditDialog,
+          onGenerateForm: roles.contains('ASSOCIATO') ? _generateEnrollmentForm : null,
+          isGeneratingForm: _isGeneratingForm,
+        ),
       ),
     ];
 
@@ -268,7 +280,68 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ));
     }
 
+    if ((roles.contains('DOCENTE') || roles.contains('STUDENTE')) && !isRevoked)
+    {
+      sections.add(PersonSection(
+        label: 'Statistiche personali',
+        view: PersonPersonalStatsTab(person: person),
+      ));
+    }
+
     return sections;
+  }
+
+  Future<void> _generateEnrollmentForm() async
+  {
+    final PersonItem? person = _person;
+
+    if (_isGeneratingForm || person == null)
+    {
+      return;
+    }
+
+    final String name = '${person.firstName} ${person.lastName}';
+
+    // The tab must open before the first await, or the browser blocks it as a popup.
+    final PdfTab? tab = openPdfTab(title: 'Modulo di iscrizione · $name');
+    final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final String fileName = 'Modulo di iscrizione $name $day.pdf';
+
+    setState(() => _isGeneratingForm = true);
+
+    try
+    {
+      final Uint8List bytes = await ApiService().fetchEnrollmentForm(person.fiscalCode);
+
+      if (tab != null)
+      {
+        tab.present(bytes, fileName: fileName);
+      }
+      else if (downloadPdf(bytes, fileName: fileName) && mounted)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: 'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+          isError: false,
+        );
+      }
+    }
+    catch (e)
+    {
+      tab?.fail('Non è stato possibile generare il modulo.');
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isGeneratingForm = false);
+      }
+    }
   }
 
   void _openEditDialog() async
@@ -288,7 +361,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     {
       if (newFiscalCode != _currentFiscalCode)
       {
-        context.go('/people/$newFiscalCode');
+        context.go('/people/$newFiscalCode?from=$_origin');
       }
       else
       {
@@ -410,7 +483,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  // Laid out on the same grid as the body: the button takes the rail's column.
   Widget _buildHeader(AppWindowSize size)
   {
     if (_person == null)
@@ -442,9 +514,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
+  // Only in-app paths are accepted; anything else falls back to /people.
+  String get _origin
+  {
+    final String? origin = widget.origin;
+
+    return origin != null && origin.startsWith('/') ? origin : '/people';
+  }
+
   Widget _buildBackButton()
   {
-    return _BackButton(onTap: () => context.go('/people'));
+    return _BackButton(onTap: () => context.go(_origin));
   }
 
   Widget _buildBody(AppWindowSize size, List<PersonSection> sections)
@@ -469,8 +549,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       );
     }
 
-    // Each section times its own transitions; wrapping from here would animate
-    // it as a single slab.
+    // Sections animate their own transitions; wrapping here would animate them as one block.
     final Widget content = PageSections(
       index: _selectedSection,
       children: [for (final section in sections) section.view],
@@ -576,8 +655,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   }
 }
 
-// Consecutive sections with the same heading merge into one group. Order
-// matches the page's IndexedStack: entries only, headings take no index.
+// Consecutive sections sharing a heading merge; entry order must match the IndexedStack.
 List<RailGroup> personRailGroups(List<PersonSection> sections)
 {
   final groups = <RailGroup>[];

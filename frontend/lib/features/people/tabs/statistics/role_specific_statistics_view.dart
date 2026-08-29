@@ -8,20 +8,27 @@ import '../../../../shared/widgets/app_filter_pill.dart';
 import '../../../../shared/widgets/filter_menu.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/page_transition.dart';
+import '../../../association/models/association_subject_item.dart';
 import '../../../association/models/subject_taxonomy.dart';
 import '../../models/age_distribution_item.dart';
+import '../../models/certification_distribution_item.dart';
 import '../../models/city_distribution_item.dart';
 import '../../models/course_distribution_item.dart';
 import '../../models/current_totals_item.dart';
 import '../../models/education_distribution_item.dart';
 import '../../models/member_trend_item.dart';
 import '../../models/retention_rate_item.dart';
+import '../../models/student_presence_statistics_item.dart';
 import '../../models/teacher_appreciation_item.dart';
+import '../../models/teacher_availability_statistics_item.dart';
 import '../../models/teacher_subjects_statistics_item.dart';
 import 'widgets/appreciation_ranking_card.dart';
+import 'widgets/availability_statistics_card.dart';
 import 'widgets/bar_chart.dart';
+import 'widgets/discipline_trend_card.dart';
 import 'widgets/chart_common.dart';
 import 'widgets/pie_chart.dart';
+import 'widgets/presence_statistics_card.dart';
 import 'widgets/stat_filters.dart';
 import 'widgets/stat_widgets.dart';
 import 'widgets/stats_data.dart';
@@ -95,6 +102,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   TeacherSubjectsStatisticsItem? _teacherStats;
   TeacherAppreciationRankingItem? _teacherAppreciation;
   bool _isAppreciationLoading = false;
+  TeacherAvailabilityStatisticsItem? _teacherAvailability;
+  bool _isAvailabilityLoading = false;
+  StudentPresenceStatisticsItem? _studentPresence;
+  bool _isPresenceLoading = false;
+  List<AssociationSubjectItem> _disciplines = [];
+  List<CertificationDistributionItem> _certificationData = [];
 
   String _trendResolution = 'year';
   int _startTrendYear = dataStartYear;
@@ -111,7 +124,9 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   String _educationDistributionType = 'school';
   String _teacherRankingMode = 'absolute';
-  String _appreciationPeriod = wholeWindowPeriod;
+  String _appreciationPeriod = defaultStatsPeriod;
+  String _availabilityPeriod = defaultStatsPeriod;
+  String _presencePeriod = defaultStatsPeriod;
 
   bool get _hasDemographics => _rolesWithDemographics.contains(widget.roleKey);
 
@@ -164,8 +179,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     catch (_) {}
   }
 
-  // Its own request and spinner, so the period pill does not blank the card
-  // beside it.
   Future<void> _loadTeacherAppreciationData() async
   {
     if (widget.roleKey != _teacherRole)
@@ -177,11 +190,12 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
     try
     {
-      final period = periodParts(_appreciationPeriod);
+      final period = statsPeriodParts(_appreciationPeriod);
 
       final data = await _apiService.getTeacherAppreciationRanking(
-        year: period?.year,
-        month: period?.month,
+        months: period.months,
+        year: period.year,
+        month: period.month,
       );
 
       if (mounted)
@@ -195,6 +209,112 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       if (mounted)
       {
         setState(() => _isAppreciationLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadTeacherAvailabilityData() async
+  {
+    if (widget.roleKey != _teacherRole)
+    {
+      return;
+    }
+
+    setState(() => _isAvailabilityLoading = true);
+
+    try
+    {
+      final period = statsPeriodParts(_availabilityPeriod);
+
+      final data = await _apiService.getTeacherAvailabilityStatistics(
+        months: period.months,
+        year: period.year,
+        month: period.month,
+      );
+
+      if (mounted)
+      {
+        setState(() => _teacherAvailability = data);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isAvailabilityLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadCertificationData() async
+  {
+    if (widget.roleKey != _studentRole)
+    {
+      return;
+    }
+
+    try
+    {
+      final data = await _apiService.getStudentCertificationDistribution();
+
+      if (mounted)
+      {
+        setState(() => _certificationData = data);
+      }
+    }
+    catch (_) {}
+  }
+
+  Future<void> _loadDisciplines() async
+  {
+    if (widget.roleKey != _studentRole)
+    {
+      return;
+    }
+
+    try
+    {
+      final data = await _apiService.getAssociationSubjects();
+
+      if (mounted)
+      {
+        setState(() => _disciplines = data);
+      }
+    }
+    catch (_) {}
+  }
+
+  Future<void> _loadStudentPresenceData() async
+  {
+    if (widget.roleKey != _studentRole)
+    {
+      return;
+    }
+
+    setState(() => _isPresenceLoading = true);
+
+    try
+    {
+      final period = statsPeriodParts(_presencePeriod);
+
+      final data = await _apiService.getStudentPresenceStatistics(
+        months: period.months,
+        year: period.year,
+        month: period.month,
+      );
+
+      if (mounted)
+      {
+        setState(() => _studentPresence = data);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isPresenceLoading = false);
       }
     }
   }
@@ -223,9 +343,18 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     switch (widget.roleKey)
     {
       case _studentRole:
-        await _loadEducationData();
+        await Future.wait([
+          _loadEducationData(),
+          _loadCertificationData(),
+          _loadStudentPresenceData(),
+          _loadDisciplines(),
+        ]);
       case _teacherRole:
-        await Future.wait([_loadTeacherData(), _loadTeacherAppreciationData()]);
+        await Future.wait([
+          _loadTeacherData(),
+          _loadTeacherAppreciationData(),
+          _loadTeacherAvailabilityData(),
+        ]);
       case _courseParticipantRole:
         await _loadCourseData();
     }
@@ -304,8 +433,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       }
     }
   }
-
-  // Every card fetches and reloads on its own; a shared load blanked the view.
 
   Future<void> _loadRetentionData() async
   {
@@ -574,7 +701,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildMembersTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend iscritti',
+      title: 'Andamento iscritti',
       icon: Icons.show_chart_rounded,
       data: _trendData,
       isLoading: _isTrendLoading,
@@ -582,7 +709,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       startYear: _startTrendYear,
       endYear: _endTrendYear,
       onResolutionChanged: (value) => _reloadTrend(() => _trendResolution = value),
-      // The two bounds push each other, so the range can never invert.
       onStartYearChanged: (value) => _reloadTrend(()
       {
         _startTrendYear = value;
@@ -607,7 +733,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   Widget _buildCollabTrendCard()
   {
     return _buildTrendChartCard(
-      title: 'Trend collaboratori attivi',
+      title: 'Andamento collaboratori attivi',
       icon: Icons.stacked_line_chart_rounded,
       data: _collabTrendData,
       isLoading: _isCollabTrendLoading,
@@ -689,6 +815,20 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       ),
       chart: BarChart(
         data: _educationData
+            .map((item) => ChartDatum(label: item.label, count: item.count))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildCertificationChartCard()
+  {
+    return ChartCard(
+      title: 'Distribuzione certificazioni',
+      icon: Icons.description_rounded,
+      isEmpty: _certificationData.isEmpty,
+      chart: PieChart(
+        data: _certificationData
             .map((item) => ChartDatum(label: item.label, count: item.count))
             .toList(),
       ),
@@ -793,8 +933,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       children: [
         const StatSectionTitle('Distribuzione per area'),
         const SizedBox(height: 24),
-        // The explicit height stops intrinsic measurement before the pie chart's
-        // LayoutBuilder, which cannot answer it.
+        // Explicit height: the pie chart's LayoutBuilder cannot be measured
+        // intrinsically.
         SizedBox(
           height: 320,
           child: areas.isEmpty
@@ -949,9 +1089,21 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     final stats = _teacherStats;
     final appreciation = _teacherAppreciation;
+    final availability = _teacherAvailability;
 
     return [
       if (stats != null) _buildTeacherSubjectsCard(stats),
+      if (availability != null)
+        TeacherAvailabilityCard(
+          statistics: availability,
+          period: _availabilityPeriod,
+          isLoading: _isAvailabilityLoading,
+          onPeriodChanged: (value)
+          {
+            setState(() => _availabilityPeriod = value);
+            _loadTeacherAvailabilityData();
+          },
+        ),
       if (appreciation != null)
         TeacherAppreciationCard(
           ranking: appreciation,
@@ -989,7 +1141,25 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     switch (widget.roleKey)
     {
       case _studentRole:
-        return [_buildEducationChartCard()];
+        return [
+          ResponsiveCardPair(
+            first: _buildEducationChartCard(),
+            second: _buildCertificationChartCard(),
+          ),
+          if (_studentPresence != null)
+            StudentPresenceCard(
+              statistics: _studentPresence!,
+              period: _presencePeriod,
+              isLoading: _isPresenceLoading,
+              onPeriodChanged: (value)
+              {
+                setState(() => _presencePeriod = value);
+                _loadStudentPresenceData();
+              },
+            ),
+          if (_disciplines.isNotEmpty)
+            DisciplineTrendCard(disciplines: _disciplines),
+        ];
       case _courseParticipantRole:
         return [_buildCourseChartCard()];
       case _teacherRole:
@@ -1050,8 +1220,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  // The nested Navigator gives this view its own Overlay, which is why the
-  // filter menus insert into the root overlay instead.
+  // Nested Navigator so this view has its own Overlay for the filter menus.
   @override
   Widget build(BuildContext context)
   {

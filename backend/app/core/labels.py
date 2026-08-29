@@ -19,12 +19,20 @@ HIGH_SCHOOL_TRACK_LABELS: Final[dict[str, str]] = {
     "QUADRIENNALE": "Percorso quadriennale",
 }
 
-# Short forms for the line above the name, where the sector already sits.
 HIGH_SCHOOL_TRACK_SHORT_LABELS: Final[dict[str, str]] = {
     "BIENNIO": "Biennio",
     "TRIENNIO": "Triennio",
     "QUADRIENNALE": "Quadriennale",
 }
+
+CERTIFICATION_TYPE_LABELS: Final[dict[str, str]] = {
+    "DSA": "DSA",
+    "BES": "BES",
+    "ADHD": "ADHD",
+    "OTHER": "Altro",
+}
+
+NO_CERTIFICATION_LABEL: Final[str] = "Nessuna"
 
 COURSE_TYPE_LABELS: Final[dict[str, str]] = {
     "YOGA": "Yoga",
@@ -47,14 +55,12 @@ TEACHER_PREFERENCE_TYPE_LABELS: Final[dict[str, str]] = {
     "NOT_PREFERRED": "Non preferito",
 }
 
-# Reads as a complement inside a sentence, like every message naming a mode.
 OPENING_MODE_LABELS: Final[dict[str, str]] = {
     "presence": "in presenza",
     "online": "online",
 }
 
-# The three parts of the day the calendar is published in, as the client already
-# names them (frontend/lib/core/utils/time_bucket.dart).
+# Must mirror frontend/lib/core/utils/time_bucket.dart.
 TIME_BAND_LABELS: Final[dict[str, str]] = {
     "MORNING": "Mattina",
     "AFTERNOON": "Pomeriggio",
@@ -69,14 +75,11 @@ ROMAN_NUMERAL_BY_GRADE: Final[dict[int, str]] = {
     5: "V",
 }
 
-# Derived from the table above: the two directions cannot drift apart.
 GRADE_BY_ROMAN_NUMERAL: Final[dict[str, int]] = {
     numeral: grade for grade, numeral in ROMAN_NUMERAL_BY_GRADE.items()
 }
 
 
-# Unknown codes are returned unchanged, which keeps every translation
-# idempotent over values that already carry their label.
 def _translate(value: str, labels: dict[str, str]) -> str:
     return labels.get(value, value)
 
@@ -98,6 +101,13 @@ def translate_education_level(level: str | None) -> str | None:
 
 def translate_collaboration_type(collaboration_type: str | None) -> str | None:
     return _translate_optional(collaboration_type, COLLABORATION_TYPE_LABELS)
+
+
+def certification_type_label(certification_type: str | None) -> str:
+    if certification_type is None:
+        return NO_CERTIFICATION_LABEL
+
+    return _translate(certification_type, CERTIFICATION_TYPE_LABELS)
 
 
 def course_type_label(course_type: str) -> str:

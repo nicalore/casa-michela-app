@@ -112,7 +112,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   void _addSubject(String subject)
   {
     String s = subject.trim();
-    // Defence in depth: only accept subjects that actually exist in widget.availableSubjects.
     if (s.isEmpty || !widget.availableSubjects.contains(s) || _currentState.taughtSubjects.contains(s))
     {
       return;
@@ -152,7 +151,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  // No chip lit means "any"; pressing the lit one switches it off.
+  // No chip selected means "any".
   Widget _buildChoiceChips<T>({
     required T? value,
     required List<(T, String)> options,
@@ -173,6 +172,30 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     );
   }
 
+  Widget _buildMultiChips({
+    required List<String> values,
+    required List<(String, String)> options,
+    required ValueChanged<List<String>> onChanged,
+  })
+  {
+    return Wrap(
+      spacing:    10,
+      runSpacing: 10,
+      children: [
+        for (final (option, label) in options)
+          AppSelectableChip(
+            label: label,
+            selected: values.contains(option),
+            onSelected: (selected) => onChanged(
+              selected
+                  ? [...values, option]
+                  : [for (final value in values) if (value != option) value],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildFieldLabel(String text)
   {
     return Padding(
@@ -181,14 +204,12 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     );
   }
 
-  // Marker, not a heading: _cardsOf cuts the body into cards at these.
+  // Marker consumed by _cardsOf: the body is cut into cards at these.
   Widget _buildSectionTitle(String title) => _SectionBreak(title);
 
   // Marker: starts a new piece on the same card.
   Widget _buildPillBreak() => const _PillBreak();
 
-  // Which cards exist changes as roles are ticked, so the card on screen is
-  // clamped back into range on every build.
   List<Widget> _cardsOf(List<Widget> parts)
   {
     final cards = <Widget>[];
@@ -249,7 +270,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         children: [
           for (var i = 0; i < pieces.length; i++) ...[
             if (i > 0) const SizedBox(height: _pieceGap),
-            // The stack counts the title as 0 and the body as 1; pieces carry on.
+            // Index 0 is the title and 1 the body, so pieces start at 1.
             AppDialogPiece(index: 1 + i, named: false, child: pieces[i]),
           ],
         ],
@@ -500,13 +521,31 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           _buildFieldLabel('Indirizzo di studio'),
                           _AutocompleteField(
                             controller: _studyProgramController,
-                            hint:       'Es. Amministrazione finanza e marketing',
+                            hint:       'Es. Amministrazione, finanza e marketing',
                             options:    widget.availableStudyPrograms,
                             onChanged:  (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
                                 studyProgram:      val,
                                 clearStudyProgram: val.isEmpty,
+                              );
+                            }),
+                          ),
+                          _buildFieldLabel('Certificazione'),
+                          _buildMultiChips(
+                            values: _currentState.certifications,
+                            options: const [
+                              (PeopleFilterState.noCertification, 'Nessuna'),
+                              ('DSA', 'DSA'),
+                              ('BES', 'BES'),
+                              ('ADHD', 'ADHD'),
+                              ('OTHER', 'Altro'),
+                            ],
+                            onChanged: (values) => setState(()
+                            {
+                              _currentState = _currentState.copyWith(
+                                certifications:      values,
+                                clearCertifications: values.isEmpty,
                               );
                             }),
                           ),
@@ -645,7 +684,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       height:     50,
       padding:    const EdgeInsets.only(left: 16, right: 8),
       decoration: BoxDecoration(
-        // Cannot simply be AppTextField: these fields carry their own suggestions.
         color: _fieldSurface,
         borderRadius: BorderRadius.circular(_fieldRadius),
         border: Border.all(
@@ -907,8 +945,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
                       setState(() {});
                       widget.onChanged(val);
                     },
-                    // Enter confirms RawAutocomplete's highlighted option (arrow-selected or the first result),
-                    // never the free text, so only an option that really exists in widget.options can be submitted.
+                    // Enter confirms RawAutocomplete's highlighted option, never the free text.
                     onSubmitted: (_) => onFieldSubmitted(),
                     style: GoogleFonts.plusJakartaSans(
                       fontSize:   15,
@@ -965,8 +1002,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         return AutocompleteOptionsList<String>(
           options:    options,
           label:      (option) => option,
-          // The overlay does not inherit the field's width; this is the card's
-          // field width.
+          // The overlay does not inherit the field's width; 436 matches the card's fields.
           width:      436,
           onSelected: onSelected,
         );

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 class PeopleFilterState
 {
-  // A range filter counts as active only when moved away from these bounds, so
-  // the dialog must initialise its sliders from here.
+  // Range filters count as active only once moved away from these bounds.
   static const RangeValues defaultAgeRange = RangeValues(5, 99);
   static const RangeValues defaultTaughtSubjectsCount = RangeValues(1, 15);
+
+  // Sentinel chip value for "no certification"; not null, since chips are a set.
+  static const String noCertification = 'NONE';
 
   final String? selectedCategory;
   final List<String> selectedRoles;
@@ -25,6 +27,8 @@ class PeopleFilterState
   final String? courseType;
   final bool? isMedicalCertificateValid;
 
+  final List<String> certifications;
+
   const PeopleFilterState({
     this.selectedCategory,
     this.selectedRoles = const [],
@@ -43,10 +47,10 @@ class PeopleFilterState
     this.taughtSubjectsCount,
     this.courseType,
     this.isMedicalCertificateValid,
+    this.certifications = const [],
   });
 
-  // Each field has a matching clear flag, because passing null cannot express
-  // "reset this one": null already means "leave unchanged".
+  // Each field has a clear flag: null means "leave unchanged", not "reset".
   PeopleFilterState copyWith({
     String? selectedCategory,
     List<String>? selectedRoles,
@@ -65,6 +69,7 @@ class PeopleFilterState
     RangeValues? taughtSubjectsCount,
     String? courseType,
     bool? isMedicalCertificateValid,
+    List<String>? certifications,
     bool clearCategory = false,
     bool clearRoles = false,
     bool clearAgeRange = false,
@@ -82,6 +87,7 @@ class PeopleFilterState
     bool clearTaughtSubjectsCount = false,
     bool clearCourseType = false,
     bool clearMedicalCert = false,
+    bool clearCertifications = false,
   })
   {
     return PeopleFilterState(
@@ -102,7 +108,33 @@ class PeopleFilterState
       taughtSubjectsCount: clearTaughtSubjectsCount ? null : (taughtSubjectsCount ?? this.taughtSubjectsCount),
       courseType: clearCourseType ? null : (courseType ?? this.courseType),
       isMedicalCertificateValid: clearMedicalCert ? null : (isMedicalCertificateValid ?? this.isMedicalCertificateValid),
+      certifications: clearCertifications ? [] : (certifications ?? this.certifications),
     );
+  }
+
+  // A certification filter narrows to students; holding none matches only
+  // [noCertification].
+  bool matchesCertification({
+    required List<String> certificationTypes,
+    required bool isStudent,
+  })
+  {
+    if (certifications.isEmpty)
+    {
+      return true;
+    }
+
+    if (!isStudent)
+    {
+      return false;
+    }
+
+    if (certificationTypes.isEmpty)
+    {
+      return certifications.contains(noCertification);
+    }
+
+    return certificationTypes.any(certifications.contains);
   }
 
   bool get hasActiveFilters => activeFiltersCount > 0;
@@ -129,10 +161,10 @@ class PeopleFilterState
       isMedicalCertificateValid != null,
     ];
 
-    // The two multi value filters contribute one unit per selected entry, so a
-    // person filtered on three roles shows three active filters.
+    // Multi value filters count one unit per selected entry.
     return singleValueFilters.where((isActive) => isActive).length +
         selectedRoles.length +
-        taughtSubjects.length;
+        taughtSubjects.length +
+        certifications.length;
   }
 }

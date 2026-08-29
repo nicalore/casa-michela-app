@@ -27,6 +27,7 @@ import '../features/lessons/models/presence_item.dart';
 import '../features/lessons/models/room_supervision_item.dart';
 import '../features/lessons/models/teacher_room_assignment_item.dart';
 import '../features/people/models/age_distribution_item.dart';
+import '../features/people/models/certification_distribution_item.dart';
 import '../features/people/models/city_distribution_item.dart';
 import '../features/people/models/course_distribution_item.dart';
 import '../features/people/models/current_totals_item.dart';
@@ -34,18 +35,24 @@ import '../features/people/models/education_distribution_item.dart';
 import '../features/people/models/member_trend_item.dart';
 import '../features/people/models/person_item.dart';
 import '../features/people/models/retention_rate_item.dart';
+import '../features/people/models/personal_statistics_items.dart';
+import '../features/people/models/student_presence_statistics_item.dart';
 import '../features/people/models/teacher_appreciation_item.dart';
+import '../features/people/models/teacher_availability_statistics_item.dart';
 import '../features/people/models/teacher_subjects_statistics_item.dart';
 import 'auth_state.dart';
 import 'session_service.dart';
+
+int _byName(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
 
 List<AssociationSubjectOption> _associationSubjectOptions(dynamic value)
 {
   return value == null
       ? []
-      : (value as List)
+      : ((value as List)
           .map((a) => AssociationSubjectOption.fromJson(a as Map<String, dynamic>))
-          .toList();
+          .toList()
+        ..sort((a, b) => _byName(a.name, b.name)));
 }
 
 SchoolStudyProgramOption _schoolStudyProgramOption(dynamic json)
@@ -67,7 +74,8 @@ SchoolItem _schoolFromJson(dynamic json)
     province: json['province'],
     createdAt: DateTime.parse(json['created_at']),
     studyPrograms: json['study_programs'] != null
-        ? (json['study_programs'] as List).map(_schoolStudyProgramOption).toList()
+        ? ((json['study_programs'] as List).map(_schoolStudyProgramOption).toList()
+          ..sort((a, b) => _byName(a.name, b.name)))
         : [],
   );
 }
@@ -94,7 +102,8 @@ StudyProgramItem _studyProgramFromJson(dynamic json)
     maxYear: json['max_year'],
     createdAt: DateTime.parse(json['created_at']),
     ministrySubjects: json['ministry_subjects'] != null
-        ? (json['ministry_subjects'] as List).map(_ministrySubjectOption).toList()
+        ? ((json['ministry_subjects'] as List).map(_ministrySubjectOption).toList()
+          ..sort((a, b) => _byName(a.name, b.name)))
         : [],
   );
 }
@@ -204,8 +213,8 @@ class ApiService
   {
     final detail = error.response?.data is Map ? error.response?.data['detail'] : null;
 
-    // A destructive write is refused with a typed cost, so the caller can ask
-    // for confirmation instead of showing an error.
+    // A destructive write is refused with a typed cost, so callers can confirm
+    // instead of showing an error.
     if (detail is Map && detail['error'] == WriteWouldTakeAway.code)
     {
       throw WriteWouldTakeAway.fromJson(detail.cast<String, dynamic>());
@@ -214,8 +223,8 @@ class ApiService
     throw Exception(detail ?? fallback);
   }
 
-  // Asking Dio for bytes means it hands back the refusal as bytes too: the
-  // Italian detail the server wrote is in there, and _refused only sees a Map.
+  // With responseType bytes the refusal body arrives as bytes too, which
+  // _refused cannot read.
   Never _refusedBytes(DioException error, String fallback)
   {
     final data = error.response?.data;
@@ -233,7 +242,7 @@ class ApiService
       }
       on FormatException
       {
-        // A binary or truncated body says nothing; the fallback speaks instead.
+        // Binary or truncated body: fall back to the generic message.
       }
     }
 
@@ -537,8 +546,7 @@ class ApiService
     }
   }
 
-  // One call, not delete+create: a day left momentarily without hours would
-  // clear its lessons and take down its calendar.
+  // One call, not delete+create: a day left without hours loses its lessons.
   Future<List<OpeningDayItem>> replaceOpeningDay({
     required DateTime date,
     required String mode,
@@ -1040,8 +1048,7 @@ class ApiService
           'sector': sector,
           'description': description,
           'level': level,
-          // Null for high school: the server derives the years from the track,
-          // so an old build cannot write an inconsistent row.
+          // Null for high school: the server derives the years from the track.
           'high_school_track': highSchoolTrack,
           'min_year': minYear,
           'max_year': maxYear,
@@ -1068,8 +1075,7 @@ class ApiService
           'sector': sector,
           'description': description,
           'level': level,
-          // Null for high school: the server derives the years from the track,
-          // so an old build cannot write an inconsistent row.
+          // Null for high school: the server derives the years from the track.
           'high_school_track': highSchoolTrack,
           'min_year': minYear,
           'max_year': maxYear,
@@ -1222,8 +1228,7 @@ class ApiService
     }
   }
 
-  // The filled enrollment form is never stored: the server stamps a copy of
-  // the blank template and hands the bytes straight back.
+  // Nothing is stored: the server stamps a copy of the template and returns it.
   Future<Uint8List> generateEnrollmentForm(Map<String, dynamic> payload) async
   {
     try
@@ -1231,6 +1236,24 @@ class ApiService
       final response = await _dio.post<List<int>>(
         '/people/wizard/enrollment-form',
         data: payload,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+    }
+  }
+
+  // The server rebuilds the payload from the register, so only the tax code is sent.
+  Future<Uint8List> fetchEnrollmentForm(String fiscalCode) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/people/$fiscalCode/enrollment-form',
         options: Options(responseType: ResponseType.bytes),
       );
 
@@ -1605,6 +1628,19 @@ class ApiService
     }
   }
 
+  Future<List<CertificationDistributionItem>> getStudentCertificationDistribution() async
+  {
+    try
+    {
+      final response = await _dio.get('/statistics/students/certification-distribution');
+      return (response.data as List<dynamic>).map((e) => CertificationDistributionItem.fromJson(e)).toList();
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare la distribuzione delle certificazioni. Riprova più tardi.');
+    }
+  }
+
   Future<TeacherSubjectsStatisticsItem> getTeacherSubjectsStatistics(String rankingMode) async
   {
     try
@@ -1618,13 +1654,14 @@ class ApiService
     }
   }
 
-  Future<TeacherAppreciationRankingItem> getTeacherAppreciationRanking({int? year, int? month}) async
+  Future<TeacherAppreciationRankingItem> getTeacherAppreciationRanking({int? months, int? year, int? month}) async
   {
     try
     {
       final response = await _dio.get(
         '/statistics/teachers/appreciation-ranking',
         queryParameters: {
+          'months': ?months,
           'year': ?year,
           'month': ?month,
         },
@@ -1634,6 +1671,104 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Impossibile recuperare il gradimento dei docenti. Riprova più tardi.');
+    }
+  }
+
+  Future<TeacherAvailabilityStatisticsItem> getTeacherAvailabilityStatistics({int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/availability-statistics',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return TeacherAvailabilityStatisticsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare le statistiche sulle disponibilità. Riprova più tardi.');
+    }
+  }
+
+  Future<StudentPresenceStatisticsItem> getStudentPresenceStatistics({int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/students/presence-statistics',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return StudentPresenceStatisticsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare le statistiche sulle presenze. Riprova più tardi.');
+    }
+  }
+
+  Future<TeacherPersonalStatisticsItem> getTeacherPersonalStatistics(String taxCode, {int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/$taxCode/personal-statistics',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return TeacherPersonalStatisticsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare le statistiche personali. Riprova più tardi.');
+    }
+  }
+
+  Future<StudentPersonalStatisticsItem> getStudentPersonalStatistics(String taxCode, {int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/students/$taxCode/personal-statistics',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return StudentPersonalStatisticsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare le statistiche personali. Riprova più tardi.');
+    }
+  }
+
+  // Separate from the presence statistics: the discipline is chosen after the
+  // page has loaded.
+  Future<List<MemberTrendItem>> getDisciplineRequestTrend(int associationSubjectId) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/students/discipline-trend',
+        queryParameters: {'association_subject_id': associationSubjectId},
+      );
+      return monthlyTrendPoints(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile recuperare l'andamento della disciplina. Riprova più tardi.");
     }
   }
 

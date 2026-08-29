@@ -87,34 +87,39 @@ List<FilterOption<int>> monthOptions(int selectedYear)
   ];
 }
 
-const String wholeWindowPeriod = 'all';
+// A period is one string: 'last-N' trailing months or a single month 'YYYY-MM'.
 
-// Calendars older than a year are deleted; a thirteenth month back points at
-// nothing.
-const int appreciationMonthsWindow = 12;
+// Calendars older than a year are deleted, so no month further back exists.
+const int statsMonthsWindow = 12;
 
-String _periodValue(int year, int month)
+const String defaultStatsPeriod = 'last-12';
+
+// Exactly one of the two shapes is set, mirroring the backend's parameters.
+typedef StatsPeriod = ({int? months, int? year, int? month});
+
+String _monthPeriodValue(int year, int month)
 {
   return '$year-${month.toString().padLeft(2, '0')}';
 }
 
-// One pill: separate year and month pills would let a pair be picked that has
-// nothing behind it.
-List<FilterOption<String>> appreciationPeriodOptions()
+List<FilterOption<String>> statsPeriodOptions()
 {
   final now = DateTime.now();
+
   final options = <FilterOption<String>>[
-    const FilterOption(value: wholeWindowPeriod, label: 'Ultimi 12 mesi'),
+    const FilterOption(value: 'last-1', label: 'Ultimo mese'),
+    for (var months = 2; months <= statsMonthsWindow; months++)
+      FilterOption(value: 'last-$months', label: 'Ultimi $months mesi'),
   ];
 
-  for (var back = 0; back < appreciationMonthsWindow; back++)
+  for (var back = 0; back < statsMonthsWindow; back++)
   {
     // A month of zero or less is normalised into the year before it.
     final month = DateTime(now.year, now.month - back);
 
     options.add(
       FilterOption(
-        value: _periodValue(month.year, month.month),
+        value: _monthPeriodValue(month.year, month.month),
         label: '${monthAbbreviations[month.month - 1]} ${month.year}',
       ),
     );
@@ -123,14 +128,14 @@ List<FilterOption<String>> appreciationPeriodOptions()
   return options;
 }
 
-({int year, int month})? periodParts(String period)
+StatsPeriod statsPeriodParts(String period)
 {
-  if (period == wholeWindowPeriod)
+  if (period.startsWith('last-'))
   {
-    return null;
+    return (months: int.parse(period.substring(5)), year: null, month: null);
   }
 
   final parts = period.split('-');
 
-  return (year: int.parse(parts[0]), month: int.parse(parts[1]));
+  return (months: null, year: int.parse(parts[0]), month: int.parse(parts[1]));
 }

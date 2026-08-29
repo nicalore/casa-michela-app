@@ -36,6 +36,9 @@ enum _PeopleSort
 const int _maxColumns = 4;
 const double _cardGap = 20;
 
+// Must match RoleLabelMapper's spelling.
+const String _studentRoleLabel = 'Studente';
+
 class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
@@ -53,8 +56,7 @@ class PeopleSearchTab extends StatefulWidget
 
 class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefresh
 {
-  // Static: these survive the tab being rebuilt, and therefore outlive a
-  // logout — hence clearSavedState.
+  // Static state survives rebuilds and logout, hence clearSavedState.
   static String _savedSearchText = '';
   static _PeopleSort _savedSort = _PeopleSort.nameAsc;
   static PeopleFilterState _savedFilterState = const PeopleFilterState();
@@ -88,7 +90,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     _loadData();
   }
 
-  // Reload on return; the current list stays until the new one arrives.
   @override
   void onDestinationShown() => _loadData(quiet: true);
 
@@ -99,7 +100,6 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     super.dispose();
   }
 
-  // The filter dialog offers only values that occur in the loaded people.
   List<String> _distinctSorted(Iterable<String?> values)
   {
     final result = values
@@ -185,8 +185,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       return true;
     }
 
-    // Selecting "Associato" is meant to find plain members, so somebody who is
-    // also a teacher or a student does not qualify.
+    // "Associato" matches plain members only, not teachers or students.
     return selectedRoles.contains(RoleLabelMapper.memberLabel) &&
         RoleLabelMapper.hasOnlyMemberRole(person.roles);
   }
@@ -268,6 +267,14 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         count >= PeopleFilterState.defaultTaughtSubjectsCount.end;
   }
 
+  bool _matchesCertifications(PersonItem person)
+  {
+    return _filterState.matchesCertification(
+      certificationTypes: person.certificationTypes,
+      isStudent: person.roles.contains(_studentRoleLabel),
+    );
+  }
+
   bool _matchesText(String? value, String? expected)
   {
     if (expected == null || expected.isEmpty)
@@ -292,6 +299,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         _matchesAgeRange(person) &&
         _matchesChildrenCount(person) &&
         _matchesSubjects(person) &&
+        _matchesCertifications(person) &&
         _matchesText(person.city, _filterState.city) &&
         _matchesText(person.schoolName, _filterState.schoolName) &&
         _matchesText(person.studyProgram, _filterState.studyProgram) &&
@@ -369,7 +377,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
               final width = ((available - _cardGap * (columns - 1)) / columns)
                   .clamp(PersonCard.minWidth, PersonCard.maxWidth);
 
-              // How many actually fit decides the rows, not how many were aimed at.
+              // Rows use the count that actually fits after the width is clamped.
               final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
 
               return CardRows(
