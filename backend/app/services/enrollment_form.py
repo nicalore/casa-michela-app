@@ -21,6 +21,7 @@ from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
 from app.models.staff import CollaborationTypeEnum
 from app.models.student import CertificationTypeEnum
+from app.repositories.course_repository import CourseRepository
 from app.repositories.school_repository import SchoolRepository
 from app.schemas.enrollment_form import EnrollmentFormParent, EnrollmentFormRequest
 from app.schemas.person_wizard import PersonWizardPayloadBase
@@ -49,8 +50,8 @@ _CERTIFICATION_FIELDS: Final[dict[str, str]] = {
     CertificationTypeEnum.OTHER: "diagnosi_altro",
 }
 
-# Keyed by course name: the template only has these two boxes, so a course
-# added later leaves the section blank instead of ticking the wrong one.
+# Keyed by course name: anything else the association runs goes on the
+# template's free line instead.
 _COURSE_FIELDS: Final[dict[str, str]] = {
     "Yoga": "corso_yoga",
     "Pilates": "corso_pilates",
@@ -218,6 +219,7 @@ async def build_enrollment_form(
     values = enrollment_form_values(
         request,
         school_name=await _school_name(db, request.person),
+        course_cost=await _course_cost(db, request.person),
         today=_today(),
         checked=field_map.checked,
     )
@@ -255,6 +257,7 @@ def enrollment_form_values(
     request: EnrollmentFormRequest,
     *,
     school_name: str | None,
+    course_cost: str | None = None,
     today: date,
     checked: str,
 ) -> dict[str, str]:
@@ -270,12 +273,32 @@ def enrollment_form_values(
         _identity(values, prefix, parent, checked=checked)
 
     _diagnosis(values, person, checked=checked)
-    _services(values, person, checked=checked)
+    _services(values, person, course_cost=course_cost, checked=checked)
     _member(values, person, checked=checked)
 
     _text(values, "luogo_data", f"{_PLACE}, {today:%d/%m/%Y}")
 
     return values
+
+
+async def _course_cost(
+    db: AsyncSession,
+    person: PersonWizardPayloadBase,
+) -> str | None:
+    course = person.course_participant_data
+
+    if course is None or course.course_type in _COURSE_FIELDS:
+        return None
+
+    return await CourseRepository(db).get_cost(course.course_type)
+
+
+# The euro sign is printed before the cell, so it must not travel in the value.
+def _bare_amount(cost: str | None) -> str | None:
+    if cost is None:
+        return None
+
+    return " ".join(cost.replace("€", " ").split())
 
 
 async def _school_name(
@@ -411,6 +434,7 @@ def _services(
     values: dict[str, str],
     person: PersonWizardPayloadBase,
     *,
+    course_cost: str | None,
     checked: str,
 ) -> None:
     _tick(
@@ -433,8 +457,18 @@ def _services(
     if course is None:
         return
 
-    for kind, field in _COURSE_FIELDS.items():
-        _tick(values, field, course.course_type == kind, checked=checked)
+    field = _COURSE_FIELDS.get(course.course_type)
+
+    if field is not None:
+        _tick(values, field, True, checked=checked)
+
+        return
+
+    # Any other course the association runs: the template names it on its own
+    # line rather than leaving the section blank.
+    _tick(values, "corso_altri", True, checked=checked)
+    _text(values, "corso_altri_nome", course.course_type)
+    _text(values, "corso_altri_costo", _bare_amount(course_cost))
 
 
 def _member(

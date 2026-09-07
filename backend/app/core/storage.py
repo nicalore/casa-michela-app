@@ -15,9 +15,11 @@ PROFILE_IMAGES_URL_PREFIX: Final[str] = f"/{PROFILE_IMAGES_DIR.as_posix()}"
 # script each run from somewhere else.
 DOCUMENTS_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "documents"
 
-ENROLLMENT_FORM_TEMPLATE: Final[Path] = DOCUMENTS_DIR / "modulo_iscrizione_26-27.pdf"
+ENROLLMENT_FORM_TEMPLATE: Final[Path] = (
+    DOCUMENTS_DIR / "modulo_iscrizione_26-27_v2_acroform.pdf"
+)
 
-ENROLLMENT_FORM_FIELD_MAP: Final[Path] = DOCUMENTS_DIR / "mappa_campi_modulo.json"
+ENROLLMENT_FORM_FIELD_MAP: Final[Path] = DOCUMENTS_DIR / "mappa_campi_modulo_v2.json"
 
 # The app's own typeface, embedded in the filled form so what the office prints
 # reads like what it typed. OFL.txt beside it is the licence it ships under.
