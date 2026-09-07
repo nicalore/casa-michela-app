@@ -20,13 +20,12 @@ from app.core.config import settings
 from app.core.labels import (
     roman_numeral,
     translate_collaboration_type,
-    translate_course_type,
     translate_education_level,
 )
 from app.core.optimistic_concurrency import assert_not_stale
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.models.administrator import Administrator, AdministratorRoleEnum
-from app.models.course_participant import CourseParticipant, CourseTypeEnum
+from app.models.course_participant import CourseParticipant
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.parent import Parent
@@ -62,6 +61,7 @@ from app.schemas.person import (
     SchoolEnrollmentResponse,
     StaffUpdateData,
     StudentUpdateData,
+    TeacherEducationData,
     TeacherProgramResponse,
     TeacherSubjectResponse,
     TeacherUpdateData,
@@ -72,7 +72,10 @@ from app.services.enrollment_form import (
     enrollment_form_file_name,
     request_for_person,
 )
-from app.services.person_wizard_service import create_person_from_wizard
+from app.services.person_wizard_service import (
+    assert_course_exists,
+    create_person_from_wizard,
+)
 from app.services.role_service import RoleService
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -215,11 +218,22 @@ _PERSON_CREATED_MESSAGE: Final[str] = "Persona creata con successo"
 _MEMBERSHIPS_UPDATED_MESSAGE: Final[str] = "Iscrizioni aggiornate con successo"
 _MEMBERSHIP_REVOKED_MESSAGE: Final[str] = "Iscrizione revocata con successo"
 _COMPETENCES_UPDATED_MESSAGE: Final[str] = "Discipline aggiornate con successo"
+_EDUCATION_UPDATED_MESSAGE: Final[str] = "Studi aggiornati con successo"
+
+_SCHOOL_HISTORY_CLOSED_ERROR: Final[str] = (
+    "Le iscrizioni scolastiche si compilano al primo accesso: "
+    "per modificarle ora scrivi in segreteria."
+)
+_FORBIDDEN_SCHOOL_HISTORY_ERROR: Final[str] = (
+    "Puoi compilare solo le iscrizioni scolastiche tue o dei tuoi figli"
+)
+_FORBIDDEN_EDUCATION_ERROR: Final[str] = "Puoi aggiornare solo i tuoi studi"
 
 _REPORT_EMAIL_SENDER: Final[str] = (
     "Associazione Casa Michela <supporto@app.casamichela.it>"
 )
-_REPORT_EMAIL_RECIPIENT: Final[str] = "nicolo.calore@casamichela.it"
+# Used only when no president is on record, or the one on record has no email.
+_REPORT_EMAIL_FALLBACK_RECIPIENT: Final[str] = "nicolo.calore@casamichela.it"
 _REPORT_EMAIL_SUBJECT: Final[str] = "Richiesta correzione anagrafica - {full_name}"
 
 _REPORT_FIELD_TEMPLATE: Final[str] = """
@@ -506,7 +520,7 @@ def _map_person_to_response(
         if member.course_participant_profile is not None:
             roles.append(_ROLE_COURSE_PARTICIPANT)
             course_profile = member.course_participant_profile
-            course_type = translate_course_type(course_profile.course_type)
+            course_type = course_profile.course_type
             medical_certificate_expiration = (
                 course_profile.medical_certificate_expiration
             )
@@ -993,12 +1007,14 @@ async def _sync_course_participant(
         select(CourseParticipant).where(CourseParticipant.tax_code == person.tax_code)
     )
 
+    await assert_course_exists(db, data.course_type)
+
     if existing is None:
         db.add(
             CourseParticipant(
                 tax_code=person.tax_code,
                 medical_certificate_expiration=data.medical_certificate_expiration,
-                course_type=CourseTypeEnum(data.course_type),
+                course_type=data.course_type,
             )
         )
         return
@@ -1008,7 +1024,7 @@ async def _sync_course_participant(
         .where(CourseParticipant.tax_code == person.tax_code)
         .values(
             medical_certificate_expiration=data.medical_certificate_expiration,
-            course_type=CourseTypeEnum(data.course_type),
+            course_type=data.course_type,
         )
     )
 
@@ -1572,12 +1588,37 @@ def _assert_unique_years(years: list[int], error_detail: str) -> None:
         )
 
 
+# Parents and students fill the school history in during their first access and
+# never again; administrators keep it open.
+def _assert_may_write_school_history(identity: CurrentIdentity, tax_code: str) -> None:
+    if identity.is_admin:
+        return
+
+    own = "STUDENT" in identity.roles and tax_code == identity.tax_code
+    a_child = "PARENT" in identity.roles and tax_code in identity.child_tax_codes
+
+    if not (own or a_child):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_SCHOOL_HISTORY_ERROR,
+        )
+
+    if identity.onboarding_completed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_SCHOOL_HISTORY_CLOSED_ERROR,
+        )
+
+
 @router.put("/{tax_code}/school-enrollments", status_code=status.HTTP_200_OK)
 async def update_person_school_enrollments(
     tax_code: str,
     payload: PersonSchoolEnrollmentsUpdate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
+    _assert_may_write_school_history(identity, tax_code.upper())
+
     if not payload.enrollments:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1753,6 +1794,18 @@ _ReportedValue = Annotated[
 ]
 
 
+# Corrections are read by whoever holds the register, which is the president.
+async def _report_recipient(db: AsyncSession) -> str:
+    email = await db.scalar(
+        select(Person.email)
+        .join(Administrator, Administrator.tax_code == Person.tax_code)
+        .where(Administrator.role == AdministratorRoleEnum.PRESIDENT)
+        .where(Person.email.is_not(None))
+    )
+
+    return email or _REPORT_EMAIL_FALLBACK_RECIPIENT
+
+
 @router.post("/{tax_code}/report-error", status_code=status.HTTP_200_OK)
 async def report_person_error(
     tax_code: str,
@@ -1773,12 +1826,14 @@ async def report_person_error(
         for field, value in corrections.items()
     )
 
+    recipient = await _report_recipient(db)
+
     try:
         resend.Emails.send(
             {
                 "from": _REPORT_EMAIL_SENDER,
-                "to": _REPORT_EMAIL_RECIPIENT,
-                "reply_to": _REPORT_EMAIL_RECIPIENT,
+                "to": recipient,
+                "reply_to": recipient,
                 "subject": _REPORT_EMAIL_SUBJECT.format(full_name=full_name),
                 "html": _REPORT_EMAIL_TEMPLATE.format(
                     full_name=full_name,
@@ -2126,3 +2181,46 @@ async def update_teacher_competences(
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
+
+
+# The narrow slice a teacher may change about themselves during the first
+# access; everything else on the record goes through a correction request.
+@router.put("/{tax_code}/teacher-education", status_code=status.HTTP_200_OK)
+async def update_teacher_education(
+    tax_code: str,
+    payload: TeacherEducationData,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> dict[str, str]:
+    if not identity.is_admin and tax_code.upper() != identity.tax_code:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_EDUCATION_ERROR,
+        )
+
+    person = await _load_person_or_404(
+        db,
+        tax_code,
+        joinedload(Person.member_profile)
+        .joinedload(Member.staff_profile)
+        .joinedload(Staff.teacher_profile),
+    )
+
+    member = person.member_profile
+    staff = member.staff_profile if member else None
+    teacher = staff.teacher_profile if staff else None
+
+    if teacher is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_TEACHER_PROFILE_ERROR,
+        )
+
+    teacher.is_high_school_student = payload.is_high_school_student
+    teacher.school_education = payload.school_education
+    teacher.university_education = payload.university_education
+    teacher.updated_at = datetime.now(UTC)
+
+    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+
+    return {"message": _EDUCATION_UPDATED_MESSAGE}

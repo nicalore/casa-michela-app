@@ -1,26 +1,21 @@
 from __future__ import annotations
 
 from datetime import date
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
+    String,
 )
-from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.course import Course
     from app.models.member import Member
-
-
-class CourseTypeEnum(StrEnum):
-    YOGA = "YOGA"
-    PILATES = "PILATES"
 
 
 class CourseParticipant(Base):
@@ -40,10 +35,15 @@ class CourseParticipant(Base):
 
     medical_certificate_expiration: Mapped[date] = mapped_column(Date, nullable=False)
 
-    course_type: Mapped[CourseTypeEnum] = mapped_column(
-        SqlEnum(CourseTypeEnum, name="course_type_enum"),
+    # Renaming a course rewrites this value; deleting one that is still in use
+    # is refused by the database.
+    course_type: Mapped[str] = mapped_column(
+        String(255),
+        ForeignKey("courses.name", onupdate="CASCADE", ondelete="RESTRICT"),
         nullable=False,
     )
+
+    course: Mapped[Course] = relationship(back_populates="participants")
 
     member: Mapped[Member] = relationship(
         back_populates="course_participant_profile",

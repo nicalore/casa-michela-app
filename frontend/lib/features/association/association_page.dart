@@ -13,6 +13,7 @@ import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import 'models/association_subject_item.dart';
+import 'models/course_item.dart';
 import 'models/ministry_subject_item.dart';
 import 'models/room_item.dart';
 import 'models/school_item.dart';
@@ -20,6 +21,7 @@ import 'models/service_item.dart';
 import 'models/study_program_item.dart';
 import 'models/weekly_template_item.dart';
 import 'tabs/association_subjects_tab.dart';
+import 'tabs/courses_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
 import 'tabs/online_hours_tab.dart';
 import 'tabs/presence_hours_tab.dart';
@@ -33,9 +35,10 @@ const int _associationSubjectsContentIndex = 1;
 const int _ministrySubjectsContentIndex = 2;
 const int _studyProgramsContentIndex = 3;
 const int _schoolsContentIndex = 4;
-const int _roomsContentIndex = 5;
-const int _presenceHoursContentIndex = 6;
-const int _onlineHoursContentIndex = 7;
+const int _coursesContentIndex = 5;
+const int _roomsContentIndex = 6;
+const int _presenceHoursContentIndex = 7;
+const int _onlineHoursContentIndex = 8;
 
 // Order matches the IndexedStack below; the constants above index both.
 const List<RailGroup> _sections = [
@@ -49,6 +52,7 @@ const List<RailGroup> _sections = [
       'Scuole',
     ],
   ),
+  RailGroup(entries: ['Corsi']),
   RailGroup(entries: ['Stanze']),
   RailGroup(title: 'Orari', entries: ['In presenza', 'Online']),
 ];
@@ -76,6 +80,7 @@ class _AssociationPageState extends State<AssociationPage>
   List<MinistrySubjectItem> _ministrySubjects = [];
   List<AssociationSubjectItem> _associationSubjects = [];
   List<ServiceItem> _services = [];
+  List<CourseItem> _courses = [];
   List<RoomItem> _rooms = [];
   List<WeeklyTemplateItem> _weeklyTemplates = [];
 
@@ -101,6 +106,7 @@ class _AssociationPageState extends State<AssociationPage>
         _apiService.getMinistrySubjects(),
         _apiService.getAssociationSubjects(),
         _apiService.getServices(),
+        _apiService.getCourses(),
         _apiService.getRooms(),
         _apiService.getWeeklyTemplates(),
       ]);
@@ -117,8 +123,9 @@ class _AssociationPageState extends State<AssociationPage>
         _ministrySubjects = results[2] as List<MinistrySubjectItem>;
         _associationSubjects = results[3] as List<AssociationSubjectItem>;
         _services = results[4] as List<ServiceItem>;
-        _rooms = results[5] as List<RoomItem>;
-        _weeklyTemplates = results[6] as List<WeeklyTemplateItem>;
+        _courses = results[5] as List<CourseItem>;
+        _rooms = results[6] as List<RoomItem>;
+        _weeklyTemplates = results[7] as List<WeeklyTemplateItem>;
         _isLoading = false;
       });
     }
@@ -205,6 +212,36 @@ class _AssociationPageState extends State<AssociationPage>
       call: () => _apiService.deleteService(item.name),
       apply: () => _services = _services.where((s) => s.name != item.name).toList(),
       done: 'Servizio eliminato con successo!',
+    );
+  }
+
+  Future<bool> _executeCreateCourse(String name, String cost, String description, Function(String) onError)
+  {
+    return write(
+      call: () => _apiService.createCourse(name, cost, description),
+      apply: (created) => _courses = [..._courses, created],
+      done: 'Corso creato con successo!',
+      onError: onError,
+    );
+  }
+
+  // A course is keyed by name: originalName is the key, name the new value.
+  Future<bool> _executeEditCourse(String originalName, String name, String cost, String description, Function(String) onError)
+  {
+    return write(
+      call: () => _apiService.updateCourse(originalName, name, cost, description),
+      apply: (updated) => _courses = _courses.map((c) => c.name == originalName ? updated : c).toList(),
+      done: 'Corso modificato con successo!',
+      onError: onError,
+    );
+  }
+
+  Future<void> _executeDeleteCourse(CourseItem item)
+  {
+    return erase(
+      call: () => _apiService.deleteCourse(item.name),
+      apply: () => _courses = _courses.where((c) => c.name != item.name).toList(),
+      done: 'Corso eliminato con successo!',
     );
   }
 
@@ -459,6 +496,14 @@ class _AssociationPageState extends State<AssociationPage>
                 onCreate: _executeCreateSchool,
                 onEdit: _executeEditSchool,
                 onDelete: _executeDeleteSchool,
+              )
+            : const SizedBox.shrink(),
+        visitedSections.contains(_coursesContentIndex)
+            ? CoursesTab(
+                courses: _courses,
+                onCreate: _executeCreateCourse,
+                onEdit: _executeEditCourse,
+                onDelete: _executeDeleteCourse,
               )
             : const SizedBox.shrink(),
         visitedSections.contains(_roomsContentIndex)

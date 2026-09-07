@@ -27,6 +27,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "collaboration_type": "Tipo di collaborazione",
     "competences": "Competenze",
     "consents_signed_at": "Data di firma dei consensi",
+    "cost": "Costo",
     "course_participant_data": "Dati corsista",
     "course_type": "Tipo di corso",
     "current_password": "Password attuale",

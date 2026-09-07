@@ -16,7 +16,6 @@ from app.core.storage import (
     ENROLLMENT_FORM_FONT,
     ENROLLMENT_FORM_TEMPLATE,
 )
-from app.models.course_participant import CourseTypeEnum
 from app.models.member import PaymentMethodEnum
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
@@ -50,9 +49,11 @@ _CERTIFICATION_FIELDS: Final[dict[str, str]] = {
     CertificationTypeEnum.OTHER: "diagnosi_altro",
 }
 
+# Keyed by course name: the template only has these two boxes, so a course
+# added later leaves the section blank instead of ticking the wrong one.
 _COURSE_FIELDS: Final[dict[str, str]] = {
-    CourseTypeEnum.YOGA: "corso_yoga",
-    CourseTypeEnum.PILATES: "corso_pilates",
+    "Yoga": "corso_yoga",
+    "Pilates": "corso_pilates",
 }
 
 _PAYMENT_FIELDS: Final[dict[str, str]] = {

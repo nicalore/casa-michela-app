@@ -34,11 +34,6 @@ CERTIFICATION_TYPE_LABELS: Final[dict[str, str]] = {
 
 NO_CERTIFICATION_LABEL: Final[str] = "Nessuna"
 
-COURSE_TYPE_LABELS: Final[dict[str, str]] = {
-    "YOGA": "Yoga",
-    "PILATES": "Pilates",
-}
-
 BOOKING_TAG_LABELS: Final[dict[str, str]] = {
     "ORAL_TEST": "Preparazione interrogazione",
     "WRITTEN_TEST": "Preparazione verifica",
@@ -58,6 +53,16 @@ TEACHER_PREFERENCE_TYPE_LABELS: Final[dict[str, str]] = {
 OPENING_MODE_LABELS: Final[dict[str, str]] = {
     "presence": "in presenza",
     "online": "online",
+}
+
+# Must mirror frontend/lib/core/utils/role_label_mapper.dart.
+ROLE_LABELS: Final[dict[str, str]] = {
+    "ADMIN": "Amministratore",
+    "TEACHER": "Docente",
+    "PSYCHOLOGIST": "Psicologo",
+    "STUDENT": "Studente",
+    "PARENT": "Genitore",
+    "COURSE_PARTICIPANT": "Corsista",
 }
 
 # Must mirror frontend/lib/core/utils/time_bucket.dart.
@@ -110,14 +115,6 @@ def certification_type_label(certification_type: str | None) -> str:
     return _translate(certification_type, CERTIFICATION_TYPE_LABELS)
 
 
-def course_type_label(course_type: str) -> str:
-    return _translate(course_type, COURSE_TYPE_LABELS)
-
-
-def translate_course_type(course_type: str | None) -> str | None:
-    return _translate_optional(course_type, COURSE_TYPE_LABELS)
-
-
 def booking_tag_label(tag: str) -> str:
     return _translate(tag, BOOKING_TAG_LABELS)
 
@@ -136,6 +133,10 @@ def opening_mode_label(mode: str) -> str:
 
 def time_band_label(band: str) -> str:
     return _translate(band, TIME_BAND_LABELS)
+
+
+def role_label(role: str) -> str:
+    return _translate(role, ROLE_LABELS)
 
 
 def roman_numeral(grade: int) -> str:

@@ -42,5 +42,7 @@ abstract final class FieldLimits
   static const int mechanographicCode = 100;
   static const int sector = 100;
 
+  static const int cost = 100;
+
   static const int username = 50;
 }

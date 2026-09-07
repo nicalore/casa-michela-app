@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/association_subject_item.dart';
+import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
@@ -126,6 +127,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         ApiService().getAssociationSubjects(),
         ApiService().getPeople(),
         ApiService().getServices(),
+        ApiService().getCourses(),
       ]);
 
       if (!mounted)
@@ -141,6 +143,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           subjects: results[2] as List<AssociationSubjectItem>,
           people: results[3] as List<PersonItem>,
           services: results[4] as List<ServiceItem>,
+          courses: results[5] as List<CourseItem>,
         );
         _isLoading = false;
       });

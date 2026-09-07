@@ -11,6 +11,7 @@ import '../features/association/models/association_subject_item.dart';
 import '../features/association/models/ministry_subject_item.dart';
 import '../features/association/models/opening_day_item.dart';
 import '../features/association/tabs/opening_hours/lost_calendars.dart';
+import '../features/association/models/course_item.dart';
 import '../features/association/models/room_item.dart';
 import '../features/association/models/school_item.dart';
 import '../features/association/models/service_item.dart';
@@ -140,6 +141,10 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
+  // The router's redirect is synchronous and needs the active role: keeping the
+  // identity in a notifier lets it both read it and rebuild when it changes.
+  final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
+
   ApiService._internal()
   {
     final options = BaseOptions(
@@ -259,16 +264,45 @@ class ApiService
       refreshToken: loginResponse.refreshToken,
     );
 
-    authState.value = loginResponse.passwordResetRequired
-        ? AuthState.passwordChangeRequired
-        : AuthState.authenticated;
+    if (loginResponse.passwordResetRequired)
+    {
+      authState.value = AuthState.passwordChangeRequired;
+      return;
+    }
+
+    await _announceAuthenticated();
+  }
+
+  // The router picks the landing page from the active role, and it picks
+  // synchronously: the identity has to be in hand before the session is
+  // announced. A mid-session refresh already holds one. A failure here is
+  // treated like a failed refresh — back to the login page rather than into
+  // somebody else's interface.
+  Future<void> _announceAuthenticated() async
+  {
+    if (identity.value == null)
+    {
+      try
+      {
+        await me();
+      }
+      catch (_)
+      {
+        await _clearSession();
+        authState.value = AuthState.unauthenticated;
+
+        return;
+      }
+    }
+
+    authState.value = AuthState.authenticated;
   }
 
   Future<void> _clearSession() async
   {
     _accessToken = null;
     _refreshToken = null;
-    lastKnownIdentity = null;
+    identity.value = null;
     await SessionService.clear();
   }
 
@@ -355,7 +389,7 @@ class ApiService
         },
       );
 
-      authState.value = AuthState.authenticated;
+      await _announceAuthenticated();
     }
     on DioException catch (e)
     {
@@ -736,6 +770,58 @@ class ApiService
     }
   }
 
+  String _coursePath(String name) => '/courses/${Uri.encodeComponent(name)}';
+
+  Future<List<CourseItem>> getCourses() async
+  {
+    final response = await _dio.get('/courses/');
+    return parseList(response.data, CourseItem.fromJson);
+  }
+
+  Future<CourseItem> createCourse(String name, String cost, String description) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/courses/',
+        data: {'name': name, 'cost': cost, 'description': description},
+      );
+      return CourseItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+    }
+  }
+
+  Future<CourseItem> updateCourse(String originalName, String name, String cost, String description) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        _coursePath(originalName),
+        data: {'name': name, 'cost': cost, 'description': description},
+      );
+      return CourseItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica.');
+    }
+  }
+
+  Future<void> deleteCourse(String name) async
+  {
+    try
+    {
+      await _dio.delete(_coursePath(name));
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione.');
+    }
+  }
+
   Future<List<RoomItem>> getRooms() async
   {
     final response = await _dio.get('/rooms/');
@@ -917,16 +1003,74 @@ class ApiService
     }
   }
 
-  MeResponse? lastKnownIdentity;
+  MeResponse? get lastKnownIdentity => identity.value;
 
   Future<MeResponse> me() async
   {
     final response = await _dio.get('/auth/me');
-    final identity = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+    final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
 
-    lastKnownIdentity = identity;
+    identity.value = me;
 
-    return identity;
+    return me;
+  }
+
+  Future<MeResponse> completeOnboarding() async
+  {
+    try
+    {
+      final response = await _dio.post('/auth/complete-onboarding');
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il completamento del primo accesso. Riprova più tardi.');
+    }
+  }
+
+  Future<MeResponse> setActiveRole(String role) async
+  {
+    try
+    {
+      final response = await _dio.put('/auth/active-role', data: {'role': role});
+      final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
+
+      identity.value = me;
+
+      return me;
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il cambio di ruolo. Riprova più tardi.');
+    }
+  }
+
+  Future<void> updateTeacherEducation({
+    required String taxCode,
+    required bool isHighSchoolStudent,
+    String? schoolEducation,
+    String? universityEducation,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/teacher-education',
+        data: {
+          'is_high_school_student': isHighSchoolStudent,
+          'school_education': schoolEducation,
+          'university_education': universityEducation,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio degli studi. Riprova più tardi.');
+    }
   }
 
   int profileImageVersion = 0;

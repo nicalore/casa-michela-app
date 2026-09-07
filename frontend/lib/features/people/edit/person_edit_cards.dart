@@ -268,8 +268,8 @@ class _ReportBlock extends StatelessWidget
           child: AppGradientButton(
             label: 'SEGNALA ERRORE',
             icon: Icons.report_gmailerrorred_rounded,
-            gradient: AppTheme.dismissGradient,
-            accent: AppTheme.trialViolet,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
             height: 46,
             fontSize: 13,
             radius: 23,
@@ -1150,7 +1150,7 @@ class CourseParticipantCard extends StatelessWidget
       children: [
         PersonChipGroupField(
           label: 'Tipo corso',
-          options: kCourseTypes.keys.toList(),
+          options: [for (final course in ctx.form.allCourses) course.name],
           value: ctx.form.courseTypeValue,
           errorText: ctx.errors['tipoCorso'],
           onChanged: (value)

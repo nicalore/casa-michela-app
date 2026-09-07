@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/phone_number.dart';
 import '../../association/models/association_subject_item.dart';
+import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
@@ -26,11 +27,6 @@ class PersonRoleOption
     required this.description,
   });
 }
-
-const Map<String, String> kCourseTypes = {
-  'Yoga': 'YOGA',
-  'Pilates': 'PILATES',
-};
 
 const Map<String, String> kCollaborationTypes = {
   'Volontario': 'VOLUNTEER',
@@ -268,6 +264,7 @@ class PersonEditForm
   List<StudyProgramItem> allPrograms = [];
   List<AssociationSubjectItem> allSubjects = [];
   List<ServiceItem> allServices = [];
+  List<CourseItem> allCourses = [];
   List<PersonItem> allAdults = [];
   List<PersonItem> allMinors = [];
 
@@ -454,6 +451,7 @@ class PersonEditForm
     required List<SchoolItem> schools,
     required List<AssociationSubjectItem> subjects,
     required List<ServiceItem> services,
+    required List<CourseItem> courses,
     required List<PersonItem> people,
   })
   {
@@ -461,6 +459,7 @@ class PersonEditForm
     allSchools = schools;
     allSubjects = subjects;
     allServices = services;
+    allCourses = courses;
 
     allMinors = people
         .where((candidate) =>
@@ -915,7 +914,7 @@ class PersonEditForm
         'medical_certificate_expiration': certificateExpirationCtrl.text.isNotEmpty
             ? certificateExpirationCtrl.text.trim().split('/').reversed.join('-')
             : null,
-        'course_type': kCourseTypes[courseTypeValue],
+        'course_type': courseTypeValue,
       };
     }
 
@@ -1108,7 +1107,7 @@ class PersonEditForm
         'medical_certificate_expiration': certificateExpirationCtrl.text.isNotEmpty
             ? certificateExpirationCtrl.text.trim().split('/').reversed.join('-')
             : null,
-        'course_type': kCourseTypes[courseTypeValue],
+        'course_type': courseTypeValue,
       };
     }
 

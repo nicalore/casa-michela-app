@@ -9,7 +9,6 @@ from app.api.dependencies import DbSession
 from app.core.booking_window import today_in_rome
 from app.core.labels import (
     certification_type_label,
-    course_type_label,
     education_level_label,
 )
 from app.models.administrator import Administrator
@@ -1572,6 +1571,6 @@ async def get_course_participant_distribution(
     result = await db.execute(query)
 
     return [
-        CourseDistributionItem(label=course_type_label(row.label), count=row.participant_count)
+        CourseDistributionItem(label=row.label, count=row.participant_count)
         for row in result.all()
     ]

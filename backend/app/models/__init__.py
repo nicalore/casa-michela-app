@@ -8,6 +8,7 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
+from app.models.course import Course
 from app.models.course_participant import CourseParticipant
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
@@ -52,6 +53,7 @@ __all__ = [
     "CalendarBandLock",
     "CalendarPublication",
     "CalendarTeacherExclusion",
+    "Course",
     "CourseParticipant",
     "Lesson",
     "LessonBooking",

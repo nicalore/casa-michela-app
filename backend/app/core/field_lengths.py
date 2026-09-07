@@ -42,4 +42,6 @@ REPORT_VALUE: Final[int] = 255
 MECHANOGRAPHIC_CODE: Final[int] = 100
 SECTOR: Final[int] = 100
 
+COST: Final[int] = 100
+
 USERNAME: Final[int] = 50

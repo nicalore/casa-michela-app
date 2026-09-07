@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.labels import GRADE_BY_ROMAN_NUMERAL
 from app.models.administrator import Administrator, AdministratorRoleEnum
-from app.models.course_participant import CourseParticipant, CourseTypeEnum
+from app.models.course import Course
+from app.models.course_participant import CourseParticipant
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership
 from app.models.parent import Parent
@@ -61,7 +62,20 @@ _PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
 
 _UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
 
+_UNKNOWN_COURSE_ERROR: Final[str] = 'Il corso "{name}" non esiste.'
+
 _DEFAULT_GRADE: Final[int] = 1
+
+
+# Existence is checked so a wrong name yields a message, not an FK 500.
+async def assert_course_exists(db: AsyncSession, name: str) -> None:
+    known = await db.scalar(select(Course.name).where(Course.name == name))
+
+    if known is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNKNOWN_COURSE_ERROR.format(name=name),
+        )
 
 
 # Existence is checked so a wrong name yields a message, not an FK 500.
@@ -230,13 +244,15 @@ async def create_person_from_wizard(
         if _ROLE_COURSE_PARTICIPANT in roles and payload.course_participant_data:
             course_participant_data = payload.course_participant_data
 
+            await assert_course_exists(db, course_participant_data.course_type)
+
             db.add(
                 CourseParticipant(
                     tax_code=person.tax_code,
                     medical_certificate_expiration=(
                         course_participant_data.medical_certificate_expiration
                     ),
-                    course_type=CourseTypeEnum(course_participant_data.course_type),
+                    course_type=course_participant_data.course_type,
                 )
             )
 
