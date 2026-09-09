@@ -33,9 +33,8 @@ const LinearGradient _titleGradient = LinearGradient(
   stops: [0.15, 0.95],
 );
 
-const double _secondaryButtonHeight = 46;
-const double _secondaryButtonFontSize = 13;
-const double _secondaryButtonRadius = 23;
+// The label is long: with the usual 30 it wraps on a phone-sized screen.
+const double _secondaryButtonPadding = 20;
 
 class LoginLayout extends StatefulWidget
 {
@@ -188,9 +187,11 @@ class _LoginLayoutState extends State<LoginLayout>
     final Widget forgotten = AppGradientButton(
       label: 'PASSWORD DIMENTICATA?',
       icon: Icons.lock_reset_rounded,
-      height: _secondaryButtonHeight,
-      fontSize: _secondaryButtonFontSize,
-      radius: _secondaryButtonRadius,
+      gradient: AppTheme.dismissGradient,
+      accent: AppTheme.trialViolet,
+      height: _authButtonHeight,
+      fontSize: _authButtonFontSize,
+      horizontalPadding: _secondaryButtonPadding,
       onPressed: _showForgotPasswordDialog,
     );
 
@@ -428,7 +429,7 @@ class _ForgotPasswordDialogContentState extends State<_ForgotPasswordDialogConte
           child: AppTextField(
             controller: _usernameController,
             label: 'Nome utente',
-            hintText: 'Es. mario.rossi',
+            hintText: '',
             onSubmitted: (_) => _handleSend(),
             nothingAbove: true,
           ),

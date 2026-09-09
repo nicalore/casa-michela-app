@@ -20,6 +20,7 @@ import '../widgets/person_row_models.dart';
 import '../widgets/school_enrollment_edit_row.dart' hide currentSchoolYearStart;
 import '../widgets/school_year_wizard.dart';
 import '../widgets/teacher_rating_dots.dart';
+import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
 import 'widgets/person_chip_group_field.dart';
 import '../../../shared/widgets/app_choice_card.dart';
@@ -50,6 +51,14 @@ class PersonEditCardContext
 }
 
 const double _choiceGap = 12;
+
+const String _tariffLabel = 'Tariffa Aiuto Compiti';
+
+final TextStyle _tariffStyle = GoogleFonts.plusJakartaSans(
+  fontSize: 14,
+  fontWeight: FontWeight.w600,
+  color: AppTheme.trialInk,
+);
 
 Widget cardSection(String label, Widget child)
 {
@@ -652,18 +661,19 @@ class ConsentsCard extends StatelessWidget
             },
           ),
           ],
-          _consent(
-            label: 'Dati particolari',
-            description: 'Acconsente al trattamento dei dati particolari (salute, '
-                'certificazioni) per le finalità dell\'Associazione.',
-            value: ctx.form.specialCategoryDataConsentValue,
-            errorText: null,
-            onChanged: (value)
-            {
-              ctx.form.specialCategoryDataConsentValue = value;
-              ctx.onChanged();
-            },
-          ),
+          if (ctx.form.asksSpecialCategoryDataConsent)
+            _consent(
+              label: 'Dati particolari',
+              description: 'Acconsente al trattamento dei dati particolari (salute, '
+                  'certificazioni) per le finalità dell\'Associazione.',
+              value: ctx.form.specialCategoryDataConsentValue,
+              errorText: ctx.errors['datiParticolariConsenso'],
+              onChanged: (value)
+              {
+                ctx.form.specialCategoryDataConsentValue = value;
+                ctx.clearError('datiParticolariConsenso');
+              },
+            ),
           _consent(
             label: 'Notiziari periodici (opzionale)',
             description: 'Acconsente a ricevere i notiziari periodici dell\'Associazione.',
@@ -999,13 +1009,59 @@ class PaymentCard extends StatelessWidget
 
   const PaymentCard({super.key, required this.ctx});
 
+  // The Aiuto Compiti rate follows the school level, so it is only worth asking
+  // once the year under way has a study programme on it.
+  Widget? _tariff()
+  {
+    if (!ctx.form.isCreation || !ctx.form.activeRoles.contains('STUDENTE'))
+    {
+      return null;
+    }
+
+    final String? level = ctx.form.currentSchoolLevel;
+
+    if (level == 'PRIMARY_SCHOOL')
+    {
+      return cardSection(
+        _tariffLabel,
+        Text(kPrimarySchoolTariff, style: _tariffStyle),
+      );
+    }
+
+    final HomeworkTariff? tariff = kHomeworkTariffs[level];
+
+    if (tariff == null)
+    {
+      return null;
+    }
+
+    return PersonChipGroupField(
+      label: _tariffLabel,
+      options: kHomeworkTariffChoices,
+      value: ctx.form.homeworkTariffValue,
+      note: tariff.summary,
+      errorText: ctx.errors['tariffaAiutoCompiti'],
+      onChanged: (value)
+      {
+        ctx.form.homeworkTariffValue = value;
+        ctx.clearError('tariffaAiutoCompiti');
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    final Widget? tariff = _tariff();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (tariff != null) ...[
+          tariff,
+          const SizedBox(height: 24),
+        ],
         PersonChipGroupField(
           label: 'Modalità di pagamento',
           options: const ['Contanti', 'Bonifico bancario', 'Altro'],

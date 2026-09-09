@@ -1,4 +1,5 @@
 from datetime import date
+from enum import StrEnum
 from typing import Final
 
 from pydantic import BaseModel, Field
@@ -9,6 +10,16 @@ from app.schemas.person_wizard import PersonWizardPayloadBase
 # The form has a genitore1 block and a genitore2 block and nowhere to put a
 # third; the wizard caps the picker at the same number.
 _MAX_PARENTS: Final[int] = 2
+
+
+# One per tickable cell of the Aiuto Compiti rate table. No model backs it:
+# the rate is printed on the form and nowhere else.
+class HomeworkTariffEnum(StrEnum):
+    PRIMARY_MONTHLY = "PRIMARY_MONTHLY"
+    MIDDLE_HOURLY = "MIDDLE_HOURLY"
+    MIDDLE_PACKAGE = "MIDDLE_PACKAGE"
+    HIGH_HOURLY = "HIGH_HOURLY"
+    HIGH_PACKAGE = "HIGH_PACKAGE"
 
 
 # Every field is optional, unlike WizardGeneralData: a parent already on file
@@ -44,3 +55,8 @@ class EnrollmentFormRequest(BaseModel):
         default_factory=list,
         max_length=_MAX_PARENTS,
     )
+
+    # Which box to tick in the Aiuto Compiti rate table. It sits out here
+    # rather than under `person` because it is printed and then forgotten:
+    # nothing about the rate reaches the register.
+    homework_tariff: HomeworkTariffEnum | None = None

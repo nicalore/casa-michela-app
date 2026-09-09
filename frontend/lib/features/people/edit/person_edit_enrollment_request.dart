@@ -45,13 +45,21 @@ List<EnrollmentForm> buildEnrollmentForms(PersonEditForm form)
 
     if (_joins(payload))
     {
-      forms.add(_formOf(payload, parents: _parentsOfPending(form, main, payload)));
+      forms.add(_formOf(
+        payload,
+        parents: _parentsOfPending(form, main, payload),
+        tariff: pending['homeworkTariff'] as String?,
+      ));
     }
   }
 
   if (_joins(main))
   {
-    forms.add(_formOf(main, parents: _parentsOfMain(form)));
+    forms.add(_formOf(
+      main,
+      parents: _parentsOfMain(form),
+      tariff: form.homeworkTariffCode,
+    ));
   }
 
   return forms;
@@ -60,13 +68,20 @@ List<EnrollmentForm> buildEnrollmentForms(PersonEditForm form)
 EnrollmentForm _formOf(
   Map<String, dynamic> payload, {
   required List<Map<String, dynamic>> parents,
+  required String? tariff,
 })
 {
   final Map<String, dynamic> general = _generalOf(payload);
 
+  // Alongside the payload, never inside it: the rate is printed and forgotten,
+  // while everything under 'person' is what the register is about to store.
   return EnrollmentForm(
     personName: '${general['first_name']} ${general['last_name']}'.trim(),
-    request: {'person': payload, 'parents': parents},
+    request: {
+      'person': payload,
+      'parents': parents,
+      'homework_tariff': ?tariff,
+    },
   );
 }
 

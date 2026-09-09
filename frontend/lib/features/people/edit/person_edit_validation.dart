@@ -1,5 +1,6 @@
 import '../../../core/utils/phone_number.dart';
 import '../models/person_item.dart';
+import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
 
@@ -325,8 +326,21 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     }
   }
 
+  if (!onlyParent && form.paymentMethodValue == null)
+  {
+    collector.add('modalitaPagamento', 'Obbligatorio', PersonEditCardId.payment);
+  }
+
+  // Primary school pays one flat fee, so only middle and high school choose.
+  if (form.isCreation &&
+      isStudent &&
+      kHomeworkTariffs.containsKey(form.currentSchoolLevel) &&
+      form.homeworkTariffValue == null)
+  {
+    collector.add('tariffaAiutoCompiti', 'Obbligatoria', PersonEditCardId.payment);
+  }
+
   if (!onlyParent &&
-      (isStudent || isCourseParticipant) &&
       form.paymentMethodValue == 'Altro' &&
       form.otherPaymentMethodCtrl.text.isEmpty)
   {
@@ -463,6 +477,11 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     }
   }
 
+  if (!onlyParent && !form.specialCategoryDataConsentValue)
+  {
+    collector.add('datiParticolariConsenso', 'Obbligatorio', PersonEditCardId.consents);
+  }
+
   if (form.isCreation && !onlyParent)
   {
     if (!form.statuteAcknowledged)
@@ -570,7 +589,8 @@ String _messageFor(PersonEditCardId card, bool futureSchoolYear)
     PersonEditCardId.residence ||
     PersonEditCardId.contacts =>
       'Ci sono errori nei dati inseriti. Correggi i campi.',
-    PersonEditCardId.consents => 'Statuto, regolamento e videosorveglianza sono obbligatori.',
+    PersonEditCardId.payment => 'Completa i dati sul pagamento.',
+    PersonEditCardId.consents => 'Tutti i consensi sono obbligatori, tranne i notiziari periodici.',
     PersonEditCardId.parents => 'Seleziona almeno un genitore o tutore legale.',
     PersonEditCardId.subjects => 'Seleziona almeno una disciplina.',
     _ => 'Ci sono errori nelle informazioni associative. Correggi i campi.',

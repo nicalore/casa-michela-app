@@ -19,10 +19,15 @@ _MANDATORY_PSYCH_MEETINGS_ERROR: Final[str] = (
     "lo psicologo."
 )
 
+_MISSING_PAYMENT_METHOD_ERROR: Final[str] = (
+    "È necessario indicare la modalità di pagamento."
+)
+
 _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
     ("statute_acknowledged", "presa visione dello Statuto"),
     ("regulation_acknowledged", "accettazione del Regolamento"),
     ("video_surveillance_acknowledged", "consapevolezza della videosorveglianza"),
+    ("special_category_data_consent", "consenso al trattamento dei dati particolari"),
 )
 
 
@@ -92,6 +97,14 @@ class WizardMemberData(WizardMemberDataBase):
             raise ValueError(
                 _MISSING_CONSENTS_ERROR.format(consents=", ".join(missing))
             )
+
+        return self
+
+    # Whoever joins owes at least the membership fee and the insurance.
+    @model_validator(mode="after")
+    def _check_payment_method(self) -> Self:
+        if self.payment_method is None:
+            raise ValueError(_MISSING_PAYMENT_METHOD_ERROR)
 
         return self
 

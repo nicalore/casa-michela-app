@@ -23,7 +23,11 @@ from app.models.staff import CollaborationTypeEnum
 from app.models.student import CertificationTypeEnum
 from app.repositories.course_repository import CourseRepository
 from app.repositories.school_repository import SchoolRepository
-from app.schemas.enrollment_form import EnrollmentFormParent, EnrollmentFormRequest
+from app.schemas.enrollment_form import (
+    EnrollmentFormParent,
+    EnrollmentFormRequest,
+    HomeworkTariffEnum,
+)
 from app.schemas.person_wizard import PersonWizardPayloadBase
 
 # Fixed signing place: the association's seat.
@@ -61,6 +65,15 @@ _PAYMENT_FIELDS: Final[dict[str, str]] = {
     PaymentMethodEnum.CASH: "pagamento_contanti",
     PaymentMethodEnum.BANK_TRANSFER: "pagamento_bonifico",
     PaymentMethodEnum.OTHER: "pagamento_altro",
+}
+
+# One box per cell of the rate table in section 4.
+_HOMEWORK_TARIFF_FIELDS: Final[dict[str, str]] = {
+    HomeworkTariffEnum.PRIMARY_MONTHLY: "tariffa_elementare_retta_mensile",
+    HomeworkTariffEnum.MIDDLE_HOURLY: "tariffa_media_oraria",
+    HomeworkTariffEnum.MIDDLE_PACKAGE: "tariffa_media_pacchetto",
+    HomeworkTariffEnum.HIGH_HOURLY: "tariffa_superiore_oraria",
+    HomeworkTariffEnum.HIGH_PACKAGE: "tariffa_superiore_pacchetto",
 }
 
 
@@ -275,6 +288,7 @@ def enrollment_form_values(
     _diagnosis(values, person, checked=checked)
     _services(values, person, course_cost=course_cost, checked=checked)
     _member(values, person, checked=checked)
+    _homework_tariff(values, request.homework_tariff, checked=checked)
 
     _text(values, "luogo_data", f"{_PLACE}, {today:%d/%m/%Y}")
 
@@ -469,6 +483,18 @@ def _services(
     _tick(values, "corso_altri", True, checked=checked)
     _text(values, "corso_altri_nome", course.course_type)
     _text(values, "corso_altri_costo", _bare_amount(course_cost))
+
+
+def _homework_tariff(
+    values: dict[str, str],
+    tariff: HomeworkTariffEnum | None,
+    *,
+    checked: str,
+) -> None:
+    field = _HOMEWORK_TARIFF_FIELDS.get(tariff)
+
+    if field is not None:
+        _tick(values, field, True, checked=checked)
 
 
 def _member(

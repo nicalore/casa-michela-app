@@ -3,14 +3,15 @@
     "template": "modulo_iscrizione_26-27_v2_acroform.pdf",
     "origine": "Modulo_di_iscrizione_26-27.pdf revisione del 07/09/2026 (LibreOffice 24.2)",
     "anno_sociale": "2026/2027",
-    "campi_totali": 80,
+    "campi_totali": 85,
     "checkbox_valore_spunta": "/Yes",
     "checkbox_valore_vuoto": "/Off",
     "note": [
       "Compilare con pypdf: PdfWriter(clone_from=...) + update_page_form_field_values su ogni pagina.",
       "Appiattire con pikepdf: pdf.flatten_annotations() prima di save(), per eliminare l'evidenziazione azzurra dei viewer.",
       "Nuovi campi rispetto alla versione precedente: corso_altri, corso_altri_nome, corso_altri_costo.",
-      "Firma e riquadro 'Riservato alla Segreteria' restano senza campi: compilazione a mano."
+      "Firma e riquadro 'Riservato alla Segreteria' restano senza campi: compilazione a mano.",
+      "Le 5 checkbox tariffa_* sono aggiunte da noi nella tabella tariffe: senza riquadro disegnato, il widget rende solo il segno di spunta (invisibile se non selezionato)."
     ]
   },
   "campi": {
@@ -283,6 +284,31 @@
       "tipo": "testo",
       "pagina": 1,
       "descrizione": "Telefono / Cellulare"
+    },
+    "tariffa_elementare_retta_mensile": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tariffa Scuola Elementare - retta fissa mensile (Sez. 4)"
+    },
+    "tariffa_media_oraria": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tariffa Scuola Media - oraria (13,00/ora)"
+    },
+    "tariffa_media_pacchetto": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tariffa Scuola Media - pacchetto 18 ore (215,00)"
+    },
+    "tariffa_superiore_oraria": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tariffa Scuola Superiore - oraria (14,00/ora)"
+    },
+    "tariffa_superiore_pacchetto": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Tariffa Scuola Superiore - pacchetto 20 ore (260,00)"
     },
     "allergie_patologie": {
       "tipo": "testo",

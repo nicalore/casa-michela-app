@@ -20,6 +20,7 @@ enum PersonEditStepId
   association,
   personalInfo,
   associativeInfo,
+  payment,
   parents,
   minors,
   subjects,
@@ -86,11 +87,6 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
   if (!onlyParent)
   {
     cards.add(const PersonEditCard(PersonEditCardId.memberships, label: 'Iscrizioni'));
-  }
-
-  if (!onlyParent && (roles.contains('STUDENTE') || roles.contains('CORSISTA')))
-  {
-    cards.add(const PersonEditCard(PersonEditCardId.payment, label: 'Pagamento'));
   }
 
   if (roles.contains('AMMINISTRATORE'))
@@ -221,6 +217,20 @@ List<PersonEditStep> buildEditSteps(
       question: 'Che cosa serve sapere per i suoi ruoli?',
       hint: 'Compila i dati richiesti dai ruoli selezionati.',
       cards: associative,
+    ));
+  }
+
+  // A step of its own, and after the associative one: whoever joins pays at
+  // least the membership fee and the insurance, and for a pupil the Aiuto
+  // Compiti rate follows the school year filled in just before.
+  if (!form.isOnlyParentNotMember)
+  {
+    steps.add(const PersonEditStep(
+      id: PersonEditStepId.payment,
+      question: 'Come avvengono i pagamenti?',
+      hint: 'Seleziona la modalità di pagamento preferita e, per gli studenti, '
+            'la tariffa scelta per il servizio di aiuto compiti.',
+      cards: [PersonEditCard(PersonEditCardId.payment)],
     ));
   }
 

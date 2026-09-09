@@ -15,7 +15,12 @@ import '../../../shared/widgets/snackbar.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_widgets.dart';
 
-const List<String> _reportableFields = [
+// Keeps 'INVIA SEGNALAZIONE' on one line.
+const double _footerWidth = 576;
+
+// What the edit wizard can report: everything else on that screen is a field
+// the administrator simply changes.
+const List<String> kAnagraphicReportableFields = [
   'Nome',
   'Cognome',
   'Sesso',
@@ -26,12 +31,21 @@ const List<String> _reportableFields = [
   'Nazione di nascita',
 ];
 
-Future<void> showAnagraphicErrorReportDialog(BuildContext context, PersonItem person)
+Future<void> showAnagraphicErrorReportDialog(
+  BuildContext context,
+  PersonItem person, {
+  List<String> fields = kAnagraphicReportableFields,
+  String eyebrow = 'Anagrafica',
+})
 {
   return showBlurredDialog<void>(
     context: context,
     barrierLabel: 'AnagraphicErrorReport',
-    builder: (dialogContext) => AnagraphicErrorReportDialog(person: person),
+    builder: (dialogContext) => AnagraphicErrorReportDialog(
+      person: person,
+      fields: fields,
+      eyebrow: eyebrow,
+    ),
   );
 }
 
@@ -39,7 +53,15 @@ class AnagraphicErrorReportDialog extends StatefulWidget
 {
   final PersonItem person;
 
-  const AnagraphicErrorReportDialog({super.key, required this.person});
+  final List<String> fields;
+  final String eyebrow;
+
+  const AnagraphicErrorReportDialog({
+    super.key,
+    required this.person,
+    this.fields = kAnagraphicReportableFields,
+    this.eyebrow = 'Anagrafica',
+  });
 
   @override
   State<AnagraphicErrorReportDialog> createState() => _AnagraphicErrorReportDialogState();
@@ -148,10 +170,10 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
   Widget build(BuildContext context)
   {
     final List<String> chosen =
-        _reportableFields.where(_selectedFields.contains).toList();
+        widget.fields.where(_selectedFields.contains).toList();
 
     return AppDialogStack(
-      eyebrow: 'Anagrafica',
+      eyebrow: widget.eyebrow,
       title: 'Segnala errore',
       maxWidth: 620,
       footer: AppDialogFooter.single(
@@ -163,6 +185,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
           fontSize: kPersonDialogButtonFontSize,
           onPressed: _send,
         ),
+        maxWidth: _footerWidth,
       ),
       children: [
         AppDialogPill(
@@ -185,7 +208,7 @@ class _AnagraphicErrorReportDialogState extends State<AnagraphicErrorReportDialo
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  for (final field in _reportableFields)
+                  for (final field in widget.fields)
                     AppSelectableChip(
                       label: field,
                       selected: _selectedFields.contains(field),

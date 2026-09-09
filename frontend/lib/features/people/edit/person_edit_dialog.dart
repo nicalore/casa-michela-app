@@ -79,6 +79,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   // Keeps 'GENERA DOCUMENTI DI ISCRIZIONE' on one line beside the create button.
   static const double _enrollmentFooterWidth = 820;
 
+  // Keeps 'AGGIUNGI GENITORE', the longest submit label, on one line.
+  static const double _submitFooterWidth = 576;
+
   late final PersonEditForm _form;
 
   final Map<String, String> _errors = {};
@@ -401,6 +404,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         'person': _newPersonItem(),
         'payload': _form.buildCreatePayload(),
         'imageBytes': _form.fotoProfilo,
+        'homeworkTariff': _form.homeworkTariffCode,
       });
 
       return;
@@ -588,7 +592,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   {
     if (widget.purpose != PersonEditPurpose.create || !needsEnrollmentForms(_form))
     {
-      return AppDialogFooter.single(_submitButton());
+      return AppDialogFooter.single(_submitButton(), maxWidth: _submitFooterWidth);
     }
 
     if (!_formGenerated)

@@ -14,6 +14,7 @@ import '../models/person_item.dart';
 import '../models/school_enrollment_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../widgets/person_row_models.dart';
+import 'homework_tariffs.dart';
 
 class PersonRoleOption
 {
@@ -169,6 +170,32 @@ class PersonEditForm
 
   bool get isCreation => person == null;
 
+  // Once on file the consent is settled for good, so the wizard stops asking.
+  bool get asksSpecialCategoryDataConsent =>
+      !(person?.specialCategoryDataConsent ?? false);
+
+  // Only a student has a rate to print, and it follows the level above.
+  String? get homeworkTariffCode => activeRoles.contains('STUDENTE')
+      ? homeworkTariffCodeOf(level: currentSchoolLevel, choice: homeworkTariffValue)
+      : null;
+
+  // The level of the study programme chosen for the school year under way,
+  // which is what the Aiuto Compiti rate hangs on.
+  String? get currentSchoolLevel
+  {
+    final int year = currentSchoolYearStart();
+
+    for (final row in schoolRows)
+    {
+      if (int.tryParse(row.yearCtrl.text.trim()) == year)
+      {
+        return row.program?.level;
+      }
+    }
+
+    return null;
+  }
+
   // 0 = involved in the activities, 1 = member only, -1 = unanswered.
   int involvementType = -1;
 
@@ -223,6 +250,9 @@ class PersonEditForm
   bool uscitaAnticipata = false;
 
   String? paymentMethodValue;
+
+  // Shown to whoever fills the form in, and deliberately not sent anywhere.
+  String? homeworkTariffValue;
   final TextEditingController otherPaymentMethodCtrl = TextEditingController();
 
   // Certification labels; empty means none held.
