@@ -1,14 +1,16 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Final, Self
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from app.core import field_lengths
-from app.models.student import CertificationTypeEnum
+from app.core.time_band import EVENING_START
+from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
+from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
-from app.schemas.validators import OptionalCleanStr
+from app.schemas.validators import CleanStr, OptionalCleanStr
 
 _UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
     "Un docente che frequenta le superiori non può dichiarare studi universitari."
@@ -26,12 +28,46 @@ _RATING_STEP_ERROR: Final[str] = (
     "La valutazione di un docente si muove di mezzo punto alla volta."
 )
 
+_REPEATED_WEEKDAY_ERROR: Final[str] = (
+    "Ogni giorno può essere indicato una sola volta."
+)
+
+_WEEKDAY_ON_TWO_LINES_ERROR: Final[str] = (
+    "Uno stesso giorno non può comparire in due righe di uscita anticipata."
+)
+
+_LATE_EXIT_ERROR: Final[str] = (
+    "L'orario di uscita deve precedere la fine delle attività "
+    f"(ore {EVENING_START:%H:%M})."
+)
+
+_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR: Final[str] = (
+    "Per un'autorizzazione a termine servono sia la data di inizio "
+    "sia quella di fine; senza date vale per tutto il periodo di iscrizione."
+)
+
+_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR: Final[str] = (
+    "La fine dell'autorizzazione all'uscita anticipata non può precederne l'inizio."
+)
+
+_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR: Final[str] = (
+    "Senza autorizzazione all'uscita anticipata non si può indicare un periodo."
+)
+
+_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR: Final[str] = (
+    "Senza autorizzazione all'uscita anticipata non si possono indicare "
+    "giorni e orari."
+)
+
 
 def _half_point(value: Decimal) -> Decimal:
     if value % RATING_STEP != 0:
         raise ValueError(_RATING_STEP_ERROR)
 
     return value
+
+
+Weekday = Annotated[int, Field(ge=min(WEEKDAYS), le=max(WEEKDAYS))]
 
 
 # Decimal, not float: a float like 3.4999 would pass here and fail in the DB.
@@ -73,6 +109,14 @@ class SchoolEnrollmentResponse(BaseModel):
     study_program_name: str
     study_program_id: int
     education_level: str
+
+
+class EarlyExitScheduleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    weekdays: list[int]
+    exit_time: time
+    reason: str
 
 
 class _RelatedPersonResponse(BaseModel):
@@ -132,6 +176,9 @@ class StaffUpdateData(BaseModel):
     collaboration_type: str
     iban: str | None = Field(None, max_length=field_lengths.IBAN)
 
+    # Null when nobody said, which is not the same as nothing being paid.
+    gross_compensation: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)
+
 
 class AdminUpdateData(BaseModel):
     role: str
@@ -188,6 +235,11 @@ class SchoolEnrollmentUpdateItem(BaseModel):
     grade: int
 
 
+class StudentHomeworkTariffData(BaseModel):
+    # Null for anyone never asked, and for primary school, which has no choice.
+    homework_tariff: HomeworkTariffEnum | None = None
+
+
 class StudentCertificationData(BaseModel):
     # Empty list means no certification.
     certification_types: list[str] = Field(default_factory=list)
@@ -218,8 +270,88 @@ class StudentCertificationData(BaseModel):
         return self
 
 
-class StudentUpdateData(StudentCertificationData):
+class EarlyExitScheduleItem(BaseModel):
+    # 1=Monday .. 7=Sunday, per ISO 8601.
+    weekdays: list[Weekday] = Field(..., min_length=1)
+    exit_time: time
+    reason: CleanStr = Field(
+        ...,
+        min_length=1,
+        max_length=field_lengths.EARLY_EXIT_REASON,
+    )
+
+    @model_validator(mode="after")
+    def _no_day_is_asked_for_twice(self) -> Self:
+        if len(set(self.weekdays)) != len(self.weekdays):
+            raise ValueError(_REPEATED_WEEKDAY_ERROR)
+
+        return self
+
+    @model_validator(mode="after")
+    def _the_exit_comes_before_closing(self) -> Self:
+        if self.exit_time >= EVENING_START:
+            raise ValueError(_LATE_EXIT_ERROR)
+
+        return self
+
+
+class StudentEarlyExitData(BaseModel):
     authorized_early_exit: bool
+
+    # Both absent: the authorisation lasts as long as the membership.
+    early_exit_start_date: date | None = None
+    early_exit_end_date: date | None = None
+
+    early_exit_schedules: list[EarlyExitScheduleItem] = Field(
+        default_factory=list,
+        max_length=MAXIMUM_SCHEDULES,
+    )
+
+    @model_validator(mode="after")
+    def _a_limited_period_has_both_ends(self) -> Self:
+        if (self.early_exit_start_date is None) != (self.early_exit_end_date is None):
+            raise ValueError(_INCOMPLETE_EARLY_EXIT_PERIOD_ERROR)
+
+        if (
+            self.early_exit_start_date is not None
+            and self.early_exit_end_date is not None
+            and self.early_exit_end_date < self.early_exit_start_date
+        ):
+            raise ValueError(_EARLY_EXIT_PERIOD_ENDS_FIRST_ERROR)
+
+        return self
+
+    @model_validator(mode="after")
+    def _nothing_is_declared_without_the_authorization(self) -> Self:
+        if self.authorized_early_exit:
+            return self
+
+        if self.early_exit_start_date is not None:
+            raise ValueError(_UNAUTHORIZED_EARLY_EXIT_PERIOD_ERROR)
+
+        if self.early_exit_schedules:
+            raise ValueError(_UNAUTHORIZED_EARLY_EXIT_SCHEDULES_ERROR)
+
+        return self
+
+    @model_validator(mode="after")
+    def _each_day_is_on_a_single_line(self) -> Self:
+        seen: set[int] = set()
+
+        for schedule in self.early_exit_schedules:
+            if seen & set(schedule.weekdays):
+                raise ValueError(_WEEKDAY_ON_TWO_LINES_ERROR)
+
+            seen |= set(schedule.weekdays)
+
+        return self
+
+
+class StudentUpdateData(
+    StudentCertificationData,
+    StudentEarlyExitData,
+    StudentHomeworkTariffData,
+):
     mandatory_psych_meetings_acknowledged: bool
 
     school_enrollments: list[SchoolEnrollmentUpdateItem]
@@ -364,6 +496,9 @@ class PersonResponse(BaseModel):
     school_class: str | None = None
     study_program: str | None = None
     early_exit: bool | None = None
+    early_exit_start_date: date | None = None
+    early_exit_end_date: date | None = None
+    early_exit_schedules: list[EarlyExitScheduleResponse] | None = None
     collaboration_type: str | None = None
     taught_subjects: list[str] = []
     course_type: str | None = None
@@ -373,6 +508,8 @@ class PersonResponse(BaseModel):
     certification_other_detail: str | None = None
     certification_dsa_detail: str | None = None
     mandatory_psych_meetings_acknowledged: bool | None = None
+    homework_tariff: HomeworkTariffEnum | None = None
+    gross_compensation: Decimal | None = None
 
     payment_method: str | None = None
     payment_method_other: str | None = None

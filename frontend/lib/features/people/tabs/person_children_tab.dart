@@ -119,7 +119,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     return SizedBox(
       width: double.infinity,
       child: PersonDetailCard(
-        title: 'Autorizzazione al ritiro',
+        title: 'Ritiro dei figli',
         icon: Icons.how_to_reg_outlined,
         rows: [
           DetailRowData('Autorizzato', child.authorizedPickup ? 'Sì' : 'No'),

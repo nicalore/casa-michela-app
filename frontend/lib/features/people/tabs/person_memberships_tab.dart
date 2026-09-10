@@ -34,19 +34,10 @@ const Map<String, String> _revocationLabels = {
   MembershipItem.revocationResignation: 'Dimissioni',
 };
 
-// The dialog has no field for the renewal period, so new rows get the standard.
-const int _defaultRenewalPeriodDays = 30;
-
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 
-// A membership counts as running until the renewal window has passed, not on
-// the end date itself.
-bool _isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays)
-{
-  return DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
-}
-
+// A membership counts as running until the renewal window has passed, not on the end date itself.
 class PersonMembershipsTab extends StatelessWidget
 {
   final PersonItem person;
@@ -251,9 +242,7 @@ class PersonMembershipsTab extends StatelessWidget
     final latest = memberships.isNotEmpty ? memberships.first : null;
 
     final isRevoked = latest != null && latest.isRevoked;
-    final isEnrolled = latest != null &&
-        !latest.isRevoked &&
-        _isWithinRenewalWindow(latest.endDate, latest.renewalPeriodDays);
+    final isEnrolled = person.isEnrolled;
 
     // Only the most recent membership can be the running one.
     final currentMembership = isEnrolled ? latest : null;
@@ -584,7 +573,8 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
         yearController: TextEditingController(text: year.toString()),
         dayMonthController: TextEditingController(),
         revocation: MembershipItem.revocationNone,
-        renewalPeriodDays: _defaultRenewalPeriodDays,
+        // The dialog has no field for it, so new rows get the standard.
+        renewalPeriodDays: MembershipItem.defaultRenewalPeriodDays,
       ));
     });
   }
@@ -612,8 +602,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       return false;
     }
 
-    // DateTime rolls over invalid values (31/02 becomes 02/03), so compare the
-    // components back.
+    // DateTime rolls over invalid values (31/02 becomes 02/03), so compare the components back.
     final date = DateTime(parsedYear, month, day);
 
     return date.year == parsedYear && date.month == month && date.day == day;
@@ -698,7 +687,10 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
       final endDate = DateTime.tryParse(membership['end_date'] as String);
 
       if (endDate != null &&
-          _isWithinRenewalWindow(endDate, membership['renewal_period_days'] as int))
+          MembershipItem.isWithinRenewalWindow(
+            endDate,
+            membership['renewal_period_days'] as int,
+          ))
       {
         return true;
       }

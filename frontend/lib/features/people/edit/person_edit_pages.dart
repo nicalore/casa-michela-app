@@ -42,7 +42,8 @@ enum PersonEditCardId
   admin,
   teacher,
   courseParticipant,
-  student,
+  earlyExit,
+  certifications,
   schoolEnrollments,
   staff,
   minorSafety,
@@ -106,10 +107,17 @@ List<PersonEditCard> associativeCardsFor(PersonEditForm form)
 
   if (roles.contains('STUDENTE'))
   {
-    cards.add(const PersonEditCard(PersonEditCardId.student, label: 'Studente'));
+    // Leaving early is a minor's question only, so the tab goes with it.
+    if (form.isMinor)
+    {
+      cards.add(const PersonEditCard(PersonEditCardId.earlyExit, label: 'Uscita anticipata'));
+    }
+
+    cards.add(const PersonEditCard(PersonEditCardId.certifications, label: 'Certificazioni'));
     cards.add(const PersonEditCard(PersonEditCardId.schoolEnrollments, label: 'Anni scolastici'));
   }
 
+  // After the administrative role: president, vice president and treasurer cannot be paid, which overrides this.
   final bool isStaff = roles.contains('AMMINISTRATORE') ||
       roles.contains('DOCENTE') ||
       roles.contains('PSICOLOGO');
@@ -165,8 +173,8 @@ List<PersonEditStep> buildEditSteps(
   PersonEditPurpose purpose = PersonEditPurpose.edit,
 })
 {
-  // Expelled or resigned: only the personal details remain editable.
-  if (form.person?.isMembershipRevoked ?? false)
+  // No longer a member: only the personal details remain editable.
+  if (form.isPersonalDataOnly)
   {
     return [_personalInfoStep(form, revoked: true)];
   }
@@ -220,10 +228,8 @@ List<PersonEditStep> buildEditSteps(
     ));
   }
 
-  // A step of its own, and after the associative one: whoever joins pays at
-  // least the membership fee and the insurance, and for a pupil the Aiuto
-  // Compiti rate follows the school year filled in just before.
-  if (!form.isOnlyParentNotMember)
+  // Must follow the associative step: a pupil's rate depends on the school year filled in just before.
+  if (form.asksPayment)
   {
     steps.add(const PersonEditStep(
       id: PersonEditStepId.payment,

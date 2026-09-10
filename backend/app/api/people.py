@@ -26,6 +26,7 @@ from app.core.optimistic_concurrency import assert_not_stale
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course_participant import CourseParticipant
+from app.models.early_exit_schedule import EarlyExitSchedule
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.parent import Parent
@@ -46,6 +47,7 @@ from app.schemas.person import (
     AdminUpdateData,
     ChildInfoResponse,
     CourseParticipantUpdateData,
+    EarlyExitScheduleResponse,
     GeneralDataUpdate,
     MembershipResponse,
     ParentInfoResponse,
@@ -67,6 +69,11 @@ from app.schemas.person import (
     TeacherUpdateData,
 )
 from app.schemas.person_wizard import PersonWizardPayload
+from app.services.early_exit_form import (
+    build_early_exit_form,
+    early_exit_form_file_name,
+    needs_early_exit_form,
+)
 from app.services.enrollment_form import (
     build_enrollment_form,
     enrollment_form_file_name,
@@ -137,6 +144,14 @@ _TEACHER_DATA_LABEL: Final[str] = "I dati del docente"
 
 _ENROLLMENT_FORM_ERROR: Final[str] = (
     "Non è stato possibile generare il modulo di iscrizione: {error}"
+)
+
+_EARLY_EXIT_FORM_ERROR: Final[str] = (
+    "Non è stato possibile generare il modulo di uscita anticipata: {error}"
+)
+
+_NO_EARLY_EXIT_ERROR: Final[str] = (
+    "La persona non ha un'uscita anticipata autorizzata."
 )
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
@@ -416,6 +431,7 @@ def _map_person_to_response(
     taught_subjects: list[str] = []
     teacher_subjects: list[TeacherSubjectResponse] = []
     teacher_services: list[str] = []
+    early_exit_schedules: list[EarlyExitScheduleResponse] = []
 
     is_active_collaborator = None
     enrollment_year = None
@@ -427,8 +443,11 @@ def _map_person_to_response(
     school_class = None
     study_program = None
     early_exit = None
+    early_exit_start_date = None
+    early_exit_end_date = None
 
     iban = None
+    gross_compensation = None
     admin_role = None
     admin_other_role = None
     is_high_school_student = None
@@ -441,6 +460,7 @@ def _map_person_to_response(
     certification_other_detail = None
     certification_dsa_detail = None
     mandatory_psych_meetings_acknowledged = None
+    homework_tariff = None
 
     payment_method = None
     payment_method_other = None
@@ -533,6 +553,12 @@ def _map_person_to_response(
             roles.append(_ROLE_STUDENT)
             student = member.student_profile
             early_exit = student.authorized_early_exit
+            early_exit_start_date = student.early_exit_start_date
+            early_exit_end_date = student.early_exit_end_date
+            early_exit_schedules = [
+                EarlyExitScheduleResponse.model_validate(schedule)
+                for schedule in student.early_exit_schedules
+            ]
             student_updated_at = student.updated_at
 
             certification_types = list(student.certification_types)
@@ -541,6 +567,7 @@ def _map_person_to_response(
             mandatory_psych_meetings_acknowledged = (
                 student.mandatory_psych_meetings_acknowledged
             )
+            homework_tariff = student.homework_tariff
 
             for enrollment in student.school_enrollments:
                 school_study_program = enrollment.school_study_program
@@ -590,6 +617,7 @@ def _map_person_to_response(
             staff = member.staff_profile
             collaboration_type = translate_collaboration_type(staff.collaboration_type)
             iban = staff.iban
+            gross_compensation = staff.gross_compensation
 
             if staff.administrator_profile is not None:
                 roles.append(_ROLE_ADMIN)
@@ -649,6 +677,9 @@ def _map_person_to_response(
         school_class=school_class,
         study_program=study_program,
         early_exit=early_exit,
+        early_exit_start_date=early_exit_start_date,
+        early_exit_end_date=early_exit_end_date,
+        early_exit_schedules=early_exit_schedules or None,
         taught_subjects=taught_subjects,
         memberships=memberships or None,
         school_enrollments=school_enrollments or None,
@@ -660,6 +691,7 @@ def _map_person_to_response(
         student_updated_at=student_updated_at,
         teacher_updated_at=teacher_updated_at,
         iban=iban,
+        gross_compensation=gross_compensation,
         admin_role=admin_role,
         admin_other_role=admin_other_role,
         is_high_school_student=is_high_school_student,
@@ -671,6 +703,7 @@ def _map_person_to_response(
         certification_other_detail=certification_other_detail,
         certification_dsa_detail=certification_dsa_detail,
         mandatory_psych_meetings_acknowledged=mandatory_psych_meetings_acknowledged,
+        homework_tariff=homework_tariff,
         payment_method=payment_method,
         payment_method_other=payment_method_other,
         statute_acknowledged=statute_acknowledged,
@@ -705,6 +738,13 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         .joinedload(SchoolEnrollment.school_study_program)
     )
 
+    # selectinload, not joinedload: a second collection on the row would multiply the join.
+    early_exit_schedules = (
+        joinedload(Person.member_profile)
+        .joinedload(Member.student_profile)
+        .selectinload(Student.early_exit_schedules)
+    )
+
     staff = joinedload(Person.member_profile).joinedload(Member.staff_profile)
 
     teacher_profile = staff.joinedload(Staff.teacher_profile)
@@ -721,6 +761,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         joinedload(Person.member_profile).joinedload(Member.course_participant_profile),
         own_enrollments.joinedload(SchoolStudyProgram.school),
         own_enrollments.joinedload(SchoolStudyProgram.study_program),
+        early_exit_schedules,
         staff.joinedload(Staff.administrator_profile),
         teaching_competences.joinedload(TeachingCompetence.association_subject),
         teaching_competences.joinedload(TeachingCompetence.study_program),
@@ -946,12 +987,15 @@ async def _sync_student_profile(
             .where(Student.tax_code == person.tax_code)
             .values(
                 authorized_early_exit=student_data.authorized_early_exit,
+                early_exit_start_date=student_data.early_exit_start_date,
+                early_exit_end_date=student_data.early_exit_end_date,
                 certification_types=certification_types,
                 certification_other_detail=certification_other_detail,
                 certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
                     student_data.mandatory_psych_meetings_acknowledged
                 ),
+                homework_tariff=student_data.homework_tariff,
                 updated_at=datetime.now(UTC),
             )
         )
@@ -960,16 +1004,24 @@ async def _sync_student_profile(
             Student(
                 tax_code=person.tax_code,
                 authorized_early_exit=student_data.authorized_early_exit,
+                early_exit_start_date=student_data.early_exit_start_date,
+                early_exit_end_date=student_data.early_exit_end_date,
                 certification_types=certification_types,
                 certification_other_detail=certification_other_detail,
                 certification_dsa_detail=certification_dsa_detail,
                 mandatory_psych_meetings_acknowledged=(
                     student_data.mandatory_psych_meetings_acknowledged
                 ),
+                homework_tariff=student_data.homework_tariff,
             )
         )
         await db.flush()
 
+    await db.execute(
+        delete(EarlyExitSchedule).where(
+            EarlyExitSchedule.student_tax_code == person.tax_code
+        )
+    )
     await db.execute(
         delete(SchoolEnrollment).where(
             SchoolEnrollment.student_tax_code == person.tax_code
@@ -988,8 +1040,24 @@ async def _sync_student_profile(
             )
         )
 
+    for ordinal, schedule_data in enumerate(student_data.early_exit_schedules, start=1):
+        db.add(
+            EarlyExitSchedule(
+                student_tax_code=person.tax_code,
+                ordinal=ordinal,
+                weekdays=sorted(schedule_data.weekdays),
+                exit_time=schedule_data.exit_time,
+                reason=schedule_data.reason,
+            )
+        )
+
 
 async def _delete_student_profile(db: AsyncSession, person: Person) -> None:
+    await db.execute(
+        delete(EarlyExitSchedule).where(
+            EarlyExitSchedule.student_tax_code == person.tax_code
+        )
+    )
     await db.execute(
         delete(SchoolEnrollment).where(
             SchoolEnrollment.student_tax_code == person.tax_code
@@ -1215,6 +1283,7 @@ async def _sync_staff_profiles(
 ) -> None:
     collaboration_type = CollaborationTypeEnum(staff_data.collaboration_type)
     iban = staff_data.iban or None
+    gross_compensation = staff_data.gross_compensation
 
     existing_staff = await db.scalar(
         select(Staff).where(Staff.tax_code == person.tax_code)
@@ -1226,6 +1295,7 @@ async def _sync_staff_profiles(
                 tax_code=person.tax_code,
                 collaboration_type=collaboration_type,
                 iban=iban,
+                gross_compensation=gross_compensation,
             )
         )
         await db.flush()
@@ -1233,7 +1303,11 @@ async def _sync_staff_profiles(
         await db.execute(
             update(Staff)
             .where(Staff.tax_code == person.tax_code)
-            .values(collaboration_type=collaboration_type, iban=iban)
+            .values(
+                collaboration_type=collaboration_type,
+                iban=iban,
+                gross_compensation=gross_compensation,
+            )
         )
 
     if _ROLE_CODE_ADMIN in roles and payload.admin_data:
@@ -1588,8 +1662,7 @@ def _assert_unique_years(years: list[int], error_detail: str) -> None:
         )
 
 
-# Parents and students fill the school history in during their first access and
-# never again; administrators keep it open.
+# Parents and students may write it only during first access; administrators always.
 def _assert_may_write_school_history(identity: CurrentIdentity, tax_code: str) -> None:
     if identity.is_admin:
         return
@@ -1923,6 +1996,45 @@ async def wizard_enrollment_form(
     )
 
 
+@router.post(
+    "/wizard/early-exit-form",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+)
+async def wizard_early_exit_form(
+    payload: EnrollmentFormRequest,
+    # Unused in the body but required: the response carries a full personal record.
+    identity: CurrentIdentity,
+) -> Response:
+    return await _early_exit_form_response(payload)
+
+
+# Refused rather than returned blank: an unauthorised exit has no form.
+async def _early_exit_form_response(payload: EnrollmentFormRequest) -> Response:
+    if not needs_early_exit_form(payload.person):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_EARLY_EXIT_ERROR,
+        )
+
+    try:
+        pdf = await build_early_exit_form(payload)
+
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=_EARLY_EXIT_FORM_ERROR.format(error=err),
+        ) from err
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": _disposition(early_exit_form_file_name(payload))
+        },
+    )
+
+
 # Both filename forms: an ASCII-folded quoted fallback plus the UTF-8 encoded one.
 def _disposition(file_name: str) -> str:
     folded = unicodedata.normalize("NFKD", file_name).encode("ascii", "ignore").decode()
@@ -1971,6 +2083,33 @@ async def person_enrollment_form(
         media_type="application/pdf",
         headers={"Content-Disposition": _disposition(enrollment_form_file_name(payload))},
     )
+
+
+@router.get(
+    "/{tax_code}/early-exit-form",
+    status_code=status.HTTP_200_OK,
+    response_class=Response,
+)
+async def person_early_exit_form(
+    tax_code: str,
+    db: DbSession,
+    identity: CurrentIdentity,
+) -> Response:
+    stmt = (
+        select(Person)
+        .options(*_person_load_options())
+        .where(Person.tax_code == tax_code.upper())
+    )
+    result = await db.execute(stmt)
+    person = result.unique().scalar_one_or_none()
+
+    if person is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_PERSON_NOT_FOUND_ERROR,
+        )
+
+    return await _early_exit_form_response(request_for_person(person))
 
 
 @router.post("/{tax_code}/image", status_code=status.HTTP_200_OK)
@@ -2183,8 +2322,7 @@ async def update_teacher_competences(
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
 
 
-# The narrow slice a teacher may change about themselves during the first
-# access; everything else on the record goes through a correction request.
+# The narrow slice a teacher may change during first access; the rest needs a request.
 @router.put("/{tax_code}/teacher-education", status_code=status.HTTP_200_OK)
 async def update_teacher_education(
     tax_code: str,

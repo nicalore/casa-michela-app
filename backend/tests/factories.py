@@ -37,8 +37,7 @@ from tests.conftest import ADMIN_TAX_CODE
 _counter = count(1)
 
 
-# Skip any seed producing ADMIN_TAX_CODE (reached at seed 999): that code is
-# already seeded by conftest, and reusing it would fail an unrelated test.
+# Seed 999 yields ADMIN_TAX_CODE, which conftest already seeds; skip it.
 def _next_seed() -> int:
     seed = next(_counter)
 
@@ -309,6 +308,7 @@ async def make_presence(
     start_time: time = time(14),
     end_time: time = time(19),
     mode: str = "presence",
+    booker_tax_code: str | None = None,
 ) -> Presence:
     return await _persist(
         db,
@@ -318,7 +318,7 @@ async def make_presence(
             start_time=start_time,
             end_time=end_time,
             student_tax_code=student.tax_code,
-            booker_tax_code=student.tax_code,
+            booker_tax_code=booker_tax_code or student.tax_code,
         ),
     )
 
@@ -346,8 +346,7 @@ async def make_booking(
     )
 
 
-# Only a discipline inside a programme is judged on the (discipline, programme)
-# pair; one no programme covers is judged on the discipline alone.
+# A discipline inside a programme is judged on the (discipline, programme) pair, else alone.
 async def make_discipline_in_programme(
     db: AsyncSession,
     subject: AssociationSubject,

@@ -141,8 +141,7 @@ class ApiService
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
-  // The router's redirect is synchronous and needs the active role: keeping the
-  // identity in a notifier lets it both read it and rebuild when it changes.
+  // The router's redirect is synchronous and needs the active role, so the identity lives in a notifier.
   final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
 
   ApiService._internal()
@@ -218,8 +217,7 @@ class ApiService
   {
     final detail = error.response?.data is Map ? error.response?.data['detail'] : null;
 
-    // A destructive write is refused with a typed cost, so callers can confirm
-    // instead of showing an error.
+    // A destructive write is refused with a typed cost, so callers can confirm instead of erroring.
     if (detail is Map && detail['error'] == WriteWouldTakeAway.code)
     {
       throw WriteWouldTakeAway.fromJson(detail.cast<String, dynamic>());
@@ -228,8 +226,7 @@ class ApiService
     throw Exception(detail ?? fallback);
   }
 
-  // With responseType bytes the refusal body arrives as bytes too, which
-  // _refused cannot read.
+  // With responseType bytes the refusal body arrives as bytes too, which _refused cannot read.
   Never _refusedBytes(DioException error, String fallback)
   {
     final data = error.response?.data;
@@ -273,11 +270,8 @@ class ApiService
     await _announceAuthenticated();
   }
 
-  // The router picks the landing page from the active role, and it picks
-  // synchronously: the identity has to be in hand before the session is
-  // announced. A mid-session refresh already holds one. A failure here is
-  // treated like a failed refresh — back to the login page rather than into
-  // somebody else's interface.
+  // The identity must be in hand before the session is announced: the router reads the active role
+  // synchronously, and a failure here goes back to the login page rather than somebody else's area.
   Future<void> _announceAuthenticated() async
   {
     if (identity.value == null)
@@ -1409,6 +1403,42 @@ class ApiService
     }
   }
 
+  // Same payload as the enrolment form: the template reads the student block.
+  Future<Uint8List> generateEarlyExitForm(Map<String, dynamic> payload) async
+  {
+    try
+    {
+      final response = await _dio.post<List<int>>(
+        '/people/wizard/early-exit-form',
+        data: payload,
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+    }
+  }
+
+  Future<Uint8List> fetchEarlyExitForm(String fiscalCode) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/people/$fiscalCode/early-exit-form',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+    }
+  }
+
   Future<void> sendAnagraphicErrorReport(String fiscalCode, Map<String, String> corrections) async
   {
     try
@@ -1898,8 +1928,7 @@ class ApiService
     }
   }
 
-  // Separate from the presence statistics: the discipline is chosen after the
-  // page has loaded.
+  // Separate from the presence statistics: the discipline is chosen after the page has loaded.
   Future<List<MemberTrendItem>> getDisciplineRequestTrend(int associationSubjectId) async
   {
     try

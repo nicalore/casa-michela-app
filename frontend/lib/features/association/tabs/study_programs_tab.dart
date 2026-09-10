@@ -22,6 +22,9 @@ import '../widgets/study_program_card.dart';
 const int _middleSchoolMaxYear = 3;
 const int _defaultMaxYear = 5;
 
+// wider than the default card so long programme names avoid ellipsis
+const double _cardWidth = 480;
+
 int _maxYearForLevel(String? level)
 {
   return level == 'MIDDLE_SCHOOL' ? _middleSchoolMaxYear : _defaultMaxYear;
@@ -249,6 +252,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         ],
       ),
       body: EntityCardGrid(
+        cardWidth: _cardWidth,
         children: programs.map((program)
         {
           return StudyProgramCard(
@@ -433,8 +437,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
         if (level == 'HIGH_SCHOOL')
         {
-          // Cleared so stale digits cannot slip past the blocked-reason check
-          // into the payload.
+          // Cleared so stale digits cannot slip past the blocked-reason check into the payload.
           _minYearController.clear();
           _maxYearController.clear();
         }
@@ -540,8 +543,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return false;
     }
 
-    // firstStepBlockedReason already required the track, the only field high
-    // school sends.
+    // firstStepBlockedReason already required the track, the only field high school sends.
     if (_isHighSchool)
     {
       return true;
@@ -751,7 +753,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona le materie ministeriali associate',
+          'Seleziona le materie ministeriali associate.',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,

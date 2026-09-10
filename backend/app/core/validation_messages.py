@@ -36,6 +36,9 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "date_to": "Data finale",
     "description": "Descrizione",
     "duration": "Durata",
+    "early_exit_end_date": "Fine dell'uscita anticipata",
+    "early_exit_schedules": "Giorni di uscita anticipata",
+    "early_exit_start_date": "Inizio dell'uscita anticipata",
     "effective_from": "In vigore dal",
     "email": "Email",
     "emergency_contact_name": "Contatto di emergenza",
@@ -43,6 +46,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "end_date": "Data di fine",
     "end_time": "Orario di fine",
     "enrollments": "Iscrizioni scolastiche",
+    "exit_time": "Orario di uscita",
     "expected_updated_at": "Versione del dato",
     "first_name": "Nome",
     "gender": "Sesso",
@@ -89,6 +93,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "province": "Provincia",
     "psychological_support_data": "Dati del supporto psicologico",
     "rating": "Valutazione",
+    "reason": "Motivo",
     "refresh_token": "Sessione",
     "regulation_acknowledged": "Accettazione del Regolamento",
     "relationships": "Relazioni familiari",
@@ -132,6 +137,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "university_education": "Studi universitari",
     "video_surveillance_acknowledged": "Consapevolezza della videosorveglianza",
     "weekday": "Giorno della settimana",
+    "weekdays": "Giorni",
     "year": "Anno",
 }
 

@@ -43,8 +43,8 @@ class SchoolLevel
 
 const List<SchoolLevel> schoolLevels = <SchoolLevel>[
   SchoolLevel('PRIMARY_SCHOOL', 'Scuola Primaria', 'Primaria', 'Primaria'),
-  SchoolLevel('MIDDLE_SCHOOL', 'Scuola Secondaria di I Grado', 'Secondaria di I Grado', 'Sec. I Grado'),
-  SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Sec. II Grado'),
+  SchoolLevel('MIDDLE_SCHOOL', 'Scuola Secondaria di I Grado', 'Secondaria di I Grado', 'Secondaria I Grado'),
+  SchoolLevel('HIGH_SCHOOL', 'Scuola Secondaria di II Grado', 'Secondaria di II Grado', 'Secondaria II Grado'),
 ];
 
 String schoolLevelLabel(String value)
@@ -73,8 +73,7 @@ String schoolLevelShortLabel(String value)
   return value;
 }
 
-// Values must stay aligned with HighSchoolTrackEnum on the backend; the server
-// derives the years.
+// Values must stay aligned with HighSchoolTrackEnum on the backend; the server derives the years.
 class HighSchoolTrack
 {
   final String value;
@@ -107,8 +106,7 @@ HighSchoolTrack? highSchoolTrackOf(String? value)
   return null;
 }
 
-// The track is part of the key: without it a biennio and a triennio of the same
-// course collapse into one group.
+// The track is part of the key: without it biennio and triennio of a course collapse into one group.
 String programScopeTitle({required String level, String? sector, String? track})
 {
   final HighSchoolTrack? cycle = highSchoolTrackOf(track);

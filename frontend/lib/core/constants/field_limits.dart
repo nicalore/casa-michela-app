@@ -36,6 +36,7 @@ abstract final class FieldLimits
   static const int dsaDetail = 255;
 
   static const int pickupReason = 500;
+  static const int earlyExitReason = 255;
 
   static const int reportValue = 255;
 

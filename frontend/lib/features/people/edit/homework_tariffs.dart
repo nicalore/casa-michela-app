@@ -1,6 +1,4 @@
-// Section 4 of the enrolment form: the Aiuto Compiti rates in force from
-// 1 September 2026 to the end of the 2026/2027 school year. Nothing here is
-// stored: the wizard only shows what the family is signing up to.
+// Aiuto Compiti rates in force for the 2026/2027 school year; the choice itself lives on the student record.
 
 const String kHourlyTariff = 'Tariffa oraria';
 const String kPackageTariff = 'Pacchetto';
@@ -30,8 +28,7 @@ class HomeworkTariff
       'equivalente a $packageHourlyRate.';
 }
 
-// What the enrolment form is told, so it can tick the right box in its rate
-// table. Sent with the form request alone: nothing about it is ever stored.
+// Codes stored on the pupil: the level plus the rate chosen.
 const String kPrimaryTariffCode = 'PRIMARY_MONTHLY';
 
 const Map<String, Map<String, String>> _tariffCodes = {
@@ -54,6 +51,55 @@ String? homeworkTariffCodeOf({required String? level, required String? choice})
   }
 
   return _tariffCodes[level]?[choice];
+}
+
+// The choice buried in a stored code, so reopening a pupil restores the chips.
+String? homeworkTariffChoiceOf(String? code)
+{
+  for (final Map<String, String> byChoice in _tariffCodes.values)
+  {
+    for (final MapEntry<String, String> entry in byChoice.entries)
+    {
+      if (entry.value == code)
+      {
+        return entry.key;
+      }
+    }
+  }
+
+  return null;
+}
+
+String? homeworkTariffLabel(String? code)
+{
+  if (code == null)
+  {
+    return null;
+  }
+
+  if (code == kPrimaryTariffCode)
+  {
+    return kPrimarySchoolTariff;
+  }
+
+  for (final MapEntry<String, Map<String, String>> level in _tariffCodes.entries)
+  {
+    for (final MapEntry<String, String> entry in level.value.entries)
+    {
+      if (entry.value != code)
+      {
+        continue;
+      }
+
+      final HomeworkTariff tariff = kHomeworkTariffs[level.key]!;
+      final String figures =
+          entry.key == kHourlyTariff ? tariff.hourlyRate : tariff.packageOffer;
+
+      return '${entry.key} — $figures';
+    }
+  }
+
+  return null;
 }
 
 // Keyed by the school level of the study programme, as SchoolLevel spells it.

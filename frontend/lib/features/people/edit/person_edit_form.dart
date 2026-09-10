@@ -3,13 +3,17 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/week_range.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/course_item.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
+import '../models/early_exit_schedule_item.dart';
 import '../models/parental_relationship_draft.dart';
+import '../models/membership_item.dart';
 import '../models/person_item.dart';
 import '../models/school_enrollment_item.dart';
 import '../models/teacher_subject_item.dart';
@@ -174,26 +178,98 @@ class PersonEditForm
   bool get asksSpecialCategoryDataConsent =>
       !(person?.specialCategoryDataConsent ?? false);
 
-  // Only a student has a rate to print, and it follows the level above.
-  String? get homeworkTariffCode => activeRoles.contains('STUDENTE')
-      ? homeworkTariffCodeOf(level: currentSchoolLevel, choice: homeworkTariffValue)
-      : null;
-
-  // The level of the study programme chosen for the school year under way,
-  // which is what the Aiuto Compiti rate hangs on.
-  String? get currentSchoolLevel
+  // No longer enrolled: only personal and contact details show, and nothing else may be required or the form is unsaveable.
+  bool get isPersonalDataOnly
   {
-    final int year = currentSchoolYearStart();
+    final PersonItem? person = this.person;
 
-    for (final row in schoolRows)
+    return person != null && !person.isEnrolled;
+  }
+
+  // Only a paid collaboration has an hourly rate; the wizard neither asks nor sends one otherwise.
+  bool get isPaidCollaboration =>
+      kCollaborationTypes[collaborationTypeValue] == 'PAID';
+
+  // Payment is asked only of someone actually enrolled, and what is not asked cannot be required.
+  bool get asksPayment => !isOnlyParentNotMember && !isPersonalDataOnly;
+
+  // Enrolled by the typed rows: newest one, not revoked, still inside its renewal window — the register's own rule.
+  bool get isEnrolledByRows
+  {
+    MembershipRowData? latest;
+    int? latestYear;
+
+    for (final row in membershipRows)
     {
-      if (int.tryParse(row.yearCtrl.text.trim()) == year)
+      final int? year = int.tryParse(row.yearCtrl.text.trim());
+
+      if (year != null && (latestYear == null || year > latestYear))
       {
-        return row.program?.level;
+        latestYear = year;
+        latest = row;
       }
     }
 
-    return null;
+    if (latest == null ||
+        latestYear == null ||
+        latest.revocation != MembershipItem.revocationNone)
+    {
+      return false;
+    }
+
+    // The wizard writes 31 December and the standard window on every row.
+    return MembershipItem.isWithinRenewalWindow(
+      DateTime(latestYear, 12, 31),
+      MembershipItem.defaultRenewalPeriodDays,
+    );
+  }
+
+  // Only a pupil has a rate; with no level to read, what is on file stands rather than being wiped.
+  String? get homeworkTariffCode
+  {
+    if (!activeRoles.contains('STUDENTE'))
+    {
+      return null;
+    }
+
+    return homeworkTariffCodeOf(
+          level: currentSchoolLevel,
+          choice: homeworkTariffValue,
+        ) ??
+        person?.homeworkTariff;
+  }
+
+  // Level the Aiuto Compiti rate hangs on: the year under way when recorded, else the most recent earlier one.
+  String? get currentSchoolLevel
+  {
+    final int current = currentSchoolYearStart();
+
+    String? fallbackLevel;
+    int? fallbackYear;
+
+    for (final row in schoolRows)
+    {
+      final int? year = int.tryParse(row.yearCtrl.text.trim());
+      final String? level = row.program?.level;
+
+      if (year == null || level == null)
+      {
+        continue;
+      }
+
+      if (year == current)
+      {
+        return level;
+      }
+
+      if (year < current && (fallbackYear == null || year > fallbackYear))
+      {
+        fallbackYear = year;
+        fallbackLevel = level;
+      }
+    }
+
+    return fallbackLevel;
   }
 
   // 0 = involved in the activities, 1 = member only, -1 = unanswered.
@@ -235,6 +311,7 @@ class PersonEditForm
 
   final TextEditingController certificateExpirationCtrl = TextEditingController();
   final TextEditingController ibanCtrl = TextEditingController();
+  final TextEditingController grossCompensationCtrl = TextEditingController();
   String? collaborationTypeValue;
   String? adminRoleValue;
   final TextEditingController otherAdminRoleCtrl = TextEditingController();
@@ -248,6 +325,15 @@ class PersonEditForm
   double? teacherRating;
 
   bool uscitaAnticipata = false;
+
+  // False means the authorisation lasts as long as the membership, with both dates left empty.
+  bool uscitaAnticipataPeriodoLimitato = false;
+  final TextEditingController uscitaAnticipataDalCtrl = TextEditingController();
+  final TextEditingController uscitaAnticipataAlCtrl = TextEditingController();
+
+  // The paper form has room for two lines, and so has the register.
+  static const int maxEarlyExitRows = 2;
+  final List<EarlyExitRowData> earlyExitRows = [];
 
   String? paymentMethodValue;
 
@@ -390,6 +476,7 @@ class PersonEditForm
         : '';
     courseTypeValue = person.courseType;
     ibanCtrl.text = person.iban ?? '';
+    grossCompensationCtrl.text = formatAmountText(person.grossCompensation) ?? '';
 
     collaborationTypeValue =
         labelForServerValue(kCollaborationTypes, person.collaborationType);
@@ -416,6 +503,24 @@ class PersonEditForm
       uscitaAnticipata = person.earlyExit!;
     }
 
+    if (person.earlyExitStartDate != null && person.earlyExitEndDate != null)
+    {
+      uscitaAnticipataPeriodoLimitato = true;
+      uscitaAnticipataDalCtrl.text =
+          DateFormat('dd/MM/yyyy').format(person.earlyExitStartDate!);
+      uscitaAnticipataAlCtrl.text =
+          DateFormat('dd/MM/yyyy').format(person.earlyExitEndDate!);
+    }
+
+    for (final schedule in person.earlyExitSchedules ?? const <EarlyExitScheduleItem>[])
+    {
+      earlyExitRows.add(EarlyExitRowData.empty(
+        weekdays: schedule.weekdays.toSet(),
+        time: formatTimeOfDayShort(schedule.exitTime),
+        reason: schedule.reason,
+      ));
+    }
+
     paymentMethodValue = labelForServerValue(kPaymentMethods, person.paymentMethod);
 
     if (paymentMethodValue == 'Altro')
@@ -440,6 +545,7 @@ class PersonEditForm
     }
 
     mandatoryPsychMeetingsAcknowledgedExisting = person.mandatoryPsychMeetingsAcknowledged;
+    homeworkTariffValue = homeworkTariffChoiceOf(person.homeworkTariff);
     specialCategoryDataConsentValue = person.specialCategoryDataConsent ?? false;
     newsletterConsentValue = person.newsletterConsent ?? false;
     psychMeetingsAcknowledgedValue = person.mandatoryPsychMeetingsAcknowledged ?? false;
@@ -743,6 +849,30 @@ class PersonEditForm
     copiesResidence = false;
   }
 
+  // Shared by both payloads: the same fields travel on create and on update.
+  Map<String, dynamic> earlyExitPayload({required bool authorized})
+  {
+    final bool limited = authorized && uscitaAnticipataPeriodoLimitato;
+
+    return {
+      'early_exit_start_date':
+          limited ? toIsoDate(uscitaAnticipataDalCtrl.text.trim()) : null,
+      'early_exit_end_date':
+          limited ? toIsoDate(uscitaAnticipataAlCtrl.text.trim()) : null,
+      'early_exit_schedules': authorized
+          ? [
+              for (final row in earlyExitRows)
+                if (!row.isBlank)
+                  {
+                    'weekdays': row.weekdays.toList()..sort(),
+                    'exit_time': '${row.timeCtrl.text.trim()}:00',
+                    'reason': row.reasonCtrl.text.trim(),
+                  },
+            ]
+          : const <Map<String, dynamic>>[],
+    };
+  }
+
   static String? toIsoDate(String? itaDate)
   {
     if (itaDate == null || itaDate.isEmpty)
@@ -845,7 +975,7 @@ class PersonEditForm
           'year': int.parse(year),
           'start_date': '$year-${parts[1]}-${parts[0]}',
           'end_date': '$year-12-31',
-          'renewal_period_days': 30,
+          'renewal_period_days': MembershipItem.defaultRenewalPeriodDays,
           // Preserved as-is: hard-coding 'NO' silently readmitted expelled people.
           'revocation': row.revocation,
           if (row.id != null) 'id': row.id,
@@ -900,6 +1030,8 @@ class PersonEditForm
       staffData = {
         'collaboration_type': kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
         'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
+        'gross_compensation':
+            isPaidCollaboration ? amountPayloadOf(grossCompensationCtrl.text) : null,
       };
     }
 
@@ -956,8 +1088,12 @@ class PersonEditForm
           .toList();
 
       // Enrollments go in the same body: one transaction, one concurrency check.
+      // Only a minor is authorised to leave early: an adult just leaves.
+      final bool earlyExitAuthorized = isMinor && uscitaAnticipata;
+
       studentData = {
-        'authorized_early_exit': isMinor ? uscitaAnticipata : true,
+        'authorized_early_exit': earlyExitAuthorized,
+        ...earlyExitPayload(authorized: earlyExitAuthorized),
         'certification_types': certificationTypes,
         'certification_other_detail': certificationTypes.contains('OTHER')
             ? otherCertificationCtrl.text.trim()
@@ -966,6 +1102,7 @@ class PersonEditForm
             ? dsaCertificationCtrl.text.trim()
             : null,
         'mandatory_psych_meetings_acknowledged': psychMeetingsAcknowledgedValue,
+        'homework_tariff': homeworkTariffCode,
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
@@ -1047,7 +1184,7 @@ class PersonEditForm
           'year': int.parse(year),
           'start_date': '$year-${parts[1]}-${parts[0]}',
           'end_date': '$year-12-31',
-          'renewal_period_days': 30,
+          'renewal_period_days': MembershipItem.defaultRenewalPeriodDays,
           'revocation': 'NO',
         });
       }
@@ -1097,6 +1234,8 @@ class PersonEditForm
       staffData = {
         'collaboration_type': kCollaborationTypes[collaborationTypeValue] ?? 'VOLUNTEER',
         'iban': ibanCtrl.text.isNotEmpty ? ibanCtrl.text.trim().toUpperCase() : null,
+        'gross_compensation':
+            isPaidCollaboration ? amountPayloadOf(grossCompensationCtrl.text) : null,
       };
     }
 
@@ -1159,8 +1298,12 @@ class PersonEditForm
           .whereType<String>()
           .toList();
 
+      // Only a minor is authorised to leave early: an adult just leaves.
+      final bool earlyExitAuthorized = isMinor && uscitaAnticipata;
+
       studentData = {
-        'authorized_early_exit': isMinor ? uscitaAnticipata : true,
+        'authorized_early_exit': earlyExitAuthorized,
+        ...earlyExitPayload(authorized: earlyExitAuthorized),
         'certification_types': certificationTypes,
         'certification_other_detail': certificationTypes.contains('OTHER')
             ? otherCertificationCtrl.text.trim()
@@ -1170,6 +1313,7 @@ class PersonEditForm
             : null,
         'mandatory_psych_meetings_acknowledged':
             certificationTypes.isNotEmpty ? psychMeetingsAcknowledgedValue : false,
+        'homework_tariff': homeworkTariffCode,
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
@@ -1301,6 +1445,7 @@ class PersonEditForm
     phoneCtrl.dispose();
     certificateExpirationCtrl.dispose();
     ibanCtrl.dispose();
+    grossCompensationCtrl.dispose();
     otherAdminRoleCtrl.dispose();
     studiScolasticiCtrl.dispose();
     studiUniversitariCtrl.dispose();
@@ -1312,6 +1457,8 @@ class PersonEditForm
     emergencyContactPhoneCtrl.dispose();
     allergiesCtrl.dispose();
     medicationsCtrl.dispose();
+    uscitaAnticipataDalCtrl.dispose();
+    uscitaAnticipataAlCtrl.dispose();
 
     for (final row in membershipRows)
     {
@@ -1319,6 +1466,11 @@ class PersonEditForm
     }
 
     for (final row in schoolRows)
+    {
+      row.dispose();
+    }
+
+    for (final row in earlyExitRows)
     {
       row.dispose();
     }

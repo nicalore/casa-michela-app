@@ -5,6 +5,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/app_field_label.dart';
 import '../../../../shared/widgets/app_selectable_chip.dart';
 
+const double _disabledOpacity = 0.6;
+
 class PersonChipGroupField extends StatelessWidget
 {
   final String label;
@@ -47,25 +49,37 @@ class PersonChipGroupField extends StatelessWidget
   })  : value = null,
         onChanged = null;
 
+  bool _isChosen(String option)
+  {
+    final Set<String>? values = this.values;
+
+    return values != null ? values.contains(option) : value == option;
+  }
+
   Widget _chip(String option)
   {
     final Set<String>? values = this.values;
 
-    if (values != null)
+    final Widget chip = values != null
+        ? AppSelectableChip(
+            label: option,
+            selected: values.contains(option),
+            onSelected: (_) => onToggled!(option),
+          )
+        : AppSelectableChip(
+            label: option,
+            selected: value == option,
+            // Single choice cannot be cleared by tapping the selected chip again.
+            onSelected: (selected) => onChanged!(selected ? option : value),
+          );
+
+    // A disabled chip keeps full colour when chosen; only the ones not taken fade.
+    if (enabled || _isChosen(option))
     {
-      return AppSelectableChip(
-        label: option,
-        selected: values.contains(option),
-        onSelected: (_) => onToggled!(option),
-      );
+      return chip;
     }
 
-    return AppSelectableChip(
-      label: option,
-      selected: value == option,
-      // Single choice cannot be cleared by tapping the selected chip again.
-      onSelected: (selected) => onChanged!(selected ? option : value),
-    );
+    return Opacity(opacity: _disabledOpacity, child: chip);
   }
 
   @override
@@ -77,17 +91,14 @@ class PersonChipGroupField extends StatelessWidget
       children: [
         AppFieldLabel(label),
         const SizedBox(height: 10),
-        Opacity(
-          opacity: enabled ? 1 : 0.6,
-          child: IgnorePointer(
-            ignoring: !enabled,
-            child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final option in options) _chip(option),
-              ],
-            ),
+        IgnorePointer(
+          ignoring: !enabled,
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final option in options) _chip(option),
+            ],
           ),
         ),
         if (note != null) ...[

@@ -1,6 +1,7 @@
 import '../../../core/utils/json_parsing.dart';
 
 import 'child_item.dart';
+import 'early_exit_schedule_item.dart';
 import 'membership_item.dart';
 import 'parent_item.dart';
 import 'person_face.dart';
@@ -9,6 +10,8 @@ import 'teacher_subject_item.dart';
 
 class PersonItem implements PersonFace
 {
+  static const int adultAge = 18;
+
   final String fiscalCode;
 
   @override
@@ -46,6 +49,13 @@ class PersonItem implements PersonFace
   final String? schoolClass;
   final String? studyProgram;
   final bool? earlyExit;
+
+  // Both null: the authorisation lasts as long as the membership.
+  final DateTime? earlyExitStartDate;
+  final DateTime? earlyExitEndDate;
+
+  final List<EarlyExitScheduleItem>? earlyExitSchedules;
+
   final String? collaborationType;
   final List<String> taughtSubjects;
   final String? courseType;
@@ -57,6 +67,8 @@ class PersonItem implements PersonFace
   final String? certificationDsaDetail;
   final bool? mandatoryPsychMeetingsAcknowledged;
 
+  final String? homeworkTariff;
+
   final String? paymentMethod;
   final String? paymentMethodOther;
   final String? emergencyContactName;
@@ -65,6 +77,9 @@ class PersonItem implements PersonFace
   final String? medicationsNotes;
 
   final String? iban;
+
+  // Decimal as the API spells it, e.g. '1200.00'.
+  final String? grossCompensation;
   final String? adminRole;
   final String? adminOtherRole;
   // Null when not a teacher; false means university or beyond.
@@ -121,6 +136,9 @@ class PersonItem implements PersonFace
     this.schoolClass,
     this.studyProgram,
     this.earlyExit,
+    this.earlyExitStartDate,
+    this.earlyExitEndDate,
+    this.earlyExitSchedules,
     this.collaborationType,
     this.taughtSubjects = const [],
     this.courseType,
@@ -129,6 +147,7 @@ class PersonItem implements PersonFace
     this.certificationOtherDetail,
     this.certificationDsaDetail,
     this.mandatoryPsychMeetingsAcknowledged,
+    this.homeworkTariff,
     this.paymentMethod,
     this.paymentMethodOther,
     this.emergencyContactName,
@@ -136,6 +155,7 @@ class PersonItem implements PersonFace
     this.allergiesNotes,
     this.medicationsNotes,
     this.iban,
+    this.grossCompensation,
     this.adminRole,
     this.adminOtherRole,
     this.isHighSchoolStudent,
@@ -187,6 +207,12 @@ class PersonItem implements PersonFace
       schoolClass: json['school_class'],
       studyProgram: json['study_program'],
       earlyExit: json['early_exit'],
+      earlyExitStartDate: parseDate(json['early_exit_start_date']),
+      earlyExitEndDate: parseDate(json['early_exit_end_date']),
+      earlyExitSchedules: parseOptionalList(
+        json['early_exit_schedules'],
+        EarlyExitScheduleItem.fromJson,
+      ),
       collaborationType: json['collaboration_type'],
       taughtSubjects: parseStringList(json['taught_subjects']),
       courseType: json['course_type'],
@@ -195,6 +221,7 @@ class PersonItem implements PersonFace
       certificationOtherDetail: json['certification_other_detail'],
       certificationDsaDetail: json['certification_dsa_detail'],
       mandatoryPsychMeetingsAcknowledged: json['mandatory_psych_meetings_acknowledged'],
+      homeworkTariff: json['homework_tariff'] as String?,
       paymentMethod: json['payment_method'],
       paymentMethodOther: json['payment_method_other'],
       emergencyContactName: json['emergency_contact_name'],
@@ -202,6 +229,7 @@ class PersonItem implements PersonFace
       allergiesNotes: json['allergies_notes'],
       medicationsNotes: json['medications_notes'],
       iban: json['iban'],
+      grossCompensation: json['gross_compensation']?.toString(),
       adminRole: json['admin_role'],
       adminOtherRole: json['admin_other_role'],
       isHighSchoolStudent: json['is_high_school_student'] as bool?,
@@ -241,6 +269,22 @@ class PersonItem implements PersonFace
 
   bool get isMembershipRevoked => latestMembership?.isRevoked ?? false;
 
+  // 'Iscritto': latest membership not revoked and not past its renewal window.
+  bool get isEnrolled
+  {
+    final MembershipItem? latest = latestMembership;
+
+    if (latest == null || latest.isRevoked)
+    {
+      return false;
+    }
+
+    return MembershipItem.isWithinRenewalWindow(
+      latest.endDate,
+      latest.renewalPeriodDays,
+    );
+  }
+
   int? get age
   {
     final birth = birthDate;
@@ -261,6 +305,9 @@ class PersonItem implements PersonFace
 
     return years;
   }
+
+  // An unknown birth date reads as a minor: the safer of the two.
+  bool get isAdult => (age ?? 0) >= adultAge;
 }
 
 List<PersonItem> activeCollaborators(List<PersonItem> people)

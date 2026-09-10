@@ -383,9 +383,9 @@ class _OnlineAlsoHatch extends StatelessWidget
         painter: _OnlineAlsoHatchPainter(
           alpha: switch (reach)
           {
-            StretchReach.idle => 0.18,
-            StretchReach.open => 0.34,
-            StretchReach.closed => 0.06,
+            StretchReach.idle => 0.45,
+            StretchReach.open => 0.7,
+            StretchReach.closed => 0.15,
           },
         ),
       ),
@@ -406,7 +406,7 @@ class _OnlineAlsoHatchPainter extends CustomPainter
   {
     final paint = Paint()
       ..color = lessonAccent(kOnlineMode).withValues(alpha: alpha)
-      ..strokeWidth = 1.2
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
 
     for (var x = -size.height; x < size.width; x += _spacing)

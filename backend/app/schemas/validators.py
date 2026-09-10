@@ -1,7 +1,13 @@
 from datetime import time
-from typing import Annotated, Final, Self
+from typing import Annotated, Any, Final, Self
 
-from pydantic import AfterValidator, BaseModel, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    field_validator,
+    model_validator,
+)
 
 from app.core.time_step import (
     MINIMUM_BAND_MINUTES,
@@ -34,7 +40,14 @@ def _strip_to_none(value: str | None) -> str | None:
     return stripped or None
 
 
+def _strip_first(value: Any) -> Any:
+    return value.strip() if isinstance(value, str) else value
+
+
 StrippedStr = Annotated[str, AfterValidator(_strip)]
+
+# Trims before the length checks, so a string of spaces fails min_length.
+CleanStr = Annotated[str, BeforeValidator(_strip_first)]
 
 OptionalCleanStr = Annotated[str | None, AfterValidator(_strip_to_none)]
 

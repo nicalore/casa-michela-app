@@ -8,6 +8,7 @@ from app.core.labels import GRADE_BY_ROMAN_NUMERAL
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
+from app.models.early_exit_schedule import EarlyExitSchedule
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership
 from app.models.parent import Parent
@@ -210,6 +211,8 @@ async def create_person_from_wizard(
                 Student(
                     tax_code=person.tax_code,
                     authorized_early_exit=student_data.authorized_early_exit,
+                    early_exit_start_date=student_data.early_exit_start_date,
+                    early_exit_end_date=student_data.early_exit_end_date,
                     certification_types=certification_types,
                     certification_other_detail=(
                         student_data.certification_other_detail
@@ -224,6 +227,7 @@ async def create_person_from_wizard(
                     mandatory_psych_meetings_acknowledged=(
                         student_data.mandatory_psych_meetings_acknowledged
                     ),
+                    homework_tariff=student_data.homework_tariff,
                 )
             )
 
@@ -238,6 +242,20 @@ async def create_person_from_wizard(
                         student_tax_code=person.tax_code,
                         study_program_id=enrollment_data.study_program_id,
                         school_id=enrollment_data.school_id,
+                    )
+                )
+
+            for ordinal, schedule_data in enumerate(
+                student_data.early_exit_schedules,
+                start=1,
+            ):
+                db.add(
+                    EarlyExitSchedule(
+                        student_tax_code=person.tax_code,
+                        ordinal=ordinal,
+                        weekdays=sorted(schedule_data.weekdays),
+                        exit_time=schedule_data.exit_time,
+                        reason=schedule_data.reason,
                     )
                 )
 
@@ -275,6 +293,7 @@ async def create_person_from_wizard(
                     staff_data.collaboration_type
                 ),
                 iban=staff_data.iban or None,
+                gross_compensation=staff_data.gross_compensation,
             )
             db.add(staff)
 

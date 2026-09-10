@@ -78,3 +78,35 @@ class DayMonthInputFormatter extends TextInputFormatter
     );
   }
 }
+
+class TimeInputFormatter extends TextInputFormatter
+{
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  )
+  {
+    if (oldValue.text.length >= newValue.text.length)
+    {
+      return newValue;
+    }
+
+    String text = newValue.text;
+
+    if (text.length == 2 && !text.contains(':'))
+    {
+      text += ':';
+    }
+
+    if (text.length > 5)
+    {
+      return oldValue;
+    }
+
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}

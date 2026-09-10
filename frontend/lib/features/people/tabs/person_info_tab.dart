@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../models/early_exit_schedule_item.dart';
+import '../edit/homework_tariffs.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/teacher_rating_dots.dart';
-
-const int _adultAge = 18;
 
 // Backend convention: province 'EE' means born abroad, so the nation is shown.
 const String _abroadProvinceCode = 'EE';
@@ -62,8 +64,6 @@ class PersonInfoTab extends StatelessWidget
     this.isGeneratingForm = false,
   });
 
-  bool get _isAdult => person.age != null && person.age! >= _adultAge;
-
   Set<String> get _upperCaseRoles => person.roles.map((role) => role.toUpperCase()).toSet();
 
   String get _adminRoleText
@@ -81,6 +81,39 @@ class PersonInfoTab extends StatelessWidget
     }
 
     return _adminRoleLabel(role) ?? role;
+  }
+
+  int? get _grossCompensationCents
+  {
+    final String? raw = person.grossCompensation;
+
+    return raw == null ? null : parseAmountCents(raw);
+  }
+
+  String get _grossCompensationText
+  {
+    final int? cents = _grossCompensationCents;
+
+    return cents == null ? missingValue : formatAmount(cents);
+  }
+
+  // Not stored: a fifth off the gross, worked out for whoever is reading.
+  String get _netCompensationText
+  {
+    final int? cents = _grossCompensationCents;
+
+    return cents == null ? missingValue : formatAmount(netOfCents(cents));
+  }
+
+  // Mirrors the wizard: only a parent who did not join is never asked how they pay.
+  bool get _wasEverAskedToPay
+  {
+    final Set<String> roles = _upperCaseRoles;
+    final Set<String> active = roles.difference(const {'ASSOCIATO'});
+
+    return !(active.length == 1 &&
+        active.contains('GENITORE') &&
+        !roles.contains('ASSOCIATO'));
   }
 
   String get _paymentMethodText
@@ -122,21 +155,39 @@ class PersonInfoTab extends StatelessWidget
     return joined.isEmpty ? missingValue : joined;
   }
 
-  String get _earlyExitText
+  String get _earlyExitPeriodText
   {
-    if (_isAdult)
+    final DateTime? from = person.earlyExitStartDate;
+    final DateTime? to = person.earlyExitEndDate;
+
+    if (from == null || to == null)
     {
-      return 'Autorizzata';
+      return 'Tutto il periodo di iscrizione';
     }
 
-    final earlyExit = person.earlyExit;
+    return 'Dal ${_formatDate(from)} al ${_formatDate(to)}';
+  }
 
-    if (earlyExit == null)
-    {
-      return missingValue;
-    }
+  // The days label the row; the time and the reason are its value.
+  List<DetailRowData> get _earlyExitRows
+  {
+    final bool? authorized = person.earlyExit;
 
-    return earlyExit ? 'Autorizzata' : 'Non autorizzata';
+    return [
+      DetailRowData(
+        'Autorizzata',
+        authorized == null ? missingValue : (authorized ? 'Sì' : 'No'),
+      ),
+      if (authorized ?? false) ...[
+        DetailRowData('Validità', _earlyExitPeriodText),
+        for (final schedule
+            in person.earlyExitSchedules ?? const <EarlyExitScheduleItem>[])
+          DetailRowData(
+            (schedule.weekdays.toList()..sort()).map(weekdayShortName).join(', '),
+            '${formatTimeOfDayShort(schedule.exitTime)} · ${schedule.reason}',
+          ),
+      ],
+    ];
   }
 
   String get _highSchoolStudentText
@@ -219,13 +270,20 @@ class PersonInfoTab extends StatelessWidget
     final roles = _upperCaseRoles;
     final cards = <PersonDetailCard>[];
 
-    if (roles.contains('STUDENTE') || roles.contains('CORSISTA'))
+    // Shown whether or not the membership still stands, even once the wizard stops asking.
+    if (_wasEverAskedToPay)
     {
+      final String? tariff = homeworkTariffLabel(person.homeworkTariff);
+
       cards.add(PersonDetailCard(
-        title: 'Modalità di pagamento',
+        title: 'Pagamenti',
         icon: Icons.payments_outlined,
         labelWidth: kPersonWideCardLabelWidth,
-        rows: [DetailRowData('Modalità', _paymentMethodText)],
+        rows: [
+          DetailRowData('Modalità', _paymentMethodText),
+          if (roles.contains('STUDENTE'))
+            DetailRowData('Tariffa', tariff ?? missingValue),
+        ],
       ));
     }
 
@@ -241,6 +299,11 @@ class PersonInfoTab extends StatelessWidget
         labelWidth: kPersonWideCardLabelWidth,
         rows: [
           DetailRowData('Tipo collaborazione', orDash(person.collaborationType)),
+          // Only a paid collaboration has a compensation.
+          if (person.collaborationType == 'Retribuito') ...[
+            DetailRowData('Compenso orario lordo', _grossCompensationText),
+            DetailRowData('Compenso orario netto', _netCompensationText),
+          ],
           DetailRowData('IBAN', orDash(person.iban), isSensitive: true),
         ],
       ));
@@ -281,22 +344,38 @@ class PersonInfoTab extends StatelessWidget
     {
       final certification = _certificationText;
 
-      cards.add(PersonDetailCard(
-        title: 'Dettagli studente',
-        icon: Icons.menu_book_outlined,
-        labelWidth: kPersonWideCardLabelWidth,
-        rows: [
-          DetailRowData('Uscita anticipata', _earlyExitText),
-          if (certification != null)
-            DetailRowData('Certificazione', certification, isSensitive: true),
-          if (person.certificationTypes.contains(_dsaOptionCode))
-            DetailRowData(
-              'Tipo di DSA',
-              orDash(person.certificationDsaDetail),
-              isSensitive: true,
-            ),
-        ],
-      ));
+      final List<DetailRowData> certificationRows = [
+        if (certification != null)
+          DetailRowData('Tipologia', certification, isSensitive: true),
+        if (person.certificationTypes.contains(_dsaOptionCode))
+          DetailRowData(
+            'Tipo di DSA',
+            orDash(person.certificationDsaDetail),
+            isSensitive: true,
+          ),
+      ];
+
+      // A heading over an empty card reads as something that failed to load.
+      if (certificationRows.isNotEmpty)
+      {
+        cards.add(PersonDetailCard(
+          title: 'Certificazioni',
+          icon: Icons.assignment_outlined,
+          labelWidth: kPersonWideCardLabelWidth,
+          rows: certificationRows,
+        ));
+      }
+
+      // Leaving before the end of the day needs no permission once of age.
+      if (!person.isAdult)
+      {
+        cards.add(PersonDetailCard(
+          title: 'Uscita anticipata',
+          icon: Icons.logout_rounded,
+          labelWidth: kPersonWideCardLabelWidth,
+          rows: _earlyExitRows,
+        ));
+      }
     }
 
     if (roles.contains('CORSISTA'))
@@ -315,7 +394,7 @@ class PersonInfoTab extends StatelessWidget
       ));
     }
 
-    if (!_isAdult)
+    if (!person.isAdult)
     {
       cards.add(PersonDetailCard(
         title: 'Sicurezza del minore',

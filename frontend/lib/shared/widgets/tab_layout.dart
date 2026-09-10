@@ -191,16 +191,18 @@ class EntityCardGrid extends StatelessWidget
 
   final List<Widget> children;
 
-  const EntityCardGrid({super.key, required this.children});
+  final double cardWidth;
 
-  static double widthFor(double available)
+  const EntityCardGrid({super.key, required this.children, this.cardWidth = preferredWidth});
+
+  static double widthFor(double available, [double preferred = preferredWidth])
   {
-    return math.min(preferredWidth, available);
+    return math.min(preferred, available);
   }
 
-  static int columnsFor(double available)
+  static int columnsFor(double available, [double preferred = preferredWidth])
   {
-    final int columns = ((available + gap) / (widthFor(available) + gap)).floor();
+    final int columns = ((available + gap) / (widthFor(available, preferred) + gap)).floor();
 
     return columns < 1 ? 1 : columns;
   }
@@ -214,8 +216,8 @@ class EntityCardGrid extends StatelessWidget
 
         return CardRows(
           cards: children,
-          cardWidth: widthFor(available),
-          perRow: columnsFor(available),
+          cardWidth: widthFor(available, cardWidth),
+          perRow: columnsFor(available, cardWidth),
         );
       },
     );
@@ -228,8 +230,8 @@ class EntityCardGrid extends StatelessWidget
       builder: (context, constraints)
       {
         final double available = constraints.maxWidth;
-        final double width = widthFor(available);
-        final int columns = columnsFor(available);
+        final double width = widthFor(available, cardWidth);
+        final int columns = columnsFor(available, cardWidth);
         final int rows = CardRows.rowsFor(children.length, columns);
 
         return SizedBox(

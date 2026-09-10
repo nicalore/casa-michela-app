@@ -20,8 +20,7 @@ class DashboardStat
 
 class DashboardStatsSection extends StatelessWidget
 {
-  // Minimum widths for four and two figures per row, measured on the longest
-  // label.
+  // Minimum widths for four and two figures per row, measured on the longest label.
   static const double fourInARowFrom = 670;
   static const double twoInARowFrom = 300;
 
@@ -40,12 +39,10 @@ class DashboardStatsSection extends StatelessWidget
   final CurrentTotalsItem? students;
   final bool isLoading;
 
-  // Compact puts the change on the same line as the figure instead of under
-  // it.
+  // Compact puts the change on the same line as the figure instead of under it.
   final bool compact;
 
-  // Decided by the page: measuring here would need a LayoutBuilder, which
-  // cannot report a height inside a row of equal-height cards.
+  // Set by the page: a LayoutBuilder here cannot report a height inside a row of equal-height cards.
   final int columns;
 
   final double minHeight;
@@ -207,7 +204,7 @@ class _StatTile extends StatelessWidget
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: compact ? 10.5 : 12.5,
+              fontSize: compact ? 11 : 16,
               fontWeight: FontWeight.w600,
               color: deltaColor,
             ),

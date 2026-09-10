@@ -414,7 +414,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona le discipline interne associate',
+          'Seleziona le discipline interne associate.',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,

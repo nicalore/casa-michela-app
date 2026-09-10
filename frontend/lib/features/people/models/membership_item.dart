@@ -1,7 +1,6 @@
 class MembershipItem
 {
-  // Revocation codes as the server writes them; they travel unchanged in the
-  // update payload.
+  // Revocation codes as the server writes them; they travel unchanged in the update payload.
   static const String revocationNone = 'NO';
   static const String revocationExpulsion = 'EXPULSION';
   static const String revocationResignation = 'RESIGNATION';
@@ -21,6 +20,12 @@ class MembershipItem
   });
 
   bool get isRevoked => revocation != revocationNone;
+
+  // A membership ends on 31 December and still counts for 31 more days, so renewal is open until 31 January.
+  static const int defaultRenewalPeriodDays = 31;
+
+  static bool isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays) =>
+      DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
 
   factory MembershipItem.fromJson(Map<String, dynamic> json)
   {

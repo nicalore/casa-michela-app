@@ -12,8 +12,7 @@ class MembershipRowData
   final TextEditingController yearCtrl;
   final TextEditingController dateCtrl;
 
-  // Carried along untouched: hard-coding 'NO' on save silently readmitted
-  // expelled people.
+  // Carried along untouched: hard-coding 'NO' on save silently readmitted expelled people.
   final String revocation;
 
   MembershipRowData({
@@ -80,5 +79,44 @@ class SchoolEnrollmentRowData
   void dispose()
   {
     yearCtrl.dispose();
+  }
+}
+
+class EarlyExitRowData
+{
+  // ISO weekdays 1-7, as the chips write them.
+  final Set<int> weekdays;
+
+  final TextEditingController timeCtrl;
+  final TextEditingController reasonCtrl;
+
+  EarlyExitRowData({
+    Set<int>? weekdays,
+    required this.timeCtrl,
+    required this.reasonCtrl,
+  }) : weekdays = weekdays ?? <int>{};
+
+  factory EarlyExitRowData.empty({
+    Set<int>? weekdays,
+    String time = '',
+    String reason = '',
+  })
+  {
+    return EarlyExitRowData(
+      weekdays: weekdays,
+      timeCtrl: TextEditingController(text: time),
+      reasonCtrl: TextEditingController(text: reason),
+    );
+  }
+
+  bool get isBlank =>
+      weekdays.isEmpty &&
+      timeCtrl.text.trim().isEmpty &&
+      reasonCtrl.text.trim().isEmpty;
+
+  void dispose()
+  {
+    timeCtrl.dispose();
+    reasonCtrl.dispose();
   }
 }

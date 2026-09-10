@@ -1,13 +1,11 @@
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/phone_number.dart';
+import '../models/membership_item.dart';
 import '../models/person_item.dart';
 import 'person_edit_form.dart';
 
-// Which enrolment forms a run of the wizard has to print, and the body of the
-// POST behind each one. The rule is one form per person the wizard is about to
-// create who is actually joining: someone picked from the register is already
-// on file, and a parent who declined membership has nothing to enrol into.
+// One enrolment form per person the wizard creates who actually joins; register picks and non-member parents get none.
 
 final DateFormat _isoDate = DateFormat('yyyy-MM-dd');
 
@@ -20,12 +18,21 @@ class EnrollmentForm
   final String personName;
 
   final Map<String, dynamic> request;
+
+  // The early exit form prints beside the enrolment one; the wizard grants leave only to a minor.
+  bool get needsEarlyExitForm
+  {
+    final person = request['person'] as Map<String, dynamic>;
+    final student = person['student_data'] as Map<String, dynamic>?;
+
+    return student != null && student['authorized_early_exit'] == true;
+  }
 }
 
-// Cheap enough for build(): it reads roles, and never assembles a payload.
+// Cheap enough for build(): reads roles and membership rows, never assembles a payload.
 bool needsEnrollmentForms(PersonEditForm form)
 {
-  if (!form.isOnlyParentNotMember)
+  if (!form.isOnlyParentNotMember && form.isEnrolledByRows)
   {
     return true;
   }
@@ -45,21 +52,13 @@ List<EnrollmentForm> buildEnrollmentForms(PersonEditForm form)
 
     if (_joins(payload))
     {
-      forms.add(_formOf(
-        payload,
-        parents: _parentsOfPending(form, main, payload),
-        tariff: pending['homeworkTariff'] as String?,
-      ));
+      forms.add(_formOf(payload, parents: _parentsOfPending(form, main, payload)));
     }
   }
 
   if (_joins(main))
   {
-    forms.add(_formOf(
-      main,
-      parents: _parentsOfMain(form),
-      tariff: form.homeworkTariffCode,
-    ));
+    forms.add(_formOf(main, parents: _parentsOfMain(form)));
   }
 
   return forms;
@@ -68,30 +67,57 @@ List<EnrollmentForm> buildEnrollmentForms(PersonEditForm form)
 EnrollmentForm _formOf(
   Map<String, dynamic> payload, {
   required List<Map<String, dynamic>> parents,
-  required String? tariff,
 })
 {
   final Map<String, dynamic> general = _generalOf(payload);
 
-  // Alongside the payload, never inside it: the rate is printed and forgotten,
-  // while everything under 'person' is what the register is about to store.
+  // The rate rides inside student_data with the rest of the pupil's record.
   return EnrollmentForm(
     personName: '${general['first_name']} ${general['last_name']}'.trim(),
-    request: {
-      'person': payload,
-      'parents': parents,
-      'homework_tariff': ?tariff,
-    },
+    request: {'person': payload, 'parents': parents},
   );
 }
 
-// Someone whose only role is being a parent has declined membership; anyone
-// else the wizard creates is joining, and joining is what the form is for.
+// A parent-only role means membership was declined; a membership already expired prints nothing.
 bool _joins(Map<String, dynamic> payload)
 {
   final List<String> roles = (payload['roles'] as List).cast<String>();
 
-  return roles.any((role) => role != _roleParent);
+  if (!roles.any((role) => role != _roleParent))
+  {
+    return false;
+  }
+
+  return _standsToday(payload['member_data'] as Map<String, dynamic>?);
+}
+
+// Newest membership, not revoked and still inside its renewal window: the rule the register applies.
+bool _standsToday(Map<String, dynamic>? memberData)
+{
+  Map<String, dynamic>? latest;
+  int? latestYear;
+
+  for (final dynamic entry in (memberData?['memberships'] as List?) ?? const [])
+  {
+    final Map<String, dynamic> membership = entry as Map<String, dynamic>;
+    final int year = membership['year'] as int;
+
+    if (latestYear == null || year > latestYear)
+    {
+      latestYear = year;
+      latest = membership;
+    }
+  }
+
+  if (latest == null || latest['revocation'] != MembershipItem.revocationNone)
+  {
+    return false;
+  }
+
+  return MembershipItem.isWithinRenewalWindow(
+    DateTime.parse(latest['end_date'] as String),
+    latest['renewal_period_days'] as int,
+  );
 }
 
 Map<String, dynamic> _payloadOf(Map<String, dynamic> pending) =>
@@ -117,8 +143,7 @@ List<Map<String, dynamic>> _parentsOfMain(PersonEditForm form)
   return parents;
 }
 
-// The nested wizards ask nothing about relations, so a minor created on the
-// fly has exactly one parent to name: the person being created around them.
+// A minor created on the fly has exactly one parent: the person being created around them.
 List<Map<String, dynamic>> _parentsOfPending(
   PersonEditForm form,
   Map<String, dynamic> main,
@@ -137,9 +162,7 @@ List<Map<String, dynamic>> _parentsOfPending(
   return [_generalOf(main)];
 }
 
-// Pending people first: one created inside this wizard is in both places, but
-// the PersonItem fabricated for the picker carries five fields, while its
-// payload carries the whole registry entry.
+// Pending people first: the PersonItem fabricated for the picker carries five fields, its payload the whole entry.
 Map<String, dynamic>? _parentGeneralData(PersonEditForm form, String taxCode)
 {
   for (final Map<String, dynamic> pending in form.pendingPeople)
@@ -163,8 +186,7 @@ Map<String, dynamic>? _parentGeneralData(PersonEditForm form, String taxCode)
   return null;
 }
 
-// Same key names as the wizard's own general_data; every one of them may be
-// null, because a registry entry made before a field existed still prints.
+// Same key names as the wizard's general_data; every value may be null.
 Map<String, dynamic> _generalDataOf(PersonItem person)
 {
   return {

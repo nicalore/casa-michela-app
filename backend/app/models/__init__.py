@@ -10,6 +10,7 @@ from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
+from app.models.early_exit_schedule import EarlyExitSchedule
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
@@ -55,6 +56,7 @@ __all__ = [
     "CalendarTeacherExclusion",
     "Course",
     "CourseParticipant",
+    "EarlyExitSchedule",
     "Lesson",
     "LessonBooking",
     "LessonDiscipline",

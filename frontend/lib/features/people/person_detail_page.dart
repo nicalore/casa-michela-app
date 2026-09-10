@@ -184,7 +184,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         view: PersonInfoTab(
           person: person,
           onEdit: _openEditDialog,
-          onGenerateForm: roles.contains('ASSOCIATO') ? _generateEnrollmentForm : null,
+          // A lapsed or revoked membership has no enrolment papers to print.
+          onGenerateForm:
+              roles.contains('ASSOCIATO') && person.isEnrolled ? _generateEnrollmentForm : null,
           isGeneratingForm: _isGeneratingForm,
         ),
       ),
@@ -301,34 +303,52 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
 
     final String name = '${person.firstName} ${person.lastName}';
+    final bool alsoEarlyExit = _needsEarlyExitForm(person);
 
-    // The tab must open before the first await, or the browser blocks it as a popup.
-    final PdfTab? tab = openPdfTab(title: 'Modulo di iscrizione · $name');
+    // Tabs must open before the first await, or the browser blocks them as popups.
+    final PdfTab? enrollmentTab = openPdfTab(title: 'Modulo di iscrizione · $name');
+    final PdfTab? earlyExitTab =
+        alsoEarlyExit ? openPdfTab(title: 'Modulo uscita anticipata · $name') : null;
+
     final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
-    final String fileName = 'Modulo di iscrizione $name $day.pdf';
 
     setState(() => _isGeneratingForm = true);
 
+    var downloaded = false;
+
     try
     {
-      final Uint8List bytes = await ApiService().fetchEnrollmentForm(person.fiscalCode);
+      downloaded = await _present(
+        enrollmentTab,
+        () => ApiService().fetchEnrollmentForm(person.fiscalCode),
+        fileName: 'Modulo di iscrizione $name $day.pdf',
+      );
 
-      if (tab != null)
+      if (alsoEarlyExit)
       {
-        tab.present(bytes, fileName: fileName);
+        downloaded = await _present(
+              earlyExitTab,
+              () => ApiService().fetchEarlyExitForm(person.fiscalCode),
+              fileName: 'Modulo uscita anticipata $name $day.pdf',
+            ) ||
+            downloaded;
       }
-      else if (downloadPdf(bytes, fileName: fileName) && mounted)
+
+      if (downloaded && mounted)
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
+          message: alsoEarlyExit
+              ? 'Il browser ha bloccato una scheda: il modulo è stato scaricato.'
+              : 'Il browser ha bloccato la scheda: il modulo è stato scaricato.',
           isError: false,
         );
       }
     }
     catch (e)
     {
-      tab?.fail('Non è stato possibile generare il modulo.');
+      enrollmentTab?.fail('Non è stato possibile generare il modulo.');
+      earlyExitTab?.fail('Non è stato possibile generare il modulo.');
 
       if (mounted)
       {
@@ -342,6 +362,33 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         setState(() => _isGeneratingForm = false);
       }
     }
+  }
+
+  // The early exit form belongs to a minor whose leave has been granted.
+  bool _needsEarlyExitForm(PersonItem person)
+  {
+    return person.roles.any((role) => role.toUpperCase() == 'STUDENTE') &&
+        !person.isAdult &&
+        (person.earlyExit ?? false);
+  }
+
+  // True when the browser refused the tab and the bytes were downloaded instead.
+  Future<bool> _present(
+    PdfTab? tab,
+    Future<Uint8List> Function() fetch, {
+    required String fileName,
+  }) async
+  {
+    final Uint8List bytes = await fetch();
+
+    if (tab != null)
+    {
+      tab.present(bytes, fileName: fileName);
+
+      return false;
+    }
+
+    return downloadPdf(bytes, fileName: fileName);
   }
 
   void _openEditDialog() async

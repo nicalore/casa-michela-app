@@ -1,0 +1,83 @@
+{
+  "_meta": {
+    "template": "modulo_uscita_anticipata_acroform.pdf",
+    "origine": "Modulo_uscita_anticipata.pdf del 08/09/2026 (LibreOffice 24.2)",
+    "campi_totali": 13,
+    "checkbox_valore_spunta": "/Yes",
+    "checkbox_valore_vuoto": "/Off",
+    "note": [
+      "Compilare con pypdf: PdfWriter(clone_from=...) + update_page_form_field_values su ogni pagina.",
+      "Appiattire con pikepdf: pdf.flatten_annotations() prima di save().",
+      "La tabella prevede 2 righe: se servono piu' fasce, servira' una revisione del modulo.",
+      "La sezione 'RISERVATO ALL'ASSOCIAZIONE' non ha campi: caselle, motivi e data sono compilati a mano dal Presidente.",
+      "Le righe per le firme (Genitore 1, Genitore 2, Il Presidente) non hanno campi: firma autografa."
+    ]
+  },
+  "campi": {
+    "luogo_data_richiesta": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Data della richiesta ('Thiene,' e' gia' stampato: inserire solo la data)"
+    },
+    "periodo_al": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Fine del periodo specifico"
+    },
+    "periodo_dal": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Inizio del periodo specifico"
+    },
+    "periodo_specifico": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Autorizzazione valida per il periodo indicato in periodo_dal / periodo_al"
+    },
+    "periodo_tutta_iscrizione": {
+      "tipo": "checkbox",
+      "pagina": 1,
+      "descrizione": "Autorizzazione valida per tutto il periodo di iscrizione"
+    },
+    "richiedente_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nome e cognome del genitore/tutore richiedente"
+    },
+    "studente_nome": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Nome e cognome dello studente"
+    },
+    "uscita1_giorni": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 1 - giorni (es. 'Martedi e giovedi')"
+    },
+    "uscita1_motivo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 1 - motivo"
+    },
+    "uscita1_orario": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 1 - orario di uscita"
+    },
+    "uscita2_giorni": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 2 - giorni"
+    },
+    "uscita2_motivo": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 2 - motivo"
+    },
+    "uscita2_orario": {
+      "tipo": "testo",
+      "pagina": 1,
+      "descrizione": "Riga 2 - orario di uscita"
+    }
+  }
+}

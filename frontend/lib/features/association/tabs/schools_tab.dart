@@ -504,7 +504,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Seleziona i percorsi di studio attivi in questa scuola',
+          'Seleziona i percorsi di studio attivi in questa scuola.',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             color: AppTheme.trialMutedText,

@@ -18,36 +18,27 @@ from pypdf.generic import (
     StreamObject,
 )
 
-# Bit 1 of /Ff (PDF 32000-1, table 221): the viewer refuses every edit. Set on
-# every field of a generated form, which is a record of what was typed into the
-# wizard and not a document to fill in again.
+# Bit 1 of /Ff (PDF 32000-1 table 221): makes the field read-only.
 _READ_ONLY_FLAG: Final[int] = 1
 
-# Every text widget of the template declares /MaxLen 100. pypdf does not
-# enforce it on /V, so a longer value would survive here and be refused the
-# moment someone re-opened the field.
+# Every text widget of the template declares /MaxLen 100; pypdf does not enforce it on /V.
 _MAX_TEXT_LENGTH: Final[int] = 100
 
-# The size in a widget's own /DA, as in "/Helv 8 Tf 0 0 0 rg". The template
-# sets 8 nearly everywhere and 7 in the three narrow e-mail cells, and that
-# choice stays the template's to make.
+# Size in a widget's own /DA, as in "/Helv 8 Tf 0 0 0 rg": the template's choice to make.
 _FONT_SIZE_IN_DA: Final[re.Pattern[str]] = re.compile(r"/\S+\s+([\d.]+)\s+Tf")
 
 _DEFAULT_FONT_SIZE: Final[float] = 8.0
 
 _EMBEDDED_FONT_NAME: Final[str] = "/AppFont"
 
-# pypdf floors a widget's margin at one point and clips the appearance to what
-# is left, so this is the inset every cell loses on each side.
+# pypdf floors a widget's margin at 1pt and clips the appearance to what is left.
 _FIELD_MARGIN: Final[float] = 1.0
 
 # Font metrics travel in thousandths of an em whatever the font's own grid is.
 _GLYPH_SPACE: Final[int] = 1000
 
-# What a form actually carries. Accented capitals are left out on purpose: they
-# reach far higher than anything else (999 units against 790 for an accented
-# lowercase in Plus Jakarta Sans) and sizing every cell around a letter that
-# never arrives would shrink the whole document.
+# Accented capitals are left out on purpose: they reach far higher (999 units against
+# 790 for an accented lowercase) and sizing around them would shrink every cell.
 _INK_SAMPLE: Final[str] = (
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -86,8 +77,8 @@ class FormFieldMap:
         return by_page
 
 
-@lru_cache(maxsize=1)
-def enrollment_field_map(path: Path) -> FormFieldMap:
+@lru_cache(maxsize=4)
+def form_field_map(path: Path) -> FormFieldMap:
     return FormFieldMap(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -102,23 +93,20 @@ def fill_acroform(
     *,
     font: bytes | None = None,
 ) -> bytes:
-    """Stamp values into a copy of an AcroForm template and lock every field.
-
-    A TrueType `font` is embedded and used for every text field; without one
-    the template's own Helvetica is kept.
-    """
+    """Stamp values into a copy of an AcroForm template and lock every field."""
     writer = PdfWriter(clone_from=BytesIO(template))
     ink = _ink_box(font) if font else None
+    widths = _advance_widths(font) if font else None
     font_name = _embed_font(writer, font, ink) if font and ink else None
 
     for number, page in enumerate(writer.pages, start=1):
         given = values_by_page.get(number, {})
         values: dict[str, Any] = {}
 
-        for name, size in _text_fields(page, ink).items():
-            # Empty text fields too: their appearance is regenerated along with
-            # the rest, which is what drops the tinted box the template paints.
+        for name, widget in _text_fields(page).items():
+            # Empty fields too: regenerating their appearance drops the template's tint.
             value = _clipped(given.get(name, ""))
+            size = _fitted_size(widget, ink, value, widths)
             values[name] = (value, font_name, size) if font_name else value
 
         for name, value in given.items():
@@ -127,9 +115,7 @@ def fill_acroform(
         if not values:
             continue
 
-        # No /NeedAppearances: every appearance in the output is one we drew,
-        # and the fields are read-only, so there is nothing for a viewer to
-        # regenerate — and no second chance for it to draw them differently.
+        # No /NeedAppearances: every appearance is drawn here and the fields are read-only.
         writer.update_page_form_field_values(page, values, auto_regenerate=False)
 
     _drop_field_tint(writer)
@@ -142,13 +128,11 @@ def fill_acroform(
 
 
 def _clipped(value: str) -> str:
-    # Checkbox states are /Name values and are always short; clipping them
-    # would be harmless but is not the point of the limit.
     return value[:_MAX_TEXT_LENGTH]
 
 
-def _text_fields(page: Any, ink: tuple[float, float] | None) -> dict[str, float]:
-    sizes: dict[str, float] = {}
+def _text_fields(page: Any) -> dict[str, DictionaryObject]:
+    widgets: dict[str, DictionaryObject] = {}
 
     for annotation in page.get("/Annots", []):
         widget = annotation.get_object()
@@ -159,12 +143,17 @@ def _text_fields(page: Any, ink: tuple[float, float] | None) -> dict[str, float]
         name = widget.get("/T")
 
         if name is not None:
-            sizes[name] = _fitted_size(widget, ink)
+            widgets[name] = widget
 
-    return sizes
+    return widgets
 
 
-def _fitted_size(widget: DictionaryObject, ink: tuple[float, float] | None) -> float:
+def _fitted_size(
+    widget: DictionaryObject,
+    ink: tuple[float, float] | None,
+    value: str,
+    widths: Mapping[int, int] | None,
+) -> float:
     asked = _font_size_of(widget)
 
     if ink is None:
@@ -174,11 +163,44 @@ def _fitted_size(widget: DictionaryObject, ink: tuple[float, float] | None) -> f
     rectangle = widget["/Rect"]
     height = abs(float(rectangle[3]) - float(rectangle[1])) - 2 * _FIELD_MARGIN
 
-    # Whatever the template asks for, a line taller than its cell would have
-    # its tails clipped away.
+    # A line taller than its cell would have its tails clipped away.
     fits = height * _GLYPH_SPACE / (top + depth)
 
+    # An overlong line is not clipped: it runs over the next column, so shrink it.
+    if widths is not None and value:
+        run = _run_length(value, widths)
+
+        if run > 0:
+            usable = abs(float(rectangle[2]) - float(rectangle[0])) - 2 * _FIELD_MARGIN
+            fits = min(fits, usable * _GLYPH_SPACE / run)
+
     return min(asked, math.floor(fits * 10) / 10)
+
+
+# Width of the value in thousandths of an em, the grid the height arithmetic uses.
+def _run_length(value: str, widths: Mapping[int, int]) -> int:
+    return sum(widths.get(ord(character), 0) for character in value)
+
+
+# Advance widths by codepoint, in thousandths of an em.
+@lru_cache(maxsize=4)
+def _advance_widths(font: bytes) -> dict[int, int] | None:
+    try:
+        parsed = TTFont(BytesIO(font))
+        metrics = parsed["hmtx"]
+        by_code = parsed.getBestCmap()
+        per_em = parsed["head"].unitsPerEm
+
+    except Exception:
+        return None
+
+    scale = _GLYPH_SPACE / per_em
+
+    return {
+        code: round(metrics[name][0] * scale)
+        for code, name in by_code.items()
+        if name in metrics.metrics
+    }
 
 
 def _font_size_of(widget: DictionaryObject) -> float:
@@ -193,10 +215,8 @@ def _font_size_of(widget: DictionaryObject) -> float:
     return size or _DEFAULT_FONT_SIZE
 
 
-# How far the ink of an ordinary line reaches above and below the baseline,
-# in thousandths of an em. Read from the font rather than from its declared
-# ascent, which is a line-height figure: for Plus Jakarta Sans that is 1038 on
-# a 1000 unit em, and centring a line on it is what buries the tails.
+# Ink reach above and below the baseline, in thousandths of an em. Read from the
+# glyphs, not the declared ascent, which is a line-height figure (1038 per 1000 em).
 @lru_cache(maxsize=4)
 def _ink_box(font: bytes) -> tuple[float, float] | None:
     try:
@@ -233,9 +253,7 @@ def _ink_box(font: bytes) -> tuple[float, float] | None:
     return max(tops) * scale, -min(bottoms) * scale
 
 
-# pypdf builds the font resource with its streams nested inline, and a PDF
-# stream has to be an indirect object: left as they come, no reader can load
-# the font and every value is either dropped or drawn with the wrong glyphs.
+# pypdf nests the font resource's streams inline, but a PDF stream must be indirect.
 def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str:
     resource = Font.from_truetype_font_file(BytesIO(font)).as_font_resource()
 
@@ -245,11 +263,8 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
     descendant = resource["/DescendantFonts"][0]
     descriptor = descendant["/FontDescriptor"]
 
-    # pypdf puts the baseline at margin + (height - ascent x size) / 2, which
-    # centres the line on the ascent alone and leaves the descent hanging below
-    # the clip. Feeding it (ink above - ink below) makes the same arithmetic
-    # centre the ink box instead. Nothing else in this document reads the
-    # figure: the fields are read-only and carry the appearance we drew.
+    # pypdf baselines at margin + (height - ascent x size) / 2, centring on /Ascent alone;
+    # feeding it (ink above - ink below) makes that arithmetic centre the ink box instead.
     top, depth = ink
     descriptor[NameObject("/Ascent")] = NumberObject(round(top - depth))
 
@@ -265,9 +280,8 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
     return _EMBEDDED_FONT_NAME
 
 
-# The tint is a printed part of the page, not the viewer's own field
-# highlighting: it lives in /MK /BG and in the appearance stream that paints
-# it. Regenerating the appearances drops the second, this drops the first.
+# The tint is printed into the page, not viewer highlighting: /MK /BG plus the
+# appearance stream. Regenerating appearances drops the second, this the first.
 def _drop_field_tint(writer: PdfWriter) -> None:
     for page in writer.pages:
         for annotation in page.get("/Annots", []):

@@ -1,5 +1,7 @@
+import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
 import '../models/person_item.dart';
+import '../widgets/person_row_models.dart';
 import 'homework_tariffs.dart';
 import 'person_edit_form.dart';
 import 'person_edit_pages.dart';
@@ -271,6 +273,12 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     collector.add('telefono', 'Formato telefono non valido', PersonEditCardId.contacts);
   }
 
+  // Reduced to the personal details: nothing beyond them may be required.
+  if (form.isPersonalDataOnly)
+  {
+    return _resultOf(collector, futureSchoolYear: false);
+  }
+
   final bool onlyParent = form.isOnlyParentNotMember;
   final bool isStudent = activeRoles.contains('STUDENTE');
   final bool isCourseParticipant = activeRoles.contains('CORSISTA');
@@ -326,13 +334,15 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     }
   }
 
-  if (!onlyParent && form.paymentMethodValue == null)
+  final bool asksPayment = form.asksPayment;
+
+  if (asksPayment && form.paymentMethodValue == null)
   {
     collector.add('modalitaPagamento', 'Obbligatorio', PersonEditCardId.payment);
   }
 
   // Primary school pays one flat fee, so only middle and high school choose.
-  if (form.isCreation &&
+  if (asksPayment &&
       isStudent &&
       kHomeworkTariffs.containsKey(form.currentSchoolLevel) &&
       form.homeworkTariffValue == null)
@@ -340,7 +350,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     collector.add('tariffaAiutoCompiti', 'Obbligatoria', PersonEditCardId.payment);
   }
 
-  if (!onlyParent &&
+  if (asksPayment &&
       form.paymentMethodValue == 'Altro' &&
       form.otherPaymentMethodCtrl.text.isEmpty)
   {
@@ -400,12 +410,12 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     if (form.certificationValues.contains('Altro') &&
         form.otherCertificationCtrl.text.isEmpty)
     {
-      collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.student);
+      collector.add('altraCertificazione', 'Specificare il tipo', PersonEditCardId.certifications);
     }
 
     if (form.certificationValues.contains('DSA') && form.dsaCertificationCtrl.text.isEmpty)
     {
-      collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.student);
+      collector.add('tipoDsa', 'Specificare il disturbo', PersonEditCardId.certifications);
     }
 
     if (form.certificationValues.isNotEmpty && !form.psychMeetingsAcknowledgedValue)
@@ -413,8 +423,13 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       collector.add(
         'presaVisioneIncontri',
         'Presa visione obbligatoria',
-        PersonEditCardId.student,
+        PersonEditCardId.certifications,
       );
+    }
+
+    if (form.isMinor && form.uscitaAnticipata)
+    {
+      _checkEarlyExit(form, collector);
     }
 
     if (form.schoolRows.isEmpty)
@@ -542,6 +557,15 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     {
       collector.add('tipoCollaborazione', 'Campo obbligatorio', PersonEditCardId.staff);
     }
+
+    final String compensation = form.grossCompensationCtrl.text.trim();
+
+    if (form.isPaidCollaboration &&
+        compensation.isNotEmpty &&
+        parseAmountCents(compensation) == null)
+    {
+      collector.add('compensoLordo', 'Importo non valido', PersonEditCardId.staff);
+    }
   }
 
   if (form.isMinor && form.selectedParents.isEmpty)
@@ -563,6 +587,14 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
     );
   }
 
+  return _resultOf(collector, futureSchoolYear: futureSchoolYear);
+}
+
+PersonEditValidation _resultOf(
+  _Collector collector, {
+  required bool futureSchoolYear,
+})
+{
   if (collector.issues.isEmpty)
   {
     return PersonEditValidation(errors: collector.errors, issues: collector.issues);
@@ -631,4 +663,132 @@ String? _childLeftWithoutParents(PersonEditForm form)
   }
 
   return null;
+}
+
+// The activity day ends at 19:00; leaving then is not leaving early.
+const int _closingHour = 19;
+
+DateTime? _italianDate(String value)
+{
+  if (!PersonEditForm.isValidDate(value))
+  {
+    return null;
+  }
+
+  final List<String> parts = value.split('/');
+
+  return DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+}
+
+// "hh:mm" as the mask writes it; anything else is refused.
+int? _minutesOfDay(String value)
+{
+  final RegExpMatch? match = RegExp(r'^(\d{2}):(\d{2})$').firstMatch(value);
+
+  if (match == null)
+  {
+    return null;
+  }
+
+  final int hour = int.parse(match.group(1)!);
+  final int minute = int.parse(match.group(2)!);
+
+  if (hour > 23 || minute > 59)
+  {
+    return null;
+  }
+
+  return hour * 60 + minute;
+}
+
+void _checkEarlyExitPeriod(PersonEditForm form, _Collector collector)
+{
+  final String from = form.uscitaAnticipataDalCtrl.text.trim();
+  final String to = form.uscitaAnticipataAlCtrl.text.trim();
+
+  if (from.isEmpty)
+  {
+    collector.add('uscitaAnticipataDal', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+  }
+  else if (!PersonEditForm.isValidDate(from))
+  {
+    collector.add('uscitaAnticipataDal', 'Data non valida', PersonEditCardId.earlyExit);
+  }
+
+  if (to.isEmpty)
+  {
+    collector.add('uscitaAnticipataAl', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+
+    return;
+  }
+
+  if (!PersonEditForm.isValidDate(to))
+  {
+    collector.add('uscitaAnticipataAl', 'Data non valida', PersonEditCardId.earlyExit);
+
+    return;
+  }
+
+  final DateTime? start = _italianDate(from);
+  final DateTime? end = _italianDate(to);
+
+  if (start != null && end != null && end.isBefore(start))
+  {
+    collector.add(
+      'uscitaAnticipataAl',
+      'Non può precedere l\'inizio',
+      PersonEditCardId.earlyExit,
+    );
+  }
+}
+
+void _checkEarlyExit(PersonEditForm form, _Collector collector)
+{
+  if (form.uscitaAnticipataPeriodoLimitato)
+  {
+    _checkEarlyExitPeriod(form, collector);
+  }
+
+  final Set<int> takenDays = {};
+
+  for (var i = 0; i < form.earlyExitRows.length; i++)
+  {
+    final EarlyExitRowData row = form.earlyExitRows[i];
+
+    if (row.weekdays.isEmpty)
+    {
+      collector.add('earlyExitDays_$i', 'Scegli almeno un giorno', PersonEditCardId.earlyExit);
+    }
+    else if (row.weekdays.any(takenDays.contains))
+    {
+      collector.add(
+        'earlyExitDays_$i',
+        'Giorno già indicato in un\'altra uscita',
+        PersonEditCardId.earlyExit,
+      );
+    }
+
+    takenDays.addAll(row.weekdays);
+
+    final String time = row.timeCtrl.text.trim();
+    final int? minutes = _minutesOfDay(time);
+
+    if (time.isEmpty)
+    {
+      collector.add('earlyExitTime_$i', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+    }
+    else if (minutes == null)
+    {
+      collector.add('earlyExitTime_$i', 'Orario non valido', PersonEditCardId.earlyExit);
+    }
+    else if (minutes >= _closingHour * 60)
+    {
+      collector.add('earlyExitTime_$i', 'Deve precedere le 19:00', PersonEditCardId.earlyExit);
+    }
+
+    if (row.reasonCtrl.text.trim().isEmpty)
+    {
+      collector.add('earlyExitReason_$i', 'Campo obbligatorio', PersonEditCardId.earlyExit);
+    }
+  }
 }

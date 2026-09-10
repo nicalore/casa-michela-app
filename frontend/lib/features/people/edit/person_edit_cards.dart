@@ -14,6 +14,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../models/person_item.dart';
 import '../../../shared/widgets/app_photo_uploader.dart';
 import '../../../shared/widgets/date_input_formatters.dart';
+import '../widgets/early_exit_edit_row.dart';
 import '../widgets/membership_edit_row.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/person_row_models.dart';
@@ -1009,11 +1010,10 @@ class PaymentCard extends StatelessWidget
 
   const PaymentCard({super.key, required this.ctx});
 
-  // The Aiuto Compiti rate follows the school level, so it is only worth asking
-  // once the year under way has a study programme on it.
+  // The rate follows the school level, so it is asked only once the current year has a study programme.
   Widget? _tariff()
   {
-    if (!ctx.form.isCreation || !ctx.form.activeRoles.contains('STUDENTE'))
+    if (!ctx.form.activeRoles.contains('STUDENTE'))
     {
       return null;
     }
@@ -1229,11 +1229,135 @@ class CourseParticipantCard extends StatelessWidget
   }
 }
 
-class StudentCard extends StatelessWidget
+class EarlyExitCard extends StatelessWidget
 {
+  static const String _wholeMembership = 'Tutta l\'iscrizione';
+  static const String _limitedPeriod = 'Periodo limitato';
+
   final PersonEditCardContext ctx;
 
-  const StudentCard({super.key, required this.ctx});
+  const EarlyExitCard({super.key, required this.ctx});
+
+  // Row errors are keyed by position, so any list change must clear them.
+  void _clearErrors()
+  {
+    ctx.errors.removeWhere((key, _) =>
+        key == 'uscitaAnticipataDal' ||
+        key == 'uscitaAnticipataAl' ||
+        key.startsWith('earlyExitDays_') ||
+        key.startsWith('earlyExitTime_') ||
+        key.startsWith('earlyExitReason_'));
+  }
+
+  void _clearDeclaration()
+  {
+    ctx.form.uscitaAnticipataPeriodoLimitato = false;
+    ctx.form.uscitaAnticipataDalCtrl.clear();
+    ctx.form.uscitaAnticipataAlCtrl.clear();
+
+    for (final row in ctx.form.earlyExitRows)
+    {
+      row.dispose();
+    }
+
+    ctx.form.earlyExitRows.clear();
+  }
+
+  List<Widget> _buildDeclaration()
+  {
+    final List<EarlyExitRowData> rows = ctx.form.earlyExitRows;
+
+    return [
+      const SizedBox(height: 24),
+      PersonChipGroupField(
+        label: 'Validità',
+        options: const [_wholeMembership, _limitedPeriod],
+        value: ctx.form.uscitaAnticipataPeriodoLimitato
+            ? _limitedPeriod
+            : _wholeMembership,
+        onChanged: (choice)
+        {
+          ctx.form.uscitaAnticipataPeriodoLimitato = choice == _limitedPeriod;
+
+          if (!ctx.form.uscitaAnticipataPeriodoLimitato)
+          {
+            ctx.form.uscitaAnticipataDalCtrl.clear();
+            ctx.form.uscitaAnticipataAlCtrl.clear();
+          }
+
+          _clearErrors();
+          ctx.onChanged();
+        },
+      ),
+      if (ctx.form.uscitaAnticipataPeriodoLimitato)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: ctx.form.uscitaAnticipataDalCtrl,
+                label: 'Dal',
+                hintText: 'gg/mm/aaaa',
+                errorText: ctx.errors['uscitaAnticipataDal'],
+                keyboardType: TextInputType.number,
+                inputFormatters: [DateInputFormatter()],
+                onChanged: (_) => ctx.clearError('uscitaAnticipataDal'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AppTextField(
+                controller: ctx.form.uscitaAnticipataAlCtrl,
+                label: 'Al',
+                hintText: 'gg/mm/aaaa',
+                errorText: ctx.errors['uscitaAnticipataAl'],
+                keyboardType: TextInputType.number,
+                inputFormatters: [DateInputFormatter()],
+                onChanged: (_) => ctx.clearError('uscitaAnticipataAl'),
+              ),
+            ),
+          ],
+        ),
+      const SizedBox(height: 24),
+      const AppFieldLabel('Uscite'),
+      const SizedBox(height: 10),
+      if (rows.isEmpty)
+        const PersonEmptyState(message: 'Nessuna uscita indicata.'),
+      for (var i = 0; i < rows.length; i++)
+        EarlyExitEditRow(
+          key: ValueKey(rows[i]),
+          row: rows[i],
+          errors: {
+            'weekdays': ctx.errors['earlyExitDays_$i'],
+            'time': ctx.errors['earlyExitTime_$i'],
+            'reason': ctx.errors['earlyExitReason_$i'],
+          },
+          onChanged: ()
+          {
+            _clearErrors();
+            ctx.onChanged();
+          },
+          onRemove: ()
+          {
+            rows.removeAt(i).dispose();
+            _clearErrors();
+            ctx.onChanged();
+          },
+        ),
+      if (rows.length < PersonEditForm.maxEarlyExitRows) ...[
+        const SizedBox(height: 6),
+        AppAddRowButton(
+          label: 'AGGIUNGI USCITA',
+          onTap: ()
+          {
+            rows.add(EarlyExitRowData.empty());
+            _clearErrors();
+            ctx.onChanged();
+          },
+        ),
+      ],
+    ];
+  }
 
   @override
   Widget build(BuildContext context)
@@ -1242,20 +1366,43 @@ class StudentCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (ctx.form.isMinor) ...[
-          cardSection(
-            'Uscita anticipata',
-            AppSegmentedSwitch(
-              value: ctx.form.uscitaAnticipata,
-              onChanged: (value)
+        cardSection(
+          'Autorizzata',
+          AppSegmentedSwitch(
+            value: ctx.form.uscitaAnticipata,
+            onChanged: (value)
+            {
+              ctx.form.uscitaAnticipata = value;
+
+              if (!value)
               {
-                ctx.form.uscitaAnticipata = value;
-                ctx.onChanged();
-              },
-            ),
+                _clearDeclaration();
+              }
+
+              _clearErrors();
+              ctx.onChanged();
+            },
           ),
-          const SizedBox(height: 24),
-        ],
+        ),
+        if (ctx.form.uscitaAnticipata) ..._buildDeclaration(),
+      ],
+    );
+  }
+}
+
+class CertificationsCard extends StatelessWidget
+{
+  final PersonEditCardContext ctx;
+
+  const CertificationsCard({super.key, required this.ctx});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         PersonChipGroupField.multiple(
           label: 'Certificazione',
           options: const [_noCertification, 'DSA', 'BES', 'ADHD', 'Altro'],
@@ -1438,15 +1585,6 @@ class StaffCard extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppTextField(
-          controller: ctx.form.ibanCtrl,
-          label: 'IBAN',
-          hintText: 'Es. IT00A...',
-          maxLength: FieldLimits.iban,
-          errorText: ctx.errors['iban'],
-          onChanged: (_) => ctx.clearError('iban'),
-        ),
-        const SizedBox(height: 20),
         PersonChipGroupField(
           label: 'Collaborazione',
           options: forced
@@ -1463,6 +1601,26 @@ class StaffCard extends StatelessWidget
             ctx.form.collaborationTypeValue = value;
             ctx.clearError('tipoCollaborazione');
           },
+        ),
+        if (ctx.form.isPaidCollaboration) ...[
+          const SizedBox(height: 20),
+          AppTextField(
+            controller: ctx.form.grossCompensationCtrl,
+            label: 'Compenso orario lordo (opzionale)',
+            hintText: 'Es. 10,00',
+            keyboardType: TextInputType.number,
+            errorText: ctx.errors['compensoLordo'],
+            onChanged: (_) => ctx.clearError('compensoLordo'),
+          ),
+        ],
+        const SizedBox(height: 20),
+        AppTextField(
+          controller: ctx.form.ibanCtrl,
+          label: 'IBAN',
+          hintText: 'Es. IT00A...',
+          maxLength: FieldLimits.iban,
+          errorText: ctx.errors['iban'],
+          onChanged: (_) => ctx.clearError('iban'),
         ),
       ],
     );

@@ -32,8 +32,7 @@ class OpeningWindow
   }
 }
 
-// Null where shut; rows with no hours are closures. A row belongs to the band
-// its start falls in.
+// Null where shut; rows with no hours are closures, and a row belongs to the band its start is in.
 OpeningWindow? openingWindowFor(
   List<OpeningDayItem> openingDays,
   DateTime day,
@@ -107,8 +106,7 @@ OpeningWindow? sharedOpeningWindow(
   return OpeningWindow(startMinutes: start, endMinutes: end);
 }
 
-// Union of the two modes' openings: an intersection would hide hours bookable
-// in only one mode.
+// Union of the two modes: an intersection would hide hours bookable in only one mode.
 OpeningWindow? unionOpeningWindow(
   List<OpeningDayItem> openingDays,
   DateTime day,
@@ -134,4 +132,63 @@ OpeningWindow? unionOpeningWindow(
 bool isOpenOn(List<OpeningDayItem> openingDays, DateTime day, String mode)
 {
   return TimeBucket.values.any((bucket) => openingWindowFor(openingDays, day, mode, bucket) != null);
+}
+
+const String kInBuilding = 'in presenza';
+const String kOnScreen = 'online';
+const String kBothWays = 'in presenza e online';
+
+class BandOpening
+{
+  final int startMinutes;
+  final int endMinutes;
+  final String mode;
+
+  const BandOpening({
+    required this.startMinutes,
+    required this.endMinutes,
+    required this.mode,
+  });
+
+  String get hours => formatMinutesRange(startMinutes, endMinutes);
+}
+
+List<BandOpening> bandOpeningsFor(
+  List<OpeningDayItem> openingDays,
+  DateTime day,
+  TimeBucket bucket,
+)
+{
+  final presence = openingWindowFor(openingDays, day, kPresenceMode, bucket);
+  final online = openingWindowFor(openingDays, day, kOnlineMode, bucket);
+
+  // Same hours both ways: merged into one opening.
+  if (presence != null &&
+      online != null &&
+      presence.startMinutes == online.startMinutes &&
+      presence.endMinutes == online.endMinutes)
+  {
+    return [
+      BandOpening(
+        startMinutes: presence.startMinutes,
+        endMinutes: presence.endMinutes,
+        mode: kBothWays,
+      ),
+    ];
+  }
+
+  return [
+    if (presence != null)
+      BandOpening(
+        startMinutes: presence.startMinutes,
+        endMinutes: presence.endMinutes,
+        mode: kInBuilding,
+      ),
+    if (online != null)
+      BandOpening(
+        startMinutes: online.startMinutes,
+        endMinutes: online.endMinutes,
+        mode: kOnScreen,
+      ),
+  ];
 }

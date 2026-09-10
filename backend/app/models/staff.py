@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    Numeric,
     String,
 )
 from sqlalchemy import Enum as SqlEnum
@@ -41,6 +43,10 @@ class Staff(Base):
             "iban IS NULL OR iban ~ '^IT[0-9]{2}[A-Z][0-9]{10}[A-Z0-9]{12}$'",
             name="iban_format",
         ),
+        CheckConstraint(
+            "gross_compensation IS NULL OR gross_compensation >= 0",
+            name="gross_compensation_not_negative",
+        ),
         *not_blank_when_present_constraints("iban"),
         *no_surrounding_whitespace_constraints("iban"),
     )
@@ -56,6 +62,12 @@ class Staff(Base):
     )
 
     iban: Mapped[str | None] = mapped_column(String(27), nullable=True)
+
+    # Numeric, not float: money must not round in binary. Null when nobody said.
+    gross_compensation: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+    )
 
     member: Mapped[Member] = relationship(
         back_populates="staff_profile",

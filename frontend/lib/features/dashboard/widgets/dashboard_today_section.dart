@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/closed_today_notice.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
@@ -15,8 +16,7 @@ import 'dashboard_section_card.dart';
 
 typedef _DayRow = ({DateTime date, TimeOfDay start, TimeOfDay end, String who});
 
-// Distinct people, not rows; a row counts in every band it overlaps, matching
-// how the calendar reads it.
+// Distinct people, not rows; a row counts in every band it overlaps, as the calendar reads it.
 int _peopleIn(List<_DayRow> rows, DateTime day, int bandStart, int bandEnd)
 {
   return rows
@@ -31,21 +31,6 @@ int _peopleIn(List<_DayRow> rows, DateTime day, int bandStart, int bandEnd)
       .map((row) => row.who)
       .toSet()
       .length;
-}
-
-class DashboardBandOpening
-{
-  final int startMinutes;
-  final int endMinutes;
-  final String mode;
-
-  const DashboardBandOpening({
-    required this.startMinutes,
-    required this.endMinutes,
-    required this.mode,
-  });
-
-  String get hours => formatMinutesRange(startMinutes, endMinutes);
 }
 
 class DashboardBandFigure
@@ -64,10 +49,9 @@ class DashboardBandStatus
   final TimeBucket band;
 
   // Never empty: a band with no opening at all is omitted from the day.
-  final List<DashboardBandOpening> openings;
+  final List<BandOpening> openings;
 
-  // A draft is a publication reopened for changes, so it still counts as
-  // published.
+  // A draft is a publication reopened for changes, so it still counts as published.
   final CalendarPublicationItem? publication;
 
   final int teachers;
@@ -105,43 +89,6 @@ class DashboardBandStatus
   }
 }
 
-const String _inBuilding = 'in presenza';
-const String _onScreen = 'online';
-const String _bothWays = 'in presenza e online';
-
-List<DashboardBandOpening> _openingsOf(OpeningWindow? presence, OpeningWindow? online)
-{
-  // Same hours both ways: merged into one opening.
-  if (presence != null &&
-      online != null &&
-      presence.startMinutes == online.startMinutes &&
-      presence.endMinutes == online.endMinutes)
-  {
-    return [
-      DashboardBandOpening(
-        startMinutes: presence.startMinutes,
-        endMinutes: presence.endMinutes,
-        mode: _bothWays,
-      ),
-    ];
-  }
-
-  return [
-    if (presence != null)
-      DashboardBandOpening(
-        startMinutes: presence.startMinutes,
-        endMinutes: presence.endMinutes,
-        mode: _inBuilding,
-      ),
-    if (online != null)
-      DashboardBandOpening(
-        startMinutes: online.startMinutes,
-        endMinutes: online.endMinutes,
-        mode: _onScreen,
-      ),
-  ];
-}
-
 List<DashboardBandStatus> openBands({
   required DateTime day,
   required List<OpeningDayItem> openingDays,
@@ -175,10 +122,7 @@ List<DashboardBandStatus> openBands({
 
   for (final band in TimeBucket.values)
   {
-    final openings = _openingsOf(
-      openingWindowFor(openingDays, day, kPresenceMode, band),
-      openingWindowFor(openingDays, day, kOnlineMode, band),
-    );
+    final openings = bandOpeningsFor(openingDays, day, band);
 
     if (openings.isEmpty)
     {
@@ -200,8 +144,7 @@ List<DashboardBandStatus> openBands({
       band: band,
       openings: openings,
       publication: publication,
-      // Once published, counts come from the calendar, not from what was
-      // offered or booked.
+      // Once published, counts come from the calendar, not from what was offered or booked.
       teachers: publication == null
           ? _peopleIn(offered, day, bandStart, bandEnd)
           : planned.map((lesson) => lesson.teacherTaxCode).toSet().length,
@@ -215,8 +158,7 @@ List<DashboardBandStatus> openBands({
   return bands;
 }
 
-// Type and spacing scale grow as the band count shrinks: the card height is
-// fixed, so fewer bands are written larger to fill it.
+// Type and spacing grow as the band count shrinks: the card height is fixed, so fewer bands fill it.
 class _BandScale
 {
   final double name;
@@ -284,8 +226,7 @@ class _BandScale
 
 class DashboardTodaySection extends StatelessWidget
 {
-  // Null when the opening hours could not be read (they are admin-only),
-  // distinct from an empty day.
+  // Null when the opening hours could not be read (admin-only), distinct from an empty day.
   final List<DashboardBandStatus>? bands;
 
   final bool isLoading;
@@ -342,11 +283,10 @@ class DashboardTodaySection extends StatelessWidget
 
     if (open.isEmpty)
     {
-      return const _ClosedToday();
+      return const ClosedTodayNotice();
     }
 
-    // Multiple bands share the card's extra height; a single band keeps its
-    // natural height, centred in the card.
+    // Multiple bands share the card's extra height; a single band keeps its natural height, centred.
     final _BandScale scale = _BandScale.of(open.length);
     final bool shares = fill && open.length > 1;
 
@@ -373,59 +313,6 @@ class DashboardTodaySection extends StatelessWidget
               child: _BandRow(status: open[i], scale: scale),
             ),
       ],
-    );
-  }
-}
-
-class _ClosedToday extends StatelessWidget
-{
-  const _ClosedToday();
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        color: AppTheme.trialPaper,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.trialLine, width: 1.5),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.event_busy_rounded, size: 26, color: AppTheme.trialMutedText),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "L'associazione è chiusa",
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.trialOcean,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Nessuna apertura prevista.',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.45,
-                    color: AppTheme.trialMutedText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

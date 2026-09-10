@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from typing import Final, Self
 
 from pydantic import BaseModel, Field, model_validator
@@ -7,6 +8,8 @@ from app.core import field_lengths
 from app.schemas.person import (
     ParentalRelationshipInput,
     StudentCertificationData,
+    StudentEarlyExitData,
+    StudentHomeworkTariffData,
     TeacherEducationData,
 )
 
@@ -112,6 +115,7 @@ class WizardMemberData(WizardMemberDataBase):
 class WizardStaffData(BaseModel):
     collaboration_type: str
     iban: str | None = Field(None, max_length=field_lengths.IBAN)
+    gross_compensation: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)
 
 
 class WizardAdminData(BaseModel):
@@ -146,8 +150,11 @@ class WizardSchoolEnrollmentData(BaseModel):
     school_class: str
 
 
-class WizardStudentData(StudentCertificationData):
-    authorized_early_exit: bool
+class WizardStudentData(
+    StudentCertificationData,
+    StudentEarlyExitData,
+    StudentHomeworkTariffData,
+):
     mandatory_psych_meetings_acknowledged: bool
     school_enrollments: list[WizardSchoolEnrollmentData] = Field(default_factory=list)
 

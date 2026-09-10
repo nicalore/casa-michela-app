@@ -110,7 +110,7 @@ class _AuthorizedPickupDialogState extends State<_AuthorizedPickupDialog>
             children: [
               Text(
                 '${widget.parentName} ha l\'autorizzazione a ritirare '
-                '${widget.childName} in caso di uscita anticipata?',
+                '${widget.childName}?',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,

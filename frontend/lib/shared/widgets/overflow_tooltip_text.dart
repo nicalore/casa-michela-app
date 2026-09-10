@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
-// Overflow is re-measured with a TextPainter at the real laid-out width:
-// RenderParagraph.didExceedMaxLines is unreliable on Flutter web.
+// Overflow is re-measured with a TextPainter at the laid-out width: didExceedMaxLines is unreliable on web.
 class OverflowTooltipText extends StatefulWidget
 {
   final String text;
@@ -34,7 +34,6 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
   {
     super.initState();
     PaintingBinding.instance.systemFonts.addListener(_scheduleOverflowCheck);
-    _scheduleOverflowCheck();
   }
 
   @override
@@ -61,8 +60,7 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
   InlineSpan get _span =>
       widget.textSpan ?? TextSpan(text: widget.text, style: widget.style);
 
-  // Deferred: the text must be laid out for the current frame before its width
-  // is known.
+  // Deferred: the text must be laid out for the current frame before its width is known.
   void _scheduleOverflowCheck()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -118,15 +116,56 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
           style: widget.style,
         );
 
-    if (!_isOverflowing)
-    {
-      return textWidget;
-    }
-
-    return Tooltip(
-      message: widget.text,
-      waitDuration: const Duration(milliseconds: 600),
-      child: textWidget,
+    // Re-checked on every laid-out size: the available width decides the overflow as much as the text.
+    return _LayoutObserver(
+      onLayout: _scheduleOverflowCheck,
+      child: !_isOverflowing
+        ? textWidget
+        : Tooltip(
+            message: widget.text,
+            waitDuration: const Duration(milliseconds: 600),
+            child: textWidget,
+          ),
     );
+  }
+}
+
+class _LayoutObserver extends SingleChildRenderObjectWidget
+{
+  final VoidCallback onLayout;
+
+  const _LayoutObserver({required this.onLayout, required Widget super.child});
+
+  @override
+  _RenderLayoutObserver createRenderObject(BuildContext context)
+  {
+    return _RenderLayoutObserver(onLayout);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, covariant _RenderLayoutObserver renderObject)
+  {
+    renderObject.onLayout = onLayout;
+  }
+}
+
+class _RenderLayoutObserver extends RenderProxyBox
+{
+  VoidCallback onLayout;
+
+  Size? _lastSize;
+
+  _RenderLayoutObserver(this.onLayout);
+
+  @override
+  void performLayout()
+  {
+    super.performLayout();
+
+    if (size != _lastSize)
+    {
+      _lastSize = size;
+      onLayout();
+    }
   }
 }

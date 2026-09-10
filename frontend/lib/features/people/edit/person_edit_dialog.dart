@@ -328,6 +328,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         openPdfTab(title: 'Modulo di iscrizione · ${form.personName}'),
     ];
 
+    final List<PdfTab?> earlyExitTabs = [
+      for (final EnrollmentForm form in forms)
+        form.needsEarlyExitForm
+            ? openPdfTab(title: 'Modulo uscita anticipata · ${form.personName}')
+            : null,
+    ];
+
     setState(() => _isGenerating = true);
 
     var downloaded = false;
@@ -349,6 +356,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         else
         {
           downloaded = downloadPdf(bytes, fileName: fileName) || downloaded;
+        }
+
+        if (!form.needsEarlyExitForm)
+        {
+          continue;
+        }
+
+        final Uint8List earlyExit =
+            await ApiService().generateEarlyExitForm(form.request);
+        final String earlyExitName =
+            'Modulo uscita anticipata ${form.personName} $day.pdf';
+        final PdfTab? earlyExitTab = earlyExitTabs[index];
+
+        if (earlyExitTab != null)
+        {
+          earlyExitTab.present(earlyExit, fileName: earlyExitName);
+        }
+        else
+        {
+          downloaded = downloadPdf(earlyExit, fileName: earlyExitName) || downloaded;
         }
       }
 
@@ -404,7 +431,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         'person': _newPersonItem(),
         'payload': _form.buildCreatePayload(),
         'imageBytes': _form.fotoProfilo,
-        'homeworkTariff': _form.homeworkTariffCode,
       });
 
       return;
@@ -672,7 +698,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       PersonEditCardId.admin => AdminCard(ctx: _ctx),
       PersonEditCardId.teacher => TeacherCard(ctx: _ctx),
       PersonEditCardId.courseParticipant => CourseParticipantCard(ctx: _ctx),
-      PersonEditCardId.student => StudentCard(ctx: _ctx),
+      PersonEditCardId.earlyExit => EarlyExitCard(ctx: _ctx),
+      PersonEditCardId.certifications => CertificationsCard(ctx: _ctx),
       PersonEditCardId.schoolEnrollments => SchoolEnrollmentsCard(ctx: _ctx),
       PersonEditCardId.staff => StaffCard(ctx: _ctx),
       PersonEditCardId.minorSafety => MinorSafetyCard(ctx: _ctx),

@@ -8,8 +8,8 @@ from starlette.concurrency import run_in_threadpool
 from app.core.labels import roman_numeral
 from app.core.pdf_forms import (
     asset_bytes,
-    enrollment_field_map,
     fill_acroform,
+    form_field_map,
 )
 from app.core.storage import (
     ENROLLMENT_FORM_FIELD_MAP,
@@ -20,14 +20,10 @@ from app.models.member import PaymentMethodEnum
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
 from app.models.staff import CollaborationTypeEnum
-from app.models.student import CertificationTypeEnum
+from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.repositories.course_repository import CourseRepository
 from app.repositories.school_repository import SchoolRepository
-from app.schemas.enrollment_form import (
-    EnrollmentFormParent,
-    EnrollmentFormRequest,
-    HomeworkTariffEnum,
-)
+from app.schemas.enrollment_form import EnrollmentFormParent, EnrollmentFormRequest
 from app.schemas.person_wizard import PersonWizardPayloadBase
 
 # Fixed signing place: the association's seat.
@@ -54,8 +50,7 @@ _CERTIFICATION_FIELDS: Final[dict[str, str]] = {
     CertificationTypeEnum.OTHER: "diagnosi_altro",
 }
 
-# Keyed by course name: anything else the association runs goes on the
-# template's free line instead.
+# Keyed by course name; anything else goes on the template's free line.
 _COURSE_FIELDS: Final[dict[str, str]] = {
     "Yoga": "corso_yoga",
     "Pilates": "corso_pilates",
@@ -132,9 +127,20 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
     if student is not None:
         payload["student_data"] = {
             "authorized_early_exit": student.authorized_early_exit,
+            "early_exit_start_date": student.early_exit_start_date,
+            "early_exit_end_date": student.early_exit_end_date,
+            "early_exit_schedules": [
+                {
+                    "weekdays": list(schedule.weekdays),
+                    "exit_time": schedule.exit_time,
+                    "reason": schedule.reason,
+                }
+                for schedule in student.early_exit_schedules
+            ],
             "certification_types": list(student.certification_types),
             "certification_other_detail": student.certification_other_detail,
             "certification_dsa_detail": student.certification_dsa_detail,
+            "homework_tariff": student.homework_tariff,
             "mandatory_psych_meetings_acknowledged": (
                 student.mandatory_psych_meetings_acknowledged
             ),
@@ -227,7 +233,7 @@ async def build_enrollment_form(
     request: EnrollmentFormRequest,
 ) -> bytes:
     """Fill a copy of the template with the wizard's data. Nothing is stored."""
-    field_map = enrollment_field_map(ENROLLMENT_FORM_FIELD_MAP)
+    field_map = form_field_map(ENROLLMENT_FORM_FIELD_MAP)
 
     values = enrollment_form_values(
         request,
@@ -288,7 +294,7 @@ def enrollment_form_values(
     _diagnosis(values, person, checked=checked)
     _services(values, person, course_cost=course_cost, checked=checked)
     _member(values, person, checked=checked)
-    _homework_tariff(values, request.homework_tariff, checked=checked)
+    _homework_tariff(values, person, checked=checked)
 
     _text(values, "luogo_data", f"{_PLACE}, {today:%d/%m/%Y}")
 
@@ -478,8 +484,7 @@ def _services(
 
         return
 
-    # Any other course the association runs: the template names it on its own
-    # line rather than leaving the section blank.
+    # Any other course is named on the template's free line.
     _tick(values, "corso_altri", True, checked=checked)
     _text(values, "corso_altri_nome", course.course_type)
     _text(values, "corso_altri_costo", _bare_amount(course_cost))
@@ -487,11 +492,16 @@ def _services(
 
 def _homework_tariff(
     values: dict[str, str],
-    tariff: HomeworkTariffEnum | None,
+    person: PersonWizardPayloadBase,
     *,
     checked: str,
 ) -> None:
-    field = _HOMEWORK_TARIFF_FIELDS.get(tariff)
+    student = person.student_data
+
+    if student is None:
+        return
+
+    field = _HOMEWORK_TARIFF_FIELDS.get(student.homework_tariff)
 
     if field is not None:
         _tick(values, field, True, checked=checked)

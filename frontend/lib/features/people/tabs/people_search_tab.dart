@@ -39,6 +39,17 @@ const double _cardGap = 20;
 // Must match RoleLabelMapper's spelling.
 const String _studentRoleLabel = 'Studente';
 
+// Only a minor is asked for leave: an adult matches neither yes nor no.
+bool matchesEarlyExit(PersonItem person, bool? expected)
+{
+  if (expected == null)
+  {
+    return true;
+  }
+
+  return !person.isAdult && person.earlyExit == expected;
+}
+
 class PeopleSearchTab extends StatefulWidget
 {
   const PeopleSearchTab({super.key});
@@ -308,7 +319,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         _matchesExactly(person.enrollmentYear, _filterState.enrollmentYear) &&
         _matchesExactly(person.educationLevel, _filterState.educationLevel) &&
         _matchesExactly(person.schoolClass, _filterState.schoolClass) &&
-        _matchesExactly(person.earlyExit, _filterState.earlyExit) &&
+        matchesEarlyExit(person, _filterState.earlyExit) &&
         _matchesExactly(person.collaborationType, _filterState.collaborationType) &&
         _matchesExactly(person.isMedicalCertificateValid, _filterState.isMedicalCertificateValid);
   }
