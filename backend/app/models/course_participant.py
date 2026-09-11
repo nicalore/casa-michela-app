@@ -33,7 +33,11 @@ class CourseParticipant(Base):
         primary_key=True,
     )
 
-    medical_certificate_expiration: Mapped[date] = mapped_column(Date, nullable=False)
+    # A course may be joined before the certificate is handed in.
+    medical_certificate_expiration: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
 
     # Renaming a course rewrites this value; deleting one that is still in use
     # is refused by the database.

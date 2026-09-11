@@ -76,8 +76,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   static const double _stackMaxWidth =
       _contentMaxWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap);
 
-  // Keeps 'GENERA DOCUMENTI DI ISCRIZIONE' on one line beside the create button.
-  static const double _enrollmentFooterWidth = 820;
+  // Keeps 'GENERA DOCUMENTI DI ISCRIZIONE E CREA PERSONA' on one line.
+  static const double _enrollmentFooterWidth = 1100;
 
   // Keeps 'AGGIUNGI GENITORE', the longest submit label, on one line.
   static const double _submitFooterWidth = 576;
@@ -92,10 +92,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   bool _isLoading = true;
   bool _isSaving = false;
-  bool _isGenerating = false;
-
-  // The create button appears only once the form has been generated at least once.
-  bool _formGenerated = false;
 
   @override
   void initState()
@@ -312,13 +308,16 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return false;
   }
 
-  Future<void> _generateEnrollmentForm() async
-  {
-    if (_isGenerating || !_formIsSound())
-    {
-      return;
-    }
+  // Documents this wizard prints on the way to creating the person; the dialogs
+  // that hand their payload back save nothing, so they print nothing either.
+  bool get _printsEnrollmentForms =>
+      widget.purpose == PersonEditPurpose.create && needsEnrollmentForms(_form);
 
+  // Printed before anything is saved: a failure here leaves nothing to undo.
+  // [printed] false stops the creation; [blockedNote] is what the closing
+  // message must add when a blocked tab turned into a download.
+  Future<({bool printed, String? blockedNote})> _printEnrollmentForms() async
+  {
     final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
     final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
 
@@ -334,8 +333,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
             ? openPdfTab(title: 'Modulo uscita anticipata · ${form.personName}')
             : null,
     ];
-
-    setState(() => _isGenerating = true);
 
     var downloaded = false;
 
@@ -378,28 +375,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           downloaded = downloadPdf(earlyExit, fileName: earlyExitName) || downloaded;
         }
       }
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      if (downloaded)
-      {
-        CustomSnackBar.show(
-          context: context,
-          message: forms.length == 1
-              ? 'Il browser ha bloccato la scheda: il modulo è stato scaricato.'
-              : 'Il browser ha bloccato una scheda: il modulo è stato scaricato.',
-          isError: false,
-        );
-      }
-
-      setState(() => _formGenerated = true);
     }
     catch (e)
     {
-      for (final PdfTab? tab in tabs)
+      // Both lists: an early exit tab opens beside its enrolment one and would
+      // otherwise be left waiting. A tab that already has its document ignores
+      // this, having no waiting line left to write on.
+      for (final PdfTab? tab in [...tabs, ...earlyExitTabs])
       {
         tab?.fail('Non è stato possibile generare il modulo.');
       }
@@ -408,19 +390,26 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       {
         CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
       }
+
+      return (printed: false, blockedNote: null);
     }
-    finally
+
+    if (!downloaded)
     {
-      if (mounted)
-      {
-        setState(() => _isGenerating = false);
-      }
+      return (printed: true, blockedNote: null);
     }
+
+    return (
+      printed: true,
+      blockedNote: forms.length == 1
+          ? 'Il browser ha bloccato la scheda: il modulo è stato scaricato.'
+          : 'Il browser ha bloccato una scheda: il modulo è stato scaricato.',
+    );
   }
 
   Future<void> _submit() async
   {
-    if (!_formIsSound())
+    if (_isSaving || !_formIsSound())
     {
       return;
     }
@@ -438,8 +427,24 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     setState(() => _isSaving = true);
 
+    String? blockedNote;
+
     try
     {
+      // Documents first, then the person: printing opens its tabs in the same
+      // turn as the click, or the browser takes them for popups.
+      if (_printsEnrollmentForms)
+      {
+        final outcome = await _printEnrollmentForms();
+
+        if (!outcome.printed || !mounted)
+        {
+          return;
+        }
+
+        blockedNote = outcome.blockedNote;
+      }
+
       if (widget.isCreation)
       {
         // Pending people first: this person will be tied to them.
@@ -463,7 +468,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
         CustomSnackBar.show(
           context: context,
-          message: 'Persona creata con successo!',
+          message: blockedNote == null
+              ? 'Persona creata con successo!'
+              : 'Persona creata con successo! $blockedNote',
           isError: false,
         );
         Navigator.of(context).pop('');
@@ -614,23 +621,12 @@ class _PersonEditDialogState extends State<PersonEditDialog>
         offeredResidence: widget.offeredResidence,
       );
 
+  // One button throughout: printing and creating are the same click.
   Widget _buildFooter()
   {
-    if (widget.purpose != PersonEditPurpose.create || !needsEnrollmentForms(_form))
-    {
-      return AppDialogFooter.single(_submitButton(), maxWidth: _submitFooterWidth);
-    }
-
-    if (!_formGenerated)
-    {
-      // Same width as the two-button footer, so nothing resizes on generation.
-      return AppDialogFooter.single(_generateButton(), maxWidth: _enrollmentFooterWidth);
-    }
-
-    return AppDialogFooter(
-      secondary: _generateButton(),
-      primary: _submitButton(),
-      maxWidth: _enrollmentFooterWidth,
+    return AppDialogFooter.single(
+      _submitButton(),
+      maxWidth: _printsEnrollmentForms ? _enrollmentFooterWidth : _submitFooterWidth,
     );
   }
 
@@ -640,7 +636,9 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       label: switch (widget.purpose)
       {
         PersonEditPurpose.edit => 'SALVA MODIFICHE',
-        PersonEditPurpose.create => 'CREA PERSONA',
+        PersonEditPurpose.create => _printsEnrollmentForms
+            ? 'GENERA DOCUMENTI DI ISCRIZIONE E CREA PERSONA'
+            : 'CREA PERSONA',
         PersonEditPurpose.createParent => 'AGGIUNGI GENITORE',
         PersonEditPurpose.createMinor => 'AGGIUNGI MINORE',
       },
@@ -649,18 +647,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       height: kPersonDialogButtonHeight,
       fontSize: kPersonDialogButtonFontSize,
       onPressed: _submit,
-    );
-  }
-
-  AppGradientButton _generateButton()
-  {
-    return AppGradientButton(
-      label: 'GENERA DOCUMENTI DI ISCRIZIONE',
-      icon: Icons.picture_as_pdf_outlined,
-      busy: _isGenerating,
-      height: kPersonDialogButtonHeight,
-      fontSize: kPersonDialogButtonFontSize,
-      onPressed: _generateEnrollmentForm,
     );
   }
 

@@ -9,6 +9,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.core.text_case import opening_capital, sentence_case, title_case
 from app.core.time_step import (
     MINIMUM_BAND_MINUTES,
     assert_quarter_hour_step,
@@ -44,12 +45,51 @@ def _strip_first(value: Any) -> Any:
     return value.strip() if isinstance(value, str) else value
 
 
+def _upper(value: str) -> str:
+    return value.upper()
+
+
+def _optional_title_case(value: str | None) -> str | None:
+    stripped = _strip_to_none(value)
+
+    return None if stripped is None else title_case(stripped)
+
+
+def _optional_sentence_case(value: str | None) -> str | None:
+    stripped = _strip_to_none(value)
+
+    return None if stripped is None else sentence_case(stripped)
+
+
+def _optional_opening_capital(value: str | None) -> str | None:
+    stripped = _strip_to_none(value)
+
+    return None if stripped is None else opening_capital(stripped)
+
+
 StrippedStr = Annotated[str, AfterValidator(_strip)]
 
 # Trims before the length checks, so a string of spaces fails min_length.
 CleanStr = Annotated[str, BeforeValidator(_strip_first)]
 
 OptionalCleanStr = Annotated[str | None, AfterValidator(_strip_to_none)]
+
+# Anagraphic shapes, settled here so every road into the register agrees.
+TitleCaseStr = Annotated[CleanStr, AfterValidator(title_case)]
+
+UpperCaseStr = Annotated[CleanStr, AfterValidator(_upper)]
+
+SentenceCaseStr = Annotated[CleanStr, AfterValidator(sentence_case)]
+
+OptionalTitleCaseStr = Annotated[str | None, AfterValidator(_optional_title_case)]
+
+OptionalSentenceCaseStr = Annotated[str | None, AfterValidator(_optional_sentence_case)]
+
+# Keeps what is inside: an acronym in a note or a role is not shouting.
+OptionalOpeningCapitalStr = Annotated[
+    str | None,
+    AfterValidator(_optional_opening_capital),
+]
 
 
 class TimeRangeMixin(BaseModel):

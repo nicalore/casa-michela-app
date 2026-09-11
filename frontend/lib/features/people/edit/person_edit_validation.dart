@@ -1,5 +1,6 @@
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/text_case.dart';
 import '../models/person_item.dart';
 import '../widgets/person_row_models.dart';
 import 'homework_tariffs.dart';
@@ -58,20 +59,20 @@ class _Collector
 
 void tidyForm(PersonEditForm form)
 {
-  form.firstNameCtrl.text = form.firstNameCtrl.text.trim();
-  form.lastNameCtrl.text = form.lastNameCtrl.text.trim();
+  form.firstNameCtrl.text = titleCase(form.firstNameCtrl.text.trim());
+  form.lastNameCtrl.text = titleCase(form.lastNameCtrl.text.trim());
   form.cfCtrl.text = form.cfCtrl.text.trim().toUpperCase();
   form.birthDateCtrl.text = form.birthDateCtrl.text.trim();
-  form.birthCityCtrl.text = form.birthCityCtrl.text.trim();
+  form.birthCityCtrl.text = titleCase(form.birthCityCtrl.text.trim());
   form.birthProvinceCtrl.text = form.birthProvinceCtrl.text.trim().toUpperCase();
-  form.birthNationCtrl.text = form.birthNationCtrl.text.trim();
+  form.birthNationCtrl.text = titleCase(form.birthNationCtrl.text.trim());
   form.psychologicalSupportStartDateCtrl.text =
       form.psychologicalSupportStartDateCtrl.text.trim();
 
-  form.streetTypeCtrl.text = form.streetTypeCtrl.text.trim();
-  form.streetNameCtrl.text = form.streetNameCtrl.text.trim();
-  form.streetNumberCtrl.text = form.streetNumberCtrl.text.trim();
-  form.residenceCityCtrl.text = form.residenceCityCtrl.text.trim();
+  form.streetTypeCtrl.text = titleCase(form.streetTypeCtrl.text.trim());
+  form.streetNameCtrl.text = titleCase(form.streetNameCtrl.text.trim());
+  form.streetNumberCtrl.text = form.streetNumberCtrl.text.trim().toUpperCase();
+  form.residenceCityCtrl.text = titleCase(form.residenceCityCtrl.text.trim());
   form.residenceProvinceCtrl.text = form.residenceProvinceCtrl.text.trim().toUpperCase();
   form.postalCodeCtrl.text = form.postalCodeCtrl.text.trim();
   form.emailCtrl.text = form.emailCtrl.text.trim();
@@ -79,14 +80,21 @@ void tidyForm(PersonEditForm form)
 
   form.certificateExpirationCtrl.text = form.certificateExpirationCtrl.text.trim();
   form.ibanCtrl.text = form.ibanCtrl.text.replaceAll(' ', '').toUpperCase();
-  form.otherAdminRoleCtrl.text = form.otherAdminRoleCtrl.text.trim();
-  form.studiScolasticiCtrl.text = form.studiScolasticiCtrl.text.trim();
-  form.studiUniversitariCtrl.text = form.studiUniversitariCtrl.text.trim();
-  form.otherPaymentMethodCtrl.text = form.otherPaymentMethodCtrl.text.trim();
-  form.otherCertificationCtrl.text = form.otherCertificationCtrl.text.trim();
-  form.dsaCertificationCtrl.text = form.dsaCertificationCtrl.text.trim();
-  form.emergencyContactNameCtrl.text = form.emergencyContactNameCtrl.text.trim();
+  form.otherAdminRoleCtrl.text = openingCapital(form.otherAdminRoleCtrl.text.trim());
+  form.studiScolasticiCtrl.text = sentenceCase(form.studiScolasticiCtrl.text.trim());
+  form.studiUniversitariCtrl.text = sentenceCase(form.studiUniversitariCtrl.text.trim());
+  form.otherPaymentMethodCtrl.text = sentenceCase(form.otherPaymentMethodCtrl.text.trim());
+  form.otherCertificationCtrl.text = openingCapital(form.otherCertificationCtrl.text.trim());
+  form.dsaCertificationCtrl.text = openingCapital(form.dsaCertificationCtrl.text.trim());
+  form.allergiesCtrl.text = openingCapital(form.allergiesCtrl.text.trim());
+  form.medicationsCtrl.text = openingCapital(form.medicationsCtrl.text.trim());
+  form.emergencyContactNameCtrl.text = titleCase(form.emergencyContactNameCtrl.text.trim());
   form.emergencyContactPhoneCtrl.text = formatPhoneNumber(form.emergencyContactPhoneCtrl.text);
+
+  for (final row in form.earlyExitRows)
+  {
+    row.reasonCtrl.text = sentenceCase(row.reasonCtrl.text.trim());
+  }
 }
 
 PersonEditValidation validatePersonEdit(PersonEditForm form)
@@ -380,15 +388,9 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
 
   if (isCourseParticipant)
   {
-    if (form.certificateExpirationCtrl.text.isEmpty)
-    {
-      collector.add(
-        'scadenzaCertificato',
-        'Campo obbligatorio',
-        PersonEditCardId.courseParticipant,
-      );
-    }
-    else if (!PersonEditForm.isValidDate(form.certificateExpirationCtrl.text))
+    // Optional: only what has been typed is checked.
+    if (form.certificateExpirationCtrl.text.isNotEmpty &&
+        !PersonEditForm.isValidDate(form.certificateExpirationCtrl.text))
     {
       collector.add(
         'scadenzaCertificato',

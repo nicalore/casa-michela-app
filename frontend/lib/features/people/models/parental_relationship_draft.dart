@@ -1,3 +1,5 @@
+import '../../../core/utils/text_case.dart';
+
 class ParentalRelationshipDraft
 {
   final String taxCode;
@@ -16,7 +18,15 @@ class ParentalRelationshipDraft
       'tax_code': taxCode,
       'authorized_pickup': authorizedPickup,
       // Dropped when pickup is allowed: a stale reason must not survive.
-      'pickup_restriction_reason': authorizedPickup ? null : restrictionReason,
+      'pickup_restriction_reason':
+          authorizedPickup ? null : _shapedReason(restrictionReason),
     };
+  }
+
+  static String? _shapedReason(String? reason)
+  {
+    final String trimmed = (reason ?? '').trim();
+
+    return trimmed.isEmpty ? null : sentenceCase(trimmed);
   }
 }

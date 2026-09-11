@@ -10,7 +10,14 @@ from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
 from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
-from app.schemas.validators import CleanStr, OptionalCleanStr
+from app.schemas.validators import (
+    OptionalOpeningCapitalStr,
+    OptionalSentenceCaseStr,
+    OptionalTitleCaseStr,
+    SentenceCaseStr,
+    TitleCaseStr,
+    UpperCaseStr,
+)
 
 _UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
     "Un docente che frequenta le superiori non può dichiarare studi universitari."
@@ -154,18 +161,21 @@ class ChildInfoResponse(_RelatedPersonResponse):
 
 
 class GeneralDataUpdate(BaseModel):
-    first_name: str = Field(..., max_length=field_lengths.PERSON_NAME)
-    last_name: str = Field(..., max_length=field_lengths.PERSON_NAME)
+    first_name: TitleCaseStr = Field(..., max_length=field_lengths.PERSON_NAME)
+    last_name: TitleCaseStr = Field(..., max_length=field_lengths.PERSON_NAME)
     tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     gender: str
     birth_date: date
-    birth_city: str = Field(..., max_length=field_lengths.CITY)
-    birth_nation: str = Field(..., max_length=field_lengths.NATION)
+    birth_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
+    birth_nation: TitleCaseStr = Field(..., max_length=field_lengths.NATION)
     birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
-    residence_type: str = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
-    residence_address: str = Field(..., max_length=field_lengths.ADDRESS)
-    residence_street_number: str = Field(..., max_length=field_lengths.STREET_NUMBER)
-    residence_city: str = Field(..., max_length=field_lengths.CITY)
+    residence_type: TitleCaseStr = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
+    residence_address: TitleCaseStr = Field(..., max_length=field_lengths.ADDRESS)
+    residence_street_number: UpperCaseStr = Field(
+        ...,
+        max_length=field_lengths.STREET_NUMBER,
+    )
+    residence_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
     residence_province: str = Field(..., max_length=field_lengths.PROVINCE)
     postal_code: str = Field(..., max_length=field_lengths.POSTAL_CODE)
     email: str = Field(..., max_length=field_lengths.EMAIL)
@@ -182,7 +192,10 @@ class StaffUpdateData(BaseModel):
 
 class AdminUpdateData(BaseModel):
     role: str
-    other_role: str | None = Field(None, max_length=field_lengths.OTHER_ROLE)
+    other_role: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.OTHER_ROLE,
+    )
 
 
 class TeacherCompetenceUpdateItem(BaseModel):
@@ -192,11 +205,11 @@ class TeacherCompetenceUpdateItem(BaseModel):
 
 class TeacherEducationData(BaseModel):
     is_high_school_student: bool
-    school_education: OptionalCleanStr = Field(
+    school_education: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.EDUCATION,
     )
-    university_education: OptionalCleanStr = Field(
+    university_education: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.EDUCATION,
     )
@@ -220,7 +233,7 @@ class TeacherUpdateData(TeacherEducationData):
 
 
 class CourseParticipantUpdateData(BaseModel):
-    medical_certificate_expiration: date
+    medical_certificate_expiration: date | None = None
     course_type: str
 
 
@@ -243,11 +256,11 @@ class StudentHomeworkTariffData(BaseModel):
 class StudentCertificationData(BaseModel):
     # Empty list means no certification.
     certification_types: list[str] = Field(default_factory=list)
-    certification_other_detail: OptionalCleanStr = Field(
+    certification_other_detail: OptionalOpeningCapitalStr = Field(
         None,
         max_length=field_lengths.OTHER_DETAIL,
     )
-    certification_dsa_detail: OptionalCleanStr = Field(
+    certification_dsa_detail: OptionalOpeningCapitalStr = Field(
         None,
         max_length=field_lengths.DSA_DETAIL,
     )
@@ -274,7 +287,7 @@ class EarlyExitScheduleItem(BaseModel):
     # 1=Monday .. 7=Sunday, per ISO 8601.
     weekdays: list[Weekday] = Field(..., min_length=1)
     exit_time: time
-    reason: CleanStr = Field(
+    reason: SentenceCaseStr = Field(
         ...,
         min_length=1,
         max_length=field_lengths.EARLY_EXIT_REASON,
@@ -361,7 +374,7 @@ class StudentUpdateData(
 class ParentalRelationshipInput(BaseModel):
     tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     authorized_pickup: bool = True
-    pickup_restriction_reason: str | None = Field(
+    pickup_restriction_reason: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.PICKUP_REASON,
     )
@@ -385,7 +398,7 @@ class PersonMembershipsUpdate(BaseModel):
     memberships: list[MembershipUpdateItem]
 
     payment_method: str | None = None
-    payment_method_other: str | None = Field(
+    payment_method_other: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.OTHER_DETAIL,
     )
@@ -395,13 +408,19 @@ class PersonMembershipsUpdate(BaseModel):
     special_category_data_consent: bool | None = None
     newsletter_consent: bool | None = None
     consents_signed_at: date | None = None
-    emergency_contact_name: str | None = Field(
+    emergency_contact_name: OptionalTitleCaseStr = Field(
         None,
         max_length=field_lengths.CONTACT_NAME,
     )
     emergency_contact_phone: str | None = Field(None, max_length=field_lengths.PHONE)
-    allergies_notes: str | None = Field(None, max_length=field_lengths.NOTES)
-    medications_notes: str | None = Field(None, max_length=field_lengths.NOTES)
+    allergies_notes: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.NOTES,
+    )
+    medications_notes: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.NOTES,
+    )
     expected_updated_at: datetime | None = None
 
 
@@ -431,7 +450,7 @@ class PersonSchoolEnrollmentsUpdate(BaseModel):
 class ParentUpdatePayload(BaseModel):
     parent_tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     authorized_pickup: bool = True
-    pickup_restriction_reason: str | None = Field(
+    pickup_restriction_reason: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.PICKUP_REASON,
     )

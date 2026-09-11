@@ -156,9 +156,10 @@ async def main() -> None:
     if Role.COURSE_PARTICIPANT in roles:
         course_type = ask("Tipo corso")
 
-        medical_certificate_expiration = date.fromisoformat(
-            ask("Scadenza certificato medico (YYYY-MM-DD)")
-        )
+        expiration = ask("Scadenza certificato medico (YYYY-MM-DD, vuoto se manca)")
+
+        if expiration:
+            medical_certificate_expiration = date.fromisoformat(expiration)
 
     collaboration_type = None
     iban = None

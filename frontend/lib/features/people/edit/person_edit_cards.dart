@@ -1217,7 +1217,7 @@ class CourseParticipantCard extends StatelessWidget
         ),
         AppTextField(
           controller: ctx.form.certificateExpirationCtrl,
-          label: 'Scadenza certificato medico',
+          label: 'Scadenza certificato medico (opzionale)',
           hintText: 'gg/mm/aaaa',
           errorText: ctx.errors['scadenzaCertificato'],
           keyboardType: TextInputType.number,

@@ -12,6 +12,13 @@ from app.schemas.person import (
     StudentHomeworkTariffData,
     TeacherEducationData,
 )
+from app.schemas.validators import (
+    OptionalOpeningCapitalStr,
+    OptionalSentenceCaseStr,
+    OptionalTitleCaseStr,
+    TitleCaseStr,
+    UpperCaseStr,
+)
 
 _MISSING_CONSENTS_ERROR: Final[str] = (
     "Per completare l'iscrizione è necessario accettare: {consents}."
@@ -35,8 +42,16 @@ _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
 
 
 class WizardGeneralData(BaseModel):
-    first_name: str = Field(..., min_length=1, max_length=field_lengths.PERSON_NAME)
-    last_name: str = Field(..., min_length=1, max_length=field_lengths.PERSON_NAME)
+    first_name: TitleCaseStr = Field(
+        ...,
+        min_length=1,
+        max_length=field_lengths.PERSON_NAME,
+    )
+    last_name: TitleCaseStr = Field(
+        ...,
+        min_length=1,
+        max_length=field_lengths.PERSON_NAME,
+    )
     tax_code: str = Field(
         ...,
         min_length=field_lengths.TAX_CODE,
@@ -44,13 +59,16 @@ class WizardGeneralData(BaseModel):
     )
     gender: str
     birth_date: date
-    birth_city: str = Field(..., max_length=field_lengths.CITY)
-    birth_nation: str = Field(..., max_length=field_lengths.NATION)
+    birth_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
+    birth_nation: TitleCaseStr = Field(..., max_length=field_lengths.NATION)
     birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
-    residence_type: str = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
-    residence_address: str = Field(..., max_length=field_lengths.ADDRESS)
-    residence_street_number: str = Field(..., max_length=field_lengths.STREET_NUMBER)
-    residence_city: str = Field(..., max_length=field_lengths.CITY)
+    residence_type: TitleCaseStr = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
+    residence_address: TitleCaseStr = Field(..., max_length=field_lengths.ADDRESS)
+    residence_street_number: UpperCaseStr = Field(
+        ...,
+        max_length=field_lengths.STREET_NUMBER,
+    )
+    residence_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
     residence_province: str = Field(..., max_length=field_lengths.PROVINCE)
     postal_code: str = Field(..., max_length=field_lengths.POSTAL_CODE)
     email: str = Field(..., max_length=field_lengths.EMAIL)
@@ -68,7 +86,7 @@ class WizardMembershipData(BaseModel):
 class WizardMemberDataBase(BaseModel):
     memberships: list[WizardMembershipData] = Field(default_factory=list)
     payment_method: str | None = None
-    payment_method_other: str | None = Field(
+    payment_method_other: OptionalSentenceCaseStr = Field(
         None,
         max_length=field_lengths.OTHER_DETAIL,
     )
@@ -78,13 +96,19 @@ class WizardMemberDataBase(BaseModel):
     special_category_data_consent: bool
     newsletter_consent: bool
     consents_signed_at: date | None = None
-    emergency_contact_name: str | None = Field(
+    emergency_contact_name: OptionalTitleCaseStr = Field(
         None,
         max_length=field_lengths.CONTACT_NAME,
     )
     emergency_contact_phone: str | None = Field(None, max_length=field_lengths.PHONE)
-    allergies_notes: str | None = Field(None, max_length=field_lengths.NOTES)
-    medications_notes: str | None = Field(None, max_length=field_lengths.NOTES)
+    allergies_notes: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.NOTES,
+    )
+    medications_notes: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.NOTES,
+    )
 
 
 class WizardMemberData(WizardMemberDataBase):
@@ -120,7 +144,10 @@ class WizardStaffData(BaseModel):
 
 class WizardAdminData(BaseModel):
     role: str
-    other_role: str | None = Field(None, max_length=field_lengths.OTHER_ROLE)
+    other_role: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.OTHER_ROLE,
+    )
 
 
 class WizardTeachingCompetence(BaseModel):
@@ -135,7 +162,7 @@ class WizardTeacherData(TeacherEducationData):
 
 
 class WizardCourseParticipantData(BaseModel):
-    medical_certificate_expiration: date
+    medical_certificate_expiration: date | None = None
     course_type: str
 
 
