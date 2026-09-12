@@ -44,7 +44,7 @@ class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     account_tax_code: Mapped[str] = mapped_column(
-        ForeignKey("accounts.tax_code", ondelete="CASCADE"),
+        ForeignKey("accounts.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
         index=True,
     )

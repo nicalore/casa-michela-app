@@ -15,7 +15,7 @@ class Psychologist(Base):
     __tablename__ = "psychologists"
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey("staff.tax_code", ondelete="CASCADE"),
+        ForeignKey("staff.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

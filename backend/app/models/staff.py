@@ -52,7 +52,7 @@ class Staff(Base):
     )
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey("members.tax_code", ondelete="CASCADE"),
+        ForeignKey("members.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

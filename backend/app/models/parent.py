@@ -16,7 +16,7 @@ class Parent(Base):
     __tablename__ = "parents"
 
     tax_code: Mapped[str] = mapped_column(
-        ForeignKey("people.tax_code", ondelete="CASCADE"),
+        ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

@@ -206,6 +206,19 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       );
     }
 
+    if (cf.length == 16 &&
+        !collector.errors.containsKey('cf') &&
+        form.firstNameCtrl.text.trim().isNotEmpty &&
+        form.lastNameCtrl.text.trim().isNotEmpty &&
+        !PersonEditForm.fiscalCodeMatchesName(
+          cf,
+          form.firstNameCtrl.text.trim(),
+          form.lastNameCtrl.text.trim(),
+        ))
+    {
+      collector.add('cf', 'Non combacia con nome e cognome', PersonEditCardId.identity);
+    }
+
     if (form.birthCityCtrl.text.trim().isEmpty)
     {
       collector.add('cittaNascita', 'Campo obbligatorio', PersonEditCardId.birthData);

@@ -38,12 +38,12 @@ class ParentalResponsibility(Base):
     )
 
     parent_tax_code: Mapped[str] = mapped_column(
-        ForeignKey("parents.tax_code", ondelete="CASCADE"),
+        ForeignKey("parents.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 
     child_tax_code: Mapped[str] = mapped_column(
-        ForeignKey("people.tax_code", ondelete="CASCADE"),
+        ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
     )
 

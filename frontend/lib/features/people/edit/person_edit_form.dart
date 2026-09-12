@@ -1426,6 +1426,52 @@ class PersonEditForm
     return cf.substring(9, 11) == day.toString().padLeft(2, '0');
   }
 
+  // Positions 1-3 come from the surname, 4-6 from the first name.
+  static bool fiscalCodeMatchesName(String cf, String firstName, String lastName)
+  {
+    if (cf.length != 16)
+    {
+      return false;
+    }
+
+    return cf.substring(0, 3) == _nameCode(lastName, isFirstName: false) &&
+        cf.substring(3, 6) == _nameCode(firstName, isFirstName: true);
+  }
+
+  static String _nameCode(String name, {required bool isFirstName})
+  {
+    const Map<String, String> accents = {
+      'À': 'A', 'Á': 'A', 'Â': 'A', 'Ä': 'A',
+      'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E',
+      'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I',
+      'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Ö': 'O',
+      'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U',
+    };
+
+    final List<String> consonants = [];
+    final List<String> vowels = [];
+
+    for (final String raw in name.toUpperCase().split(''))
+    {
+      final String char = accents[raw] ?? raw;
+
+      if (!RegExp(r'^[A-Z]$').hasMatch(char))
+      {
+        continue;
+      }
+
+      ('AEIOU'.contains(char) ? vowels : consonants).add(char);
+    }
+
+    // A first name with four or more consonants skips the second one.
+    if (isFirstName && consonants.length >= 4)
+    {
+      consonants.removeAt(1);
+    }
+
+    return [...consonants, ...vowels].take(3).join().padRight(3, 'X');
+  }
+
   void dispose()
   {
     firstNameCtrl.dispose();

@@ -54,7 +54,7 @@ class Membership(CreatedAtMixin, UpdatedAtMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     member_tax_code: Mapped[str] = mapped_column(
-        ForeignKey("members.tax_code", ondelete="CASCADE"),
+        ForeignKey("members.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         nullable=False,
         index=True,
     )
