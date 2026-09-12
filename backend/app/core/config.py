@@ -4,7 +4,8 @@ from typing import Final
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
-_ENV_FILE: Final[Path] = Path(__file__).resolve().parents[2] / ".env"
+_BACKEND_DIR: Final[Path] = Path(__file__).resolve().parents[2]
+_ENV_FILE: Final[Path] = _BACKEND_DIR / ".env"
 
 _REQUIRED_DATABASE_FIELDS: Final[tuple[str, ...]] = (
     "postgres_host",
@@ -45,9 +46,19 @@ class Settings(BaseSettings):
     resend_api_key: str | None = None
     frontend_url: str = "http://localhost:3000"
 
+    audit_log_path: str = "logs/audit_{date}.log"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]
+
+    # Anchored to the backend package: a relative path must not follow the
+    # working directory the server happens to start from.
+    @property
+    def audit_log_template(self) -> Path:
+        path = Path(self.audit_log_path)
+
+        return path if path.is_absolute() else _BACKEND_DIR / path
 
     def sqlalchemy_database_url(self, drivername: str) -> str:
         # A full database_url takes precedence over the single postgres_*

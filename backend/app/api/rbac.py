@@ -2,10 +2,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated, Final
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 
 from app.api.current_account import CurrentAccount
 from app.api.dependencies import DbSession
+from app.core.audit import AUDIT_ACTOR_KEY, AuditActor
 from app.repositories.identity_repository import IdentityRepository
 from app.services.role_service import RoleService
 
@@ -19,9 +20,14 @@ _ADMIN_ROLE: Final[str] = "ADMIN"
 class IdentityContext:
     tax_code: str
     roles: frozenset[str]
-    # Populated only when "PARENT" is in roles: the tax codes of the
-    # students this account is authorized for via parental_responsibilities.
+    # Populated only when "PARENT" is in roles, from parental_responsibilities.
     child_tax_codes: frozenset[str]
+
+    # False until the first-access flow is done; a few writes are open only during it.
+    onboarding_completed: bool = True
+
+    # Which hat the user is wearing. Presentation only: RBAC reads roles.
+    active_role: str | None = None
 
     @property
     def is_admin(self) -> bool:
@@ -29,6 +35,7 @@ class IdentityContext:
 
 
 async def get_current_identity(
+    request: Request,
     current_account: CurrentAccount,
     db: DbSession,
 ) -> IdentityContext:
@@ -53,11 +60,29 @@ async def get_current_identity(
         else frozenset()
     )
 
-    return IdentityContext(
+    identity = IdentityContext(
         tax_code=account.tax_code,
         roles=roles,
         child_tax_codes=child_tax_codes,
+        onboarding_completed=account.onboarding_completed_at is not None,
+        active_role=RoleService.resolve_active_role(
+            roles,
+            account.last_active_role,
+        ),
     )
+
+    # The audit middleware runs outside the dependency tree and cannot
+    # resolve an identity of its own.
+    setattr(
+        request.state,
+        AUDIT_ACTOR_KEY,
+        AuditActor(
+            tax_code=identity.tax_code,
+            role=identity.active_role or "",
+        ),
+    )
+
+    return identity
 
 
 CurrentIdentity = Annotated[IdentityContext, Depends(get_current_identity)]

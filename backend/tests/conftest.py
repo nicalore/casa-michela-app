@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.api.rbac import IdentityContext
+from app.core.audit import AUDIT_HEADER, configure_audit_logger
 from app.core.config import settings
 from app.models.administrator import Administrator
 from app.models.member import Member
@@ -79,6 +80,30 @@ def _database() -> None:
             "DATABASE_URL": TEST_SYNC_URL.render_as_string(hide_password=False),
         },
     )
+
+
+# The API tests mount the real app, so without this every run would append to
+# the production audit log under backend/logs/.
+@pytest.fixture(autouse=True)
+def audit_log(tmp_path: Path) -> Path:
+    directory = tmp_path / "audit"
+
+    configure_audit_logger(directory / "audit_{date}.log")
+
+    return directory
+
+
+def audit_lines(directory: Path) -> list[str]:
+    logs = sorted(directory.glob("audit_*.log"))
+
+    if not logs:
+        return []
+
+    lines = logs[0].read_text().splitlines()
+
+    assert lines[0] == AUDIT_HEADER
+
+    return [line for line in lines[1:] if line]
 
 
 # One engine per test: pytest-asyncio gives each test its own event loop, and
