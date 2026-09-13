@@ -13,10 +13,17 @@ class DashboardGreeting extends StatelessWidget
 
   final double fontSize;
 
+  // Given, the line is used as it is instead of following the time of day.
+  final String? text;
+
+  final Alignment alignment;
+
   const DashboardGreeting({
     super.key,
     required this.firstName,
     this.fontSize = 50,
+    this.text,
+    this.alignment = Alignment.centerLeft,
   });
 
   String _greeting()
@@ -45,7 +52,7 @@ class DashboardGreeting extends StatelessWidget
   Widget build(BuildContext context)
   {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         // srcIn uses the white text only as a mask. Keep the font's default
@@ -55,7 +62,7 @@ class DashboardGreeting extends StatelessWidget
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => AppTheme.greetingGradient.createShader(bounds),
           child: Text(
-            _greeting(),
+            text ?? _greeting(),
             style: GoogleFonts.plusJakartaSans(
               fontSize: fontSize,
               fontWeight: FontWeight.w700,

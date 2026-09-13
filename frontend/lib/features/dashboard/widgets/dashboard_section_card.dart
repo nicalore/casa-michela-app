@@ -6,7 +6,7 @@ import '../../../core/theme/app_theme.dart';
 class DashboardSectionCard extends StatelessWidget
 {
   static const double radius = 28;
-  static const EdgeInsets _padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
+  static const EdgeInsets padding = EdgeInsets.fromLTRB(28, 24, 28, 26);
 
   static const EdgeInsets _compactPadding = EdgeInsets.fromLTRB(22, 20, 22, 20);
 
@@ -46,7 +46,7 @@ class DashboardSectionCard extends StatelessWidget
           borderRadius: BorderRadius.circular(radius),
           boxShadow: AppTheme.cardShadow,
         ),
-        padding: compact ? _compactPadding : _padding,
+        padding: compact ? _compactPadding : padding,
         child: Column(
           mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

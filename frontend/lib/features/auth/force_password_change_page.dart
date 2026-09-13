@@ -174,7 +174,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
         }
       },
       child: AuthPillPage(
-        eyebrow: 'Accesso',
+        eyebrow: 'Nuovo accesso',
         title: 'Aggiorna password',
         maxWidth: 560,
         footer: AppDialogFooter(

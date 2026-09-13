@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../features/auth/models/me_response.dart';
+import '../../routing/app_router.dart';
 import '../../services/api_service.dart';
 import 'app_nav_drawer.dart';
 import 'app_section_rail.dart';
@@ -52,6 +53,9 @@ class AppTopBar extends StatefulWidget
   final int selectedSection;
   final ValueChanged<int>? onSectionSelected;
 
+  // False for single-page roles: the bar keeps the wordmark and user area, dropping nav and drawer.
+  final bool showNavigation;
+
   const AppTopBar({
     super.key,
     required this.currentRoute,
@@ -60,6 +64,7 @@ class AppTopBar extends StatefulWidget
     this.sectionGroups = const [],
     this.selectedSection = 0,
     this.onSectionSelected,
+    this.showNavigation = true,
   });
 
   @override
@@ -85,42 +90,32 @@ class _AppTopBarState extends State<AppTopBar>
 
   bool _isMenuOpen = false;
   bool _isDrawerOpen = false;
-  MeResponse? _user;
 
   @override
   void initState()
   {
     super.initState();
 
-    _user = widget.user ?? _apiService.lastKnownIdentity;
-
-    if (widget.user == null)
+    if (widget.user == null && _apiService.lastKnownIdentity == null)
     {
       _loadUser();
     }
   }
 
-  @override
-  void didUpdateWidget(AppTopBar oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
+  // The page's copy wins when set; otherwise the shared identity, watched so a role switch redraws.
+  MeResponse? get _user => widget.user ?? _apiService.lastKnownIdentity;
 
-    if (widget.user != null && widget.user != oldWidget.user)
-    {
-      setState(() => _user = widget.user);
-    }
-  }
+  // The page's role, so a page on its way out after a switch keeps its bar
+  // while the identity already says otherwise.
+  String get _role => roleOfPath(widget.currentRoute) ?? _user!.activeRole;
+
+  List<AppDestination> get _destinations => destinationsFor(_user!, role: _role);
 
   Future<void> _loadUser() async
   {
     try
     {
-      final user = await _apiService.me();
-
-      if (mounted)
-      {
-        setState(() => _user = user);
-      }
+      await _apiService.me();
     }
     catch (e)
     {
@@ -130,12 +125,7 @@ class _AppTopBarState extends State<AppTopBar>
 
   String get _activeRoleLabel
   {
-    return RoleLabelMapper.toLabel(_user!.activeRole);
-  }
-
-  List<String> get _availableRoleLabels
-  {
-    return _user!.availableRoles.map(RoleLabelMapper.toLabel).toList();
+    return RoleLabelMapper.toLabel(_role);
   }
 
   void _toggleMenu()
@@ -174,9 +164,36 @@ class _AppTopBarState extends State<AppTopBar>
 
     showRoleSwitchDialog(
       context: context,
-      activeRole: _activeRoleLabel,
-      availableRoles: _availableRoleLabels,
+      activeRole: _user!.activeRole,
+      availableRoles: _user!.availableRoles,
+      onSelected: _switchRole,
     );
+  }
+
+  Future<void> _switchRole(String role) async
+  {
+    try
+    {
+      await _apiService.setActiveRole(role);
+    }
+    catch (e)
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+
+      return;
+    }
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    context.go(homeForRole(role));
   }
 
   // Local logout only after the server call succeeds (TC-IAM-012 / RF-IAM-018).
@@ -220,8 +237,7 @@ class _AppTopBarState extends State<AppTopBar>
         ? url
         : '${ApiConfig.baseUrl}$url';
 
-    // Cache-buster counts picture changes, not time: a per-build URL would blink
-    // the face on every navigation.
+    // Cache-buster counts picture changes, not time: a per-build URL would blink the face on navigation.
     return '$absoluteUrl?v=${_apiService.profileImageVersion}';
   }
 
@@ -370,8 +386,7 @@ class _AppTopBarState extends State<AppTopBar>
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
-      // Keying on the URL forces a rebuild when the picture changes, which a plain
-      // backgroundImage swap would not.
+      // Keying on the URL forces a rebuild when the picture changes, which a backgroundImage swap would not.
       child: CircleAvatar(
         key: ValueKey(imageUrl),
         backgroundColor: Colors.white,
@@ -415,7 +430,7 @@ class _AppTopBarState extends State<AppTopBar>
         child: _isMenuOpen
             ? UserMenu(
                 key: const ValueKey('menu'),
-                canChangeRole: _availableRoleLabels.length > 1,
+                canChangeRole: _user!.availableRoles.length > 1,
                 onChangeRole: _openRoleSwitcher,
                 onLogout: _logout,
               )
@@ -433,12 +448,14 @@ class _AppTopBarState extends State<AppTopBar>
           _buildWordmark(),
           const SizedBox(width: _navGutter),
           Expanded(
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: const AppTopNav(dense: true),
-              ),
-            ),
+            child: widget.showNavigation
+                ? Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AppTopNav(destinations: _destinations, dense: true),
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
           const SizedBox(width: _navGutter),
           _buildProfileButton(size),
@@ -465,15 +482,17 @@ class _AppTopBarState extends State<AppTopBar>
             ),
             SizedBox(
               width: navWidth,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: _navGutter),
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: const AppTopNav(),
-                  ),
-                ),
-              ),
+              child: widget.showNavigation
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: _navGutter),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: AppTopNav(destinations: _destinations),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
             SizedBox(
               width: sideWidth,
@@ -496,8 +515,10 @@ class _AppTopBarState extends State<AppTopBar>
   {
     return Row(
       children: [
-        _buildDrawerButton(),
-        const SizedBox(width: 4),
+        if (widget.showNavigation) ...[
+          _buildDrawerButton(),
+          const SizedBox(width: 4),
+        ],
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
@@ -568,10 +589,11 @@ class _AppTopBarState extends State<AppTopBar>
             ),
           );
         },
-        child: _isDrawerOpen && size.isCompact
+        child: widget.showNavigation && _isDrawerOpen && size.isCompact
             ? AppNavDrawer(
                 key: const ValueKey('drawer'),
                 currentRoute: widget.currentRoute,
+                destinations: _destinations,
                 sectionTitle: widget.sectionTitle,
                 sectionGroups: widget.sectionGroups,
                 selectedSection: widget.selectedSection,
@@ -586,6 +608,14 @@ class _AppTopBarState extends State<AppTopBar>
   @override
   Widget build(BuildContext context)
   {
+    return ValueListenableBuilder<MeResponse?>(
+      valueListenable: _apiService.identity,
+      builder: (context, _, _) => _buildBars(),
+    );
+  }
+
+  Widget _buildBars()
+  {
     if (_user == null)
     {
       return const SizedBox.shrink();
@@ -599,8 +629,7 @@ class _AppTopBarState extends State<AppTopBar>
 
           return Stack(
             children: [
-              // Always present, merely deaf: a child appearing at the head re-pairs the
-              // stack by position and rebuilt the bar on every open.
+              // Always present, merely deaf: a child appearing at the head re-pairs the stack by position and rebuilds the bar.
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !(_isMenuOpen || _isDrawerOpen),

@@ -13,6 +13,7 @@ import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 import 'dashboard_section_card.dart';
+import 'published_pill.dart';
 
 typedef _DayRow = ({DateTime date, TimeOfDay start, TimeOfDay end, String who});
 
@@ -356,7 +357,7 @@ class _BandRow extends StatelessWidget
               ),
               if (status.isPublished) ...[
                 const SizedBox(width: 8),
-                _PublishedPill(isDraft: status.isDraft),
+                PublishedPill(isDraft: status.isDraft),
               ],
             ],
           ),
@@ -436,40 +437,6 @@ class _Reading extends StatelessWidget
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-    );
-  }
-}
-
-class _PublishedPill extends StatelessWidget
-{
-  final bool isDraft;
-
-  const _PublishedPill({required this.isDraft});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final Color accent = isDraft ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: isDraft ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: accent.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        isDraft ? 'IN BOZZA' : 'PUBBLICATO',
-        maxLines: 1,
-        softWrap: false,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 9.5,
-          fontWeight: FontWeight.w700,
-          height: 1.2,
-          letterSpacing: 1.1,
-          color: accent,
-        ),
-      ),
     );
   }
 }

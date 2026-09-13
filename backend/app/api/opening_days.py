@@ -24,8 +24,21 @@ from app.services.opening_day_service import OpeningDayService
 router = APIRouter(
     prefix="/opening-days",
     tags=["opening-days"],
-    dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[
+        Depends(
+            require_role(
+                "ADMIN",
+                "TEACHER",
+                "STUDENT",
+                "PARENT",
+                "PSYCHOLOGIST",
+                "COURSE_PARTICIPANT",
+            )
+        )
+    ],
 )
+
+_ADMIN_ONLY = [Depends(require_role("ADMIN"))]
 
 
 def _to_response(opening_day: OpeningDay) -> OpeningDayResponse:
@@ -56,7 +69,7 @@ async def list_opening_days(
     return _to_responses(opening_days)
 
 
-@router.post("/", response_model=OpeningDayResponse)
+@router.post("/", response_model=OpeningDayResponse, dependencies=_ADMIN_ONLY)
 async def create_opening_day(
     payload: OpeningDayCreate,
     db: DbSession,
@@ -66,9 +79,12 @@ async def create_opening_day(
     return _to_response(opening_day)
 
 
-# Declared before the routes carrying {opening_day_id}, so the path segment is
-# not intercepted by them.
-@router.put("/day", response_model=list[OpeningDayResponse])
+# Declared before the {opening_day_id} routes so the segment is not intercepted.
+@router.put(
+    "/day",
+    response_model=list[OpeningDayResponse],
+    dependencies=_ADMIN_ONLY,
+)
 async def replace_day(
     payload: OpeningDayReplace,
     db: DbSession,
@@ -76,7 +92,11 @@ async def replace_day(
     return _to_responses(await _service(db).replace_day(payload))
 
 
-@router.post("/restore-standard", response_model=OpeningDayRestoreResponse)
+@router.post(
+    "/restore-standard",
+    response_model=OpeningDayRestoreResponse,
+    dependencies=_ADMIN_ONLY,
+)
 async def restore_standard_hours(
     payload: OpeningDayRestoreRequest,
     db: DbSession,
@@ -104,7 +124,11 @@ async def get_opening_day(
     return _to_response(opening_day)
 
 
-@router.put("/{opening_day_id}", response_model=OpeningDayResponse)
+@router.put(
+    "/{opening_day_id}",
+    response_model=OpeningDayResponse,
+    dependencies=_ADMIN_ONLY,
+)
 async def update_opening_day(
     opening_day_id: int,
     payload: OpeningDayUpdate,
@@ -115,7 +139,7 @@ async def update_opening_day(
     return _to_response(opening_day)
 
 
-@router.delete("/{opening_day_id}")
+@router.delete("/{opening_day_id}", dependencies=_ADMIN_ONLY)
 async def delete_opening_day(
     opening_day_id: int,
     db: DbSession,

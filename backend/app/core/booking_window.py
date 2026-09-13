@@ -35,8 +35,12 @@ def compute_available_window(now: datetime) -> tuple[date, date]:
     return today, current_week_monday + timedelta(days=last_unlocked_offset)
 
 
+def now_in_rome() -> datetime:
+    return datetime.now(_ROME_TIMEZONE)
+
+
 def today_in_rome() -> date:
-    return datetime.now(_ROME_TIMEZONE).date()
+    return now_in_rome().date()
 
 
 # The ValueError is mapped to HTTP 400 by the app-wide handler.

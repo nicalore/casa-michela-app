@@ -112,12 +112,17 @@ class PersonDetailCard extends StatelessWidget
 
   final double labelWidth;
 
+  // Takes the badge's place: the first-access flow puts the editable face
+  // there, so the card itself says the picture can be changed.
+  final Widget? leading;
+
   const PersonDetailCard({
     super.key,
     required this.title,
     required this.icon,
     required this.rows,
     this.labelWidth = 160,
+    this.leading,
   });
 
   List<Widget> _buildRows()
@@ -175,7 +180,7 @@ class PersonDetailCard extends StatelessWidget
   {
     return AppCard(
       title: title,
-      leading: AppCardBadge(icon: icon),
+      leading: leading ?? AppCardBadge(icon: icon),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

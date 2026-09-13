@@ -337,6 +337,10 @@ class CompetenceCatalogue extends StatefulWidget
   final bool isLoading;
   final VoidCallback onChanged;
 
+  // False when the page around the list scrolls: a list scrolling on its
+  // own inside it would swallow the wheel and clip its rows.
+  final bool scrollable;
+
   final Widget Function(BuildContext context, Widget filters, Widget list) builder;
 
   const CompetenceCatalogue({
@@ -350,6 +354,7 @@ class CompetenceCatalogue extends StatefulWidget
     required this.onChanged,
     required this.builder,
     this.isLoading = false,
+    this.scrollable = true,
   });
 
   @override
@@ -575,7 +580,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
 
     if (entries.isEmpty)
     {
-      final String what = _showingOnlyServices ? 'servizio' : 'voce';
+      final String what = _showingOnlyServices ? 'servizio' : 'elemento';
 
       return PersonEmptyState(
         message: _onlySelected
@@ -584,8 +589,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
       );
     }
 
-    return SingleChildScrollView(
-      child: Column(
+    final Widget rows = Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -619,8 +623,9 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
                 ),
             },
         ],
-      ),
-    );
+      );
+
+    return widget.scrollable ? SingleChildScrollView(child: rows) : rows;
   }
 
   @override

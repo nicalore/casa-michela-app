@@ -16,12 +16,11 @@ import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/association_subject_item.dart';
-import '../../association/models/service_item.dart';
-import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../widgets/competence_picker.dart';
+import '../widgets/teacher_competences_editor.dart';
 import '../widgets/person_detail_widgets.dart';
 
 const double _subjectCardWidth = 360;
@@ -89,10 +88,14 @@ class PersonSubjectsTab extends StatefulWidget
   final PersonItem person;
   final VoidCallback onUpdate;
 
+  // Rendered under the edit button, inside the scroll.
+  final Widget? footer;
+
   const PersonSubjectsTab({
     super.key,
     required this.person,
     required this.onUpdate,
+    this.footer,
   });
 
   @override
@@ -271,7 +274,23 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     if (!_hasAnything)
     {
-      return _buildEmptyState();
+      final Widget? footer = widget.footer;
+
+      if (footer == null)
+      {
+        return _buildEmptyState();
+      }
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Column(
+          children: [
+            _buildEmptyState(),
+            const SizedBox(height: 48),
+            footer,
+          ],
+        ),
+      );
     }
 
     final cards = _buildCards();
@@ -323,6 +342,10 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                     slot: closing,
                     child: Center(child: _buildEditButton()),
                   ),
+                  if (widget.footer != null) ...[
+                    const SizedBox(height: 48),
+                    widget.footer!,
+                  ],
                 ],
               );
             },
@@ -591,87 +614,15 @@ class _SubjectsEditDialog extends StatefulWidget
 
 class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
 {
-  final Map<int, bool> _isSubjectSelected = {};
-  final Map<int, Set<int>> _programsBySubject = {};
+  TeacherCompetencesDraft? _draft;
 
-  final Set<String> _selectedServices = {};
-
-  final Map<int, List<StudyProgramItem>> _programsBySubjectId = {};
-
-  bool _isLoadingData = true;
   bool _isSubmitting = false;
-
-  List<AssociationSubjectItem> _allSubjects = [];
-  List<StudyProgramItem> _allPrograms = [];
-  List<ServiceItem> _allServices = [];
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _loadAllData();
-  }
-
-  List<StudyProgramItem> _findProgramsFor(AssociationSubjectItem subject)
-  {
-    return _allPrograms
-        .where((program) => program.ministrySubjects.any(
-              (ministry) =>
-                  ministry.associationSubjects.any((assoc) => assoc.id == subject.id),
-            ))
-        .toList();
-  }
-
-  Future<void> _loadAllData() async
-  {
-    try
-    {
-      final results = await Future.wait([
-        ApiService().getAssociationSubjects(),
-        ApiService().getStudyPrograms(),
-        ApiService().getServices(),
-      ]);
-
-      if (!mounted)
-      {
-        return;
-      }
-
-      setState(()
-      {
-        _allSubjects = results[0] as List<AssociationSubjectItem>;
-        _allPrograms = results[1] as List<StudyProgramItem>;
-        _allServices = results[2] as List<ServiceItem>;
-
-        for (final subject in _allSubjects)
-        {
-          _programsBySubjectId[subject.id] = _findProgramsFor(subject);
-        }
-
-        for (final competence in widget.person.teacherSubjects ?? <TeacherSubjectItem>[])
-        {
-          _isSubjectSelected[competence.subjectId] = true;
-          _programsBySubject[competence.subjectId] = competence.studyProgramIds.toSet();
-        }
-
-        _selectedServices.addAll(widget.person.teacherServices ?? const <String>[]);
-
-        _isLoadingData = false;
-      });
-    }
-    catch (_)
-    {
-      if (mounted)
-      {
-        setState(() => _isLoadingData = false);
-      }
-    }
-  }
 
   Future<void> _submitForm() async
   {
-    if (!_isSubjectSelected.values.any((isSelected) => isSelected) &&
-        _selectedServices.isEmpty)
+    final TeacherCompetencesDraft? draft = _draft;
+
+    if (draft == null || draft.isEmpty)
     {
       CustomSnackBar.show(
         context: context,
@@ -686,18 +637,10 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
 
     try
     {
-      final competences = _isSubjectSelected.entries
-          .where((entry) => entry.value)
-          .map((entry) => <String, dynamic>{
-                'subject_id': entry.key,
-                'study_program_ids': _programsBySubject[entry.key]?.toList() ?? [],
-              })
-          .toList();
-
       await ApiService().updateTeacherCompetences(
         widget.person.fiscalCode,
-        competences,
-        _selectedServices.toList(),
+        draft.competences,
+        draft.services,
         widget.person.teacherUpdatedAt,
       );
 
@@ -748,15 +691,9 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
         ),
       ),
       children: [
-        CompetenceCatalogue(
-          subjects: _allSubjects,
-          programsBySubjectId: _programsBySubjectId,
-          isSelected: _isSubjectSelected,
-          programsBySubject: _programsBySubject,
-          services: _allServices,
-          selectedServices: _selectedServices,
-          isLoading: _isLoadingData,
-          onChanged: () => setState(() {}),
+        TeacherCompetencesEditor(
+          person: widget.person,
+          onChanged: (draft) => _draft = draft,
           builder: (context, filters, list) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [

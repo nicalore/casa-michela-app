@@ -20,6 +20,7 @@ class IdentityRepository(SessionRepository):
             select(Account)
             .options(
                 parent_loader.selectinload(Parent.children_relationships),
+                person_loader.selectinload(Person.parental_relationships),
                 member_loader.selectinload(Member.student_profile),
                 member_loader.selectinload(Member.course_participant_profile),
                 staff_loader.selectinload(Staff.administrator_profile),

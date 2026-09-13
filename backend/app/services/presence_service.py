@@ -143,6 +143,19 @@ class PresenceService:
 
         return payload_value
 
+    # Scoped by student, not by booker: a booking belongs to the student and both parents.
+    @staticmethod
+    def _visible_student_tax_codes(identity: IdentityContext) -> frozenset[str]:
+        visible: set[str] = set()
+
+        if "STUDENT" in identity.roles:
+            visible.add(identity.tax_code)
+
+        if "PARENT" in identity.roles:
+            visible.update(identity.child_tax_codes)
+
+        return frozenset(visible)
+
     async def list_for(
         self,
         identity: IdentityContext,
@@ -152,13 +165,18 @@ class PresenceService:
         date_from: date | None,
         date_to: date | None,
     ) -> Sequence[Presence]:
-        effective_booker_tax_code = (
-            booker_tax_code if identity.is_admin else identity.tax_code
-        )
+        if identity.is_admin:
+            return await self.repository.list(
+                student_tax_code=student_tax_code,
+                booker_tax_code=booker_tax_code,
+                date_from=date_from,
+                date_to=date_to,
+            )
 
         return await self.repository.list(
             student_tax_code=student_tax_code,
-            booker_tax_code=effective_booker_tax_code,
+            student_tax_codes=self._visible_student_tax_codes(identity),
+            booker_tax_code=None,
             date_from=date_from,
             date_to=date_to,
         )

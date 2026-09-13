@@ -181,20 +181,29 @@ class _AppGradientButtonState extends State<AppGradientButton>
       textStyle: AppTheme.tooltipTextStyle,
       child: MouseRegion(
         cursor: SystemMouseCursors.basic,
+        // Same skeleton as the live face: a Container given an alignment
+        // grows to whatever width it is offered, and inside a flexible slot
+        // that is the whole slot.
         child: Container(
           width: widget.width,
           height: widget.height,
-          alignment: Alignment.center,
-          padding: EdgeInsets.symmetric(
-            horizontal: widget.horizontalPadding,
-            vertical: widget.height == null ? _verticalPadding : 0,
-          ),
           decoration: BoxDecoration(
             color: AppTheme.arrowDisabledSurface,
             borderRadius: BorderRadius.circular(widget.radius),
             border: Border.all(color: AppTheme.trialLine, width: _borderWidth),
           ),
-          child: _buildFace(AppTheme.trialMutedText),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.horizontalPadding,
+                  vertical: widget.height == null ? _verticalPadding : 0,
+                ),
+                child: _buildFace(AppTheme.trialMutedText),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'app_slide_switcher.dart';
 import 'carousel_arrow_button.dart';
 
 const Duration _transition = Duration(milliseconds: 300);
@@ -49,35 +50,7 @@ class AppCarouselFrame extends StatelessWidget
 
   Widget _slide(Widget child)
   {
-    return AnimatedSwitcher(
-      duration: _transition,
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          for (final previous in previousChildren)
-            Positioned(top: 0, left: 0, right: 0, child: previous),
-          ?currentChild,
-        ],
-      ),
-      transitionBuilder: (child, animation)
-      {
-        final isEntering = (child.key as ValueKey<int>).value == index;
-        final beginOffset = movingForward
-            ? (isEntering ? const Offset(0.05, 0) : const Offset(-0.05, 0))
-            : (isEntering ? const Offset(-0.05, 0) : const Offset(0.05, 0));
-
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: KeyedSubtree(key: ValueKey(index), child: child),
-    );
+    return AppSlideSwitcher(index: index, movingForward: movingForward, child: child);
   }
 
   @override

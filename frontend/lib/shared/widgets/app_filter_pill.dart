@@ -143,7 +143,7 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
 
     final matches = widget.options.where((option) => option.value == widget.value);
 
-    return matches.isEmpty ? null : matches.first.label;
+    return matches.isEmpty ? null : matches.first.pillLabel;
   }
 
   Widget _buildLabel(Color contentColor)

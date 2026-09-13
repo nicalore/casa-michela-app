@@ -18,6 +18,7 @@ from app.db.base import Base
 from app.models.constraints import (
     no_surrounding_whitespace_constraints,
     not_blank_constraints,
+    not_blank_when_present_constraints,
 )
 from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
@@ -56,6 +57,9 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
         *not_blank_constraints(
             "username",
             "password_hash",
+        ),
+        *not_blank_when_present_constraints(
+            "last_active_role",
         ),
         *no_surrounding_whitespace_constraints(
             "tax_code",
@@ -109,6 +113,15 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
         nullable=False,
         default=False,
         server_default="false",
+    )
+
+    # Null until a role is used; the API then falls back to the first usable one.
+    last_active_role: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    # Null until the first-access flow completes; abandoning it halfway restarts it.
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     person: Mapped[Person] = relationship(

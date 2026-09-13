@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/role_label_mapper.dart';
+import '../../routing/app_router.dart';
 import 'app_dialog_stack.dart';
 import 'dialog_components.dart';
 
@@ -13,23 +15,23 @@ const double _rowGap = 10;
 
 const Duration _hoverFade = Duration(milliseconds: 150);
 
-// Keyed by the Italian labels from RoleLabelMapper, not backend role codes:
-// a renamed label silently falls back to the default icon.
+// Keyed by the backend role codes, the same values the switch is made of.
 const Map<String, IconData> _roleIcons = <String, IconData>{
-  'AMMINISTRATORE': Icons.computer_outlined,
-  'DOCENTE': Icons.school_outlined,
-  'PSICOLOGO': Icons.psychology_outlined,
-  'STUDENTE': Icons.menu_book_outlined,
-  'CORSISTA': Icons.self_improvement_rounded,
-  'GENITORE': Icons.family_restroom_outlined,
+  'ADMIN': Icons.computer_outlined,
+  'TEACHER': Icons.school_outlined,
+  'PSYCHOLOGIST': Icons.psychology_outlined,
+  'STUDENT': Icons.menu_book_outlined,
+  'COURSE_PARTICIPANT': Icons.self_improvement_rounded,
+  'PARENT': Icons.family_restroom_outlined,
 };
 
-IconData _roleIcon(String role) => _roleIcons[role.toUpperCase()] ?? Icons.badge_outlined;
+IconData _roleIcon(String role) => _roleIcons[role] ?? Icons.badge_outlined;
 
 Future<void> showRoleSwitchDialog({
   required BuildContext context,
   required String activeRole,
   required List<String> availableRoles,
+  required ValueChanged<String> onSelected,
 })
 {
   return showBlurredDialog<void>(
@@ -38,6 +40,7 @@ Future<void> showRoleSwitchDialog({
     builder: (context) => _RoleSwitchDialog(
       activeRole: activeRole,
       availableRoles: availableRoles,
+      onSelected: onSelected,
     ),
   );
 }
@@ -46,10 +49,12 @@ class _RoleSwitchDialog extends StatelessWidget
 {
   final String activeRole;
   final List<String> availableRoles;
+  final ValueChanged<String> onSelected;
 
   const _RoleSwitchDialog({
     required this.activeRole,
     required this.availableRoles,
+    required this.onSelected,
   });
 
   @override
@@ -59,7 +64,7 @@ class _RoleSwitchDialog extends StatelessWidget
 
     return AppDialogStack(
       eyebrow: 'Sei autenticato come',
-      title: activeRole,
+      title: RoleLabelMapper.toLabel(activeRole),
       maxWidth: _stackMaxWidth,
       children: [
         AppDialogPill(
@@ -71,9 +76,8 @@ class _RoleSwitchDialog extends StatelessWidget
               for (var i = 0; i < roles.length; i++) ...[
                 if (i > 0) const SizedBox(height: _rowGap),
                 _RoleRow(
-                  label: roles[i],
-                  // Inert for now: the pages the other roles would land on do not exist yet.
-                  onTap: () {},
+                  role: roles[i],
+                  onTap: () => _select(context, roles[i]),
                 ),
               ],
             ],
@@ -82,15 +86,21 @@ class _RoleSwitchDialog extends StatelessWidget
       ],
     );
   }
+
+  void _select(BuildContext context, String role)
+  {
+    Navigator.of(context).pop();
+    onSelected(role);
+  }
 }
 
 class _RoleRow extends StatefulWidget
 {
-  final String label;
+  final String role;
   final VoidCallback onTap;
 
   const _RoleRow({
-    required this.label,
+    required this.role,
     required this.onTap,
   });
 
@@ -105,6 +115,18 @@ class _RoleRowState extends State<_RoleRow>
   @override
   Widget build(BuildContext context)
   {
+    // A role whose area does not exist yet is shown but not offered, rather than hidden.
+    if (!canSwitchTo(widget.role))
+    {
+      return Tooltip(
+        message: 'In arrivo',
+        child: _buildRow(
+          border: AppTheme.trialLine,
+          foreground: AppTheme.trialMutedText,
+        ),
+      );
+    }
+
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -112,40 +134,49 @@ class _RoleRowState extends State<_RoleRow>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: _hoverFade,
-          curve: Curves.easeOut,
-          height: _rowHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(_rowRadius),
-            border: Border.all(
-              color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(_roleIcon(widget.label), size: 20, color: AppTheme.trialTealDeep),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.trialOcean,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        child: _buildRow(
+          border: _hover ? AppTheme.trialGold : AppTheme.trialLine,
+          foreground: AppTheme.trialOcean,
+          iconColor: AppTheme.trialTealDeep,
         ),
       ),
     );
   }
-}
 
+  Widget _buildRow({
+    required Color border,
+    required Color foreground,
+    Color? iconColor,
+  })
+  {
+    return AnimatedContainer(
+      duration: _hoverFade,
+      curve: Curves.easeOut,
+      height: _rowHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_rowRadius),
+        border: Border.all(color: border, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(_roleIcon(widget.role), size: 20, color: iconColor ?? foreground),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              RoleLabelMapper.toLabel(widget.role),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

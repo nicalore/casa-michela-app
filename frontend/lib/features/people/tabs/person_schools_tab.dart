@@ -24,67 +24,76 @@ import '../widgets/school_year_wizard.dart';
 
 const double _cardsWidth = 1600;
 
+// A repeat is the same grade at the same education level as the previous year.
+bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
+{
+  final previous =
+      all.where((item) => item.startYear == current.startYear - 1).firstOrNull;
+
+  if (previous == null)
+  {
+    return false;
+  }
+
+  return current.grade == previous.grade &&
+      current.educationLevel == previous.educationLevel;
+}
+
+// Shared with the first-access flow, which reads the same years a card at a time.
+Widget schoolEnrollmentCard(
+  SchoolEnrollmentItem item,
+  List<SchoolEnrollmentItem> all, {
+  required bool isCurrent,
+})
+{
+  final bool repeating = _isRepeating(item, all);
+
+  return AppCard(
+    title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
+    compact: true,
+    leading: AppCardBadge(
+      icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
+      compact: true,
+    ),
+    child: PersonFactsRow(
+      facts: [
+        PersonFact('Scuola', item.schoolName, flex: 4),
+        PersonFact('Livello', item.educationLevel, flex: 3),
+        PersonFact('Percorso', item.studyProgramName, flex: 4),
+        PersonFact('Classe', gradeLabel(item.grade)),
+        PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
+      ],
+    ),
+  );
+}
+
+void showEditSchoolsDialog(
+  BuildContext context, {
+  required PersonItem person,
+  required VoidCallback onUpdate,
+})
+{
+  showBlurredDialog(
+    context: context,
+    barrierLabel: 'EditSchools',
+    builder: (context) => _EditSchoolsDialog(person: person, onUpdate: onUpdate),
+  );
+}
+
 class PersonSchoolsTab extends StatelessWidget
 {
   final PersonItem person;
   final VoidCallback onUpdate;
 
+  // Rendered under the edit button, inside the scroll.
+  final Widget? footer;
+
   const PersonSchoolsTab({
     super.key,
     required this.person,
     required this.onUpdate,
+    this.footer,
   });
-
-  // A repeat is the same grade at the same education level as the previous year.
-  bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
-  {
-    final previous =
-        all.where((item) => item.startYear == current.startYear - 1).firstOrNull;
-
-    if (previous == null)
-    {
-      return false;
-    }
-
-    return current.grade == previous.grade &&
-        current.educationLevel == previous.educationLevel;
-  }
-
-  void _showEditDialog(BuildContext context)
-  {
-    showBlurredDialog(
-      context: context,
-      barrierLabel: 'EditSchools',
-      builder: (context) => _EditSchoolsDialog(person: person, onUpdate: onUpdate),
-    );
-  }
-
-  Widget _buildEnrollmentCard(
-    SchoolEnrollmentItem item,
-    List<SchoolEnrollmentItem> all, {
-    required bool isCurrent,
-  })
-  {
-    final bool repeating = _isRepeating(item, all);
-
-    return AppCard(
-      title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
-      compact: true,
-      leading: AppCardBadge(
-        icon: isCurrent ? Icons.school_rounded : Icons.history_rounded,
-        compact: true,
-      ),
-      child: PersonFactsRow(
-        facts: [
-          PersonFact('Scuola', item.schoolName, flex: 4),
-          PersonFact('Livello', item.educationLevel, flex: 3),
-          PersonFact('Percorso', item.studyProgramName, flex: 4),
-          PersonFact('Classe', gradeLabel(item.grade)),
-          PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context)
@@ -108,7 +117,7 @@ class PersonSchoolsTab extends StatelessWidget
               if (current != null) ...[
                 const PersonSectionTitle('Anno scolastico attuale'),
                 const SizedBox(height: kPersonTitleGap),
-                _buildEnrollmentCard(current, enrollments, isCurrent: true),
+                schoolEnrollmentCard(current, enrollments, isCurrent: true),
                 const SizedBox(height: kPersonSectionGap),
               ],
               if (past.isNotEmpty) ...[
@@ -116,7 +125,7 @@ class PersonSchoolsTab extends StatelessWidget
                 const SizedBox(height: kPersonTitleGap),
                 for (var i = 0; i < past.length; i++) ...[
                   if (i > 0) const SizedBox(height: kPersonCardGap),
-                  _buildEnrollmentCard(past[i], enrollments, isCurrent: false),
+                  schoolEnrollmentCard(past[i], enrollments, isCurrent: false),
                 ],
               ],
               if (current == null && past.isEmpty)
@@ -126,9 +135,13 @@ class PersonSchoolsTab extends StatelessWidget
                 child: AppGradientButton(
                   label: 'MODIFICA ANNI SCOLASTICI',
                   icon: Icons.edit_rounded,
-                  onPressed: () => _showEditDialog(context),
+                  onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: onUpdate),
                 ),
               ),
+              if (footer != null) ...[
+                const SizedBox(height: kPersonSectionGap),
+                footer!,
+              ],
             ]),
           ),
         ),

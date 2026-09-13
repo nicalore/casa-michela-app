@@ -22,6 +22,8 @@ class AppNavDrawer extends StatelessWidget
 
   final String currentRoute;
 
+  final List<AppDestination> destinations;
+
   final String? sectionTitle;
   final List<RailGroup> sectionGroups;
   final int selectedSection;
@@ -32,6 +34,7 @@ class AppNavDrawer extends StatelessWidget
   const AppNavDrawer({
     super.key,
     required this.currentRoute,
+    required this.destinations,
     required this.onDismiss,
     this.sectionTitle,
     this.sectionGroups = const [],
@@ -102,7 +105,7 @@ class AppNavDrawer extends StatelessWidget
   {
     final children = <Widget>[];
 
-    for (final destination in appDestinations)
+    for (final destination in destinations)
     {
       final route = destination.route;
 

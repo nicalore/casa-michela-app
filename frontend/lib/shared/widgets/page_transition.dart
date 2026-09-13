@@ -99,6 +99,7 @@ class PageTransitionItem extends StatelessWidget
         progress: scope?.progress ?? 1,
         leaving: scope?.leaving ?? false,
         axis: scope?.axis ?? Axis.vertical,
+        reversed: scope?.reversed ?? false,
         window: MediaQuery.sizeOf(context),
         child: child,
       );
@@ -117,9 +118,10 @@ class PageTransitionItem extends StatelessWidget
       final double elapsed =
           _slotProgress(scope.progress, wait: _slotWait(slot), leaving: scope.leaving);
 
-      final double travelled = scope.leaving
-          ? _exitOffset(elapsed, _exitTravel(extent))
-          : _enterOffset(elapsed, _enterTravel(extent));
+      final double travelled = (scope.reversed ? -1 : 1) *
+          (scope.leaving
+              ? _exitOffset(elapsed, _exitTravel(extent))
+              : _enterOffset(elapsed, _enterTravel(extent)));
 
       offset = sideways ? Offset(travelled, 0) : Offset(0, travelled);
       opacity = scope.leaving ? _exitOpacity(elapsed) : _enterOpacity(elapsed);
@@ -137,12 +139,14 @@ class _WaveItem extends SingleChildRenderObjectWidget
   final double progress;
   final bool leaving;
   final Axis axis;
+  final bool reversed;
   final Size window;
 
   const _WaveItem({
     required this.progress,
     required this.leaving,
     required this.axis,
+    required this.reversed,
     required this.window,
     required Widget super.child,
   });
@@ -150,7 +154,7 @@ class _WaveItem extends SingleChildRenderObjectWidget
   @override
   _RenderWaveItem createRenderObject(BuildContext context)
   {
-    return _RenderWaveItem(progress, leaving, axis, window);
+    return _RenderWaveItem(progress, leaving, axis, reversed, window);
   }
 
   @override
@@ -160,6 +164,7 @@ class _WaveItem extends SingleChildRenderObjectWidget
       ..progress = progress
       ..leaving = leaving
       ..axis = axis
+      ..reversed = reversed
       ..window = window;
   }
 }
@@ -169,13 +174,14 @@ class _RenderWaveItem extends RenderProxyBox
   double _progress;
   bool _leaving;
   Axis _axis;
+  bool _reversed;
   Size _window;
 
   Offset _shift = Offset.zero;
 
   double? _wait;
 
-  _RenderWaveItem(this._progress, this._leaving, this._axis, this._window);
+  _RenderWaveItem(this._progress, this._leaving, this._axis, this._reversed, this._window);
 
   bool get _moving => _leaving || _progress < 1;
 
@@ -225,6 +231,17 @@ class _RenderWaveItem extends RenderProxyBox
     }
 
     _axis = value;
+    markNeedsPaint();
+  }
+
+  set reversed(bool value)
+  {
+    if (_reversed == value)
+    {
+      return;
+    }
+
+    _reversed = value;
     markNeedsPaint();
   }
 
@@ -299,9 +316,10 @@ class _RenderWaveItem extends RenderProxyBox
     final double wait = _wait ??= _waitForPlace();
     final double elapsed = _slotProgress(_progress, wait: wait, leaving: _leaving);
 
-    final double travelled = _leaving
-        ? _exitOffset(elapsed, _exitTravel(extent))
-        : _enterOffset(elapsed, _enterTravel(extent));
+    final double travelled = (_reversed ? -1 : 1) *
+        (_leaving
+            ? _exitOffset(elapsed, _exitTravel(extent))
+            : _enterOffset(elapsed, _enterTravel(extent)));
 
     _shift = sideways ? Offset(travelled, 0) : Offset(0, travelled);
 
@@ -448,12 +466,16 @@ class _PageTransitionScope extends InheritedWidget
 
   final Axis axis;
 
+  // Travel runs the other way: what left rightwards comes back from the left.
+  final bool reversed;
+
   bool get moving => leaving || progress < 1;
 
   const _PageTransitionScope({
     required this.progress,
     required this.leaving,
     required this.axis,
+    this.reversed = false,
     required super.child,
   });
 
@@ -467,7 +489,8 @@ class _PageTransitionScope extends InheritedWidget
   {
     return oldWidget.progress != progress ||
         oldWidget.leaving != leaving ||
-        oldWidget.axis != axis;
+        oldWidget.axis != axis ||
+        oldWidget.reversed != reversed;
   }
 }
 
@@ -477,10 +500,13 @@ class ShellDestinations extends StatelessWidget
 
   final List<Widget> children;
 
+  final bool reversed;
+
   const ShellDestinations({
     super.key,
     required this.currentIndex,
     required this.children,
+    this.reversed = false,
   });
 
   @override
@@ -492,6 +518,7 @@ class ShellDestinations extends StatelessWidget
       axis: Axis.horizontal,
       fit: StackFit.expand,
       announces: true,
+      reversed: reversed,
       children: children,
     );
   }
@@ -505,11 +532,14 @@ class PageSections extends StatelessWidget
 
   final List<Widget> children;
 
+  final bool reversed;
+
   const PageSections({
     super.key,
     required this.index,
     this.step,
     required this.children,
+    this.reversed = false,
   });
 
   @override
@@ -521,6 +551,7 @@ class PageSections extends StatelessWidget
       axis: Axis.vertical,
       fit: StackFit.loose,
       announces: false,
+      reversed: reversed,
       children: children,
     );
   }
@@ -539,6 +570,8 @@ class _Handover extends StatefulWidget
 
   final List<Widget> children;
 
+  final bool reversed;
+
   const _Handover({
     required this.index,
     required this.step,
@@ -546,6 +579,7 @@ class _Handover extends StatefulWidget
     required this.fit,
     required this.announces,
     required this.children,
+    this.reversed = false,
   });
 
   @override
@@ -676,6 +710,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
                   : 1,
               leaving: onScreen && (outer?.leaving ?? (inPlace ? emptying : leaving)),
               axis: onScreen ? (outer?.axis ?? widget.axis) : widget.axis,
+              reversed: outer?.reversed ?? widget.reversed,
               child: Opacity(
                 opacity: opacity,
                 child: emptying ? _held! : widget.children[index],

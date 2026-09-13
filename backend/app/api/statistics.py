@@ -4,11 +4,16 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Annotated, Any, Final
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
+from app.api.rbac import require_role
+from app.core.availability_thresholds import (
+    LOW_AVAILABILITY_MONTHLY_THRESHOLD,
+    LOW_AVAILABILITY_WEEKLY_THRESHOLD,
+)
 from app.core.booking_window import today_in_rome
 from app.core.labels import (
     certification_type_label,
@@ -68,9 +73,12 @@ from app.schemas.statistics import (
     TeacherSubjectsStatisticsResponse,
 )
 
+# Figures about everybody, read at the desk only; a person's own month is
+# served by app/api/home.py.
 router = APIRouter(
     prefix="/statistics",
     tags=["statistics"],
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 
 _MONTH_RESOLUTION: Final[str] = "month"
@@ -93,12 +101,6 @@ _INCOMPLETE_STATS_MONTH_ERROR: Final[str] = (
 _CONFLICTING_STATS_PERIOD_ERROR: Final[str] = (
     "Indica gli ultimi mesi oppure un mese preciso, non entrambi"
 )
-
-# Weekly days given below this flag a collaborating teacher.
-_LOW_AVAILABILITY_WEEKLY_THRESHOLD: Final[int] = 2
-
-# Monthly days given below this flag a teacher; only for a single-month period.
-_LOW_AVAILABILITY_MONTHLY_THRESHOLD: Final[int] = 9
 
 _TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
 _DISCIPLINE_NOT_FOUND_ERROR: Final[str] = "Disciplina non trovata"
@@ -1320,11 +1322,11 @@ async def get_teacher_availability_statistics(
         low_availability_teachers=await _teachers_under(
             db,
             window,
-            round(_LOW_AVAILABILITY_WEEKLY_THRESHOLD * weeks),
+            round(LOW_AVAILABILITY_WEEKLY_THRESHOLD * weeks),
         ),
         is_single_month=is_single_month,
         low_monthly_teachers=(
-            await _teachers_under(db, window, _LOW_AVAILABILITY_MONTHLY_THRESHOLD)
+            await _teachers_under(db, window, LOW_AVAILABILITY_MONTHLY_THRESHOLD)
             if is_single_month
             else []
         ),
@@ -1405,10 +1407,10 @@ async def get_teacher_personal_statistics(
         weekly_average=round(weekly_average, 1),
         total_availabilities=total,
         monthly_trend=monthly_trend,
-        is_below_weekly_threshold=weekly_average < _LOW_AVAILABILITY_WEEKLY_THRESHOLD,
+        is_below_weekly_threshold=weekly_average < LOW_AVAILABILITY_WEEKLY_THRESHOLD,
         is_single_month=is_single_month,
         is_below_monthly_threshold=(
-            is_single_month and total < _LOW_AVAILABILITY_MONTHLY_THRESHOLD
+            is_single_month and total < LOW_AVAILABILITY_MONTHLY_THRESHOLD
         ),
     )
 

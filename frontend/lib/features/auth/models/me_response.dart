@@ -11,6 +11,13 @@ class MeResponse
   final String status;
   final bool passwordResetRequired;
 
+  // The first-access flow, of which the password change is the first step.
+  final bool onboardingRequired;
+
+  // A pupil somebody answers for: their parents book and pay, and their
+  // area is narrower for it.
+  final bool hasParentalResponsibility;
+
   // Already converted to the local clock.
   final DateTime? lastLogin;
 
@@ -37,6 +44,8 @@ class MeResponse
     required this.activeRole,
     required this.status,
     required this.passwordResetRequired,
+    this.onboardingRequired = false,
+    this.hasParentalResponsibility = false,
     this.lastLogin,
     this.gender,
     this.email,
@@ -64,6 +73,8 @@ class MeResponse
       activeRole: json['active_role'],
       status: json['status'],
       passwordResetRequired: json['password_reset_required'],
+      onboardingRequired: json['onboarding_required'] ?? false,
+      hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
       // The server sends UTC; convert to local or it reads hours behind.
       lastLogin: json['last_login'] != null
           ? DateTime.tryParse(json['last_login'])?.toLocal()

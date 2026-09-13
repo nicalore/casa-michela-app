@@ -19,6 +19,7 @@ import '../features/association/models/study_program_item.dart';
 import '../features/association/models/weekly_template_item.dart';
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
+import '../features/home/models/month_summary_items.dart';
 import '../features/lessons/models/activity_item.dart';
 import '../features/lessons/models/availability_item.dart';
 import '../features/lessons/models/calendar_lock_item.dart';
@@ -2671,6 +2672,28 @@ class ApiService
   }) async
   {
     await _dio.delete(_lockPath(day, band));
+  }
+
+  // The reader's own month; the role is the one the endpoint is gated on.
+  Future<TeacherMonthSummaryItem> getTeacherMonth() async
+  {
+    final response = await _dio.get('/home/teacher-month');
+
+    return TeacherMonthSummaryItem.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<StudentMonthSummaryItem> getStudentMonth() async
+  {
+    final response = await _dio.get('/home/student-month');
+
+    return StudentMonthSummaryItem.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<ParentMonthSummaryItem> getParentMonth() async
+  {
+    final response = await _dio.get('/home/parent-month');
+
+    return ParentMonthSummaryItem.fromJson(response.data as Map<String, dynamic>);
   }
 }
 

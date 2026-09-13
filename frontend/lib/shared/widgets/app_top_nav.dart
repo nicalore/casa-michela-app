@@ -3,7 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../features/auth/models/me_response.dart';
 import '../../features/dashboard/dashboard_modules.dart';
+import '../../routing/app_router.dart';
+import '../../routing/role_sections.dart';
 
 const double _fontSize = 17;
 const double _itemGap = 22;
@@ -25,30 +28,75 @@ class AppDestination
   const AppDestination(this.label, this.route);
 }
 
-List<AppDestination> get appDestinations
+// What the bar leads to for whoever is signed in: the shell's modules for
+// an administrator, the role's sections for anybody else, and nothing for a
+// role with no area yet. The role is the page's, not the identity's: while
+// a switch is under way the page on its way out keeps the bar it had.
+List<AppDestination> destinationsFor(MeResponse user, {String? role})
 {
+  role ??= user.activeRole;
+
+  if (role == 'ADMIN')
+  {
+    return [
+      const AppDestination('Home', adminHome),
+      for (final module in dashboardModules) AppDestination(module.title, module.route),
+      // The own page sits where every role keeps it: just before the settings.
+      AppDestination(user.firstName, adminOwnPage),
+      const AppDestination('Impostazioni', '/settings'),
+    ];
+  }
+
+  final String? home = homeByRole[role];
+
+  if (home == null)
+  {
+    return const [];
+  }
+
   return [
-    const AppDestination('Home', '/dashboard'),
-    for (final module in dashboardModules) AppDestination(module.title, module.route),
-    const AppDestination('Impostazioni', '/settings'),
+    AppDestination('Home', home),
+    for (final section in sectionsFor(
+      role,
+      hasParentalResponsibility: user.hasParentalResponsibility,
+    ))
+      AppDestination(section.label ?? user.firstName, '$home/${section.slug}'),
   ];
 }
 
-bool _isCurrent(String? route, String path)
+// The entry whose route the path lies under; where several do, as a role's
+// home does with every section beneath it, the longest one is meant.
+int? _currentIndex(List<AppDestination> destinations, String path)
 {
-  if (route == null)
+  int? current;
+  int matched = -1;
+
+  for (var i = 0; i < destinations.length; i++)
   {
-    return false;
+    final String? route = destinations[i].route;
+
+    if (route == null || !(path == route || path.startsWith('$route/')))
+    {
+      continue;
+    }
+
+    if (route.length > matched)
+    {
+      current = i;
+      matched = route.length;
+    }
   }
 
-  return path == route || path.startsWith('$route/');
+  return current;
 }
 
 class AppTopNav extends StatelessWidget
 {
+  final List<AppDestination> destinations;
+
   final bool dense;
 
-  const AppTopNav({super.key, this.dense = false});
+  const AppTopNav({super.key, required this.destinations, this.dense = false});
 
   @override
   Widget build(BuildContext context)
@@ -65,9 +113,9 @@ class AppTopNav extends StatelessWidget
 
   Widget _buildRow(String path)
   {
-    final destinations = appDestinations;
     final gap = dense ? _denseItemGap : _itemGap;
     final fontSize = dense ? _denseFontSize : _fontSize;
+    final int? current = _currentIndex(destinations, path);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -79,7 +127,7 @@ class AppTopNav extends StatelessWidget
               label: destinations[i].label,
               route: destinations[i].route,
               fontSize: fontSize,
-              current: _isCurrent(destinations[i].route, path),
+              current: i == current,
             ),
           ),
       ],

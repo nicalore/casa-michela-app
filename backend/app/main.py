@@ -17,6 +17,7 @@ from app.api import (
     calendar_publications,
     calendar_teacher_exclusions,
     courses,
+    home,
     lesson_requests,
     lessons,
     ministry_subjects,
@@ -96,6 +97,7 @@ app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
 app.include_router(statistics.router)
+app.include_router(home.router)
 app.include_router(availabilities.router)
 app.include_router(presences.router)
 app.include_router(bookings.router)

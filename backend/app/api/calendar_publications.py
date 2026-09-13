@@ -27,11 +27,15 @@ from app.schemas.calendar_publication import (
 from app.schemas.person import PersonOption
 from app.services.calendar_publication_service import CalendarPublicationService
 
+# Reading is open to the roles the calendar is published to: their home
+# tells "not yet published" from "published, nothing for you" by it.
 router = APIRouter(
     prefix="/calendar-publications",
     tags=["calendar-publications"],
-    dependencies=[Depends(require_role("ADMIN"))],
+    dependencies=[Depends(require_role("ADMIN", "TEACHER", "STUDENT", "PARENT"))],
 )
+
+_ADMIN_ONLY = [Depends(require_role("ADMIN"))]
 
 
 def _to_response(
@@ -123,8 +127,24 @@ def _service(db: DbSession) -> CalendarPublicationService:
     )
 
 
+# Non-administrators get the bare fact of a publication: who published, the
+# draft and its changes are calendar-desk matters.
+def _to_public_responses(
+    publications: Sequence[CalendarPublication],
+) -> list[CalendarPublicationResponse]:
+    return [
+        CalendarPublicationResponse(
+            date=publication.date,
+            band=TimeBandEnum(publication.band),
+            published_at=publication.published_at,
+        )
+        for publication in publications
+    ]
+
+
 @router.get("/", response_model=list[CalendarPublicationResponse])
 async def list_publications(
+    identity: CurrentIdentity,
     db: DbSession,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -134,6 +154,9 @@ async def list_publications(
         date_to=date_to,
     )
 
+    if not identity.is_admin:
+        return _to_public_responses(publications)
+
     return await _to_responses(
         db,
         publications,
@@ -141,7 +164,7 @@ async def list_publications(
     )
 
 
-@router.post("/", response_model=CalendarPublicationResponse)
+@router.post("/", response_model=CalendarPublicationResponse, dependencies=_ADMIN_ONLY)
 async def publish_band(
     payload: CalendarPublicationCreate,
     identity: CurrentIdentity,
@@ -152,7 +175,11 @@ async def publish_band(
     return (await _to_responses(db, [publication], warnings=warnings))[0]
 
 
-@router.post("/{publication_date}/{band}/draft", response_model=CalendarPublicationResponse)
+@router.post(
+    "/{publication_date}/{band}/draft",
+    response_model=CalendarPublicationResponse,
+    dependencies=_ADMIN_ONLY,
+)
 async def reopen_band(
     publication_date: date,
     band: TimeBandEnum,
@@ -166,7 +193,11 @@ async def reopen_band(
 
 # Leaving the bozza restores the snapshot taken when it opened; answers how
 # many hours could not come back.
-@router.post("/{publication_date}/{band}/discard", response_model=CalendarDraftDiscarded)
+@router.post(
+    "/{publication_date}/{band}/discard",
+    response_model=CalendarDraftDiscarded,
+    dependencies=_ADMIN_ONLY,
+)
 async def discard_draft(
     publication_date: date,
     band: TimeBandEnum,
@@ -182,7 +213,11 @@ async def discard_draft(
     )
 
 
-@router.delete("/{publication_date}/{band}/draft", response_model=CalendarDraftClosed)
+@router.delete(
+    "/{publication_date}/{band}/draft",
+    response_model=CalendarDraftClosed,
+    dependencies=_ADMIN_ONLY,
+)
 async def close_draft(
     publication_date: date,
     band: TimeBandEnum,
@@ -201,7 +236,7 @@ async def close_draft(
     )
 
 
-@router.delete("/{publication_date}/{band}")
+@router.delete("/{publication_date}/{band}", dependencies=_ADMIN_ONLY)
 async def unpublish_band(
     publication_date: date,
     band: TimeBandEnum,

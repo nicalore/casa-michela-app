@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Final
 
@@ -14,9 +15,11 @@ from app.api.current_account import CurrentAccount, CurrentAccountAllowPendingRe
 from app.api.dependencies import DbSession
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
+from app.models.account import Account
 from app.repositories.account_repository import AccountRepository
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
+from app.schemas.auth.active_role_request import ActiveRoleRequest
 from app.schemas.auth.change_password_request import ChangePasswordRequest
 from app.schemas.auth.login_request import LoginRequest
 from app.schemas.auth.login_response import LoginResponse
@@ -53,6 +56,10 @@ _ACCOUNT_LOCKED_ERROR: Final[str] = (
 )
 _INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
 _ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+_ROLE_NOT_AVAILABLE_ERROR: Final[str] = "Ruolo non disponibile per questo account"
+_ROLE_WITHOUT_UI_ERROR: Final[str] = (
+    "L'area dedicata a questo ruolo non è ancora disponibile"
+)
 _CURRENT_PASSWORD_ERROR: Final[str] = "La password attuale non è corretta"
 _PASSWORD_REUSE_ERROR: Final[str] = (
     "La nuova password non può coincidere con quella attuale."
@@ -144,21 +151,11 @@ async def logout(request: LogoutRequest, db: DbSession) -> None:
         ) from None
 
 
-@router.get("/me")
-async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
-    identity_repository = IdentityRepository(db)
-    account = await identity_repository.get_account_identity(current_account.tax_code)
-
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_ACCOUNT_NOT_FOUND_ERROR,
-        )
-
+def _identity_payload(account: Account) -> dict[str, Any]:
     person = account.person
-    roles = RoleService.get_available_roles(person)
+    roles = RoleService.sorted_by_label(RoleService.get_available_roles(person))
 
-    active_role = "ADMIN" if "ADMIN" in roles else (roles[0] if roles else None)
+    active_role = RoleService.resolve_active_role(roles, account.last_active_role)
 
     has_address = bool(person.residence_type and person.residence_address)
     address = f"{person.residence_type} {person.residence_address}".strip()
@@ -174,8 +171,12 @@ async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
         "active_role": active_role,
         "status": account.status,
         "password_reset_required": account.password_reset_required,
-        # Written at every successful login; stored aware, in UTC — the
-        # client picks the wall clock.
+        # Stays required until the whole flow ends; the password change is only step one.
+        "onboarding_required": account.onboarding_completed_at is None,
+        # A pupil somebody answers for: their parents book and pay, and their
+        # area is narrower for it.
+        "has_parental_responsibility": bool(person.parental_relationships),
+        # Stored aware, in UTC; the client picks the wall clock.
         "last_login": account.last_login.isoformat() if account.last_login else None,
         "gender": person.gender.value if person.gender else None,
         "email": person.email,
@@ -189,6 +190,70 @@ async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
         "province": person.residence_province,
         "zip_code": person.postal_code,
     }
+
+
+async def _identity_or_404(db: AsyncSession, tax_code: str) -> Account:
+    account = await IdentityRepository(db).get_account_identity(tax_code)
+
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_ACCOUNT_NOT_FOUND_ERROR,
+        )
+
+    return account
+
+
+@router.get("/me")
+async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
+    account = await _identity_or_404(db, current_account.tax_code)
+
+    return _identity_payload(account)
+
+
+# Presentation only: RBAC still reads every role, so switching changes no permission.
+@router.put("/active-role")
+async def set_active_role(
+    request: ActiveRoleRequest,
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = await _identity_or_404(db, current_account.tax_code)
+    role = request.role
+
+    if role not in RoleService.get_available_roles(account.person):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ROLE_NOT_AVAILABLE_ERROR,
+        )
+
+    if role not in RoleService.ROLES_WITH_UI:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ROLE_WITHOUT_UI_ERROR,
+        )
+
+    account.last_active_role = role
+
+    await db.commit()
+
+    return _identity_payload(account)
+
+
+# Only reaching the end writes anything; abandoning halfway restarts the flow.
+@router.post("/complete-onboarding")
+async def complete_onboarding(
+    current_account: CurrentAccount,
+    db: DbSession,
+) -> dict[str, Any]:
+    account = await _identity_or_404(db, current_account.tax_code)
+
+    if account.onboarding_completed_at is None:
+        account.onboarding_completed_at = datetime.now(UTC)
+
+        await db.commit()
+
+    return _identity_payload(account)
 
 
 @router.post("/profile-image")
@@ -211,8 +276,7 @@ async def upload_profile_image(
 
     PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Filenames carry the extension: a different format writes a new file,
-    # so the previous one must be removed explicitly.
+    # Filenames carry the extension, so a new format writes a new file: delete the old.
     previous_url = current_account.person.profile_image_url
 
     if previous_url is not None:

@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Time,
     event,
+    inspect,
     select,
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
@@ -97,6 +98,23 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
 
+# New rows, and stored ones whose pairing is being rewritten.
+def _pairing_is_set(presence: Presence) -> bool:
+    state = inspect(presence)
+
+    if state.pending:
+        return True
+
+    attrs = state.attrs
+
+    return (
+        attrs.student_tax_code.history.has_changes()
+        or attrs.booker_tax_code.history.has_changes()
+    )
+
+
+# Who books for whom is judged when it is set. A row booked by a parent since
+# unlinked, or before the pupil came of age, still stands and may be edited.
 @event.listens_for(Session, "before_flush")
 def _validate_presence_booker(
     session: Session,
@@ -107,6 +125,9 @@ def _validate_presence_booker(
     from app.models.parental_responsibility import ParentalResponsibility
 
     for presence in pending_instances(session, Presence):
+        if not _pairing_is_set(presence):
+            continue
+
         parent_tax_codes = session.scalars(
             select(ParentalResponsibility.parent_tax_code).where(
                 ParentalResponsibility.child_tax_code == presence.student_tax_code,

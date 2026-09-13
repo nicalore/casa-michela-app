@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/role_label_mapper.dart';
@@ -11,14 +9,9 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_entity_chip.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_dialog_footer.dart';
-import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_gradient_button.dart';
-import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/snackbar.dart';
-import '../../auth/models/me_response.dart';
 import '../../people/models/person_item.dart';
 import '../../people/widgets/person_detail_widgets.dart' show kPersonWideCardLabelWidth;
+import '../widgets/profile_avatar.dart';
 
 enum ProfileSection
 {
@@ -40,7 +33,6 @@ class _ProfileTabState extends State<ProfileTab>
 {
   final ApiService _apiService = ApiService();
 
-  MeResponse? _me;
   PersonItem? _person;
   bool        _isLoading    = true;
   String?     _errorMessage;
@@ -72,7 +64,6 @@ class _ProfileTabState extends State<ProfileTab>
       {
         setState(() 
         {
-          _me        = meResponse;
           _person    = personResponse;
           _isLoading = false;
         });
@@ -126,8 +117,7 @@ class _ProfileTabState extends State<ProfileTab>
   @override
   Widget build(BuildContext context) 
   {
-    // Part of the section handover: on their own these would paint over the
-    // section still leaving.
+    // Part of the section handover: on their own these would paint over the section still leaving.
     if (_isLoading) 
     {
       return const PageTransitionItem(
@@ -141,7 +131,7 @@ class _ProfileTabState extends State<ProfileTab>
       );
     }
 
-    if (_errorMessage != null || _me == null || _person == null) 
+    if (_errorMessage != null || _person == null) 
     {
       return PageTransitionItem(
         slot:  PageTransitionItem.header,
@@ -161,26 +151,30 @@ class _ProfileTabState extends State<ProfileTab>
       );
     }
 
-    final me     = _me!;
     final person = _person!;
 
-    final String firstNameValue    = me.firstName;
-    final String lastNameValue = me.lastName;
-    final String genderValue   = me.gender ?? '-';
-    final String cf      = me.taxCode;
+    final String firstNameValue    = person.firstName;
+    final String lastNameValue = person.lastName;
+    final String genderValue   = person.gender ?? '-';
+    final String cf      = person.fiscalCode;
 
-    final String email    = me.email ?? '-';
-    final String phoneValue = me.phoneNumber == null ? '-' : formatPhoneNumber(me.phoneNumber);
+    final String email    = person.email ?? '-';
+    final String phoneValue = person.phoneNumber == null ? '-' : formatPhoneNumber(person.phoneNumber);
 
-    final String birthDateValue  = me.birthDate != null ? DateFormat('dd/MM/yyyy').format(me.birthDate!) : '-';
-    final String birthCityValue = me.birthCity ?? '-';
-    final String birthProvinceValue  = me.birthProvince ?? '-';
+    final String birthDateValue  = person.birthDate != null ? DateFormat('dd/MM/yyyy').format(person.birthDate!) : '-';
+    final String birthCityValue = person.birthCity ?? '-';
+    final String birthProvinceValue  = person.birthProvince ?? '-';
 
-    final String addressValue      = me.address ?? '-';
-    final String streetNumberValue         = me.addressNumber ?? '-';
-    final String residenceCityValue = me.city ?? '-';
-    final String residenceProvinceValue  = me.province ?? '-';
-    final String postalCodeValue            = me.zipCode ?? '-';
+    // The type and the street name are one line on screen, two in the record.
+    final bool hasAddress = (person.residenceType?.isNotEmpty ?? false) &&
+        (person.address?.isNotEmpty ?? false);
+    final String addressValue = hasAddress
+        ? '${person.residenceType} ${person.address}'
+        : (person.address ?? '-');
+    final String streetNumberValue         = person.addressNumber ?? '-';
+    final String residenceCityValue = person.city ?? '-';
+    final String residenceProvinceValue  = person.province ?? '-';
+    final String postalCodeValue            = person.zipCode ?? '-';
 
     final rawRoles        = person.roles.map((r) => r.toUpperCase()).toSet();
     final translatedRoles = RoleLabelMapper.processRoles(person.roles);
@@ -208,7 +202,8 @@ class _ProfileTabState extends State<ProfileTab>
               constraints: const BoxConstraints(maxWidth: 1200),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: pageTransitionBlocks([
+                children: [
+                  ...pageTransitionBlocks([
                   if (personal) ...[
                     // Never nest a LayoutBuilder inside IntrinsicHeight (same
                     // fix as PersonInfoTab).
@@ -216,8 +211,8 @@ class _ProfileTabState extends State<ProfileTab>
                       first: _ProfileSectionCard(
                         title:       'Identità',
                         labelWidth:  160,
-                        leadingIcon: _ProfileAvatar(
-                          profileImageUrl: me.profileImageUrl,
+                        leadingIcon: ProfileAvatar(
+                          profileImageUrl: person.profileImageUrl,
                           firstName:       firstNameValue,
                           lastName:        lastNameValue,
                           onImageUpdated:  () => _fetchProfile(isInitialLoad: false),
@@ -355,12 +350,14 @@ class _ProfileTabState extends State<ProfileTab>
                           labelWidth:  kPersonWideCardLabelWidth,
                           leadingIcon: const _StaticAvatar(icon: Icons.menu_book_outlined),
                           rows: [
-                            _InfoRowData(
-                              'Uscita anticipata',
-                              person.earlyExit == null
-                                  ? '-'
-                                  : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
-                            ),
+                            // Left out for an adult: an early exit needs no permission.
+                            if (!person.isAdult)
+                              _InfoRowData(
+                                'Uscita anticipata',
+                                person.earlyExit == null
+                                    ? '-'
+                                    : (person.earlyExit! ? 'Autorizzata' : 'Non autorizzata'),
+                              ),
                           ],
                         ),
                       ),
@@ -382,7 +379,8 @@ class _ProfileTabState extends State<ProfileTab>
                       ),
                     ],
                   ],
-                ]),
+                  ]),
+                ],
               ),
             ),
           ),
@@ -547,367 +545,6 @@ class _StaticAvatar extends StatelessWidget
 }
 
 // Stateful for its own hover state, independent of the parent avatar's.
-class _AvatarIconButton extends StatefulWidget
-{
-  final IconData      icon;
-  final VoidCallback  onTap;
-  final double        iconSize;
-
-  const _AvatarIconButton({
-    required this.icon,
-    required this.onTap,
-    this.iconSize = 20,
-  });
-
-  @override
-  State<_AvatarIconButton> createState() => _AvatarIconButtonState();
-}
-
-class _AvatarIconButtonState extends State<_AvatarIconButton>
-{
-  bool _isHoveringIcon = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHoveringIcon = true),
-      onExit:  (_) => setState(() => _isHoveringIcon = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap:    widget.onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: AnimatedScale(
-            scale:    _isHoveringIcon ? 1.2 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            curve:    Curves.easeOut,
-            child: Icon(
-              widget.icon,
-              color: Colors.white,
-              size:  widget.iconSize,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatefulWidget 
-{
-  final String?      profileImageUrl;
-  final String       firstName;
-  final String       lastName;
-  final VoidCallback onImageUpdated;
-
-  const _ProfileAvatar({
-    required this.onImageUpdated, 
-    required this.firstName,
-    required this.lastName,
-    this.profileImageUrl,
-  });
-
-  @override
-  State<_ProfileAvatar> createState() => _ProfileAvatarState();
-}
-
-class _ProfileAvatarState extends State<_ProfileAvatar> 
-{
-  bool _isHovering = false;
-  bool _isUploading = false;
-  bool _isDeleting  = false;
-
-  final ImagePicker _picker = ImagePicker();
-
-  // Regenerated only when profileImageUrl changes: per-rebuild values made
-  // every hover reload the NetworkImage and flash (as in DashboardHeader).
-  late String _cacheBuster;
-
-  @override
-  void initState() 
-  {
-    super.initState();
-    _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ProfileAvatar oldWidget) 
-  {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.profileImageUrl != widget.profileImageUrl) 
-    {
-      _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
-    }
-  }
-
-  String? get _absoluteImageUrl 
-  {
-    if (widget.profileImageUrl == null || widget.profileImageUrl!.isEmpty) 
-    {
-      return null;
-    }
-
-    String url = widget.profileImageUrl!;
-
-    if (!url.startsWith('http://') && !url.startsWith('https://')) 
-    {
-      url = '${ApiConfig.baseUrl}$url';
-    }
-
-    return '$url?v=$_cacheBuster';
-  }
-
-  String get _initials
-  {
-    final String first = widget.firstName.isNotEmpty ? widget.firstName[0] : '';
-    final String last  = widget.lastName.isNotEmpty  ? widget.lastName[0]  : '';
-
-    return '$first$last'.toUpperCase();
-  }
-
-  Future<void> _pickAndUploadImage() async 
-  {
-    try 
-    {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-
-      if (image == null) 
-      {
-        return;
-      }
-
-      setState(() 
-      {
-        _isUploading = true;
-      });
-
-      final bytes = await image.readAsBytes();
-
-      await ApiService().uploadProfileImage(bytes, image.name);
-
-      widget.onImageUpdated();
-    } 
-    catch (e) 
-    {
-      if (mounted) 
-      {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Errore durante il caricamento dell\'immagine.',
-          isError: true,
-        );
-      }
-    } 
-    finally 
-    {
-      if (mounted) 
-      {
-        setState(() 
-        {
-          _isUploading = false;
-          _isHovering  = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _confirmAndDeleteImage() async
-  {
-    final bool? confirmed = await showBlurredDialog<bool>(
-      context: context,
-      barrierLabel: 'ConfirmProfileImageRemoval',
-      builder: (dialogContext) => AppDialogStack(
-        eyebrow: 'Foto profilo',
-        title: 'Confermi?',
-        showClose: false,
-        maxWidth: 520,
-        footer: AppDialogFooter(
-          secondary: AppGradientButton(
-            label:     'ANNULLA',
-            icon:      Icons.close_rounded,
-            gradient:  AppTheme.dismissGradient,
-            accent:    AppTheme.trialViolet,
-            height:    52,
-            fontSize:  14,
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-          ),
-          primary: AppGradientButton(
-            label:     'RIMUOVI',
-            icon:      Icons.delete_outline_rounded,
-            gradient:  AppTheme.dangerGradient,
-            accent:    AppTheme.trialDanger,
-            height:    52,
-            fontSize:  14,
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-          ),
-        ),
-        children: [
-          AppDialogPill(
-            child: Text(
-              'La foto verrà eliminata definitivamente. '
-              'Potrai sempre caricarne una nuova in seguito.',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize:   16,
-                fontWeight: FontWeight.w500,
-                height:     1.45,
-                color:      AppTheme.trialInk,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true)
-    {
-      return;
-    }
-
-    await _deleteImage();
-  }
-
-  Future<void> _deleteImage() async 
-  {
-    try 
-    {
-      setState(() 
-      {
-        _isDeleting = true;
-      });
-
-      await ApiService().deleteProfileImage();
-
-      widget.onImageUpdated();
-    } 
-    catch (e) 
-    {
-      if (mounted) 
-      {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Errore durante la rimozione dell\'immagine.',
-          isError: true,
-        );
-      }
-    } 
-    finally 
-    {
-      if (mounted) 
-      {
-        setState(() 
-        {
-          _isDeleting  = false;
-          _isHovering  = false;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    final String? imageUrl = _absoluteImageUrl;
-    final bool    hasImage = imageUrl != null;
-    final bool    isBusy   = _isUploading || _isDeleting;
-
-    return SizedBox(
-      width:  90,
-      height: 90,
-      child:  Stack(
-        fit:      StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: AppTheme.brandGradient,
-              shape:    BoxShape.circle,
-            ),
-            child: CircleAvatar(
-              key:             ValueKey(imageUrl),
-              backgroundColor: Colors.transparent,
-              backgroundImage: hasImage ? NetworkImage(imageUrl) : null,
-              child:           !hasImage
-                  ? Text(
-                      _initials,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize:   32,
-                        fontWeight: FontWeight.w700,
-                        color:      Colors.white,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-
-          if (isBusy)
-            AnimatedContainer(
-              duration:   const Duration(milliseconds: 300),
-              decoration: const BoxDecoration(
-                color: Colors.black45,
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: SizedBox(
-                  width:  24,
-                  height: 24,
-                  child:  CircularProgressIndicator(
-                    color:       Colors.white,
-                    strokeWidth: 3,
-                  ),
-                ),
-              ),
-            )
-          else
-            MouseRegion(
-              cursor:  SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isHovering = true),
-              onExit:  (_) => setState(() => _isHovering = false),
-              child: AnimatedContainer(
-                duration:   const Duration(milliseconds: 350),
-                curve:      Curves.easeOut,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isHovering ? Colors.black54 : Colors.transparent,
-                ),
-                child: Center(
-                  child: AnimatedScale(
-                    scale:    _isHovering ? 1.0 : 0.4,
-                    duration: const Duration(milliseconds: 350),
-                    curve:    Curves.easeOutBack,
-                    child:    AnimatedOpacity(
-                      opacity:  _isHovering ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 250),
-                      child: hasImage
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _AvatarIconButton(
-                                  icon:  Icons.edit_rounded,
-                                  onTap: _pickAndUploadImage,
-                                ),
-                                const SizedBox(width: 4),
-                                _AvatarIconButton(
-                                  icon:  Icons.delete_outline_rounded,
-                                  onTap: _confirmAndDeleteImage,
-                                ),
-                              ],
-                            )
-                          : _AvatarIconButton(
-                              icon:     Icons.edit_rounded,
-                              onTap:    _pickAndUploadImage,
-                              iconSize: 26,
-                            ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ObscurableInfoRow extends StatefulWidget
 {
@@ -972,7 +609,6 @@ class _ObscurableInfoRowState extends State<_ObscurableInfoRow>
     );
   }
 }
-
 
 class _InfoRowData 
 {
