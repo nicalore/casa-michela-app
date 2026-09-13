@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from app.models.member import Member
     from app.models.presence import Presence
     from app.models.school_enrollment import SchoolEnrollment
+    from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 
 
 class CertificationTypeEnum(StrEnum):
@@ -156,4 +157,16 @@ class Student(UpdatedAtMixin, Base):
         back_populates="student",
         foreign_keys="[Presence.student_tax_code]",
         cascade="all, delete-orphan",
+    )
+
+    # Only the opinions still in force; closed rows are history for the ranking.
+    current_not_preferred_teachers: Mapped[list[StudentNotPreferredTeacher]] = (
+        relationship(
+            primaryjoin=(
+                "and_(Student.tax_code == StudentNotPreferredTeacher.student_tax_code, "
+                "StudentNotPreferredTeacher.valid_to.is_(None))"
+            ),
+            order_by="StudentNotPreferredTeacher.teacher_tax_code",
+            viewonly=True,
+        )
     )

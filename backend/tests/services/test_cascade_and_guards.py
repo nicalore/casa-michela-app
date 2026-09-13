@@ -113,7 +113,6 @@ def _booking_update(built, **overrides) -> BookingUpdate:
         "topic": None,
         "notes": None,
         "preferred_teacher_tax_codes": [],
-        "not_preferred_teacher_tax_codes": [],
     }
     fields.update(overrides)
 

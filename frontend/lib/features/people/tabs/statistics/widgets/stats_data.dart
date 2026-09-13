@@ -102,6 +102,11 @@ String _monthPeriodValue(int year, int month)
   return '$year-${month.toString().padLeft(2, '0')}';
 }
 
+String statsPeriodLabel(String value)
+{
+  return statsPeriodOptions().firstWhere((option) => option.value == value).label;
+}
+
 List<FilterOption<String>> statsPeriodOptions()
 {
   final now = DateTime.now();

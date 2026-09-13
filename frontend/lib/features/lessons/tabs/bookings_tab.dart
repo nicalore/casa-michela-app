@@ -1622,12 +1622,32 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
     );
   }
 
+  // The pupil's list, from the roster when they are on it and from the
+  // presence being edited otherwise.
+  Set<String> get _avoidedTeachers
+  {
+    final student = _selectedStudent;
+
+    if (student != null)
+    {
+      return student.notPreferredTeacherTaxCodes.toSet();
+    }
+
+    return widget.existingPresence?.notPreferredTeacherTaxCodes.toSet() ?? const {};
+  }
+
   void _openRequestWizard(
     String mode,
     SubjectRequestDraft draft, {
     bool editing = false,
   })
   {
+    final avoided = _avoidedTeachers;
+
+    // Dropped from the draft too: hidden by the picker, a teacher put on the
+    // list since the booking was made could otherwise never be removed.
+    draft.preferredTeacherTaxCodes.removeWhere(avoided.contains);
+
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectRequestWizard',
@@ -1635,7 +1655,7 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         mode: mode,
         draft: draft,
         ministrySubjects: widget.ministrySubjects,
-        teachers: activeCollaborators(widget.teachers),
+        teachers: askableTeachers(widget.teachers, avoided),
         isEditing: editing,
         minutesAvailable: _hours[mode]!.totalMinutes,
         minutesTakenByOthers: _minutesAsked(mode) -

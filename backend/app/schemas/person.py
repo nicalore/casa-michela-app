@@ -2,7 +2,14 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Final, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.core import field_lengths
 from app.core.time_band import EVENING_START
@@ -483,6 +490,20 @@ class PersonTeacherCompetencesUpdate(BaseModel):
     expected_updated_at: datetime | None = None
 
 
+# The whole list the pupil holds today; uncapped, it is an opinion not a pick.
+class PersonNotPreferredTeachersUpdate(BaseModel):
+    teacher_tax_codes: list[str] = Field(default_factory=list)
+    expected_updated_at: datetime | None = None
+
+    @field_validator("teacher_tax_codes", mode="before")
+    @classmethod
+    def _drop_duplicate_tax_codes(cls, value: object) -> object:
+        if isinstance(value, list):
+            return list(dict.fromkeys(value))
+
+        return value
+
+
 class PersonResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -565,3 +586,6 @@ class PersonResponse(BaseModel):
     teacher_subjects: list[TeacherSubjectResponse] | None = None
 
     teacher_services: list[str] | None = None
+
+    # None for non-students; a pupil with nothing to say gets an empty list.
+    not_preferred_teachers: list[PersonOption] | None = None

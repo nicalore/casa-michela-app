@@ -665,14 +665,18 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 
   void _showSubjectWizard(BuildContext context, String mode, {required BookingSummaryItem existing})
   {
+    final avoided = group.notPreferredTeacherTaxCodes.toSet();
+
+    // A teacher the pupil has since put on their list is dropped from the
+    // draft too: hidden by the picker, it could otherwise never be removed.
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectRequestWizard',
       builder: (context) => SubjectRequestWizard(
         mode: mode,
-        draft: _draftOf(existing),
+        draft: _draftOf(existing)..preferredTeacherTaxCodes.removeWhere(avoided.contains),
         ministrySubjects: widget.offeredSubjects,
-        teachers: activeCollaborators(widget.teachers),
+        teachers: askableTeachers(widget.teachers, avoided),
         isEditing: true,
         // The edited booking's own duration is excluded: the wizard counts it
         // itself, and counting it twice would read as over budget on open.

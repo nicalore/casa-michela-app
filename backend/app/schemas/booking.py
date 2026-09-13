@@ -5,17 +5,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.core import field_lengths
 from app.models.booking import BookingTagEnum
-from app.models.booking_teacher_preference import MAX_TEACHERS_PER_PREFERENCE_TYPE
+from app.models.booking_preferred_teacher import MAX_PREFERRED_TEACHERS_PER_BOOKING
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.person import PersonOption
 from app.schemas.validators import OptionalCleanStr
 
 _DURATION_STEP_ERROR: Final[str] = (
     "La durata deve essere espressa in multipli di 15 minuti."
-)
-
-_TEACHER_IN_BOTH_LISTS_ERROR: Final[str] = (
-    "Un docente non può essere allo stesso tempo preferito e non preferito."
 )
 
 _ONE_REQUEST_KIND_ERROR: Final[str] = (
@@ -53,11 +49,7 @@ class BookingBase(BaseModel):
 
     preferred_teacher_tax_codes: list[str] = Field(
         default_factory=list,
-        max_length=MAX_TEACHERS_PER_PREFERENCE_TYPE,
-    )
-    not_preferred_teacher_tax_codes: list[str] = Field(
-        default_factory=list,
-        max_length=MAX_TEACHERS_PER_PREFERENCE_TYPE,
+        max_length=MAX_PREFERRED_TEACHERS_PER_BOOKING,
     )
 
     @field_validator("duration")
@@ -68,11 +60,7 @@ class BookingBase(BaseModel):
 
         return value
 
-    @field_validator(
-        "preferred_teacher_tax_codes",
-        "not_preferred_teacher_tax_codes",
-        mode="before",
-    )
+    @field_validator("preferred_teacher_tax_codes", mode="before")
     @classmethod
     def _drop_duplicate_tax_codes(cls, value: object) -> object:
         if isinstance(value, list):
@@ -102,15 +90,6 @@ class BookingBase(BaseModel):
 
         if self.service_name is None and not self.tags:
             raise ValueError(_NO_TAGS_ERROR)
-
-        return self
-
-    @model_validator(mode="after")
-    def _teacher_lists_disjoint(self) -> Self:
-        if set(self.preferred_teacher_tax_codes) & set(
-            self.not_preferred_teacher_tax_codes
-        ):
-            raise ValueError(_TEACHER_IN_BOTH_LISTS_ERROR)
 
         return self
 

@@ -25,6 +25,9 @@ class PresenceGroup
 
   PresenceItem get first => slots.first;
 
+  // The pupil's, so every slot carries the same list.
+  List<String> get notPreferredTeacherTaxCodes => first.notPreferredTeacherTaxCodes;
+
   int get startMinutes => first.startTime.hour * 60 + first.startTime.minute;
 
   List<PresenceItem> slotsFor(String mode)

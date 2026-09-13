@@ -45,11 +45,6 @@ BOOKING_TAG_LABELS: Final[dict[str, str]] = {
     "STUDY": "Studio",
 }
 
-TEACHER_PREFERENCE_TYPE_LABELS: Final[dict[str, str]] = {
-    "PREFERRED": "Preferito",
-    "NOT_PREFERRED": "Non preferito",
-}
-
 OPENING_MODE_LABELS: Final[dict[str, str]] = {
     "presence": "in presenza",
     "online": "online",
@@ -121,10 +116,6 @@ def booking_tag_label(tag: str) -> str:
 
 def translate_booking_tag(tag: str | None) -> str | None:
     return _translate_optional(tag, BOOKING_TAG_LABELS)
-
-
-def teacher_preference_type_label(preference_type: str) -> str:
-    return _translate(preference_type, TEACHER_PREFERENCE_TYPE_LABELS)
 
 
 def opening_mode_label(mode: str) -> str:

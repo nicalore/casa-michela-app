@@ -41,9 +41,8 @@ enum _Step
   ),
   teachers(
     'Con quale docente?',
-    'Se vuoi, puoi indicare fino a tre docenti preferiti o non graditi dallo studente. '
+    'Se vuoi, puoi indicare fino a tre docenti preferiti dallo studente. '
     'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere soddisfatte in base alle esigenze dell\'Associazione.',
-    width: 880,
   ),
   notes(
     'Altro?',
@@ -53,9 +52,7 @@ enum _Step
   final String question;
   final String hint;
 
-  final double width;
-
-  const _Step(this.question, this.hint, {this.width = _cardWidth});
+  const _Step(this.question, this.hint);
 }
 
 const double _dialogButtonHeight = 52;
@@ -63,9 +60,10 @@ const double _dialogButtonFontSize = 14;
 
 const double _cardWidth = 520;
 
-const double _widestCard = 880;
+// The guide above the steps, and so the dialog, stay wider than any step.
+const double _guideWidth = 880;
 const double _stackWidth =
-    _widestCard + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap) + 64;
+    _guideWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap) + 64;
 
 class SubjectRequestWizard extends StatefulWidget
 {
@@ -434,31 +432,16 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
   Widget _buildTeachersStep()
   {
-    final preferred = TeacherPicker(
-      label: 'Docenti preferiti',
-      icon: Icons.thumb_up_outlined,
-      chosen: _draft.preferredTeacherTaxCodes,
-      other: _draft.excludedTeacherTaxCodes,
-      offered: widget.teachers,
-      onChanged: () => setState(() {}),
-    );
-
-    final avoided = TeacherPicker(
-      label: 'Docenti da evitare',
-      icon: Icons.thumb_down_outlined,
-      chosen: _draft.excludedTeacherTaxCodes,
-      other: _draft.preferredTeacherTaxCodes,
-      offered: widget.teachers,
-      onChanged: () => setState(() {}),
-    );
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: AppDialogPill(expand: true, child: preferred)),
-        const SizedBox(width: 20),
-        Expanded(child: AppDialogPill(expand: true, child: avoided)),
-      ],
+    return AppDialogPill(
+      expand: true,
+      child: TeacherPicker(
+        label: 'Mi sono trovato meglio con...',
+        icon: Icons.thumb_up_outlined,
+        chosen: _draft.preferredTeacherTaxCodes,
+        offered: widget.teachers,
+        max: SubjectRequestDraft.maxPreferredTeachers,
+        onChanged: () => setState(() {}),
+      ),
     );
   }
 
@@ -514,7 +497,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
       children: [
         Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _widestCard),
+            constraints: const BoxConstraints(maxWidth: _guideWidth),
             child: AppDialogPill(
               expand: true,
               child: PersonEditGuide(
@@ -527,7 +510,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         AppCarouselFrame(
           index: _step,
           movingForward: _movingForward,
-          maxContentWidth: _stepList[_step].width,
+          maxContentWidth: _cardWidth,
           canGoBack: _step > 0,
           canGoForward: _step < _steps - 1,
           forwardBlockedReason: _blockedReason(_stepList[_step]),

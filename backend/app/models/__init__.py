@@ -3,7 +3,7 @@ from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import BookingTeacherPreference
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
@@ -34,6 +34,7 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
 from app.models.staff import Staff
 from app.models.student import Student
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
@@ -49,7 +50,7 @@ __all__ = [
     "AssociationSubject",
     "Availability",
     "Booking",
-    "BookingTeacherPreference",
+    "BookingPreferredTeacher",
     "CalendarActivity",
     "CalendarBandLock",
     "CalendarPublication",
@@ -80,6 +81,7 @@ __all__ = [
     "Service",
     "Staff",
     "Student",
+    "StudentNotPreferredTeacher",
     "StudyProgram",
     "StudyProgramSubject",
     "SubjectRequested",

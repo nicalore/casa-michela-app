@@ -1,10 +1,13 @@
 from collections.abc import Sequence
 from datetime import date
-from itertools import chain
 
 from fastapi import APIRouter, Depends
 
-from app.api.booking_presentation import booking_summary, teacher_tax_codes
+from app.api.booking_presentation import (
+    AvoidedTeachers,
+    booking_people,
+    booking_summary,
+)
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core.time_band import TimeBandEnum
@@ -15,7 +18,6 @@ from app.repositories.calendar_publication_repository import (
     CalendarPublicationRepository,
 )
 from app.repositories.lesson_repository import LessonRepository
-from app.repositories.person_repository import PersonRepository
 from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
@@ -39,6 +41,7 @@ _ADMIN_ONLY = [Depends(require_role("ADMIN"))]
 def _booking_responses(
     lesson: Lesson,
     people: dict[str, Person],
+    avoided: AvoidedTeachers,
 ) -> list[BookingResponse]:
     responses = []
 
@@ -48,7 +51,11 @@ def _booking_responses(
 
         responses.append(
             BookingResponse(
-                **booking_summary(booking, people).model_dump(),
+                **booking_summary(
+                    booking,
+                    people,
+                    avoided.get(presence.student_tax_code, []),
+                ).model_dump(),
                 presence_id=booking.presence_id,
                 presence=PresenceSummary(
                     id=presence.id,
@@ -68,6 +75,7 @@ def _booking_responses(
 def _to_response(
     lesson: Lesson,
     people: dict[str, Person],
+    avoided: AvoidedTeachers,
     rooms: dict[tuple[date, str], TeacherRoomAssignment],
     settled: set[tuple[date, str]],
     warnings: list[str],
@@ -95,7 +103,7 @@ def _to_response(
             AssociationSubjectOption.model_validate(row.association_subject)
             for row in lesson.lesson_disciplines
         ],
-        bookings=_booking_responses(lesson, people),
+        bookings=_booking_responses(lesson, people, avoided),
         is_locked=(lesson.date, lesson.band) in settled,
         warnings=warnings,
         created_at=lesson.created_at,
@@ -113,12 +121,11 @@ async def _to_responses(
         return []
 
     bookings = [link.booking for lesson in lessons for link in lesson.lesson_bookings]
-    people = await PersonRepository(db).get_options(
-        chain(
-            (lesson.availability.teacher_tax_code for lesson in lessons),
-            (booking.presence.student_tax_code for booking in bookings),
-            teacher_tax_codes(bookings),
-        ),
+    people, avoided = await booking_people(
+        db,
+        bookings,
+        students=(booking.presence.student_tax_code for booking in bookings),
+        also=(lesson.availability.teacher_tax_code for lesson in lessons),
     )
 
     assignments = TeacherRoomAssignmentRepository(db)
@@ -133,7 +140,7 @@ async def _to_responses(
     )
 
     return [
-        _to_response(lesson, people, rooms, settled, warnings or [])
+        _to_response(lesson, people, avoided, rooms, settled, warnings or [])
         for lesson in lessons
     ]
 

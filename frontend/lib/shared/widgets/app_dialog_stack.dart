@@ -33,6 +33,9 @@ class AppDialogStack extends StatelessWidget
 
   final Widget? subtitle;
 
+  // Takes the place of eyebrow, title, leading and subtitle in the top pill.
+  final Widget? header;
+
   final List<Widget> children;
 
   final Widget? footer;
@@ -49,11 +52,12 @@ class AppDialogStack extends StatelessWidget
 
   const AppDialogStack({
     super.key,
-    required this.eyebrow,
-    required this.title,
+    this.eyebrow = '',
+    this.title = '',
     required this.children,
     this.leading,
     this.subtitle,
+    this.header,
     this.footer,
     this.maxWidth = 720,
     this.alignment = Alignment.center,
@@ -106,16 +110,19 @@ class AppDialogStack extends StatelessWidget
       padding: besideAFace
           ? const EdgeInsets.fromLTRB(22, 20, 36, 20)
           : EdgeInsets.fromLTRB(tight ? 20 : 36, 22, tight ? 20 : 36, 24),
-      child: besideAFace
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                leading!,
-                const SizedBox(width: 18),
-                Flexible(child: heading),
-              ],
-            )
-          : heading,
+      child: switch (header)
+      {
+        final header? => header,
+        null when besideAFace => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              leading!,
+              const SizedBox(width: 18),
+              Flexible(child: heading),
+            ],
+          ),
+        null => heading,
+      },
     );
 
     if (!showClose)

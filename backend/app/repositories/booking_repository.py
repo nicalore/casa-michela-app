@@ -12,6 +12,7 @@ from app.models.lesson_booking import LessonBooking
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.presence import Presence
 from app.models.service import Service
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.repositories.base import WritableRepository
@@ -22,7 +23,7 @@ BOOKING_EAGER_LOADER = (
     selectinload(Booking.subjects_requested)
     .selectinload(SubjectRequested.ministry_association_subject)
     .selectinload(MinistryAssociationSubject.association_subject),
-    selectinload(Booking.teacher_preferences),
+    selectinload(Booking.preferred_teachers),
     selectinload(Booking.association_subject),
 )
 
@@ -130,9 +131,29 @@ class BookingRepository(WritableRepository[Booking]):
         if not unique:
             return set()
 
-        # One query for both sides: only existence of the named teachers matters.
         rows = await self.session.scalars(
             select(Teacher.tax_code).where(Teacher.tax_code.in_(unique))
+        )
+
+        return set(rows)
+
+    # Those the pupil would rather not have today, among the named teachers.
+    async def find_avoided_teacher_tax_codes(
+        self,
+        student_tax_code: str,
+        tax_codes: Iterable[str],
+    ) -> set[str]:
+        unique = set(tax_codes)
+
+        if not unique:
+            return set()
+
+        rows = await self.session.scalars(
+            select(StudentNotPreferredTeacher.teacher_tax_code).where(
+                StudentNotPreferredTeacher.student_tax_code == student_tax_code,
+                StudentNotPreferredTeacher.teacher_tax_code.in_(unique),
+                StudentNotPreferredTeacher.valid_to.is_(None),
+            )
         )
 
         return set(rows)

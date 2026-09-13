@@ -1,16 +1,18 @@
 from collections.abc import Sequence
 from datetime import date
-from itertools import chain
 
 from fastapi import APIRouter, Depends
 
-from app.api.booking_presentation import booking_summary, teacher_tax_codes
+from app.api.booking_presentation import (
+    AvoidedTeachers,
+    booking_people,
+    booking_summary,
+)
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.models.booking import Booking
 from app.models.person import Person
 from app.repositories.booking_repository import BookingRepository
-from app.repositories.person_repository import PersonRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.booking import (
     BookingCreate,
@@ -28,11 +30,19 @@ router = APIRouter(
 )
 
 
-def _to_response(booking: Booking, people: dict[str, Person]) -> BookingResponse:
+def _to_response(
+    booking: Booking,
+    people: dict[str, Person],
+    avoided: AvoidedTeachers,
+) -> BookingResponse:
     presence = booking.presence
 
     return BookingResponse(
-        **booking_summary(booking, people).model_dump(),
+        **booking_summary(
+            booking,
+            people,
+            avoided.get(presence.student_tax_code, []),
+        ).model_dump(),
         presence_id=booking.presence_id,
         presence=PresenceSummary(
             id=presence.id,
@@ -48,13 +58,13 @@ async def _to_responses(
     db: DbSession,
     bookings: Sequence[Booking],
 ) -> list[BookingResponse]:
-    tax_codes = chain(
-        (booking.presence.student_tax_code for booking in bookings),
-        teacher_tax_codes(bookings),
+    people, avoided = await booking_people(
+        db,
+        bookings,
+        students=(booking.presence.student_tax_code for booking in bookings),
     )
-    people = await PersonRepository(db).get_options(tax_codes)
 
-    return [_to_response(booking, people) for booking in bookings]
+    return [_to_response(booking, people, avoided) for booking in bookings]
 
 
 def _services(db: DbSession) -> BookingService:

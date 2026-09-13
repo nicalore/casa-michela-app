@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from app.schemas.booking import BookingSummaryResponse
 from app.schemas.opening_day import OpeningModeEnum
@@ -38,5 +38,7 @@ class PresenceResponse(PresenceBase):
     booker_tax_code: str
     booker: PersonOption
     bookings: list[BookingSummaryResponse]
+    # The pupil's standing list, for the wizard to leave them out of the offer.
+    not_preferred_teachers: list[PersonOption] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

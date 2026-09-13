@@ -16,6 +16,7 @@ from sqlalchemy.sql.base import ExecutableOption
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity
 from app.core import field_lengths
+from app.core.booking_window import today_in_rome
 from app.core.config import settings
 from app.core.labels import (
     roman_numeral,
@@ -39,9 +40,11 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
     AdminUpdateData,
@@ -53,6 +56,8 @@ from app.schemas.person import (
     ParentInfoResponse,
     ParentUpdatePayload,
     PersonMembershipsUpdate,
+    PersonNotPreferredTeachersUpdate,
+    PersonOption,
     PersonResponse,
     PersonSchoolEnrollmentsUpdate,
     PersonTeacherCompetencesUpdate,
@@ -140,6 +145,7 @@ _MEMBER_OPTIONAL_FIELDS: Final[tuple[str, ...]] = (
 _MEMBERSHIPS_LABEL: Final[str] = "Le iscrizioni"
 _SCHOOL_ENROLLMENTS_LABEL: Final[str] = "Le iscrizioni scolastiche"
 _TEACHING_SUBJECTS_LABEL: Final[str] = "Le discipline insegnate"
+_NOT_PREFERRED_TEACHERS_LABEL: Final[str] = "I docenti non graditi"
 _TEACHER_DATA_LABEL: Final[str] = "I dati del docente"
 
 _ENROLLMENT_FORM_ERROR: Final[str] = (
@@ -233,6 +239,13 @@ _PERSON_CREATED_MESSAGE: Final[str] = "Persona creata con successo"
 _MEMBERSHIPS_UPDATED_MESSAGE: Final[str] = "Iscrizioni aggiornate con successo"
 _MEMBERSHIP_REVOKED_MESSAGE: Final[str] = "Iscrizione revocata con successo"
 _COMPETENCES_UPDATED_MESSAGE: Final[str] = "Discipline aggiornate con successo"
+_NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE: Final[str] = (
+    "Docenti aggiornati con successo"
+)
+_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR: Final[str] = (
+    "Puoi indicare i docenti non graditi solo per i tuoi figli"
+)
+_UNKNOWN_TEACHERS_ERROR: Final[str] = "Alcuni docenti indicati non esistono: {codes}."
 _EDUCATION_UPDATED_MESSAGE: Final[str] = "Studi aggiornati con successo"
 
 _SCHOOL_HISTORY_CLOSED_ERROR: Final[str] = (
@@ -243,6 +256,10 @@ _FORBIDDEN_SCHOOL_HISTORY_ERROR: Final[str] = (
     "Puoi compilare solo le iscrizioni scolastiche tue o dei tuoi figli"
 )
 _FORBIDDEN_EDUCATION_ERROR: Final[str] = "Puoi aggiornare solo i tuoi studi"
+_CONTACTS_UPDATED_MESSAGE: Final[str] = "Contatti aggiornati con successo"
+_FORBIDDEN_CONTACTS_ERROR: Final[str] = (
+    "Puoi aggiornare solo i contatti tuoi o dei tuoi figli"
+)
 
 _REPORT_EMAIL_SENDER: Final[str] = (
     "Associazione Casa Michela <supporto@app.casamichela.it>"
@@ -432,6 +449,7 @@ def _map_person_to_response(
     teacher_subjects: list[TeacherSubjectResponse] = []
     teacher_services: list[str] = []
     early_exit_schedules: list[EarlyExitScheduleResponse] = []
+    not_preferred_teachers: list[PersonOption] | None = None
 
     is_active_collaborator = None
     enrollment_year = None
@@ -560,6 +578,13 @@ def _map_person_to_response(
                 for schedule in student.early_exit_schedules
             ]
             student_updated_at = student.updated_at
+            not_preferred_teachers = sorted(
+                (
+                    PersonOption.model_validate(row.person)
+                    for row in student.current_not_preferred_teachers
+                ),
+                key=lambda option: (option.last_name, option.first_name),
+            )
 
             certification_types = list(student.certification_types)
             certification_other_detail = student.certification_other_detail
@@ -687,6 +712,7 @@ def _map_person_to_response(
         children=children or None,
         teacher_subjects=teacher_subjects or None,
         teacher_services=teacher_services or None,
+        not_preferred_teachers=not_preferred_teachers,
         member_updated_at=member_updated_at,
         student_updated_at=student_updated_at,
         teacher_updated_at=teacher_updated_at,
@@ -745,6 +771,13 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         .selectinload(Student.early_exit_schedules)
     )
 
+    not_preferred_teachers = (
+        joinedload(Person.member_profile)
+        .joinedload(Member.student_profile)
+        .selectinload(Student.current_not_preferred_teachers)
+        .joinedload(StudentNotPreferredTeacher.person)
+    )
+
     staff = joinedload(Person.member_profile).joinedload(Member.staff_profile)
 
     teacher_profile = staff.joinedload(Staff.teacher_profile)
@@ -762,6 +795,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         own_enrollments.joinedload(SchoolStudyProgram.school),
         own_enrollments.joinedload(SchoolStudyProgram.study_program),
         early_exit_schedules,
+        not_preferred_teachers,
         staff.joinedload(Staff.administrator_profile),
         teaching_competences.joinedload(TeachingCompetence.association_subject),
         teaching_competences.joinedload(TeachingCompetence.study_program),
@@ -2322,6 +2356,93 @@ async def update_teacher_competences(
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
 
 
+# The payload is the pupil's whole list as of today. Withdrawn teachers keep
+# their row, closed today, so past rankings still see them; one added and
+# withdrawn the same day leaves nothing behind.
+@router.put("/{tax_code}/not-preferred-teachers", status_code=status.HTTP_200_OK)
+async def update_not_preferred_teachers(
+    tax_code: str,
+    payload: PersonNotPreferredTeachersUpdate,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> dict[str, str]:
+    target = tax_code.upper()
+    a_child = "PARENT" in identity.roles and target in identity.child_tax_codes
+
+    if not (identity.is_admin or a_child):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,
+        )
+
+    person = await _load_person_or_404(
+        db,
+        tax_code,
+        joinedload(Person.member_profile).joinedload(Member.student_profile),
+    )
+
+    member = person.member_profile
+    student = member.student_profile if member else None
+
+    if student is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_STUDENT_PROFILE_ERROR,
+        )
+
+    assert_not_stale(
+        student,
+        payload.expected_updated_at,
+        entity_label=_NOT_PREFERRED_TEACHERS_LABEL,
+    )
+
+    wanted = set(payload.teacher_tax_codes)
+    existing = set(
+        await db.scalars(select(Teacher.tax_code).where(Teacher.tax_code.in_(wanted)))
+    )
+    missing = [code for code in payload.teacher_tax_codes if code not in existing]
+
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNKNOWN_TEACHERS_ERROR.format(codes=", ".join(missing)),
+        )
+
+    today = today_in_rome()
+    open_rows = (
+        await db.scalars(
+            select(StudentNotPreferredTeacher).where(
+                StudentNotPreferredTeacher.student_tax_code == person.tax_code,
+                StudentNotPreferredTeacher.valid_to.is_(None),
+            )
+        )
+    ).all()
+
+    for row in open_rows:
+        if row.teacher_tax_code in wanted:
+            continue
+
+        if row.valid_from == today:
+            await db.delete(row)
+        else:
+            row.valid_to = today
+
+    for code in wanted - {row.teacher_tax_code for row in open_rows}:
+        db.add(
+            StudentNotPreferredTeacher(
+                student_tax_code=person.tax_code,
+                teacher_tax_code=code,
+                valid_from=today,
+            )
+        )
+
+    student.updated_at = datetime.now(UTC)
+
+    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+
+    return {"message": _NOT_PREFERRED_TEACHERS_UPDATED_MESSAGE}
+
+
 # The narrow slice a teacher may change during first access; the rest needs a request.
 @router.put("/{tax_code}/teacher-education", status_code=status.HTTP_200_OK)
 async def update_teacher_education(
@@ -2362,3 +2483,34 @@ async def update_teacher_education(
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 
     return {"message": _EDUCATION_UPDATED_MESSAGE}
+
+
+# Contacts go stale faster than anything else on a record, so the first access
+# lets people rewrite their own and their children's without a correction
+# request.
+@router.put("/{tax_code}/contacts", status_code=status.HTTP_200_OK)
+async def update_contacts(
+    tax_code: str,
+    payload: ContactsUpdate,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> dict[str, str]:
+    target = tax_code.upper()
+
+    own = target == identity.tax_code
+    a_child = "PARENT" in identity.roles and target in identity.child_tax_codes
+
+    if not (identity.is_admin or own or a_child):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_CONTACTS_ERROR,
+        )
+
+    person = await _load_person_or_404(db, tax_code)
+
+    person.email = payload.email
+    person.phone = payload.phone
+
+    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+
+    return {"message": _CONTACTS_UPDATED_MESSAGE}

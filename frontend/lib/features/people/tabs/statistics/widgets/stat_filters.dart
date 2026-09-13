@@ -142,5 +142,7 @@ AppFilterPill<RequestedSubjectKind> requestedKindPill({
     ],
     onChanged: onChanged,
     menuWidth: 220,
+    // Room for "Classifica: Materie ministeriali" in one piece.
+    maxLabelWidth: 250,
   );
 }

@@ -35,7 +35,7 @@ from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 
 if TYPE_CHECKING:
     from app.models.association_subject import AssociationSubject
-    from app.models.booking_teacher_preference import BookingTeacherPreference
+    from app.models.booking_preferred_teacher import BookingPreferredTeacher
     from app.models.lesson_booking import LessonBooking
     from app.models.presence import Presence
     from app.models.service import Service
@@ -144,10 +144,10 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    teacher_preferences: Mapped[list[BookingTeacherPreference]] = relationship(
+    preferred_teachers: Mapped[list[BookingPreferredTeacher]] = relationship(
         back_populates="booking",
         cascade="all, delete-orphan",
-        order_by="BookingTeacherPreference.teacher_tax_code",
+        order_by="BookingPreferredTeacher.teacher_tax_code",
     )
 
     # No delete-orphan on purpose: it would lazy-load (raises under async) and

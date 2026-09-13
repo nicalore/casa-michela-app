@@ -345,8 +345,7 @@ class _SubjectRequestDetailsDialog extends StatelessWidget
       ('Durata', draft.duration == null ? _empty : formatMinutes(draft.duration!)),
       ('Tipo di lezione', said(bookingTagLabels(draft.tags).join(', '))),
       ('Argomento', said(draft.topic)),
-      ('Docenti preferiti', said(teacherNames(teachers, draft.preferredTeacherTaxCodes).join(', '))),
-      ('Docenti da evitare', said(teacherNames(teachers, draft.excludedTeacherTaxCodes).join(', '))),
+      ('Mi sono trovato meglio con...', said(teacherNames(teachers, draft.preferredTeacherTaxCodes).join(', '))),
       ('Note per il docente', said(draft.notes)),
     ];
   }
@@ -431,28 +430,29 @@ const double _teacherListMaxHeight = 340;
 
 class TeacherPicker extends StatefulWidget
 {
-  final String label;
+  // Null: no heading, the window's title says it already.
+  final String? label;
   final IconData icon;
 
   final String hint;
 
-  // A teacher added to `chosen` is removed from `other`: the two lists are
-  // mutually exclusive.
   final List<String> chosen;
-  final List<String> other;
 
   final List<PersonItem> offered;
+
+  // Null: no ceiling and no counter.
+  final int? max;
 
   final VoidCallback onChanged;
 
   const TeacherPicker({
     super.key,
-    required this.label,
+    this.label,
     required this.icon,
     required this.chosen,
-    required this.other,
     required this.offered,
     required this.onChanged,
+    this.max,
     this.hint = 'Cerca docente...',
   });
 
@@ -475,7 +475,7 @@ class _TeacherPickerState extends State<TeacherPicker>
     super.dispose();
   }
 
-  bool get _full => widget.chosen.length >= SubjectRequestDraft.maxPreferredTeachers;
+  bool get _full => widget.max != null && widget.chosen.length >= widget.max!;
 
   List<PersonItem> get _available
   {
@@ -483,11 +483,6 @@ class _TeacherPickerState extends State<TeacherPicker>
 
     return widget.offered.where((teacher)
     {
-      if (widget.other.contains(teacher.fiscalCode))
-      {
-        return false;
-      }
-
       if (query.isEmpty)
       {
         return true;
@@ -504,11 +499,7 @@ class _TeacherPickerState extends State<TeacherPicker>
       return;
     }
 
-    setState(()
-    {
-      widget.other.remove(teacher.fiscalCode);
-      widget.chosen.add(teacher.fiscalCode);
-    });
+    setState(() => widget.chosen.add(teacher.fiscalCode));
 
     widget.onChanged();
   }
@@ -526,27 +517,30 @@ class _TeacherPickerState extends State<TeacherPicker>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: [
-              Icon(widget.icon, size: 15, color: AppTheme.trialMutedText),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AppFieldLabel(widget.label),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${widget.chosen.length} di ${SubjectRequestDraft.maxPreferredTeachers}',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppTheme.trialTealDeep,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
+        if (widget.label case final String label)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Icon(widget.icon, size: 15, color: AppTheme.trialMutedText),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: AppFieldLabel(label),
                 ),
-              ),
-            ],
+                if (widget.max case final int max) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '${widget.chosen.length} di $max',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppTheme.trialTealDeep,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
         if (widget.offered.isEmpty)
           Text(
             'Nessun docente presente nell\'anagrafica.',

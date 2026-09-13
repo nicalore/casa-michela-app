@@ -398,6 +398,140 @@ class RetentionCard extends StatelessWidget
 }
 
 
+// Signed: +250 · −34 · 0.
+String formatAppreciationScore(int score)
+{
+  if (score == 0)
+  {
+    return '0';
+  }
+
+  return '${score > 0 ? '+' : '−'}${score.abs()}';
+}
+
+const Color kThumbUpColor = AppTheme.trialTealDeep;
+const Color kThumbDownColor = AppTheme.trialDeepWater;
+
+const Duration _hoverFade = Duration(milliseconds: 180);
+
+// One thumb with its count; a tap, when there is one, names the pupils. A
+// count of zero has nobody to name, so it is never tappable.
+class ThumbCount extends StatefulWidget
+{
+  final bool up;
+  final int count;
+
+  // Figure-sized, for a card of its own rather than a line under a name.
+  final bool large;
+
+  final VoidCallback? onTap;
+
+  const ThumbCount({
+    super.key,
+    required this.up,
+    required this.count,
+    this.large = false,
+    this.onTap,
+  });
+
+  @override
+  State<ThumbCount> createState() => _ThumbCountState();
+}
+
+class _ThumbCountState extends State<ThumbCount>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final color = widget.up ? kThumbUpColor : kThumbDownColor;
+
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          widget.up ? Icons.thumb_up_outlined : Icons.thumb_down_outlined,
+          size: widget.large ? 26 : 14,
+          color: color,
+        ),
+        SizedBox(width: widget.large ? 10 : 4),
+        Text(
+          '${widget.count}',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: widget.large ? 36 : 12,
+            fontWeight: widget.large ? FontWeight.w800 : FontWeight.w700,
+            color: color,
+          ),
+        ),
+      ],
+    );
+
+    if (widget.onTap == null || widget.count == 0)
+    {
+      return content;
+    }
+
+    // The gold wash every tappable icon in the app gets on hover.
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: _hoverFade,
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.large ? 10 : 6,
+            vertical: widget.large ? 6 : 3,
+          ),
+          decoration: BoxDecoration(
+            color: _hover
+                ? AppTheme.trialGoldSurface
+                : AppTheme.trialGoldSurface.withValues(alpha: 0),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+// How many pupils asked for the person and how many would rather not have them.
+class ThumbCounts extends StatelessWidget
+{
+  final int up;
+  final int down;
+
+  final bool large;
+
+  final VoidCallback? onUpTap;
+  final VoidCallback? onDownTap;
+
+  const ThumbCounts({
+    super.key,
+    required this.up,
+    required this.down,
+    this.large = false,
+    this.onUpTap,
+    this.onDownTap,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ThumbCount(up: true, count: up, large: large, onTap: onUpTap),
+        SizedBox(width: large ? 28 : 12),
+        ThumbCount(up: false, count: down, large: large, onTap: onDownTap),
+      ],
+    );
+  }
+}
+
 class PersonRankRow extends StatelessWidget
 {
   final int position;
@@ -405,12 +539,16 @@ class PersonRankRow extends StatelessWidget
   final String badgeText;
   final Color accent;
 
+  // Under the name, when there is more to say than the badge.
+  final Widget? subtitle;
+
   const PersonRankRow({
     super.key,
     required this.position,
     required this.person,
     required this.badgeText,
     required this.accent,
+    this.subtitle,
   });
 
   @override
@@ -435,14 +573,24 @@ class PersonRankRow extends StatelessWidget
           PersonAvatar(person: person),
           const SizedBox(width: 12),
           Expanded(
-            child: OverflowTooltipText(
-              text: '${person.firstName} ${person.lastName}',
-              maxLines: 1,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialInk,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OverflowTooltipText(
+                  text: '${person.firstName} ${person.lastName}',
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.trialInk,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  subtitle!,
+                ],
+              ],
             ),
           ),
           const SizedBox(width: 12),

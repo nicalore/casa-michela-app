@@ -21,7 +21,12 @@ class FilterOption<T>
   final T value;
   final String label;
 
-  const FilterOption({required this.value, required this.label});
+  // What the pill shows once chosen, when the full label would not fit it.
+  final String? shortLabel;
+
+  const FilterOption({required this.value, required this.label, this.shortLabel});
+
+  String get pillLabel => shortLabel ?? label;
 }
 
 class CustomFilterMenu<T> extends StatefulWidget

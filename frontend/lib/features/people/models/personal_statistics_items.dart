@@ -1,4 +1,5 @@
 import '../../../core/utils/json_parsing.dart';
+import '../../lessons/models/person_option_item.dart';
 import 'member_trend_item.dart';
 import 'student_presence_statistics_item.dart';
 
@@ -27,12 +28,6 @@ class TeacherPersonalStatisticsItem
   final bool isSingleMonth;
   final bool isBelowMonthlyThreshold;
 
-  // Rank is null when the count is zero.
-  final int preferredCount;
-  final int? preferredRank;
-  final int notPreferredCount;
-  final int? notPreferredRank;
-
   const TeacherPersonalStatisticsItem({
     required this.weeklyAverage,
     required this.totalAvailabilities,
@@ -40,10 +35,6 @@ class TeacherPersonalStatisticsItem
     required this.isBelowWeeklyThreshold,
     required this.isSingleMonth,
     required this.isBelowMonthlyThreshold,
-    required this.preferredCount,
-    required this.preferredRank,
-    required this.notPreferredCount,
-    required this.notPreferredRank,
   });
 
   factory TeacherPersonalStatisticsItem.fromJson(Map<String, dynamic> json)
@@ -55,10 +46,34 @@ class TeacherPersonalStatisticsItem
       isBelowWeeklyThreshold: json['is_below_weekly_threshold'] as bool,
       isSingleMonth: json['is_single_month'] as bool,
       isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
-      preferredCount: json['preferred_count'] as int,
-      preferredRank: json['preferred_rank'] as int?,
-      notPreferredCount: json['not_preferred_count'] as int,
-      notPreferredRank: json['not_preferred_rank'] as int?,
+    );
+  }
+}
+
+// Asked apart from the availabilities: the two carry periods of their own.
+class TeacherAppreciationStatisticsItem
+{
+  final int score;
+
+  // Null when no pupil had anything to say about the teacher.
+  final int? rank;
+  final int preferringStudentCount;
+  final int avoidingStudentCount;
+
+  const TeacherAppreciationStatisticsItem({
+    required this.score,
+    required this.rank,
+    required this.preferringStudentCount,
+    required this.avoidingStudentCount,
+  });
+
+  factory TeacherAppreciationStatisticsItem.fromJson(Map<String, dynamic> json)
+  {
+    return TeacherAppreciationStatisticsItem(
+      score: json['score'] as int,
+      rank: json['rank'] as int?,
+      preferringStudentCount: json['preferring_student_count'] as int,
+      avoidingStudentCount: json['avoiding_student_count'] as int,
     );
   }
 }
@@ -87,6 +102,26 @@ class StudentPersonalStatisticsItem
       totalPresenceDays: json['total_presence_days'] as int,
       monthlyTrend: monthlyTrendPoints(json['monthly_trend']),
       requested: RequestedSubjectRankings.fromJson(json['requested'] as Map<String, dynamic>),
+    );
+  }
+}
+
+// By name, each pupil once.
+class TeacherAppreciationStudentsItem
+{
+  final List<PersonOptionItem> preferring;
+  final List<PersonOptionItem> avoiding;
+
+  const TeacherAppreciationStudentsItem({
+    required this.preferring,
+    required this.avoiding,
+  });
+
+  factory TeacherAppreciationStudentsItem.fromJson(Map<String, dynamic> json)
+  {
+    return TeacherAppreciationStudentsItem(
+      preferring: parseList(json['preferring'], PersonOptionItem.fromJson),
+      avoiding: parseList(json['avoiding'], PersonOptionItem.fromJson),
     );
   }
 }

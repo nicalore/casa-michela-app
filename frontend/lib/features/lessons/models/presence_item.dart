@@ -18,6 +18,10 @@ class PresenceItem
   final String bookerTaxCode;
   final PersonOptionItem booker;
   final List<BookingSummaryItem> bookings;
+
+  // The pupil's standing list: left out of the offer when asking for teachers.
+  final List<PersonOptionItem> notPreferredTeachers;
+
   final DateTime updatedAt;
 
   const PresenceItem({
@@ -31,8 +35,12 @@ class PresenceItem
     required this.bookerTaxCode,
     required this.booker,
     required this.bookings,
+    this.notPreferredTeachers = const [],
     required this.updatedAt,
   });
+
+  List<String> get notPreferredTeacherTaxCodes =>
+      [for (final teacher in notPreferredTeachers) teacher.taxCode];
 
   factory PresenceItem.fromJson(Map<String, dynamic> json)
   {
@@ -47,6 +55,10 @@ class PresenceItem
       bookerTaxCode: json['booker_tax_code'] as String,
       booker: PersonOptionItem.fromJson(json['booker'] as Map<String, dynamic>),
       bookings: parseList(json['bookings'], BookingSummaryItem.fromJson),
+      notPreferredTeachers: parseList(
+        json['not_preferred_teachers'],
+        PersonOptionItem.fromJson,
+      ),
       updatedAt: parseInstant(json['updated_at'])!,
     );
   }

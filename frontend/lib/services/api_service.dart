@@ -1043,6 +1043,25 @@ class ApiService
     }
   }
 
+  Future<void> updateContacts({
+    required String taxCode,
+    required String email,
+    required String phoneNumber,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/contacts',
+        data: {'email': email, 'phone': phoneNumber},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante il salvataggio dei contatti. Riprova più tardi.');
+    }
+  }
+
   Future<void> updateTeacherEducation({
     required String taxCode,
     required bool isHighSchoolStudent,
@@ -1789,6 +1808,29 @@ class ApiService
     }
   }
 
+  // The pupil's whole list as of today.
+  Future<void> updateNotPreferredTeachers(
+    String taxCode,
+    List<String> teacherTaxCodes,
+    DateTime? expectedUpdatedAt,
+  ) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/not-preferred-teachers',
+        data: {
+          'teacher_tax_codes': teacherTaxCodes,
+          if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
   Future<List<EducationDistributionItem>> getStudentEducationDistribution(String type) async
   {
     try
@@ -1905,6 +1947,46 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Impossibile recuperare le statistiche personali. Riprova più tardi.');
+    }
+  }
+
+  Future<TeacherAppreciationStatisticsItem> getTeacherAppreciationStatistics(String taxCode, {int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/$taxCode/appreciation-statistics',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return TeacherAppreciationStatisticsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare il gradimento del docente. Riprova più tardi.');
+    }
+  }
+
+  Future<TeacherAppreciationStudentsItem> getTeacherAppreciationStudents(String taxCode, {int? months, int? year, int? month}) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/statistics/teachers/$taxCode/appreciation-students',
+        queryParameters: {
+          'months': ?months,
+          'year': ?year,
+          'month': ?month,
+        },
+      );
+      return TeacherAppreciationStudentsItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile recuperare gli studenti. Riprova più tardi.');
     }
   }
 

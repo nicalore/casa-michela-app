@@ -223,6 +223,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Teacher education modification",
         path_params=("tax_code",),
     ),
+    ("PUT", "/people/{tax_code}/not-preferred-teachers"): AuditRule(
+        "Not preferred teachers modification",
+        path_params=("tax_code",),
+    ),
     # Auth: the actor is whoever the request claims to be, since none of these
     # necessarily carry a bearer token.
     ("POST", "/auth/login"): AuditRule(

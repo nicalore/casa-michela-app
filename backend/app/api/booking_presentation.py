@@ -1,41 +1,97 @@
 # Shared response shaping for /bookings, /presences and /lesson-requests.
 
 from collections.abc import Iterable, Iterator, Sequence
+from itertools import chain
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import TeacherPreferenceTypeEnum
 from app.models.person import Person
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+from app.repositories.person_repository import PersonRepository
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.booking import BookingSummaryResponse
 from app.schemas.person import PersonOption
 
+# Student tax code → teachers the pupil would rather not have, as of today.
+AvoidedTeachers = dict[str, list[str]]
 
-# Teacher names live on Person; resolved via PersonRepository.get_options in
-# one batched query per response.
+
 def teacher_tax_codes(bookings: Iterable[Booking]) -> Iterator[str]:
     return (
         preference.teacher_tax_code
         for booking in bookings
-        for preference in booking.teacher_preferences
+        for preference in booking.preferred_teachers
     )
 
 
-def _teachers_of(
-    booking: Booking,
+async def avoided_teachers(
+    db: AsyncSession,
+    student_tax_codes: Iterable[str],
+) -> AvoidedTeachers:
+    students = set(student_tax_codes)
+
+    if not students:
+        return {}
+
+    rows = await db.execute(
+        select(
+            StudentNotPreferredTeacher.student_tax_code,
+            StudentNotPreferredTeacher.teacher_tax_code,
+        )
+        .where(
+            StudentNotPreferredTeacher.student_tax_code.in_(students),
+            StudentNotPreferredTeacher.valid_to.is_(None),
+        )
+        .order_by(StudentNotPreferredTeacher.teacher_tax_code),
+    )
+    avoided: AvoidedTeachers = {}
+
+    for student_tax_code, teacher_tax_code in rows.all():
+        avoided.setdefault(student_tax_code, []).append(teacher_tax_code)
+
+    return avoided
+
+
+# Everyone a booking response names, in two batched queries: the pupils'
+# standing lists first, so those teachers get their names too.
+async def booking_people(
+    db: AsyncSession,
+    bookings: Sequence[Booking],
+    *,
+    students: Iterable[str],
+    also: Iterable[str] = (),
+) -> tuple[dict[str, Person], AvoidedTeachers]:
+    students = set(students)
+    avoided = await avoided_teachers(db, students)
+    people = await PersonRepository(db).get_options(
+        chain(
+            students,
+            also,
+            teacher_tax_codes(bookings),
+            chain.from_iterable(avoided.values()),
+        ),
+    )
+
+    return people, avoided
+
+
+def person_options(
+    tax_codes: Iterable[str],
     people: dict[str, Person],
-    preference_type: TeacherPreferenceTypeEnum,
 ) -> list[PersonOption]:
     return [
-        PersonOption.model_validate(people[preference.teacher_tax_code])
-        for preference in booking.teacher_preferences
-        if preference.preference_type is preference_type
-        and preference.teacher_tax_code in people
+        PersonOption.model_validate(people[tax_code])
+        for tax_code in tax_codes
+        if tax_code in people
     ]
 
 
 def booking_summary(
     booking: Booking,
     people: dict[str, Person],
+    avoided_tax_codes: Sequence[str],
 ) -> BookingSummaryResponse:
     association_subjects = [
         AssociationSubjectOption.model_validate(
@@ -65,23 +121,19 @@ def booking_summary(
         tags=booking.tags,
         topic=booking.topic,
         notes=booking.notes,
-        preferred_teachers=_teachers_of(
-            booking,
-            people,
-            TeacherPreferenceTypeEnum.PREFERRED,
-        ),
-        not_preferred_teachers=_teachers_of(
-            booking,
-            people,
-            TeacherPreferenceTypeEnum.NOT_PREFERRED,
-        ),
+        preferred_teachers=person_options(teacher_tax_codes([booking]), people),
+        not_preferred_teachers=person_options(avoided_tax_codes, people),
         created_at=booking.created_at,
         updated_at=booking.updated_at,
     )
 
 
+# One pupil's bookings: they all share the pupil's list.
 def booking_summaries(
     bookings: Sequence[Booking],
     people: dict[str, Person],
+    avoided_tax_codes: Sequence[str],
 ) -> list[BookingSummaryResponse]:
-    return [booking_summary(booking, people) for booking in bookings]
+    return [
+        booking_summary(booking, people, avoided_tax_codes) for booking in bookings
+    ]

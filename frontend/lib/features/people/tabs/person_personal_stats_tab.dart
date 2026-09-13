@@ -8,6 +8,7 @@ import '../../../shared/widgets/page_transition.dart';
 import '../models/person_item.dart';
 import '../models/personal_statistics_items.dart';
 import '../models/student_presence_statistics_item.dart';
+import 'statistics/widgets/appreciation_students_dialog.dart';
 import 'statistics/widgets/stat_filters.dart';
 import 'statistics/widgets/stat_widgets.dart';
 import 'statistics/widgets/stats_data.dart';
@@ -38,12 +39,15 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
   bool _isLoading = true;
   TeacherPersonalStatisticsItem? _teacherStats;
+  TeacherAppreciationStatisticsItem? _appreciationStats;
   StudentPersonalStatisticsItem? _studentStats;
 
   bool _isTeacherLoading = false;
+  bool _isAppreciationLoading = false;
   bool _isStudentLoading = false;
 
   String _teacherPeriod = defaultStatsPeriod;
+  String _appreciationPeriod = defaultStatsPeriod;
   String _studentPeriod = defaultStatsPeriod;
 
   bool get _isTeacher => widget.person.roles
@@ -67,6 +71,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
     await Future.wait([
       if (_isTeacher) _loadTeacherStats(),
+      if (_isTeacher) _loadAppreciationStats(),
       if (_isStudent) _loadStudentStats(),
     ]);
 
@@ -102,6 +107,36 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
       if (mounted)
       {
         setState(() => _isTeacherLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadAppreciationStats() async
+  {
+    setState(() => _isAppreciationLoading = true);
+
+    try
+    {
+      final period = statsPeriodParts(_appreciationPeriod);
+
+      final data = await _apiService.getTeacherAppreciationStatistics(
+        widget.person.fiscalCode,
+        months: period.months,
+        year: period.year,
+        month: period.month,
+      );
+
+      if (mounted)
+      {
+        setState(() => _appreciationStats = data);
+      }
+    }
+    catch (_) {}
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isAppreciationLoading = false);
       }
     }
   }
@@ -147,6 +182,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     }
 
     final teacherStats = _teacherStats;
+    final appreciationStats = _appreciationStats;
     final studentStats = _studentStats;
 
     final cards = <Widget>[
@@ -161,8 +197,18 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
             _loadTeacherStats();
           },
         ),
-      if (teacherStats != null)
-        PersonalAppreciationCard(statistics: teacherStats),
+      if (appreciationStats != null)
+        PersonalAppreciationCard(
+          teacher: widget.person,
+          statistics: appreciationStats,
+          period: _appreciationPeriod,
+          isLoading: _isAppreciationLoading,
+          onPeriodChanged: (value)
+          {
+            setState(() => _appreciationPeriod = value);
+            _loadAppreciationStats();
+          },
+        ),
       if (studentStats != null)
         PersonalPresenceCard(
           statistics: studentStats,
@@ -349,76 +395,53 @@ class PersonalAvailabilityCard extends StatelessWidget
 
 class PersonalAppreciationCard extends StatelessWidget
 {
-  final TeacherPersonalStatisticsItem statistics;
+  final PersonItem teacher;
+  final TeacherAppreciationStatisticsItem statistics;
+  final String period;
+  final ValueChanged<String> onPeriodChanged;
+  final bool isLoading;
 
-  const PersonalAppreciationCard({super.key, required this.statistics});
+  const PersonalAppreciationCard({
+    super.key,
+    required this.teacher,
+    required this.statistics,
+    required this.period,
+    required this.onPeriodChanged,
+    this.isLoading = false,
+  });
 
-  Widget _side({
-    required String label,
-    required int count,
-    required int? rank,
-    required Color accent,
-  })
+  void _showStudents(BuildContext context, {required bool up})
   {
-    final unit = count == 1 ? 'richiesta' : 'richieste';
+    showAppreciationStudentsDialog(
+      context,
+      taxCode: teacher.fiscalCode,
+      period: period,
+      up: up,
+    );
+  }
 
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '$count',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                unit,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              rank == null ? 'Mai indicato' : '$rank° in classifica',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: accent,
-              ),
-            ),
-          ),
-        ],
+  Widget _place()
+  {
+    final rank = statistics.rank;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.trialDeepWater.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        rank == null ? 'Non in classifica' : '$rank° in classifica',
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.trialDeepWater,
+        ),
       ),
     );
   }
 
+  // One line of three: the score as a figure, the place, the thumbs.
   @override
   Widget build(BuildContext context)
   {
@@ -426,22 +449,33 @@ class PersonalAppreciationCard extends StatelessWidget
       title: 'Gradimento',
       selectable: false,
       leading: const AppCardBadge(icon: Icons.emoji_events_rounded),
-      child: Row(
-        children: [
-          _side(
-            label: 'Indicato come preferito',
-            count: statistics.preferredCount,
-            rank: statistics.preferredRank,
-            accent: AppTheme.trialViolet,
-          ),
-          const StatDivider(),
-          _side(
-            label: 'Indicato come non gradito',
-            count: statistics.notPreferredCount,
-            rank: statistics.notPreferredRank,
-            accent: AppTheme.trialDeepWater,
-          ),
-        ],
+      trailingFit: AppCardTrailing.wrapping,
+      trailing: statsPeriodPill(value: period, onChanged: onPeriodChanged),
+      child: AnimatedOpacity(
+        opacity: isLoading ? 0.4 : 1,
+        duration: _fetchFade,
+        child: Row(
+          children: [
+            _Figure(
+              label: 'Punteggio',
+              value: formatAppreciationScore(statistics.score),
+            ),
+            const StatDivider(),
+            Expanded(child: Center(child: _place())),
+            const StatDivider(),
+            Expanded(
+              child: Center(
+                child: ThumbCounts(
+                  up: statistics.preferringStudentCount,
+                  down: statistics.avoidingStudentCount,
+                  large: true,
+                  onUpTap: () => _showStudents(context, up: true),
+                  onDownTap: () => _showStudents(context, up: false),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

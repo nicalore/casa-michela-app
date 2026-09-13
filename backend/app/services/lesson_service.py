@@ -15,15 +15,12 @@ from app.core.time_band import assert_within_single_band
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import (
-    BookingTeacherPreference,
-    TeacherPreferenceTypeEnum,
-)
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.school_enrollment import SchoolEnrollment
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
@@ -513,47 +510,43 @@ class LessonService:
 
         await self._assert_service_competences(teacher_tax_code, bookings)
 
+    # One warning per pupil, however many of their bookings the lesson holds.
     async def _not_preferred_warnings(
         self,
         teacher_tax_code: str,
         bookings: Sequence[Booking],
     ) -> list[str]:
-        booking_ids = [booking.id for booking in bookings]
+        students = {booking.presence.student_tax_code for booking in bookings}
 
-        if not booking_ids:
+        if not students:
             return []
 
-        flagged = set(
+        unwanted_by = list(
             await self.session.scalars(
-                select(BookingTeacherPreference.booking_id).where(
-                    BookingTeacherPreference.booking_id.in_(booking_ids),
-                    BookingTeacherPreference.teacher_tax_code == teacher_tax_code,
-                    BookingTeacherPreference.preference_type
-                    == TeacherPreferenceTypeEnum.NOT_PREFERRED,
-                ),
+                select(StudentNotPreferredTeacher.student_tax_code)
+                .where(
+                    StudentNotPreferredTeacher.student_tax_code.in_(students),
+                    StudentNotPreferredTeacher.teacher_tax_code == teacher_tax_code,
+                    StudentNotPreferredTeacher.valid_to.is_(None),
+                )
+                .order_by(StudentNotPreferredTeacher.student_tax_code),
             ),
         )
 
-        if not flagged:
+        if not unwanted_by:
             return []
 
-        unwanted = [booking for booking in bookings if booking.id in flagged]
         people = await PersonRepository(self.session).get_options(
-            [
-                *(booking.presence.student_tax_code for booking in unwanted),
-                teacher_tax_code,
-            ],
+            [*unwanted_by, teacher_tax_code],
         )
         teacher = _person_label(people.get(teacher_tax_code))
 
         return [
             _NOT_PREFERRED_WARNING.format(
                 teacher=teacher,
-                student=_person_label(
-                    people.get(booking.presence.student_tax_code),
-                ),
+                student=_person_label(people.get(student_tax_code)),
             )
-            for booking in unwanted
+            for student_tax_code in unwanted_by
         ]
 
     async def _validate(

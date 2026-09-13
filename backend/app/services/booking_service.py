@@ -10,10 +10,7 @@ from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
 from app.models.association_subject import AssociationSubject
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import (
-    BookingTeacherPreference,
-    TeacherPreferenceTypeEnum,
-)
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.presence import Presence
 from app.models.subject_requested import SubjectRequested
 from app.repositories.booking_repository import BookingRepository
@@ -33,6 +30,10 @@ _INVALID_SUBJECTS_ERROR: Final[str] = (
     "Alcune materie selezionate non sono valide per questa materia ministeriale."
 )
 _UNKNOWN_TEACHERS_ERROR: Final[str] = "Alcuni docenti indicati non esistono: {codes}."
+_AVOIDED_TEACHERS_ERROR: Final[str] = (
+    "Alcuni docenti indicati sono tra quelli con cui lo studente si è trovato "
+    "meno: {codes}."
+)
 _UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[str] = "La disciplina indicata non esiste."
 _UNKNOWN_SERVICE_ERROR: Final[str] = 'Il servizio "{name}" non esiste.'
 _CREATE_ERROR: Final[str] = "Errore durante la creazione della prenotazione."
@@ -104,18 +105,19 @@ class BookingService:
             for pair in pairs
         ]
 
-    async def resolve_teacher_preferences(
+    async def resolve_preferred_teachers(
         self,
         preferred_tax_codes: list[str],
-        not_preferred_tax_codes: list[str],
-    ) -> list[BookingTeacherPreference]:
-        named = [*preferred_tax_codes, *not_preferred_tax_codes]
-
-        if not named:
+        *,
+        student_tax_code: str,
+    ) -> list[BookingPreferredTeacher]:
+        if not preferred_tax_codes:
             return []
 
-        existing = await self.repository.find_existing_teacher_tax_codes(named)
-        missing = [tax_code for tax_code in named if tax_code not in existing]
+        existing = await self.repository.find_existing_teacher_tax_codes(
+            preferred_tax_codes,
+        )
+        missing = [code for code in preferred_tax_codes if code not in existing]
 
         if missing:
             raise HTTPException(
@@ -123,16 +125,21 @@ class BookingService:
                 detail=_UNKNOWN_TEACHERS_ERROR.format(codes=", ".join(missing)),
             )
 
+        avoided = await self.repository.find_avoided_teacher_tax_codes(
+            student_tax_code,
+            preferred_tax_codes,
+        )
+        clashing = [code for code in preferred_tax_codes if code in avoided]
+
+        if clashing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_AVOIDED_TEACHERS_ERROR.format(codes=", ".join(clashing)),
+            )
+
         return [
-            BookingTeacherPreference(
-                teacher_tax_code=tax_code,
-                preference_type=preference_type,
-            )
-            for tax_codes, preference_type in (
-                (preferred_tax_codes, TeacherPreferenceTypeEnum.PREFERRED),
-                (not_preferred_tax_codes, TeacherPreferenceTypeEnum.NOT_PREFERRED),
-            )
-            for tax_code in tax_codes
+            BookingPreferredTeacher(teacher_tax_code=tax_code)
+            for tax_code in preferred_tax_codes
         ]
 
     async def build_for_presence(
@@ -155,9 +162,9 @@ class BookingService:
                 payload.ministry_subject_id,
                 payload.association_subject_ids,
             ),
-            teacher_preferences=await self.resolve_teacher_preferences(
+            preferred_teachers=await self.resolve_preferred_teachers(
                 payload.preferred_teacher_tax_codes,
-                payload.not_preferred_teacher_tax_codes,
+                student_tax_code=presence.student_tax_code,
             ),
         )
 
@@ -342,9 +349,9 @@ class BookingService:
             payload.ministry_subject_id,
             payload.association_subject_ids,
         )
-        booking.teacher_preferences = await self.resolve_teacher_preferences(
+        booking.preferred_teachers = await self.resolve_preferred_teachers(
             payload.preferred_teacher_tax_codes,
-            payload.not_preferred_teacher_tax_codes,
+            student_tax_code=booking.presence.student_tax_code,
         )
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):

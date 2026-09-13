@@ -1,15 +1,18 @@
 from collections.abc import Sequence
 from datetime import date
-from itertools import chain
 
 from fastapi import APIRouter, Depends
 
-from app.api.booking_presentation import booking_summaries, teacher_tax_codes
+from app.api.booking_presentation import (
+    AvoidedTeachers,
+    booking_people,
+    booking_summaries,
+    person_options,
+)
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.models.person import Person
 from app.models.presence import Presence
-from app.repositories.person_repository import PersonRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.person import PersonOption
 from app.schemas.presence import PresenceCreate, PresenceResponse, PresenceUpdate
@@ -22,7 +25,13 @@ router = APIRouter(
 )
 
 
-def _to_response(presence: Presence, people: dict[str, Person]) -> PresenceResponse:
+def _to_response(
+    presence: Presence,
+    people: dict[str, Person],
+    avoided: AvoidedTeachers,
+) -> PresenceResponse:
+    avoided_tax_codes = avoided.get(presence.student_tax_code, [])
+
     return PresenceResponse(
         id=presence.id,
         date=presence.date,
@@ -33,7 +42,8 @@ def _to_response(presence: Presence, people: dict[str, Person]) -> PresenceRespo
         student=PersonOption.model_validate(people[presence.student_tax_code]),
         booker_tax_code=presence.booker_tax_code,
         booker=PersonOption.model_validate(people[presence.booker_tax_code]),
-        bookings=booking_summaries(presence.bookings, people),
+        bookings=booking_summaries(presence.bookings, people, avoided_tax_codes),
+        not_preferred_teachers=person_options(avoided_tax_codes, people),
         created_at=presence.created_at,
         updated_at=presence.updated_at,
     )
@@ -43,17 +53,14 @@ async def to_responses(
     db: DbSession,
     presences: Sequence[Presence],
 ) -> list[PresenceResponse]:
-    tax_codes = chain(
-        chain.from_iterable(
-            (p.student_tax_code, p.booker_tax_code) for p in presences
-        ),
-        teacher_tax_codes(
-            booking for presence in presences for booking in presence.bookings
-        ),
+    people, avoided = await booking_people(
+        db,
+        [booking for presence in presences for booking in presence.bookings],
+        students=(presence.student_tax_code for presence in presences),
+        also=(presence.booker_tax_code for presence in presences),
     )
-    people = await PersonRepository(db).get_options(tax_codes)
 
-    return [_to_response(presence, people) for presence in presences]
+    return [_to_response(presence, people, avoided) for presence in presences]
 
 
 @router.get("/", response_model=list[PresenceResponse])

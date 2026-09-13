@@ -29,7 +29,8 @@ class AppCard extends StatelessWidget
 
   final Widget leading;
 
-  final Widget child;
+  // Null: the header is the whole card, with no divider under it.
+  final Widget? child;
 
   final Widget? trailing;
 
@@ -45,7 +46,7 @@ class AppCard extends StatelessWidget
     super.key,
     required this.title,
     required this.leading,
-    required this.child,
+    this.child,
     this.trailing,
     this.trailingFit = AppCardTrailing.beside,
     this.compact = false,
@@ -113,9 +114,13 @@ class AppCard extends StatelessWidget
   {
     final double badgeSize = compact ? _compactBadgeSize : _badgeSize;
 
-    final Widget body = fillHeight
-        ? Expanded(child: Align(alignment: Alignment.centerLeft, child: child))
-        : child;
+    final Widget? body = switch (child)
+    {
+      null => null,
+      final child when fillHeight =>
+        Expanded(child: Align(alignment: Alignment.centerLeft, child: child)),
+      final child => child,
+    };
 
     final Widget card = Container(
       padding: EdgeInsets.all(compact ? _compactCardPadding : _cardPadding),
@@ -129,13 +134,15 @@ class AppCard extends StatelessWidget
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildHeader(badgeSize),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: compact ? _compactDividerSpace : _dividerSpace,
+          if (body != null) ...[
+            Padding(
+              padding: EdgeInsets.symmetric(
+                vertical: compact ? _compactDividerSpace : _dividerSpace,
+              ),
+              child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
             ),
-            child: const Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-          ),
-          body,
+            body,
+          ],
         ],
       ),
     );

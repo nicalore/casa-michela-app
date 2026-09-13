@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import date
 
 from sqlalchemy import select
@@ -18,7 +18,7 @@ _BOOKINGS_LOADER = selectinload(Presence.bookings).options(
             MinistryAssociationSubject.association_subject
         )
     ),
-    selectinload(Booking.teacher_preferences),
+    selectinload(Booking.preferred_teachers),
     selectinload(Booking.association_subject),
 )
 
@@ -28,6 +28,7 @@ class PresenceRepository(WritableRepository[Presence]):
         self,
         *,
         student_tax_code: str | None,
+        student_tax_codes: Collection[str] | None = None,
         booker_tax_code: str | None,
         date_from: date | None,
         date_to: date | None,
@@ -43,6 +44,9 @@ class PresenceRepository(WritableRepository[Presence]):
 
         if student_tax_code is not None:
             stmt = stmt.where(Presence.student_tax_code == student_tax_code)
+
+        if student_tax_codes is not None:
+            stmt = stmt.where(Presence.student_tax_code.in_(student_tax_codes))
 
         if booker_tax_code is not None:
             stmt = stmt.where(Presence.booker_tax_code == booker_tax_code)

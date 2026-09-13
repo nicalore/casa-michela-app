@@ -1,4 +1,5 @@
 import '../../../core/utils/json_parsing.dart';
+import '../../lessons/models/person_option_item.dart';
 
 import 'child_item.dart';
 import 'early_exit_schedule_item.dart';
@@ -108,6 +109,9 @@ class PersonItem implements PersonFace
 
   final List<String>? teacherServices;
 
+  // Null for anyone who is not a pupil.
+  final List<PersonOptionItem>? notPreferredTeachers;
+
   const PersonItem({
     required this.fiscalCode,
     required this.firstName,
@@ -174,7 +178,11 @@ class PersonItem implements PersonFace
     this.children,
     this.teacherSubjects,
     this.teacherServices,
+    this.notPreferredTeachers,
   });
+
+  List<String> get notPreferredTeacherTaxCodes =>
+      [for (final teacher in notPreferredTeachers ?? const []) teacher.taxCode];
 
   factory PersonItem.fromJson(Map<String, dynamic> json)
   {
@@ -250,6 +258,10 @@ class PersonItem implements PersonFace
       teacherServices: json['teacher_services'] == null
           ? null
           : parseStringList(json['teacher_services']),
+      notPreferredTeachers: parseOptionalList(
+        json['not_preferred_teachers'],
+        PersonOptionItem.fromJson,
+      ),
     );
   }
 
@@ -315,5 +327,18 @@ List<PersonItem> activeCollaborators(List<PersonItem> people)
   return people
       .where((person) =>
           (person.isActiveCollaborator ?? false) && !person.isMembershipRevoked)
+      .toList();
+}
+
+// The teachers a pupil may still ask for: those on their list are left out.
+List<PersonItem> askableTeachers(
+  List<PersonItem> teachers,
+  Iterable<String> notPreferredTaxCodes,
+)
+{
+  final avoided = notPreferredTaxCodes.toSet();
+
+  return activeCollaborators(teachers)
+      .where((teacher) => !avoided.contains(teacher.fiscalCode))
       .toList();
 }

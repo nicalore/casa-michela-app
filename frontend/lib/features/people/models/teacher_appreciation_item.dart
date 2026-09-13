@@ -5,39 +5,40 @@ class TeacherAppreciationItem
 {
   final PersonOptionItem teacher;
 
-  // A request may name three teachers per side, so a period's counts add up to
-  // more than its requests.
-  final int requestCount;
+  // Each pupil weighs at most a hundred either way, however often they come.
+  final int score;
+  final int preferringStudentCount;
+  final int avoidingStudentCount;
 
   const TeacherAppreciationItem({
     required this.teacher,
-    required this.requestCount,
+    required this.score,
+    required this.preferringStudentCount,
+    required this.avoidingStudentCount,
   });
 
   factory TeacherAppreciationItem.fromJson(Map<String, dynamic> json)
   {
     return TeacherAppreciationItem(
       teacher: PersonOptionItem.fromJson(json['teacher'] as Map<String, dynamic>),
-      requestCount: json['request_count'] as int,
+      score: json['score'] as int,
+      preferringStudentCount: json['preferring_student_count'] as int,
+      avoidingStudentCount: json['avoiding_student_count'] as int,
     );
   }
 }
 
+// Everyone with a signal in the period, best first.
 class TeacherAppreciationRankingItem
 {
-  final List<TeacherAppreciationItem> mostAppreciated;
-  final List<TeacherAppreciationItem> leastAppreciated;
+  final List<TeacherAppreciationItem> ranking;
 
-  const TeacherAppreciationRankingItem({
-    required this.mostAppreciated,
-    required this.leastAppreciated,
-  });
+  const TeacherAppreciationRankingItem({required this.ranking});
 
   factory TeacherAppreciationRankingItem.fromJson(Map<String, dynamic> json)
   {
     return TeacherAppreciationRankingItem(
-      mostAppreciated: parseList(json['most_appreciated'], TeacherAppreciationItem.fromJson),
-      leastAppreciated: parseList(json['least_appreciated'], TeacherAppreciationItem.fromJson),
+      ranking: parseList(json['ranking'], TeacherAppreciationItem.fromJson),
     );
   }
 }

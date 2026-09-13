@@ -28,6 +28,7 @@ import 'edit/person_edit_dialog.dart';
 import 'tabs/person_children_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
+import 'tabs/person_not_preferred_teachers_tab.dart';
 import 'tabs/person_parents_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
@@ -279,6 +280,14 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       sections.add(PersonSection(
         label: 'Discipline',
         view: PersonSubjectsTab(person: person, onUpdate: _fetchPersonData),
+      ));
+    }
+
+    if (roles.contains('STUDENTE') && !isRevoked)
+    {
+      sections.add(PersonSection(
+        label: 'Docenti non graditi',
+        view: PersonNotPreferredTeachersTab(person: person, onUpdate: _fetchPersonData),
       ));
     }
 

@@ -8,6 +8,7 @@ from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject, SubjectAreaEnum
 from app.models.availability import Availability
 from app.models.booking import Booking
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.member import Member
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
@@ -27,10 +28,12 @@ from app.models.school_study_program import SchoolStudyProgram
 from app.models.service import Service
 from app.models.staff import Staff
 from app.models.student import Student
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program import HighSchoolTrackEnum, StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
+from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from tests.conftest import ADMIN_TAX_CODE
 
@@ -225,6 +228,51 @@ async def make_competence(
             teacher_tax_code=teacher.tax_code,
             association_subject_id=subject.id,
             study_program_id=program.id,
+        ),
+    )
+
+
+async def make_service_competence(
+    db: AsyncSession,
+    teacher: Teacher,
+    service: Service,
+) -> None:
+    await _persist(
+        db,
+        TeacherService(teacher_tax_code=teacher.tax_code, service_name=service.name),
+    )
+
+
+async def make_preference(
+    db: AsyncSession,
+    booking: Booking,
+    teacher: Teacher,
+) -> None:
+    await _persist(
+        db,
+        BookingPreferredTeacher(
+            booking_id=booking.id,
+            teacher_tax_code=teacher.tax_code,
+        ),
+    )
+
+
+# Open-ended unless told otherwise: the pupil still feels that way.
+async def make_avoidance(
+    db: AsyncSession,
+    student: Student,
+    teacher: Teacher,
+    *,
+    since: date,
+    until: date | None = None,
+) -> StudentNotPreferredTeacher:
+    return await _persist(
+        db,
+        StudentNotPreferredTeacher(
+            student_tax_code=student.tax_code,
+            teacher_tax_code=teacher.tax_code,
+            valid_from=since,
+            valid_to=until,
         ),
     )
 

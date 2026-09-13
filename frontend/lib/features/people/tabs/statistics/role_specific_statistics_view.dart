@@ -803,8 +803,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         value: _educationDistributionType,
         options: const [
           FilterOption(value: 'school', label: 'Scuola'),
-          FilterOption(value: 'program', label: 'Percorso di studio'),
-          FilterOption(value: 'level', label: 'Livello di istruzione'),
+          FilterOption(value: 'program', label: 'Percorso di studio', shortLabel: 'Percorso'),
+          FilterOption(value: 'level', label: 'Livello di istruzione', shortLabel: 'Livello'),
         ],
         onChanged: (value)
         {
@@ -1059,6 +1059,8 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           _loadTeacherData();
         },
         menuWidth: 260,
+        // Room for "Classifica: Per disciplina e percorso" in one piece.
+        maxLabelWidth: 280,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

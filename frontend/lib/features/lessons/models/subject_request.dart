@@ -22,10 +22,8 @@ class SubjectRequestDraft
   List<String> tags;
 
   // Preferences, not constraints: the timetable decides who actually teaches.
+  // The teachers a pupil would rather not have are theirs, not the booking's.
   List<String> preferredTeacherTaxCodes;
-
-  // Also a preference (go-to-last), not a veto.
-  List<String> excludedTeacherTaxCodes;
 
   // Meaningless on a service.
   String topic;
@@ -45,14 +43,12 @@ class SubjectRequestDraft
     this.duration,
     List<String>? tags,
     List<String>? preferredTeacherTaxCodes,
-    List<String>? excludedTeacherTaxCodes,
     this.topic = '',
     this.notes = '',
     this.existing,
   })  : tags = tags ?? <String>[],
         associationSubjectIds = associationSubjectIds ?? <int>{},
-        preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[],
-        excludedTeacherTaxCodes = excludedTeacherTaxCodes ?? <String>[];
+        preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[];
 
   // Copies every stored field: edits write back what they were handed, so a
   // partial draft would lose the rest. [ministrySubjectName] is the caller's to resolve.
@@ -72,14 +68,13 @@ class SubjectRequestDraft
       duration: booking.duration,
       tags: [...booking.tags],
       preferredTeacherTaxCodes: [...booking.preferredTeacherTaxCodes],
-      excludedTeacherTaxCodes: [...booking.notPreferredTeacherTaxCodes],
       topic: booking.topic ?? '',
       notes: booking.notes ?? '',
       existing: booking,
     )..ministrySubjectName = ministrySubjectName;
   }
 
-  // Max teachers a pupil may name on either side of one subject.
+  // Max teachers a pupil may ask for on one subject.
   static const int maxPreferredTeachers = 3;
 
   bool get asksForDisciplines => kind == BookingRequestKind.ministrySubject;
@@ -132,7 +127,6 @@ class SubjectRequestDraft
       duration: duration,
       tags: [...tags],
       preferredTeacherTaxCodes: [...preferredTeacherTaxCodes],
-      excludedTeacherTaxCodes: [...excludedTeacherTaxCodes],
       topic: topic,
       notes: notes,
       existing: existing,
@@ -156,7 +150,6 @@ class SubjectRequestDraft
       },
       if (notes.isNotEmpty) 'notes': notes,
       'preferred_teacher_tax_codes': preferredTeacherTaxCodes,
-      'not_preferred_teacher_tax_codes': excludedTeacherTaxCodes,
     };
   }
 }

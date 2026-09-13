@@ -76,13 +76,18 @@ class CourseDistributionItem(BaseModel):
 class TeacherAppreciationItem(BaseModel):
     teacher: PersonOption
 
-    # Counted per teacher named, so the totals exceed the request count.
-    request_count: int
+    # Sum over pupils of (share of lessons asking for the teacher) minus
+    # (share of lessons held while the pupil would rather not have them), times
+    # a hundred: each pupil weighs at most a hundred either way, however often
+    # they come.
+    score: int
+    preferring_student_count: int
+    avoiding_student_count: int
 
 
+# Everyone with a signal in the period, best first.
 class TeacherAppreciationRankingResponse(BaseModel):
-    most_appreciated: list[TeacherAppreciationItem]
-    least_appreciated: list[TeacherAppreciationItem]
+    ranking: list[TeacherAppreciationItem]
 
 
 class TeacherAvailabilityRankItem(BaseModel):
@@ -104,7 +109,7 @@ class TeacherAvailabilityStatisticsResponse(BaseModel):
     top_teachers: list[TeacherAvailabilityRankItem]
     low_availability_teachers: list[LowAvailabilityTeacherItem]
 
-    # Under nine slots in the month; only answerable for a single-month period.
+    # Under nine days in the month; only answerable for a single-month period.
     is_single_month: bool
     low_monthly_teachers: list[LowAvailabilityTeacherItem]
 
@@ -149,18 +154,28 @@ class TeacherPersonalStatisticsResponse(BaseModel):
     # Always the last twelve months, whatever period was requested.
     monthly_trend: list[MonthlyCountItem]
 
-    # Period average against the two-slots-a-week threshold.
+    # Period average against the two-days-a-week threshold.
     is_below_weekly_threshold: bool
 
-    # Under nine slots in the month, answerable only about a single month.
+    # Under nine days in the month, answerable only about a single month.
     is_single_month: bool
     is_below_monthly_threshold: bool
 
-    # Rank is None when the count is zero.
-    preferred_count: int
-    preferred_rank: int | None
-    not_preferred_count: int
-    not_preferred_rank: int | None
+
+# Asked apart from the availabilities: the two carry periods of their own.
+class TeacherAppreciationStatisticsResponse(BaseModel):
+    score: int
+
+    # None when no pupil had anything to say about the teacher.
+    rank: int | None
+    preferring_student_count: int
+    avoiding_student_count: int
+
+
+# By name, each pupil once.
+class TeacherAppreciationStudentsResponse(BaseModel):
+    preferring: list[PersonOption]
+    avoiding: list[PersonOption]
 
 
 class StudentPersonalStatisticsResponse(BaseModel):

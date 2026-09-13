@@ -8,10 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import (
-    BookingTeacherPreference,
-    TeacherPreferenceTypeEnum,
-)
 from app.models.calendar_publication import CalendarPublication
 from app.models.presence import Presence
 from app.models.student import Student
@@ -22,6 +18,7 @@ from app.services.lesson_service import LessonService
 from tests.conftest import ADMIN_IDENTITY
 from tests.factories import (
     make_availability,
+    make_avoidance,
     make_booking,
     make_competence,
     make_discipline,
@@ -603,21 +600,48 @@ async def test_an_unwanted_teacher_is_a_warning_and_not_a_refusal(
     db: AsyncSession,
 ) -> None:
     built = await scene(db)
-
-    db.add(
-        BookingTeacherPreference(
-            booking_id=built.booking.id,
-            teacher_tax_code=built.teacher.tax_code,
-            preference_type=TeacherPreferenceTypeEnum.NOT_PREFERRED,
-        ),
-    )
-    await db.flush()
+    await make_avoidance(db, built.student, built.teacher, since=date(2026, 1, 1))
 
     lesson, warnings = await service(db).create(ADMIN_IDENTITY, payload(built))
 
     assert lesson.id is not None
     assert len(warnings) == 1
     assert "non preferito" in warnings[0]
+
+
+async def test_a_withdrawn_opinion_no_longer_warns(db: AsyncSession) -> None:
+    built = await scene(db)
+    await make_avoidance(
+        db,
+        built.student,
+        built.teacher,
+        since=date(2026, 1, 1),
+        until=date(2026, 2, 1),
+    )
+
+    _lesson, warnings = await service(db).create(ADMIN_IDENTITY, payload(built))
+
+    assert warnings == []
+
+
+# The opinion is the pupil's, not the booking's: said once per lesson.
+async def test_one_warning_per_pupil_however_many_bookings(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+    await make_avoidance(db, built.student, built.teacher, since=date(2026, 1, 1))
+    second = await make_booking(
+        db,
+        built.presence,
+        association_subject_id=built.subject_id,
+    )
+
+    _lesson, warnings = await service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, booking_ids=[built.booking.id, second.id]),
+    )
+
+    assert len(warnings) == 1
 
 
 async def test_a_published_band_is_closed_to_new_lessons(db: AsyncSession) -> None:

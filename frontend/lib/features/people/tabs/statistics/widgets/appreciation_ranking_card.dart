@@ -3,18 +3,20 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../models/teacher_appreciation_item.dart';
+import 'appreciation_students_dialog.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
 
-const Color _sectionDivider = AppTheme.trialLine;
+const Color _accent = AppTheme.trialDeepWater;
+const Color _columnDivider = AppTheme.trialLine;
 
-const Color _preferredAccent = AppTheme.trialViolet;
-const Color _avoidedAccent = AppTheme.trialDeepWater;
-
-const double _stackBelow = 900;
+// Two columns from here up: one long column leaves the right half empty.
+const double _twoColumnsFrom = 900;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
+// One list, best first: a teacher's score already weighs both the pupils who
+// ask for them and those who would rather not have them.
 class TeacherAppreciationCard extends StatelessWidget
 {
   final TeacherAppreciationRankingItem ranking;
@@ -34,64 +36,72 @@ class TeacherAppreciationCard extends StatelessWidget
     this.isLoading = false,
   });
 
-  Widget _ranking(String title, List<TeacherAppreciationItem> teachers, Color accent)
+  PersonRankRow _row(BuildContext context, int position)
   {
-    return PersonRankingSection(
-      title: title,
-      rows: [
-        for (var position = 1; position <= teachers.length; position++)
-          PersonRankRow(
-            position: position,
-            person: teachers[position - 1].teacher,
-            badgeText:
-                '${teachers[position - 1].requestCount} '
-                '${teachers[position - 1].requestCount == 1 ? 'richiesta' : 'richieste'}',
-            accent: accent,
-          ),
+    final item = ranking.ranking[position - 1];
+
+    void showStudents(bool up) => showAppreciationStudentsDialog(
+          context,
+          taxCode: item.teacher.taxCode,
+          period: period,
+          up: up,
+        );
+
+    return PersonRankRow(
+      position: position,
+      person: item.teacher,
+      badgeText: formatAppreciationScore(item.score),
+      accent: _accent,
+      subtitle: ThumbCounts(
+        up: item.preferringStudentCount,
+        down: item.avoidingStudentCount,
+        onUpTap: () => showStudents(true),
+        onDownTap: () => showStudents(false),
+      ),
+    );
+  }
+
+  Widget _column(BuildContext context, int first, int last)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var position = first; position <= last; position++) _row(context, position),
       ],
     );
   }
 
-  Widget _rankings()
+  // Places run down the left column and carry on down the right one.
+  Widget _rows(BuildContext context)
   {
-    final asked = _ranking(
-      '5 docenti più richiesti',
-      ranking.mostAppreciated,
-      _preferredAccent,
-    );
-    final avoided = _ranking(
-      '5 docenti meno graditi',
-      ranking.leastAppreciated,
-      _avoidedAccent,
-    );
+    final count = ranking.ranking.length;
+
+    if (count == 0)
+    {
+      return const EmptyChartMessage(fontSize: 14);
+    }
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _stackBelow)
+        if (constraints.maxWidth < _twoColumnsFrom || count < 2)
         {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              asked,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
-              avoided,
-            ],
-          );
+          return _column(context, 1, count);
         }
+
+        final half = (count + 1) ~/ 2;
 
         return IntrinsicHeight(
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: asked),
+              Expanded(child: _column(context, 1, half)),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 1),
+                child: VerticalDivider(color: _columnDivider, thickness: 1),
               ),
-              Expanded(child: avoided),
+              Expanded(child: _column(context, half + 1, count)),
             ],
           ),
         );
@@ -111,7 +121,7 @@ class TeacherAppreciationCard extends StatelessWidget
       child: AnimatedOpacity(
         opacity: isLoading ? 0.4 : 1,
         duration: _fetchFade,
-        child: _rankings(),
+        child: _rows(context),
       ),
     );
   }

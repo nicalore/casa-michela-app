@@ -1,8 +1,11 @@
+from collections import Counter, defaultdict
+from collections.abc import Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
@@ -15,10 +18,7 @@ from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
-from app.models.booking_teacher_preference import (
-    BookingTeacherPreference,
-    TeacherPreferenceTypeEnum,
-)
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.course_participant import CourseParticipant
 from app.models.member import Member
 from app.models.membership import Membership
@@ -32,10 +32,12 @@ from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
 from app.models.staff import Staff
 from app.models.student import Student
+from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
+from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.schemas.person import PersonOption
 from app.schemas.statistics import (
@@ -58,6 +60,8 @@ from app.schemas.statistics import (
     SubjectDistributionItem,
     TeacherAppreciationItem,
     TeacherAppreciationRankingResponse,
+    TeacherAppreciationStatisticsResponse,
+    TeacherAppreciationStudentsResponse,
     TeacherAvailabilityRankItem,
     TeacherAvailabilityStatisticsResponse,
     TeacherPersonalStatisticsResponse,
@@ -73,8 +77,6 @@ _MONTH_RESOLUTION: Final[str] = "month"
 _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
 _TOP_SUBJECTS_LIMIT: Final[int] = 10
 _TOP_PEOPLE_LIMIT: Final[int] = 10
-
-_APPRECIATION_LIMIT: Final[int] = 5
 
 # Calendars older than a year are deleted, so only 12 months back are askable.
 _STATS_MONTHS_WINDOW: Final[int] = 12
@@ -92,10 +94,10 @@ _CONFLICTING_STATS_PERIOD_ERROR: Final[str] = (
     "Indica gli ultimi mesi oppure un mese preciso, non entrambi"
 )
 
-# Weekly slots below this flag a collaborating teacher.
+# Weekly days given below this flag a collaborating teacher.
 _LOW_AVAILABILITY_WEEKLY_THRESHOLD: Final[int] = 2
 
-# Monthly slots below this flag a teacher; only meaningful for a single-month period.
+# Monthly days given below this flag a teacher; only for a single-month period.
 _LOW_AVAILABILITY_MONTHLY_THRESHOLD: Final[int] = 9
 
 _TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
@@ -514,51 +516,270 @@ def _person_option_of(row: Any) -> PersonOption:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class BookingFacts:
+    student_tax_code: str
+    day: date
+    discipline_ids: frozenset[int]
+    service_name: str | None
+    preferred: frozenset[str]
+
+
+@dataclass(slots=True)
+class TeacherAppreciation:
+    score: float = 0.0
+
+    # Tax codes of the pupils behind each side, each once.
+    preferring: set[str] = field(default_factory=set)
+    avoiding: set[str] = field(default_factory=set)
+
+    # Shown times a hundred: whole numbers read better than fractions.
+    @property
+    def points(self) -> int:
+        return round(self.score * 100)
+
+    @property
+    def preferring_student_count(self) -> int:
+        return len(self.preferring)
+
+    @property
+    def avoiding_student_count(self) -> int:
+        return len(self.avoiding)
+
+
+# (pupil, teacher) → half-open day intervals the pupil would rather not have
+# them; an open end is None.
+AvoidedIntervals = Mapping[tuple[str, str], Sequence[tuple[date, date | None]]]
+
+
+def _avoided_on(day: date, intervals: Sequence[tuple[date, date | None]]) -> bool:
+    return any(start <= day and (end is None or day < end) for start, end in intervals)
+
+
+# Each pupil weighs at most one point per teacher either way, however often
+# they come: the share of their bookings the teacher could have taught in which
+# they asked for them, minus the share held while they would rather not have
+# them. A booking counts for a teacher when it names them or asks for a
+# discipline or service they cover. Teachers nobody has a word about are left
+# out.
+def score_teachers(
+    bookings: Iterable[BookingFacts],
+    competences: Mapping[str, Collection[int]],
+    services: Mapping[str, Collection[str]],
+    avoided: AvoidedIntervals,
+) -> dict[str, TeacherAppreciation]:
+    teachers_by_subject: dict[int, set[str]] = defaultdict(set)
+    teachers_by_service: dict[str, set[str]] = defaultdict(set)
+
+    for teacher, subject_ids in competences.items():
+        for subject_id in subject_ids:
+            teachers_by_subject[subject_id].add(teacher)
+
+    for teacher, service_names in services.items():
+        for service_name in service_names:
+            teachers_by_service[service_name].add(teacher)
+
+    relevant: Counter[tuple[str, str]] = Counter()
+    preferring: Counter[tuple[str, str]] = Counter()
+    avoiding: Counter[tuple[str, str]] = Counter()
+
+    for booking in bookings:
+        candidates = set(booking.preferred)
+
+        for subject_id in booking.discipline_ids:
+            candidates |= teachers_by_subject.get(subject_id, set())
+
+        if booking.service_name is not None:
+            candidates |= teachers_by_service.get(booking.service_name, set())
+
+        for teacher in candidates:
+            pair = (booking.student_tax_code, teacher)
+            relevant[pair] += 1
+
+            if teacher in booking.preferred:
+                preferring[pair] += 1
+
+            if _avoided_on(booking.day, avoided.get(pair, ())):
+                avoiding[pair] += 1
+
+    scores: dict[str, TeacherAppreciation] = {}
+
+    for pair, count in relevant.items():
+        preferred_share = preferring[pair] / count
+        avoided_share = avoiding[pair] / count
+
+        if preferred_share == 0 and avoided_share == 0:
+            continue
+
+        student, teacher = pair
+        entry = scores.setdefault(teacher, TeacherAppreciation())
+        entry.score += preferred_share - avoided_share
+
+        if preferred_share > 0:
+            entry.preferring.add(student)
+
+        if avoided_share > 0:
+            entry.avoiding.add(student)
+
+    return scores
+
+
 # Dated by Presence.date, and includes teachers who no longer collaborate.
+async def _appreciation_scores(
+    db: AsyncSession,
+    window: tuple[date, date],
+) -> dict[str, TeacherAppreciation]:
+    start, end = window
+    in_window = and_(Presence.date >= start, Presence.date < end)
+
+    booking_rows = (
+        await db.execute(
+            select(
+                Booking.id,
+                Presence.student_tax_code,
+                Presence.date,
+                Booking.association_subject_id,
+                Booking.service_name,
+            )
+            .join(Presence, Presence.id == Booking.presence_id)
+            .where(in_window),
+        )
+    ).all()
+
+    requested_rows = (
+        await db.execute(
+            select(
+                SubjectRequested.booking_id,
+                SubjectRequested.association_subject_id,
+            )
+            .join(Booking, Booking.id == SubjectRequested.booking_id)
+            .join(Presence, Presence.id == Booking.presence_id)
+            .where(in_window),
+        )
+    ).all()
+
+    preferred_rows = (
+        await db.execute(
+            select(
+                BookingPreferredTeacher.booking_id,
+                BookingPreferredTeacher.teacher_tax_code,
+            )
+            .join(Booking, Booking.id == BookingPreferredTeacher.booking_id)
+            .join(Presence, Presence.id == Booking.presence_id)
+            .where(in_window),
+        )
+    ).all()
+
+    competence_rows = (
+        await db.execute(
+            select(
+                TeachingCompetence.teacher_tax_code,
+                TeachingCompetence.association_subject_id,
+            ).distinct(),
+        )
+    ).all()
+
+    service_rows = (
+        await db.execute(
+            select(TeacherService.teacher_tax_code, TeacherService.service_name),
+        )
+    ).all()
+
+    avoided_rows = (
+        await db.execute(
+            select(
+                StudentNotPreferredTeacher.student_tax_code,
+                StudentNotPreferredTeacher.teacher_tax_code,
+                StudentNotPreferredTeacher.valid_from,
+                StudentNotPreferredTeacher.valid_to,
+            ).where(
+                StudentNotPreferredTeacher.valid_from < end,
+                or_(
+                    StudentNotPreferredTeacher.valid_to.is_(None),
+                    StudentNotPreferredTeacher.valid_to > start,
+                ),
+            ),
+        )
+    ).all()
+
+    disciplines: dict[int, set[int]] = defaultdict(set)
+    preferred: dict[int, set[str]] = defaultdict(set)
+    competences: dict[str, set[int]] = defaultdict(set)
+    services: dict[str, set[str]] = defaultdict(set)
+    avoided: dict[tuple[str, str], list[tuple[date, date | None]]] = defaultdict(list)
+
+    for booking_id, subject_id in requested_rows:
+        disciplines[booking_id].add(subject_id)
+
+    for row in booking_rows:
+        if row.association_subject_id is not None:
+            disciplines[row.id].add(row.association_subject_id)
+
+    for booking_id, teacher_tax_code in preferred_rows:
+        preferred[booking_id].add(teacher_tax_code)
+
+    for teacher_tax_code, subject_id in competence_rows:
+        competences[teacher_tax_code].add(subject_id)
+
+    for teacher_tax_code, service_name in service_rows:
+        services[teacher_tax_code].add(service_name)
+
+    for student_tax_code, teacher_tax_code, valid_from, valid_to in avoided_rows:
+        avoided[(student_tax_code, teacher_tax_code)].append((valid_from, valid_to))
+
+    bookings = [
+        BookingFacts(
+            student_tax_code=row.student_tax_code,
+            day=row.date,
+            discipline_ids=frozenset(disciplines[row.id]),
+            service_name=row.service_name,
+            preferred=frozenset(preferred[row.id]),
+        )
+        for row in booking_rows
+    ]
+
+    return score_teachers(bookings, competences, services, avoided)
+
+
 async def _appreciation_ranking(
     db: AsyncSession,
-    preference_type: TeacherPreferenceTypeEnum,
     window: tuple[date, date],
 ) -> list[TeacherAppreciationItem]:
-    start, end = window
-    requests = func.count(BookingTeacherPreference.booking_id)
+    scores = await _appreciation_scores(db, window)
 
-    query = (
-        select(
-            Person.tax_code,
-            Person.first_name,
-            Person.last_name,
-            Person.profile_image_url,
-            requests.label("request_count"),
-        )
-        .select_from(BookingTeacherPreference)
-        .join(Booking, Booking.id == BookingTeacherPreference.booking_id)
-        .join(Presence, Presence.id == Booking.presence_id)
-        .join(Person, Person.tax_code == BookingTeacherPreference.teacher_tax_code)
-        .where(
-            BookingTeacherPreference.preference_type == preference_type,
-            Presence.date >= start,
-            Presence.date < end,
-        )
-        .group_by(
-            Person.tax_code,
-            Person.first_name,
-            Person.last_name,
-            Person.profile_image_url,
-        )
-        .order_by(requests.desc(), Person.last_name, Person.first_name)
-        .limit(_APPRECIATION_LIMIT)
-    )
+    if not scores:
+        return []
 
-    result = await db.execute(query)
+    people = (
+        await db.execute(
+            select(
+                Person.tax_code,
+                Person.first_name,
+                Person.last_name,
+                Person.profile_image_url,
+            ).where(Person.tax_code.in_(scores)),
+        )
+    ).all()
 
-    return [
+    ranking = [
         TeacherAppreciationItem(
             teacher=_person_option_of(row),
-            request_count=row.request_count,
+            score=scores[row.tax_code].points,
+            preferring_student_count=scores[row.tax_code].preferring_student_count,
+            avoiding_student_count=scores[row.tax_code].avoiding_student_count,
         )
-        for row in result.all()
+        for row in people
     ]
+    ranking.sort(
+        key=lambda item: (
+            -item.score,
+            -item.preferring_student_count,
+            item.teacher.last_name,
+            item.teacher.first_name,
+        ),
+    )
+
+    return ranking
 
 
 @router.get("/general/current-totals", response_model=CurrentTotalsResponse)
@@ -980,17 +1201,12 @@ async def get_teacher_appreciation_ranking(
     window = _stats_window(months, year, month)
 
     return TeacherAppreciationRankingResponse(
-        most_appreciated=await _appreciation_ranking(
-            db,
-            TeacherPreferenceTypeEnum.PREFERRED,
-            window,
-        ),
-        least_appreciated=await _appreciation_ranking(
-            db,
-            TeacherPreferenceTypeEnum.NOT_PREFERRED,
-            window,
-        ),
+        ranking=await _appreciation_ranking(db, window),
     )
+
+
+# An availability is a day, however many slots and modes it was given in.
+_AVAILABLE_DAYS = func.count(func.distinct(Availability.date))
 
 
 def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
@@ -999,14 +1215,14 @@ def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
     return (
         select(
             Availability.teacher_tax_code,
-            func.count(Availability.id).label("availability_count"),
+            _AVAILABLE_DAYS.label("availability_count"),
         )
         .where(Availability.date >= start, Availability.date < end)
         .group_by(Availability.teacher_tax_code)
     )
 
 
-# Active collaborators under the threshold; outer-joined so those with zero slots appear.
+# Active collaborators under the threshold; outer-joined so those with zero days appear.
 async def _teachers_under(
     db: AsyncSession,
     window: tuple[date, date],
@@ -1115,39 +1331,15 @@ async def get_teacher_availability_statistics(
     )
 
 
-# Standard competition ranking: equal counts share a place.
-def _rank_among(counts: dict[str, int], tax_code: str) -> int | None:
-    mine = counts.get(tax_code, 0)
-
-    if mine == 0:
+# Standard competition ranking on the score as shown: equal places share
+# a place. None for a teacher nobody has a word about.
+def _rank_among(scores: Mapping[str, int], tax_code: str) -> int | None:
+    if tax_code not in scores:
         return None
 
-    return 1 + sum(1 for count in counts.values() if count > mine)
+    mine = scores[tax_code]
 
-
-async def _preference_counts(
-    db: AsyncSession,
-    preference_type: TeacherPreferenceTypeEnum,
-    window: tuple[date, date],
-) -> dict[str, int]:
-    start, end = window
-
-    result = await db.execute(
-        select(
-            BookingTeacherPreference.teacher_tax_code,
-            func.count(BookingTeacherPreference.booking_id),
-        )
-        .join(Booking, Booking.id == BookingTeacherPreference.booking_id)
-        .join(Presence, Presence.id == Booking.presence_id)
-        .where(
-            BookingTeacherPreference.preference_type == preference_type,
-            Presence.date >= start,
-            Presence.date < end,
-        )
-        .group_by(BookingTeacherPreference.teacher_tax_code)
-    )
-
-    return dict(result.all())
+    return 1 + sum(1 for score in scores.values() if score > mine)
 
 
 @router.get(
@@ -1170,7 +1362,7 @@ async def get_teacher_personal_statistics(
 
     total = (
         await db.scalar(
-            select(func.count(Availability.id)).where(
+            select(_AVAILABLE_DAYS).where(
                 Availability.teacher_tax_code == tax_code,
                 Availability.date >= start,
                 Availability.date < end,
@@ -1189,7 +1381,7 @@ async def get_teacher_personal_statistics(
             select(
                 func.extract("year", Availability.date).label("year"),
                 _month_of(Availability.date).label("month"),
-                func.count(Availability.id).label("availability_count"),
+                _AVAILABLE_DAYS.label("availability_count"),
             )
             .where(
                 Availability.teacher_tax_code == tax_code,
@@ -1209,13 +1401,6 @@ async def get_teacher_personal_statistics(
         },
     )
 
-    preferred = await _preference_counts(
-        db, TeacherPreferenceTypeEnum.PREFERRED, window
-    )
-    not_preferred = await _preference_counts(
-        db, TeacherPreferenceTypeEnum.NOT_PREFERRED, window
-    )
-
     return TeacherPersonalStatisticsResponse(
         weekly_average=round(weekly_average, 1),
         total_availabilities=total,
@@ -1225,10 +1410,81 @@ async def get_teacher_personal_statistics(
         is_below_monthly_threshold=(
             is_single_month and total < _LOW_AVAILABILITY_MONTHLY_THRESHOLD
         ),
-        preferred_count=preferred.get(tax_code, 0),
-        preferred_rank=_rank_among(preferred, tax_code),
-        not_preferred_count=not_preferred.get(tax_code, 0),
-        not_preferred_rank=_rank_among(not_preferred, tax_code),
+    )
+
+
+@router.get(
+    "/teachers/{tax_code}/appreciation-statistics",
+    response_model=TeacherAppreciationStatisticsResponse,
+)
+async def get_teacher_appreciation_statistics(
+    db: DbSession,
+    tax_code: str,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> TeacherAppreciationStatisticsResponse:
+    known = select(Teacher.tax_code).where(Teacher.tax_code == tax_code)
+
+    if await db.scalar(known) is None:
+        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+
+    scores = await _appreciation_scores(db, _stats_window(months, year, month))
+    points = {code: entry.points for code, entry in scores.items()}
+    mine = scores.get(tax_code, TeacherAppreciation())
+
+    return TeacherAppreciationStatisticsResponse(
+        score=points.get(tax_code, 0),
+        rank=_rank_among(points, tax_code),
+        preferring_student_count=mine.preferring_student_count,
+        avoiding_student_count=mine.avoiding_student_count,
+    )
+
+
+async def _people_by_name(
+    db: AsyncSession,
+    tax_codes: Collection[str],
+) -> list[PersonOption]:
+    if not tax_codes:
+        return []
+
+    rows = await db.execute(
+        select(
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
+        )
+        .where(Person.tax_code.in_(tax_codes))
+        .order_by(Person.last_name, Person.first_name),
+    )
+
+    return [_person_option_of(row) for row in rows.all()]
+
+
+# The pupils behind the two thumbs, each named once however often they asked.
+@router.get(
+    "/teachers/{tax_code}/appreciation-students",
+    response_model=TeacherAppreciationStudentsResponse,
+)
+async def get_teacher_appreciation_students(
+    db: DbSession,
+    tax_code: str,
+    months: Annotated[int | None, Query(ge=1, le=12)] = None,
+    year: Annotated[int | None, Query()] = None,
+    month: Annotated[int | None, Query(ge=1, le=12)] = None,
+) -> TeacherAppreciationStudentsResponse:
+    known = select(Teacher.tax_code).where(Teacher.tax_code == tax_code)
+
+    if await db.scalar(known) is None:
+        raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
+
+    scores = await _appreciation_scores(db, _stats_window(months, year, month))
+    mine = scores.get(tax_code, TeacherAppreciation())
+
+    return TeacherAppreciationStudentsResponse(
+        preferring=await _people_by_name(db, mine.preferring),
+        avoiding=await _people_by_name(db, mine.avoiding),
     )
 
 
