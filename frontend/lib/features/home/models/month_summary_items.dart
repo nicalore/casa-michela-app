@@ -1,15 +1,12 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 
-// What /home says about the month so far: days already lived, hours already
+// A month so far, up to a day and hour: days already lived, hours already
 // held.
-class TeacherMonthSummaryItem
+class TeacherMonthFiguresItem
 {
   final int totalAvailabilities;
   final double weeklyAvailabilities;
-
-  final bool isBelowMonthlyThreshold;
-  final bool isBelowWeeklyThreshold;
 
   final int workedMinutes;
 
@@ -17,24 +14,55 @@ class TeacherMonthSummaryItem
   // serialises its decimal.
   final String? grossCompensation;
 
-  const TeacherMonthSummaryItem({
+  const TeacherMonthFiguresItem({
     required this.totalAvailabilities,
     required this.weeklyAvailabilities,
-    required this.isBelowMonthlyThreshold,
-    required this.isBelowWeeklyThreshold,
     required this.workedMinutes,
     this.grossCompensation,
   });
 
-  factory TeacherMonthSummaryItem.fromJson(Map<String, dynamic> json)
+  factory TeacherMonthFiguresItem.fromJson(Map<String, dynamic> json)
   {
-    return TeacherMonthSummaryItem(
+    return TeacherMonthFiguresItem(
       totalAvailabilities: json['total_availabilities'] as int,
       weeklyAvailabilities: parseDouble(json['weekly_availabilities']),
-      isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
-      isBelowWeeklyThreshold: json['is_below_weekly_threshold'] as bool,
       workedMinutes: json['worked_minutes'] as int,
       grossCompensation: json['gross_compensation']?.toString(),
+    );
+  }
+}
+
+class TeacherMonthSummaryItem extends TeacherMonthFiguresItem
+{
+  final bool isBelowMonthlyThreshold;
+  final bool isBelowWeeklyThreshold;
+
+  // The month before, lived up to the same day and hour, so the two
+  // compare like for like.
+  final TeacherMonthFiguresItem lastMonth;
+
+  const TeacherMonthSummaryItem({
+    required super.totalAvailabilities,
+    required super.weeklyAvailabilities,
+    required super.workedMinutes,
+    super.grossCompensation,
+    required this.isBelowMonthlyThreshold,
+    required this.isBelowWeeklyThreshold,
+    required this.lastMonth,
+  });
+
+  factory TeacherMonthSummaryItem.fromJson(Map<String, dynamic> json)
+  {
+    final TeacherMonthFiguresItem now = TeacherMonthFiguresItem.fromJson(json);
+
+    return TeacherMonthSummaryItem(
+      totalAvailabilities: now.totalAvailabilities,
+      weeklyAvailabilities: now.weeklyAvailabilities,
+      workedMinutes: now.workedMinutes,
+      grossCompensation: now.grossCompensation,
+      isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
+      isBelowWeeklyThreshold: json['is_below_weekly_threshold'] as bool,
+      lastMonth: TeacherMonthFiguresItem.fromJson(json['last_month'] as Map<String, dynamic>),
     );
   }
 }
@@ -46,6 +74,9 @@ class PupilMonthFiguresItem
   final int totalPresences;
   final double weeklyPresences;
 
+  // Days booked from tomorrow to the end of the month.
+  final int bookedPresences;
+
   final int lessonMinutes;
 
   // How the hours are paid for, as the pupil's record stores it; a
@@ -56,6 +87,7 @@ class PupilMonthFiguresItem
     required this.student,
     required this.totalPresences,
     required this.weeklyPresences,
+    required this.bookedPresences,
     required this.lessonMinutes,
     this.homeworkTariff,
   });
@@ -72,6 +104,7 @@ class PupilMonthFiguresItem
       student: PersonOptionItem.fromJson(json['student'] as Map<String, dynamic>),
       totalPresences: json['total_presences'] as int,
       weeklyPresences: parseDouble(json['weekly_presences']),
+      bookedPresences: json['booked_presences'] as int,
       lessonMinutes: json['lesson_minutes'] as int,
       homeworkTariff: json['homework_tariff'] as String?,
     );

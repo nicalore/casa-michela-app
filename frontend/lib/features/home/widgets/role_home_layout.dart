@@ -48,10 +48,7 @@ String? unconvenedLabelFor(String role)
   return role == kTeacherRole ? 'Non sei stato convocato' : null;
 }
 
-String monthTitleFor(String role)
-{
-  return role == kTeacherRole ? 'Disponibilità e ore' : 'Presenze e lezioni';
-}
+String monthTitleFor(String role) => 'Presenze e lezioni';
 
 // Failures become null so one bad call does not fail the whole day.
 Future<T?> _quiet<T>(Future<T> future)

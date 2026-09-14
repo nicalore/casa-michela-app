@@ -429,8 +429,8 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     {
       OnboardingStepKind.ownRecord => 'I tuoi dati',
       OnboardingStepKind.childRecord => 'I dati di $name',
-      OnboardingStepKind.childSchool => 'Gli anni scolastici di $name',
-      OnboardingStepKind.ownSchool => 'I tuoi anni scolastici',
+      OnboardingStepKind.childSchool => 'Il percorso scolastico di $name',
+      OnboardingStepKind.ownSchool => 'Il tuo percorso scolastico',
       OnboardingStepKind.teacherSubjects => 'Le tue discipline',
     };
   }

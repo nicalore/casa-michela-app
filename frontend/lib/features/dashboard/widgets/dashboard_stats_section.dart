@@ -185,22 +185,21 @@ class _StatTile extends StatelessWidget
       ),
     );
 
+    // The arrow says which way; the number says how far since the month began.
     final Widget change = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!compact) ...[
-          Icon(
-            still
-                ? Icons.remove_rounded
-                : (up ? Icons.trending_up_rounded : Icons.trending_down_rounded),
-            size: 16,
-            color: deltaColor,
-          ),
-          const SizedBox(width: 5),
-        ],
+        Icon(
+          still
+              ? Icons.remove_rounded
+              : (up ? Icons.trending_up_rounded : Icons.trending_down_rounded),
+          size: compact ? 14 : 16,
+          color: deltaColor,
+        ),
+        SizedBox(width: compact ? 4 : 5),
         Flexible(
           child: Text(
-            still ? 'Stabile' : '${up ? '+' : ''}${stat.deltaMonth} questo mese',
+            still ? 'Stabile' : '${up ? '+' : '−'}${stat.deltaMonth.abs()}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.plusJakartaSans(

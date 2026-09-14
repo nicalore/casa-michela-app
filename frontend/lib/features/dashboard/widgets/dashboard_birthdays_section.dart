@@ -293,7 +293,7 @@ class _BirthdayRowState extends State<_BirthdayRow>
                       ),
                     ),
                     Text(
-                      '${widget.birthday.age} anni · ${widget.when}',
+                      '${widget.birthday.age} ${widget.birthday.age == 1 ? 'anno' : 'anni'} · ${widget.when}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(

@@ -12,30 +12,52 @@ import '../models/month_summary_items.dart';
 // a column kept for a sibling's sake with nothing in it.
 enum HomeFigureTone { plain, pending, absent }
 
+// How a figure moved against the month before, up to the same day.
+class HomeDelta
+{
+  // "+2 giorni", "−0.5 ore", "€ 40,00"; "Stabile" when nothing moved.
+  final String text;
+
+  // Positive up, negative down, zero still.
+  final int direction;
+
+  const HomeDelta({required this.text, required this.direction});
+
+  static const HomeDelta still = HomeDelta(text: 'Stabile', direction: 0);
+}
+
 // One figure on the month card.
 class HomeFigure
 {
   final String label;
   final String value;
 
-  // What the figure is of; replaced by the warning when there is one.
-  final String note;
+  // Written after the value, in its own type: "5 giorni".
+  final String unit;
+
+  // Under the value, the warning if there is one, else the move.
   final String? warning;
+  final HomeDelta? delta;
 
   final HomeFigureTone tone;
 
   const HomeFigure({
     required this.label,
     required this.value,
-    required this.note,
+    this.unit = '',
     this.warning,
+    this.delta,
     this.tone = HomeFigureTone.plain,
   });
+
+  bool get hasAside => warning != null || delta != null;
 
   bool get pending => tone == HomeFigureTone.pending;
 
   // A word rather than a number is written smaller, so it fits its slot.
   bool get isWord => value.contains(RegExp(r'[a-zA-Z]'));
+
+  String get text => unit.isEmpty ? value : '$value $unit';
 }
 
 // A person's figures; named only when the card speaks for several people.
@@ -56,35 +78,89 @@ String _hours(int minutes)
   return text.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
+// Units agree with their number: one day, half a day, two days.
+String _days(num count) => count == 1 ? 'giorno' : 'giorni';
+
+String _hoursUnit(num count) => count == 1 ? 'ora' : 'ore';
+
+// A signed move, "+2 giorni" or "−1 ora"; the minus is the typographic one.
+// The unit is asked of the amount moved, so it agrees with it.
+HomeDelta _delta(
+  num change,
+  String Function(num) write, {
+  String Function(num)? unit,
+})
+{
+  if (change == 0)
+  {
+    return HomeDelta.still;
+  }
+
+  final num amount = change.abs();
+  final String sign = change > 0 ? '+' : '−';
+  final String text = '$sign${write(amount)}';
+
+  return HomeDelta(
+    text: unit == null ? text : '$text ${unit(amount)}',
+    direction: change > 0 ? 1 : -1,
+  );
+}
+
 List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
 {
+  final TeacherMonthFiguresItem last = month.lastMonth;
+
   final String? rate = month.grossCompensation;
   final int? cents = rate == null ? null : parseAmountCents(rate);
+  final int? lastCents = last.grossCompensation == null
+      ? null
+      : parseAmountCents(last.grossCompensation!);
+
+  // A tenth of a day is the finest the average is written in.
+  final int weeklyTenths =
+      (month.weeklyAvailabilities * 10).round() - (last.weeklyAvailabilities * 10).round();
 
   return [
+    // Four in a row at half a page leaves each label about a hundred
+    // pixels: the words are kept short enough to stand on one line.
     HomeFigure(
       label: 'Disponibilità',
       value: '${month.totalAvailabilities}',
-      note: 'giorni da inizio mese',
-      warning: month.isBelowMonthlyThreshold ? 'Meno di 9 al mese' : null,
+      unit: _days(month.totalAvailabilities),
+      warning: month.isBelowMonthlyThreshold ? 'Meno di 9' : null,
+      delta: _delta(
+        month.totalAvailabilities - last.totalAvailabilities,
+        (change) => '$change',
+        unit: _days,
+      ),
     ),
     HomeFigure(
-      label: 'Disponibilità a settimana',
+      label: 'A settimana',
       value: month.weeklyAvailabilities.toStringAsFixed(1),
-      note: 'in media',
-      warning: month.isBelowWeeklyThreshold ? 'Meno di 2 a settimana' : null,
+      unit: _days(month.weeklyAvailabilities),
+      warning: month.isBelowWeeklyThreshold ? 'Meno di 2' : null,
+      delta: _delta(
+        weeklyTenths,
+        (change) => (change / 10).toStringAsFixed(1),
+        unit: (change) => _days(change / 10),
+      ),
     ),
     HomeFigure(
       label: 'Lezioni',
       value: _hours(month.workedMinutes),
-      note: 'ore da inizio mese',
+      unit: _hoursUnit(month.workedMinutes / 60),
+      delta: _delta(
+        month.workedMinutes - last.workedMinutes,
+        (change) => _hours(change.toInt()),
+        unit: (change) => _hoursUnit(change / 60),
+      ),
     ),
     // Only a paid collaboration has an hourly rate to multiply.
     if (cents != null)
       HomeFigure(
-        label: 'Compenso lordo',
+        label: 'Compenso',
         value: formatAmount(cents),
-        note: 'maturato finora',
+        delta: _delta(cents - (lastCents ?? 0), (change) => formatAmount(change.toInt())),
       ),
   ];
 }
@@ -98,27 +174,21 @@ HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
     return const HomeFigure(
       label: 'Modalità',
       value: 'Pacchetto',
-      note: 'ore rimanenti in arrivo',
       tone: HomeFigureTone.pending,
     );
   }
 
   if (figures.isHourly)
   {
-    return const HomeFigure(label: 'Modalità', value: 'A ore', note: '');
+    return const HomeFigure(label: 'Modalità', value: 'A ore');
   }
 
   if (figures.isMonthly)
   {
-    return const HomeFigure(label: 'Modalità', value: 'Mensile', note: '');
+    return const HomeFigure(label: 'Modalità', value: 'Mensile');
   }
 
-  return const HomeFigure(
-    label: 'Modalità',
-    value: '—',
-    note: 'tariffa non indicata',
-    tone: HomeFigureTone.absent,
-  );
+  return const HomeFigure(label: 'Modalità', value: '—', tone: HomeFigureTone.absent);
 }
 
 // withTariff is for whoever answers for the pupil's hours: a parent, or a
@@ -129,19 +199,26 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
     HomeFigure(
       label: 'Presenze',
       value: '${figures.totalPresences}',
-      note: 'giorni da inizio mese',
+      unit: _days(figures.totalPresences),
+    ),
+    // Looking ahead where the presences look back: the rest of the month.
+    HomeFigure(
+      label: 'Prenotate',
+      value: '${figures.bookedPresences}',
+      unit: _days(figures.bookedPresences),
     ),
     HomeFigure(
       label: 'Lezioni',
       value: _hours(figures.lessonMinutes),
-      note: 'ore da inizio mese',
+      unit: _hoursUnit(figures.lessonMinutes / 60),
     ),
     if (withTariff) _tariffFigure(figures),
   ];
 }
 
-// Type grows with the room a tile has: side by side in threes and fours the
-// figures are written smaller than two to a row.
+// Type grows with the room a tile has: two to a row the figures are
+// written large, three smaller, four smaller still and closer together, so
+// that at half a page "€ 187,50" and "0.5 giorni" stand whole.
 class _TileScale
 {
   static const double label = 11;
@@ -149,34 +226,54 @@ class _TileScale
   static const double border = 1.5;
 
   static const double labelGap = 10;
-  static const double noteGap = 8;
+  static const double warningGap = 8;
 
   final double value;
-  final double note;
+  final double unit;
+  final double warning;
+
+  // Vertical and horizontal padding, and the gap between tiles.
   final double padding;
+  final double side;
+  final double gap;
 
-  const _TileScale({required this.value, required this.note, required this.padding});
+  const _TileScale({
+    required this.value,
+    required this.unit,
+    required this.warning,
+    required this.padding,
+    required this.side,
+    required this.gap,
+  });
 
-  static const _TileScale _wide = _TileScale(value: 34, note: 14.5, padding: 18);
-  static const _TileScale _narrow = _TileScale(value: 28, note: 13.5, padding: 14);
+  static const _TileScale _wide =
+      _TileScale(value: 34, unit: 17, warning: 14.5, padding: 18, side: 16, gap: 14);
+  static const _TileScale _narrow =
+      _TileScale(value: 28, unit: 14.5, warning: 13.5, padding: 14, side: 16, gap: 14);
+  static const _TileScale _quad =
+      _TileScale(value: 24, unit: 13, warning: 12.5, padding: 12, side: 12, gap: 10);
 
-  static _TileScale of(int columns) => columns <= 2 ? _wide : _narrow;
+  static _TileScale of(int columns)
+  {
+    if (columns >= 4)
+    {
+      return _quad;
+    }
+
+    return columns <= 2 ? _wide : _narrow;
+  }
 
   // Every line is kept single, so a tile's height follows from the scale.
-  double get tileHeight =>
-      2 * (padding + border) +
-      label * lineHeight +
-      labelGap +
-      value +
-      noteGap +
-      note * lineHeight;
+  // Warnings are a teacher's alone, and a teacher's card never scrolls.
+  double get tileHeight => 2 * (padding + border) + label * lineHeight + labelGap + value;
 }
 
 class HomeMonthSection extends StatelessWidget
 {
-  // Minimum widths for four and three figures per row: half a page at the
-  // widest is 553 inside the card, and four must still fit there.
-  static const double _fourInARowFrom = 500;
+  // Minimum widths for four and three figures per row. Four tiles of the
+  // quad scale need 125 each for "€ 187,50" to stand unshrunk; half a page
+  // at the widest gives 553 inside the card.
+  static const double _fourInARowFrom = 530;
   static const double _threeInARowFrom = 380;
 
   static const double _nameSize = 16;
@@ -188,9 +285,9 @@ class HomeMonthSection extends StatelessWidget
   static const int _scrollPast = 2;
   static const double _peek = 26;
 
-  // No tile is left without a neighbour: three go in one row and four in
-  // two, unless the card speaks for several people, whose rows all hold the
-  // same figures and so line up.
+  // Every figure of a person on one row where the card is wide enough; no
+  // tile is left without a neighbour otherwise: four go two by two rather
+  // than three and one.
   static int columnsFor({required double width, required List<HomeFigureGroup> groups})
   {
     final int most = width >= _fourInARowFrom
@@ -206,7 +303,7 @@ class HomeMonthSection extends StatelessWidget
 
     final int figures = groups.map((group) => group.figures.length).reduce(math.max);
 
-    if (groups.length == 1 && figures == 4)
+    if (figures == 4 && most == 3)
     {
       return 2;
     }
@@ -317,6 +414,8 @@ class HomeMonthSection extends StatelessWidget
   }
 
   // A partial last row keeps normal-width tiles rather than stretching them.
+  // Where one figure of a row carries a warning its neighbours keep the line
+  // for it, so labels and figures sit level; a row without one stays short.
   Widget _grid(List<HomeFigure> figures, _TileScale scale)
   {
     final List<Widget> rows = [];
@@ -327,16 +426,17 @@ class HomeMonthSection extends StatelessWidget
         start,
         (start + columns).clamp(0, figures.length),
       );
+      final bool aside = row.any((figure) => figure.hasAside);
 
       rows.add(IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (var i = 0; i < columns; i++) ...[
-              if (i > 0) const SizedBox(width: 14),
+              if (i > 0) SizedBox(width: scale.gap),
               Expanded(
                 child: i < row.length
-                    ? _FigureTile(figure: row[i], scale: scale)
+                    ? _FigureTile(figure: row[i], scale: scale, keepsAsideLine: aside)
                     : const SizedBox(),
               ),
             ],
@@ -350,7 +450,7 @@ class HomeMonthSection extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++) ...[
-          if (i > 0) const SizedBox(height: 14),
+          if (i > 0) SizedBox(height: scale.gap),
           rows[i],
         ],
       ],
@@ -401,15 +501,21 @@ class _FigureTile extends StatelessWidget
   final HomeFigure figure;
   final _TileScale scale;
 
-  const _FigureTile({required this.figure, required this.scale});
+  // Room for the line under the value even when this figure has none, to
+  // match the row.
+  final bool keepsAsideLine;
+
+  const _FigureTile({
+    required this.figure,
+    required this.scale,
+    required this.keepsAsideLine,
+  });
 
   @override
   Widget build(BuildContext context)
   {
     final String? warning = figure.warning;
     final bool warned = warning != null;
-
-    final Color noteColor = warned ? AppTheme.modifiedAccent : AppTheme.trialMutedText;
 
     final Color valueColor = switch (figure.tone)
     {
@@ -437,42 +543,84 @@ class _FigureTile extends StatelessWidget
       ),
     ));
 
-    final Widget value = line(Text(
-      figure.value,
-      maxLines: 1,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: figure.isWord ? scale.value * 0.7 : scale.value,
-        fontWeight: FontWeight.w700,
-        height: 1,
-        color: valueColor,
-      ),
-    ));
-
-    final Widget note = SizedBox(
-      height: scale.note * _TileScale.lineHeight,
-      child: line(Row(
-        mainAxisSize: MainAxisSize.min,
+    // The unit follows the figure on its baseline, smaller and quieter, as
+    // the mode follows the hours on the day card: "5 giorni".
+    final Widget value = line(Text.rich(
+      TextSpan(
         children: [
-          if (warned) ...[
-            Icon(Icons.warning_amber_rounded, size: scale.note + 2, color: noteColor),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            warning ?? figure.note,
-            maxLines: 1,
+          TextSpan(
+            text: figure.value,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: scale.note,
-              fontWeight: FontWeight.w600,
-              height: _TileScale.lineHeight,
-              color: noteColor,
+              fontSize: figure.isWord ? scale.value * 0.7 : scale.value,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              color: valueColor,
             ),
           ),
+          if (figure.unit.isNotEmpty)
+            TextSpan(
+              text: ' ${figure.unit}',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: scale.unit,
+                fontWeight: FontWeight.w600,
+                height: 1,
+                color: AppTheme.trialMutedText,
+              ),
+            ),
         ],
-      )),
+      ),
+      maxLines: 1,
+    ));
+
+    // Under the value: the warning, else the move against last month. Icon
+    // and text centred on one another: the text's box is exactly its type
+    // size, so the middle of the box is the middle of the glyphs.
+    final HomeDelta? delta = figure.delta;
+
+    final (IconData, Color, String)? aside = warned
+        ? (Icons.warning_amber_rounded, AppTheme.modifiedAccent, warning)
+        : delta == null
+            ? null
+            : (
+                delta.direction == 0
+                    ? Icons.remove_rounded
+                    : delta.direction > 0
+                        ? Icons.trending_up_rounded
+                        : Icons.trending_down_rounded,
+                delta.direction == 0
+                    ? AppTheme.trialMutedText
+                    : delta.direction > 0
+                        ? AppTheme.trialSeaGreen
+                        : AppTheme.trialDanger,
+                delta.text,
+              );
+
+    final Widget asideLine = SizedBox(
+      height: scale.warning + 2,
+      child: aside == null
+          ? null
+          : line(Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(aside.$1, size: scale.warning + 2, color: aside.$2),
+                const SizedBox(width: 5),
+                Text(
+                  aside.$3,
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: scale.warning,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                    color: aside.$2,
+                  ),
+                ),
+              ],
+            )),
     );
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: scale.padding),
+      padding: EdgeInsets.symmetric(horizontal: scale.side, vertical: scale.padding),
       decoration: BoxDecoration(
         color: warned ? AppTheme.modifiedAccentSurface : AppTheme.trialPaper,
         borderRadius: BorderRadius.circular(20),
@@ -489,8 +637,10 @@ class _FigureTile extends StatelessWidget
           label,
           const SizedBox(height: _TileScale.labelGap),
           SizedBox(height: scale.value, child: value),
-          const SizedBox(height: _TileScale.noteGap),
-          note,
+          if (aside != null || keepsAsideLine) ...[
+            const SizedBox(height: _TileScale.warningGap),
+            asideLine,
+          ],
         ],
       ),
     );

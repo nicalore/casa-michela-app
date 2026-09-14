@@ -6,13 +6,11 @@ from app.models.student import HomeworkTariffEnum
 from app.schemas.person import PersonOption
 
 
-# The month so far, up to now: days already lived, hours already held.
-class TeacherMonthSummaryResponse(BaseModel):
+# A month so far, up to a day and hour: days already lived, hours already
+# held.
+class TeacherMonthFigures(BaseModel):
     total_availabilities: int
     weekly_availabilities: float
-
-    is_below_monthly_threshold: bool
-    is_below_weekly_threshold: bool
 
     worked_minutes: int
 
@@ -21,11 +19,23 @@ class TeacherMonthSummaryResponse(BaseModel):
     gross_compensation: Decimal | None
 
 
+class TeacherMonthSummaryResponse(TeacherMonthFigures):
+    is_below_monthly_threshold: bool
+    is_below_weekly_threshold: bool
+
+    # The month before, lived up to the same day and hour, so the two
+    # compare like for like.
+    last_month: TeacherMonthFigures
+
+
 class PupilMonthFigures(BaseModel):
     student: PersonOption
 
     total_presences: int
     weekly_presences: float
+
+    # Days booked from tomorrow to the end of the month.
+    booked_presences: int
 
     lesson_minutes: int
 
