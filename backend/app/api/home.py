@@ -33,6 +33,7 @@ from app.schemas.home import (
     ParentMonthSummaryResponse,
     PupilMonthFigures,
     StudentMonthSummaryResponse,
+    TeacherMonthFigures,
     TeacherMonthSummaryResponse,
 )
 from app.schemas.person import PersonOption
@@ -60,6 +61,22 @@ class _Month:
 
         return cls(start=now.date().replace(day=1), now=now)
 
+    # The month before, lived up to the same day and hour: what a figure is
+    # compared with. A day the shorter month never had becomes its last.
+    @property
+    def previous(self) -> "_Month":
+        start = (self.start - timedelta(days=1)).replace(day=1)
+        last = (self.start - timedelta(days=1)).day
+
+        return _Month(
+            start=start,
+            now=self.now.replace(
+                year=start.year,
+                month=start.month,
+                day=min(self.today.day, last),
+            ),
+        )
+
     @property
     def today(self) -> date:
         return self.now.date()
@@ -68,6 +85,11 @@ class _Month:
     @property
     def until(self) -> date:
         return self.today + timedelta(days=1)
+
+    # First day of the next month: the whole month is half-open too.
+    @property
+    def end(self) -> date:
+        return (self.start + timedelta(days=32)).replace(day=1)
 
     @property
     def weeks(self) -> float:
@@ -200,21 +222,27 @@ async def _pupil_figures(
 
     people = await PersonRepository(db).get_options(tariffs)
 
-    presences = {
-        row.student_tax_code: row.days
-        for row in await db.execute(
-            select(
-                Presence.student_tax_code,
-                func.count(func.distinct(Presence.date)).label("days"),
+    async def presence_days(since: date, before: date) -> dict[str, int]:
+        return {
+            row.student_tax_code: row.days
+            for row in await db.execute(
+                select(
+                    Presence.student_tax_code,
+                    func.count(func.distinct(Presence.date)).label("days"),
+                )
+                .where(
+                    Presence.student_tax_code.in_(tariffs),
+                    Presence.date >= since,
+                    Presence.date < before,
+                )
+                .group_by(Presence.student_tax_code),
             )
-            .where(
-                Presence.student_tax_code.in_(tariffs),
-                Presence.date >= month.start,
-                Presence.date < month.until,
-            )
-            .group_by(Presence.student_tax_code),
-        )
-    }
+        }
+
+    presences = await presence_days(month.start, month.until)
+
+    # Still to come: from tomorrow to the end of the month.
+    booked = await presence_days(month.until, month.end)
 
     lessons = await db.execute(
         select(
@@ -256,11 +284,48 @@ async def _pupil_figures(
             student=PersonOption.model_validate(people[tax_code]),
             total_presences=presences.get(tax_code, 0),
             weekly_presences=round(presences.get(tax_code, 0) / month.weeks, 1),
+            booked_presences=booked.get(tax_code, 0),
             lesson_minutes=minutes.get(tax_code, 0),
             homework_tariff=tariff,
         )
         for tax_code, tariff in tariffs.items()
     }
+
+
+async def _teacher_figures(
+    db: AsyncSession,
+    tax_code: str,
+    month: _Month,
+    rate: Decimal | None,
+) -> TeacherMonthFigures:
+    total = (
+        await db.scalar(
+            select(func.count(func.distinct(Availability.date))).where(
+                Availability.teacher_tax_code == tax_code,
+                Availability.mode == "presence",
+                Availability.date >= month.start,
+                Availability.date < month.until,
+            ),
+        )
+        or 0
+    )
+
+    published = await _published_pairs(db, month)
+    worked = _union_minutes(await _teacher_stretches(db, tax_code, month, published))
+
+    return TeacherMonthFigures(
+        total_availabilities=total,
+        weekly_availabilities=round(total / month.weeks, 1),
+        worked_minutes=worked,
+        gross_compensation=(
+            None
+            if rate is None
+            else (Decimal(worked) / _MINUTES_PER_HOUR * rate).quantize(
+                _CENTS,
+                rounding=ROUND_HALF_UP,
+            )
+        ),
+    )
 
 
 @router.get(
@@ -274,44 +339,25 @@ async def get_teacher_month(
 ) -> TeacherMonthSummaryResponse:
     month = _Month.current()
 
-    total = (
-        await db.scalar(
-            select(func.count(func.distinct(Availability.date))).where(
-                Availability.teacher_tax_code == identity.tax_code,
-                Availability.date >= month.start,
-                Availability.date < month.until,
-            ),
-        )
-        or 0
-    )
-    weekly = total / month.weeks
-
-    worked = _union_minutes(
-        await _teacher_stretches(
-            db,
-            identity.tax_code,
-            month,
-            await _published_pairs(db, month),
-        ),
-    )
-
+    # Today's rate for both months: what the pay would be, not what it was.
     rate = await db.scalar(
         select(Staff.gross_compensation).where(Staff.tax_code == identity.tax_code),
     )
 
+    figures = await _teacher_figures(db, identity.tax_code, month, rate)
+    weekly = figures.total_availabilities / month.weeks
+
     return TeacherMonthSummaryResponse(
-        total_availabilities=total,
-        weekly_availabilities=round(weekly, 1),
-        is_below_monthly_threshold=total < LOW_AVAILABILITY_MONTHLY_THRESHOLD,
+        **figures.model_dump(),
+        is_below_monthly_threshold=(
+            figures.total_availabilities < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+        ),
         is_below_weekly_threshold=weekly < LOW_AVAILABILITY_WEEKLY_THRESHOLD,
-        worked_minutes=worked,
-        gross_compensation=(
-            None
-            if rate is None
-            else (Decimal(worked) / _MINUTES_PER_HOUR * rate).quantize(
-                _CENTS,
-                rounding=ROUND_HALF_UP,
-            )
+        last_month=await _teacher_figures(
+            db,
+            identity.tax_code,
+            month.previous,
+            rate,
         ),
     )
 

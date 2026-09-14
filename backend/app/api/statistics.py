@@ -1207,8 +1207,9 @@ async def get_teacher_appreciation_ranking(
     )
 
 
-# An availability is a day, however many slots and modes it was given in.
+# An availability is a day given in presence, however many slots it holds.
 _AVAILABLE_DAYS = func.count(func.distinct(Availability.date))
+_IN_PRESENCE = Availability.mode == "presence"
 
 
 def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
@@ -1219,7 +1220,7 @@ def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
             Availability.teacher_tax_code,
             _AVAILABLE_DAYS.label("availability_count"),
         )
-        .where(Availability.date >= start, Availability.date < end)
+        .where(_IN_PRESENCE, Availability.date >= start, Availability.date < end)
         .group_by(Availability.teacher_tax_code)
     )
 
@@ -1366,6 +1367,7 @@ async def get_teacher_personal_statistics(
         await db.scalar(
             select(_AVAILABLE_DAYS).where(
                 Availability.teacher_tax_code == tax_code,
+                _IN_PRESENCE,
                 Availability.date >= start,
                 Availability.date < end,
             ),
@@ -1387,6 +1389,7 @@ async def get_teacher_personal_statistics(
             )
             .where(
                 Availability.teacher_tax_code == tax_code,
+                _IN_PRESENCE,
                 Availability.date >= trend_start,
                 Availability.date < trend_end,
             )
