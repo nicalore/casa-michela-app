@@ -68,6 +68,7 @@ from app.schemas.person import (
     SchoolEnrollmentResponse,
     StaffUpdateData,
     StudentUpdateData,
+    TeacherCompetenceUpdateItem,
     TeacherEducationData,
     TeacherProgramResponse,
     TeacherSubjectResponse,
@@ -89,6 +90,7 @@ from app.services.person_wizard_service import (
     create_person_from_wizard,
 )
 from app.services.role_service import RoleService
+from app.services.teaching_competence import replace_competences, replace_services
 
 router = APIRouter(prefix="/people", tags=["people"])
 
@@ -1239,25 +1241,24 @@ async def _sync_teacher_profile(
         return
 
     if teacher_data.competences is not None:
-        await db.execute(
-            delete(TeachingCompetence).where(
-                TeachingCompetence.teacher_tax_code == person.tax_code
-            )
+        await replace_competences(
+            db,
+            person.tax_code,
+            _competence_pairs(teacher_data.competences),
         )
-        await db.flush()
-
-        for competence_data in teacher_data.competences:
-            for study_program_id in competence_data.study_program_ids:
-                db.add(
-                    TeachingCompetence(
-                        teacher_tax_code=person.tax_code,
-                        association_subject_id=competence_data.subject_id,
-                        study_program_id=study_program_id,
-                    )
-                )
 
     if teacher_data.service_names is not None:
         await _replace_teacher_services(db, person.tax_code, teacher_data.service_names)
+
+
+def _competence_pairs(
+    competences: list[TeacherCompetenceUpdateItem],
+) -> set[tuple[int, int]]:
+    return {
+        (competence.subject_id, study_program_id)
+        for competence in competences
+        for study_program_id in competence.study_program_ids
+    }
 
 
 async def _replace_teacher_services(
@@ -1265,37 +1266,30 @@ async def _replace_teacher_services(
     tax_code: str,
     service_names: list[str],
 ) -> None:
-    await db.execute(
-        delete(TeacherService).where(TeacherService.teacher_tax_code == tax_code)
-    )
-    await db.flush()
+    unique_names = set(service_names)
 
-    unique_names = list(dict.fromkeys(service_names))
-
-    if not unique_names:
-        return
-
-    existing = set(
-        (
-            await db.execute(
-                select(Service.name).where(Service.name.in_(unique_names))
+    if unique_names:
+        existing = set(
+            (
+                await db.execute(
+                    select(Service.name).where(Service.name.in_(unique_names))
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    missing = [name for name in unique_names if name not in existing]
+        missing = sorted(unique_names - existing)
 
-    if missing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
-        )
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_UNKNOWN_SERVICES_ERROR.format(names=", ".join(missing)),
+            )
 
-    for name in unique_names:
-        db.add(TeacherService(teacher_tax_code=tax_code, service_name=name))
+    await replace_services(db, tax_code, unique_names)
 
 
+# History goes with the profile: there is no teacher left to have had it.
 async def _delete_teacher_profile(db: AsyncSession, person: Person) -> None:
     await db.execute(
         delete(TeachingCompetence).where(
@@ -2332,23 +2326,7 @@ async def update_teacher_competences(
 
     teacher.updated_at = datetime.now(UTC)
 
-    await db.execute(
-        delete(TeachingCompetence).where(
-            TeachingCompetence.teacher_tax_code == person.tax_code
-        )
-    )
-    await db.flush()
-
-    for competence_data in payload.competences:
-        for study_program_id in competence_data.study_program_ids:
-            db.add(
-                TeachingCompetence(
-                    teacher_tax_code=person.tax_code,
-                    association_subject_id=competence_data.subject_id,
-                    study_program_id=study_program_id,
-                )
-            )
-
+    await replace_competences(db, person.tax_code, _competence_pairs(payload.competences))
     await _replace_teacher_services(db, person.tax_code, payload.service_names)
 
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)

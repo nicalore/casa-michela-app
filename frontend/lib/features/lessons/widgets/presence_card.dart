@@ -153,6 +153,7 @@ class _PresenceCardState extends State<PresenceCard>
         },
         onDelete: widget.onDelete,
         teachers: widget.teachers,
+        studentStudyProgramId: _studentStudyProgramId,
         onSaveSubject: _writeSubject,
         onDeleteSubject: (mode, booking)
         {
@@ -163,19 +164,38 @@ class _PresenceCardState extends State<PresenceCard>
     );
   }
 
-  List<MinistrySubjectItem> get offeredSubjects
+  PersonItem? get _student
   {
     for (final student in widget.students)
     {
       if (student.fiscalCode == widget.group.studentTaxCode)
       {
-        final allowed = allowedMinistrySubjectIds(student, widget.studyPrograms);
-
-        return widget.ministrySubjects.where((subject) => allowed.contains(subject.id)).toList();
+        return student;
       }
     }
 
-    return const [];
+    return null;
+  }
+
+  List<MinistrySubjectItem> get offeredSubjects
+  {
+    final student = _student;
+
+    if (student == null)
+    {
+      return const [];
+    }
+
+    final allowed = allowedMinistrySubjectIds(student, widget.studyPrograms);
+
+    return widget.ministrySubjects.where((subject) => allowed.contains(subject.id)).toList();
+  }
+
+  int? get _studentStudyProgramId
+  {
+    final student = _student;
+
+    return student == null ? null : currentStudyProgramId(student);
   }
 
   // Returns the row as the page has it NOW, not as the dialog captured it:
@@ -497,6 +517,8 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
   final List<PersonItem> teachers;
 
+  final int? studentStudyProgramId;
+
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
@@ -508,6 +530,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.ministrySubjects,
     required this.offeredSubjects,
     required this.teachers,
+    required this.studentStudyProgramId,
     required this.onEditRequested,
     required this.onDelete,
     required this.onSaveSubject,
@@ -677,6 +700,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         draft: _draftOf(existing)..preferredTeacherTaxCodes.removeWhere(avoided.contains),
         ministrySubjects: widget.offeredSubjects,
         teachers: askableTeachers(widget.teachers, avoided),
+        studentStudyProgramId: widget.studentStudyProgramId,
         isEditing: true,
         // The edited booking's own duration is excluded: the wizard counts it
         // itself, and counting it twice would read as over budget on open.

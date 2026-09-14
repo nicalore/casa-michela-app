@@ -135,6 +135,7 @@ async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
             TeachingCompetence.teacher_tax_code,
             TeachingCompetence.association_subject_id,
             subject_id,
+            only=TeachingCompetence.valid_to.is_(None),
         )
     )
 

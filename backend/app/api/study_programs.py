@@ -306,6 +306,7 @@ async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]
             TeachingCompetence.teacher_tax_code,
             TeachingCompetence.study_program_id,
             program_id,
+            only=TeachingCompetence.valid_to.is_(None),
         )
     )
 

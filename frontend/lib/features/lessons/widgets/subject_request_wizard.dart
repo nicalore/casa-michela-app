@@ -20,6 +20,7 @@ import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/subject_request.dart';
 import '../utils/opening_window.dart';
+import '../utils/teacher_fit.dart';
 import 'booking_fields_section.dart';
 import 'subject_request_tile.dart';
 
@@ -75,6 +76,9 @@ class SubjectRequestWizard extends StatefulWidget
 
   final List<PersonItem> teachers;
 
+  // The pupil's programme, to put the teachers who could take the lesson first.
+  final int? studentStudyProgramId;
+
   final bool isEditing;
 
   final int? minutesAvailable;
@@ -91,6 +95,7 @@ class SubjectRequestWizard extends StatefulWidget
     required this.ministrySubjects,
     required this.teachers,
     required this.onSave,
+    this.studentStudyProgramId,
     this.isEditing = false,
     this.minutesAvailable,
     this.minutesTakenByOthers = 0,
@@ -438,7 +443,11 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
         label: 'Mi sono trovato meglio con...',
         icon: Icons.thumb_up_outlined,
         chosen: _draft.preferredTeacherTaxCodes,
-        offered: widget.teachers,
+        offered: teachersFitFirst(
+          widget.teachers,
+          disciplineIds: _draft.disciplineIds,
+          studyProgramId: widget.studentStudyProgramId,
+        ),
         max: SubjectRequestDraft.maxPreferredTeachers,
         onChanged: () => setState(() {}),
       ),

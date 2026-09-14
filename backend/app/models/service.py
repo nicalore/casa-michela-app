@@ -32,7 +32,11 @@ class Service(CreatedAtMixin, Base):
 
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
+    # Open rows only: who offers the service today.
     teacher_services: Mapped[list[TeacherService]] = relationship(
-        back_populates="service",
-        cascade="all, delete-orphan",
+        primaryjoin=(
+            "and_(Service.name == TeacherService.service_name, "
+            "TeacherService.valid_to.is_(None))"
+        ),
+        viewonly=True,
     )

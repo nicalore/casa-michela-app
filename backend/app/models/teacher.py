@@ -89,14 +89,21 @@ class Teacher(UpdatedAtMixin, Base):
         uselist=False,
     )
 
+    # What the teacher can do today; closed rows are history for the ranking.
     teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
-        back_populates="teacher",
-        cascade="all, delete-orphan",
+        primaryjoin=(
+            "and_(Teacher.tax_code == TeachingCompetence.teacher_tax_code, "
+            "TeachingCompetence.valid_to.is_(None))"
+        ),
+        viewonly=True,
     )
 
     teacher_services: Mapped[list[TeacherService]] = relationship(
-        back_populates="teacher",
-        cascade="all, delete-orphan",
+        primaryjoin=(
+            "and_(Teacher.tax_code == TeacherService.teacher_tax_code, "
+            "TeacherService.valid_to.is_(None))"
+        ),
+        viewonly=True,
     )
 
     availabilities: Mapped[list[Availability]] = relationship(

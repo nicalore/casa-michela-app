@@ -63,7 +63,12 @@ class AssociationSubject(CreatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    # Open rows only: who teaches the subject today.
     teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
-        back_populates="association_subject",
-        cascade="all, delete-orphan",
+        primaryjoin=(
+            "and_(AssociationSubject.id == "
+            "TeachingCompetence.association_subject_id, "
+            "TeachingCompetence.valid_to.is_(None))"
+        ),
+        viewonly=True,
     )

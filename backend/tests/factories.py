@@ -213,21 +213,30 @@ async def _make_ministry_subject(db: AsyncSession) -> MinistrySubject:
     )
 
 
+# Held since long before any lesson a test dates, unless told otherwise.
+SINCE_FOREVER = date(2000, 1, 1)
+
+
 # With no study_program a fresh one is made: competent, never mind which.
 async def make_competence(
     db: AsyncSession,
     teacher: Teacher,
     subject: AssociationSubject,
     study_program: StudyProgram | None = None,
-) -> None:
+    *,
+    since: date = SINCE_FOREVER,
+    until: date | None = None,
+) -> TeachingCompetence:
     program = study_program or await make_study_program(db)
 
-    await _persist(
+    return await _persist(
         db,
         TeachingCompetence(
             teacher_tax_code=teacher.tax_code,
             association_subject_id=subject.id,
             study_program_id=program.id,
+            valid_from=since,
+            valid_to=until,
         ),
     )
 
@@ -236,10 +245,18 @@ async def make_service_competence(
     db: AsyncSession,
     teacher: Teacher,
     service: Service,
-) -> None:
-    await _persist(
+    *,
+    since: date = SINCE_FOREVER,
+    until: date | None = None,
+) -> TeacherService:
+    return await _persist(
         db,
-        TeacherService(teacher_tax_code=teacher.tax_code, service_name=service.name),
+        TeacherService(
+            teacher_tax_code=teacher.tax_code,
+            service_name=service.name,
+            valid_from=since,
+            valid_to=until,
+        ),
     )
 
 

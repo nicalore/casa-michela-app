@@ -139,9 +139,13 @@ class StudyProgram(CreatedAtMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    # Open rows only: who teaches for the programme today.
     teaching_competences: Mapped[list[TeachingCompetence]] = relationship(
-        back_populates="study_program",
-        cascade="all, delete-orphan",
+        primaryjoin=(
+            "and_(StudyProgram.id == TeachingCompetence.study_program_id, "
+            "TeachingCompetence.valid_to.is_(None))"
+        ),
+        viewonly=True,
     )
 
     # The association rows are reachable both as entities and via this

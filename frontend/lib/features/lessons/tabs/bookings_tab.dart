@@ -1656,6 +1656,11 @@ class _PresenceWizardDialogState extends State<_PresenceWizardDialog>
         draft: draft,
         ministrySubjects: widget.ministrySubjects,
         teachers: askableTeachers(widget.teachers, avoided),
+        studentStudyProgramId: switch (_selectedStudent)
+        {
+          final student? => currentStudyProgramId(student),
+          null => null,
+        },
         isEditing: editing,
         minutesAvailable: _hours[mode]!.totalMinutes,
         minutesTakenByOthers: _minutesAsked(mode) -

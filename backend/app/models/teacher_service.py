@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.booking_window import today_in_rome
 from app.db.base import Base
 
 if TYPE_CHECKING:
@@ -13,9 +15,23 @@ if TYPE_CHECKING:
 
 
 # Twin of TeachingCompetence minus the study programme: a service is the same
-# help whoever asks, so the key is just (teacher, service).
+# help whoever asks, so the key is just (teacher, service) and the dates.
 class TeacherService(Base):
     __tablename__ = "teacher_services"
+
+    __table_args__ = (
+        CheckConstraint(
+            "valid_to IS NULL OR valid_to > valid_from",
+            name="validity_ends_after_start",
+        ),
+        Index(
+            "ux_teacher_service_open",
+            "teacher_tax_code",
+            "service_name",
+            unique=True,
+            postgresql_where=text("valid_to IS NULL"),
+        ),
+    )
 
     teacher_tax_code: Mapped[str] = mapped_column(
         ForeignKey("teachers.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
@@ -29,6 +45,14 @@ class TeacherService(Base):
         index=True,
     )
 
-    teacher: Mapped[Teacher] = relationship(back_populates="teacher_services")
+    valid_from: Mapped[date] = mapped_column(
+        Date,
+        primary_key=True,
+        default=today_in_rome,
+    )
 
-    service: Mapped[Service] = relationship(back_populates="teacher_services")
+    valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    teacher: Mapped[Teacher] = relationship()
+
+    service: Mapped[Service] = relationship()

@@ -46,6 +46,7 @@ from app.services.teacher_occupancy import (
     spans_with,
     too_many_students_error,
 )
+from app.services.teaching_competence import lacks_competence
 
 _ENTITY_LABEL: Final[str] = "la lezione"
 _NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
@@ -111,20 +112,6 @@ def _person_label(person: object) -> str:
     last = getattr(person, "last_name", "") or ""
 
     return f"{first} {last}".strip()
-
-
-def _lacks_competence(
-    subject: AssociationSubject,
-    *,
-    programmes: set[int],
-    within: set[int],
-    granted: set[tuple[int, int]],
-    any_programme: set[int],
-) -> bool:
-    if not programmes or subject.id not in within:
-        return subject.id not in any_programme
-
-    return any((subject.id, programme) not in granted for programme in programmes)
 
 
 @dataclass(frozen=True)
@@ -437,6 +424,7 @@ class LessonService:
                     TeachingCompetence.association_subject_id.in_(
                         [subject.id for subject in disciplines],
                     ),
+                    TeachingCompetence.valid_to.is_(None),
                 ),
             )
         ).all()
@@ -447,8 +435,8 @@ class LessonService:
         lacking = sorted(
             subject.name
             for subject in disciplines
-            if _lacks_competence(
-                subject,
+            if lacks_competence(
+                subject.id,
                 programmes=programmes,
                 within=within,
                 granted=granted,
@@ -481,6 +469,7 @@ class LessonService:
                 select(TeacherService.service_name).where(
                     TeacherService.teacher_tax_code == teacher_tax_code,
                     TeacherService.service_name.in_(service_names),
+                    TeacherService.valid_to.is_(None),
                 ),
             ),
         )

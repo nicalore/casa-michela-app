@@ -19,6 +19,7 @@ from app.core.labels import (
     certification_type_label,
     education_level_label,
 )
+from app.core.school_year import school_year_start
 from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
@@ -72,6 +73,7 @@ from app.schemas.statistics import (
     TeacherPersonalStatisticsResponse,
     TeacherSubjectsStatisticsResponse,
 )
+from app.services.teaching_competence import lacks_competence
 
 # Figures about everybody, read at the desk only; a person's own month is
 # served by app/api/home.py.
@@ -526,6 +528,9 @@ class BookingFacts:
     service_name: str | None
     preferred: frozenset[str]
 
+    # The pupil's programme in the school year of the lesson; None when unknown.
+    programme_id: int | None = None
+
 
 @dataclass(slots=True)
 class TeacherAppreciation:
@@ -549,50 +554,100 @@ class TeacherAppreciation:
         return len(self.avoiding)
 
 
-# (pupil, teacher) → half-open day intervals the pupil would rather not have
-# them; an open end is None.
-AvoidedIntervals = Mapping[tuple[str, str], Sequence[tuple[date, date | None]]]
+# Half-open day interval; an open end is None.
+Span = tuple[date, date | None]
+
+# (pupil, teacher) → the days the pupil would rather not have them.
+AvoidedIntervals = Mapping[tuple[str, str], Sequence[Span]]
+
+# Teacher → (discipline, programme, held from, held until) for every competence
+# they ever had; teacher → (service, from, until) likewise.
+CompetenceSpans = Mapping[str, Collection[tuple[int, int, date, date | None]]]
+ServiceSpans = Mapping[str, Collection[tuple[str, date, date | None]]]
 
 
-def _avoided_on(day: date, intervals: Sequence[tuple[date, date | None]]) -> bool:
-    return any(start <= day and (end is None or day < end) for start, end in intervals)
+def _within(day: date, start: date, end: date | None) -> bool:
+    return start <= day and (end is None or day < end)
+
+
+def _avoided_on(day: date, intervals: Sequence[Span]) -> bool:
+    return any(_within(day, start, end) for start, end in intervals)
 
 
 # Each pupil weighs at most one point per teacher either way, however often
 # they come: the share of their bookings the teacher could have taught in which
 # they asked for them, minus the share held while they would rather not have
-# them. A booking counts for a teacher when it names them or asks for a
-# discipline or service they cover. Teachers nobody has a word about are left
-# out.
+# them. A booking counts for a teacher when, on its day, it asks for a service
+# they offered or a discipline they could teach the pupil by the calendar's
+# own rule (lacks_competence); naming a teacher who could not have taught it
+# says nothing, as the calendar would refuse them. Teachers nobody has a word
+# about are left out.
 def score_teachers(
     bookings: Iterable[BookingFacts],
-    competences: Mapping[str, Collection[int]],
-    services: Mapping[str, Collection[str]],
+    competences: CompetenceSpans,
+    subjects_within: Mapping[int, Collection[int]],
+    services: ServiceSpans,
     avoided: AvoidedIntervals,
 ) -> dict[str, TeacherAppreciation]:
     teachers_by_subject: dict[int, set[str]] = defaultdict(set)
     teachers_by_service: dict[str, set[str]] = defaultdict(set)
 
-    for teacher, subject_ids in competences.items():
-        for subject_id in subject_ids:
+    for teacher, spans in competences.items():
+        for subject_id, _programme_id, _start, _end in spans:
             teachers_by_subject[subject_id].add(teacher)
 
-    for teacher, service_names in services.items():
-        for service_name in service_names:
+    for teacher, offers in services.items():
+        for service_name, _start, _end in offers:
             teachers_by_service[service_name].add(teacher)
+
+    # The competences a teacher held on the day, as the calendar would have
+    # read them then.
+    def could_teach(
+        teacher: str,
+        subject_id: int,
+        programme_id: int | None,
+        day: date,
+    ) -> bool:
+        granted = {
+            (subject, programme)
+            for subject, programme, start, end in competences[teacher]
+            if _within(day, start, end)
+        }
+
+        return not lacks_competence(
+            subject_id,
+            programmes=() if programme_id is None else (programme_id,),
+            within=subjects_within.get(programme_id, ()) if programme_id else (),
+            granted=granted,
+            any_programme={subject for subject, _ in granted},
+        )
+
+    def offered(teacher: str, service_name: str, day: date) -> bool:
+        return any(
+            name == service_name and _within(day, start, end)
+            for name, start, end in services[teacher]
+        )
 
     relevant: Counter[tuple[str, str]] = Counter()
     preferring: Counter[tuple[str, str]] = Counter()
     avoiding: Counter[tuple[str, str]] = Counter()
 
     for booking in bookings:
-        candidates = set(booking.preferred)
+        candidates: set[str] = set()
 
         for subject_id in booking.discipline_ids:
-            candidates |= teachers_by_subject.get(subject_id, set())
+            candidates.update(
+                teacher
+                for teacher in teachers_by_subject.get(subject_id, set())
+                if could_teach(teacher, subject_id, booking.programme_id, booking.day)
+            )
 
         if booking.service_name is not None:
-            candidates |= teachers_by_service.get(booking.service_name, set())
+            candidates.update(
+                teacher
+                for teacher in teachers_by_service.get(booking.service_name, set())
+                if offered(teacher, booking.service_name, booking.day)
+            )
 
         for teacher in candidates:
             pair = (booking.student_tax_code, teacher)
@@ -624,6 +679,21 @@ def score_teachers(
             entry.avoiding.add(student)
 
     return scores
+
+
+# The programme of the school year the day falls in, or failing that the
+# latest one begun before it: a pupil who has not renewed yet keeps the old.
+def _programme_on(
+    enrolments: Sequence[tuple[int, int]],
+    day: date,
+) -> int | None:
+    year = school_year_start(day)
+    begun = [(start, programme) for start, programme in enrolments if start <= year]
+
+    if not begun:
+        return None
+
+    return max(begun)[1]
 
 
 # Dated by Presence.date, and includes teachers who no longer collaborate.
@@ -677,13 +747,50 @@ async def _appreciation_scores(
             select(
                 TeachingCompetence.teacher_tax_code,
                 TeachingCompetence.association_subject_id,
-            ).distinct(),
+                TeachingCompetence.study_program_id,
+                TeachingCompetence.valid_from,
+                TeachingCompetence.valid_to,
+            ),
         )
     ).all()
 
+    # Which disciplines each programme holds, as the calendar reads them.
+    within_rows = (
+        await db.execute(
+            select(
+                StudyProgramSubject.study_program_id,
+                MinistryAssociationSubject.association_subject_id,
+            ).join(
+                MinistryAssociationSubject,
+                MinistryAssociationSubject.ministry_subject_id
+                == StudyProgramSubject.ministry_subject_id,
+            ),
+        )
+    ).all()
+
+    students = {row.student_tax_code for row in booking_rows}
+    enrolment_rows = (
+        (
+            await db.execute(
+                select(
+                    SchoolEnrollment.student_tax_code,
+                    SchoolEnrollment.start_year,
+                    SchoolEnrollment.study_program_id,
+                ).where(SchoolEnrollment.student_tax_code.in_(students)),
+            )
+        ).all()
+        if students
+        else []
+    )
+
     service_rows = (
         await db.execute(
-            select(TeacherService.teacher_tax_code, TeacherService.service_name),
+            select(
+                TeacherService.teacher_tax_code,
+                TeacherService.service_name,
+                TeacherService.valid_from,
+                TeacherService.valid_to,
+            ),
         )
     ).all()
 
@@ -706,8 +813,10 @@ async def _appreciation_scores(
 
     disciplines: dict[int, set[int]] = defaultdict(set)
     preferred: dict[int, set[str]] = defaultdict(set)
-    competences: dict[str, set[int]] = defaultdict(set)
-    services: dict[str, set[str]] = defaultdict(set)
+    competences: dict[str, set[tuple[int, int, date, date | None]]] = defaultdict(set)
+    subjects_within: dict[int, set[int]] = defaultdict(set)
+    enrolments: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    services: dict[str, set[tuple[str, date, date | None]]] = defaultdict(set)
     avoided: dict[tuple[str, str], list[tuple[date, date | None]]] = defaultdict(list)
 
     for booking_id, subject_id in requested_rows:
@@ -720,11 +829,17 @@ async def _appreciation_scores(
     for booking_id, teacher_tax_code in preferred_rows:
         preferred[booking_id].add(teacher_tax_code)
 
-    for teacher_tax_code, subject_id in competence_rows:
-        competences[teacher_tax_code].add(subject_id)
+    for teacher_tax_code, subject_id, programme_id, start, end in competence_rows:
+        competences[teacher_tax_code].add((subject_id, programme_id, start, end))
 
-    for teacher_tax_code, service_name in service_rows:
-        services[teacher_tax_code].add(service_name)
+    for programme_id, subject_id in within_rows:
+        subjects_within[programme_id].add(subject_id)
+
+    for student_tax_code, start_year, programme_id in enrolment_rows:
+        enrolments[student_tax_code].append((start_year, programme_id))
+
+    for teacher_tax_code, service_name, start, end in service_rows:
+        services[teacher_tax_code].add((service_name, start, end))
 
     for student_tax_code, teacher_tax_code, valid_from, valid_to in avoided_rows:
         avoided[(student_tax_code, teacher_tax_code)].append((valid_from, valid_to))
@@ -736,11 +851,12 @@ async def _appreciation_scores(
             discipline_ids=frozenset(disciplines[row.id]),
             service_name=row.service_name,
             preferred=frozenset(preferred[row.id]),
+            programme_id=_programme_on(enrolments[row.student_tax_code], row.date),
         )
         for row in booking_rows
     ]
 
-    return score_teachers(bookings, competences, services, avoided)
+    return score_teachers(bookings, competences, subjects_within, services, avoided)
 
 
 async def _appreciation_ranking(
@@ -1062,7 +1178,10 @@ async def get_teacher_subjects_statistics(
             TeachingCompetence.association_subject_id == AssociationSubject.id,
         )
         .join(StudyProgram, TeachingCompetence.study_program_id == StudyProgram.id)
-        .where(TeachingCompetence.teacher_tax_code.in_(select(active_teachers)))
+        .where(
+            TeachingCompetence.teacher_tax_code.in_(select(active_teachers)),
+            TeachingCompetence.valid_to.is_(None),
+        )
     )
 
     result = await db.execute(competences_query)
