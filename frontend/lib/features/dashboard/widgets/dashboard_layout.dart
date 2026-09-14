@@ -54,18 +54,14 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
 
   static const double _greetingBottomGap = 24;
   static const double _sectionGap = 22;
-  static const double _sideColumnGap = 16;
 
   static const double _maxContentWidth = 1240;
 
-  static const int _dayFlex = 3;
-  static const int _sideFlex = 2;
-
-  // Below this width the stats in the side column would drop under
-  // DashboardStatsSection.twoInARowFrom and collapse to a single file.
-  static const double _sideColumnFrom =
-      DashboardStatsSection.twoInARowFrom * (_dayFlex + _sideFlex) / _sideFlex + _sectionGap;
+  // Two equal columns, as the role homes have them.
   static const double _twoColumnsFrom = 700;
+
+  // Two to a row beside the day: four upcoming make two rows.
+  static const int _birthdaysShown = 4;
 
   // Row minimums, not maximums: cards can grow past them.
   static const double _dayRowHeight = 300;
@@ -136,7 +132,10 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       _totals = results[0] as CurrentTotalsItem?;
       _teacherTotals = results[1] as CurrentTotalsItem?;
       _studentTotals = results[2] as CurrentTotalsItem?;
-      _birthdays = upcomingBirthdays((results[3] as List<PersonItem>?) ?? const []);
+      _birthdays = upcomingBirthdays(
+        (results[3] as List<PersonItem>?) ?? const [],
+        limit: _birthdaysShown,
+      );
       _loadingHome = false;
     });
   }
@@ -352,15 +351,17 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _noticesCard({required bool inRow, required int slot})
+  // tall keeps a placeholder from collapsing to a strip; fill is only for a
+  // card given its height from outside, which a column's plain child is not.
+  Widget _noticesCard({required bool tall, bool fill = false})
   {
     return _staggered(
-      slot: slot,
+      slot: 4,
       card: DashboardSectionCard(
         eyebrow: 'Messaggi',
         title: 'Comunicazioni e avvisi',
-        minHeight: inRow ? _listHeight : 0,
-        fill: inRow,
+        minHeight: tall ? _listHeight : 0,
+        fill: fill,
         child: const DashboardComingSoon(
           icon: Icons.campaign_rounded,
           description: '',
@@ -369,15 +370,15 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _tasksCard({required bool inRow, required int slot})
+  Widget _tasksCard({required bool tall, bool fill = false})
   {
     return _staggered(
-      slot: slot,
+      slot: 3,
       card: DashboardSectionCard(
         eyebrow: 'Cose da fare',
         title: 'Attività e notifiche',
-        minHeight: inRow ? _listHeight : 0,
-        fill: inRow,
+        minHeight: tall ? _listHeight : 0,
+        fill: fill,
         child: const DashboardComingSoon(
           icon: Icons.checklist_rounded,
           description: '',
@@ -386,66 +387,38 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  Widget _statsCard({
-    required bool inRow,
-    required double cardWidth,
-    required int slot,
-    bool compact = false,
-  })
+  // In the column the figures go in one strip of four small tiles; on their
+  // own row, below two columns, the full tiles.
+  Widget _statsCard({required double cardWidth, required bool strip})
   {
     return _staggered(
-      slot: slot,
+      slot: 1,
       card: DashboardStatsSection(
         general: _totals,
         teachers: _teacherTotals,
         students: _studentTotals,
         isLoading: _loadingHome,
-        columns: DashboardStatsSection.columnsForWidth(cardWidth),
-        compact: compact,
-        minHeight: inRow && !compact ? _dayRowHeight : 0,
-        fill: inRow && !compact,
+        columns: strip
+            ? DashboardStatsSection.stripColumnsForWidth(cardWidth)
+            : DashboardStatsSection.columnsForWidth(cardWidth),
+        strip: strip,
       ),
     );
   }
 
-  Widget _birthdaysCard({
-    required bool inRow,
-    required double cardWidth,
-    required int slot,
-    bool compact = false,
-  })
+  // Beside the day it fills what the figures leave of the column.
+  Widget _birthdaysCard({required double cardWidth, required bool fill})
   {
     return _staggered(
-      slot: slot,
+      slot: 2,
       card: DashboardBirthdaysSection(
         birthdays: _birthdays,
         isLoading: _loadingHome,
         // from= sends the detail page's back button here.
         onTap: (person) => context.go('/people/${person.fiscalCode}?from=/dashboard'),
         columns: DashboardBirthdaysSection.columnsForWidth(cardWidth),
-        compact: compact,
-        minHeight: inRow && !compact ? _listHeight : 0,
-        fill: inRow,
+        fill: fill,
       ),
-    );
-  }
-
-  Widget _sideColumn(double cardWidth)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _statsCard(inRow: true, cardWidth: cardWidth, compact: true, slot: 1),
-        const SizedBox(height: _sideColumnGap),
-        Expanded(
-          child: _birthdaysCard(
-            inRow: true,
-            cardWidth: cardWidth,
-            compact: true,
-            slot: 2,
-          ),
-        ),
-      ],
     );
   }
 
@@ -453,48 +426,41 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     if (width < _twoColumnsFrom)
     {
+      final double cardWidth = width - 2 * DashboardSectionCard.padding.left;
+
       return _column([
         _todayCard(inRow: false, slot: 0),
-        _statsCard(inRow: false, cardWidth: width, slot: 1),
-        _birthdaysCard(inRow: false, cardWidth: width, slot: 2),
-        _noticesCard(inRow: false, slot: 3),
-        _tasksCard(inRow: false, slot: 4),
+        _statsCard(cardWidth: cardWidth, strip: false),
+        _birthdaysCard(cardWidth: cardWidth, fill: false),
+        _tasksCard(tall: false),
+        _noticesCard(tall: false),
       ]);
     }
 
-    if (width < _sideColumnFrom)
-    {
-      return _column([
-        _todayCard(inRow: false, slot: 0),
-        _CardRow(
-          children: [
-            _statsCard(inRow: true, cardWidth: (width - _sectionGap) / 2, slot: 1),
-            _birthdaysCard(inRow: true, cardWidth: (width - _sectionGap) / 2, slot: 2),
-          ],
-        ),
-        _CardRow(
-          children: [
-            _noticesCard(inRow: true, slot: 3),
-            _tasksCard(inRow: true, slot: 4),
-          ],
-        ),
-      ]);
-    }
+    // The card's own width, less the padding DashboardSectionCard keeps.
+    final double cardWidth = (width - _sectionGap) / 2 - 2 * DashboardSectionCard.padding.left;
 
-    final double sideWidth = (width - _sectionGap) * _sideFlex / (_dayFlex + _sideFlex);
-
+    // Two rows of two equal columns. Above, the day and beside it the figures
+    // with the birthdays growing under them to the same height; below, the
+    // two placeholders level with each other.
     return _column([
       _CardRow(
-        flexes: const [_dayFlex, _sideFlex],
         children: [
           _todayCard(inRow: true, slot: 0),
-          _sideColumn(sideWidth),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _statsCard(cardWidth: cardWidth, strip: true),
+              const SizedBox(height: _sectionGap),
+              Expanded(child: _birthdaysCard(cardWidth: cardWidth, fill: true)),
+            ],
+          ),
         ],
       ),
       _CardRow(
         children: [
-          _noticesCard(inRow: true, slot: 3),
-          _tasksCard(inRow: true, slot: 4),
+          _tasksCard(tall: true, fill: true),
+          _noticesCard(tall: true, fill: true),
         ],
       ),
     ]);
@@ -584,9 +550,7 @@ class _CardRow extends StatelessWidget
 {
   final List<Widget> children;
 
-  final List<int>? flexes;
-
-  const _CardRow({required this.children, this.flexes});
+  const _CardRow({required this.children});
 
   @override
   Widget build(BuildContext context)
@@ -597,7 +561,7 @@ class _CardRow extends StatelessWidget
         children: [
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0) const SizedBox(width: _DashboardLayoutState._sectionGap),
-            Expanded(flex: flexes?[i] ?? 1, child: children[i]),
+            Expanded(child: children[i]),
           ],
         ],
       ),

@@ -64,6 +64,13 @@ List<DashboardBirthday> upcomingBirthdays(
 
   for (final person in people)
   {
+    // The desk celebrates whoever is collaborating: a parent who is not a
+    // member has no flag at all, a lapsed member has it off.
+    if (person.isActiveCollaborator != true)
+    {
+      continue;
+    }
+
     final DateTime? when = _nextBirthday(person.birthDate, today);
 
     if (when == null)
