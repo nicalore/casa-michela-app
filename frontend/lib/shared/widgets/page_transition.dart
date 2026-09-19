@@ -797,6 +797,10 @@ mixin DestinationRefresh<T extends StatefulWidget> on State<T>
   }
 }
 
+// Whether the enclosing destination is the one on show, and not covered by a
+// route pushed over it. True outside a shell.
+bool isDestinationShown(BuildContext context) => _DestinationScope.of(context);
+
 class _DestinationScope extends InheritedWidget
 {
   final bool current;

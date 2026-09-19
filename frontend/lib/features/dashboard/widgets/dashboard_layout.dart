@@ -521,6 +521,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
                     slot: PageTransitionItem.frame,
                     child: DashboardGreeting(
                       firstName: _currentUser?.firstName ?? '',
+                      birthDate: _currentUser?.birthDate,
                       fontSize: greetingFontSize,
                     ),
                   ),

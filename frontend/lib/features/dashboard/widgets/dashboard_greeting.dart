@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/birthday.dart';
 
 class DashboardGreeting extends StatelessWidget
 {
@@ -10,6 +11,9 @@ class DashboardGreeting extends StatelessWidget
   static const int _eveningStart = 17;
 
   final String firstName;
+
+  // On the day itself the line wishes a happy birthday, whatever the hour.
+  final DateTime? birthDate;
 
   final double fontSize;
 
@@ -21,6 +25,7 @@ class DashboardGreeting extends StatelessWidget
   const DashboardGreeting({
     super.key,
     required this.firstName,
+    this.birthDate,
     this.fontSize = 50,
     this.text,
     this.alignment = Alignment.centerLeft,
@@ -28,7 +33,14 @@ class DashboardGreeting extends StatelessWidget
 
   String _greeting()
   {
-    final hour = DateTime.now().hour;
+    final DateTime now = DateTime.now();
+
+    if (isBirthdayToday(birthDate, now))
+    {
+      return 'Buon compleanno, $firstName!';
+    }
+
+    final hour = now.hour;
 
     if (hour < _morningStart)
     {

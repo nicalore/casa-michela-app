@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/birthday.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthShort;
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
@@ -35,13 +36,7 @@ DateTime? _nextBirthday(DateTime? birth, DateTime today)
 
   for (final year in [today.year, today.year + 1])
   {
-    // Feb 29 falls on the 28th in non-leap years; DateTime would roll it over
-    // to 1 March.
-    final int day = birth.month == 2 && birth.day == 29 && !_isLeap(year)
-        ? 28
-        : birth.day;
-
-    final DateTime when = DateTime(year, birth.month, day);
+    final DateTime when = birthdayIn(year, birth);
 
     if (!when.isBefore(today))
     {
@@ -102,8 +97,6 @@ List<DashboardBirthday> upcomingBirthdays(
 
   return found.take(limit).toList();
 }
-
-bool _isLeap(int year) => year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 
 class DashboardBirthdaysSection extends StatelessWidget
 {
@@ -232,6 +225,13 @@ class _BirthdayRow extends StatefulWidget
   State<_BirthdayRow> createState() => _BirthdayRowState();
 }
 
+// Bronze to gold, for the day itself.
+const LinearGradient _birthdayGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [AppTheme.modifiedAccent, AppTheme.trialGold],
+);
+
 class _BirthdayRowState extends State<_BirthdayRow>
 {
   bool _hover = false;
@@ -240,6 +240,7 @@ class _BirthdayRowState extends State<_BirthdayRow>
   Widget build(BuildContext context)
   {
     final PersonItem person = widget.birthday.person;
+    final bool today = widget.birthday.isToday;
     final String initials = '${person.firstName.isEmpty ? '' : person.firstName[0]}'
         '${person.lastName.isEmpty ? '' : person.lastName[0]}';
 
@@ -255,11 +256,15 @@ class _BirthdayRowState extends State<_BirthdayRow>
           padding: widget.tight
               ? const EdgeInsets.fromLTRB(11, 9, 8, 9)
               : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          // The day itself is gold, border on, so it stands out from the ones
+          // still to come.
           decoration: BoxDecoration(
-            color: AppTheme.trialPaper,
+            color: today ? AppTheme.trialGoldSurface : AppTheme.trialPaper,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: _hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0),
+              color: today
+                  ? (_hover ? AppTheme.modifiedAccent : AppTheme.trialGold)
+                  : (_hover ? AppTheme.trialGold : AppTheme.trialGold.withValues(alpha: 0)),
               width: 2,
             ),
           ),
@@ -269,8 +274,8 @@ class _BirthdayRowState extends State<_BirthdayRow>
                 width: widget.tight ? 30 : 34,
                 height: widget.tight ? 30 : 34,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  gradient: AppTheme.brandGradient,
+                decoration: BoxDecoration(
+                  gradient: today ? _birthdayGradient : AppTheme.brandGradient,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -307,9 +312,7 @@ class _BirthdayRowState extends State<_BirthdayRow>
                         fontSize: widget.tight ? 12 : 12.5,
                         fontWeight: FontWeight.w600,
                         height: 1.3,
-                        color: widget.birthday.isToday
-                            ? AppTheme.trialTealDeep
-                            : AppTheme.trialMutedText,
+                        color: today ? AppTheme.modifiedAccent : AppTheme.trialMutedText,
                       ),
                     ),
                   ],

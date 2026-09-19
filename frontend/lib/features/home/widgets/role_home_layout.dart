@@ -48,6 +48,18 @@ String? unconvenedLabelFor(String role)
   return role == kTeacherRole ? 'Non sei stato convocato' : null;
 }
 
+// The right column's heading: the teacher's offer, then their call once the
+// calendar is out; a pupil's booking throughout.
+String ownHeadingFor(String role)
+{
+  return role == kTeacherRole ? 'Disponibilità' : 'Prenotazioni';
+}
+
+String? convenedHeadingFor(String role)
+{
+  return role == kTeacherRole ? 'Convocazione' : null;
+}
+
 String monthTitleFor(String role) => 'Presenze e lezioni';
 
 // Failures become null so one bad call does not fail the whole day.
@@ -246,6 +258,20 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
 
     final bool named = children.length > 1;
 
+    // The card speaks for the reader's own pupils alone: the server scopes
+    // by role, and one who is an administrator too would be handed
+    // everybody's.
+    final Set<String> own = {
+      if (role == kParentRole)
+        for (final child in reader?.children ?? const []) child.fiscalCode
+      else
+        ?taxCode,
+    };
+
+    final List<PresenceItem>? ownPresences = presences
+        ?.where((presence) => own.contains(presence.studentTaxCode))
+        .toList();
+
     List<HomeBandStatus>? bands;
 
     if (inBuilding != null &&
@@ -254,14 +280,14 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
         availabilities != null &&
         lessons != null &&
         activities != null &&
-        presences != null)
+        ownPresences != null)
     {
       bands = homeBands(
         day: today,
         openingDays: [...inBuilding, ...onScreen],
         slots: teacher
             ? availabilitySlots(availabilities)
-            : presenceSlots(presences, named: named),
+            : presenceSlots(ownPresences, named: named),
         published: {
           for (final publication in publications)
             if (isSameDate(publication.date, today)) publication.band,
@@ -297,6 +323,8 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
         bands: _bands,
         isLoading: _loadingToday,
         title: scheduleTitleFor(widget.role),
+        ownHeading: ownHeadingFor(widget.role),
+        convenedHeading: convenedHeadingFor(widget.role),
         emptyBandLabel: emptyBandLabelFor(widget.role),
         unconvenedLabel: unconvenedLabelFor(widget.role),
         minHeight: inRow ? _dayRowHeight : 0,
@@ -460,6 +488,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
                     slot: PageTransitionItem.frame,
                     child: DashboardGreeting(
                       firstName: user?.firstName ?? '',
+                      birthDate: user?.birthDate,
                       fontSize: greetingFontSize,
                     ),
                   ),
