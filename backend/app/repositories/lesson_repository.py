@@ -142,6 +142,49 @@ class LessonRepository(WritableRepository[Lesson]):
 
         return (await self.session.scalars(self._visible(stmt, visibility))).all()
 
+    # Hours of every lesson for the given teachers and days, keyed by (day, teacher).
+    async def hours_of_teachers(
+        self,
+        days: Collection[date],
+        teacher_tax_codes: Collection[str],
+    ) -> dict[tuple[date, str], list[tuple[int, time, time]]]:
+        rows = (
+            await self.session.execute(
+                select(
+                    Lesson.id,
+                    Lesson.date,
+                    Availability.teacher_tax_code,
+                    Lesson.start_time,
+                    Lesson.end_time,
+                )
+                .join(Availability, Availability.id == Lesson.availability_id)
+                .where(
+                    Lesson.date.in_(days),
+                    Availability.teacher_tax_code.in_(teacher_tax_codes),
+                ),
+            )
+        ).all()
+
+        hours: dict[tuple[date, str], list[tuple[int, time, time]]] = {}
+
+        for lesson_id, day, teacher_tax_code, start_time, end_time in rows:
+            hours.setdefault((day, teacher_tax_code), []).append(
+                (lesson_id, start_time, end_time),
+            )
+
+        return hours
+
+    # Whether a published lesson ever paired the two: gates a teacher's read of a pupil.
+    async def has_paired(self, teacher_tax_code: str, student_tax_code: str) -> bool:
+        stmt = select(Lesson).where(_taught_by(teacher_tax_code)).limit(1)
+
+        visibility = LessonVisibility(
+            student_tax_codes=frozenset({student_tax_code}),
+            published_only=True,
+        )
+
+        return await self.session.scalar(self._visible(stmt, visibility)) is not None
+
     async def get_by_id(
         self,
         lesson_id: int,

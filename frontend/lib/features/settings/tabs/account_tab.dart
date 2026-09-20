@@ -98,8 +98,7 @@ class _AccountTabState extends State<AccountTab>
   @override
   Widget build(BuildContext context)
   {
-    // Part of the section handover: on their own these would paint over the
-    // section still leaving.
+    // Part of the section handover, else these paint over the section still leaving.
     if (_isLoading)
     {
       return const PageTransitionItem(
@@ -153,6 +152,7 @@ class _AccountTabState extends State<AccountTab>
                 AppCard(
                   title: 'Credenziali di accesso',
                   compact: true,
+                  selectable: false,
                   leading: const AppCardBadge(
                     icon: Icons.manage_accounts_rounded,
                     compact: true,
@@ -308,9 +308,8 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
 
     try
     {
-      // changePassword reuses the current session refresh token; the backend
-      // revokes every other one, so the session stays valid and no re-login is
-      // needed.
+      // changePassword keeps the current refresh token and revokes every other one,
+      // so no re-login is needed.
       await ApiService().changePassword(
         currentPassword: oldPassword,
         newPassword: newPassword,

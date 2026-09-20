@@ -29,17 +29,24 @@ Map<String, LaneRoomLabel> laneRoomLabels({
 
   for (final lane in lanes)
   {
+    // Room is the day's, mode the band's: an online-only band gets no room here.
+    final modes = [
+      for (final lesson in lane.lessons) lesson.teacherMode,
+      for (final activity in lane.activities) activity.placement.teacherMode,
+    ];
+
+    if (modes.isNotEmpty && modes.every((mode) => mode == kOnlineMode))
+    {
+      labels[lane.teacherTaxCode] = (roomName: null, isSupervisor: false);
+
+      continue;
+    }
+
     final room = assigned[lane.teacherTaxCode] ??
         lane.lessons.map((lesson) => lesson.room).nonNulls.firstOrNull;
 
     if (room == null)
     {
-      if (lane.lessons.isNotEmpty &&
-          lane.lessons.every((lesson) => lesson.teacherMode == kOnlineMode))
-      {
-        labels[lane.teacherTaxCode] = (roomName: null, isSupervisor: false);
-      }
-
       continue;
     }
 

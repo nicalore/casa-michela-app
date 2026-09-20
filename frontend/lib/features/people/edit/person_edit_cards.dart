@@ -277,7 +277,7 @@ class _ReportBlock extends StatelessWidget
           alignment: Alignment.centerLeft,
           child: AppGradientButton(
             label: 'SEGNALA ERRORE',
-            icon: Icons.report_gmailerrorred_rounded,
+            icon: Icons.flag_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDanger,
             height: 46,
@@ -505,10 +505,12 @@ class BirthDataEditCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final bool abroad = ctx.form.bornAbroad;
+
     final Widget cityValue = AppTextField(
       controller: ctx.form.birthCityCtrl,
-      label: 'Città di nascita',
-      hintText: 'Es. Thiene',
+      label: abroad ? 'Città di nascita (opzionale)' : 'Città di nascita',
+      hintText: abroad ? 'Es. Bucarest' : 'Es. Thiene',
       maxLength: FieldLimits.city,
       errorText: ctx.errors['cittaNascita'],
       textCapitalization: TextCapitalization.words,
@@ -521,6 +523,7 @@ class BirthDataEditCard extends StatelessWidget
       hintText: 'Es. VI',
       maxLength: FieldLimits.province,
       errorText: ctx.errors['provNascita'],
+      enabled: !abroad,
       onChanged: (_) => ctx.clearError('provNascita'),
     );
 
@@ -537,6 +540,36 @@ class BirthDataEditCard extends StatelessWidget
           inputFormatters: [DateInputFormatter()],
           onChanged: (_) => ctx.clearError('dataNascita'),
         ),
+        const SizedBox(height: 20),
+        cardSection(
+          'Luogo di nascita',
+          AppSegmentedSwitch(
+            value: !abroad,
+            trueLabel: 'Italia',
+            falseLabel: 'Estero',
+            onChanged: (inItaly)
+            {
+              ctx.form.setBornAbroad(!inItaly);
+
+              for (final key in const ['cittaNascita', 'provNascita', 'nazioneNascita'])
+              {
+                ctx.errors.remove(key);
+              }
+
+              ctx.onChanged();
+            },
+          ),
+        ),
+        if (abroad)
+          AppTextField(
+            controller: ctx.form.birthNationCtrl,
+            label: 'Nazione di nascita',
+            hintText: 'Es. Romania',
+            maxLength: FieldLimits.nation,
+            errorText: ctx.errors['nazioneNascita'],
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => ctx.clearError('nazioneNascita'),
+          ),
         LayoutBuilder(
           builder: (context, constraints)
           {
@@ -554,15 +587,6 @@ class BirthDataEditCard extends StatelessWidget
               ],
             );
           },
-        ),
-        AppTextField(
-          controller: ctx.form.birthNationCtrl,
-          label: 'Nazione di nascita',
-          hintText: 'Es. Italia',
-          maxLength: FieldLimits.nation,
-          errorText: ctx.errors['nazioneNascita'],
-          textCapitalization: TextCapitalization.words,
-          onChanged: (_) => ctx.clearError('nazioneNascita'),
         ),
       ],
     );

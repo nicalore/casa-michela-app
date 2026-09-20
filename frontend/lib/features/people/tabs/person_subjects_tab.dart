@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
-import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
@@ -14,12 +13,14 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
-import '../../association/models/association_subject_item.dart';
+import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
 import '../widgets/competence_picker.dart';
+import '../widgets/program_scope_dialog.dart';
 import '../widgets/teacher_competences_editor.dart';
 import '../widgets/person_detail_widgets.dart';
 
@@ -34,6 +35,10 @@ const int _subjectCardTitleLines = 2;
 const double _subjectCardTitleHeight = 1.15;
 const double _subjectCardDetailHeight = 1.25;
 
+const double _confirmWidth = 480;
+
+const String _updatedMessage = 'Discipline aggiornate con successo!';
+
 enum _SubjectSort
 {
   nameAsc('Nome (A-Z)'),
@@ -42,36 +47,6 @@ enum _SubjectSort
   final String label;
 
   const _SubjectSort(this.label);
-
-  int compare(TeacherSubjectItem a, TeacherSubjectItem b)
-  {
-    return this == _SubjectSort.nameAsc
-        ? a.subjectName.compareTo(b.subjectName)
-        : b.subjectName.compareTo(a.subjectName);
-  }
-}
-
-enum _CatalogSort
-{
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  dateDesc('Più recente'),
-  dateAsc('Meno recente');
-
-  final String label;
-
-  const _CatalogSort(this.label);
-
-  int compare(AssociationSubjectItem a, AssociationSubjectItem b)
-  {
-    return switch (this)
-    {
-      _CatalogSort.nameAsc => a.name.compareTo(b.name),
-      _CatalogSort.nameDesc => b.name.compareTo(a.name),
-      _CatalogSort.dateDesc => b.createdAt.compareTo(a.createdAt),
-      _CatalogSort.dateAsc => a.createdAt.compareTo(b.createdAt),
-    };
-  }
 }
 
 List<FilterOption<String>> _areaPillOptions()
@@ -83,18 +58,31 @@ List<FilterOption<String>> _areaPillOptions()
   ];
 }
 
+List<Map<String, dynamic>> _competencesOf(Iterable<TeacherSubjectItem> subjects)
+{
+  return [
+    for (final subject in subjects)
+      <String, dynamic>{
+        'subject_id': subject.subjectId,
+        'study_program_ids': subject.studyProgramIds,
+      },
+  ];
+}
+
 class PersonSubjectsTab extends StatefulWidget
 {
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  // Rendered under the edit button, inside the scroll.
+  // Rendered above the filters and under the add button, inside the scroll.
+  final Widget? intro;
   final Widget? footer;
 
   const PersonSubjectsTab({
     super.key,
     required this.person,
     required this.onUpdate,
+    this.intro,
     this.footer,
   });
 
@@ -110,12 +98,21 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   _SubjectSort _sort = _SubjectSort.nameAsc;
   String? _filterArea;
 
+  // The catalogue of programmes, read once the first edit asks for it.
+  List<StudyProgramItem>? _programs;
+
+  bool _isSaving = false;
+
   @override
   void dispose()
   {
     _searchController.dispose();
     super.dispose();
   }
+
+  List<TeacherSubjectItem> get _subjects => widget.person.teacherSubjects ?? const [];
+
+  List<String> get _services => widget.person.teacherServices ?? const [];
 
   bool get _showingOnlyServices => _filterArea == kServicesFilterValue;
 
@@ -128,16 +125,12 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
 
     final query = _searchText.toLowerCase();
 
-    final result = (widget.person.teacherSubjects ?? []).where((subject)
+    return _subjects.where((subject)
     {
       final matchesArea = _filterArea == null || subject.subjectArea == _filterArea;
 
       return subject.subjectName.toLowerCase().contains(query) && matchesArea;
     }).toList();
-
-    result.sort(_sort.compare);
-
-    return result;
   }
 
   List<String> get _filteredServices
@@ -149,14 +142,210 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
 
     final query = _searchText.toLowerCase();
 
-    return (widget.person.teacherServices ?? const <String>[])
-        .where((service) => service.toLowerCase().contains(query))
-        .toList();
+    return _services.where((service) => service.toLowerCase().contains(query)).toList();
   }
 
-  bool get _hasAnything =>
-      (widget.person.teacherSubjects ?? const []).isNotEmpty ||
-      (widget.person.teacherServices ?? const []).isNotEmpty;
+  bool get _hasAnything => _subjects.isNotEmpty || _services.isNotEmpty;
+
+  Future<void> _save(List<Map<String, dynamic>> competences, List<String> services) async
+  {
+    if (_isSaving)
+    {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try
+    {
+      await ApiService().updateTeacherCompetences(
+        widget.person.fiscalCode,
+        competences,
+        services,
+        widget.person.teacherUpdatedAt,
+      );
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: _updatedMessage, isError: false);
+        widget.onUpdate();
+      }
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  void _removeSubject(TeacherSubjectItem subject)
+  {
+    _save(
+      _competencesOf(_subjects.where((held) => held.subjectId != subject.subjectId)),
+      _services,
+    );
+  }
+
+  void _removeService(String service)
+  {
+    _save(
+      _competencesOf(_subjects),
+      _services.where((held) => held != service).toList(),
+    );
+  }
+
+  void _rescopeSubject(TeacherSubjectItem subject, Set<int> programIds)
+  {
+    _save(
+      [
+        for (final held in _subjects)
+          <String, dynamic>{
+            'subject_id': held.subjectId,
+            'study_program_ids': held.subjectId == subject.subjectId
+                ? programIds.toList()
+                : held.studyProgramIds,
+          },
+      ],
+      _services,
+    );
+  }
+
+  Future<List<StudyProgramItem>?> _programsTeaching(int subjectId) async
+  {
+    try
+    {
+      _programs ??= await ApiService().getStudyPrograms();
+    }
+    catch (e)
+    {
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+
+      return null;
+    }
+
+    return _programs!.where((program) => program.teaches(subjectId)).toList();
+  }
+
+  Future<void> _openScopeDialog(TeacherSubjectItem subject) async
+  {
+    final List<StudyProgramItem>? programs = await _programsTeaching(subject.subjectId);
+
+    if (programs == null || !mounted)
+    {
+      return;
+    }
+
+    showBlurredDialog(
+      context: context,
+      barrierLabel: 'ProgramsSelection',
+      builder: (context) => ProgramScopeDialog(
+        subjectName: subject.subjectName,
+        programs: programs,
+        initialSelected: subject.studyProgramIds.toSet(),
+        // Confirming with no programme left means giving up the discipline.
+        onSave: (selected) => selected.isEmpty
+            ? _removeSubject(subject)
+            : _rescopeSubject(subject, selected),
+      ),
+    );
+  }
+
+  void _confirmRemoval({required TextSpan warning, required VoidCallback onConfirm})
+  {
+    showBlurredDialog<void>(
+      context: context,
+      barrierLabel: 'ConfirmCompetenceRemoval',
+      builder: (confirmContext) => AppDialogStack(
+        eyebrow: 'Rimozione',
+        title: 'Confermi?',
+        showClose: false,
+        maxWidth: _confirmWidth,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => Navigator.pop(confirmContext),
+          ),
+          primary: AppGradientButton(
+            label: 'RIMUOVI',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: ()
+            {
+              Navigator.pop(confirmContext);
+              onConfirm();
+            },
+          ),
+        ),
+        children: [
+          AppDialogPill(
+            child: Text.rich(
+              warning,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                height: 1.45,
+                color: AppTheme.trialInk,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  TextSpan _warning(String before, String name, String after)
+  {
+    return TextSpan(
+      children: [
+        TextSpan(text: before),
+        TextSpan(
+          text: name,
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
+        ),
+        TextSpan(text: after),
+      ],
+    );
+  }
+
+  void _confirmRemoveSubject(TeacherSubjectItem subject)
+  {
+    _confirmRemoval(
+      warning: _warning(
+        'La disciplina ',
+        subject.subjectName,
+        ' verrà rimossa.',
+      ),
+      onConfirm: () => _removeSubject(subject),
+    );
+  }
+
+  void _confirmRemoveService(String service)
+  {
+    _confirmRemoval(
+      warning: _warning('Il servizio ', service, ' verrà rimosso da quelli seguiti.'),
+      onConfirm: () => _removeService(service),
+    );
+  }
 
   List<Widget> _buildCards()
   {
@@ -164,20 +353,22 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
       for (final subject in _filteredSubjects)
         (
           name: subject.subjectName,
-          card: _ReadOnlyCard(
+          card: _CompetenceCard(
             title: subject.subjectName,
             subtitle: subject.studyPrograms.length == 1
                 ? '1 percorso'
                 : '${subject.studyPrograms.length} percorsi',
-            onTap: () => _openProgramsDialog(subject),
+            onEdit: () => _openScopeDialog(subject),
+            onRemove: () => _confirmRemoveSubject(subject),
           ),
         ),
       for (final service in _filteredServices)
         (
           name: service,
-          card: _ReadOnlyCard(
+          card: _CompetenceCard(
             title: service,
             subtitle: 'Servizio',
+            onRemove: () => _confirmRemoveService(service),
           ),
         ),
     ];
@@ -189,33 +380,24 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     return entries.map((entry) => entry.card).toList();
   }
 
-  void _openEditDialog()
+  void _openAddDialog()
   {
     showBlurredDialog(
       context: context,
-      barrierLabel: 'EditSubjects',
-      builder: (context) => _SubjectsEditDialog(
+      barrierLabel: 'AddSubjects',
+      builder: (context) => _SubjectsAddDialog(
         person: widget.person,
         onUpdate: widget.onUpdate,
       ),
     );
   }
 
-  void _openProgramsDialog(TeacherSubjectItem subject)
-  {
-    showBlurredDialog(
-      context: context,
-      barrierLabel: 'ViewPrograms',
-      builder: (context) => _ReadOnlyProgramsDialog(subject: subject),
-    );
-  }
-
-  Widget _buildEditButton()
+  Widget _buildAddButton()
   {
     return AppGradientButton(
-      label: 'MODIFICA DISCIPLINE',
-      icon: Icons.edit_rounded,
-      onPressed: _openEditDialog,
+      label: 'AGGIUNGI DISCIPLINE',
+      icon: Icons.add_rounded,
+      onPressed: _openAddDialog,
     );
   }
 
@@ -223,7 +405,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     return PersonEmptyState(
       message: 'Nessuna disciplina o servizio a sistema.',
-      action: _buildEditButton(),
+      action: _buildAddButton(),
     );
   }
 
@@ -274,21 +456,32 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     if (!_hasAnything)
     {
+      final Widget? intro = widget.intro;
       final Widget? footer = widget.footer;
 
-      if (footer == null)
+      if (intro == null && footer == null)
       {
         return _buildEmptyState();
       }
 
       return SingleChildScrollView(
         padding: const EdgeInsets.only(top: 16, bottom: 32),
-        child: Column(
-          children: [
-            _buildEmptyState(),
-            const SizedBox(height: 48),
-            footer,
-          ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (intro != null)
+                  PageTransitionItem(slot: PageTransitionItem.header, child: intro),
+                _buildEmptyState(),
+                if (footer != null) ...[
+                  const SizedBox(height: 48),
+                  footer,
+                ],
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -316,7 +509,13 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                 children: [
                   PageTransitionItem(
                     slot: PageTransitionItem.header,
-                    child: _buildFilters(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.intro != null) widget.intro!,
+                        _buildFilters(),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (cards.isEmpty)
@@ -340,7 +539,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                   const SizedBox(height: 48),
                   PageTransitionItem(
                     slot: closing,
-                    child: Center(child: _buildEditButton()),
+                    child: Center(child: _buildAddButton()),
                   ),
                   if (widget.footer != null) ...[
                     const SizedBox(height: 48),
@@ -356,263 +555,117 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   }
 }
 
-class _ReadOnlyCard extends StatefulWidget
+class _CompetenceCard extends StatefulWidget
 {
   final String title;
   final String subtitle;
 
-  final VoidCallback? onTap;
+  // Services have no programmes to edit.
+  final VoidCallback? onEdit;
+  final VoidCallback onRemove;
 
-  const _ReadOnlyCard({
+  const _CompetenceCard({
     required this.title,
     required this.subtitle,
-    this.onTap,
+    this.onEdit,
+    required this.onRemove,
   });
 
   @override
-  State<_ReadOnlyCard> createState() => _ReadOnlyCardState();
+  State<_CompetenceCard> createState() => _CompetenceCardState();
 }
 
-class _ReadOnlyCardState extends State<_ReadOnlyCard>
+class _CompetenceCardState extends State<_CompetenceCard>
 {
   bool _isHovering = false;
-
-  bool get _isPressable => widget.onTap != null;
 
   @override
   Widget build(BuildContext context)
   {
     return MouseRegion(
-      cursor: _isPressable ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: (_) => setState(() => _isHovering = _isPressable),
+      onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: _subjectCardWidth,
-          height: _subjectCardHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
-          alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(_subjectCardRadius),
-            border: Border.all(
-              color: _isHovering
-                  ? AppTheme.trialGold
-                  : AppTheme.trialGold.withValues(alpha: 0),
-              width: 2,
-            ),
-            boxShadow: AppTheme.cardShadow,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: _subjectCardWidth,
+        height: _subjectCardHeight,
+        padding: const EdgeInsets.fromLTRB(22, 16, 14, 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_subjectCardRadius),
+          border: Border.all(
+            color: _isHovering
+                ? AppTheme.trialGold
+                : AppTheme.trialGold.withValues(alpha: 0),
+            width: 2,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OverflowTooltipText(
-                text: widget.title,
-                maxLines: _subjectCardTitleLines,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialOcean,
-                  height: _subjectCardTitleHeight,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.subtitle,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.trialMutedText,
-                  height: _subjectCardDetailHeight,
-                ),
-              ),
-            ],
-          ),
+          boxShadow: AppTheme.cardShadow,
         ),
-      ),
-    );
-  }
-}
-
-class _ReadOnlyProgramsDialog extends StatelessWidget
-{
-  final TeacherSubjectItem subject;
-
-  const _ReadOnlyProgramsDialog({required this.subject});
-
-  Map<String, List<TeacherProgramItem>> get _groups
-  {
-    final groups = <String, List<TeacherProgramItem>>{};
-
-    for (final program in subject.studyPrograms)
-    {
-      final String title = programScopeTitle(
-        level: program.level,
-        sector: program.sector,
-        track: program.highSchoolTrack,
-      );
-
-      groups.putIfAbsent(title, () => []).add(program);
-    }
-
-    return groups;
-  }
-
-  Widget _buildGroup(String title, List<TeacherProgramItem> group)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: [
-              Expanded(child: AppEyebrow(title)),
-              Text(
-                '${group.length}',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ],
-          ),
-        ),
-        for (final program in group) _ProgramLine(label: program.name),
-        const SizedBox(height: 18),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final int total = subject.studyPrograms.length;
-    final groups = _groups;
-
-    final String? description = subject.subjectDescription?.trim();
-
-    return AppDialogStack(
-      eyebrow: 'Percorsi assegnati',
-      title: subject.subjectName,
-      maxWidth: 720,
-      fillLast: true,
-      children: [
-        if (description != null && description.isNotEmpty)
-          AppDialogPill(
-            expand: true,
-            child: SelectionArea(
-              child: Text(
-                description,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 1.45,
-                  color: AppTheme.trialMutedText,
-                ),
-              ),
-            ),
-          ),
-        AppDialogPill(
-          expand: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: Text(
-                  total == 1 ? '1 percorso' : '$total percorsi',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.trialTealDeep,
-                  ),
-                ),
-              ),
-              if (groups.isEmpty)
-                const PersonEmptyState(
-                  message: 'Nessun percorso assegnato a questa disciplina.',
-                )
-              else
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final entry in groups.entries)
-                          _buildGroup(entry.key, entry.value),
-                      ],
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  OverflowTooltipText(
+                    text: widget.title,
+                    maxLines: _subjectCardTitleLines,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.trialOcean,
+                      height: _subjectCardTitleHeight,
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgramLine extends StatelessWidget
-{
-  final String label;
-
-  const _ProgramLine({required this.label});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6, left: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            margin: const EdgeInsets.only(top: 7, right: 12),
-            decoration: const BoxDecoration(
-              gradient: AppTheme.brandGradient,
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 1.35,
-                color: AppTheme.trialInk,
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.subtitle,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.trialMutedText,
+                      height: _subjectCardDetailHeight,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            if (widget.onEdit != null)
+              FadeHoverIconButton(
+                icon: Icons.edit_outlined,
+                color: AppTheme.trialTealDeep,
+                hoverColor: AppTheme.trialGoldSurface,
+                onTap: widget.onEdit!,
+              ),
+            FadeHoverIconButton(
+              icon: Icons.delete_outline_rounded,
+              color: AppTheme.trialDanger,
+              hoverColor: AppTheme.trialGoldSurface,
+              onTap: widget.onRemove,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SubjectsEditDialog extends StatefulWidget
+// Offers only competences not held yet; held ones are sent along unchanged.
+class _SubjectsAddDialog extends StatefulWidget
 {
   final PersonItem person;
   final VoidCallback onUpdate;
 
-  const _SubjectsEditDialog({required this.person, required this.onUpdate});
+  const _SubjectsAddDialog({required this.person, required this.onUpdate});
 
   @override
-  State<_SubjectsEditDialog> createState() => _SubjectsEditDialogState();
+  State<_SubjectsAddDialog> createState() => _SubjectsAddDialogState();
 }
 
-class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
+class _SubjectsAddDialogState extends State<_SubjectsAddDialog>
 {
   TeacherCompetencesDraft? _draft;
 
@@ -639,18 +692,17 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
     {
       await ApiService().updateTeacherCompetences(
         widget.person.fiscalCode,
-        draft.competences,
-        draft.services,
+        [
+          ..._competencesOf(widget.person.teacherSubjects ?? const []),
+          ...draft.competences,
+        ],
+        [...widget.person.teacherServices ?? const <String>[], ...draft.services],
         widget.person.teacherUpdatedAt,
       );
 
       if (mounted)
       {
-        CustomSnackBar.show(
-          context: context,
-          message: 'Discipline aggiornate con successo!',
-          isError: false,
-        );
+        CustomSnackBar.show(context: context, message: _updatedMessage, isError: false);
 
         Navigator.of(context).pop();
         widget.onUpdate();
@@ -677,7 +729,7 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
   {
     return AppDialogStack(
       eyebrow: 'Discipline',
-      title: 'Modifica discipline',
+      title: 'Aggiungi discipline',
       maxWidth: 860,
       fillLast: true,
       footer: AppDialogFooter.single(
@@ -693,6 +745,7 @@ class _SubjectsEditDialogState extends State<_SubjectsEditDialog>
       children: [
         TeacherCompetencesEditor(
           person: widget.person,
+          onlyNew: true,
           onChanged: (draft) => _draft = draft,
           builder: (context, filters, list) => Column(
             mainAxisSize: MainAxisSize.min,

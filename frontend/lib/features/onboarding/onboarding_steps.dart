@@ -2,12 +2,9 @@ import '../people/models/child_item.dart';
 
 enum OnboardingStepKind
 {
-  // One record, personal and association cards together, confirmed or
-  // reported: nothing on it can be typed over except a teacher's studies.
   ownRecord,
   childRecord,
 
-  // Screens that are filled in rather than confirmed.
   childSchool,
   ownSchool,
   teacherSubjects,
@@ -17,7 +14,6 @@ class OnboardingStep
 {
   final OnboardingStepKind kind;
 
-  // Set on the child screens; the tax code the screen is about.
   final String? childTaxCode;
   final String? childName;
 
@@ -31,8 +27,7 @@ const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
 const String kStudentRole = 'STUDENT';
 
-// One flow per account, holding the blocks of every role the account has. The
-// password change comes before this list, on its own page, and is not counted.
+// The password change precedes this list on its own page and is not counted.
 List<OnboardingStep> onboardingStepsFor({
   required List<String> roles,
   required List<ChildItem> children,
@@ -44,7 +39,6 @@ List<OnboardingStep> onboardingStepsFor({
 
   if (roles.contains(kParentRole))
   {
-    // A child at a time, both of their screens before the next child's.
     for (final child in children)
     {
       for (final kind in const [
@@ -74,8 +68,6 @@ List<OnboardingStep> onboardingStepsFor({
   return steps;
 }
 
-// A minor who is a student and nothing else is shown their personal cards
-// only; anyone of age, and any minor with another role, is shown everything.
 bool includesAssociationCards({
   required bool isAdult,
   required List<String> roles,
@@ -89,9 +81,7 @@ bool includesAssociationCards({
   return roles.any((role) => role != kStudentRole);
 }
 
-// The fields a correction request can name. Residence is on the personal list
-// because the flow shows it without letting anyone change it; contacts are
-// not, because they are typed over directly.
+// Contacts are absent: they are edited directly, not reported.
 const List<String> kPersonalReportableFields = [
   'Nome',
   'Cognome',
@@ -107,8 +97,7 @@ const List<String> kPersonalReportableFields = [
   'CAP',
 ];
 
-// Keyed on the codes /auth/me hands out for the account, or on the ones the
-// register hands out for a child: the labels differ, the cards do not.
+// Accepts both /auth/me role codes and the register's Italian labels.
 List<String> associationReportableFields(List<String> roles)
 {
   final upper = roles.map((role) => role.toUpperCase()).toSet();

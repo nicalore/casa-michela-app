@@ -34,8 +34,7 @@ def identity_of(
     )
 
 
-# Band locks FK onto administrators, so this identity must exist as a row;
-# _seed_administrator creates it in every test's transaction.
+# Band locks FK onto administrators: _seed_administrator creates this row per test.
 ADMIN_TAX_CODE = "AAAAAA00A01A999E"
 
 ADMIN_IDENTITY = identity_of(ADMIN_TAX_CODE, "ADMIN")
@@ -64,8 +63,7 @@ def _create_database_if_missing() -> None:
             connection.execute(f'CREATE DATABASE "{_TEST_DB}"')
 
 
-# Dedicated test database; schema built via migrations (not create_all) so
-# every run exercises them and matches production exactly.
+# Dedicated test database built via migrations, not create_all, to match production.
 @pytest.fixture(scope="session", autouse=True)
 def _database() -> None:
     _create_database_if_missing()
@@ -82,8 +80,7 @@ def _database() -> None:
     )
 
 
-# The API tests mount the real app, so without this every run would append to
-# the production audit log under backend/logs/.
+# The real app is mounted: without this every run appends to backend/logs/ audit log.
 @pytest.fixture(autouse=True)
 def audit_log(tmp_path: Path) -> Path:
     directory = tmp_path / "audit"
@@ -106,8 +103,7 @@ def audit_lines(directory: Path) -> list[str]:
     return [line for line in lines[1:] if line]
 
 
-# One engine per test: pytest-asyncio gives each test its own event loop, and
-# a pooled connection opened in one loop cannot be reused from the next.
+# One engine per test: a pooled connection cannot cross pytest-asyncio's per-test loops.
 @pytest_asyncio.fixture
 async def engine(_database: None):
     engine = create_async_engine(
@@ -121,8 +117,7 @@ async def engine(_database: None):
     await engine.dispose()
 
 
-# Outer transaction rolled back per test; create_savepoint makes the services'
-# commit() release a savepoint instead of ending the outer transaction.
+# Outer transaction rolled back per test; create_savepoint makes commit() a savepoint.
 @pytest_asyncio.fixture
 async def db(engine) -> AsyncIterator[AsyncSession]:
     async with engine.connect() as connection:

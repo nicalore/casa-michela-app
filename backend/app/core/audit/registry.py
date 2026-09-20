@@ -34,13 +34,17 @@ def _crud(
 
 
 AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
-    # Entities keyed by a surrogate id.
     **_crud(
         "/association-subjects",
         "Association subject",
         "subject_id",
         body_fields=("name",),
     ),
+    ("POST", "/association-subjects/report-missing"): AuditRule(
+        "Missing subject report",
+        body_fields=("name",),
+    ),
+    ("POST", "/support/report-problem"): AuditRule("Problem report"),
     **_crud(
         "/ministry-subjects",
         "Ministry subject",
@@ -155,8 +159,6 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Teacher readmission",
         path_params=("exclusion_date", "band", "teacher_tax_code"),
     ),
-    # People: one label per operation, where a single "Person creation" and a
-    # single "Person modification" used to cover five and six routes.
     ("POST", "/people/wizard/"): AuditRule(
         "Person creation",
         response_field="tax_code",
@@ -180,6 +182,10 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
     ("PUT", "/people/{tax_code}"): AuditRule(
         "Person modification",
+        path_params=("tax_code",),
+    ),
+    ("PUT", "/people/{tax_code}/contacts"): AuditRule(
+        "Contacts modification",
         path_params=("tax_code",),
     ),
     ("PUT", "/people/{tax_code}/school-enrollments"): AuditRule(
@@ -227,8 +233,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Not preferred teachers modification",
         path_params=("tax_code",),
     ),
-    # Auth: the actor is whoever the request claims to be, since none of these
-    # necessarily carry a bearer token.
+    # Auth: the actor is whoever the request claims, as no bearer token is guaranteed.
     ("POST", "/auth/login"): AuditRule(
         "Authentication",
         actor_fallback=ActorSource.BODY_USERNAME,
@@ -262,8 +267,7 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
 }
 
-# The lock is editor bookkeeping on a timer, not an act on the data: auditing
-# it would bury every real entry.
+# The lock is timer-driven editor bookkeeping: auditing it would bury every real entry.
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),

@@ -18,12 +18,19 @@ const double _nestedLabelInset = 32;
 
 const double _labelTrailingInset = 14;
 
+const double _unavailableAlpha = 0.55;
+
 class RailGroup
 {
   final String? title;
   final List<String> entries;
 
-  const RailGroup({this.title, required this.entries});
+  // Listed but not built yet: muted and unclickable.
+  final Set<String> unavailable;
+
+  const RailGroup({this.title, required this.entries, this.unavailable = const {}});
+
+  bool isAvailable(String entry) => !unavailable.contains(entry);
 }
 
 String railEntryAt(List<RailGroup> groups, int index)
@@ -82,6 +89,7 @@ class AppSectionRail extends StatelessWidget
 
     final children = <Widget>[];
 
+    // Untitled groups keep the same rhythm, told apart by inset alone.
     for (final group in groups)
     {
       final groupTitle = group.title;
@@ -89,10 +97,6 @@ class AppSectionRail extends StatelessWidget
       if (groupTitle != null)
       {
         children.add(AppRailHeading(groupTitle));
-      }
-      else if (children.isNotEmpty)
-      {
-        children.add(const SizedBox(height: 16));
       }
 
       for (final entry in group.entries)
@@ -103,6 +107,7 @@ class AppSectionRail extends StatelessWidget
           label: entry,
           nested: groupTitle != null,
           selected: index == selectedIndex,
+          enabled: group.isAvailable(entry),
           onTap: () => onSelected(index),
         ));
       }
@@ -168,6 +173,10 @@ class AppRailEntry extends StatefulWidget
   final String label;
   final bool nested;
   final bool selected;
+
+  // False for an entry not built yet: paler, no mark, deaf to the pointer.
+  final bool enabled;
+
   final VoidCallback onTap;
 
   const AppRailEntry({
@@ -175,6 +184,7 @@ class AppRailEntry extends StatefulWidget
     required this.label,
     required this.nested,
     required this.selected,
+    this.enabled = true,
     required this.onTap,
   });
 
@@ -186,10 +196,80 @@ class _AppRailEntryState extends State<AppRailEntry>
 {
   bool _hover = false;
 
+  Color get _labelColor
+  {
+    if (!widget.enabled)
+    {
+      return AppTheme.trialMutedText.withValues(alpha: _unavailableAlpha);
+    }
+
+    return widget.selected || _hover ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
+  }
+
   @override
   Widget build(BuildContext context)
   {
-    final marked = widget.selected || _hover;
+    final marked = widget.enabled && (widget.selected || _hover);
+
+    final Widget entry = SizedBox(
+      height: _entryHeight,
+      child: Stack(
+        children: [
+          Positioned(
+            left: _markInset,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: marked ? 1 : 0),
+                duration: _markFade,
+                curve: Curves.easeOut,
+                builder: (context, factor, child) => Transform.scale(
+                  scaleY: factor,
+                  alignment: Alignment.center,
+                  child: child,
+                ),
+                child: Container(
+                  width: _markWidth,
+                  height: _markHeight,
+                  decoration: BoxDecoration(
+                    color: AppTheme.trialGold,
+                    borderRadius: BorderRadius.circular(_markWidth),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: widget.nested ? _nestedLabelInset : _labelInset,
+              right: _labelTrailingInset,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OverflowTooltipText(
+                text: widget.label,
+                maxLines: 1,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
+                  color: _labelColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!widget.enabled)
+    {
+      return Tooltip(
+        waitDuration: const Duration(milliseconds: 400),
+        message: 'In arrivo',
+        child: entry,
+      );
+    }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -198,58 +278,7 @@ class _AppRailEntryState extends State<AppRailEntry>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        child: SizedBox(
-          height: _entryHeight,
-          child: Stack(
-            children: [
-              Positioned(
-                left: _markInset,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0, end: marked ? 1 : 0),
-                    duration: _markFade,
-                    curve: Curves.easeOut,
-                    builder: (context, factor, child) => Transform.scale(
-                      scaleY: factor,
-                      alignment: Alignment.center,
-                      child: child,
-                    ),
-                    child: Container(
-                      width: _markWidth,
-                      height: _markHeight,
-                      decoration: BoxDecoration(
-                        color: AppTheme.trialGold,
-                        borderRadius: BorderRadius.circular(_markWidth),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                  left: widget.nested ? _nestedLabelInset : _labelInset,
-                  right: _labelTrailingInset,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: OverflowTooltipText(
-                    text: widget.label,
-                    maxLines: 1,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
-                      fontWeight: widget.selected ? FontWeight.w700 : FontWeight.w500,
-                      color: widget.selected || _hover
-                          ? AppTheme.trialTealDeep
-                          : AppTheme.trialMutedText,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: entry,
       ),
     );
   }

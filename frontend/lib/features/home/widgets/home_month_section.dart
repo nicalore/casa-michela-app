@@ -8,17 +8,13 @@ import '../../../core/utils/money.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../models/month_summary_items.dart';
 
-// How a figure is written: a number, a figure the backend cannot give yet, or
-// a column kept for a sibling's sake with nothing in it.
 enum HomeFigureTone { plain, pending, absent }
 
-// How a figure moved against the month before, up to the same day.
 class HomeDelta
 {
-  // "+2 giorni", "−0.5 ore", "€ 40,00"; "Stabile" when nothing moved.
   final String text;
 
-  // Positive up, negative down, zero still.
+  // 1 up, -1 down, 0 still.
   final int direction;
 
   const HomeDelta({required this.text, required this.direction});
@@ -26,16 +22,13 @@ class HomeDelta
   static const HomeDelta still = HomeDelta(text: 'Stabile', direction: 0);
 }
 
-// One figure on the month card.
 class HomeFigure
 {
   final String label;
   final String value;
 
-  // Written after the value, in its own type: "5 giorni".
   final String unit;
 
-  // Under the value, the warning if there is one, else the move.
   final String? warning;
   final HomeDelta? delta;
 
@@ -54,13 +47,11 @@ class HomeFigure
 
   bool get pending => tone == HomeFigureTone.pending;
 
-  // A word rather than a number is written smaller, so it fits its slot.
   bool get isWord => value.contains(RegExp(r'[a-zA-Z]'));
 
   String get text => unit.isEmpty ? value : '$value $unit';
 }
 
-// A person's figures; named only when the card speaks for several people.
 class HomeFigureGroup
 {
   final String name;
@@ -69,8 +60,6 @@ class HomeFigureGroup
   const HomeFigureGroup({required this.name, required this.figures});
 }
 
-// Hours as a number, since the note under it says they are hours: 90
-// minutes read 1.5, a quarter 0.25.
 String _hours(int minutes)
 {
   final String text = (minutes / 60).toStringAsFixed(2);
@@ -78,13 +67,11 @@ String _hours(int minutes)
   return text.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
-// Units agree with their number: one day, half a day, two days.
 String _days(num count) => count == 1 ? 'giorno' : 'giorni';
 
 String _hoursUnit(num count) => count == 1 ? 'ora' : 'ore';
 
-// A signed move, "+2 giorni" or "−1 ora"; the minus is the typographic one.
-// The unit is asked of the amount moved, so it agrees with it.
+// The minus is the typographic one (U+2212).
 HomeDelta _delta(
   num change,
   String Function(num) write, {
@@ -116,13 +103,10 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
       ? null
       : parseAmountCents(last.grossCompensation!);
 
-  // A tenth of a day is the finest the average is written in.
   final int weeklyTenths =
       (month.weeklyAvailabilities * 10).round() - (last.weeklyAvailabilities * 10).round();
 
   return [
-    // Four in a row at half a page leaves each label about a hundred
-    // pixels: the words are kept short enough to stand on one line.
     HomeFigure(
       label: 'Disponibilità',
       value: '${month.totalAvailabilities}',
@@ -155,7 +139,6 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
         unit: (change) => _hoursUnit(change / 60),
       ),
     ),
-    // Only a paid collaboration has an hourly rate to multiply.
     if (cents != null)
       HomeFigure(
         label: 'Compenso',
@@ -165,8 +148,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
   ];
 }
 
-// How the pupil's hours are paid for. A package will show the hours left
-// in it once the backend keeps count; until then it says so.
+// Package hours left await backend support.
 HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
 {
   if (figures.hasPackage)
@@ -191,8 +173,6 @@ HomeFigure _tariffFigure(PupilMonthFiguresItem figures)
   return const HomeFigure(label: 'Modalità', value: '—', tone: HomeFigureTone.absent);
 }
 
-// withTariff is for whoever answers for the pupil's hours: a parent, or a
-// pupil nobody answers for.
 List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool withTariff})
 {
   return [
@@ -201,9 +181,8 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
       value: '${figures.totalPresences}',
       unit: _days(figures.totalPresences),
     ),
-    // Looking ahead where the presences look back: the rest of the month.
     HomeFigure(
-      label: 'Prenotate',
+      label: 'Prenotazioni',
       value: '${figures.bookedPresences}',
       unit: _days(figures.bookedPresences),
     ),
@@ -216,9 +195,6 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
   ];
 }
 
-// Type grows with the room a tile has: two to a row the figures are
-// written large, three smaller, four smaller still and closer together, so
-// that at half a page "€ 187,50" and "0.5 giorni" stand whole.
 class _TileScale
 {
   static const double label = 11;
@@ -232,7 +208,6 @@ class _TileScale
   final double unit;
   final double warning;
 
-  // Vertical and horizontal padding, and the gap between tiles.
   final double padding;
   final double side;
   final double gap;
@@ -263,16 +238,13 @@ class _TileScale
     return columns <= 2 ? _wide : _narrow;
   }
 
-  // Every line is kept single, so a tile's height follows from the scale.
-  // Warnings are a teacher's alone, and a teacher's card never scrolls.
+  // Ignores the warning line: only teacher cards warn, and those never scroll.
   double get tileHeight => 2 * (padding + border) + label * lineHeight + labelGap + value;
 }
 
 class HomeMonthSection extends StatelessWidget
 {
-  // Minimum widths for four and three figures per row. Four tiles of the
-  // quad scale need 125 each for "€ 187,50" to stand unshrunk; half a page
-  // at the widest gives 553 inside the card.
+  // Four quad-scale tiles need 125 each for "€ 187,50" unshrunk; half a page gives 553.
   static const double _fourInARowFrom = 530;
   static const double _threeInARowFrom = 380;
 
@@ -280,14 +252,11 @@ class HomeMonthSection extends StatelessWidget
   static const double _nameGap = 10;
   static const double _groupGap = 22;
 
-  // Past two people the card stops growing and scrolls, the third's name
-  // just showing under the fold.
+  // Past two people the card scrolls, the third's name peeking under the fold.
   static const int _scrollPast = 2;
   static const double _peek = 26;
 
-  // Every figure of a person on one row where the card is wide enough; no
-  // tile is left without a neighbour otherwise: four go two by two rather
-  // than three and one.
+  // Four figures go two by two rather than three and one.
   static int columnsFor({required double width, required List<HomeFigureGroup> groups})
   {
     final int most = width >= _fourInARowFrom
@@ -311,16 +280,14 @@ class HomeMonthSection extends StatelessWidget
     return math.min(figures, most);
   }
 
-  // Null when the month could not be read; empty when there is nobody to
-  // sum up, as for a parent with no child linked.
+  // Null when the month could not be read; empty when there is nobody to sum up.
   final List<HomeFigureGroup>? groups;
 
   final bool isLoading;
 
   final String title;
 
-  // Set by the page: a LayoutBuilder here cannot report a height inside a
-  // row of equal-height cards.
+  // Set by the page: a LayoutBuilder cannot report a height inside a row of equal-height cards.
   final int columns;
 
   const HomeMonthSection({
@@ -331,8 +298,6 @@ class HomeMonthSection extends StatelessWidget
     this.columns = 2,
   });
 
-  // As tall as its content and no taller: the card under it takes the rest
-  // of the column.
   @override
   Widget build(BuildContext context)
   {
@@ -413,9 +378,7 @@ class HomeMonthSection extends StatelessWidget
     return people;
   }
 
-  // A partial last row keeps normal-width tiles rather than stretching them.
-  // Where one figure of a row carries a warning its neighbours keep the line
-  // for it, so labels and figures sit level; a row without one stays short.
+  // A partial last row is not stretched; a warned figure makes its whole row keep the aside line.
   Widget _grid(List<HomeFigure> figures, _TileScale scale)
   {
     final List<Widget> rows = [];
@@ -501,8 +464,6 @@ class _FigureTile extends StatelessWidget
   final HomeFigure figure;
   final _TileScale scale;
 
-  // Room for the line under the value even when this figure has none, to
-  // match the row.
   final bool keepsAsideLine;
 
   const _FigureTile({
@@ -524,8 +485,6 @@ class _FigureTile extends StatelessWidget
       HomeFigureTone.absent => AppTheme.trialMutedText,
     };
 
-    // Every line stays single and shrinks before it wraps or is cut, so the
-    // figures of a row sit on one line whatever their labels say.
     Widget line(Widget text) => Align(
           alignment: Alignment.centerLeft,
           child: FittedBox(fit: BoxFit.scaleDown, child: text),
@@ -543,8 +502,6 @@ class _FigureTile extends StatelessWidget
       ),
     ));
 
-    // The unit follows the figure on its baseline, smaller and quieter, as
-    // the mode follows the hours on the day card: "5 giorni".
     final Widget value = line(Text.rich(
       TextSpan(
         children: [
@@ -572,9 +529,7 @@ class _FigureTile extends StatelessWidget
       maxLines: 1,
     ));
 
-    // Under the value: the warning, else the move against last month. Icon
-    // and text centred on one another: the text's box is exactly its type
-    // size, so the middle of the box is the middle of the glyphs.
+    // Text height 1 makes its box the type size, so it centres on the icon.
     final HomeDelta? delta = figure.delta;
 
     final (IconData, Color, String)? aside = warned

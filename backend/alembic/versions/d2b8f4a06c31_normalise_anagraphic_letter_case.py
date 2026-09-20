@@ -17,8 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-# Copied rather than imported: a migration must keep behaving the way it did
-# the day it ran, whatever app.core.text_case grows into later.
+# Copied, not imported: a migration must not follow app.core.text_case's later changes.
 def _title_case(value: str) -> str:
     characters: list[str] = []
     after_letter = False
@@ -65,9 +64,7 @@ _SENTENCE_CASE: dict[str, tuple[str, ...]] = {
 }
 
 
-# One statement per distinct value, not per row: the register holds far more
-# rows than spellings, and no table here has a single-column primary key to
-# address the rows by anyway.
+# One UPDATE per distinct value, not per row: no table here has a single-column PK.
 def _rewrite(column: str, table: str, shape: Callable[[str], str]) -> None:
     connection = op.get_bind()
 

@@ -212,8 +212,7 @@ async def test_competence_is_read_against_the_pupils_programme(
     await make_competence(db, teacher, subject, taught_programme)
     await make_enrollment(db, student, other_programme)
 
-    # The (discipline, programme) check only applies when the discipline is in
-    # the pupil's programme; otherwise it falls back to the discipline alone.
+    # The (discipline, programme) pair applies only inside the pupil's programme.
     await make_discipline_in_programme(db, subject, other_programme)
 
     availability, booking = await _hour_for(db, teacher, student, subject)
@@ -297,56 +296,22 @@ async def test_a_pupil_with_no_school_is_checked_on_the_discipline_alone(
     assert lesson.start_time == _LESSON_START
 
 
-async def test_a_group_hour_needs_the_competence_on_every_programme(
-    db: AsyncSession,
-) -> None:
-    teacher = await make_teacher(db)
-    subject = await make_discipline(db)
-
-    taught = await make_study_program(db)
-    other = await make_study_program(db)
-
-    await make_competence(db, teacher, subject, taught)
-    await make_discipline_in_programme(db, subject, taught)
-    await make_discipline_in_programme(db, subject, other)
-
-    availability = await make_availability(
-        db,
-        teacher,
-        day=DAY,
-        start_time=_OPEN_FROM,
-        end_time=_OPEN_TO,
-    )
-
-    bookings = []
-
-    for programme in (taught, other):
-        student = await make_student(db)
-        await make_enrollment(db, student, programme)
-
-        presence = await make_presence(
-            db,
-            student,
-            day=DAY,
-            start_time=_OPEN_FROM,
-            end_time=_OPEN_TO,
-        )
-        bookings.append(
-            await make_booking(db, presence, association_subject_id=subject.id),
-        )
+async def test_a_lesson_holds_a_single_pupil(db: AsyncSession) -> None:
+    built = await scene(db)
+    other = await scene(db)
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
             ADMIN_IDENTITY,
-            lesson_payload(
-                availability,
-                booking_ids=[booking.id for booking in bookings],
-                association_subject_ids=[subject.id],
+            payload(
+                built,
+                booking_ids=[built.booking.id, other.booking.id],
+                association_subject_ids=[built.subject_id, other.subject_id],
             ),
         )
 
     assert error.value.status_code == 400
-    assert "competenza" in error.value.detail
+    assert "un solo studente" in error.value.detail
 
 
 async def test_a_lesson_is_created(db: AsyncSession) -> None:
@@ -382,6 +347,51 @@ async def test_a_lesson_must_fit_the_pupils_hours(db: AsyncSession) -> None:
 
     assert error.value.status_code == 400
     assert "ore di" in error.value.detail
+
+
+# The booking is typed under one stretch, but the pupil is around for both.
+async def test_a_lesson_may_sit_in_any_stretch_of_the_pupils_day(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db)
+    built.presence.end_time = time(15, 45)
+    await db.flush()
+    await make_presence(
+        db,
+        built.student,
+        day=DAY,
+        start_time=time(17),
+        end_time=time(19),
+    )
+
+    lesson, _ = await service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(17), end=time(18)),
+    )
+
+    assert lesson.start_time == time(17)
+
+
+async def test_a_lesson_may_not_straddle_two_stretches(db: AsyncSession) -> None:
+    built = await scene(db)
+    built.presence.end_time = time(15, 45)
+    await db.flush()
+    await make_presence(
+        db,
+        built.student,
+        day=DAY,
+        start_time=time(17),
+        end_time=time(19),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await service(db).create(
+            ADMIN_IDENTITY,
+            payload(built, start=time(15), end=time(17, 30)),
+        )
+
+    assert error.value.status_code == 400
+    assert "14:00 - 15:45, 17:00 - 19:00" in error.value.detail
 
 
 async def test_a_teacher_may_take_two_pupils_at_once(db: AsyncSession) -> None:
@@ -566,18 +576,27 @@ async def test_a_teacher_at_home_cannot_take_a_pupil_in_the_building(
     assert "da casa" in error.value.detail
 
 
-async def test_pupils_in_one_lesson_must_share_a_mode(db: AsyncSession) -> None:
+# The same pupil, booked both in the building and from home the same day.
+async def test_a_lesson_must_stay_in_one_mode(db: AsyncSession) -> None:
     built = await scene(db)
-    other = await scene(db, student_mode="online")
+    at_home = await make_presence(
+        db,
+        built.student,
+        day=DAY,
+        start_time=_OPEN_FROM,
+        end_time=_OPEN_TO,
+        mode="online",
+    )
+    second = await make_booking(
+        db,
+        at_home,
+        association_subject_id=built.subject_id,
+    )
 
     with pytest.raises(HTTPException) as error:
         await service(db).create(
             ADMIN_IDENTITY,
-            payload(
-                built,
-                booking_ids=[built.booking.id, other.booking.id],
-                association_subject_ids=[built.subject_id, other.subject_id],
-            ),
+            payload(built, booking_ids=[built.booking.id, second.id]),
         )
 
     assert error.value.status_code == 400

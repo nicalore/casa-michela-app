@@ -1,23 +1,32 @@
 import shutil
-import unicodedata
+from collections import defaultdict
+from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Final
-from urllib.parse import quote
 
 import resend
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import StringConstraints
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql.base import ExecutableOption
 
 from app.api.dependencies import DbSession
-from app.api.rbac import CurrentIdentity
+from app.api.rbac import CurrentIdentity, require_role
 from app.core import field_lengths
 from app.core.booking_window import today_in_rome
 from app.core.config import settings
+from app.core.downloads import inline_disposition
 from app.core.labels import (
     roman_numeral,
     translate_collaboration_type,
@@ -26,13 +35,17 @@ from app.core.labels import (
 from app.core.optimistic_concurrency import assert_not_stale
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.models.administrator import Administrator, AdministratorRoleEnum
+from app.models.booking import Booking
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
+from app.models.lesson_booking import LessonBooking
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
+from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import GenderEnum, Person
+from app.models.presence import Presence
 from app.models.psychological_support import PsychologicalSupport
 from app.models.psychologist import Psychologist
 from app.models.school_enrollment import SchoolEnrollment
@@ -41,9 +54,11 @@ from app.models.service import Service
 from app.models.staff import CollaborationTypeEnum, Staff
 from app.models.student import CertificationTypeEnum, Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.repositories.lesson_repository import LessonRepository
 from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
@@ -75,6 +90,7 @@ from app.schemas.person import (
     TeacherUpdateData,
 )
 from app.schemas.person_wizard import PersonWizardPayload
+from app.services import email_service
 from app.services.early_exit_form import (
     build_early_exit_form,
     early_exit_form_file_name,
@@ -90,7 +106,11 @@ from app.services.person_wizard_service import (
     create_person_from_wizard,
 )
 from app.services.role_service import RoleService
-from app.services.teaching_competence import replace_competences, replace_services
+from app.services.teaching_competence import (
+    lacks_competence,
+    replace_competences,
+    replace_services,
+)
 
 router = APIRouter(prefix="/people", tags=["people"])
 
@@ -162,6 +182,40 @@ _NO_EARLY_EXIT_ERROR: Final[str] = (
     "La persona non ha un'uscita anticipata autorizzata."
 )
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
+_PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
+
+_WHO_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "fiscal_code",
+        "first_name",
+        "last_name",
+        "roles",
+        "created_at",
+        "profile_image_url",
+        "gender",
+        "birth_date",
+    },
+)
+
+# A teacher's view of a pupil: identity and schooling, nothing of the household.
+_TEACHER_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
+    "education_level",
+    "school_name",
+    "school_class",
+    "study_program",
+    "school_enrollments",
+    "certification_types",
+    "certification_other_detail",
+    "certification_dsa_detail",
+}
+
+# What a pupil, or their parent, is told about a teacher who teaches them.
+_PUPIL_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
+    "school_education",
+    "university_education",
+    "taught_subjects",
+    "teacher_subjects",
+}
 _TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
     "La modifica del Codice Fiscale non è consentita per preservare "
     "l'integrità dei dati storici."
@@ -192,6 +246,10 @@ _UPDATE_SUCCESS_MESSAGE: Final[str] = "Anagrafica aggiornata con successo"
 _MAX_PARENTS: Final[int] = 2
 
 _NO_STUDENT_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da studente."
+_STUDENT_HAS_LESSONS_ERROR: Final[str] = (
+    "Impossibile rimuovere il profilo studente: ha prenotazioni già abbinate "
+    "a lezioni in calendario."
+)
 _NO_MEMBER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da associato."
 _NO_TEACHER_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da docente."
 _NO_PARENT_PROFILE_ERROR: Final[str] = (
@@ -220,8 +278,7 @@ _MEMBERSHIP_ALREADY_REVOKED_ERROR: Final[str] = (
     "L'iscrizione per l'anno corrente risulta già revocata."
 )
 _EMPTY_COMPETENCES_ERROR: Final[str] = (
-    "Impossibile svuotare le discipline. Un docente deve insegnare almeno una "
-    "materia o seguire almeno un servizio."
+    "Un docente deve insegnare almeno una disciplina."
 )
 _UNKNOWN_SERVICES_ERROR: Final[str] = "Alcuni servizi indicati non esistono: {names}."
 
@@ -266,8 +323,6 @@ _FORBIDDEN_CONTACTS_ERROR: Final[str] = (
 _REPORT_EMAIL_SENDER: Final[str] = (
     "Associazione Casa Michela <supporto@app.casamichela.it>"
 )
-# Used only when no president is on record, or the one on record has no email.
-_REPORT_EMAIL_FALLBACK_RECIPIENT: Final[str] = "nicolo.calore@casamichela.it"
 _REPORT_EMAIL_SUBJECT: Final[str] = "Richiesta correzione anagrafica - {full_name}"
 
 _REPORT_FIELD_TEMPLATE: Final[str] = """
@@ -430,8 +485,10 @@ def _map_teacher_subjects(
             TeacherProgramResponse.model_validate(competence.study_program)
         )
 
+    # The relationship carries no order; sorted by name like taught_subjects.
     teacher_subjects = [
-        TeacherSubjectResponse(**data) for data in subjects_by_id.values()
+        TeacherSubjectResponse(**data)
+        for data in sorted(subjects_by_id.values(), key=lambda d: d["subject_name"])
     ]
 
     return sorted(subject_names), teacher_subjects
@@ -766,7 +823,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         .joinedload(SchoolEnrollment.school_study_program)
     )
 
-    # selectinload, not joinedload: a second collection on the row would multiply the join.
+    # selectinload, not joinedload: a second collection would multiply the join.
     early_exit_schedules = (
         joinedload(Person.member_profile)
         .joinedload(Member.student_profile)
@@ -1088,7 +1145,25 @@ async def _sync_student_profile(
         )
 
 
+# A booked lesson is DB-protected: the profile cannot go until the calendar lets it.
+async def _assert_student_has_no_lessons(db: AsyncSession, person: Person) -> None:
+    scheduled = await db.scalar(
+        select(func.count())
+        .select_from(LessonBooking)
+        .join(Booking, Booking.id == LessonBooking.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+        .where(Presence.student_tax_code == person.tax_code)
+    )
+
+    if scheduled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_STUDENT_HAS_LESSONS_ERROR,
+        )
+
+
 async def _delete_student_profile(db: AsyncSession, person: Person) -> None:
+    await _assert_student_has_no_lessons(db, person)
     await db.execute(
         delete(EarlyExitSchedule).where(
             EarlyExitSchedule.student_tax_code == person.tax_code
@@ -1445,16 +1520,158 @@ async def get_people(
     ]
 
 
+def _view(full: PersonResponse, fields: frozenset[str]) -> PersonResponse:
+    return PersonResponse(**full.model_dump(include=fields))
+
+
+# (programme of the latest enrolment, disciplines that programme holds).
+_PupilProgramme = tuple[int | None, frozenset[int]]
+
+
+async def _pupil_programmes(
+    db: AsyncSession,
+    tax_codes: Collection[str],
+) -> list[_PupilProgramme]:
+    if not tax_codes:
+        return []
+
+    rows = (
+        await db.execute(
+            select(
+                SchoolEnrollment.student_tax_code,
+                SchoolEnrollment.study_program_id,
+                SchoolEnrollment.start_year,
+            ).where(SchoolEnrollment.student_tax_code.in_(tax_codes)),
+        )
+    ).all()
+
+    latest: dict[str, tuple[int, int]] = {}
+
+    for student_tax_code, study_program_id, start_year in rows:
+        current = latest.get(student_tax_code)
+
+        if current is None or start_year > current[1]:
+            latest[student_tax_code] = (study_program_id, start_year)
+
+    programmes = {programme for programme, _ in latest.values()}
+    within: dict[int, set[int]] = defaultdict(set)
+
+    if programmes:
+        within_rows = (
+            await db.execute(
+                select(
+                    StudyProgramSubject.study_program_id,
+                    MinistryAssociationSubject.association_subject_id,
+                )
+                .join(
+                    MinistryAssociationSubject,
+                    MinistryAssociationSubject.ministry_subject_id
+                    == StudyProgramSubject.ministry_subject_id,
+                )
+                .where(StudyProgramSubject.study_program_id.in_(programmes)),
+            )
+        ).all()
+
+        for programme, subject_id in within_rows:
+            within[programme].add(subject_id)
+
+    return [
+        (programme, frozenset(within.get(programme, ())))
+        for programme, _ in (latest.get(code, (None, 0)) for code in tax_codes)
+    ]
+
+
+# Calendar rule: a discipline on the pupil's programme needs that programme's
+# competence, any other needs any competence at all.
+def _teachable_subject_ids(
+    teacher: Teacher,
+    pupils: Sequence[_PupilProgramme],
+) -> set[int]:
+    granted = {
+        (competence.association_subject_id, competence.study_program_id)
+        for competence in teacher.teaching_competences
+    }
+    any_programme = {subject_id for subject_id, _ in granted}
+
+    if not pupils:
+        return any_programme
+
+    return {
+        subject_id
+        for subject_id in any_programme
+        if any(
+            not lacks_competence(
+                subject_id,
+                programmes=() if programme is None else (programme,),
+                within=within,
+                granted=granted,
+                any_programme=any_programme,
+            )
+            for programme, within in pupils
+        )
+    }
+
+
+def _catalogue_entry(
+    person: Person,
+    pupils: Sequence[_PupilProgramme],
+) -> PersonResponse:
+    teacher = person.member_profile.staff_profile.teacher_profile
+    allowed = _teachable_subject_ids(teacher, pupils)
+
+    full = _map_person_to_response(person, show_teacher_rating=False)
+    data = full.model_dump(include=_PUPIL_VIEW_FIELDS)
+
+    subjects = [
+        subject
+        for subject in data["teacher_subjects"] or []
+        if subject["subject_id"] in allowed
+    ]
+    data["teacher_subjects"] = subjects or None
+    data["taught_subjects"] = sorted(subject["subject_name"] for subject in subjects)
+
+    return PersonResponse(**data)
+
+
+# Whole staff in the reduced view, each with the disciplines teachable to the
+# reader's pupils. Declared before /{tax_code}, which would otherwise claim it.
+@router.get(
+    "/teachers",
+    response_model=list[PersonResponse],
+    dependencies=[Depends(require_role("STUDENT", "PARENT"))],
+)
+async def get_active_teachers(
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> list[PersonResponse]:
+    stmt = (
+        select(Person)
+        .join(Member, Member.tax_code == Person.tax_code)
+        .join(Staff, Staff.tax_code == Member.tax_code)
+        .join(Teacher, Teacher.tax_code == Staff.tax_code)
+        .where(Member.collaborating_active.is_(True))
+        .options(*_person_load_options())
+        .order_by(Person.first_name, Person.last_name)
+    )
+    people = (await db.execute(stmt)).unique().scalars().all()
+    pupils = await _pupil_programmes(db, identity.own_student_tax_codes)
+
+    return [_catalogue_entry(person, pupils) for person in people]
+
+
+# Own and children's records in full; a published lesson opens its pair, reduced.
 @router.get("/{tax_code}", response_model=PersonResponse)
 async def get_person(
     tax_code: str,
     identity: CurrentIdentity,
     db: DbSession,
 ) -> PersonResponse:
+    code = tax_code.upper()
+
     stmt = (
         select(Person)
         .options(*_person_load_options())
-        .where(Person.tax_code == tax_code.upper())
+        .where(Person.tax_code == code)
     )
     result = await db.execute(stmt)
     person = result.unique().scalar_one_or_none()
@@ -1465,7 +1682,31 @@ async def get_person(
             detail=_PERSON_NOT_FOUND_ERROR,
         )
 
-    return _map_person_to_response(person, show_teacher_rating=identity.is_admin)
+    full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
+
+    if (
+        identity.is_admin
+        or code == identity.tax_code
+        or code in identity.child_tax_codes
+    ):
+        return full
+
+    lessons = LessonRepository(db)
+
+    if "TEACHER" in identity.roles and await lessons.has_paired(
+        identity.tax_code,
+        code,
+    ):
+        return _view(full, _TEACHER_VIEW_FIELDS)
+
+    for pupil in identity.own_student_tax_codes:
+        if await lessons.has_paired(code, pupil):
+            return _view(full, _PUPIL_VIEW_FIELDS)
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=_PERSON_FORBIDDEN_ERROR,
+    )
 
 
 @router.put("/{tax_code}", status_code=status.HTTP_200_OK)
@@ -1895,18 +2136,6 @@ _ReportedValue = Annotated[
 ]
 
 
-# Corrections are read by whoever holds the register, which is the president.
-async def _report_recipient(db: AsyncSession) -> str:
-    email = await db.scalar(
-        select(Person.email)
-        .join(Administrator, Administrator.tax_code == Person.tax_code)
-        .where(Administrator.role == AdministratorRoleEnum.PRESIDENT)
-        .where(Person.email.is_not(None))
-    )
-
-    return email or _REPORT_EMAIL_FALLBACK_RECIPIENT
-
-
 @router.post("/{tax_code}/report-error", status_code=status.HTTP_200_OK)
 async def report_person_error(
     tax_code: str,
@@ -1927,7 +2156,7 @@ async def report_person_error(
         for field, value in corrections.items()
     )
 
-    recipient = await _report_recipient(db)
+    recipient = await email_service.president_address(db)
 
     try:
         resend.Emails.send(
@@ -2020,7 +2249,11 @@ async def wizard_enrollment_form(
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": _disposition(enrollment_form_file_name(payload))},
+        headers={
+            "Content-Disposition": inline_disposition(
+                enrollment_form_file_name(payload)
+            )
+        },
     )
 
 
@@ -2058,17 +2291,11 @@ async def _early_exit_form_response(payload: EnrollmentFormRequest) -> Response:
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": _disposition(early_exit_form_file_name(payload))
+            "Content-Disposition": inline_disposition(
+                early_exit_form_file_name(payload)
+            )
         },
     )
-
-
-# Both filename forms: an ASCII-folded quoted fallback plus the UTF-8 encoded one.
-def _disposition(file_name: str) -> str:
-    folded = unicodedata.normalize("NFKD", file_name).encode("ascii", "ignore").decode()
-    fallback = folded.replace('"', "").replace("\\", "")
-
-    return f'inline; filename="{fallback}"; filename*=UTF-8\'\'{quote(file_name)}'
 
 
 @router.get(
@@ -2109,7 +2336,11 @@ async def person_enrollment_form(
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": _disposition(enrollment_form_file_name(payload))},
+        headers={
+            "Content-Disposition": inline_disposition(
+                enrollment_form_file_name(payload)
+            )
+        },
     )
 
 
@@ -2334,9 +2565,8 @@ async def update_teacher_competences(
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
 
 
-# The payload is the pupil's whole list as of today. Withdrawn teachers keep
-# their row, closed today, so past rankings still see them; one added and
-# withdrawn the same day leaves nothing behind.
+# Whole list as of today; withdrawn rows are closed, not deleted, so past rankings
+# still see them (added and withdrawn the same day leaves nothing).
 @router.put("/{tax_code}/not-preferred-teachers", status_code=status.HTTP_200_OK)
 async def update_not_preferred_teachers(
     tax_code: str,
@@ -2346,8 +2576,9 @@ async def update_not_preferred_teachers(
 ) -> dict[str, str]:
     target = tax_code.upper()
     a_child = "PARENT" in identity.roles and target in identity.child_tax_codes
+    themself = "STUDENT" in identity.roles and target == identity.tax_code
 
-    if not (identity.is_admin or a_child):
+    if not (identity.is_admin or a_child or themself):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,
@@ -2357,7 +2588,15 @@ async def update_not_preferred_teachers(
         db,
         tax_code,
         joinedload(Person.member_profile).joinedload(Member.student_profile),
+        selectinload(Person.parental_relationships),
     )
+
+    # A pupil somebody answers for has their parents speak for them.
+    if not (identity.is_admin or a_child) and person.parental_relationships:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,
+        )
 
     member = person.member_profile
     student = member.student_profile if member else None
@@ -2463,9 +2702,7 @@ async def update_teacher_education(
     return {"message": _EDUCATION_UPDATED_MESSAGE}
 
 
-# Contacts go stale faster than anything else on a record, so the first access
-# lets people rewrite their own and their children's without a correction
-# request.
+# First access lets people rewrite their own and their children's contacts freely.
 @router.put("/{tax_code}/contacts", status_code=status.HTTP_200_OK)
 async def update_contacts(
     tax_code: str,

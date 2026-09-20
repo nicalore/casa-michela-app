@@ -12,8 +12,7 @@ down_revision = "b62f0a4c9d17"
 branch_labels = None
 depends_on = None
 
-# Renewal is open until 31 January, so 31 days, not 30. Only rows left on the old
-# default move: 0 means revoked and any other value was set by hand.
+# 31 days, not 30. Only rows on the old default move: 0 is revoked, others set by hand.
 _OLD = 30
 _NEW = 31
 

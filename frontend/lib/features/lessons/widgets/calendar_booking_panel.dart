@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
+import '../models/presence_item.dart';
 import '../models/schedulable_booking.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
@@ -23,15 +25,11 @@ const String kAddActivityLabel = 'AGGIUNGI ATTIVITÀ';
 const double _addHeight = 46;
 const double _denseAddHeight = 32;
 
-// Counted by request id, not by card: an unplanned request appears under every
-// stretch of hours the pupil gave in that mode.
 int openBookingCount(List<PresenceBookingGroup> groups)
 {
   return groups
       .expand((group) => group.bookings)
       .where((entry) => !entry.isFullyCovered)
-      .map((entry) => entry.id)
-      .toSet()
       .length;
 }
 
@@ -167,29 +165,29 @@ class _StudentHeader extends StatelessWidget
 
 class _PresenceBand extends StatelessWidget
 {
-  final PresenceBookingGroup group;
+  final PresenceItem presence;
 
-  const _PresenceBand({required this.group});
+  const _PresenceBand({required this.presence});
 
   @override
   Widget build(BuildContext context)
   {
-    final accent = lessonAccent(group.mode);
+    final accent = lessonAccent(presence.mode);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: lessonSurface(group.mode),
+        color: lessonSurface(presence.mode),
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
-          Icon(lessonModeIcon(group.mode), size: 14, color: accent),
+          Icon(lessonModeIcon(presence.mode), size: 14, color: accent),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              modeLabel(group.mode).toUpperCase(),
+              modeLabel(presence.mode).toUpperCase(),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
@@ -203,7 +201,7 @@ class _PresenceBand extends StatelessWidget
           ),
           const SizedBox(width: 8),
           Text(
-            group.hoursLabel,
+            formatTimeRange(presence.startTime, presence.endTime),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -281,7 +279,7 @@ class CalendarBookingPanel extends StatelessWidget
 
       if (open.isNotEmpty)
       {
-        filtered.add(PresenceBookingGroup(presence: group.presence, bookings: open));
+        filtered.add(PresenceBookingGroup(presences: group.presences, bookings: open));
       }
     }
 
@@ -446,7 +444,10 @@ class CalendarBookingPanel extends StatelessWidget
           _StudentHeader(student: student),
           for (final group in student.presences) ...[
             const SizedBox(height: 12),
-            _PresenceBand(group: group),
+            for (final (i, presence) in group.presences.indexed) ...[
+              if (i > 0) const SizedBox(height: 4),
+              _PresenceBand(presence: presence),
+            ],
             for (final entry in group.bookings) ...[
               const SizedBox(height: 8),
               _buildCard(entry),

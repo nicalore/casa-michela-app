@@ -143,8 +143,7 @@ class BandSchedule<T>
     _drop(of(bucket).removeAt(index));
   }
 
-  // Drag bounds keeping stretches from overlapping; neighbours are read off
-  // the clock, not the list order.
+  // Drag bounds; neighbours are read off the clock, not the list order.
   (int, int) boundsAt(TimeBucket bucket, OpeningWindow window, int index)
   {
     final stretches = of(bucket);
@@ -198,8 +197,7 @@ class BandSchedule<T>
     return null;
   }
 
-  // Merges touching/overlapping stretches within a band (14-15 + 15-17 becomes
-  // 14-17). The survivor adopts a departing stretch's stored row when it has none.
+  // Merges touching/overlapping stretches; the survivor adopts a departing stretch's stored row.
   void fuse()
   {
     for (final bucket in TimeBucket.values)
@@ -312,6 +310,12 @@ class BandScheduleField<T> extends StatelessWidget
   final String disabledLabel;
   final String offLabel;
 
+  // Per-band shut wording; disabledLabel when null.
+  final String Function(TimeBucket bucket)? disabledLabelFor;
+
+  // Rows in a shut band: shown, never edited or dropped.
+  final Map<TimeBucket, List<BandStretch<T>>> frozen;
+
   final String addLabel;
 
   final VoidCallback onChanged;
@@ -326,6 +330,8 @@ class BandScheduleField<T> extends StatelessWidget
     required this.onChanged,
     this.disabledLabel = 'Associazione chiusa',
     this.offLabel = 'Non indicato',
+    this.disabledLabelFor,
+    this.frozen = const {},
     this.addLabel = 'AGGIUNGI ORARIO',
   });
 
@@ -354,15 +360,20 @@ class BandScheduleField<T> extends StatelessWidget
   Widget _buildBand(TimeBucket bucket)
   {
     final window = windowFor(bucket);
-    final stretches = window == null ? const [] : schedule.of(bucket);
-    final gap = window == null || stretches.isEmpty ? null : schedule.firstGap(bucket, window);
+
+    if (window == null)
+    {
+      return _buildShut(bucket);
+    }
+
+    final stretches = schedule.of(bucket);
+    final gap = stretches.isEmpty ? null : schedule.firstGap(bucket, window);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Kept as the first child so answering the band does not rebuild the
-        // switch from scratch (its pill would appear instead of slide).
+        // First child, so answering the band does not rebuild the switch (its pill would appear, not slide).
         _buildStretch(bucket, window, 0),
         for (var index = 1; index < stretches.length; index++) ...[
           const SizedBox(height: 14),
@@ -373,28 +384,50 @@ class BandScheduleField<T> extends StatelessWidget
           AppAddRowButton(
             label: addLabel,
             dense: true,
-            onTap: () => _report(() => schedule.addStretch(bucket, window!)),
+            onTap: () => _report(() => schedule.addStretch(bucket, window)),
           ),
         ],
       ],
     );
   }
 
-  Widget _buildStretch(TimeBucket bucket, OpeningWindow? window, int index)
+  Widget _buildShut(TimeBucket bucket)
   {
-    if (window == null)
+    final held = frozen[bucket] ?? const [];
+
+    if (held.isEmpty)
     {
-      return BandTimeRangeSlider(
-        minimumMinutes: minimumMinutes,
-        bucket: bucket,
-        startTime: null,
-        endTime: null,
-        enabled: false,
-        disabledLabel: disabledLabel,
-        onChanged: (_, _) {},
-      );
+      return _buildHeld(bucket, null, 0);
     }
 
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < held.length; index++) ...[
+          if (index > 0) const SizedBox(height: 14),
+          _buildHeld(bucket, held[index], index),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildHeld(TimeBucket bucket, BandStretch<T>? stretch, int index)
+  {
+    return BandTimeRangeSlider(
+      minimumMinutes: minimumMinutes,
+      bucket: bucket,
+      nameOverride: index == 0 ? null : '',
+      startTime: stretch?.startTime,
+      endTime: stretch?.endTime,
+      enabled: false,
+      disabledLabel: disabledLabelFor?.call(bucket) ?? disabledLabel,
+      onChanged: (_, _) {},
+    );
+  }
+
+  Widget _buildStretch(TimeBucket bucket, OpeningWindow window, int index)
+  {
     final stretches = schedule.of(bucket);
 
     if (stretches.isEmpty)

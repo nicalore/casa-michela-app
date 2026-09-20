@@ -8,7 +8,6 @@ import '../models/person_item.dart';
 import '../models/teacher_subject_item.dart';
 import 'competence_picker.dart';
 
-// What the picker currently holds, in the shape the API takes.
 class TeacherCompetencesDraft
 {
   final List<Map<String, dynamic>> competences;
@@ -19,12 +18,12 @@ class TeacherCompetencesDraft
   bool get isEmpty => competences.isEmpty && services.isEmpty;
 }
 
-// The catalogue with its catalogue loaded and the teacher's choices in it:
-// the edit window and the first-access flow lay it out differently, but
-// pick from the same one.
 class TeacherCompetencesEditor extends StatefulWidget
 {
   final PersonItem person;
+
+  // True offers only competences not held yet; the draft then carries the additions alone.
+  final bool onlyNew;
 
   final ValueChanged<TeacherCompetencesDraft> onChanged;
 
@@ -35,6 +34,7 @@ class TeacherCompetencesEditor extends StatefulWidget
   const TeacherCompetencesEditor({
     super.key,
     required this.person,
+    this.onlyNew = false,
     required this.onChanged,
     required this.builder,
     this.scrollable = true,
@@ -68,12 +68,7 @@ class _TeacherCompetencesEditorState extends State<TeacherCompetencesEditor>
 
   List<StudyProgramItem> _findProgramsFor(AssociationSubjectItem subject)
   {
-    return _allPrograms
-        .where((program) => program.ministrySubjects.any(
-              (ministry) =>
-                  ministry.associationSubjects.any((assoc) => assoc.id == subject.id),
-            ))
-        .toList();
+    return _allPrograms.where((program) => program.teaches(subject.id)).toList();
   }
 
   Future<void> _loadAllData() async
@@ -91,24 +86,39 @@ class _TeacherCompetencesEditorState extends State<TeacherCompetencesEditor>
         return;
       }
 
+      final List<TeacherSubjectItem> held = widget.person.teacherSubjects ?? const [];
+      final List<String> heldServices = widget.person.teacherServices ?? const [];
+
+      final Set<int> heldIds = {for (final competence in held) competence.subjectId};
+
+      final subjects = results[0] as List<AssociationSubjectItem>;
+      final services = results[2] as List<ServiceItem>;
+
       setState(()
       {
-        _allSubjects = results[0] as List<AssociationSubjectItem>;
+        _allSubjects = widget.onlyNew
+            ? subjects.where((subject) => !heldIds.contains(subject.id)).toList()
+            : subjects;
         _allPrograms = results[1] as List<StudyProgramItem>;
-        _allServices = results[2] as List<ServiceItem>;
+        _allServices = widget.onlyNew
+            ? services.where((service) => !heldServices.contains(service.name)).toList()
+            : services;
 
         for (final subject in _allSubjects)
         {
           _programsBySubjectId[subject.id] = _findProgramsFor(subject);
         }
 
-        for (final competence in widget.person.teacherSubjects ?? <TeacherSubjectItem>[])
+        if (!widget.onlyNew)
         {
-          _isSubjectSelected[competence.subjectId] = true;
-          _programsBySubject[competence.subjectId] = competence.studyProgramIds.toSet();
-        }
+          for (final competence in held)
+          {
+            _isSubjectSelected[competence.subjectId] = true;
+            _programsBySubject[competence.subjectId] = competence.studyProgramIds.toSet();
+          }
 
-        _selectedServices.addAll(widget.person.teacherServices ?? const <String>[]);
+          _selectedServices.addAll(heldServices);
+        }
 
         _isLoading = false;
       });

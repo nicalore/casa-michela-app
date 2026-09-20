@@ -54,11 +54,11 @@ class BookingService:
         identity: IdentityContext,
         presence_id: int,
     ) -> Presence:
-        owner_tax_code = None if identity.is_admin else identity.tax_code
+        scope = None if identity.is_admin else identity.own_student_tax_codes
 
         presence = await self.presence_repository.get_by_id(
             presence_id,
-            owner_tax_code=owner_tax_code,
+            student_tax_codes=scope,
         )
 
         if presence is None:
@@ -204,10 +204,10 @@ class BookingService:
         date_from: date | None,
         date_to: date | None,
     ) -> Sequence[Booking]:
-        owner_tax_code = None if identity.is_admin else identity.tax_code
+        scope = None if identity.is_admin else identity.own_student_tax_codes
 
         return await self.repository.list(
-            owner_tax_code=owner_tax_code,
+            student_tax_codes=scope,
             presence_id=presence_id,
             date_from=date_from,
             date_to=date_to,
@@ -218,11 +218,11 @@ class BookingService:
         identity: IdentityContext,
         booking_id: int,
     ) -> Booking:
-        owner_tax_code = None if identity.is_admin else identity.tax_code
+        scope = None if identity.is_admin else identity.own_student_tax_codes
 
         booking = await self.repository.get_by_id(
             booking_id,
-            owner_tax_code=owner_tax_code,
+            student_tax_codes=scope,
         )
 
         if booking is None:

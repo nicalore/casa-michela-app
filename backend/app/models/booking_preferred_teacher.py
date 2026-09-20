@@ -25,8 +25,7 @@ _TOO_MANY_PREFERRED_TEACHERS_ERROR: Final[str] = (
 )
 
 
-# A preference, not an assignment. The teachers a pupil would rather not
-# have are kept on the pupil (StudentNotPreferredTeacher), not per booking.
+# A preference, not an assignment; avoided teachers live on StudentNotPreferredTeacher.
 class BookingPreferredTeacher(Base):
     __tablename__ = "booking_preferred_teachers"
 
@@ -72,8 +71,7 @@ def _validate_preferred_teachers_cap(
     for key, staged in staged_by_booking.items():
         merged = set(staged)
 
-        # Queried explicitly: relationship collections may be unbuilt or
-        # stale. Only stored bookings have rows to read.
+        # Queried explicitly: collections may be unbuilt or stale; stored bookings only.
         booking_id = stored_booking_id(key)
 
         if booking_id is not None:

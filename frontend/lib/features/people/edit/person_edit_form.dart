@@ -33,6 +33,11 @@ class PersonRoleOption
   });
 }
 
+// The registry's own code for a birthplace outside Italy.
+const String kBornAbroadProvince = 'EE';
+
+const String kBornInItalyNation = 'Italia';
+
 const Map<String, String> kCollaborationTypes = {
   'Volontario': 'VOLUNTEER',
   'Retribuito': 'PAID',
@@ -293,6 +298,9 @@ class PersonEditForm
   final TextEditingController birthProvinceCtrl = TextEditingController();
   final TextEditingController birthNationCtrl = TextEditingController();
 
+  // Creation only: abroad fixes the province to EE and frees the city.
+  bool bornAbroad = false;
+
   final TextEditingController streetTypeCtrl = TextEditingController();
   final TextEditingController streetNameCtrl = TextEditingController();
   final TextEditingController streetNumberCtrl = TextEditingController();
@@ -406,6 +414,7 @@ class PersonEditForm
 
     form.involvementType = involvement;
     form.selectedRoles.addAll(roles);
+    form.setBornAbroad(false);
 
     form.membershipRows.add(MembershipRowData.empty(
       year: now.year.toString(),
@@ -413,6 +422,13 @@ class PersonEditForm
     ));
 
     return form;
+  }
+
+  void setBornAbroad(bool value)
+  {
+    bornAbroad = value;
+    birthProvinceCtrl.text = value ? kBornAbroadProvince : '';
+    birthNationCtrl.text = value ? '' : kBornInItalyNation;
   }
 
   void _loadExisting()
@@ -432,6 +448,7 @@ class PersonEditForm
     birthCityCtrl.text = person.birthCity ?? '';
     birthProvinceCtrl.text = person.birthProvince ?? '';
     birthNationCtrl.text = person.birthNation ?? '';
+    bornAbroad = person.birthProvince == kBornAbroadProvince;
 
     streetTypeCtrl.text = person.residenceType ?? '';
     streetNameCtrl.text = person.address ?? '';
@@ -849,7 +866,6 @@ class PersonEditForm
     copiesResidence = false;
   }
 
-  // Shared by both payloads: the same fields travel on create and on update.
   Map<String, dynamic> earlyExitPayload({required bool authorized})
   {
     final bool limited = authorized && uscitaAnticipataPeriodoLimitato;
@@ -1123,7 +1139,7 @@ class PersonEditForm
         'tax_code': cfCtrl.text.trim().toUpperCase(),
         'gender': genderValue,
         'birth_date': toIsoDate(birthDateCtrl.text.trim()),
-        'birth_city': birthCityCtrl.text.trim(),
+        'birth_city': birthCityCtrl.text.isNotEmpty ? birthCityCtrl.text.trim() : null,
         'birth_province': birthProvinceCtrl.text.trim().toUpperCase(),
         'birth_nation': birthNationCtrl.text.trim(),
         'residence_type': streetTypeCtrl.text.trim(),
@@ -1332,7 +1348,7 @@ class PersonEditForm
         'tax_code': cfCtrl.text.trim().toUpperCase(),
         'gender': genderValue,
         'birth_date': toIsoDate(birthDateCtrl.text.trim()),
-        'birth_city': birthCityCtrl.text.trim(),
+        'birth_city': birthCityCtrl.text.isNotEmpty ? birthCityCtrl.text.trim() : null,
         'birth_nation': birthNationCtrl.text.trim(),
         'birth_province': birthProvinceCtrl.text.trim().toUpperCase(),
         'residence_type': streetTypeCtrl.text.trim(),

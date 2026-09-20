@@ -4,9 +4,7 @@ import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
 import 'section_placeholder_page.dart';
 
-// Where psychologists and course participants land: their role is recognised,
-// their area is not built yet. The user menu still opens, so they can log out
-// and, if they hold another role, switch to it.
+// Landing page for roles whose area is not built yet.
 class RoleUnavailablePage extends StatelessWidget
 {
   const RoleUnavailablePage({super.key});

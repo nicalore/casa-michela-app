@@ -37,25 +37,38 @@ const int _studyProgramsContentIndex = 3;
 const int _schoolsContentIndex = 4;
 const int _coursesContentIndex = 5;
 const int _roomsContentIndex = 6;
-const int _presenceHoursContentIndex = 7;
-const int _onlineHoursContentIndex = 8;
 
-// Order matches the IndexedStack below; the constants above index both.
-const List<RailGroup> _sections = [
-  RailGroup(
-    title: 'Didattica',
-    entries: [
-      'Servizi',
-      'Discipline interne',
-      'Materie ministeriali',
-      'Percorsi di studio',
-      'Scuole',
-    ],
-  ),
-  RailGroup(entries: ['Corsi']),
-  RailGroup(entries: ['Stanze']),
-  RailGroup(title: 'Orari', entries: ['In presenza', 'Online']),
-];
+// Past the notices; a board member's meetings push the hours one further.
+const int _hoursAfterRooms = 2;
+
+const String _meetings = 'Colloqui';
+const String _notices = 'Comunicazioni e avvisi';
+
+const RailGroup _teaching = RailGroup(
+  title: 'Didattica',
+  entries: [
+    'Servizi',
+    'Discipline interne',
+    'Materie ministeriali',
+    'Percorsi di studio',
+    'Scuole',
+  ],
+);
+
+const RailGroup _hours = RailGroup(title: 'Orari', entries: ['In presenza', 'Online']);
+
+// Order matches the PageSections below; the constants above index both.
+List<RailGroup> _sectionsFor({required bool onBoard})
+{
+  return [
+    _teaching,
+    RailGroup(
+      entries: ['Corsi', 'Stanze', if (onBoard) _meetings, _notices],
+      unavailable: {_meetings, _notices},
+    ),
+    _hours,
+  ];
+}
 
 class AssociationPage extends StatefulWidget
 {
@@ -72,8 +85,15 @@ class _AssociationPageState extends State<AssociationPage>
 
   int _selectedSection = _servicesContentIndex;
 
-  // Single source of truth for entities shared across tabs; setState here
-  // propagates to mounted tabs via didUpdateWidget.
+  late final bool _onBoard = _apiService.lastKnownIdentity?.boardRole != null;
+
+  late final List<RailGroup> _sections = _sectionsFor(onBoard: _onBoard);
+
+  int get _presenceHoursContentIndex => _roomsContentIndex + _hoursAfterRooms + (_onBoard ? 1 : 0);
+
+  int get _onlineHoursContentIndex => _presenceHoursContentIndex + 1;
+
+  // Shared entities; setState here reaches mounted tabs via didUpdateWidget.
   bool _isLoading = true;
   List<SchoolItem> _schools = [];
   List<StudyProgramItem> _studyPrograms = [];
@@ -145,9 +165,8 @@ class _AssociationPageState extends State<AssociationPage>
     }
   }
 
-  // Each entity embeds a denormalized copy of the level below it, so after an
-  // edit/delete the level above is refetched. Failures are swallowed: the
-  // write itself already succeeded.
+  // Each entity embeds a denormalized copy of the level below, so the level above
+  // is refetched after a write; failures are swallowed since the write succeeded.
   Future<void> _refresh<T>(Future<List<T>> Function() fetch, void Function(List<T>) apply) async
   {
     try
@@ -441,8 +460,7 @@ class _AssociationPageState extends State<AssociationPage>
     );
   }
 
-  // Visited sections stay mounted in the IndexedStack, keeping their internal
-  // state (scroll, filters, search); the placeholder is replaced on first visit.
+  // Visited sections stay mounted in the IndexedStack to keep scroll/filter state.
   Widget _buildSectionContent()
   {
     if (_isLoading)
@@ -514,6 +532,9 @@ class _AssociationPageState extends State<AssociationPage>
                 onDelete: _executeDeleteRoom,
               )
             : const SizedBox.shrink(),
+        // Not built yet: named on the rail, never opened.
+        if (_onBoard) const SizedBox.shrink(),
+        const SizedBox.shrink(),
         visitedSections.contains(_presenceHoursContentIndex)
             ? PresenceHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),

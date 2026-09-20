@@ -236,8 +236,9 @@ class _ModeColumn extends StatelessWidget
 class _TimeSlotLabel extends StatelessWidget
 {
   final String label;
+  final bool online;
 
-  const _TimeSlotLabel({required this.label});
+  const _TimeSlotLabel({required this.label, required this.online});
 
   @override
   Widget build(BuildContext context)
@@ -245,7 +246,7 @@ class _TimeSlotLabel extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.todaySurface,
+        color: online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -253,7 +254,7 @@ class _TimeSlotLabel extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
         ),
       ),
     );
@@ -278,8 +279,9 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
       context: context,
       barrierLabel: 'ConfirmAvailabilityDeletion',
       builder: (confirmContext) => AppDialogStack(
-        eyebrow: 'Eliminazione',
+        eyebrow: '${formatAvailableDayLabel(group.date)} · ${group.teacher.fullName}',
         title: 'Confermi?',
+        shrinkTitle: true,
         showClose: false,
         maxWidth: _confirmWidth,
         footer: AppDialogFooter(
@@ -410,7 +412,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                 _buildModeLabel(modeLabel(mode), first: mode == kPresenceMode),
                 if (group.slotsFor(mode).isEmpty)
                   Text(
-                    'Nessun orario.',
+                    'Nessuna disponibilità.',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -426,7 +428,7 @@ class _AvailabilityDetailsDialogContent extends StatelessWidget
                       runSpacing: 10,
                       children: [
                         for (final slot in group.slotsFor(mode))
-                          _TimeSlotLabel(label: _timeRangeLabel(slot)),
+                          _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
                       ],
                     ),
                   ),

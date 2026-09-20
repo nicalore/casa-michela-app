@@ -17,7 +17,7 @@ class DashboardGreeting extends StatelessWidget
 
   final double fontSize;
 
-  // Given, the line is used as it is instead of following the time of day.
+  // Overrides the time-of-day line.
   final String? text;
 
   final Alignment alignment;
@@ -67,9 +67,8 @@ class DashboardGreeting extends StatelessWidget
       alignment: alignment,
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        // srcIn uses the white text only as a mask. Keep the font's default
-        // line height: a tightened height shrinks the mask box and erases
-        // descenders.
+        // srcIn uses the text as a mask; a tightened line height shrinks the mask
+        // box and erases descenders.
         child: ShaderMask(
           blendMode: BlendMode.srcIn,
           shaderCallback: (bounds) => AppTheme.greetingGradient.createShader(bounds),

@@ -59,17 +59,18 @@ class PresenceRepository(WritableRepository[Presence]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
+    # Scoped by student, not booker: a presence belongs to the student and both parents.
     async def get_by_id(
         self,
         presence_id: int,
         *,
-        owner_tax_code: str | None,
+        student_tax_codes: Collection[str] | None,
     ) -> Presence | None:
         stmt = (
             select(Presence).options(_BOOKINGS_LOADER).where(Presence.id == presence_id)
         )
 
-        if owner_tax_code is not None:
-            stmt = stmt.where(Presence.booker_tax_code == owner_tax_code)
+        if student_tax_codes is not None:
+            stmt = stmt.where(Presence.student_tax_code.in_(student_tax_codes))
 
         return await self.session.scalar(stmt)

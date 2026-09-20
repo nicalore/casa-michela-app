@@ -28,8 +28,7 @@ _COLUMN_GAP: Final[str] = "  "
 EMPTY_VALUE: Final[str] = "-"
 
 
-# ljust never truncates: an over-long value widens its own row and leaves
-# every other row aligned, so reading a column by character offset keeps working.
+# ljust never truncates: an over-long value widens only its own row; offsets still work.
 def _row(values: tuple[str, ...]) -> str:
     padded = (value.ljust(width) for value, width in zip(values, _WIDTHS, strict=True))
 

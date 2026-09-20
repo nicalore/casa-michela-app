@@ -39,7 +39,7 @@ class LessonsClosedDay extends StatelessWidget
                   const Icon(Icons.event_busy_rounded, size: 52, color: AppTheme.trialMutedText),
                   const SizedBox(height: 20),
                   Text(
-                    "L'associazione è chiusa",
+                    "L'Associazione è chiusa",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 30,

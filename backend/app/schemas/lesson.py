@@ -49,6 +49,12 @@ class LessonUpdate(LessonBase):
     expected_updated_at: datetime | None = None
 
 
+# A stretch of the lesson during which the teacher has another pupil too.
+class LessonOverlap(BaseModel):
+    start_time: time
+    end_time: time
+
+
 class LessonResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +77,8 @@ class LessonResponse(BaseModel):
     bookings: list[BookingResponse] = Field(default_factory=list)
 
     is_locked: bool = False
+
+    overlaps: list[LessonOverlap] = Field(default_factory=list)
 
     warnings: list[str] = Field(default_factory=list)
 

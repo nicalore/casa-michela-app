@@ -17,8 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-# Enum definitions used both for the explicit CREATE TYPE and for the columns
-# referencing them (those use create_type=False so SQLAlchemy won't recreate them).
+# Shared by the explicit CREATE TYPE and the columns (create_type=False on those).
 certification_type_enum = postgresql.ENUM(
     "DSA", "BES", "ADHD", "OTHER",
     name="certification_type_enum",
@@ -36,8 +35,7 @@ payment_method_enum = postgresql.ENUM(
 
 
 def upgrade() -> None:
-    # Alembic autogenerate does not emit CREATE TYPE for Postgres enums: create
-    # them explicitly, before any column that uses them.
+    # Autogenerate emits no CREATE TYPE for Postgres enums: create them first.
     bind = op.get_bind()
     certification_type_enum.create(bind, checkfirst=True)
     course_type_enum.create(bind, checkfirst=True)
@@ -62,8 +60,7 @@ def upgrade() -> None:
         "people",
         "birth_nation IS NULL OR birth_nation = btrim(birth_nation)",
     )
-    # The default only backfills historical rows; from here on the value must
-    # always be provided explicitly, as the model requires.
+    # The default only backfills historical rows; the model requires an explicit value.
     op.alter_column("people", "birth_nation", server_default=None)
 
     op.add_column(
@@ -114,10 +111,8 @@ def upgrade() -> None:
         "OR certification_other_detail = btrim(certification_other_detail)",
     )
 
-    # The two legacy CHECKs from 5653d8989dad are dropped by name SUFFIX, not
-    # full name: they may still carry the historical "partecipants" prefix (the
-    # table was renamed but Postgres kept the constraint names), and the suffix
-    # comes from the column name, so it is stable across environments.
+    # Legacy CHECKs from 5653d8989dad dropped by name suffix: the prefix may still be
+    # the historical "partecipants" (table renamed, constraint names kept).
     op.execute(
         """
         DO $$
@@ -150,8 +145,7 @@ def upgrade() -> None:
         END $$;
         """
     )
-    # Residual values other than YOGA/PILATES (e.g. "SS") are confirmed test
-    # junk, not real data: overwrite to YOGA instead of blocking the migration.
+    # Values other than YOGA/PILATES (e.g. "SS") are test junk: overwritten to YOGA.
     op.execute(
         "UPDATE course_participants "
         "SET course_type = 'YOGA' "

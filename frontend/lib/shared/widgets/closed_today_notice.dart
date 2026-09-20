@@ -30,7 +30,7 @@ class ClosedTodayNotice extends StatelessWidget
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "L'associazione è chiusa",
+                  "L'Associazione è chiusa",
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,

@@ -59,8 +59,7 @@ List<DashboardBirthday> upcomingBirthdays(
 
   for (final person in people)
   {
-    // The desk celebrates whoever is collaborating: a parent who is not a
-    // member has no flag at all, a lapsed member has it off.
+    // Null for a non-member parent, false for a lapsed member: both skipped.
     if (person.isActiveCollaborator != true)
     {
       continue;
@@ -225,7 +224,6 @@ class _BirthdayRow extends StatefulWidget
   State<_BirthdayRow> createState() => _BirthdayRowState();
 }
 
-// Bronze to gold, for the day itself.
 const LinearGradient _birthdayGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
@@ -256,8 +254,6 @@ class _BirthdayRowState extends State<_BirthdayRow>
           padding: widget.tight
               ? const EdgeInsets.fromLTRB(11, 9, 8, 9)
               : const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          // The day itself is gold, border on, so it stands out from the ones
-          // still to come.
           decoration: BoxDecoration(
             color: today ? AppTheme.trialGoldSurface : AppTheme.trialPaper,
             borderRadius: BorderRadius.circular(18),

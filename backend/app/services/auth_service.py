@@ -4,7 +4,6 @@ from typing import Any, Final
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-import resend
 from jwt import (
     InvalidTokenError,
 )
@@ -29,9 +28,8 @@ from app.models.account import Account, AccountStatusEnum
 from app.models.refresh_token import RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
+from app.services import email_service
 from app.services.auth_result import AuthResult
-
-resend.api_key = settings.resend_api_key
 
 _LOCAL_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
@@ -57,48 +55,6 @@ _EXPIRED_RESET_LINK_ERROR: Final[str] = (
     "Effettua una nuova richiesta."
 )
 _EMAIL_SEND_ERROR: Final[str] = "Errore nell'invio dell'email via Resend: {error}"
-
-_EMAIL_SENDER: Final[str] = "Associazione Casa Michela <supporto@app.casamichela.it>"
-_EMAIL_REPLY_TO: Final[str] = "nicolo.calore@casamichela.it"
-_EMAIL_LOGO_URL: Final[str] = (
-    "https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/"
-    "logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100"
-)
-
-# App theme colours hand-copied: an email cannot read the theme.
-_INK: Final[str] = "#123A5E"
-_TEAL: Final[str] = "#0B6478"
-_PAPER: Final[str] = "#F5FAF9"
-_LINE: Final[str] = "#DDE8E6"
-_MUTED: Final[str] = "#5B7280"
-_BODY: Final[str] = "#122438"
-
-# Inline styles: email clients guarantee nothing more.
-_EMAIL_TEMPLATE: Final[str] = """
-<div style="margin: 0; padding: 32px 16px; background-color: {paper};
-            font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;
-                border-radius: 28px; border: 1px solid {line};
-                padding: 40px 40px 32px 40px; color: {body}; line-height: 1.6;">
-        <div style="text-align: center; margin-bottom: 28px;">
-            <img src="{logo_url}" alt="Associazione Casa Michela" style="width: 96px; height: auto;" />
-            <p style="margin: 14px 0 0 0; color: {muted}; font-size: 11px;
-                      font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;">
-                Associazione Casa Michela
-            </p>
-        </div>
-        <h2 style="margin: 0 0 20px 0; color: {ink}; font-size: 24px; font-weight: 700;
-                   line-height: 1.25;"> {heading} </h2>
-        <p style="margin: 0 0 14px 0;">Ciao,</p>
-        {body_html}
-        <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {line};
-                  color: {muted}; font-size: 14px;">
-            A presto,<br>
-            <strong style="color: {ink};">Associazione Casa Michela</strong>
-        </p>
-    </div>
-</div>
-"""
 
 _ACCOUNT_LOCKED_EMAIL_BODY: Final[str] = """
     <p>Per proteggere il tuo account, abbiamo temporaneamente bloccato l'accesso a seguito di ripetuti tentativi di autenticazione non riusciti.</p>
@@ -166,6 +122,7 @@ class AuthService:
         self.account_repository = account_repository
         self.refresh_token_repository = refresh_token_repository
 
+    # A lost notice must not fail the sign-in it accompanies.
     def _send_email(
         self,
         recipient: str,
@@ -174,23 +131,11 @@ class AuthService:
         body: str,
     ) -> None:
         try:
-            resend.Emails.send(
-                {
-                    "from": _EMAIL_SENDER,
-                    "to": recipient,
-                    "reply_to": _EMAIL_REPLY_TO,
-                    "subject": subject,
-                    "html": _EMAIL_TEMPLATE.format(
-                        logo_url=_EMAIL_LOGO_URL,
-                        heading=heading,
-                        body_html=body,
-                        paper=_PAPER,
-                        line=_LINE,
-                        ink=_INK,
-                        muted=_MUTED,
-                        body=_BODY,
-                    ),
-                }
+            email_service.send_email(
+                recipient=recipient,
+                subject=subject,
+                heading=heading,
+                body=body,
             )
         except Exception as error:
             print(_EMAIL_SEND_ERROR.format(error=error))
@@ -213,9 +158,9 @@ class AuthService:
             heading="Account temporaneamente bloccato",
             body=_ACCOUNT_LOCKED_EMAIL_BODY.format(
                 unlock_time=unlock_time,
-                paper=_PAPER,
-                line=_LINE,
-                ink=_INK,
+                paper=email_service.PAPER,
+                line=email_service.LINE,
+                ink=email_service.INK,
             ),
         )
 
@@ -235,7 +180,10 @@ class AuthService:
             recipient=account.person.email,
             subject="Recupero password - Associazione Casa Michela",
             heading="Recupero password",
-            body=_PASSWORD_RESET_EMAIL_BODY.format(reset_link=reset_link, teal=_TEAL),
+            body=_PASSWORD_RESET_EMAIL_BODY.format(
+                reset_link=reset_link,
+                teal=email_service.TEAL,
+            ),
         )
 
     async def _create_session(self, account: Account, now: datetime) -> AuthResult:
@@ -486,8 +434,7 @@ class AuthService:
             self._send_password_reset_email(account, reset_link)
 
         finally:
-            # Constant minimum duration: without it, the response time would
-            # reveal whether an account exists for the given username.
+            # Constant minimum duration, or timing would reveal account existence.
             elapsed = asyncio.get_running_loop().time() - started_at
             remaining = _PASSWORD_RESET_MIN_DURATION_SECONDS - elapsed
 

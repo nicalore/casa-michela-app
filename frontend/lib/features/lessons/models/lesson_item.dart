@@ -113,6 +113,9 @@ class LessonItem
 
   final bool isLocked;
 
+  // Stretches where the teacher also has another pupil; merged, clock order, empty when alone.
+  final List<(TimeOfDay, TimeOfDay)> overlaps;
+
   final List<String> warnings;
 
   final DateTime createdAt;
@@ -133,6 +136,7 @@ class LessonItem
     this.disciplines = const [],
     this.bookings = const [],
     this.isLocked = false,
+    this.overlaps = const [],
     this.warnings = const [],
     required this.createdAt,
     required this.updatedAt,
@@ -157,6 +161,16 @@ class LessonItem
   Set<String> get studentTaxCodes => bookings.map((entry) => entry.studentTaxCode).toSet();
 
   bool get isProvisional => id < 0;
+
+  bool get isShared => overlaps.isNotEmpty;
+
+  // Shared only for part of the hour: the pupil has the teacher alone for the rest.
+  bool get isPartlyShared
+  {
+    return overlaps.length != 1 ||
+        minutesOfTimeOfDay(overlaps.single.$1) != startMinutes ||
+        minutesOfTimeOfDay(overlaps.single.$2) != endMinutes;
+  }
 
   LessonItem copyWith({
     int? id,
@@ -187,6 +201,7 @@ class LessonItem
       disciplines: disciplines ?? this.disciplines,
       bookings: bookings,
       isLocked: isLocked,
+      overlaps: overlaps,
       warnings: warnings,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -235,6 +250,10 @@ class LessonItem
       ),
       bookings: parseList(json['bookings'], LessonBookingItem.fromJson),
       isLocked: json['is_locked'] as bool? ?? false,
+      overlaps: parseList(
+        json['overlaps'],
+        (e) => (parseTimeOfDay(e['start_time']), parseTimeOfDay(e['end_time'])),
+      ),
       warnings: parseStringList(json['warnings']),
       createdAt: parseInstant(json['created_at'])!,
       updatedAt: parseInstant(json['updated_at'])!,

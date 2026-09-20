@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 const Duration _transition = Duration(milliseconds: 300);
 
-// A fade with a short slide in the direction of travel: what the carousel
-// does between cards, and the first-access flow between steps.
 class AppSlideSwitcher extends StatelessWidget
 {
   final int index;

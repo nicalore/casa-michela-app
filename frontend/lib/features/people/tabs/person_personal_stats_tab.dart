@@ -27,7 +27,18 @@ class PersonPersonalStatsTab extends StatefulWidget
 {
   final PersonItem person;
 
-  const PersonPersonalStatsTab({super.key, required this.person});
+  // False on the teacher's own page.
+  final bool showAppreciation;
+
+  // Rendered under the cards, inside the scroll.
+  final Widget? footer;
+
+  const PersonPersonalStatsTab({
+    super.key,
+    required this.person,
+    this.showAppreciation = true,
+    this.footer,
+  });
 
   @override
   State<PersonPersonalStatsTab> createState() => _PersonPersonalStatsTabState();
@@ -71,7 +82,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
     await Future.wait([
       if (_isTeacher) _loadTeacherStats(),
-      if (_isTeacher) _loadAppreciationStats(),
+      if (_isTeacher && widget.showAppreciation) _loadAppreciationStats(),
       if (_isStudent) _loadStudentStats(),
     ]);
 
@@ -222,7 +233,9 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         ),
     ];
 
-    if (cards.isEmpty)
+    final Widget? footer = widget.footer;
+
+    if (cards.isEmpty && footer == null)
     {
       return const Center(child: EmptyChartMessage());
     }
@@ -231,11 +244,20 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(top: 16, bottom: 32),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: pageTransitionBlocks([
+          if (cards.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: EmptyChartMessage(),
+            ),
           for (final card in cards) ...[
             card,
             const SizedBox(height: 24),
+          ],
+          if (footer != null) ...[
+            const SizedBox(height: 24),
+            footer,
           ],
         ]),
       ),
@@ -441,7 +463,6 @@ class PersonalAppreciationCard extends StatelessWidget
     );
   }
 
-  // One line of three: the score as a figure, the place, the thumbs.
   @override
   Widget build(BuildContext context)
   {

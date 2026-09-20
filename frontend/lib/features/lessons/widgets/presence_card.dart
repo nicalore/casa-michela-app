@@ -38,38 +38,6 @@ String _timeRangeLabel(PresenceItem presence)
   return formatTimeRange(presence.startTime, presence.endTime);
 }
 
-String _ministrySubjectName(List<MinistrySubjectItem> subjects, int id)
-{
-  for (final subject in subjects)
-  {
-    if (subject.id == id)
-    {
-      return subject.name;
-    }
-  }
-
-  return 'Materia';
-}
-
-String _requestLabel(BookingSummaryItem request, List<MinistrySubjectItem> subjects)
-{
-  final duration = formatMinutes(request.duration);
-
-  return switch (request.kind)
-  {
-    BookingRequestKind.ministrySubject => () {
-        final name = _ministrySubjectName(subjects, request.ministrySubjectId!);
-        final disciplines =
-            request.associationSubjects.map((subject) => subject.name).join(', ');
-
-        return '$name: $disciplines · $duration';
-      }(),
-    BookingRequestKind.associationSubject =>
-      '${request.associationSubject!.name} · $duration',
-    BookingRequestKind.service => '${request.serviceName!} · $duration',
-  };
-}
-
 class PresenceCard extends StatefulWidget
 {
   static const double height = 190;
@@ -154,6 +122,7 @@ class _PresenceCardState extends State<PresenceCard>
         onDelete: widget.onDelete,
         teachers: widget.teachers,
         studentStudyProgramId: _studentStudyProgramId,
+        studentGender: _student?.gender,
         onSaveSubject: _writeSubject,
         onDeleteSubject: (mode, booking)
         {
@@ -281,7 +250,7 @@ class _PresenceCardState extends State<PresenceCard>
       context: context,
       barrierLabel: 'ConfirmSubjectDeletion',
       builder: (confirmContext) => _ConfirmSubjectDeletion(
-        label: _requestLabel(booking, widget.ministrySubjects),
+        label: bookingTitle(booking, widget.ministrySubjects),
         onConfirmed: () => widget.onDeleteSubject(booking, presenceId, (message)
         {
           if (mounted)
@@ -483,8 +452,9 @@ class _ModeColumn extends StatelessWidget
 class _TimeSlotLabel extends StatelessWidget
 {
   final String label;
+  final bool online;
 
-  const _TimeSlotLabel({required this.label});
+  const _TimeSlotLabel({required this.label, required this.online});
 
   @override
   Widget build(BuildContext context)
@@ -492,7 +462,7 @@ class _TimeSlotLabel extends StatelessWidget
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.todaySurface,
+        color: online ? AppTheme.modifiedAccentSurface : AppTheme.todaySurface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -500,7 +470,7 @@ class _TimeSlotLabel extends StatelessWidget
         style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+          color: online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
         ),
       ),
     );
@@ -519,6 +489,9 @@ class _RequestDetailsDialogContent extends StatefulWidget
 
   final int? studentStudyProgramId;
 
+  // For gender agreement in the subject wizard's copy.
+  final String? studentGender;
+
   final VoidCallback onEditRequested;
   final VoidCallback onDelete;
 
@@ -531,6 +504,7 @@ class _RequestDetailsDialogContent extends StatefulWidget
     required this.offeredSubjects,
     required this.teachers,
     required this.studentStudyProgramId,
+    required this.studentGender,
     required this.onEditRequested,
     required this.onDelete,
     required this.onSaveSubject,
@@ -690,8 +664,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
   {
     final avoided = group.notPreferredTeacherTaxCodes.toSet();
 
-    // A teacher the pupil has since put on their list is dropped from the
-    // draft too: hidden by the picker, it could otherwise never be removed.
+    // The picker hides avoided teachers, so drop them from the draft or they could never be removed.
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectRequestWizard',
@@ -701,9 +674,10 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         ministrySubjects: widget.offeredSubjects,
         teachers: askableTeachers(widget.teachers, avoided),
         studentStudyProgramId: widget.studentStudyProgramId,
+        studentName: group.student.firstName,
+        studentGender: widget.studentGender,
         isEditing: true,
-        // The edited booking's own duration is excluded: the wizard counts it
-        // itself, and counting it twice would read as over budget on open.
+        // The edited booking's own duration is excluded: the wizard counts it itself.
         minutesAvailable: group.minutesOfferedIn(mode),
         minutesTakenByOthers: group.minutesAskedFor(mode) - existing.duration,
         minutesByDisciplineTakenByOthers:
@@ -734,7 +708,8 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  for (final slot in slots) _TimeSlotLabel(label: _timeRangeLabel(slot)),
+                  for (final slot in slots)
+                    _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
                 ],
               ),
             ),

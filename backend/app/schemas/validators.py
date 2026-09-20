@@ -81,6 +81,8 @@ UpperCaseStr = Annotated[CleanStr, AfterValidator(_upper)]
 
 SentenceCaseStr = Annotated[CleanStr, AfterValidator(sentence_case)]
 
+OpeningCapitalStr = Annotated[CleanStr, AfterValidator(opening_capital)]
+
 OptionalTitleCaseStr = Annotated[str | None, AfterValidator(_optional_title_case)]
 
 OptionalSentenceCaseStr = Annotated[str | None, AfterValidator(_optional_sentence_case)]

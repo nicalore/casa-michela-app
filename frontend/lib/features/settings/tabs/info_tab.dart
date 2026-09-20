@@ -3,23 +3,91 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/error_message.dart';
+import '../../../services/api_service.dart';
+import '../../../shared/export/pdf_tab.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/snackbar.dart';
+import '../widgets/problem_report_dialog.dart';
 
-class InfoTab extends StatelessWidget
+const String _regulationTitle = 'Regolamento dell\'Associazione';
+
+// Matches the own page's report pill.
+const double _reportHeight = 50;
+const double _reportRadius = 25;
+const double _reportFontSize = 14;
+
+class InfoTab extends StatefulWidget
 {
   const InfoTab({super.key});
+
+  @override
+  State<InfoTab> createState() => _InfoTabState();
+}
+
+class _InfoTabState extends State<InfoTab>
+{
+  bool _isOpeningRegulation = false;
+
+  // The tab must open before the first await, or the browser blocks it as a popup.
+  Future<void> _openRegulation() async
+  {
+    if (_isOpeningRegulation)
+    {
+      return;
+    }
+
+    final PdfTab? tab = openPdfTab(title: _regulationTitle);
+
+    setState(() => _isOpeningRegulation = true);
+
+    try
+    {
+      final ApiFile regulation = await ApiService().fetchRegulation();
+
+      if (tab != null)
+      {
+        tab.present(regulation.bytes, fileName: regulation.fileName);
+      }
+      else if (downloadPdf(regulation.bytes, fileName: regulation.fileName) && mounted)
+      {
+        CustomSnackBar.show(
+          context: context,
+          message: 'Il browser ha bloccato la scheda: il regolamento è stato scaricato.',
+          isError: false,
+        );
+      }
+    }
+    catch (e)
+    {
+      tab?.fail('Non è stato possibile aprire il regolamento.');
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
+      }
+    }
+    finally
+    {
+      if (mounted)
+      {
+        setState(() => _isOpeningRegulation = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context)
   {
     final int currentYear = DateTime.now().year;
-    const String appVersion = '0.2.2';
+    const String appVersion = '0.2.3';
 
-    final List<String> documents = [
-      'Condizioni d\'uso',
-      'Privacy policy',
-      'Statuto dell\'Associazione',
-      'Regolamento dell\'Associazione',
+    final List<(String, VoidCallback)> documents = [
+      ('Statuto dell\'Associazione', () {}),
+      (_regulationTitle, _openRegulation),
+      ('Termini e condizioni', () {}),
+      ('Privacy policy', () {}),
     ];
 
     return PageTransitionScrollView(
@@ -37,13 +105,24 @@ class InfoTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                ...documents.map((title)
-                {
-                  return Padding(
+                for (final (title, onTap) in documents)
+                  Padding(
                     padding: const EdgeInsets.only(bottom: 16.0),
-                    child: _InfoDocumentCard(title: title, onTap: () {}),
-                  );
-                }),
+                    child: _InfoDocumentCard(title: title, onTap: onTap),
+                  ),
+                const SizedBox(height: 24),
+                Center(
+                  child: AppGradientButton(
+                    label: 'SEGNALA UN PROBLEMA',
+                    icon: Icons.flag_rounded,
+                    gradient: AppTheme.dismissGradient,
+                    accent: AppTheme.trialViolet,
+                    height: _reportHeight,
+                    radius: _reportRadius,
+                    fontSize: _reportFontSize,
+                    onPressed: () => showProblemReportDialog(context),
+                  ),
+                ),
                 const SizedBox(height: 48),
                 Text(
                   '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',

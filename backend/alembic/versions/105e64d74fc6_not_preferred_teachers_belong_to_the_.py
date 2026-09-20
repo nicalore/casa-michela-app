@@ -23,8 +23,7 @@ _TEACHER_PREFERENCE_TYPES: Final[tuple[str, ...]] = ("PREFERRED", "NOT_PREFERRED
 _OLD_TABLE: Final[str] = "booking_teacher_preferences"
 _NEW_TABLE: Final[str] = "booking_preferred_teachers"
 
-# The naming convention embeds the table name, so a plain rename would leave
-# autogenerate proposing to recreate every constraint.
+# Constraint names embed the table name: a plain rename would trip autogenerate.
 _RENAMED_CONSTRAINTS: Final[tuple[tuple[str, str], ...]] = (
     (f"pk_{_OLD_TABLE}", f"pk_{_NEW_TABLE}"),
     (f"fk_{_OLD_TABLE}_booking_id_bookings", f"fk_{_NEW_TABLE}_booking_id_bookings"),
@@ -39,8 +38,7 @@ _RENAMED_INDEX: Final[tuple[str, str]] = (
     f"ix_{_NEW_TABLE}_teacher_tax_code",
 )
 
-# One open row per (pupil, teacher) named on any booking, in force since the
-# first lesson it was said for: earlier lessons stay unjudged, as they were.
+# One open row per (pupil, teacher) named on any booking, from the first such lesson.
 _COPY_TO_STUDENTS: Final[str] = """
     INSERT INTO student_not_preferred_teachers
         (student_tax_code, teacher_tax_code, valid_from)

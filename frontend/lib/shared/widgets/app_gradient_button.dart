@@ -181,9 +181,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
       textStyle: AppTheme.tooltipTextStyle,
       child: MouseRegion(
         cursor: SystemMouseCursors.basic,
-        // Same skeleton as the live face: a Container given an alignment
-        // grows to whatever width it is offered, and inside a flexible slot
-        // that is the whole slot.
+        // Same skeleton as the live face: an aligned Container fills the width it is offered.
         child: Container(
           width: widget.width,
           height: widget.height,

@@ -8,11 +8,8 @@ from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 
 
-# Whether a teacher's competences fall short of a discipline for the pupils'
-# programmes. Inside a programme only the (discipline, programme) pair counts;
-# outside it, or with no programme known, any programme will do. Shared by the
-# calendar, which refuses the lesson, and the statistics, which count the
-# lesson as one the teacher could have taught.
+# Inside a programme only the (discipline, programme) pair counts; outside it, or with
+# no programme known, any programme will do. Shared by the calendar and the statistics.
 def lacks_competence(
     subject_id: int,
     *,
@@ -27,9 +24,7 @@ def lacks_competence(
     return any((subject_id, programme) not in granted for programme in programmes)
 
 
-# The whole set a teacher holds as of today. Rows no longer wanted are closed
-# today — deleted when opened today, an empty interval — and new ones opened,
-# so the ranking can still tell what the teacher could teach on any past day.
+# Unwanted rows are closed today (deleted if opened today), so past days stay readable.
 async def replace_competences(
     db: AsyncSession,
     tax_code: str,

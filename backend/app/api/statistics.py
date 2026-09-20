@@ -9,7 +9,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
-from app.api.rbac import require_role
+from app.api.rbac import CurrentIdentity, require_role
 from app.core.availability_thresholds import (
     LOW_AVAILABILITY_MONTHLY_THRESHOLD,
     LOW_AVAILABILITY_WEEKLY_THRESHOLD,
@@ -75,13 +75,15 @@ from app.schemas.statistics import (
 )
 from app.services.teaching_competence import lacks_competence
 
-# Figures about everybody, read at the desk only; a person's own month is
-# served by app/api/home.py.
+# Admin-only figures about everybody; a person's own month is served by api/home.py.
 router = APIRouter(
     prefix="/statistics",
     tags=["statistics"],
     dependencies=[Depends(require_role("ADMIN"))],
 )
+
+# One's own figures, readable by a pupil's parents too; appreciation stays admin-only.
+personal_router = APIRouter(prefix="/statistics", tags=["statistics"])
 
 _MONTH_RESOLUTION: Final[str] = "month"
 _UNKNOWN_AREA_LABEL: Final[str] = "Altra Area"
@@ -107,6 +109,12 @@ _CONFLICTING_STATS_PERIOD_ERROR: Final[str] = (
 _TEACHER_NOT_FOUND_ERROR: Final[str] = "Docente non trovato"
 _DISCIPLINE_NOT_FOUND_ERROR: Final[str] = "Disciplina non trovata"
 _STUDENT_NOT_FOUND_ERROR: Final[str] = "Studente non trovato"
+_PUPIL_FORBIDDEN_ERROR: Final[str] = (
+    "Non hai accesso alle statistiche di questo studente."
+)
+_TEACHER_FORBIDDEN_ERROR: Final[str] = (
+    "Non hai accesso alle statistiche di questo docente."
+)
 
 _ROLE_JOINS: Final[dict[str, tuple[tuple[Any, Any], ...]]] = {
     "administrator": (
@@ -560,8 +568,7 @@ Span = tuple[date, date | None]
 # (pupil, teacher) → the days the pupil would rather not have them.
 AvoidedIntervals = Mapping[tuple[str, str], Sequence[Span]]
 
-# Teacher → (discipline, programme, held from, held until) for every competence
-# they ever had; teacher → (service, from, until) likewise.
+# Teacher → all-time (discipline, programme, from, until) and (service, from, until).
 CompetenceSpans = Mapping[str, Collection[tuple[int, int, date, date | None]]]
 ServiceSpans = Mapping[str, Collection[tuple[str, date, date | None]]]
 
@@ -574,14 +581,8 @@ def _avoided_on(day: date, intervals: Sequence[Span]) -> bool:
     return any(_within(day, start, end) for start, end in intervals)
 
 
-# Each pupil weighs at most one point per teacher either way, however often
-# they come: the share of their bookings the teacher could have taught in which
-# they asked for them, minus the share held while they would rather not have
-# them. A booking counts for a teacher when, on its day, it asks for a service
-# they offered or a discipline they could teach the pupil by the calendar's
-# own rule (lacks_competence); naming a teacher who could not have taught it
-# says nothing, as the calendar would refuse them. Teachers nobody has a word
-# about are left out.
+# Per pupil, at most ±1 per teacher: share of bookings they could teach (service
+# offered or lacks_competence) naming them, minus share held while avoided.
 def score_teachers(
     bookings: Iterable[BookingFacts],
     competences: CompetenceSpans,
@@ -600,8 +601,7 @@ def score_teachers(
         for service_name, _start, _end in offers:
             teachers_by_service[service_name].add(teacher)
 
-    # The competences a teacher held on the day, as the calendar would have
-    # read them then.
+    # Competences the teacher held on that day, as the calendar read them then.
     def could_teach(
         teacher: str,
         subject_id: int,
@@ -681,8 +681,7 @@ def score_teachers(
     return scores
 
 
-# The programme of the school year the day falls in, or failing that the
-# latest one begun before it: a pupil who has not renewed yet keeps the old.
+# Programme of the day's school year, else the latest one begun before it.
 def _programme_on(
     enrolments: Sequence[tuple[int, int]],
     day: date,
@@ -1453,8 +1452,7 @@ async def get_teacher_availability_statistics(
     )
 
 
-# Standard competition ranking on the score as shown: equal places share
-# a place. None for a teacher nobody has a word about.
+# Standard competition ranking (ties share a place); None for an unscored teacher.
 def _rank_among(scores: Mapping[str, int], tax_code: str) -> int | None:
     if tax_code not in scores:
         return None
@@ -1464,17 +1462,23 @@ def _rank_among(scores: Mapping[str, int], tax_code: str) -> int | None:
     return 1 + sum(1 for score in scores.values() if score > mine)
 
 
-@router.get(
+@personal_router.get(
     "/teachers/{tax_code}/personal-statistics",
     response_model=TeacherPersonalStatisticsResponse,
 )
 async def get_teacher_personal_statistics(
+    identity: CurrentIdentity,
     db: DbSession,
     tax_code: str,
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
 ) -> TeacherPersonalStatisticsResponse:
+    is_own = tax_code.upper() == identity.tax_code and "TEACHER" in identity.roles
+
+    if not (identity.is_admin or is_own):
+        raise HTTPException(status_code=403, detail=_TEACHER_FORBIDDEN_ERROR)
+
     if await db.scalar(select(Teacher.tax_code).where(Teacher.tax_code == tax_code)) is None:
         raise HTTPException(status_code=404, detail=_TEACHER_NOT_FOUND_ERROR)
 
@@ -1865,17 +1869,21 @@ async def get_discipline_request_trend(
     )
 
 
-@router.get(
+@personal_router.get(
     "/students/{tax_code}/personal-statistics",
     response_model=StudentPersonalStatisticsResponse,
 )
 async def get_student_personal_statistics(
+    identity: CurrentIdentity,
     db: DbSession,
     tax_code: str,
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
 ) -> StudentPersonalStatisticsResponse:
+    if not (identity.is_admin or tax_code.upper() in identity.own_student_tax_codes):
+        raise HTTPException(status_code=403, detail=_PUPIL_FORBIDDEN_ERROR)
+
     if await db.scalar(select(Student.tax_code).where(Student.tax_code == tax_code)) is None:
         raise HTTPException(status_code=404, detail=_STUDENT_NOT_FOUND_ERROR)
 

@@ -219,7 +219,7 @@ ExportLessonFields exportLessonFields(
   return (
     hours: !byStudent && lesson.mode == kOnlineMode ? '$range · ${modeLabel(kOnlineMode)}' : range,
     who: exportLessonWho(lesson, view),
-    subject: about.disciplines == null ? about.subject : '${about.subject} (${about.disciplines})',
+    subject: about.disciplines == null ? about.subject : '${about.subject} – ${about.disciplines}',
     place: byStudent ? lessonWhere(lesson).label : null,
   );
 }
@@ -233,8 +233,7 @@ List<ExportLessonFields> exportLessonRows(CalendarExportData data)
   ];
 }
 
-// An activity printed in the same columns as a lesson, e.g. subject column
-// "Attività (description)".
+// An activity in the same columns as a lesson, e.g. subject "Attività (description)".
 ExportLessonFields exportActivityFields(ScheduledActivity scheduled)
 {
   final description = scheduled.description;

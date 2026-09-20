@@ -18,8 +18,7 @@ import '../widgets/person_detail_widgets.dart';
 // Keeps 'INVIA SEGNALAZIONE' on one line.
 const double _footerWidth = 576;
 
-// What the edit wizard can report: everything else on that screen is a field
-// the administrator simply changes.
+// Everything else on the edit wizard is a field the administrator simply changes.
 const List<String> kAnagraphicReportableFields = [
   'Nome',
   'Cognome',
@@ -30,6 +29,8 @@ const List<String> kAnagraphicReportableFields = [
   'Provincia',
   'Nazione di nascita',
 ];
+
+const List<String> kSchoolReportableFields = ['Scuola', 'Classe', 'Percorso di studi'];
 
 Future<void> showAnagraphicErrorReportDialog(
   BuildContext context,

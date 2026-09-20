@@ -10,9 +10,7 @@ const double _maxWidth = 960;
 const double _filtersGap = 20;
 const double _footerGap = 24;
 
-// The teacher goes straight to picking, laid out like the edit window: the
-// search and filters stay put on the page, the catalogue scrolls between them
-// and the buttons, so nothing has to be scrolled to be reached.
+// Only the catalogue scrolls; search, filters and buttons stay put.
 class OnboardingSubjectsStep extends StatelessWidget
 {
   final PersonItem person;

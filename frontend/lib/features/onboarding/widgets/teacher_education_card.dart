@@ -7,8 +7,7 @@ import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../people/models/person_item.dart';
 
-// The one part of a teacher's record they fill in themselves during the first
-// access; everything else on that screen goes through a correction request.
+// Edited directly on first access; the rest of the record goes through a correction request.
 class TeacherEducationCard extends StatefulWidget
 {
   final PersonItem person;

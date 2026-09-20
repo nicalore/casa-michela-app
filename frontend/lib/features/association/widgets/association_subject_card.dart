@@ -14,30 +14,36 @@ import '../models/subject_taxonomy.dart';
 class AssociationSubjectCard extends StatelessWidget
 {
   final AssociationSubjectItem subject;
-  final void Function(VoidCallback onCancel) onEditRequested;
-  final VoidCallback onDelete;
+
+  // Both null for a reader: the details then open with nothing to press.
+  final void Function(VoidCallback onCancel)? onEditRequested;
+  final VoidCallback? onDelete;
 
   const AssociationSubjectCard({
     super.key,
     required this.subject,
-    required this.onEditRequested,
-    required this.onDelete,
+    this.onEditRequested,
+    this.onDelete,
   });
 
   void _showDetailsDialog(BuildContext context)
   {
+    final edit = onEditRequested;
+
     showBlurredDialog(
       context: context,
       barrierLabel: 'AssociationSubjectDetails',
       builder: (dialogContext) => _AssociationSubjectDetailsDialogContent(
         subject: subject,
         areaLabel: subjectAreaLabel(subject.area),
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Reopen with the card's context, not the closing dialog's.
-          onEditRequested(() => _showDetailsDialog(context));
-        },
+        onEditRequested: edit == null
+            ? null
+            : ()
+              {
+                Navigator.of(dialogContext).pop();
+                // Reopen with the card's context, not the closing dialog's.
+                edit(() => _showDetailsDialog(context));
+              },
         onDelete: onDelete,
       ),
     );
@@ -69,17 +75,20 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
 
   final AssociationSubjectItem subject;
   final String areaLabel;
-  final VoidCallback onEditRequested;
-  final VoidCallback onDelete;
+  final VoidCallback? onEditRequested;
+  final VoidCallback? onDelete;
 
   const _AssociationSubjectDetailsDialogContent({
     required this.subject,
     required this.areaLabel,
-    required this.onEditRequested,
-    required this.onDelete,
+    this.onEditRequested,
+    this.onDelete,
   });
 
-  void _showDeleteConfirmation(BuildContext context)
+  // Readers have no other discipline kind to distinguish from.
+  String get _eyebrow => onEditRequested == null ? 'Disciplina' : 'Disciplina interna';
+
+  void _showDeleteConfirmation(BuildContext context, VoidCallback delete)
   {
     showBlurredDialog<void>(
       context: context,
@@ -110,7 +119,7 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
             {
               Navigator.pop(confirmContext);
               Navigator.pop(context);
-              onDelete();
+              delete();
             },
           ),
         ),
@@ -154,33 +163,46 @@ class _AssociationSubjectDetailsDialogContent extends StatelessWidget
         color: AppTheme.trialInk,
       );
 
+  Widget? _buildFooter(BuildContext context)
+  {
+    final edit = onEditRequested;
+    final delete = onDelete;
+
+    if (edit == null || delete == null)
+    {
+      return null;
+    }
+
+    return AppDialogFooter(
+      secondary: AppGradientButton(
+        label: 'ELIMINA',
+        icon: Icons.delete_outline_rounded,
+        gradient: AppTheme.dangerGradient,
+        accent: AppTheme.trialDanger,
+        height: _dialogButtonHeight,
+        fontSize: _dialogButtonFontSize,
+        onPressed: () => _showDeleteConfirmation(context, delete),
+      ),
+      primary: AppGradientButton(
+        label: 'MODIFICA',
+        icon: Icons.edit_outlined,
+        height: _dialogButtonHeight,
+        fontSize: _dialogButtonFontSize,
+        onPressed: edit,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
     final hasDescription = subject.description != null && subject.description!.isNotEmpty;
 
     return AppDialogStack(
-      eyebrow: 'Disciplina interna',
+      eyebrow: _eyebrow,
       title: subject.name,
       maxWidth: _detailsWidth,
-      footer: AppDialogFooter(
-        secondary: AppGradientButton(
-          label: 'ELIMINA',
-          icon: Icons.delete_outline_rounded,
-          gradient: AppTheme.dangerGradient,
-          accent: AppTheme.trialDanger,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: () => _showDeleteConfirmation(context),
-        ),
-        primary: AppGradientButton(
-          label: 'MODIFICA',
-          icon: Icons.edit_outlined,
-          height: _dialogButtonHeight,
-          fontSize: _dialogButtonFontSize,
-          onPressed: onEditRequested,
-        ),
-      ),
+      footer: _buildFooter(context),
       children: [
         AppDialogPill(
           expand: true,

@@ -47,12 +47,15 @@ DateTime _addDays(DateTime date, int days)
   return DateTime(date.year, date.month, date.day + days);
 }
 
-// Every date from today through the furthest currently unlocked day,
-// inclusive. Always non-empty (3 to 10 days, depending on when [now] falls).
-List<DateTime> computeAvailableDays(DateTime now)
+DateTime _mondayOf(DateTime day)
 {
-  final today = _dateOnly(now);
-  final currentWeekMonday = _addDays(today, -(today.weekday - DateTime.monday));
+  return _addDays(day, -(day.weekday - DateTime.monday));
+}
+
+// Whether the week after [now]'s has opened: from Friday 20:00 to Sunday night.
+bool isNextWeekUnlocked(DateTime now)
+{
+  final currentWeekMonday = _mondayOf(_dateOnly(now));
   final fridayThisWeek20 = DateTime(
     currentWeekMonday.year,
     currentWeekMonday.month,
@@ -60,9 +63,22 @@ List<DateTime> computeAvailableDays(DateTime now)
     _unlockHour,
   );
 
-  final maxUnlocked = now.isBefore(fridayThisWeek20)
-      ? _addDays(currentWeekMonday, 6)
-      : _addDays(currentWeekMonday, 13);
+  return !now.isBefore(fridayThisWeek20);
+}
+
+// The last unlocked day: this week's Sunday, or next week's once it opens.
+DateTime lastUnlockedDay(DateTime now)
+{
+  final currentWeekMonday = _mondayOf(_dateOnly(now));
+
+  return _addDays(currentWeekMonday, isNextWeekUnlocked(now) ? 13 : 6);
+}
+
+// Today through the furthest unlocked day, inclusive; never empty (3 to 10 days).
+List<DateTime> computeAvailableDays(DateTime now)
+{
+  final today = _dateOnly(now);
+  final maxUnlocked = lastUnlockedDay(now);
 
   final days = <DateTime>[];
   var cursor = today;

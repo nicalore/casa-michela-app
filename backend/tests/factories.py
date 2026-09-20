@@ -159,7 +159,16 @@ async def make_administrator(db: AsyncSession) -> Administrator:
     )
 
 
-async def make_parent_of(db: AsyncSession, student: Student) -> Parent:
+async def make_president(db: AsyncSession) -> Administrator:
+    person = await _make_staff_person(db, first_name="Carla", last_name="Rossi")
+
+    return await _persist(
+        db,
+        Administrator(tax_code=person.tax_code, role="PRESIDENT"),
+    )
+
+
+async def make_parent_of(db: AsyncSession, child: Student | Teacher) -> Parent:
     person = await make_person(db, first_name="Paolo", last_name="Gialli")
     parent = await _persist(db, Parent(tax_code=person.tax_code))
 
@@ -167,7 +176,7 @@ async def make_parent_of(db: AsyncSession, student: Student) -> Parent:
         db,
         ParentalResponsibility(
             parent_tax_code=parent.tax_code,
-            child_tax_code=student.tax_code,
+            child_tax_code=child.tax_code,
         ),
     )
 

@@ -76,10 +76,7 @@ class CourseDistributionItem(BaseModel):
 class TeacherAppreciationItem(BaseModel):
     teacher: PersonOption
 
-    # Sum over pupils of (share of lessons asking for the teacher) minus
-    # (share of lessons held while the pupil would rather not have them), times
-    # a hundred: each pupil weighs at most a hundred either way, however often
-    # they come.
+    # Sum over pupils of (share asking for them - share held while avoided) x 100.
     score: int
     preferring_student_count: int
     avoiding_student_count: int

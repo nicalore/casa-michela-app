@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from datetime import date, time
 
 from sqlalchemy import select
@@ -29,10 +29,11 @@ BOOKING_EAGER_LOADER = (
 
 
 class BookingRepository(WritableRepository[Booking]):
+    # Scoped by student, not by booker, as the presences are.
     async def list(
         self,
         *,
-        owner_tax_code: str | None,
+        student_tax_codes: Collection[str] | None,
         presence_id: int | None,
         date_from: date | None,
         date_to: date | None,
@@ -44,8 +45,8 @@ class BookingRepository(WritableRepository[Booking]):
             .order_by(Presence.date, Presence.start_time)
         )
 
-        if owner_tax_code is not None:
-            stmt = stmt.where(Presence.booker_tax_code == owner_tax_code)
+        if student_tax_codes is not None:
+            stmt = stmt.where(Presence.student_tax_code.in_(student_tax_codes))
 
         if presence_id is not None:
             stmt = stmt.where(Booking.presence_id == presence_id)
@@ -58,8 +59,7 @@ class BookingRepository(WritableRepository[Booking]):
 
         return (await self.session.execute(stmt)).scalars().all()
 
-    # Students of the band whose requests no lesson teaches anywhere in the
-    # day: the requests nobody has looked at.
+    # Students of the band whose requests no lesson of the day teaches.
     async def find_unplanned_students(
         self,
         day: date,
@@ -90,7 +90,7 @@ class BookingRepository(WritableRepository[Booking]):
         self,
         booking_id: int,
         *,
-        owner_tax_code: str | None,
+        student_tax_codes: Collection[str] | None,
     ) -> Booking | None:
         stmt = (
             select(Booking)
@@ -99,8 +99,8 @@ class BookingRepository(WritableRepository[Booking]):
             .where(Booking.id == booking_id)
         )
 
-        if owner_tax_code is not None:
-            stmt = stmt.where(Presence.booker_tax_code == owner_tax_code)
+        if student_tax_codes is not None:
+            stmt = stmt.where(Presence.student_tax_code.in_(student_tax_codes))
 
         return await self.session.scalar(stmt)
 

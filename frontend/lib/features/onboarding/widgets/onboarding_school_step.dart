@@ -11,8 +11,6 @@ import '../../people/widgets/school_enrollment_edit_row.dart';
 
 const double _cardMaxWidth = 1240;
 
-// The school years read one at a time with the arrows, newest first, the way
-// the record's cards are; editing opens the same window the register uses.
 class OnboardingSchoolStep extends StatefulWidget
 {
   final PersonItem person;

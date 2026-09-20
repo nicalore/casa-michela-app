@@ -39,8 +39,7 @@ void showEditNotPreferredTeachersDialog(
   );
 }
 
-// The teachers a pupil would rather not have: a standing opinion, held on the
-// pupil and applied to every booking, unlike the teachers asked for per lesson.
+// Held on the pupil and applied to every booking, unlike per-lesson preferred teachers.
 class PersonNotPreferredTeachersTab extends StatelessWidget
 {
   final PersonItem person;
@@ -52,7 +51,6 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
     required this.onUpdate,
   });
 
-  // Photo and name only: there is nothing more to say about the teacher here.
   Widget _buildCard(PersonOptionItem teacher)
   {
     return SizedBox(

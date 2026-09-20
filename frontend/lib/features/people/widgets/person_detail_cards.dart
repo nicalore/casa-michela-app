@@ -10,9 +10,6 @@ import '../models/person_item.dart';
 import '../widgets/teacher_rating_dots.dart';
 import 'person_detail_widgets.dart';
 
-// Every card the register can show about a person, built once here so the
-// detail page and the first-access flow read the same record the same way.
-
 // Backend convention: province 'EE' means born abroad, so the nation is shown.
 const String _abroadProvinceCode = 'EE';
 
@@ -104,6 +101,8 @@ String _paymentMethodText(PersonItem person)
   return _paymentMethodLabel(method) ?? method;
 }
 
+const String _listSeparator = ' – ';
+
 // Null when no certification is declared, so the row can be omitted.
 String? _certificationText(PersonItem person)
 {
@@ -115,7 +114,7 @@ String? _certificationText(PersonItem person)
   return person.certificationTypes
       .map((type) =>
           type == _otherOptionCode ? orDash(person.certificationOtherDetail) : type)
-      .join(', ');
+      .join(_listSeparator);
 }
 
 String _residenceAddress(PersonItem person)
@@ -155,7 +154,7 @@ List<DetailRowData> _earlyExitRows(PersonItem person)
           in person.earlyExitSchedules ?? const <EarlyExitScheduleItem>[])
         DetailRowData(
           (schedule.weekdays.toList()..sort()).map(weekdayShortName).join(', '),
-          '${formatTimeOfDayShort(schedule.exitTime)} · ${schedule.reason}',
+          '${formatTimeOfDayShort(schedule.exitTime)}$_listSeparator${schedule.reason}',
         ),
     ],
   ];
@@ -246,8 +245,85 @@ List<PersonDetailCard> personalDetailCards(PersonItem person)
   ];
 }
 
-// The teacher's studies can be left out when the reader is offered a form for
-// them instead.
+// Null for a parent who did not join; shown even once the membership lapsed.
+PersonDetailCard? paymentsCard(PersonItem person)
+{
+  if (!_wasEverAskedToPay(person))
+  {
+    return null;
+  }
+
+  final String? tariff = homeworkTariffLabel(person.homeworkTariff);
+
+  return PersonDetailCard(
+    title: 'Pagamenti',
+    icon: Icons.payments_outlined,
+    labelWidth: kPersonWideCardLabelWidth,
+    rows: [
+      DetailRowData('Modalità', _paymentMethodText(person)),
+      if (_upperCaseRoles(person).contains('STUDENTE'))
+        DetailRowData('Tariffa', tariff ?? missingValue),
+    ],
+  );
+}
+
+PersonDetailCard collaborationCard(PersonItem person)
+{
+  final int? cents = _grossCompensationCents(person);
+
+  return PersonDetailCard(
+    title: 'Dettagli collaborazione',
+    icon: Icons.account_balance_outlined,
+    labelWidth: kPersonWideCardLabelWidth,
+    rows: [
+      DetailRowData('Tipo collaborazione', orDash(person.collaborationType)),
+      if (person.collaborationType == 'Retribuito') ...[
+        DetailRowData(
+          'Compenso orario lordo',
+          cents == null ? missingValue : formatAmount(cents),
+        ),
+        DetailRowData(
+          'Compenso orario netto',
+          cents == null ? missingValue : formatAmount(netOfCents(cents)),
+        ),
+      ],
+      DetailRowData('IBAN', orDash(person.iban), isSensitive: true),
+    ],
+  );
+}
+
+PersonDetailCard adminDetailsCard(PersonItem person)
+{
+  return PersonDetailCard(
+    title: 'Dettagli amministratore',
+    icon: Icons.computer_outlined,
+    labelWidth: kPersonWideCardLabelWidth,
+    rows: [DetailRowData('Ruolo', _adminRoleText(person))],
+  );
+}
+
+// forOwner hides rating and high-school rows; the server sends the rating to admins only.
+PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
+{
+  return PersonDetailCard(
+    title: 'Dettagli docente',
+    icon: Icons.school_outlined,
+    labelWidth: kPersonWideCardLabelWidth,
+    rows: [
+      if (!forOwner && person.teacherRating != null)
+        DetailRowData.drawn(
+          'Valutazione',
+          TeacherRatingDots(value: person.teacherRating!),
+        ),
+      if (!forOwner)
+        DetailRowData('Studente delle superiori', _highSchoolStudentText(person)),
+      DetailRowData('Studi scolastici', orDash(person.schoolEducation)),
+      if (person.isHighSchoolStudent != true)
+        DetailRowData('Studi universitari', orDash(person.universityEducation)),
+    ],
+  );
+}
+
 List<PersonDetailCard> roleDetailCards(
   PersonItem person, {
   bool includeTeacherDetails = true,
@@ -256,21 +332,9 @@ List<PersonDetailCard> roleDetailCards(
   final roles = _upperCaseRoles(person);
   final cards = <PersonDetailCard>[];
 
-  // Shown whether or not the membership still stands, even once the wizard stops asking.
-  if (_wasEverAskedToPay(person))
+  if (paymentsCard(person) case final PersonDetailCard payments)
   {
-    final String? tariff = homeworkTariffLabel(person.homeworkTariff);
-
-    cards.add(PersonDetailCard(
-      title: 'Pagamenti',
-      icon: Icons.payments_outlined,
-      labelWidth: kPersonWideCardLabelWidth,
-      rows: [
-        DetailRowData('Modalità', _paymentMethodText(person)),
-        if (roles.contains('STUDENTE'))
-          DetailRowData('Tariffa', tariff ?? missingValue),
-      ],
-    ));
+    cards.add(payments);
   }
 
   final isStaff = roles.contains('AMMINISTRATORE') ||
@@ -279,98 +343,22 @@ List<PersonDetailCard> roleDetailCards(
 
   if (isStaff)
   {
-    final int? cents = _grossCompensationCents(person);
-
-    cards.add(PersonDetailCard(
-      title: 'Dettagli collaborazione',
-      icon: Icons.account_balance_outlined,
-      labelWidth: kPersonWideCardLabelWidth,
-      rows: [
-        DetailRowData('Tipo collaborazione', orDash(person.collaborationType)),
-        // Only a paid collaboration has a compensation; the net is a fifth
-        // off the gross, worked out for whoever is reading.
-        if (person.collaborationType == 'Retribuito') ...[
-          DetailRowData(
-            'Compenso orario lordo',
-            cents == null ? missingValue : formatAmount(cents),
-          ),
-          DetailRowData(
-            'Compenso orario netto',
-            cents == null ? missingValue : formatAmount(netOfCents(cents)),
-          ),
-        ],
-        DetailRowData('IBAN', orDash(person.iban), isSensitive: true),
-      ],
-    ));
+    cards.add(collaborationCard(person));
   }
 
   if (roles.contains('AMMINISTRATORE'))
   {
-    cards.add(PersonDetailCard(
-      title: 'Dettagli amministratore',
-      icon: Icons.computer_outlined,
-      labelWidth: kPersonWideCardLabelWidth,
-      rows: [DetailRowData('Ruolo', _adminRoleText(person))],
-    ));
+    cards.add(adminDetailsCard(person));
   }
 
   if (roles.contains('DOCENTE') && includeTeacherDetails)
   {
-    cards.add(PersonDetailCard(
-      title: 'Dettagli docente',
-      icon: Icons.school_outlined,
-      labelWidth: kPersonWideCardLabelWidth,
-      rows: [
-        // Only admins receive the rating from the server.
-        if (person.teacherRating != null)
-          DetailRowData.drawn(
-            'Valutazione',
-            TeacherRatingDots(value: person.teacherRating!),
-          ),
-        DetailRowData('Studente delle superiori', _highSchoolStudentText(person)),
-        DetailRowData('Studi scolastici', orDash(person.schoolEducation)),
-        if (person.isHighSchoolStudent != true)
-          DetailRowData('Studi universitari', orDash(person.universityEducation)),
-      ],
-    ));
+    cards.add(teacherDetailsCard(person));
   }
 
   if (roles.contains('STUDENTE'))
   {
-    final certification = _certificationText(person);
-
-    final List<DetailRowData> certificationRows = [
-      if (certification != null)
-        DetailRowData('Tipologia', certification, isSensitive: true),
-      if (person.certificationTypes.contains(_dsaOptionCode))
-        DetailRowData(
-          'Tipo di DSA',
-          orDash(person.certificationDsaDetail),
-          isSensitive: true,
-        ),
-    ];
-
-    // A heading over an empty card reads as something that failed to load.
-    if (certificationRows.isNotEmpty)
-    {
-      cards.add(PersonDetailCard(
-        title: 'Certificazioni',
-        icon: Icons.assignment_outlined,
-        labelWidth: kPersonWideCardLabelWidth,
-        rows: certificationRows,
-      ));
-    }
-
-    // Leaving before the end of the day needs no permission once of age.
-    if (!person.isAdult)
-    {
-      cards.add(PersonDetailCard(
-        title: 'Uscita anticipata',
-        icon: Icons.logout_rounded,
-        labelWidth: kPersonWideCardLabelWidth,
-        rows: _earlyExitRows(person),
-      ));
-    }
+    cards.addAll(pupilDetailCards(person));
   }
 
   if (roles.contains('CORSISTA'))
@@ -391,18 +379,57 @@ List<PersonDetailCard> roleDetailCards(
 
   if (!person.isAdult)
   {
-    cards.add(PersonDetailCard(
-      title: 'Sicurezza del minore',
-      icon: Icons.health_and_safety_outlined,
-      labelWidth: kPersonWideCardLabelWidth,
-      rows: [
-        DetailRowData('Contatto emergenza', orDash(person.emergencyContactName)),
-        DetailRowData('Telefono emergenza', orDash(formatPhoneNumber(person.emergencyContactPhone))),
-        DetailRowData('Allergie / intolleranze', orDash(person.allergiesNotes)),
-        DetailRowData('Farmaci / note', orDash(person.medicationsNotes)),
-      ],
-    ));
+    cards.add(minorSafetyCard(person));
   }
 
   return cards;
+}
+
+List<PersonDetailCard> pupilDetailCards(PersonItem person)
+{
+  final certification = _certificationText(person);
+
+  final List<DetailRowData> certificationRows = [
+    if (certification != null)
+      DetailRowData('Tipologia', certification, isSensitive: true, hidesLength: true),
+    if (person.certificationTypes.contains(_dsaOptionCode))
+      DetailRowData(
+        'Tipo di DSA',
+        orDash(person.certificationDsaDetail),
+        isSensitive: true,
+        hidesLength: true,
+      ),
+  ];
+
+  return [
+    if (certificationRows.isNotEmpty)
+      PersonDetailCard(
+        title: 'Certificazioni',
+        icon: Icons.assignment_outlined,
+        labelWidth: kPersonWideCardLabelWidth,
+        rows: certificationRows,
+      ),
+    if (!person.isAdult)
+      PersonDetailCard(
+        title: 'Uscita anticipata',
+        icon: Icons.logout_rounded,
+        labelWidth: kPersonWideCardLabelWidth,
+        rows: _earlyExitRows(person),
+      ),
+  ];
+}
+
+PersonDetailCard minorSafetyCard(PersonItem person)
+{
+  return PersonDetailCard(
+    title: 'Sicurezza del minore',
+    icon: Icons.health_and_safety_outlined,
+    labelWidth: kPersonWideCardLabelWidth,
+    rows: [
+      DetailRowData('Contatto emergenza', orDash(person.emergencyContactName)),
+      DetailRowData('Telefono emergenza', orDash(formatPhoneNumber(person.emergencyContactPhone))),
+      DetailRowData('Allergie / intolleranze', orDash(person.allergiesNotes)),
+      DetailRowData('Farmaci / note', orDash(person.medicationsNotes)),
+    ],
+  );
 }

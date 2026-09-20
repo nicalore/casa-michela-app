@@ -25,8 +25,7 @@ class _BandDraft
   TimeOfDay? end;
 }
 
-// Day-by-day editor for one mode's weekly templates. Save commits the diff
-// across every cell, whichever weekday is on screen.
+// Save commits the diff across every weekday, not only the one on screen.
 class EditHoursDialog extends StatefulWidget
 {
   final String mode;
@@ -56,8 +55,7 @@ class _EditHoursDialogState extends State<EditHoursDialog>
 
   final ApiService _apiService = ApiService();
 
-  // Diff baseline, seeded once in initState. A list per band: a weekday can
-  // carry several templates in one band, and all of them must be deletable.
+  // Diff baseline; a list per band since a weekday can carry several rows in one.
   final Map<int, Map<TimeBucket, List<WeeklyTemplateItem>>> _originals = {};
   final Map<int, Map<TimeBucket, _BandDraft>> _drafts = {};
 
@@ -67,8 +65,7 @@ class _EditHoursDialogState extends State<EditHoursDialog>
   bool _movingForward = true;
   bool _isSaving = false;
 
-  // Days ticked to receive a copy of the one on screen; cleared after copying
-  // and whenever the carousel moves.
+  // Cleared after copying and whenever the carousel moves.
   final Set<int> _copyTargets = {};
 
   @override
@@ -110,8 +107,7 @@ class _EditHoursDialogState extends State<EditHoursDialog>
 
       _originals[weekday] = byBucket;
 
-      // The earliest row of a band is the one edited; others are duplicates the
-      // save clears out.
+      // The earliest row of a band is edited; the save clears the other duplicates.
       _drafts[weekday] = {
         for (final bucket in TimeBucket.values)
           bucket: _BandDraft()
@@ -234,7 +230,7 @@ class _EditHoursDialogState extends State<EditHoursDialog>
           }
           else if (hasEdit)
           {
-            // Sent even with untouched hours: the decorrenza alone can change
+            // Sent even with untouched hours: the effective date alone can change
             // which days get materialised.
             if (await confirmation.run(
               context,
@@ -251,8 +247,7 @@ class _EditHoursDialogState extends State<EditHoursDialog>
             }
           }
 
-          // Delete every row beyond the one the field edits: a cleared band
-          // loses all rows, a rewritten one keeps only its own.
+          // A cleared band loses all rows; a rewritten one keeps only the edited row.
           for (final duplicate in originals.skip(hasEdit ? 1 : 0))
           {
             if (!mounted)
@@ -315,22 +310,12 @@ class _EditHoursDialogState extends State<EditHoursDialog>
 
   int _minutesOf(TimeOfDay time) => time.hour * 60 + time.minute;
 
-  void _goToPreviousDay()
+  void _goToDay(int weekday)
   {
     setState(()
     {
-      _movingForward = false;
-      _currentWeekday--;
-      _copyTargets.clear();
-    });
-  }
-
-  void _goToNextDay()
-  {
-    setState(()
-    {
-      _movingForward = true;
-      _currentWeekday++;
+      _movingForward = weekday > _currentWeekday;
+      _currentWeekday = weekday.clamp(1, 7);
       _copyTargets.clear();
     });
   }
@@ -488,17 +473,19 @@ class _EditHoursDialogState extends State<EditHoursDialog>
 
   Widget _buildCarousel()
   {
+    final weekday = _currentWeekday;
+
     return AppCarouselFrame(
-      index: _currentWeekday,
+      index: weekday,
       movingForward: _movingForward,
       maxContentWidth: _cardMaxWidth,
-      canGoBack: _currentWeekday > 1,
-      canGoForward: _currentWeekday < 7,
-      onBack: _goToPreviousDay,
-      onForward: _goToNextDay,
+      canGoBack: weekday > 1,
+      canGoForward: weekday < 7,
+      onBack: () => _goToDay(weekday - 1),
+      onForward: () => _goToDay(weekday + 1),
       child: LayoutBuilder(
         builder: (context, constraints) => _buildWeekdayCard(
-          _currentWeekday,
+          weekday,
           compact: constraints.maxWidth < AppCarouselFrame.minContentWidth,
         ),
       ),

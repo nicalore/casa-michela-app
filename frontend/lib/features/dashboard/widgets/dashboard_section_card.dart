@@ -18,8 +18,7 @@ class DashboardSectionCard extends StatelessWidget
 
   final double minHeight;
 
-  // True inside a row, where the tallest card sets the height and the content
-  // must fill it; false in a column.
+  // True inside a row, where the tallest card sets the height; false in a column.
   final bool fill;
 
   final bool compact;

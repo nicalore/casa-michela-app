@@ -17,8 +17,7 @@ class PresenceBase(TimeBandMixin):
 
 class PresenceCreate(PresenceBase):
     student_tax_code: str
-    # Admin-only: a non-admin caller's value is ignored server-side in favor
-    # of their own tax code.
+    # Admin-only: a non-admin caller's value is replaced by their own tax code.
     booker_tax_code: str | None = None
 
 

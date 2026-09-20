@@ -24,6 +24,8 @@ class OpeningWindow
 
   TimeOfDay get end => timeOfDayFromMinutes(endMinutes);
 
+  int get minutes => endMinutes - startMinutes;
+
   bool contains(TimeOfDay time)
   {
     final minutes = minutesOfTimeOfDay(time);

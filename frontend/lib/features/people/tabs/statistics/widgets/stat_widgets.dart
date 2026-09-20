@@ -414,14 +414,12 @@ const Color kThumbDownColor = AppTheme.trialDeepWater;
 
 const Duration _hoverFade = Duration(milliseconds: 180);
 
-// One thumb with its count; a tap, when there is one, names the pupils. A
-// count of zero has nobody to name, so it is never tappable.
+// A zero count is never tappable.
 class ThumbCount extends StatefulWidget
 {
   final bool up;
   final int count;
 
-  // Figure-sized, for a card of its own rather than a line under a name.
   final bool large;
 
   final VoidCallback? onTap;
@@ -472,7 +470,6 @@ class _ThumbCountState extends State<ThumbCount>
       return content;
     }
 
-    // The gold wash every tappable icon in the app gets on hover.
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
@@ -498,7 +495,6 @@ class _ThumbCountState extends State<ThumbCount>
   }
 }
 
-// How many pupils asked for the person and how many would rather not have them.
 class ThumbCounts extends StatelessWidget
 {
   final int up;
@@ -539,7 +535,6 @@ class PersonRankRow extends StatelessWidget
   final String badgeText;
   final Color accent;
 
-  // Under the name, when there is more to say than the badge.
   final Widget? subtitle;
 
   const PersonRankRow({

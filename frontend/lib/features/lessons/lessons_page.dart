@@ -33,7 +33,6 @@ import 'models/presence_item.dart';
 import 'models/room_day_plan.dart';
 import 'models/room_supervision_item.dart';
 import 'utils/excluded_teachers.dart';
-import 'models/subject_request.dart';
 import 'models/teacher_room_assignment_item.dart';
 import 'tabs/availability_tab.dart';
 import 'tabs/bookings_tab.dart';
@@ -574,42 +573,6 @@ class _LessonsPageState extends State<LessonsPage>
     return true;
   }
 
-  Future<bool> _executeMoveBooking({
-    required BookingSummaryItem booking,
-    required int presenceId,
-    required Function(String) onError,
-  }) async
-  {
-    final source = _presences
-        .where((presence) => presence.bookings.any((item) => item.id == booking.id))
-        .firstOrNull;
-
-    try
-    {
-      await _apiService.updateBooking(
-        id: booking.id,
-        subject: {
-          ...SubjectRequestDraft.fromBooking(booking).toJson(),
-          'presence_id': presenceId,
-        },
-        expectedUpdatedAt: booking.updatedAt,
-      );
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-
-      return false;
-    }
-
-    await Future.wait([
-      _refreshPresence(presenceId),
-      if (source != null && source.id != presenceId) _refreshPresence(source.id),
-    ]);
-
-    return true;
-  }
-
   Future<bool> _executeLoadDay(DateTime day, Function(String) onError) async
   {
     try
@@ -765,8 +728,7 @@ class _LessonsPageState extends State<LessonsPage>
 
     final undone = await write(
       call: () => _apiService.discardDraft(day: day, band: band),
-      // Deliberately does not move the band out of draft here: showing
-      // "published" before the restored hours arrive flashes stale changes.
+      // Band stays in draft until the restored hours arrive; flipping early flashes stale changes.
       apply: (answer) => lost = answer.lost,
       onError: onError,
       cascade: () => _refreshDay(day),
@@ -892,10 +854,8 @@ class _LessonsPageState extends State<LessonsPage>
     return shown != null && isSameDate(shown, day) && _shownBand == band;
   }
 
-  // Applies the server's answer locally instead of re-reading the whole day
-  // (an unconditional read-back made the row clear before its hours did);
-  // only a disagreeing count triggers a full reload. Publications are always
-  // re-fetched, since excluding can turn the band into a draft with changes.
+  // Applied locally, full reload only on a disagreeing count: a read-back cleared the row before its hours.
+  // Publications are always re-fetched: excluding can turn the band into a draft with changes.
   Future<HandedBack?> _executeExcludeTeacher({
     required DateTime day,
     required TimeBucket band,
@@ -1109,8 +1069,7 @@ class _LessonsPageState extends State<LessonsPage>
     _sayWhatMovedUnderneath(hours, requests, day, band);
   }
 
-  // Reports external changes: lessons gone because their availability was
-  // withdrawn, and requests that arrived after the calendar was built.
+  // Reports lessons lost to withdrawn availability and requests arrived since the calendar was built.
   void _sayWhatMovedUnderneath(
     Set<int> hours,
     Set<int> requests,
@@ -1290,8 +1249,7 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  // Fetches and applies lessons, publications and activities in one setState:
-  // two sequential setStates showed a frame with half the answer.
+  // One setState for lessons, publications and activities: two in sequence showed a half-updated frame.
   Future<void> _refreshDay(DateTime day) async
   {
     try
@@ -1328,8 +1286,7 @@ class _LessonsPageState extends State<LessonsPage>
       reportCaughtError(e, stackTrace, during: 'il ricaricamento del calendario');
     }
 
-    // Every calendar write comes back through here, and a write takes the
-    // band: reading the locks is how this window learns it now holds it.
+    // A write takes the band; re-reading the locks is how this window learns it now holds it.
     await _readTheLocks(day);
   }
 
@@ -1354,8 +1311,7 @@ class _LessonsPageState extends State<LessonsPage>
     );
   }
 
-  // Optimistic placement so a dragged activity moves under the hand; the
-  // server's answer replaces it, and a refusal puts it back.
+  // Optimistic placement; the server's answer replaces it and a refusal puts it back.
   ActivityItem _optimisticActivity({
     required ActivityItem existing,
     required String name,
@@ -1986,7 +1942,6 @@ class _LessonsPageState extends State<LessonsPage>
                 onUpdateLesson: _isCalendarReadOnly ? null : _executeUpdateLesson,
                 onDeleteLesson: _isCalendarReadOnly ? null : _executeDeleteLesson,
                 onSplitLesson: _isCalendarReadOnly ? null : _executeSplitLesson,
-                onMoveBooking: _isCalendarReadOnly ? null : _executeMoveBooking,
                 onCreateActivity: _isCalendarReadOnly ? null : _executeCreateActivity,
                 onUpdateActivity: _isCalendarReadOnly ? null : _executeUpdateActivity,
                 onDeleteActivity: _isCalendarReadOnly ? null : _executeDeleteActivity,
@@ -2024,8 +1979,7 @@ class _LessonsPageState extends State<LessonsPage>
     _watchTheShownSection();
   }
 
-  // Leaving the calendar stops the beat; coming back does not retake the lock
-  // (the first write does).
+  // Leaving stops the beat; coming back does not retake the lock (the first write does).
   void _watchTheShownSection()
   {
     final onTheCalendar = _contentIndex == _calendarContentIndex;

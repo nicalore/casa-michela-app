@@ -10,6 +10,9 @@ const double _borderWidth = 1.5;
 const double _fontSize = 14;
 const double _lineHeight = 1.25;
 
+const double _iconSize = 16;
+const double _iconGap = 8;
+
 const FontWeight _restWeight = FontWeight.w500;
 const FontWeight _chosenWeight = FontWeight.w700;
 
@@ -21,6 +24,8 @@ class AppSelectableChip extends StatefulWidget
   final bool selected;
   final ValueChanged<bool> onSelected;
 
+  final IconData? icon;
+
   final bool enabled;
 
   final String? disabledTooltip;
@@ -30,6 +35,7 @@ class AppSelectableChip extends StatefulWidget
     required this.label,
     required this.selected,
     required this.onSelected,
+    this.icon,
     this.enabled = true,
     this.disabledTooltip,
   });
@@ -42,8 +48,7 @@ class _AppSelectableChipState extends State<AppSelectableChip>
 {
   bool _hover = false;
 
-  // A decoration with a colour and one with a gradient cannot be interpolated:
-  // both ends are gradients to avoid a flash.
+  // Colour and gradient decorations cannot interpolate: both ends are gradients to avoid a flash.
   LinearGradient _gradient(double t)
   {
     return LinearGradient(
@@ -138,6 +143,10 @@ class _AppSelectableChipState extends State<AppSelectableChip>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.icon case final icon?) ...[
+                Icon(icon, size: _iconSize, color: contentColor),
+                const SizedBox(width: _iconGap),
+              ],
               Flexible(
                 child: _ChipLabel(
                   label: widget.label,
@@ -153,8 +162,7 @@ class _AppSelectableChipState extends State<AppSelectableChip>
   }
 }
 
-// Sized from unpainted copies at both weights, so a picked (bold) chip does
-// not grow and shove its neighbours.
+// Sized from unpainted copies at both weights so a picked (bold) chip does not shove its neighbours.
 class _ChipLabel extends StatelessWidget
 {
   final String label;
@@ -189,8 +197,7 @@ class _ChipLabel extends StatelessWidget
   {
     final TextStyle inherited = DefaultTextStyle.of(context).style;
 
-    // Pinned for both copies: a Text takes maxLines/overflow from the
-    // DefaultTextStyle while the measured RichText takes none.
+    // Pinned for both copies: Text takes maxLines/overflow from DefaultTextStyle, the measured RichText does not.
     return DefaultTextStyle(
       style: inherited,
       textAlign: TextAlign.center,
@@ -220,8 +227,7 @@ class _ChipLabel extends StatelessWidget
 
   Widget _buildLayers(BuildContext context, TextStyle inherited)
   {
-    // Both weights are laid out; a regular that has not arrived can be wider
-    // than a bold that has.
+    // Both weights are laid out: a regular font not yet loaded can be wider than a bold one that has.
     return Stack(
       clipBehavior: Clip.none,
       children: [

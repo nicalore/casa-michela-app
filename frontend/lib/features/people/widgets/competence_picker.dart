@@ -17,8 +17,7 @@ import '../../association/models/subject_taxonomy.dart';
 import 'person_detail_widgets.dart';
 import 'program_scope_dialog.dart';
 
-// One duration for background, check mark, and trailing swap: out-of-step
-// animations on the same row read as flicker.
+// Shared by background, check mark and trailing swap: out-of-step animations read as flicker.
 const Duration _selectFade = Duration(milliseconds: 180);
 
 class CompetenceScope
@@ -30,7 +29,7 @@ class CompetenceScope
 
   bool get isAll => chosen >= total;
 
-  String get label => isAll ? 'Tutti i percorsi · $total' : '$chosen di $total percorsi';
+  String get label => isAll ? 'Tutti i percorsi ($total)' : '$chosen di $total percorsi';
 }
 
 class CompetenceRow extends StatefulWidget
@@ -144,14 +143,12 @@ class _CompetenceRowState extends State<CompetenceRow>
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            // Not Colors.transparent (black at zero alpha): the fade would pass
-            // through grey.
+            // Not Colors.transparent: the fade would pass through grey.
             color: widget.selected
                 ? kPickedSurface
                 : kPickedSurface.withValues(alpha: 0),
             borderRadius: BorderRadius.circular(16),
-            // Border always present (transparent) so hover does not shift the
-            // contents.
+            // Always present so hover does not shift the contents.
             border: Border.all(
               color: _hover
                   ? AppTheme.trialGold
@@ -259,8 +256,7 @@ class _ScopeButtonState extends State<_ScopeButton>
 }
 
 
-// Sentinel for "services" in the area filter; the underscores keep it out of
-// the real area values.
+// Area-filter sentinel; cannot collide with real area values.
 const String kServicesFilterValue = '__SERVICES__';
 
 sealed class CompetenceEntry
@@ -320,8 +316,7 @@ enum CompetenceSort
   }
 }
 
-// The selection maps are caller-owned and edited in place, notifying via
-// onChanged.
+// isSelected/programsBySubject/selectedServices are caller-owned and edited in place.
 class CompetenceCatalogue extends StatefulWidget
 {
   final List<AssociationSubjectItem> subjects;
@@ -337,8 +332,7 @@ class CompetenceCatalogue extends StatefulWidget
   final bool isLoading;
   final VoidCallback onChanged;
 
-  // False when the page around the list scrolls: a list scrolling on its
-  // own inside it would swallow the wheel and clip its rows.
+  // False inside a scrolling page: a nested scroll would swallow the wheel and clip rows.
   final bool scrollable;
 
   final Widget Function(BuildContext context, Widget filters, Widget list) builder;
@@ -574,6 +568,11 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator(color: AppTheme.trialTurquoise)),
       );
+    }
+
+    if (widget.subjects.isEmpty && widget.services.isEmpty)
+    {
+      return const PersonEmptyState(message: 'Nessuna disciplina o servizio da aggiungere.');
     }
 
     final List<CompetenceEntry> entries = _filteredEntries;

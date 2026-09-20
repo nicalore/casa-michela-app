@@ -136,6 +136,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
   bool _movingForward = true;
 
   bool _isSaving = false;
+  bool _isRemoving = false;
 
   CalendarDayIndex get _index => widget.index;
 
@@ -235,60 +236,52 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   List<_Slot> _slotsFor(Set<int> disciplineIds, {List<_Part> siblings = const [], int? lessonId, int? keep})
   {
-    final presence = _entry.presence;
+    final stretches = _entry.windowsIn(_index.bandStart, _index.bandEnd);
 
+    // One slot per stretch of the pupil's hours the teacher is there for.
     final slots = <(String, int, int), _Slot>{};
 
     for (final lane in _index.lanes)
     {
-      for (final availability in lane.availabilitiesTaking(presence.mode))
+      for (final availability in lane.availabilitiesTaking(_entry.presence.mode))
       {
-        final inBand = intersectSpan(
-          minutesOfTimeOfDay(availability.startTime),
-          minutesOfTimeOfDay(availability.endTime),
-          _index.bandStart,
-          _index.bandEnd,
-        );
+        final offered = [
+          (minutesOfTimeOfDay(availability.startTime), minutesOfTimeOfDay(availability.endTime)),
+        ];
 
-        final window = inBand == null
-            ? null
-            : intersectSpan(
-                inBand.$1,
-                inBand.$2,
-                minutesOfTimeOfDay(presence.startTime),
-                minutesOfTimeOfDay(presence.endTime),
-              );
-
-        if (window == null || window.$2 - window.$1 < kMinimumBandMinutes)
+        for (final window in intersectWindows(offered, stretches))
         {
-          continue;
-        }
+          if (window.$2 - window.$1 < kMinimumBandMinutes)
+          {
+            continue;
+          }
 
-        final slot = _Slot(
-          lane: lane,
-          availability: availability,
-          windowStart: window.$1,
-          windowEnd: window.$2,
-        );
+          final slot = _Slot(
+            lane: lane,
+            availability: availability,
+            windowStart: window.$1,
+            windowEnd: window.$2,
+          );
 
-        if (_firstValidStart(
-              slot: slot,
-              disciplineIds: disciplineIds,
-              length: kMinimumBandMinutes,
-              siblings: siblings,
-              lessonId: lessonId,
-            ) ==
-            null)
-        {
-          continue;
-        }
+          if (_firstValidStart(
+                slot: slot,
+                disciplineIds: disciplineIds,
+                length: kMinimumBandMinutes,
+                siblings: siblings,
+                lessonId: lessonId,
+              ) ==
+              null)
+          {
+            continue;
+          }
 
-        final key = (lane.teacherTaxCode, window.$1, window.$2);
-        final current = slots[key];
+          final key = (lane.teacherTaxCode, window.$1, window.$2);
+          final current = slots[key];
 
-        if (current == null || _preferred(slot, current, keep))
-        {
-          slots[key] = slot;
+          if (current == null || _preferred(slot, current, keep))
+          {
+            slots[key] = slot;
+          }
         }
       }
     }
@@ -564,17 +557,54 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
     });
   }
 
-  void _unplanEverything()
+  // Acts at once, as the activity dialog's does: nothing is left to confirm.
+  Future<void> _unplanEverything() async
   {
-    setState(()
+    final delete = widget.onDelete;
+
+    if (delete == null || _isSaving || _isRemoving)
     {
-      _parts.clear();
-    });
+      return;
+    }
+
+    setState(() => _isRemoving = true);
+
+    var failure = false;
+
+    void report(String message)
+    {
+      failure = true;
+
+      if (mounted)
+      {
+        CustomSnackBar.show(context: context, message: message, isError: true);
+      }
+    }
+
+    for (final lesson in _entry.parts)
+    {
+      if (failure || !await delete(lesson.id, report))
+      {
+        break;
+      }
+    }
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(() => _isRemoving = false);
+
+    if (!failure)
+    {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _confirm() async
   {
-    if (_isSaving)
+    if (_isSaving || _isRemoving)
     {
       return;
     }
@@ -1012,9 +1042,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
 
   Widget _buildFacts()
   {
-    final presence = _entry.presence;
-    final mode = presence.mode;
-    final presenceMinutes = minutesOfTimeOfDay(presence.endTime) - minutesOfTimeOfDay(presence.startTime);
+    final mode = _entry.presence.mode;
 
     Widget fact(IconData icon, Color accent, String text)
     {
@@ -1048,8 +1076,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
         fact(
           lessonModeIcon(mode),
           lessonAccent(mode),
-          '$presenceLabel ${formatMinutes(presenceMinutes)} · '
-          '${formatTimeRange(presence.startTime, presence.endTime)}',
+          '$presenceLabel ${formatMinutes(_entry.presenceMinutes)} · ${_entry.hoursLabel}',
         ),
       ],
     );
@@ -1152,6 +1179,7 @@ class _LessonPlanWizardState extends State<LessonPlanWizard>
                 icon: Icons.delete_outline_rounded,
                 gradient: AppTheme.dangerGradient,
                 accent: AppTheme.trialDanger,
+                busy: _isRemoving,
                 height: _dialogButtonHeight,
                 fontSize: _dialogButtonFontSize,
                 horizontalPadding: _dialogButtonPadding,

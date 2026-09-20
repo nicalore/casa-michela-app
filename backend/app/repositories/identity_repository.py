@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 from app.models.account import Account
 from app.models.member import Member
 from app.models.parent import Parent
+from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import Person
 from app.models.staff import Staff
 from app.repositories.base import SessionRepository
@@ -13,13 +14,17 @@ class IdentityRepository(SessionRepository):
     async def get_account_identity(self, tax_code: str) -> Account | None:
         person_loader = selectinload(Account.person)
         parent_loader = person_loader.selectinload(Person.parent_profile)
+        children_loader = parent_loader.selectinload(Parent.children_relationships)
         member_loader = person_loader.selectinload(Person.member_profile)
         staff_loader = member_loader.selectinload(Member.staff_profile)
 
         return await self.session.scalar(
             select(Account)
             .options(
-                parent_loader.selectinload(Parent.children_relationships),
+                # Whether each child is a pupil decides the parent role.
+                children_loader.selectinload(ParentalResponsibility.child)
+                .selectinload(Person.member_profile)
+                .selectinload(Member.student_profile),
                 person_loader.selectinload(Person.parental_relationships),
                 member_loader.selectinload(Member.student_profile),
                 member_loader.selectinload(Member.course_participant_profile),

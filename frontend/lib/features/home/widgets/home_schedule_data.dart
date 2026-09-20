@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/time_bucket.dart';
@@ -10,11 +12,9 @@ import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/utils/timeline_geometry.dart';
 
-// One booking, one declared availability or one call to teach, flattened to
-// what the card shows.
 class HomeSlot
 {
-  // Empty when the card speaks for a single person and needs no name.
+  // Empty when the card names nobody.
   final String name;
 
   final DateTime date;
@@ -24,8 +24,9 @@ class HomeSlot
   // 'presence' or 'online', as the backend stores them.
   final String mode;
 
-  // A teacher's call to teach: arrival and departure, not an offer.
-  final bool convened;
+  final String lead;
+
+  final int subjects;
 
   const HomeSlot({
     required this.name,
@@ -33,44 +34,65 @@ class HomeSlot
     required this.startTime,
     required this.endTime,
     required this.mode,
-    this.convened = false,
+    required this.lead,
+    this.subjects = 0,
   });
 
   String get hours => formatTimeRange(startTime, endTime);
-
-  String get modeLabel => mode == kOnlineMode ? kOnScreen : kInBuilding;
 }
 
-// A band the association is open in, with what the reader has in it.
+// Minutes from midnight.
+typedef HomeSpan = (int start, int end);
+
+class HomeLane
+{
+  final String mode;
+
+  final String name;
+
+  final OpeningWindow opening;
+
+  // Sorted, clipped to the opening.
+  final List<HomeSpan> spans;
+
+  final int subjects;
+
+  const HomeLane({
+    required this.mode,
+    required this.name,
+    required this.opening,
+    required this.spans,
+    required this.subjects,
+  });
+}
+
 class HomeBandStatus
 {
   final TimeBucket band;
 
-  // Never empty: a band with no opening at all is left out of the day.
-  final List<BandOpening> openings;
-
   final bool isPublished;
 
-  // Whether the reader had anything in the band before publication: a
-  // teacher who offered hours and got none is told so, one who offered
-  // nothing is not.
   final bool offered;
 
-  final List<HomeSlot> slots;
+  // Never empty.
+  final List<HomeLane> lanes;
 
-  // Named people with nothing in this band. Only filled when the card names
-  // people at all, which is when a parent has more than one child.
   final List<String> idle;
 
   const HomeBandStatus({
     required this.band,
-    required this.openings,
     required this.isPublished,
     required this.offered,
-    required this.slots,
+    required this.lanes,
     required this.idle,
   });
+
+  bool get isEmpty => lanes.every((lane) => lane.spans.isEmpty);
 }
+
+const String kAvailableLead = 'Disponibile';
+const String kBookedLead = 'Prenotato';
+const String kConvenedLead = 'Convocato';
 
 List<HomeSlot> presenceSlots(List<PresenceItem> presences, {required bool named})
 {
@@ -82,6 +104,8 @@ List<HomeSlot> presenceSlots(List<PresenceItem> presences, {required bool named}
         startTime: presence.startTime,
         endTime: presence.endTime,
         mode: presence.mode,
+        lead: kBookedLead,
+        subjects: presence.bookings.length,
       ),
   ];
 }
@@ -96,12 +120,12 @@ List<HomeSlot> availabilitySlots(List<AvailabilityItem> availabilities)
         startTime: availability.startTime,
         endTime: availability.endTime,
         mode: availability.mode,
+        lead: kAvailableLead,
       ),
   ];
 }
 
-// Arrival and departure per band and mode: the earliest start and latest end
-// of what the teacher was called for, lessons and activities alike.
+// Earliest start and latest end per band and mode, lessons and activities alike.
 List<HomeSlot> convenedSlots({
   required DateTime day,
   required List<LessonItem> lessons,
@@ -148,12 +172,12 @@ List<HomeSlot> convenedSlots({
         startTime: timeOfDayFromMinutes(start),
         endTime: timeOfDayFromMinutes(end),
         mode: mode,
-        convened: true,
+        lead: kConvenedLead,
       ),
   ];
 }
 
-// A slot belongs to every band it overlaps, the way the calendar reads it.
+// A slot belongs to every band it overlaps.
 List<HomeSlot> _inBand(List<HomeSlot> slots, DateTime day, TimeBucket band)
 {
   final bandStart = bandStartMinutes(band);
@@ -168,13 +192,55 @@ List<HomeSlot> _inBand(List<HomeSlot> slots, DateTime day, TimeBucket band)
             bandStart,
             bandEnd,
           ))
-      .toList()
-    ..sort(_byStartThenName);
+      .toList();
 }
 
-// convened is a teacher's calls to teach, which replace what they offered in
-// every published band; null for readers whose own slots stay, as a pupil's
-// booking does once the calendar only confirms it.
+// A booking straddling two bands is clipped to each band's opening.
+HomeLane _laneOf(List<HomeSlot> slots, String mode, String name, OpeningWindow opening)
+{
+  final List<HomeSpan> spans = [];
+  int subjects = 0;
+
+  for (final slot in slots)
+  {
+    if (slot.mode != mode || slot.name != name)
+    {
+      continue;
+    }
+
+    final start = max(minutesOfTimeOfDay(slot.startTime), opening.startMinutes);
+    final end = min(minutesOfTimeOfDay(slot.endTime), opening.endMinutes);
+
+    if (end > start)
+    {
+      spans.add((start, end));
+      subjects += slot.subjects;
+    }
+  }
+
+  spans.sort((a, b) => a.$1.compareTo(b.$1));
+
+  return HomeLane(mode: mode, name: name, opening: opening, spans: spans, subjects: subjects);
+}
+
+List<HomeLane> _lanes(Map<String, OpeningWindow> openings, List<HomeSlot> slots, List<String> names)
+{
+  if (names.isEmpty)
+  {
+    return [
+      for (final MapEntry(key: mode, value: opening) in openings.entries)
+        _laneOf(slots, mode, '', opening),
+    ];
+  }
+
+  return [
+    for (final name in names)
+      for (final MapEntry(key: mode, value: opening) in openings.entries)
+        if (_laneOf(slots, mode, name, opening) case final lane when lane.spans.isNotEmpty) lane,
+  ];
+}
+
+// convened replaces the reader's own slots in published bands; null keeps them.
 List<HomeBandStatus> homeBands({
   required DateTime day,
   required List<OpeningDayItem> openingDays,
@@ -188,7 +254,10 @@ List<HomeBandStatus> homeBands({
 
   for (final band in TimeBucket.values)
   {
-    final openings = bandOpeningsFor(openingDays, day, band);
+    final Map<String, OpeningWindow> openings = {
+      for (final mode in const [kPresenceMode, kOnlineMode])
+        mode: ?openingWindowFor(openingDays, day, mode, band),
+    };
 
     if (openings.isEmpty)
     {
@@ -205,20 +274,12 @@ List<HomeBandStatus> homeBands({
 
     bands.add(HomeBandStatus(
       band: band,
-      openings: openings,
       isPublished: isPublished,
       offered: own.isNotEmpty,
-      slots: shown,
+      lanes: _lanes(openings, shown, names),
       idle: names.where((name) => !busy.contains(name)).toList(),
     ));
   }
 
   return bands;
-}
-
-int _byStartThenName(HomeSlot a, HomeSlot b)
-{
-  final byStart = minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime));
-
-  return byStart != 0 ? byStart : a.name.compareTo(b.name);
 }

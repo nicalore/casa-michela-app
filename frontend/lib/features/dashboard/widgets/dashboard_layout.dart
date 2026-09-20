@@ -81,8 +81,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   bool _loadingToday = true;
   List<DashboardBandStatus>? _bands;
 
-  // Bumped on every fetch so a stale response is dropped instead of
-  // overwriting fresher data (two rounds can be in flight at once).
+  // Bumped per fetch so a stale response cannot overwrite fresher data.
   int _homeRequest = 0;
   int _todayRequest = 0;
 
@@ -109,8 +108,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadTodayData();
   }
 
-  // The statistics endpoints are restricted: failures render as missing data,
-  // not an error page.
+  // Restricted endpoints: a failure renders as missing data, not an error page.
   Future<void> _loadHomeData() async
   {
     final int request = ++_homeRequest;
@@ -140,8 +138,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     });
   }
 
-  // If the opening hours cannot be read, _bands stays null ("unknown"), which
-  // is distinct from an empty day with no openings.
+  // _bands stays null ("unknown") when hours cannot be read, unlike an empty day.
   Future<void> _loadTodayData() async
   {
     final int request = ++_todayRequest;
@@ -331,8 +328,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // The slot is the card's reading-order position, which differs per grid, so
-  // callers assign it.
+  // Slot is the card's reading-order position, which differs per grid.
   Widget _staggered({required int slot, required Widget card})
   {
     return PageTransitionItem(slot: PageTransitionItem.header + slot, child: card);
@@ -351,8 +347,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // tall keeps a placeholder from collapsing to a strip; fill is only for a
-  // card given its height from outside, which a column's plain child is not.
+  // fill needs a height from outside; a column's plain child has none.
   Widget _noticesCard({required bool tall, bool fill = false})
   {
     return _staggered(
@@ -387,8 +382,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // In the column the figures go in one strip of four small tiles; on their
-  // own row, below two columns, the full tiles.
   Widget _statsCard({required double cardWidth, required bool strip})
   {
     return _staggered(
@@ -406,7 +399,6 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     );
   }
 
-  // Beside the day it fills what the figures leave of the column.
   Widget _birthdaysCard({required double cardWidth, required bool fill})
   {
     return _staggered(
@@ -437,12 +429,8 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       ]);
     }
 
-    // The card's own width, less the padding DashboardSectionCard keeps.
     final double cardWidth = (width - _sectionGap) / 2 - 2 * DashboardSectionCard.padding.left;
 
-    // Two rows of two equal columns. Above, the day and beside it the figures
-    // with the birthdays growing under them to the same height; below, the
-    // two placeholders level with each other.
     return _column([
       _CardRow(
         children: [

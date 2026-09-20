@@ -26,7 +26,6 @@ import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../people/models/person_item.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
-import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
 import '../models/calendar_lock_item.dart';
 import '../models/calendar_publication_item.dart';
@@ -43,6 +42,7 @@ import '../utils/new_members.dart';
 import '../utils/opening_window.dart';
 import '../utils/timeline_geometry.dart';
 import '../widgets/activity_dialog.dart';
+import '../widgets/activity_details_dialog.dart';
 import '../widgets/calendar_booking_panel.dart';
 import '../widgets/calendar_day_agenda.dart';
 import '../widgets/calendar_lesson_block.dart';
@@ -56,7 +56,8 @@ import '../widgets/room_assignment_wizard.dart';
 
 const double kCalendarSideBySideMin = 1040;
 
-const double kCalendarTimelineMin = 620;
+// Under this width the half-hour blocks are slivers: the agenda takes over.
+const double kCalendarTimelineMin = 900;
 
 const double kCalendarDayNavMin = 470;
 
@@ -95,8 +96,7 @@ const String kLockedBandNotice =
     'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
     'finito, il calendario torna disponibile.';
 
-// Shown when some hours could not be restored on discard (availability
-// withdrawn or request cancelled while the draft was open).
+// Shown when hours could not be restored on discard (availability withdrawn or request cancelled meanwhile).
 const String _kDraftRestoreFailed = 'Errore durante il ripristino del calendario.';
 
 const double _actionButtonHeight = 48;
@@ -190,12 +190,6 @@ class CalendarTab extends StatefulWidget
     required Function(String) onError,
   })? onSplitLesson;
 
-  final Future<bool> Function({
-    required BookingSummaryItem booking,
-    required int presenceId,
-    required Function(String) onError,
-  })? onMoveBooking;
-
   final List<CalendarPublicationItem> publications;
 
   // Only ever set for the band currently on screen.
@@ -249,7 +243,6 @@ class CalendarTab extends StatefulWidget
     required Function(String) onError,
   })? onSaveRoomPlan;
 
-  // Teacher tax codes excluded from this band's calendar.
   final Set<String> excludedTeachers;
 
   final Future<HandedBack?> Function({
@@ -294,7 +287,6 @@ class CalendarTab extends StatefulWidget
     this.onCreateActivity,
     this.onUpdateActivity,
     this.onDeleteActivity,
-    this.onMoveBooking,
     this.onLoadDay,
     this.onLoadRoomPlan,
     this.onSaveRoomPlan,
@@ -312,7 +304,7 @@ class _CalendarTabState extends State<CalendarTab>
 {
   late DateTime _day = _initialDay();
 
-  TimeBucket _band = TimeBucket.afternoon;
+  late TimeBucket _band = _initialBand();
 
   CalendarView _view = CalendarView.byTeacher;
 
@@ -464,6 +456,30 @@ class _CalendarTabState extends State<CalendarTab>
     final today = DateTime(now.year, now.month, now.day);
 
     return widget.availableDays.any((day) => isSameDate(day, today)) ? today : widget.availableDays.first;
+  }
+
+  // Published band the clock is in, else the day's last published band, else the clock's (afternoon at night).
+  TimeBucket _initialBand()
+  {
+    final now = widget.today ?? DateTime.now();
+    final current = bucketFor(TimeOfDay.fromDateTime(now));
+
+    final published = [
+      for (final row in widget.publications)
+        if (isSameDate(row.date, _day)) row.band,
+    ];
+
+    if (current != null && published.contains(current))
+    {
+      return current;
+    }
+
+    if (published.isNotEmpty)
+    {
+      return published.reduce((a, b) => a.index >= b.index ? a : b);
+    }
+
+    return current ?? TimeBucket.afternoon;
   }
 
   final Set<String> _fetchedDays = {};
@@ -860,7 +876,11 @@ class _CalendarTabState extends State<CalendarTab>
   {
     _carried.value = payload == null
         ? null
-        : CarriedRequest(payload: payload, competentTeachers: teachersWhoCouldTeach(index, payload));
+        : CarriedRequest(
+            payload: payload,
+            competentTeachers: teachersWhoCouldTeach(index, payload),
+            windows: dragWindows(index, payload),
+          );
 
     if (payload == null)
     {
@@ -887,22 +907,6 @@ class _CalendarTabState extends State<CalendarTab>
     return reach;
   }
 
-  Future<bool> _fileWhereItIsPlanned(SchedulableBooking entry) async
-  {
-    final move = widget.onMoveBooking;
-
-    if (!entry.isBorrowed || move == null)
-    {
-      return true;
-    }
-
-    return move(
-      booking: entry.booking,
-      presenceId: entry.presence.id,
-      onError: _reportRefusal,
-    );
-  }
-
   Future<void> _applyDrop(
     CalendarDragPayload payload,
     LessonPlacement placement,
@@ -919,14 +923,6 @@ class _CalendarTabState extends State<CalendarTab>
       );
 
       return;
-    }
-
-    if (payload case BookingDragPayload(:final entry))
-    {
-      if (!await _fileWhereItIsPlanned(entry) || !mounted)
-      {
-        return;
-      }
     }
 
     if (placement.deleteLessonId != null)
@@ -1157,9 +1153,20 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
+  // Published activities only show name and description; editing belongs to the draft.
   Future<void> _openPublishedActivity(ActivityItem activity) async
   {
-    await _openActivity(activity, _buildIndex(_lanes));
+    await showActivityDetailsDialog(context: context, activity: activity);
+  }
+
+  void Function(ActivityItem) _activityTap(CalendarDayIndex index)
+  {
+    if (widget.isReadOnly || _isSettled)
+    {
+      return _openPublishedActivity;
+    }
+
+    return (activity) => _openActivity(activity, index);
   }
 
   Future<void> _addActivity(CalendarDayIndex index) async
@@ -1235,38 +1242,12 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
-    final create = widget.onCreateLesson;
-
     await showLessonPlanWizard(
       context: context,
       entry: entry,
       index: index,
       ministrySubjects: widget.ministrySubjects,
-      onCreate: create == null
-          ? null
-          : ({
-              required availabilityId,
-              required bookingIds,
-              required associationSubjectIds,
-              required startTime,
-              required endTime,
-              required onError,
-            }) async
-            {
-              if (!await _fileWhereItIsPlanned(entry))
-              {
-                return null;
-              }
-
-              return create(
-                availabilityId: availabilityId,
-                bookingIds: bookingIds,
-                associationSubjectIds: associationSubjectIds,
-                startTime: startTime,
-                endTime: endTime,
-                onError: onError,
-              );
-            },
+      onCreate: widget.onCreateLesson,
       onUpdate: widget.onUpdateLesson,
       onDelete: widget.onDeleteLesson,
     );
@@ -1476,8 +1457,7 @@ class _CalendarTabState extends State<CalendarTab>
         for (final lesson in lane.lessons) lesson.id: lesson,
     }.values;
 
-    // Read off the band, not the rows: in by-student view the rows are pupils
-    // and activities have none, but their teachers are still convoked.
+    // Read off the band, not the rows: by-student rows are pupils, yet activities still convoke teachers.
     final given = [
       for (final activity in _activities)
         if (activity.placement != null) activity.placement!,
@@ -1710,7 +1690,7 @@ class _CalendarTabState extends State<CalendarTab>
           const Icon(Icons.event_busy_rounded, size: 44, color: AppTheme.trialMutedText),
           const SizedBox(height: 16),
           Text(
-            "L'associazione è chiusa",
+            "L'Associazione è chiusa",
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 17,
@@ -1829,7 +1809,7 @@ class _CalendarTabState extends State<CalendarTab>
         roomByTeacher: _roomLabelsFor(lanes),
         nowMinutes: showsNow ? now : null,
         onLessonTap: _openPublishedLesson,
-        onActivityTap: (activity) => _openActivity(activity, index),
+        onActivityTap: _openPublishedActivity,
         scrollController: _trackController,
         viewportKey: _viewportKey,
       );
@@ -1846,7 +1826,7 @@ class _CalendarTabState extends State<CalendarTab>
       warnedLessonIds: marked.warned,
       preferredLessonIds: marked.preferred,
       onLessonTap: _lessonTap(index),
-      onActivityTap: (activity) => _openActivity(activity, index),
+      onActivityTap: _activityTap(index),
       onPlan: widget.isReadOnly
           ? null
           : (payload, teacherTaxCode, startMinutes) =>
@@ -1870,11 +1850,10 @@ class _CalendarTabState extends State<CalendarTab>
 
   List<PresenceBookingGroup> get _bookingGroups
   {
-    return groupSchedulable(
-      presences: widget.presences,
-      lessons: widget.lessons,
-      day: _day,
-    ).where((group) => group.touches(_bandStart, _bandEnd)).toList();
+    return [
+      for (final group in groupSchedulable(presences: widget.presences, lessons: widget.lessons, day: _day))
+        if (group.touches(_bandStart, _bandEnd)) group.within(_bandStart, _bandEnd),
+    ];
   }
 
   Widget? _buildBandNotice(List<CalendarLane> lanes)
@@ -2037,8 +2016,7 @@ class _CalendarTabState extends State<CalendarTab>
     });
   }
 
-  // Excluding a teacher returns their hours as unplanned requests and
-  // unassigns their activities; no confirmation is asked.
+  // Excluding returns the teacher's hours as unplanned requests and unassigns their activities, unconfirmed.
   Future<void> _setExcluded(CalendarLane lane, {required bool excluded}) async
   {
     final day = _day;
@@ -2110,8 +2088,7 @@ class _CalendarTabState extends State<CalendarTab>
     await _ensureRoomPlan(force: true);
   }
 
-  // Teachers with hours but no lesson in this band, who joined less than two
-  // weeks before the day being published.
+  // Teachers with hours but no lesson, who joined under two weeks before the day being published.
   List<String> _uncalledNewTeachers()
   {
     return uncalledNewTeacherWarnings(
@@ -2591,9 +2568,8 @@ class _CalendarTabState extends State<CalendarTab>
 
     final Widget area = PageTransitionItem(slot: slot, child: _buildTimelineArea(lanes, index));
 
-    // Always return the Column, even with no action row: swapping to the bare
-    // area would re-parent the GlobalKey'd track inside its LayoutBuilder
-    // mid-drop, marking render objects outside the builder that is laying out.
+    // Always the Column: swapping to the bare area would re-parent the GlobalKey'd track
+    // inside its LayoutBuilder mid-drop, marking render objects outside the builder laying out.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2624,7 +2600,7 @@ class _CalendarTabState extends State<CalendarTab>
       onAddActivity: widget.isReadOnly || widget.onCreateActivity == null
           ? null
           : () => _addActivity(index),
-      onOpenActivity: (activity) => _openActivity(activity, index),
+      onOpenActivity: _activityTap(index),
     );
   }
 
@@ -2653,7 +2629,7 @@ class _CalendarTabState extends State<CalendarTab>
           ? null
           : _setExcluded,
       onLessonTap: _isSettled ? _openPublishedLesson : _lessonTap(index),
-      onActivityTap: (activity) => _openActivity(activity, index),
+      onActivityTap: _activityTap(index),
     );
   }
 

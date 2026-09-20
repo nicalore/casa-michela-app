@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.core import field_lengths
 from app.schemas.person import (
+    BirthPlaceData,
     ParentalRelationshipInput,
     StudentCertificationData,
     StudentEarlyExitData,
@@ -41,7 +42,7 @@ _MANDATORY_CONSENTS: Final[tuple[tuple[str, str], ...]] = (
 )
 
 
-class WizardGeneralData(BaseModel):
+class WizardGeneralData(BirthPlaceData):
     first_name: TitleCaseStr = Field(
         ...,
         min_length=1,
@@ -59,9 +60,6 @@ class WizardGeneralData(BaseModel):
     )
     gender: str
     birth_date: date
-    birth_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
-    birth_nation: TitleCaseStr = Field(..., max_length=field_lengths.NATION)
-    birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
     residence_type: TitleCaseStr = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
     residence_address: TitleCaseStr = Field(..., max_length=field_lengths.ADDRESS)
     residence_street_number: UpperCaseStr = Field(

@@ -15,8 +15,7 @@ AUDIT_ACTOR_KEY: Final[str] = "audit_actor"
 _BEARER_PREFIX: Final[str] = "Bearer "
 
 
-# The signature is deliberately not verified: the payload is only used to label
-# audit entries, never to grant access.
+# Signature deliberately unverified: the payload only labels audit entries.
 def _decode_unverified(token: str) -> dict[str, Any]:
     return jwt.decode(token, options={"verify_signature": False})
 

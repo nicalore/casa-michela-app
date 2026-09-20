@@ -5,12 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/config/api_config.dart';
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
-import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
 import '../../shared/export/pdf_tab.dart';
 import '../../shared/widgets/app_page_container.dart';
@@ -18,7 +16,6 @@ import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/dialog_components.dart';
-import '../../shared/widgets/overflow_tooltip_text.dart';
 import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../../shared/widgets/app_segmented_tabs.dart';
@@ -33,16 +30,7 @@ import 'tabs/person_parents_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
-import 'widgets/role_chips_row.dart';
-
-const double _identityWidth = 800;
-const double _identityAvatar = 96;
-const double _compactIdentityAvatar = 72;
-const double _identityRadius = 40;
-const double _compactIdentityRadius = 32;
-
-const double _backButtonWidth = 84;
-const double _backButtonHeight = 52;
+import 'widgets/person_detail_header.dart';
 
 class PersonDetailPage extends StatefulWidget
 {
@@ -426,161 +414,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
-  Widget _buildAvatar(bool compact)
-  {
-    final double size = compact ? _compactIdentityAvatar : _identityAvatar;
-
-    final String initials =
-        '${_person!.firstName[0]}${_person!.lastName[0]}'.toUpperCase();
-
-    final Widget fallback = Center(
-      child: Text(
-        initials,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: compact ? 24 : 32,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
-        ),
-      ),
-    );
-
-    String? imageUrl = _person!.profileImageUrl?.trim();
-
-    if (imageUrl != null && imageUrl.isNotEmpty)
-    {
-      if (imageUrl.startsWith('/'))
-      {
-        imageUrl = ApiConfig.buildUrl(imageUrl);
-      }
-
-      imageUrl = '$imageUrl?v=$_cacheBustTimestamp';
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.trialTurquoise.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.trialTurquoise, width: 2),
-      ),
-      child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => fallback,
-              )
-            : fallback,
-      ),
-    );
-  }
-
-  Widget _buildIdentityCard(bool compact)
-  {
-    final List<String> roles = RoleLabelMapper.processRoles(_person!.roles);
-
-    final Widget nameAndRoles = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-      children: [
-        OverflowTooltipText(
-          text: '${_person!.firstName} ${_person!.lastName}',
-          maxLines: 1,
-          textAlign: compact ? TextAlign.center : TextAlign.start,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: compact ? 24 : 30,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.trialOcean,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: 12),
-        RoleChipsRow(
-          roles: roles,
-          fontSize: 13,
-          horizontalPadding: 11,
-          verticalPadding: 5,
-          borderRadius: 20,
-          spacing: 8,
-          scrollable: true,
-          centered: compact,
-        ),
-      ],
-    );
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: _identityWidth),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: compact ? 24 : 32, vertical: 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(compact ? _compactIdentityRadius : _identityRadius),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: compact
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildAvatar(true),
-                  const SizedBox(height: 16),
-                  nameAndRoles,
-                ],
-              )
-            : Row(
-                children: [
-                  _buildAvatar(false),
-                  const SizedBox(width: 28),
-                  Expanded(child: nameAndRoles),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(AppWindowSize size)
-  {
-    if (_person == null)
-    {
-      return Align(alignment: Alignment.centerLeft, child: _buildBackButton());
-    }
-
-    if (size.isCompact)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildBackButton(),
-          const SizedBox(height: 16),
-          _buildIdentityCard(true),
-        ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: AppSectionRail.width + AppSectionRail.gap,
-          child: Align(alignment: Alignment.centerLeft, child: _buildBackButton()),
-        ),
-        Expanded(child: Center(child: _buildIdentityCard(false))),
-      ],
-    );
-  }
-
   // Only in-app paths are accepted; anything else falls back to /people.
   String get _origin
   {
     final String? origin = widget.origin;
 
     return origin != null && origin.startsWith('/') ? origin : '/people';
-  }
-
-  Widget _buildBackButton()
-  {
-    return _BackButton(onTap: () => context.go(_origin));
   }
 
   Widget _buildBody(AppWindowSize size, List<PersonSection> sections)
@@ -695,7 +534,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildHeader(size),
+                        PersonDetailHeader(
+                          person: _person,
+                          imageVersion: _cacheBustTimestamp,
+                          size: size,
+                          backTooltip: 'Torna alle anagrafiche',
+                          onBack: () => context.go(_origin),
+                        ),
                         const SizedBox(height: 24),
                         Expanded(child: _buildBody(size, sections)),
                       ],
@@ -741,58 +586,4 @@ class PersonSection
   final Widget view;
 
   const PersonSection({required this.label, required this.view, this.group});
-}
-
-class _BackButton extends StatefulWidget
-{
-  final VoidCallback onTap;
-
-  const _BackButton({required this.onTap});
-
-  @override
-  State<_BackButton> createState() => _BackButtonState();
-}
-
-class _BackButtonState extends State<_BackButton>
-{
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Tooltip(
-          message: 'Torna alle anagrafiche',
-          waitDuration: const Duration(milliseconds: 400),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            width: _backButtonWidth,
-            height: _backButtonHeight,
-            decoration: BoxDecoration(
-              color: _hover ? AppTheme.trialGoldSurface : Colors.white,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(
-                color: _hover
-                  ? AppTheme.trialGold
-                  : AppTheme.trialGold.withValues(alpha: 0),
-                width: 2,
-              ),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: const Icon(
-              Icons.arrow_back_rounded,
-              color: AppTheme.trialOcean,
-              size: 24,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

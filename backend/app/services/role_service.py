@@ -15,7 +15,7 @@ _UNPAID_ADMIN_ROLE_ERROR: Final[str] = (
 
 
 class RoleService:
-    # Roles with a UI to land on; mirrors _homeByRole in frontend/lib/routing/app_router.dart.
+    # Roles with a UI; mirrors _homeByRole in frontend/lib/routing/app_router.dart.
     ROLES_WITH_UI: ClassVar[frozenset[str]] = frozenset(
         {
             "ADMIN",
@@ -31,11 +31,26 @@ class RoleService:
         AdministratorRoleEnum.TREASURER,
     }
 
+    # Pupils only: a minor on the staff has parents on record for paperwork alone.
+    @staticmethod
+    def pupil_children_tax_codes(person: Person) -> frozenset[str]:
+        parent = person.parent_profile
+
+        if parent is None:
+            return frozenset()
+
+        return frozenset(
+            relationship.child_tax_code
+            for relationship in parent.children_relationships
+            if relationship.child.member_profile is not None
+            and relationship.child.member_profile.student_profile is not None
+        )
+
     @staticmethod
     def get_available_roles(person: Person) -> list[str]:
         roles: list[str] = []
 
-        if person.parent_profile is not None:
+        if RoleService.pupil_children_tax_codes(person):
             roles.append("PARENT")
 
         member = person.member_profile
@@ -89,7 +104,7 @@ class RoleService:
         if usable:
             return RoleService.sorted_by_label(usable)[0]
 
-        # Psychologists and course participants have no home yet, but still need a label.
+        # Psychologists and course participants have no home yet, but need a label.
         if available:
             return RoleService.sorted_by_label(available)[0]
 

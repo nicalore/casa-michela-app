@@ -27,8 +27,7 @@ from app.schemas.calendar_publication import (
 from app.schemas.person import PersonOption
 from app.services.calendar_publication_service import CalendarPublicationService
 
-# Reading is open to the roles the calendar is published to: their home
-# tells "not yet published" from "published, nothing for you" by it.
+# Readable by the published-to roles: tells "not yet published" from "nothing for you".
 router = APIRouter(
     prefix="/calendar-publications",
     tags=["calendar-publications"],
@@ -127,8 +126,7 @@ def _service(db: DbSession) -> CalendarPublicationService:
     )
 
 
-# Non-administrators get the bare fact of a publication: who published, the
-# draft and its changes are calendar-desk matters.
+# Non-administrators get the bare fact: publisher, draft and changes are admin-only.
 def _to_public_responses(
     publications: Sequence[CalendarPublication],
 ) -> list[CalendarPublicationResponse]:
@@ -191,8 +189,7 @@ async def reopen_band(
     return (await _to_responses(db, [publication]))[0]
 
 
-# Leaving the bozza restores the snapshot taken when it opened; answers how
-# many hours could not come back.
+# Leaving the bozza restores its opening snapshot; answers how many hours could not.
 @router.post(
     "/{publication_date}/{band}/discard",
     response_model=CalendarDraftDiscarded,

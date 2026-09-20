@@ -41,16 +41,22 @@ final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 class PersonMembershipsTab extends StatelessWidget
 {
   final PersonItem person;
-  final VoidCallback onUpdate;
+
+  // Null for read-only viewers (e.g. a parent): hides the edit button.
+  final VoidCallback? onUpdate;
 
   // Revoking your own membership is not allowed, so the button is hidden.
   final bool isOwnProfile;
 
+  // Rendered under the actions, inside the scroll.
+  final Widget? footer;
+
   const PersonMembershipsTab({
     super.key,
     required this.person,
-    required this.onUpdate,
+    this.onUpdate,
     this.isOwnProfile = false,
+    this.footer,
   });
 
   void _showEditDialog(BuildContext context)
@@ -58,7 +64,7 @@ class PersonMembershipsTab extends StatelessWidget
     showBlurredDialog(
       context: context,
       barrierLabel: 'EditMemberships',
-      builder: (context) => _EditMembershipsDialog(person: person, onUpdate: onUpdate),
+      builder: (context) => _EditMembershipsDialog(person: person, onUpdate: onUpdate!),
     );
   }
 
@@ -67,7 +73,7 @@ class PersonMembershipsTab extends StatelessWidget
     showBlurredDialog(
       context: context,
       barrierLabel: 'RevokeMembership',
-      builder: (context) => _RevokeMembershipDialog(person: person, onUpdate: onUpdate),
+      builder: (context) => _RevokeMembershipDialog(person: person, onUpdate: onUpdate!),
     );
   }
 
@@ -281,9 +287,13 @@ class PersonMembershipsTab extends StatelessWidget
               ],
               if (currentMembership == null && pastMemberships.isEmpty)
                 const PersonEmptyState(message: 'Nessuna iscrizione registrata.'),
-              if (!isRevoked && latest != null) ...[
+              if (!isRevoked && latest != null && onUpdate != null) ...[
                 const SizedBox(height: kPersonSectionGap),
                 Center(child: _buildActions(context)),
+              ],
+              if (footer != null) ...[
+                const SizedBox(height: kPersonSectionGap),
+                footer!,
               ],
             ]),
           ),

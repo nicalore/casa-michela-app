@@ -2,17 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/association/association_page.dart';
+import '../features/association/role_association_page.dart';
+import '../features/availability/availability_page.dart';
 import '../features/auth/force_password_change_page.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/reset_password_page.dart';
+import '../features/bookings/bookings_page.dart';
+import '../features/calendar/pupil_calendar_page.dart';
+import '../features/calendar/teacher_calendar_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/home/role_home_page.dart';
 import '../features/home/role_unavailable_page.dart';
 import '../features/home/section_placeholder_page.dart';
 import '../features/onboarding/onboarding_page.dart';
 import '../features/lessons/lessons_page.dart';
+import '../features/people/children_page.dart';
+import '../features/people/own_page.dart';
 import '../features/people/people_page.dart';
 import '../features/people/person_detail_page.dart';
+import '../features/people/teacher_subjects_page.dart';
 import '../features/settings/settings_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
@@ -25,8 +33,6 @@ final apiService = ApiService();
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 const String adminHome = '/dashboard';
-
-const String adminOwnPage = '/profile';
 
 // One landing page per role, the administrator's being the shell behind /dashboard. Must mirror RoleService.ROLES_WITH_UI on the server.
 const Map<String, String> homeByRole = <String, String>{
@@ -44,6 +50,14 @@ const String onboardingRoute = '/primo-accesso';
 
 String homeForRole(String? role) => homeByRole[role] ?? unavailableHome;
 
+// Under every home path, shown over it on the root navigator.
+const String ownPageSlug = 'profile';
+const String settingsSlug = 'settings';
+
+String ownPageForRole(String? role) => '${homeForRole(role)}/$ownPageSlug';
+
+String settingsPageForRole(String? role) => '${homeForRole(role)}/$settingsSlug';
+
 bool canSwitchTo(String role) => homeByRole.containsKey(role);
 
 // Single-role areas; the administrator's home is excluded, being the entrance to the shell.
@@ -56,13 +70,10 @@ final Set<String> _roleOnlyHomes = <String>{
 
 bool _isUnder(String path, String home) => path == home || path.startsWith('$home/');
 
-// The role a page belongs to, read off its path: a role's area lies under
-// its home, everything else with a bar is the administrator's shell. Null
-// for the pages that belong to no role, like the one a role without an
-// area lands on.
+// Anything not under a role home is the administrator's shell; null for pages of no role.
 String? roleOfPath(String path)
 {
-  if (path.isEmpty || path == unavailableHome || path == onboardingRoute)
+  if (path.isEmpty || _isUnder(path, unavailableHome) || path == onboardingRoute)
   {
     return null;
   }
@@ -78,8 +89,7 @@ String? roleOfPath(String path)
   return 'ADMIN';
 }
 
-// A role reaches its own area and nothing else; the administrator reaches
-// everything but the role areas.
+// The administrator reaches everything but the role areas.
 bool _isReachable(String path, String home)
 {
   if (home != adminHome)
@@ -95,6 +105,27 @@ Page<void> _buildPage(GoRouterState state, Widget child)
   return buildAppTransitionPage(key: state.pageKey, child: child);
 }
 
+// On the root navigator: a screen over the area, not one of its pages.
+GoRoute _screenRoute(String slug, Widget Function(String? origin) build)
+{
+  return GoRoute(
+    path: slug,
+    parentNavigatorKey: _rootNavigatorKey,
+    pageBuilder: (context, state) => _buildPage(
+      state,
+      build(state.uri.queryParameters['from']),
+    ),
+  );
+}
+
+List<GoRoute> _screenRoutes()
+{
+  return [
+    _screenRoute(ownPageSlug, (origin) => OwnPage(origin: origin)),
+    _screenRoute(settingsSlug, (origin) => SettingsPage(origin: origin)),
+  ];
+}
+
 StatefulShellBranch _destination(String path, Widget page, {List<RouteBase> routes = const []})
 {
   return StatefulShellBranch(
@@ -108,10 +139,43 @@ StatefulShellBranch _destination(String path, Widget page, {List<RouteBase> rout
   );
 }
 
-// A role's area: its home and every section its bar can lead to, kept alive
-// side by side like the administrator's modules. Sections a given person
-// does not see (a pupil's payments) exist all the same; the bar just leaves
-// them out.
+// Sections without a page yet fall through to the placeholder.
+Widget _sectionPage(String role, RoleSection section)
+{
+  if (role == 'TEACHER' && section.slug == 'availability')
+  {
+    return const TeacherAvailabilityPage();
+  }
+
+  if (role == 'TEACHER' && section.slug == 'subjects')
+  {
+    return const TeacherSubjectsPage();
+  }
+
+  if (role == 'PARENT' && section.slug == 'children')
+  {
+    return const ParentChildrenPage();
+  }
+
+  if (section.slug == 'calendar')
+  {
+    return role == 'TEACHER' ? const TeacherCalendarPage() : PupilCalendarPage(role: role);
+  }
+
+  if (section.slug == 'bookings')
+  {
+    return BookingsPage(role: role);
+  }
+
+  if (section.slug == 'association')
+  {
+    return RoleAssociationPage(role: role);
+  }
+
+  return RoleSectionPage(role: role, section: section);
+}
+
+// Every available section is a branch, even ones this person's bar hides.
 StatefulShellRoute _roleArea(String role)
 {
   final String home = homeByRole[role]!;
@@ -123,9 +187,10 @@ StatefulShellRoute _roleArea(String role)
     ),
     pageBuilder: (context, state, navigationShell) => _buildPage(state, navigationShell),
     branches: [
-      _destination(home, RoleHomePage(role: role)),
+      _destination(home, RoleHomePage(role: role), routes: _screenRoutes()),
       for (final section in allSectionsOf(role))
-        _destination('$home/${section.slug}', RoleSectionPage(role: role, section: section)),
+        if (section.available)
+          _destination('$home/${section.slug}', _sectionPage(role, section)),
     ],
   );
 }
@@ -224,6 +289,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: unavailableHome,
       pageBuilder: (context, state) => _buildPage(state, const RoleUnavailablePage()),
+      routes: _screenRoutes(),
     ),
     StatefulShellRoute(
       navigatorContainerBuilder: (context, navigationShell, children) => ShellDestinations(
@@ -232,7 +298,7 @@ final appRouter = GoRouter(
       ),
       pageBuilder: (context, state, navigationShell) => _buildPage(state, navigationShell),
       branches: [
-        _destination(adminHome, const DashboardPage()),
+        _destination(adminHome, const DashboardPage(), routes: _screenRoutes()),
         _destination('/association', const AssociationPage()),
         _destination('/lessons', const LessonsPage()),
         _destination(
@@ -257,8 +323,6 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        _destination(adminOwnPage, const AdminOwnPage()),
-        _destination('/settings', const SettingsPage()),
       ],
     ),
   ],

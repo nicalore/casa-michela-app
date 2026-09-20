@@ -1,9 +1,7 @@
 import '../../people/models/person_item.dart';
 
-// The teachers who could take the lesson come first, in the order given, and
-// the rest follow in theirs: a nudge, not a divide, so nothing marks the seam.
-// A teacher fits when a competence covers one of the disciplines for the
-// pupil's programme; with no programme on record, the discipline alone will do.
+// Fitting teachers first, then the rest, each in the order given: a nudge, not a divide.
+// Fit: a competence covers a discipline for the pupil's programme, or any discipline with no programme.
 List<PersonItem> teachersFitFirst(
   List<PersonItem> teachers, {
   required Set<int> disciplineIds,

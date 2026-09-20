@@ -14,14 +14,15 @@ from pydantic import (
 from app.core import field_lengths
 from app.core.time_band import EVENING_START
 from app.models.early_exit_schedule import MAXIMUM_SCHEDULES, WEEKDAYS
+from app.models.person import BORN_ABROAD_PROVINCE
 from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
 from app.schemas.validators import (
+    OpeningCapitalStr,
     OptionalOpeningCapitalStr,
     OptionalSentenceCaseStr,
     OptionalTitleCaseStr,
-    SentenceCaseStr,
     TitleCaseStr,
     UpperCaseStr,
 )
@@ -32,6 +33,10 @@ _UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
 
 _MISSING_DSA_DETAIL_ERROR: Final[str] = (
     "Per una certificazione DSA va indicato di quale disturbo si tratta."
+)
+
+_MISSING_BIRTH_CITY_ERROR: Final[str] = (
+    "Per chi è nato in Italia va indicata la città di nascita."
 )
 
 _REPEATED_CERTIFICATION_ERROR: Final[str] = (
@@ -167,15 +172,27 @@ class ChildInfoResponse(_RelatedPersonResponse):
     study_program: str | None = None
 
 
-class GeneralDataUpdate(BaseModel):
+# Shared by every road into the register: the wizard and the person form.
+class BirthPlaceData(BaseModel):
+    # Absent only for a birthplace abroad, where the registry may not know it.
+    birth_city: OptionalTitleCaseStr = Field(None, max_length=field_lengths.CITY)
+    birth_nation: TitleCaseStr = Field(..., max_length=field_lengths.NATION)
+    birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
+
+    @model_validator(mode="after")
+    def _the_city_is_known_unless_born_abroad(self) -> Self:
+        if self.birth_city is None and self.birth_province != BORN_ABROAD_PROVINCE:
+            raise ValueError(_MISSING_BIRTH_CITY_ERROR)
+
+        return self
+
+
+class GeneralDataUpdate(BirthPlaceData):
     first_name: TitleCaseStr = Field(..., max_length=field_lengths.PERSON_NAME)
     last_name: TitleCaseStr = Field(..., max_length=field_lengths.PERSON_NAME)
     tax_code: str = Field(..., max_length=field_lengths.TAX_CODE)
     gender: str
     birth_date: date
-    birth_city: TitleCaseStr = Field(..., max_length=field_lengths.CITY)
-    birth_nation: TitleCaseStr = Field(..., max_length=field_lengths.NATION)
-    birth_province: str = Field(..., max_length=field_lengths.PROVINCE)
     residence_type: TitleCaseStr = Field(..., max_length=field_lengths.RESIDENCE_TYPE)
     residence_address: TitleCaseStr = Field(..., max_length=field_lengths.ADDRESS)
     residence_street_number: UpperCaseStr = Field(
@@ -212,11 +229,11 @@ class TeacherCompetenceUpdateItem(BaseModel):
 
 class TeacherEducationData(BaseModel):
     is_high_school_student: bool
-    school_education: OptionalSentenceCaseStr = Field(
+    school_education: OptionalOpeningCapitalStr = Field(
         None,
         max_length=field_lengths.EDUCATION,
     )
-    university_education: OptionalSentenceCaseStr = Field(
+    university_education: OptionalOpeningCapitalStr = Field(
         None,
         max_length=field_lengths.EDUCATION,
     )
@@ -294,7 +311,7 @@ class EarlyExitScheduleItem(BaseModel):
     # 1=Monday .. 7=Sunday, per ISO 8601.
     weekdays: list[Weekday] = Field(..., min_length=1)
     exit_time: time
-    reason: SentenceCaseStr = Field(
+    reason: OpeningCapitalStr = Field(
         ...,
         min_length=1,
         max_length=field_lengths.EARLY_EXIT_REASON,

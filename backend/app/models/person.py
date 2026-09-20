@@ -86,14 +86,16 @@ _INVALID_TAX_CODE_ERROR: Final[str] = (
     "Il codice fiscale ha un carattere di controllo non valido"
 )
 
+# The registry's own code for a birthplace outside Italy.
+BORN_ABROAD_PROVINCE: Final[str] = "EE"
+
 
 def _has_valid_tax_code_check_character(tax_code: str) -> bool:
     if len(tax_code) != _TAX_CODE_LENGTH:
         return False
 
     try:
-        # Positions are 1-based in the official algorithm: even indexes here
-        # are odd positions there, hence the swapped lookup tables.
+        # The official algorithm is 1-based: even indexes here are odd positions there.
         total = sum(
             (
                 _TAX_CODE_ODD_POSITION_VALUES[character]
@@ -138,6 +140,11 @@ class Person(CreatedAtMixin, UpdatedAtMixin, Base):
             name="residence_province_uppercase",
         ),
         CheckConstraint("postal_code ~ '^[0-9]{5}$'", name="postal_code_format"),
+        # Only a birthplace abroad may leave the city unsaid.
+        CheckConstraint(
+            f"birth_city IS NOT NULL OR birth_province = '{BORN_ABROAD_PROVINCE}'",
+            name="birth_city_required_in_italy",
+        ),
         CheckConstraint(
             "email ~ "
             "'^[A-Za-z0-9.!#$%&''*+/=?^_`{|}~-]+@[A-Za-z0-9-]+"
@@ -152,14 +159,13 @@ class Person(CreatedAtMixin, UpdatedAtMixin, Base):
         *not_blank_constraints(
             "first_name",
             "last_name",
-            "birth_city",
             "birth_nation",
             "residence_type",
             "residence_address",
             "residence_street_number",
             "residence_city",
         ),
-        *not_blank_when_present_constraints("profile_image_url"),
+        *not_blank_when_present_constraints("birth_city", "profile_image_url"),
         *no_surrounding_whitespace_constraints(
             "tax_code",
             "first_name",
@@ -192,7 +198,7 @@ class Person(CreatedAtMixin, UpdatedAtMixin, Base):
 
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    birth_city: Mapped[str] = mapped_column(String(100), nullable=False)
+    birth_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     birth_nation: Mapped[str] = mapped_column(String(100), nullable=False)
 

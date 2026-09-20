@@ -63,7 +63,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   MeResponse? _me;
   PersonItem? _person;
 
-  // Keyed by tax code: a parent walks one child's screens before the next.
+  // Keyed by tax code.
   final Map<String, PersonItem> _children = {};
 
   List<OnboardingStep> _steps = const [];
@@ -127,8 +127,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     }
   }
 
-  // Only the screens that show a record to confirm can be reloaded in place;
-  // the ones that are filled in reload the record they just wrote.
   Future<void> _reload(String taxCode) async
   {
     try
@@ -158,9 +156,8 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     }
   }
 
-  // Every step is laid out at once so the handover can paint the one leaving
-  // next to the one arriving; while a page is being built the getters read
-  // its step, at any other time the current one.
+  // All steps are built at once for the handover; set while a page is being built
+  // so the getters read its step rather than the current one.
   int? _building;
 
   int get _shown => _building ?? _index;
@@ -179,8 +176,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
   bool get _isSchoolStep =>
       _step.kind == OnboardingStepKind.childSchool || _step.kind == OnboardingStepKind.ownSchool;
 
-  // The school year in progress is the one lesson planning runs on, so the
-  // step cannot be left without it.
+  // Lesson planning runs on the current school year, so the step requires one.
   bool get _missingCurrentSchoolYear
   {
     if (!_isSchoolStep)
@@ -206,8 +202,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       return;
     }
 
-    // What was typed on a record is written on the way out of it; contacts
-    // only when they actually changed.
     final ContactsDraft? contacts = _contacts;
 
     if (contacts != null && contacts.differsFrom(_subject))
@@ -237,7 +231,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       await _reload(_subject.fiscalCode);
     }
 
-    // Nothing picked, nothing written: the disciplines can be filled in later.
     final TeacherCompetencesDraft? competences = _competences;
 
     if (_step.kind == OnboardingStepKind.teacherSubjects &&
@@ -348,8 +341,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
     );
   }
 
-  // Abandoning here is allowed: the flag stays unset and the flow starts over
-  // next time, so nothing is half-written.
+  // The flag stays unset, so the flow starts over next login.
   Future<void> _backToLogin() async
   {
     setState(() => _isLeaving = true);
@@ -444,7 +436,6 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       OnboardingStepKind.ownRecord =>
         'Scorri le schede con le frecce e verifica che le informazioni siano corrette. '
             'Se trovi un errore, ti preghiamo di segnalarlo utilizzando il bottone in fondo. Puoi modificare direttamente la foto profilo e i dati di contatto.',
-      // A child's face is not the parent's to change: only the contacts are.
       OnboardingStepKind.childRecord =>
         'Scorri le schede con le frecce e verifica che le informazioni di $name siano corrette. '
             'Se trovi un errore, ti preghiamo di segnalarlo utilizzando il bottone in fondo. Puoi modificare direttamente i dati di contatto.',

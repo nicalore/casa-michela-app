@@ -37,8 +37,7 @@ class HighSchoolTrackEnum(StrEnum):
     QUADRIENNALE = "QUADRIENNALE"
 
 
-# The single source of the mapping: the schema derives the years from it and
-# the study_program_track_years_match check below repeats it in SQL.
+# Source of truth for track → years; the schema and the SQL check below mirror it.
 YEARS_BY_TRACK: Final[dict[HighSchoolTrackEnum, tuple[int, int]]] = {
     HighSchoolTrackEnum.BIENNIO: (1, 2),
     HighSchoolTrackEnum.TRIENNIO: (3, 5),
@@ -50,10 +49,8 @@ class StudyProgram(CreatedAtMixin, Base):
     __tablename__ = "study_programs"
 
     __table_args__ = (
-        # Sector and span are both part of a programme's identity: one course
-        # exists as a biennio and as a triennio under the very same name.
-        # coalesce because with a NULL sector Postgres would never see two
-        # rows as duplicates.
+        # Sector and span are part of identity (same name as biennio and triennio);
+        # coalesce, or NULL sectors would never collide.
         Index(
             "uq_level_sector_program_name_years",
             "level",
@@ -75,22 +72,19 @@ class StudyProgram(CreatedAtMixin, Base):
         ),
         CheckConstraint("min_year >= 1", name="study_program_min_year_valid"),
         CheckConstraint("min_year <= max_year", name="study_program_years_range_valid"),
-        # The HIGH_SCHOOL arm is subsumed by study_program_track_years_match
-        # below; it stays because this is the only bound on the other two.
+        # HIGH_SCHOOL arm is subsumed by the track check below; sole bound on the rest.
         CheckConstraint(
             "(level = 'PRIMARY_SCHOOL' AND max_year <= 5) "
             "OR (level = 'MIDDLE_SCHOOL' AND max_year <= 3) "
             "OR (level = 'HIGH_SCHOOL' AND max_year <= 5)",
             name="study_program_level_max_year_match",
         ),
-        # A track is a high-school-only notion: the other two levels leave it
-        # NULL. Neither side is ever NULL, so the equality is never vacuous.
+        # Only high school has a track; neither side is NULL, so never vacuous.
         CheckConstraint(
             "(level = 'HIGH_SCHOOL') = (high_school_track IS NOT NULL)",
             name="study_program_track_only_for_high_school",
         ),
-        # The years follow the track, never the keyboard: this is what makes
-        # the derivation a schema fact rather than a convention.
+        # Years follow the track, never free input: a schema fact, not a convention.
         CheckConstraint(
             "high_school_track IS NULL "
             "OR (high_school_track = 'BIENNIO' AND min_year = 1 AND max_year = 2) "
@@ -148,8 +142,7 @@ class StudyProgram(CreatedAtMixin, Base):
         viewonly=True,
     )
 
-    # The association rows are reachable both as entities and via this
-    # shortcut; `overlaps` declares that intentional (no runtime effect).
+    # `overlaps` marks the double path (entity and shortcut) intentional; no effect.
     ministry_subjects = relationship(
         "MinistrySubject",
         secondary="study_program_subjects",

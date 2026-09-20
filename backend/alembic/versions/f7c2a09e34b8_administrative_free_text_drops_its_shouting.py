@@ -15,12 +15,7 @@ branch_labels = None
 depends_on = None
 
 
-# d2b8f4a06c31 gave every free-text column its opening capital and left the
-# rest alone, which reads badly on the short administrative lines: a method of
-# payment typed as "CARTA dI CREDIto" stayed that way. Those lines carry no
-# acronym worth keeping, so they take the full sentence case. The columns that
-# do carry one are left as that migration set them: the notes, where DSA and
-# Ventolin survive, and the administrator role, where the department does.
+# Full sentence case, unlike d2b8f4a06c31: these columns carry no acronym to keep.
 def _sentence_case(value: str) -> str:
     return value[:1].upper() + value[1:].lower()
 
@@ -33,9 +28,7 @@ _COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 
-# One statement per distinct value, not per row: the register holds far more
-# rows than spellings, and no table here has a single-column primary key to
-# address the rows by anyway.
+# One UPDATE per distinct value, not per row: no table here has a single-column PK.
 def _rewrite(column: str, table: str) -> None:
     connection = op.get_bind()
 

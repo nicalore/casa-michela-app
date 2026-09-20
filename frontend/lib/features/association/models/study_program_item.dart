@@ -49,6 +49,14 @@ class StudyProgramItem
   // Must stay identical to display_name on the backend: it is the key the
   // enrolment form matches a school's programmes against the catalogue with.
   String get fullName => scopeLine == null ? name : '${scopeLine!} | $name';
+
+  // Whether the association's discipline is on this programme's syllabus.
+  bool teaches(int subjectId)
+  {
+    return ministrySubjects.any(
+      (ministry) => ministry.associationSubjects.any((subject) => subject.id == subjectId),
+    );
+  }
 }
 
 class MinistrySubjectOption

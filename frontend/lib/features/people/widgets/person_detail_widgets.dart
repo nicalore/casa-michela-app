@@ -31,6 +31,11 @@ const double kPersonDialogButtonFontSize = 14;
 // Shared by all wide cards so their value columns align; fits the longest label.
 const double kPersonWideCardLabelWidth = 230;
 
+// Fixed length so the mask does not reveal the value's length.
+const String kObscuredValue = '••••••••••';
+
+const double kObscuredLetterSpacing = 3;
+
 const String missingValue = '-';
 
 String orDash(String? value)
@@ -47,18 +52,25 @@ class DetailRowData
 
   final bool isSensitive;
 
+  // Masks with kObscuredValue instead of one bullet per character.
+  final bool hidesLength;
+
   final Widget? valueWidget;
 
-  const DetailRowData(this.label, this.value, {this.isSensitive = false})
-      : valueWidget = null;
+  const DetailRowData(
+    this.label,
+    this.value, {
+    this.isSensitive = false,
+    this.hidesLength = false,
+  }) : valueWidget = null;
 
   const DetailRowData.drawn(this.label, this.valueWidget)
       : value = '',
-        isSensitive = false;
+        isSensitive = false,
+        hidesLength = false;
 }
 
-// The LayoutBuilder must stay outside IntrinsicHeight: intrinsic measurement
-// cannot resolve one and throws.
+// LayoutBuilder must stay outside IntrinsicHeight: intrinsic measurement cannot resolve one and throws.
 class PersonDetailCardPair extends StatelessWidget
 {
   static const double _breakpoint = 820.0;
@@ -112,8 +124,7 @@ class PersonDetailCard extends StatelessWidget
 
   final double labelWidth;
 
-  // Takes the badge's place: the first-access flow puts the editable face
-  // there, so the card itself says the picture can be changed.
+  // Replaces the badge (the first-access flow puts the editable avatar here).
   final Widget? leading;
 
   const PersonDetailCard({
@@ -152,6 +163,7 @@ class PersonDetailCard extends StatelessWidget
           label: rowData.label,
           value: rowData.value,
           labelWidth: labelWidth,
+          hidesLength: rowData.hidesLength,
         );
       }
       else
@@ -197,10 +209,13 @@ class _ObscurableDetailRow extends StatefulWidget
   final String value;
   final double labelWidth;
 
+  final bool hidesLength;
+
   const _ObscurableDetailRow({
     required this.label,
     required this.value,
     required this.labelWidth,
+    required this.hidesLength,
   });
 
   @override
@@ -213,7 +228,9 @@ class _ObscurableDetailRowState extends State<_ObscurableDetailRow>
 
   bool get _hasValue => widget.value.isNotEmpty && widget.value != missingValue;
 
-  String get _maskedValue => widget.value.replaceAll(RegExp(r'[^\s]'), '•');
+  String get _maskedValue => widget.hidesLength
+      ? kObscuredValue
+      : widget.value.replaceAll(RegExp(r'[^\s]'), '•');
 
   @override
   Widget build(BuildContext context)
@@ -226,8 +243,7 @@ class _ObscurableDetailRowState extends State<_ObscurableDetailRow>
       label: widget.label,
       value: displayValue,
       labelWidth: widget.labelWidth,
-      // A row of bullets is one long word without it.
-      valueLetterSpacing: (_hasValue && !_isVisible) ? 3 : 0,
+      valueLetterSpacing: (_hasValue && !_isVisible) ? kObscuredLetterSpacing : 0,
       trailing: !_hasValue
           ? null
           : IconButton(

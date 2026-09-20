@@ -14,8 +14,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Step 1 — schools surrogate PK: ADD COLUMN with a volatile nextval()
-    # default forces a table rewrite, giving each existing row a distinct id.
+    # A volatile nextval() default forces a table rewrite: each row gets a distinct id.
     op.execute("CREATE SEQUENCE schools_id_seq")
     op.add_column(
         "schools",
@@ -28,8 +27,7 @@ def upgrade() -> None:
     )
     op.execute("ALTER SEQUENCE schools_id_seq OWNED BY schools.id")
 
-    # Step 2 — backfill school_id by joining on the old code (unique today,
-    # so a 1:1 mapping).
+    # Backfill school_id via the old code, unique today so the mapping is 1:1.
     op.add_column(
         "school_study_programs",
         sa.Column("school_id", sa.Integer(), nullable=True),
@@ -51,8 +49,7 @@ def upgrade() -> None:
         WHERE se.school_mechanographic_code = s.mechanographic_code
     """)
 
-    # Step 3 — drop FKs to the old code by name-agnostic lookup: each table has
-    # at most one FK toward that specific relation.
+    # Drop FKs to the old code by lookup: each table has at most one FK to it.
     op.execute("""
         DO $$
         DECLARE fk text;
@@ -80,8 +77,7 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # Step 4 — swap the schools PK. Name-agnostic: a table has exactly one PK
-    # (contype 'p'), and its real name may not be "schools_pkey".
+    # PK swap by lookup: the one contype 'p' row may not be named schools_pkey.
     op.execute("""
         DO $$
         DECLARE pk text;
@@ -95,7 +91,7 @@ def upgrade() -> None:
     """)
     op.create_primary_key("schools_pkey", "schools", ["id"])
 
-    # Step 5 — same name-agnostic PK swap for the bridge table.
+    # Same name-agnostic PK swap for the bridge table.
     op.execute("""
         DO $$
         DECLARE pk text;
@@ -114,7 +110,7 @@ def upgrade() -> None:
         ["study_program_id", "school_id"],
     )
 
-    # Step 6 — recreate the FKs on school_id with explicit names chosen here.
+    # Recreate the FKs on school_id with explicit names chosen here.
     op.create_foreign_key(
         "school_study_programs_school_id_fkey",
         "school_study_programs", "schools",
@@ -130,12 +126,11 @@ def upgrade() -> None:
         ondelete="RESTRICT",
     )
 
-    # Step 7 — DROP COLUMN also drops the attached CHECKs, whatever their names.
+    # DROP COLUMN also drops the attached CHECKs, whatever their names.
     op.drop_column("school_study_programs", "school_mechanographic_code")
     op.drop_column("school_enrollments", "school_mechanographic_code")
 
-    # Step 8 — drop the two format CHECKs name-agnostically by definition
-    # content; neither pattern matches the whitespace CHECK, which stays.
+    # Drop both format CHECKs by definition; neither pattern matches the whitespace one.
     op.alter_column(
         "schools", "mechanographic_code",
         existing_type=sa.String(20), nullable=True,
@@ -170,8 +165,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Precondition: every school needs a NOT NULL, unique mechanographic_code;
-    # rows created under the new model may violate this and fail the downgrade.
+    # Downgrade fails unless every school has a NOT NULL, unique mechanographic_code.
     op.drop_constraint("uq_school_name_city", "schools", type_="unique")
     op.create_check_constraint(
         "school_code_length", "schools",
@@ -206,11 +200,11 @@ def downgrade() -> None:
         FROM schools s WHERE se.school_id = s.id
     """)
 
-    # These FKs got explicit names in upgrade step 6: literal-name drop is safe.
+    # These FKs got explicit names in upgrade: literal-name drop is safe.
     op.drop_constraint("school_enrollments_ssp_fkey", "school_enrollments", type_="foreignkey")
     op.drop_constraint("school_study_programs_school_id_fkey", "school_study_programs", type_="foreignkey")
 
-    # Same for the PKs, recreated with explicit names in upgrade steps 4/5.
+    # Same for the PKs, recreated with explicit names in upgrade.
     op.drop_constraint("school_study_programs_pkey", "school_study_programs", type_="primary")
     op.drop_constraint("schools_pkey", "schools", type_="primary")
     op.create_primary_key("schools_pkey", "schools", ["mechanographic_code"])
@@ -232,8 +226,7 @@ def downgrade() -> None:
         ["study_program_id", "school_mechanographic_code"],
         ondelete="RESTRICT", onupdate="CASCADE",
     )
-    # NB: if constraints.py ever emits a no-whitespace CHECK for
-    # school_mechanographic_code, recreate it here with the same expression.
+    # If constraints.py ever emits a no-whitespace CHECK for the code, recreate it here.
 
     op.drop_column("school_enrollments", "school_id")
     op.drop_column("school_study_programs", "school_id")

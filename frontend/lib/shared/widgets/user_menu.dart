@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_top_nav.dart';
 import 'overflow_tooltip_text.dart';
 
 const Color _logoutColor = AppTheme.trialDanger;
@@ -17,17 +18,32 @@ const EdgeInsets _itemPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 1
 
 class UserMenu extends StatelessWidget
 {
+  final MenuDestinations destinations;
+
   final bool canChangeRole;
 
+  final ValueChanged<String> onGo;
   final VoidCallback onChangeRole;
   final VoidCallback onLogout;
 
   const UserMenu({
     super.key,
+    required this.destinations,
     required this.canChangeRole,
+    required this.onGo,
     required this.onChangeRole,
     required this.onLogout,
   });
+
+  Widget _buildDestination(IconData icon, AppDestination destination)
+  {
+    return _HoverMenuItem(
+      icon: icon,
+      text: destination.label,
+      color: AppTheme.trialTealDeep,
+      onTap: () => onGo(destination.route!),
+    );
+  }
 
   @override
   Widget build(BuildContext context)
@@ -44,6 +60,9 @@ class UserMenu extends StatelessWidget
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildDestination(Icons.person_rounded, destinations.ownPage),
+            _buildDestination(Icons.settings_rounded, destinations.settings),
+            const Divider(height: 1),
             if (canChangeRole) ...[
               _HoverMenuItem(
                 icon: Icons.swap_horiz_rounded,
@@ -71,6 +90,7 @@ class _HoverMenuItem extends StatefulWidget
   final IconData icon;
   final String text;
   final Color color;
+
   final VoidCallback onTap;
 
   const _HoverMenuItem({

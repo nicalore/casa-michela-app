@@ -933,8 +933,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       children: [
         const StatSectionTitle('Distribuzione per area'),
         const SizedBox(height: 24),
-        // Explicit height: the pie chart's LayoutBuilder cannot be measured
-        // intrinsically.
+        // Explicit height: the pie chart's LayoutBuilder cannot be measured intrinsically.
         SizedBox(
           height: 320,
           child: areas.isEmpty

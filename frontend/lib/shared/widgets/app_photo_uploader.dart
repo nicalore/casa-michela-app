@@ -1,13 +1,15 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_badged_face.dart';
 import 'app_check_mark.dart';
 import 'snackbar.dart';
+
+const double _size = 110;
 
 class AppPhotoUploader extends StatefulWidget
 {
@@ -31,8 +33,6 @@ class _AppPhotoUploaderState
     extends State<AppPhotoUploader>
 {
   final ImagePicker _picker = ImagePicker();
-  bool _isHoveringUpload = false;
-  bool _isHoveringTrash = false;
   bool _isDeleted = false;
   late String _cacheBustTimestamp;
 
@@ -111,9 +111,9 @@ class _AppPhotoUploaderState
 
     final bool hasImage = imageProvider != null;
 
-    final Widget avatar = Container(
-      width: 110,
-      height: 110,
+    final Widget face = Container(
+      width: _size,
+      height: _size,
       decoration: BoxDecoration(
         color: kPickedSurface,
         shape: BoxShape.circle,
@@ -130,137 +130,12 @@ class _AppPhotoUploaderState
           : null,
     );
 
-    // The buttons row's minimum intrinsic width (~155px) can exceed the space;
-    // FittedBox scales the whole row so it stays visible and clickable.
-    final Widget buttonsRow = FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: SizedBox(
-        height: 48,
-        child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_)
-            {
-              setState(()
-              {
-                _isHoveringUpload = true;
-              });
-            },
-            onExit: (_)
-            {
-              setState(()
-              {
-                _isHoveringUpload = false;
-              });
-            },
-            child: GestureDetector(
-              onTap: _pickImage,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: _isHoveringUpload ? AppTheme.trialGold : AppTheme.trialLine,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.upload_rounded,
-                      size: 20,
-                      color: AppTheme.trialTealDeep,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      !hasImage ? 'Carica foto' : 'Cambia foto',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.trialTealDeep,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (hasImage) ...[
-            const SizedBox(width: 12),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_)
-              {
-                setState(()
-                {
-                  _isHoveringTrash = true;
-                });
-              },
-              onExit: (_)
-              {
-                setState(()
-                {
-                  _isHoveringTrash = false;
-                });
-              },
-              child: GestureDetector(
-                onTap: _removeImage,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: _isHoveringTrash
-                        ? AppTheme.trialGoldSurface
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.delete_outline_rounded,
-                    size: 22,
-                    color: AppTheme.trialDanger,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-        ),
-      ),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        final bool isCompact = constraints.maxWidth < 320;
-
-        if (isCompact)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              avatar,
-              const SizedBox(height: 16),
-              buttonsRow,
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            avatar,
-            const SizedBox(width: 24),
-            Flexible(child: buttonsRow),
-          ],
-        );
-      },
+    return AppBadgedFace(
+      face: face,
+      size: _size,
+      hasImage: hasImage,
+      onPick: _pickImage,
+      onRemove: _removeImage,
     );
   }
 }

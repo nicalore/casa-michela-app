@@ -12,7 +12,7 @@ import '../models/calendar_day.dart';
 import '../models/lesson_item.dart';
 import '../utils/opening_window.dart';
 import 'booking_fields_section.dart' show bookingTagLabels;
-import 'calendar_lesson_block.dart' show lessonTitle;
+import 'calendar_lesson_block.dart' show lessonAbout, lessonTitle;
 import 'person_avatar.dart';
 
 const double _detailsWidth = 680;
@@ -116,6 +116,9 @@ class _LessonDetailsDialog extends StatelessWidget
     final topic = _perBooking((booking) => booking.topic ?? '');
     final notes = _perBooking((booking) => booking.notes ?? '');
 
+    // A single discipline adds nothing to the subject and is left out.
+    final disciplines = lessonAbout(lesson, ministrySubjects).disciplines;
+
     return [
       (
         label: 'Orario',
@@ -129,15 +132,11 @@ class _LessonDetailsDialog extends StatelessWidget
         value: _perBooking((booking) => bookingTitle(booking, ministrySubjects)),
         alone: false,
       ),
-      (
-        label: 'Discipline',
-        value: lesson.disciplineNames.isEmpty ? _empty : lesson.disciplineNames.join(', '),
-        alone: false,
-      ),
+      if (disciplines != null) (label: 'Discipline', value: disciplines, alone: false),
       (
         label: 'Tipo di lezione',
         value: _perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
-        alone: false,
+        alone: disciplines == null,
       ),
       (label: 'Argomento', value: topic, alone: topic != _empty),
       (label: 'Note per il docente', value: notes, alone: notes != _empty),

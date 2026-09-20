@@ -16,6 +16,8 @@ from app.api.dependencies import DbSession
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
 from app.models.account import Account
+from app.models.administrator import AdministratorRoleEnum
+from app.models.person import Person
 from app.repositories.account_repository import AccountRepository
 from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
@@ -56,6 +58,15 @@ _ACCOUNT_LOCKED_ERROR: Final[str] = (
 )
 _INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
 _ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+
+# Mirrored by frontend/lib/features/auth/models/me_response.dart.
+_BOARD_ROLES: Final[frozenset[AdministratorRoleEnum]] = frozenset(
+    {
+        AdministratorRoleEnum.PRESIDENT,
+        AdministratorRoleEnum.VICE_PRESIDENT,
+        AdministratorRoleEnum.TREASURER,
+    }
+)
 _ROLE_NOT_AVAILABLE_ERROR: Final[str] = "Ruolo non disponibile per questo account"
 _ROLE_WITHOUT_UI_ERROR: Final[str] = (
     "L'area dedicata a questo ruolo non è ancora disponibile"
@@ -151,6 +162,29 @@ async def logout(request: LogoutRequest, db: DbSession) -> None:
         ) from None
 
 
+# The board seat, if any; None otherwise, even for an OTHER-role administrator.
+def _board_role(person: Person) -> str | None:
+    member = person.member_profile
+    staff = member.staff_profile if member is not None else None
+    administrator = staff.administrator_profile if staff is not None else None
+
+    if administrator is None or administrator.role not in _BOARD_ROLES:
+        return None
+
+    return administrator.role.value
+
+
+# Only a pupil is answered for: a minor on the staff has parents for paperwork alone.
+def _is_answered_for(person: Person) -> bool:
+    member = person.member_profile
+
+    return (
+        member is not None
+        and member.student_profile is not None
+        and bool(person.parental_relationships)
+    )
+
+
 def _identity_payload(account: Account) -> dict[str, Any]:
     person = account.person
     roles = RoleService.sorted_by_label(RoleService.get_available_roles(person))
@@ -171,11 +205,11 @@ def _identity_payload(account: Account) -> dict[str, Any]:
         "active_role": active_role,
         "status": account.status,
         "password_reset_required": account.password_reset_required,
-        # Stays required until the whole flow ends; the password change is only step one.
+        # Stays required until the whole flow ends; the password change is step one.
         "onboarding_required": account.onboarding_completed_at is None,
-        # A pupil somebody answers for: their parents book and pay, and their
-        # area is narrower for it.
-        "has_parental_responsibility": bool(person.parental_relationships),
+        # A pupil somebody answers for: parents book and pay, so their area is narrower.
+        "has_parental_responsibility": _is_answered_for(person),
+        "board_role": _board_role(person),
         # Stored aware, in UTC; the client picks the wall clock.
         "last_login": account.last_login.isoformat() if account.last_login else None,
         "gender": person.gender.value if person.gender else None,

@@ -12,6 +12,7 @@ from app.api.rbac import IdentityContext
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
 from app.core.time_band import assert_within_single_band
+from app.core.time_step import fits_a_window
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
@@ -19,6 +20,7 @@ from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.ministry_association_subject import MinistryAssociationSubject
+from app.models.presence import Presence
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program_subject import StudyProgramSubject
@@ -67,6 +69,10 @@ _MIXED_MODES_ERROR: Final[str] = (
     "Una lezione si deve svolgere interamente nella stessa modalità."
 )
 
+_ONE_PUPIL_ERROR: Final[str] = (
+    "Una lezione è di un solo studente: per più studenti crea lezioni separate."
+)
+
 _TEACHER_AT_HOME_ERROR: Final[str] = (
     "Un docente collegato da casa non può tenere una lezione in presenza."
 )
@@ -76,7 +82,7 @@ _WRONG_DAY_ERROR: Final[str] = (
 )
 
 _OUTSIDE_PRESENCE_ERROR: Final[str] = (
-    "La lezione non rientra nelle ore di presenza di {student} ({start} - {end})."
+    "La lezione non rientra nelle ore di presenza di {student} ({hours})."
 )
 
 _STUDENT_OVERLAP_ERROR: Final[str] = (
@@ -231,6 +237,15 @@ class LessonService:
                 ),
             )
 
+    # Pupils never share a card: two in the same hour are two lessons side by side.
+    @staticmethod
+    def _assert_one_pupil(bookings: Sequence[Booking]) -> None:
+        if len({booking.presence.student_tax_code for booking in bookings}) > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_ONE_PUPIL_ERROR,
+            )
+
     async def _resolve_mode(
         self,
         availability: Availability,
@@ -258,6 +273,7 @@ class LessonService:
         people = await PersonRepository(self.session).get_options(
             booking.presence.student_tax_code for booking in bookings
         )
+        hours = await self._hours_of(bookings)
 
         for booking in bookings:
             presence = booking.presence
@@ -269,19 +285,57 @@ class LessonService:
                     detail=_WRONG_DAY_ERROR.format(student=student),
                 )
 
-            if start_time < presence.start_time or end_time > presence.end_time:
+            windows = hours.get(
+                (presence.student_tax_code, presence.date, presence.mode),
+                [],
+            )
+
+            if not fits_a_window(start_time, end_time, windows):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=_OUTSIDE_PRESENCE_ERROR.format(
                         student=student,
-                        start=_format_time(presence.start_time),
-                        end=_format_time(presence.end_time),
+                        hours=", ".join(
+                            f"{_format_time(start)} - {_format_time(end)}"
+                            for start, end in windows
+                        ),
                     ),
                 )
 
             students.add(presence.student_tax_code)
 
         return mode, students
+
+    # Every stretch the pupils gave that day and mode: a lesson may sit in any of them.
+    async def _hours_of(
+        self,
+        bookings: Sequence[Booking],
+    ) -> dict[tuple[str, date, str], list[tuple[time, time]]]:
+        rows = await self.session.execute(
+            select(
+                Presence.student_tax_code,
+                Presence.date,
+                Presence.mode,
+                Presence.start_time,
+                Presence.end_time,
+            )
+            .where(
+                Presence.student_tax_code.in_(
+                    {booking.presence.student_tax_code for booking in bookings},
+                ),
+                Presence.date.in_({booking.presence.date for booking in bookings}),
+            )
+            .order_by(Presence.start_time),
+        )
+
+        hours: dict[tuple[str, date, str], list[tuple[time, time]]] = {}
+
+        for student_tax_code, day, mode, start_time, end_time in rows:
+            hours.setdefault((student_tax_code, day, mode), []).append(
+                (start_time, end_time),
+            )
+
+        return hours
 
     async def _assert_no_overlaps(
         self,
@@ -564,6 +618,8 @@ class LessonService:
         )
 
         bookings = await self._bookings_or_400(payload.booking_ids)
+        self._assert_one_pupil(bookings)
+
         mode, student_tax_codes = await self._resolve_mode(
             availability,
             bookings,

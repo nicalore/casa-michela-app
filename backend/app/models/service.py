@@ -17,8 +17,7 @@ if TYPE_CHECKING:
     from app.models.teacher_service import TeacherService
 
 
-# Catalogue of non-subject offers. The name is a mutable natural key: any FK
-# pointing here needs onupdate="CASCADE".
+# The name is a mutable natural key: any FK pointing here needs onupdate="CASCADE".
 class Service(CreatedAtMixin, Base):
     __tablename__ = "services"
 

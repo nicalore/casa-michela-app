@@ -50,6 +50,9 @@ class AppDialogStack extends StatelessWidget
 
   final bool fillLast;
 
+  // A title too long for the pill shrinks to fit instead of trailing off.
+  final bool shrinkTitle;
+
   const AppDialogStack({
     super.key,
     this.eyebrow = '',
@@ -64,7 +67,29 @@ class AppDialogStack extends StatelessWidget
     this.showClose = true,
     this.onClose,
     this.fillLast = false,
+    this.shrinkTitle = false,
   });
+
+  Widget _buildTitle()
+  {
+    final TextStyle style = GoogleFonts.plusJakartaSans(
+      fontSize: 26,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+      color: AppTheme.trialOcean,
+    );
+
+    if (shrinkTitle)
+    {
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(title, maxLines: 1, softWrap: false, style: style),
+      );
+    }
+
+    return OverflowTooltipText(text: title, maxLines: 1, style: style);
+  }
 
   Widget _buildTitleRow(BuildContext context)
   {
@@ -86,16 +111,7 @@ class AppDialogStack extends StatelessWidget
           ),
         ),
         const SizedBox(height: 2),
-        OverflowTooltipText(
-          text: title,
-          maxLines: 1,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-            color: AppTheme.trialOcean,
-          ),
-        ),
+        _buildTitle(),
         if (subtitle != null) ...[
           const SizedBox(height: 8),
           subtitle!,
@@ -160,8 +176,7 @@ class AppDialogStack extends StatelessWidget
       return [
         Flexible(
           child: _atMost(width, SingleChildScrollView(
-            // The default barrier is opaque and would swallow taps in the gaps, which
-            // must reach the barrier.
+            // The default barrier is opaque and would swallow taps in the gaps, which must reach the barrier.
             hitTestBehavior: HitTestBehavior.deferToChild,
             padding: const EdgeInsets.all(_shadowRoom),
             child: Column(
@@ -212,8 +227,7 @@ class AppDialogStack extends StatelessWidget
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: _WhileItIsThere(
-        // Full screen on purpose: the BackdropFilter of showBlurredDialog sizes
-        // itself to its child.
+        // Full screen on purpose: showBlurredDialog's BackdropFilter sizes itself to its child.
         child: Align(
           alignment: alignment,
           child: ConstrainedBox(
@@ -221,8 +235,7 @@ class AppDialogStack extends StatelessWidget
               maxWidth: room,
               maxHeight: window.height - keyboard - 2 * _windowMargin,
             ),
-            // Load-bearing twice: text outside a Material wears the yellow underline, and
-            // a transparent Material, unlike an opaque one, does not answer the hit test.
+            // Needed twice: text outside a Material wears the yellow underline; a transparent Material, unlike an opaque one, lets taps through.
             child: Material(
               type: MaterialType.transparency,
               child: Column(

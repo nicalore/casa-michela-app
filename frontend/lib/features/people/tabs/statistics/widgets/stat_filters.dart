@@ -90,8 +90,7 @@ AppFilterPill<int> yearPill({
   );
 }
 
-// Available months depend on the year: the first year with data may not start
-// in January.
+// Months depend on the year: the first year with data may not start in January.
 AppFilterPill<int> monthPill({
   required int year,
   required int value,
@@ -142,7 +141,7 @@ AppFilterPill<RequestedSubjectKind> requestedKindPill({
     ],
     onChanged: onChanged,
     menuWidth: 220,
-    // Room for "Classifica: Materie ministeriali" in one piece.
+    // Room for "Classifica: Discipline" in one piece.
     maxLabelWidth: 250,
   );
 }

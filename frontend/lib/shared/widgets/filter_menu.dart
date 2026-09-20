@@ -21,7 +21,7 @@ class FilterOption<T>
   final T value;
   final String label;
 
-  // What the pill shows once chosen, when the full label would not fit it.
+  // Shown on the pill when the full label would not fit.
   final String? shortLabel;
 
   const FilterOption({required this.value, required this.label, this.shortLabel});
@@ -105,8 +105,7 @@ class _CustomFilterMenuState<T> extends State<CustomFilterMenu<T>>
       ),
     );
 
-    // rootOverlay: without it a menu opened inside a dialog is offset by the
-    // dialog's own origin.
+    // rootOverlay: otherwise a menu opened inside a dialog is offset by the dialog's origin.
     Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
   }
 
@@ -228,8 +227,7 @@ class _FilterOverlayContent<T> extends StatefulWidget
 
 class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
 {
-  // Drives both AnimatedSize and the delay awaited by hide(): they must stay
-  // in sync or the overlay is torn down mid animation.
+  // Drives both AnimatedSize and hide()'s delay: out of sync, the overlay is torn down mid-animation.
   static const Duration _expandDuration = Duration(milliseconds: 180);
 
   bool _expanded = false;
@@ -239,8 +237,7 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
   {
     super.initState();
 
-    // Expanding on the next frame makes the opening animation visible: the first
-    // frame lays the overlay out collapsed.
+    // Expanded on the next frame so the opening animation shows: frame one lays the overlay out collapsed.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)

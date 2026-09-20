@@ -48,9 +48,8 @@ def upgrade() -> None:
         op.alter_column(table, "valid_from", server_default=None)
         op.add_column(table, sa.Column("valid_to", sa.Date(), nullable=True))
 
-        # The dates join the key: a withdrawn competence may be granted again.
-        # teaching_competences lost its key in an old migration, so the drop is
-        # conditional and any duplicate that slipped in meanwhile goes first.
+        # Dates join the key (a competence may be re-granted); the old key may be
+        # missing, so the drop is conditional and duplicates go first.
         op.execute(f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS pk_{table}")
         op.execute(
             f"DELETE FROM {table} WHERE ctid NOT IN "

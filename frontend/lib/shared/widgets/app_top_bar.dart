@@ -106,8 +106,7 @@ class _AppTopBarState extends State<AppTopBar>
   // The page's copy wins when set; otherwise the shared identity, watched so a role switch redraws.
   MeResponse? get _user => widget.user ?? _apiService.lastKnownIdentity;
 
-  // The page's role, so a page on its way out after a switch keeps its bar
-  // while the identity already says otherwise.
+  // The page's role, not the identity's: a page leaving after a switch keeps its bar.
   String get _role => roleOfPath(widget.currentRoute) ?? _user!.activeRole;
 
   List<AppDestination> get _destinations => destinationsFor(_user!, role: _role);
@@ -156,6 +155,16 @@ class _AppTopBarState extends State<AppTopBar>
         _isMenuOpen = false;
         _isDrawerOpen = false;
       });
+    }
+  }
+
+  void _goTo(String route)
+  {
+    setState(() => _isMenuOpen = false);
+
+    if (route != widget.currentRoute)
+    {
+      context.go(route);
     }
   }
 
@@ -431,7 +440,13 @@ class _AppTopBarState extends State<AppTopBar>
         child: _isMenuOpen
             ? UserMenu(
                 key: const ValueKey('menu'),
+                destinations: menuDestinationsFor(
+                  _user!,
+                  role: _role,
+                  from: widget.currentRoute,
+                ),
                 canChangeRole: _user!.availableRoles.length > 1,
+                onGo: _goTo,
                 onChangeRole: _openRoleSwitcher,
                 onLogout: _logout,
               )
@@ -567,9 +582,8 @@ class _AppTopBarState extends State<AppTopBar>
     );
   }
 
-  // Under the bar, so the pieces come out from beneath it; the source stops
-  // short of the pill's rounded ends. Always in the stack, empty on an
-  // ordinary day: a layer coming and going would re-pair the bar.
+  // Always in the stack, empty on an ordinary day: a layer coming and going would re-pair the bar.
+  // The source stops short of the pill's rounded ends.
   Widget _buildConfetti(AppWindowSize size, double width)
   {
     final double margin = AppBreakpoints.pageMargin(size);

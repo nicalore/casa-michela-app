@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import field_lengths
 from app.models.association_subject import SubjectAreaEnum
-from app.schemas.validators import OptionalCleanStr, StrippedStr
+from app.schemas.validators import CleanStr, OptionalCleanStr, StrippedStr
 
 
 class AssociationSubjectOption(BaseModel):
@@ -37,3 +37,12 @@ class AssociationSubjectResponse(AssociationSubjectBase):
 
     id: int
     created_at: datetime
+
+
+# A member's word on a discipline they miss, forwarded to the president.
+class MissingSubjectReport(BaseModel):
+    name: CleanStr = Field(..., min_length=1, max_length=field_lengths.NAME)
+    description: OptionalCleanStr = Field(
+        None,
+        max_length=field_lengths.DESCRIPTION,
+    )

@@ -22,8 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Upgrade schema."""
     
-    # Existing rows are dummy data: wipe them so the new NOT NULL columns
-    # can be added without violations.
+    # Existing rows are dummy data: wiped so the new NOT NULL columns can be added.
     op.execute("TRUNCATE TABLE study_programs, school_enrollments, teaching_competences CASCADE;")
 
     op.create_table('association_subjects',

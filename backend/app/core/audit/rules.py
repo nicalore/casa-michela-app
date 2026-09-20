@@ -6,8 +6,7 @@ SUCCESS_OUTCOME: Final[str] = "Success"
 FAILURE_OUTCOME: Final[str] = "Failure"
 
 
-# Where the actor comes from when the request carries no bearer token: only
-# the auth routes, whose whole point is that the caller is not yet identified.
+# Actor source without a bearer token: only the auth routes, where nobody is identified.
 class ActorSource(StrEnum):
     BODY_USERNAME = "body_username"
     BODY_REFRESH_TOKEN = "body_refresh_token"
@@ -17,18 +16,15 @@ class ActorSource(StrEnum):
 @dataclass(frozen=True, slots=True)
 class AuditRule:
     operation: str
-    # Named path parameters, joined with "/" when a route identifies its
-    # target with more than one.
+    # Named path parameters, joined with "/" when there is more than one.
     path_params: tuple[str, ...] = ()
     response_field: str = ""
-    # Read from the request, so a failed write still says what was attempted.
-    # Dotted paths are supported, e.g. "person.general_data.tax_code".
+    # Read from the request so a failed write still says what was attempted; dotted ok.
     body_fields: tuple[str, ...] = ()
     actor_fallback: ActorSource | None = None
 
 
-# What an endpoint publishes on the request scope once it has resolved a
-# verified identity, so the middleware need not trust the raw token.
+# Published on the request scope by the endpoint, so the middleware trusts no raw token.
 @dataclass(frozen=True, slots=True)
 class AuditActor:
     tax_code: str

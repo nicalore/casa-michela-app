@@ -50,7 +50,7 @@ class TeacherPersonalStatisticsItem
   }
 }
 
-// Asked apart from the availabilities: the two carry periods of their own.
+// Fetched separately from availabilities: the two have their own periods.
 class TeacherAppreciationStatisticsItem
 {
   final int score;
@@ -106,7 +106,6 @@ class StudentPersonalStatisticsItem
   }
 }
 
-// By name, each pupil once.
 class TeacherAppreciationStudentsItem
 {
   final List<PersonOptionItem> preferring;

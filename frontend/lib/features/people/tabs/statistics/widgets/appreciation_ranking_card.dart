@@ -15,8 +15,6 @@ const double _twoColumnsFrom = 900;
 
 const Duration _fetchFade = Duration(milliseconds: 150);
 
-// One list, best first: a teacher's score already weighs both the pupils who
-// ask for them and those who would rather not have them.
 class TeacherAppreciationCard extends StatelessWidget
 {
   final TeacherAppreciationRankingItem ranking;
@@ -72,7 +70,7 @@ class TeacherAppreciationCard extends StatelessWidget
     );
   }
 
-  // Places run down the left column and carry on down the right one.
+  // Places fill the left column first, then continue down the right one.
   Widget _rows(BuildContext context)
   {
     final count = ranking.ranking.length;

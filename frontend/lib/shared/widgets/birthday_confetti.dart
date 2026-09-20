@@ -26,27 +26,22 @@ const List<Color> _colors = [
   AppTheme.trialSeaGreen,
 ];
 
-// Confetti for whoever opens the app on their birthday: the pieces come out
-// from under the top bar and fall to the foot of the page.
-//
-// There is one shower per launch, shared by every bar: a page change carries
-// it on where it was, a page without a bar ends it for good.
+// One shower per launch, shared by every bar; a page without a bar ends it.
 class BirthdayConfetti extends StatefulWidget
 {
   final MeResponse user;
 
-  // Where the pieces come from, in the page's coordinates: the bar, less its
-  // rounded ends. Painted under it, they emerge from beneath its lower edge.
+  // Page coordinates; painted under the bar so pieces emerge from its lower edge.
   final Rect source;
 
   const BirthdayConfetti({super.key, required this.user, required this.source});
 
-  // The tax code already celebrated in this run.
+  // Tax code already celebrated this launch.
   static String? _celebrated;
 
   static _Shower? _shower;
 
-  // The bars on show. The shower runs as long as one is there to paint it.
+  // Bars currently painting; the shower ends when none is left.
   static final Set<_BirthdayConfettiState> _hosts = {};
 
   static void _startFor(MeResponse user)
@@ -68,7 +63,6 @@ class BirthdayConfetti extends StatefulWidget
     _celebrated = null;
   }
 
-  // Seconds since the shower began; null when none is running.
   @visibleForTesting
   static double? get debugElapsed => _shower == null || _shower!.done ? null : _shower!.elapsed;
 
@@ -85,8 +79,6 @@ class _BirthdayConfettiState extends State<BirthdayConfetti>
 
   _Shower? _shower;
 
-  // On show: the destination is the current one, not covered by a route
-  // pushed over it, and painting.
   bool get _shown
   {
     return isDestinationShown(context) &&
@@ -193,10 +185,7 @@ class _BirthdayConfettiState extends State<BirthdayConfetti>
   }
 }
 
-// The shower itself: the pieces and the clock they fall by. Its own ticker,
-// not a bar's, so the clock runs on through a page change; where the pieces
-// are at a given moment follows from the clock alone, so a bar picking it
-// up mid-way paints the same picture the last one did.
+// Own ticker, not a bar's, so the clock survives a page change; positions derive from elapsed alone.
 class _Shower extends ChangeNotifier
 {
   final List<_Piece> pieces;
@@ -206,8 +195,7 @@ class _Shower extends ChangeNotifier
   double elapsed = 0;
   bool done = false;
 
-  // The longest fall any bar has had to paint: the shower is over once the
-  // slowest piece has had time to land at the foot of it.
+  // Longest fall painted so far; the shower ends once the slowest piece has landed it.
   double _drop = 0;
 
   _Shower(this.pieces)
@@ -223,8 +211,7 @@ class _Shower extends ChangeNotifier
     }
   }
 
-  // Ticks come before the frame is built, so a bar handing over to another
-  // within one frame never leaves an empty moment here.
+  // Ticks run before build, so a bar handing over within one frame never sees an empty host set.
   void _onTick(Duration since)
   {
     elapsed = since.inMicroseconds / Duration.microsecondsPerSecond;
@@ -256,7 +243,7 @@ class _Shower extends ChangeNotifier
 
 class _Piece
 {
-  // Where it starts, as fractions of the source rect.
+  // Start position, as fractions of the source rect.
   final double across;
   final double down;
 
@@ -300,7 +287,7 @@ class _Piece
 
     return _Piece(
       across: random.nextDouble(),
-      // The middle of the bar: hidden at first, out within a moment.
+      // Middle band of the bar, hidden under it at first.
       down: 0.35 + random.nextDouble() * 0.3,
       delay: random.nextDouble() * _pour,
       speed: _slowest + random.nextDouble() * (_fastest - _slowest),
@@ -352,7 +339,7 @@ class _ConfettiPainter extends CustomPainter
           piece.drift * t +
           piece.sway * (math.sin(piece.swayRate * t + piece.phase) - math.sin(piece.phase));
 
-      // A strip seen edge-on now and then: the tumble that reads as depth.
+      // Y-scale by the tumble fakes a 3D flip; clamped so the strip never vanishes.
       final double tumble = math.cos(piece.flip * t + piece.phase);
 
       paint.color = piece.color;

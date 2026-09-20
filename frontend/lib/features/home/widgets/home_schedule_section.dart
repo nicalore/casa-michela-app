@@ -3,61 +3,58 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
+import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/closed_today_notice.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../../dashboard/widgets/published_pill.dart';
+import '../../lessons/utils/opening_window.dart';
+import '../../lessons/widgets/calendar_lesson_block.dart';
 import 'home_schedule_data.dart';
 
 const double _bandGap = 12;
-const double _rowGap = 6;
+const double _laneGap = 8;
+const double _gap = 6;
 
-// Type and spacing grow as the band count shrinks: the card height is fixed,
-// so fewer bands are written larger to fill it.
-class _BandScale
-{
-  final double name;
-  final double hours;
-  final double unit;
-  final double padding;
+const double _trackHeight = 14;
+const double _labelWidth = 118;
+const double _timeWidth = 42;
 
-  const _BandScale({
-    required this.name,
-    required this.hours,
-    required this.unit,
-    required this.padding,
-  });
+const double _blockPadding = 16;
+const double _blockBorder = 1.5;
 
-  static const _BandScale _tight = _BandScale(name: 15, hours: 15, unit: 12.5, padding: 11);
-  static const _BandScale _roomy = _BandScale(name: 17, hours: 19, unit: 13.5, padding: 20);
-  static const _BandScale _alone = _BandScale(name: 19, hours: 24, unit: 14.5, padding: 30);
+const double _stackedBelow = 340;
 
-  static _BandScale of(int bands)
-  {
-    if (bands >= 3)
-    {
-      return _tight;
-    }
+// Ticks closer than this to the previous one are dropped.
+const double _tickWidth = 36;
+const double _tickRow = 16;
 
-    return bands == 2 ? _roomy : _alone;
-  }
-}
+const double _labelSize = 12.5;
+const double _labelLineHeight = 1.3;
+
+// Lines the bar up with the label's first line.
+const double _barTopInset = (_labelSize * _labelLineHeight - _trackHeight) / 2;
+
+String _subjectsLabel(int count) => count == 1 ? '1 materia' : '$count materie';
 
 class HomeScheduleSection extends StatelessWidget
 {
-  // Null when the day could not be read, which is not the same as a day with
-  // no openings.
+  // Null when the day could not be read, distinct from a day with no openings.
   final List<HomeBandStatus>? bands;
 
   final bool isLoading;
 
   final String title;
 
-  // What to write in a band the reader has nothing in.
+  final String ownHeading;
+
+  final String? convenedHeading;
+
   final String emptyBandLabel;
 
-  // What to write in a published band the reader offered hours for and was
-  // not called in. Null where the reader's own rows never give way.
   final String? unconvenedLabel;
+
+  // Passed in because a LayoutBuilder cannot answer under IntrinsicHeight.
+  final double width;
 
   final double minHeight;
   final bool fill;
@@ -66,7 +63,10 @@ class HomeScheduleSection extends StatelessWidget
     super.key,
     required this.bands,
     required this.title,
+    required this.ownHeading,
     required this.emptyBandLabel,
+    required this.width,
+    this.convenedHeading,
     this.unconvenedLabel,
     this.isLoading = false,
     this.minHeight = 0,
@@ -117,7 +117,6 @@ class HomeScheduleSection extends StatelessWidget
       return const ClosedTodayNotice();
     }
 
-    final _BandScale scale = _BandScale.of(open.length);
     final bool shares = fill && open.length > 1;
 
     return Column(
@@ -130,220 +129,382 @@ class HomeScheduleSection extends StatelessWidget
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(bottom: i == open.length - 1 ? 0 : _bandGap),
-                child: _band(open[i], scale),
+                child: _band(open[i]),
               ),
             )
           else
             Padding(
               padding: EdgeInsets.only(bottom: i == open.length - 1 ? 0 : _bandGap),
-              child: _band(open[i], scale),
+              child: _band(open[i]),
             ),
       ],
     );
   }
 
-  Widget _band(HomeBandStatus status, _BandScale scale)
+  Widget _band(HomeBandStatus status)
   {
-    return _BandRow(
+    return _BandBlock(
       status: status,
-      scale: scale,
+      heading: _headingOf(status),
       emptyLabel: emptyBandLabel,
-      unconvenedLabel: unconvenedLabel,
+      stacked: width - 2 * (_blockPadding + _blockBorder) < _stackedBelow,
     );
+  }
+
+  String _headingOf(HomeBandStatus status)
+  {
+    final String? convened = convenedHeading;
+    final String? unconvened = unconvenedLabel;
+
+    if (!status.isEmpty)
+    {
+      return status.isPublished && convened != null ? convened : ownHeading;
+    }
+
+    return status.isPublished && status.offered && unconvened != null
+        ? unconvened
+        : emptyBandLabel;
   }
 }
 
-class _BandRow extends StatelessWidget
+class _BandBlock extends StatelessWidget
 {
   final HomeBandStatus status;
-  final _BandScale scale;
+  final String heading;
   final String emptyLabel;
-  final String? unconvenedLabel;
+  final bool stacked;
 
-  const _BandRow({
+  const _BandBlock({
     required this.status,
-    required this.scale,
+    required this.heading,
     required this.emptyLabel,
-    required this.unconvenedLabel,
+    required this.stacked,
   });
 
   @override
   Widget build(BuildContext context)
   {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: scale.padding),
+      padding: const EdgeInsets.symmetric(horizontal: _blockPadding, vertical: 14),
       decoration: BoxDecoration(
         color: AppTheme.trialPaper,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.trialLine, width: 1.5),
+        border: Border.all(color: AppTheme.trialLine, width: _blockBorder),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  bandLabel(status.band),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: scale.name,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                    color: AppTheme.trialOcean,
-                  ),
+          _buildHead(),
+          const SizedBox(height: 10),
+          for (var i = 0; i < status.lanes.length; i++) ...[
+            if (i > 0) const SizedBox(height: _laneGap),
+            _Lane(lane: status.lanes[i], stacked: stacked),
+          ],
+          if (!status.isEmpty)
+            for (final name in status.idle) ...[
+              const SizedBox(height: _laneGap),
+              Text(
+                '$name · ${emptyLabel.toLowerCase()}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontStyle: FontStyle.italic,
+                  height: 1.35,
+                  color: AppTheme.trialMutedText,
                 ),
               ),
-              if (status.isPublished) ...[
-                const SizedBox(width: 8),
-                const PublishedPill(),
-              ],
             ],
-          ),
-          SizedBox(height: _rowGap),
-          Wrap(
-            spacing: 16,
-            runSpacing: 2,
-            children: [
-              for (final opening in status.openings)
-                _Reading(
-                  value: opening.hours,
-                  label: opening.mode,
-                  size: scale.hours,
-                  labelSize: scale.unit,
-                ),
-            ],
-          ),
-          SizedBox(height: _rowGap),
-          ..._buildOwnRows(),
         ],
       ),
     );
   }
 
-  List<Widget> _buildOwnRows()
+  Widget _buildHead()
   {
-    if (status.slots.isEmpty && status.idle.isEmpty)
-    {
-      final String? unconvened = unconvenedLabel;
-
-      return [
-        _Muted(
-          text: status.isPublished && status.offered && unconvened != null
-              ? unconvened
-              : emptyLabel,
-          size: scale.unit,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              bandLabel(status.band),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+                color: AppTheme.trialOcean,
+              ),
+            ),
+            if (status.isPublished) ...[
+              const SizedBox(width: 8),
+              const PublishedPill(),
+            ],
+          ],
         ),
-      ];
-    }
-
-    return [
-      for (final slot in status.slots)
-        _Reading(
-          prefix: slot.name,
-          lead: slot.convened ? 'Convocato' : null,
-          value: slot.hours,
-          label: slot.modeLabel,
-          size: scale.hours,
-          labelSize: scale.unit,
+        Text(
+          heading.toUpperCase(),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.1,
+            height: 1.3,
+            color: AppTheme.trialMutedText,
+          ),
         ),
-      for (final name in status.idle)
-        _Muted(text: '$name · ${emptyLabel.toLowerCase()}', size: scale.unit),
-    ];
+      ],
+    );
   }
 }
 
-class _Reading extends StatelessWidget
+class _Lane extends StatelessWidget
 {
-  final String? prefix;
+  final HomeLane lane;
+  final bool stacked;
 
-  // A word before the hours, set like the name: "Convocato 14:00–17:00".
-  final String? lead;
-
-  final String value;
-  final String label;
-  final double size;
-  final double labelSize;
-
-  const _Reading({
-    required this.value,
-    required this.label,
-    required this.size,
-    required this.labelSize,
-    this.prefix,
-    this.lead,
-  });
+  const _Lane({required this.lane, required this.stacked});
 
   @override
   Widget build(BuildContext context)
   {
-    final String? name = prefix;
-    final String? word = lead;
+    final OpeningWindow opening = lane.opening;
 
-    final TextStyle accent = GoogleFonts.plusJakartaSans(
-      fontSize: labelSize,
-      fontWeight: FontWeight.w700,
-      height: 1.35,
-      color: AppTheme.trialTealDeep,
+    final Widget bar = Row(
+      children: [
+        SizedBox(
+          width: _timeWidth,
+          child: _Time(minutes: opening.startMinutes, align: TextAlign.right),
+        ),
+        const SizedBox(width: _gap),
+        Expanded(child: _Track(lane: lane)),
+        const SizedBox(width: _gap),
+        SizedBox(
+          width: _timeWidth,
+          child: _Time(minutes: opening.endMinutes, align: TextAlign.left),
+        ),
+      ],
     );
 
-    return Text.rich(
-      TextSpan(
+    final Widget padded = Padding(
+      padding: EdgeInsets.only(bottom: _tickMinutes(lane).isEmpty ? 0 : _tickRow),
+      child: bar,
+    );
+
+    if (stacked)
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (name != null && name.isNotEmpty)
-            TextSpan(text: '$name · ', style: accent),
-          if (word != null)
-            TextSpan(text: '$word ', style: accent),
-          TextSpan(
-            text: value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: size,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-              color: AppTheme.trialInk,
-            ),
-          ),
-          TextSpan(
-            text: ' $label',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: labelSize,
-              fontWeight: FontWeight.w600,
-              height: 1.35,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
+          _LaneLabel(lane: lane, stacked: true),
+          const SizedBox(height: 2),
+          padded,
         ],
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(width: _labelWidth, child: _LaneLabel(lane: lane, stacked: false)),
+        const SizedBox(width: _gap),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: _barTopInset),
+            child: padded,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _Muted extends StatelessWidget
+class _LaneLabel extends StatelessWidget
 {
-  final String text;
-  final double size;
+  final HomeLane lane;
+  final bool stacked;
 
-  const _Muted({required this.text, required this.size});
+  const _LaneLabel({required this.lane, required this.stacked});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final Color accent = lessonAccent(lane.mode);
+    final String? subjects = lane.subjects > 0 ? _subjectsLabel(lane.subjects) : null;
+
+    final TextStyle muted = GoogleFonts.plusJakartaSans(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      height: _labelLineHeight,
+      color: AppTheme.trialMutedText,
+    );
+
+    final Widget label = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(lessonModeIcon(lane.mode), size: 17, color: accent),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              text: lane.name.isEmpty ? modeLabel(lane.mode) : lane.name,
+              children: [
+                if (stacked && subjects != null) TextSpan(text: ' · $subjects', style: muted),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: _labelSize,
+              fontWeight: FontWeight.w700,
+              height: _labelLineHeight,
+              color: accent,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (stacked || subjects == null)
+    {
+      return label;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        label,
+        Padding(
+          padding: const EdgeInsets.only(left: 23),
+          child: Text(subjects, maxLines: 1, overflow: TextOverflow.ellipsis, style: muted),
+        ),
+      ],
+    );
+  }
+}
+
+class _Time extends StatelessWidget
+{
+  final int minutes;
+  final TextAlign align;
+
+  const _Time({required this.minutes, required this.align});
 
   @override
   Widget build(BuildContext context)
   {
     return Text(
-      text,
+      formatTimeOfDayShort(timeOfDayFromMinutes(minutes)),
+      textAlign: align,
       maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+      softWrap: false,
       style: GoogleFonts.plusJakartaSans(
-        fontSize: size,
+        fontSize: 11.5,
         fontWeight: FontWeight.w600,
-        fontStyle: FontStyle.italic,
-        height: 1.35,
+        height: 1.2,
         color: AppTheme.trialMutedText,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
+    );
+  }
+}
+
+List<int> _tickMinutes(HomeLane lane)
+{
+  final OpeningWindow opening = lane.opening;
+
+  final Set<int> minutes = {
+    for (final (start, end) in lane.spans) ...[start, end],
+  }..removeAll([opening.startMinutes, opening.endMinutes]);
+
+  return minutes.toList()..sort();
+}
+
+// The fixed height answers the intrinsic-height queries the LayoutBuilder inside cannot.
+class _Track extends StatelessWidget
+{
+  final HomeLane lane;
+
+  const _Track({required this.lane});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return SizedBox(
+      height: _trackHeight,
+      child: LayoutBuilder(builder: _buildBar),
+    );
+  }
+
+  Widget _buildBar(BuildContext context, BoxConstraints constraints)
+  {
+    final OpeningWindow opening = lane.opening;
+    final Color accent = lessonAccent(lane.mode);
+
+    final double width = constraints.maxWidth;
+
+    double x(int minutes) => (minutes - opening.startMinutes) / opening.minutes * width;
+
+    final List<int> ticks = [];
+
+    for (final minutes in _tickMinutes(lane))
+    {
+      if (ticks.isEmpty || x(minutes) - x(ticks.last) >= _tickWidth + 4)
+      {
+        ticks.add(minutes);
+      }
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(_trackHeight / 2),
+              border: Border.all(color: AppTheme.trialLine),
+            ),
+          ),
+        ),
+        for (final (start, end) in lane.spans)
+          Positioned(
+            left: x(start),
+            width: x(end) - x(start),
+            top: 0,
+            bottom: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(_trackHeight / 2),
+              ),
+            ),
+          ),
+        for (final minutes in ticks)
+          Positioned(
+            left: x(minutes) - _tickWidth / 2,
+            width: _tickWidth,
+            top: _trackHeight + 2,
+            child: Text(
+              formatTimeOfDayShort(timeOfDayFromMinutes(minutes)),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              softWrap: false,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: AppTheme.trialMutedText,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

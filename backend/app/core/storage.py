@@ -8,8 +8,7 @@ PROFILE_IMAGES_DIR: Final[Path] = UPLOADS_DIR / "profile-images"
 # Must match the StaticFiles mount of UPLOADS_DIR, so both derive from the same path.
 PROFILE_IMAGES_URL_PREFIX: Final[str] = f"/{PROFILE_IMAGES_DIR.as_posix()}"
 
-# Resolved from the package, not the working directory: pytest, uvicorn and scripts
-# each run from somewhere else.
+# Resolved from the package, not the working directory, which varies by entry point.
 DOCUMENTS_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "documents"
 
 ENROLLMENT_FORM_TEMPLATE: Final[Path] = (
@@ -26,3 +25,6 @@ EARLY_EXIT_FORM_FIELD_MAP: Final[Path] = DOCUMENTS_DIR / "mappa_campi_uscita.jso
 
 # Embedded into the filled forms; OFL.txt beside it is the licence it ships under.
 ENROLLMENT_FORM_FONT: Final[Path] = DOCUMENTS_DIR / "PlusJakartaSans-Regular.ttf"
+
+# Served as it is, under its own name: a new school year brings a new file.
+REGULATION_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Regolamento 26-27.pdf"

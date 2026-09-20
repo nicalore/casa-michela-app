@@ -9,6 +9,8 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 
+const String kCompleteFieldsFirst = 'Completa tutti i campi prima di procedere.';
+
 // Mirrors AppTextField's surface, radius, border and height.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
@@ -624,7 +626,10 @@ class WizardFact extends StatelessWidget
   final String label;
   final String value;
 
-  const WizardFact({super.key, required this.label, required this.value});
+  // Null: unclipped, for a list of days read whole.
+  final int? maxLines;
+
+  const WizardFact({super.key, required this.label, required this.value, this.maxLines = 1});
 
   @override
   Widget build(BuildContext context)
@@ -637,8 +642,8 @@ class WizardFact extends StatelessWidget
         const SizedBox(height: 6),
         Text(
           value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: maxLines,
+          overflow: maxLines == null ? TextOverflow.visible : TextOverflow.ellipsis,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 18,
             fontWeight: FontWeight.w600,

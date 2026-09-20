@@ -12,9 +12,7 @@ if TYPE_CHECKING:
     from app.models.person import Person
 
 
-# A pupil's standing opinion, not a booking's: it holds for every lesson while
-# the row is open. Withdrawing closes the row rather than deleting it, so past
-# rankings keep the opinion that was in force on the day.
+# A pupil's standing opinion; withdrawing closes the row, so past rankings keep it.
 class StudentNotPreferredTeacher(Base):
     __tablename__ = "student_not_preferred_teachers"
 

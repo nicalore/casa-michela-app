@@ -30,8 +30,7 @@ _INTERNAL_ERROR_STATUS: Final[int] = 500
 _ACCOUNT_LOCKED_STATUS: Final[int] = 423
 
 
-# Reading the body caches it on the request, and Starlette replays it to the
-# handlers below. Skipped for uploads, which would only be buffered for nothing.
+# Reading the body caches it and Starlette replays it downstream; skipped for uploads.
 def _should_read_body(request: Request) -> bool:
     if request.method not in _BODY_METHODS:
         return False
@@ -53,8 +52,7 @@ async def _request_payload(request: Request) -> dict[str, Any]:
         return {}
 
 
-# Routing fills the scope before the endpoint runs, so the matched template is
-# there even when the call ends in an exception.
+# Routing fills the scope before the endpoint runs, so the template survives exceptions.
 def _matched_rule(request: Request) -> tuple[AuditRule | None, str]:
     route = request.scope.get("route")
 
@@ -68,8 +66,7 @@ async def _replay(body: bytes) -> AsyncIterator[bytes]:
     yield body
 
 
-# The streaming body can be consumed only once: put it back after reading it.
-# Swapping the iterator leaves the response headers untouched.
+# The streaming body is consumed once: put it back; swapping the iterator keeps headers.
 async def _buffered_body(response: Response) -> bytes:
     body = b"".join([section async for section in response.body_iterator])
     response.body_iterator = _replay(body)
@@ -140,8 +137,7 @@ async def audit_logging_middleware(request: Request, call_next: Callable) -> Res
     if rule.response_field and status_code < _ERROR_STATUS:
         response_body = await _buffered_body(response)
 
-    # A lockout is a decision of its own: the failed attempt that triggered it
-    # is still logged on the line below.
+    # A lockout is a decision of its own; the triggering failure is still logged below.
     locked_out = status_code == _ACCOUNT_LOCKED_STATUS
 
     if locked_out and (request.method, path) == LOCKOUT_ROUTE:

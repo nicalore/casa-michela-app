@@ -6,16 +6,14 @@ from app.models.student import HomeworkTariffEnum
 from app.schemas.person import PersonOption
 
 
-# A month so far, up to a day and hour: days already lived, hours already
-# held.
+# A month so far, up to a day and hour: days already lived, hours already held.
 class TeacherMonthFigures(BaseModel):
     total_availabilities: int
     weekly_availabilities: float
 
     worked_minutes: int
 
-    # None when the teacher has no hourly rate: an unpaid collaboration, or
-    # a rate nobody entered yet.
+    # None without an hourly rate: unpaid collaboration, or a rate nobody entered yet.
     gross_compensation: Decimal | None
 
 
@@ -23,8 +21,7 @@ class TeacherMonthSummaryResponse(TeacherMonthFigures):
     is_below_monthly_threshold: bool
     is_below_weekly_threshold: bool
 
-    # The month before, lived up to the same day and hour, so the two
-    # compare like for like.
+    # The month before, up to the same day and hour, so the two compare like for like.
     last_month: TeacherMonthFigures
 
 
@@ -46,8 +43,7 @@ class PupilMonthFigures(BaseModel):
 class StudentMonthSummaryResponse(BaseModel):
     figures: PupilMonthFigures
 
-    # A pupil somebody answers for reads a narrower card than one who books
-    # for themselves.
+    # A pupil somebody answers for reads a narrower card than one who books themselves.
     has_parental_responsibility: bool
 
 

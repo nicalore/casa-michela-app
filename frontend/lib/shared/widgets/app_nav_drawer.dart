@@ -133,10 +133,6 @@ class AppNavDrawer extends StatelessWidget
         {
           children.add(AppRailHeading(groupTitle));
         }
-        else
-        {
-          children.add(const SizedBox(height: 8));
-        }
 
         for (final entry in group.entries)
         {
@@ -146,6 +142,7 @@ class AppNavDrawer extends StatelessWidget
             label: entry,
             nested: groupTitle != null,
             selected: index == selectedSection,
+            enabled: group.isAvailable(entry),
             onTap: ()
             {
               onDismiss();

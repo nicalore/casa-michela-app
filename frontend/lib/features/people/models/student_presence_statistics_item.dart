@@ -22,7 +22,7 @@ class StudentPresenceRankItem
 
 enum RequestedSubjectKind
 {
-  ministrySubject('Materie ministeriali', 'materie ministeriali più richieste'),
+  ministrySubject('Materie', 'materie più richieste'),
   discipline('Discipline', 'discipline più richieste'),
   service('Servizi', 'servizi più richiesti');
 
@@ -37,8 +37,7 @@ class RequestedSubjectItem
   final String name;
   final int requestCount;
 
-  // Share of its own kind over the period, counted over all entries, not just
-  // the ones shown.
+  // Share over all entries in the period, not just the ones shown.
   final double percentage;
 
   const RequestedSubjectItem({

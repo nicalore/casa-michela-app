@@ -30,6 +30,8 @@ class AppCarouselFrame extends StatelessWidget
   final bool canGoBack;
   final bool canGoForward;
 
+  final bool showArrows;
+
   final String? forwardBlockedReason;
   final VoidCallback onBack;
   final VoidCallback onForward;
@@ -43,6 +45,7 @@ class AppCarouselFrame extends StatelessWidget
     required this.maxContentWidth,
     required this.canGoBack,
     required this.canGoForward,
+    this.showArrows = true,
     this.forwardBlockedReason,
     required this.onBack,
     required this.onForward,
@@ -89,40 +92,49 @@ class AppCarouselFrame extends StatelessWidget
       {
         final bool compact = constraints.maxWidth < compactMax;
 
-        final Widget turned = compact
-            ? Column(
-                children: [
-                  SizedBox(width: constraints.maxWidth, child: card),
-                  const SizedBox(height: gap),
-                  Row(
+        final Widget turned = !showArrows
+            ? Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
+                  child: card,
+                ),
+              )
+            : compact
+                ? Column(
+                    children: [
+                      SizedBox(width: constraints.maxWidth, child: card),
+                      const SizedBox(height: gap),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          back,
+                          const SizedBox(width: gap),
+                          forward,
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       back,
                       const SizedBox(width: gap),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxContentWidth),
+                          child: card,
+                        ),
+                      ),
+                      const SizedBox(width: gap),
                       forward,
                     ],
-                  ),
-                ],
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  back,
-                  const SizedBox(width: gap),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxContentWidth),
-                      child: card,
-                    ),
-                  ),
-                  const SizedBox(width: gap),
-                  forward,
-                ],
-              );
+                  );
 
-        final double cardWidth = compact
-            ? constraints.maxWidth
-            : min(maxContentWidth, constraints.maxWidth - 2 * (arrowSize + gap));
+        final double cardWidth = !showArrows
+            ? min(maxContentWidth, constraints.maxWidth)
+            : compact
+                ? constraints.maxWidth
+                : min(maxContentWidth, constraints.maxWidth - 2 * (arrowSize + gap));
 
         final Widget frame = question == null
             ? turned

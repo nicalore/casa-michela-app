@@ -47,10 +47,14 @@ class AppSortPill extends StatelessWidget
   final SortCriterion value;
   final ValueChanged<SortCriterion> onChanged;
 
+  // A reader is not offered "most recent".
+  final List<SortCriterion> criteria;
+
   const AppSortPill({
     super.key,
     required this.value,
     required this.onChanged,
+    this.criteria = SortCriterion.values,
   });
 
   @override
@@ -63,7 +67,7 @@ class AppSortPill extends StatelessWidget
       value: value,
       menuWidth: _sortMenuWidth,
       onChanged: onChanged,
-      options: SortCriterion.values
+      options: criteria
           .map((sort) => FilterOption(value: sort, label: sort.label))
           .toList(),
     );
@@ -412,6 +416,90 @@ class _AppCountFilterPillState extends State<AppCountFilterPill>
             alignment: Alignment.centerLeft,
             widthFactor: t,
             child: _ClearButton(onTap: widget.onClear, opacity: t),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class AppTogglePill extends StatefulWidget
+{
+  final String label;
+  final IconData icon;
+  final bool active;
+  final ValueChanged<bool> onChanged;
+
+  final double maxLabelWidth;
+
+  const AppTogglePill({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onChanged,
+    this.maxLabelWidth = kFilterPillLabelMaxWidth,
+  });
+
+  @override
+  State<AppTogglePill> createState() => _AppTogglePillState();
+}
+
+class _AppTogglePillState extends State<AppTogglePill>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: _hover ? 1 : 0),
+      duration: _hoverFade,
+      curve: Curves.easeOut,
+      builder: (context, h, _) => TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: widget.active ? 1 : 0),
+        duration: _hoverFade,
+        curve: Curves.easeOut,
+        builder: (context, t, _) => _buildPill(t, h),
+      ),
+    );
+  }
+
+  Widget _buildPill(double t, double h)
+  {
+    final Color contentColor = _PillSurface.contentColor(
+      t: t,
+      h: h,
+      answered: widget.active,
+    );
+
+    return _PillSurface(
+      t: t,
+      h: h,
+      onEnter: () => setState(() => _hover = true),
+      onExit: () => setState(() => _hover = false),
+      onTap: () => widget.onChanged(!widget.active),
+      children: [
+        Icon(widget.icon, size: 18, color: contentColor),
+        const SizedBox(width: 9),
+        _pillLabel(
+          Text(
+            widget.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
+              color: contentColor,
+            ),
+          ),
+          widget.maxLabelWidth,
+        ),
+        ClipRect(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            widthFactor: t,
+            child: _ClearButton(onTap: () => widget.onChanged(false), opacity: t),
           ),
         ),
       ],

@@ -15,8 +15,7 @@ down_revision = "b7e2c4a91f30"
 branch_labels = None
 depends_on = None
 
-# The association's founding date: existing rows have no recorded start, and
-# treating them as effective since forever preserves generation behavior.
+# The association's founding date: existing rows count as effective since forever.
 _BACKFILL = "2023-01-09"
 
 

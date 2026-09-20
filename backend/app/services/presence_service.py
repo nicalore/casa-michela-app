@@ -11,11 +11,16 @@ from app.core.booking_window import assert_within_booking_window
 from app.core.integrity import integrity_guard
 from app.core.labels import opening_mode_label
 from app.core.optimistic_concurrency import assert_not_stale
+from app.core.time_step import fits_a_window
+from app.models.lesson import Lesson
 from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
-from app.services.lesson_guard import find_presence_lessons
+from app.services.lesson_guard import (
+    find_presence_lessons,
+    find_student_day_lessons,
+)
 from app.services.opening_window import assert_within_opening
 from app.services.schedule_cascade import unschedule
 
@@ -143,19 +148,6 @@ class PresenceService:
 
         return payload_value
 
-    # Scoped by student, not by booker: a booking belongs to the student and both parents.
-    @staticmethod
-    def _visible_student_tax_codes(identity: IdentityContext) -> frozenset[str]:
-        visible: set[str] = set()
-
-        if "STUDENT" in identity.roles:
-            visible.add(identity.tax_code)
-
-        if "PARENT" in identity.roles:
-            visible.update(identity.child_tax_codes)
-
-        return frozenset(visible)
-
     async def list_for(
         self,
         identity: IdentityContext,
@@ -175,7 +167,7 @@ class PresenceService:
 
         return await self.repository.list(
             student_tax_code=student_tax_code,
-            student_tax_codes=self._visible_student_tax_codes(identity),
+            student_tax_codes=identity.own_student_tax_codes,
             booker_tax_code=None,
             date_from=date_from,
             date_to=date_to,
@@ -186,11 +178,11 @@ class PresenceService:
         identity: IdentityContext,
         presence_id: int,
     ) -> Presence:
-        owner_tax_code = None if identity.is_admin else identity.tax_code
+        scope = None if identity.is_admin else identity.own_student_tax_codes
 
         presence = await self.repository.get_by_id(
             presence_id,
-            owner_tax_code=owner_tax_code,
+            student_tax_codes=scope,
         )
 
         if presence is None:
@@ -213,6 +205,52 @@ class PresenceService:
             bands_of(start_time, end_time),
             is_admin=identity.is_admin,
         )
+
+    # Lessons left outside the pupil's day: those in no remaining stretch, plus this
+    # presence's own bookings' when it moves day or mode, or goes.
+    async def _lessons_left_outside(
+        self,
+        presence: Presence,
+        *,
+        becomes: PresenceUpdate | None,
+    ) -> list[Lesson]:
+        session = self.repository.session
+
+        stays = (
+            becomes is not None
+            and becomes.date == presence.date
+            and becomes.mode.value == presence.mode
+        )
+
+        rows = await session.execute(
+            select(Presence.start_time, Presence.end_time).where(
+                Presence.student_tax_code == presence.student_tax_code,
+                Presence.date == presence.date,
+                Presence.mode == presence.mode,
+                Presence.id != presence.id,
+            ),
+        )
+        windows = [(start, end) for start, end in rows.all()]
+
+        if stays and becomes is not None:
+            windows.append((becomes.start_time, becomes.end_time))
+
+        outside = {
+            lesson.id: lesson
+            for lesson in await find_student_day_lessons(
+                session,
+                student_tax_code=presence.student_tax_code,
+                day=presence.date,
+                mode=presence.mode,
+            )
+            if not fits_a_window(lesson.start_time, lesson.end_time, windows)
+        }
+
+        if not stays:
+            for lesson in await find_presence_lessons(session, presence.id):
+                outside.setdefault(lesson.id, lesson)
+
+        return list(outside.values())
 
     async def prepare_create(
         self,
@@ -298,7 +336,7 @@ class PresenceService:
         ):
             await unschedule(
                 self.repository.session,
-                await find_presence_lessons(self.repository.session, presence.id),
+                await self._lessons_left_outside(presence, becomes=payload),
             )
 
         if (
@@ -380,7 +418,7 @@ class PresenceService:
 
         await unschedule(
             self.repository.session,
-            await find_presence_lessons(self.repository.session, presence.id),
+            await self._lessons_left_outside(presence, becomes=None),
         )
 
         await self.repository.delete(presence)

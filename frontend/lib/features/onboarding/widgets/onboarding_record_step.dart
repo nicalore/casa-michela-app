@@ -5,22 +5,18 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../people/models/person_item.dart';
 import '../../people/widgets/person_detail_cards.dart';
 import '../../people/widgets/person_detail_widgets.dart';
-import '../../settings/widgets/profile_avatar.dart';
+import '../../people/widgets/profile_avatar.dart';
 import '../onboarding_steps.dart';
 import 'contacts_card.dart';
 import 'teacher_education_card.dart';
 
 const double _cardMaxWidth = 720;
 
-// One record read a card at a time, the way the creation wizard asks its
-// questions: arrows move between cards, the buttons underneath move between
-// steps.
 class OnboardingRecordStep extends StatefulWidget
 {
   final PersonItem person;
 
-  // The account's own record gets the editable face and, for a teacher, the
-  // editable studies; a child's record is read as the register holds it.
+  // Only the own record gets the editable face and, for a teacher, the editable studies.
   final bool isOwnRecord;
 
   // Backend role codes of the signed-in account; only read on its own record.
@@ -63,8 +59,6 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
     final bool withAssociation = !widget.isOwnRecord ||
         includesAssociationCards(isAdult: person.isAdult, roles: widget.accountRoles);
 
-    // The owner's face sits in the identity card's badge, editable on hover,
-    // rather than on a card of its own.
     final Widget? face = widget.isOwnRecord
         ? ProfileAvatar(
             profileImageUrl: person.profileImageUrl,

@@ -5,14 +5,15 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
+import '../../../shared/widgets/app_badged_face.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 
-// The round, editable face: shown on the profile and on the first access,
-// the one thing either screen lets the owner change.
+const double _defaultSize = 90;
+
 class ProfileAvatar extends StatefulWidget 
 {
   final String?      profileImageUrl;
@@ -20,8 +21,9 @@ class ProfileAvatar extends StatefulWidget
   final String       lastName;
   final VoidCallback onImageUpdated;
 
-  // False on somebody else's record: the face is shown, not touched.
   final bool canEdit;
+
+  final double size;
 
   const ProfileAvatar({
     super.key,
@@ -30,6 +32,7 @@ class ProfileAvatar extends StatefulWidget
     required this.lastName,
     this.profileImageUrl,
     this.canEdit = true,
+    this.size = _defaultSize,
   });
 
   @override
@@ -38,7 +41,6 @@ class ProfileAvatar extends StatefulWidget
 
 class ProfileAvatarState extends State<ProfileAvatar> 
 {
-  bool _isHovering = false;
   bool _isUploading = false;
   bool _isDeleting  = false;
 
@@ -127,11 +129,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
     {
       if (mounted) 
       {
-        setState(() 
-        {
-          _isUploading = false;
-          _isHovering  = false;
-        });
+        setState(() => _isUploading = false);
       }
     }
   }
@@ -219,25 +217,18 @@ class ProfileAvatarState extends State<ProfileAvatar>
     {
       if (mounted) 
       {
-        setState(() 
-        {
-          _isDeleting  = false;
-          _isHovering  = false;
-        });
+        setState(() => _isDeleting = false);
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) 
+  Widget _buildFace(String? imageUrl, bool isBusy)
   {
-    final String? imageUrl = _absoluteImageUrl;
-    final bool    hasImage = imageUrl != null;
-    final bool    isBusy   = _isUploading || _isDeleting;
+    final bool hasImage = imageUrl != null;
 
     return SizedBox(
-      width:  90,
-      height: 90,
+      width:  widget.size,
+      height: widget.size,
       child:  Stack(
         fit:      StackFit.expand,
         children: [
@@ -254,7 +245,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
                   ? Text(
                       _initials,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize:   32,
+                        fontSize:   widget.size * 32 / _defaultSize,
                         fontWeight: FontWeight.w700,
                         color:      Colors.white,
                       ),
@@ -262,17 +253,13 @@ class ProfileAvatarState extends State<ProfileAvatar>
                   : null,
             ),
           ),
-
-          if (!widget.canEdit)
-            const SizedBox.shrink()
-          else if (isBusy)
-            AnimatedContainer(
-              duration:   const Duration(milliseconds: 300),
-              decoration: const BoxDecoration(
+          if (isBusy)
+            const DecoratedBox(
+              decoration: BoxDecoration(
                 color: Colors.black45,
                 shape: BoxShape.circle,
               ),
-              child: const Center(
+              child: Center(
                 child: SizedBox(
                   width:  24,
                   height: 24,
@@ -282,101 +269,31 @@ class ProfileAvatarState extends State<ProfileAvatar>
                   ),
                 ),
               ),
-            )
-          else
-            MouseRegion(
-              cursor:  SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _isHovering = true),
-              onExit:  (_) => setState(() => _isHovering = false),
-              child: AnimatedContainer(
-                duration:   const Duration(milliseconds: 350),
-                curve:      Curves.easeOut,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isHovering ? Colors.black54 : Colors.transparent,
-                ),
-                child: Center(
-                  child: AnimatedScale(
-                    scale:    _isHovering ? 1.0 : 0.4,
-                    duration: const Duration(milliseconds: 350),
-                    curve:    Curves.easeOutBack,
-                    child:    AnimatedOpacity(
-                      opacity:  _isHovering ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 250),
-                      child: hasImage
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _AvatarIconButton(
-                                  icon:  Icons.edit_rounded,
-                                  onTap: _pickAndUploadImage,
-                                ),
-                                const SizedBox(width: 4),
-                                _AvatarIconButton(
-                                  icon:  Icons.delete_outline_rounded,
-                                  onTap: _confirmAndDeleteImage,
-                                ),
-                              ],
-                            )
-                          : _AvatarIconButton(
-                              icon:     Icons.edit_rounded,
-                              onTap:    _pickAndUploadImage,
-                              iconSize: 26,
-                            ),
-                    ),
-                  ),
-                ),
-              ),
             ),
         ],
       ),
     );
   }
-}
-
-class _AvatarIconButton extends StatefulWidget
-{
-  final IconData      icon;
-  final VoidCallback  onTap;
-  final double        iconSize;
-
-  const _AvatarIconButton({
-    required this.icon,
-    required this.onTap,
-    this.iconSize = 20,
-  });
 
   @override
-  State<_AvatarIconButton> createState() => _AvatarIconButtonState();
-}
-
-class _AvatarIconButtonState extends State<_AvatarIconButton>
-{
-  bool _isHoveringIcon = false;
-
-  @override
-  Widget build(BuildContext context)
+  Widget build(BuildContext context) 
   {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHoveringIcon = true),
-      onExit:  (_) => setState(() => _isHoveringIcon = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap:    widget.onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: AnimatedScale(
-            scale:    _isHoveringIcon ? 1.2 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            curve:    Curves.easeOut,
-            child: Icon(
-              widget.icon,
-              color: Colors.white,
-              size:  widget.iconSize,
-            ),
-          ),
-        ),
-      ),
+    final String? imageUrl = _absoluteImageUrl;
+    final bool    isBusy   = _isUploading || _isDeleting;
+
+    final Widget face = _buildFace(imageUrl, widget.canEdit && isBusy);
+
+    if (!widget.canEdit)
+    {
+      return face;
+    }
+
+    return AppBadgedFace(
+      face:     face,
+      size:     widget.size,
+      hasImage: imageUrl != null,
+      onPick:   isBusy ? null : _pickAndUploadImage,
+      onRemove: isBusy ? null : _confirmAndDeleteImage,
     );
   }
 }

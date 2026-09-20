@@ -27,14 +27,19 @@ import 'variation_group.dart';
 class OpeningHoursView extends StatefulWidget
 {
   final String mode;
+
+  // Templates are only read by the edit dialogs, so read-only callers pass none.
+  final bool readOnly;
+
   final List<WeeklyTemplateItem> weeklyTemplates;
-  final Future<void> Function() onWeeklyTemplatesChanged;
+  final Future<void> Function()? onWeeklyTemplatesChanged;
 
   const OpeningHoursView({
     super.key,
     required this.mode,
-    required this.weeklyTemplates,
-    required this.onWeeklyTemplatesChanged,
+    this.readOnly = false,
+    this.weeklyTemplates = const [],
+    this.onWeeklyTemplatesChanged,
   });
 
   @override
@@ -121,8 +126,7 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
 
     try
     {
-      // Reaches back so today's schedule can come from a past weekday when the
-      // upcoming occurrence is a holiday.
+      // Reaches back so a holiday's weekday can still show a past occurrence's hours.
       final days = await _apiService.getOpeningDays(
         dateFrom: addDays(today, -_scheduleLookbackDays),
         dateTo: addDays(today, _variationsFetchDays),
@@ -255,7 +259,7 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
 
   Future<void> _onWeeklyTemplatesSaved() async
   {
-    await widget.onWeeklyTemplatesChanged();
+    await widget.onWeeklyTemplatesChanged?.call();
 
     if (!mounted)
     {
@@ -280,8 +284,7 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
     );
   }
 
-  // Restoring standard hours must go through the server; deleting the rows
-  // locally would leave those days with no hours at all.
+  // Must go through the server: deleting rows locally would leave days with no hours.
   Future<void> _deleteVariation(VariationGroup group) async
   {
     final confirmed = await showBlurredDialog<bool>(
@@ -335,8 +338,7 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
       return;
     }
 
-    // Reverting can shut a day and drop its published calendar; the server
-    // refuses the write until the loss is confirmed.
+    // Reverting can drop a published calendar; the server refuses until confirmed.
     final confirmation = LossConfirmation(confirmLabel: 'ELIMINA COMUNQUE');
 
     try
@@ -440,8 +442,8 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
       upcomingVariations: _upcomingVariations,
       windowEnd: _variationsWindowEnd,
       isLoading: _isLoadingVariations,
-      onEdit: (group) => _openExtraordinaryDialog(initial: group),
-      onDelete: _deleteVariation,
+      onEdit: widget.readOnly ? null : (group) => _openExtraordinaryDialog(initial: group),
+      onDelete: widget.readOnly ? null : _deleteVariation,
     );
 
     return PageTransitionScrollView(
@@ -480,32 +482,34 @@ class _OpeningHoursViewState extends State<OpeningHoursView>
                 slot: PageTransitionItem.list + 1,
                 child: lowerCards,
               ),
-              const SizedBox(height: kHoursCardGap),
-              // Not ResponsiveDialogButtonsRow: it swaps its children's order
-              // when stacking, which is wrong for two peer actions.
-              Center(
-                child: PageTransitionItem(
-                  slot: PageTransitionItem.list + 2,
-                  child: isCompact
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _editHoursButton(),
-                            const SizedBox(height: 16),
-                            _extraordinaryButton(),
-                          ],
-                        )
-                      : Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 16,
-                          runSpacing: 12,
-                          children: [
-                            _editHoursButton(),
-                            _extraordinaryButton(),
-                          ],
-                        ),
+              if (!widget.readOnly) ...[
+                const SizedBox(height: kHoursCardGap),
+                // Not ResponsiveDialogButtonsRow: it swaps its children's order
+                // when stacking, which is wrong for two peer actions.
+                Center(
+                  child: PageTransitionItem(
+                    slot: PageTransitionItem.list + 2,
+                    child: isCompact
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _editHoursButton(),
+                              const SizedBox(height: 16),
+                              _extraordinaryButton(),
+                            ],
+                          )
+                        : Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: [
+                              _editHoursButton(),
+                              _extraordinaryButton(),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
+              ],
             ],
           );
         },

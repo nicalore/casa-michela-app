@@ -6,7 +6,6 @@ import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/role_label_mapper.dart';
-import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
@@ -18,8 +17,6 @@ import '../../routing/role_sections.dart';
 
 const double _maxContentWidth = 620;
 
-// A page that exists for the bar to lead to and says nothing yet: the same
-// chrome as the rest, one card in the middle.
 class SectionPlaceholderPage extends StatelessWidget
 {
   final String currentRoute;
@@ -52,8 +49,6 @@ class SectionPlaceholderPage extends StatelessWidget
   }
 }
 
-// One of a role's sections, named after the section or after the person
-// when it is their own page.
 class RoleSectionPage extends StatelessWidget
 {
   final String role;
@@ -67,24 +62,7 @@ class RoleSectionPage extends StatelessWidget
     return SectionPlaceholderPage(
       currentRoute: '${homeForRole(role)}/${section.slug}',
       eyebrow: RoleLabelMapper.toLabel(role),
-      title: section.label ?? ApiService().lastKnownIdentity?.fullName ?? '',
-      description: 'Questa sezione non è ancora disponibile.',
-    );
-  }
-}
-
-// The administrator's own page, inside the shell.
-class AdminOwnPage extends StatelessWidget
-{
-  const AdminOwnPage({super.key});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return SectionPlaceholderPage(
-      currentRoute: adminOwnPage,
-      eyebrow: RoleLabelMapper.toLabel('ADMIN'),
-      title: ApiService().lastKnownIdentity?.fullName ?? '',
+      title: section.label,
       description: 'Questa sezione non è ancora disponibile.',
     );
   }

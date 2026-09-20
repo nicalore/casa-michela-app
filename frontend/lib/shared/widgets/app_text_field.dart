@@ -66,6 +66,8 @@ class AppTextField extends StatefulWidget
 
   final TextInputType? keyboardType;
 
+  final bool enabled;
+
   const AppTextField({
     super.key,
     required this.controller,
@@ -85,6 +87,7 @@ class AppTextField extends StatefulWidget
     this.suffix,
     this.errorText,
     this.keyboardType,
+    this.enabled = true,
   });
 
   @override
@@ -180,13 +183,16 @@ class _AppTextFieldState extends State<AppTextField>
   {
     final String? error = widget.errorText;
 
+    final bool lit = widget.enabled && (_hasFocus || _hover);
+
     final Color outline = error != null
         ? AppTheme.trialDanger
-        : (_hasFocus || _hover ? _focusAccent : AppTheme.trialLine);
+        : (lit ? _focusAccent : AppTheme.trialLine);
 
     final Color ring = error != null ? AppTheme.trialDanger : _focusAccent;
 
     return MouseRegion(
+      cursor: widget.enabled ? MouseCursor.defer : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: Column(
@@ -214,7 +220,7 @@ class _AppTextFieldState extends State<AppTextField>
             duration: _focusFade,
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: _fieldSurface,
+              color: widget.enabled ? _fieldSurface : AppTheme.trialPaper,
               borderRadius: BorderRadius.circular(_fieldRadius),
               border: Border.all(color: outline, width: _borderWidth),
               boxShadow: [
@@ -227,6 +233,7 @@ class _AppTextFieldState extends State<AppTextField>
             child: TextField(
               controller: widget.controller,
               focusNode: _focusNode,
+              enabled: widget.enabled,
               keyboardType: widget.keyboardType,
               obscureText: widget.obscureText,
               maxLength: widget.maxLength,
@@ -240,7 +247,7 @@ class _AppTextFieldState extends State<AppTextField>
               style: GoogleFonts.plusJakartaSans(
                 fontSize: _inputFontSize,
                 height: 1.28,
-                color: AppTheme.trialInk,
+                color: widget.enabled ? AppTheme.trialInk : AppTheme.trialMutedText,
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(

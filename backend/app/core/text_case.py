@@ -1,5 +1,4 @@
-# Anagraphic text is stored in the shape it is printed in, so it is fixed once
-# on the way in instead of at every place that shows it.
+# Anagraphic text is stored in the shape it is printed in: fixed once on the way in.
 
 
 # A word starts at a letter that no other letter precedes.
@@ -19,7 +18,6 @@ def sentence_case(value: str) -> str:
     return value[:1].upper() + value[1:].lower()
 
 
-# Where an acronym or a proper name further in has to survive: a diagnosis, a
-# drug, the department a role answers to.
+# Where a later acronym or proper name must survive: a diagnosis, a drug, a department.
 def opening_capital(value: str) -> str:
     return value[:1].upper() + value[1:]

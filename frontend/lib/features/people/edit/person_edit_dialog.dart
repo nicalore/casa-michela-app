@@ -308,14 +308,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     return false;
   }
 
-  // Documents this wizard prints on the way to creating the person; the dialogs
-  // that hand their payload back save nothing, so they print nothing either.
+  // Dialogs that hand their payload back save nothing, so they print nothing.
   bool get _printsEnrollmentForms =>
       widget.purpose == PersonEditPurpose.create && needsEnrollmentForms(_form);
 
-  // Printed before anything is saved: a failure here leaves nothing to undo.
-  // [printed] false stops the creation; [blockedNote] is what the closing
-  // message must add when a blocked tab turned into a download.
+  // Runs before any save; printed=false stops the creation, blockedNote reports tabs turned into downloads.
   Future<({bool printed, String? blockedNote})> _printEnrollmentForms() async
   {
     final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
@@ -378,9 +375,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
     }
     catch (e)
     {
-      // Both lists: an early exit tab opens beside its enrolment one and would
-      // otherwise be left waiting. A tab that already has its document ignores
-      // this, having no waiting line left to write on.
+      // Tabs that already got their document ignore fail().
       for (final PdfTab? tab in [...tabs, ...earlyExitTabs])
       {
         tab?.fail('Non è stato possibile generare il modulo.');
@@ -431,8 +426,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
     try
     {
-      // Documents first, then the person: printing opens its tabs in the same
-      // turn as the click, or the browser takes them for popups.
+      // Print first: tabs must open in the click's own turn or the browser blocks them as popups.
       if (_printsEnrollmentForms)
       {
         final outcome = await _printEnrollmentForms();

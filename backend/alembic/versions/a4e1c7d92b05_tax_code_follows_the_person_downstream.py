@@ -15,9 +15,7 @@ branch_labels = None
 depends_on = None
 
 
-# Every link in the chain from people down to the role tables cascaded on
-# delete but not on update, so correcting a mistyped tax code failed on the
-# first account or membership. The leaf tables already cascade both ways.
+# people → role tables cascaded on delete only; the leaf tables already cascade both.
 _FOREIGN_KEYS: tuple[tuple[str, str, str], ...] = (
     ("accounts", "tax_code", "people"),
     ("members", "tax_code", "people"),
@@ -36,9 +34,7 @@ _FOREIGN_KEYS: tuple[tuple[str, str, str], ...] = (
 )
 
 
-# Constraints are found by structure, not by name: course_participants was
-# renamed from "course_partecipants" and older databases still carry the old
-# prefix on its foreign key. Each one is recreated under its canonical name.
+# Found by structure, not name: older databases keep the "course_partecipants" prefix.
 def _existing_name(table: str, column: str, referent: str) -> str:
     inspector = sa.inspect(op.get_bind())
 

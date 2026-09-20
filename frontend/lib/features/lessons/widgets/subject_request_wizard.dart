@@ -22,38 +22,52 @@ import '../models/subject_request.dart';
 import '../utils/opening_window.dart';
 import '../utils/teacher_fit.dart';
 import 'booking_fields_section.dart';
+import 'lessons_form_fields.dart';
 import 'subject_request_tile.dart';
 
 enum _Step
 {
-  disciplines(
-    'Cosa deve studiare di questa materia?',
-    'Almeno uno.',
-  ),
+  disciplines,
+  what,
+  duration,
+  teachers,
+  notes;
 
-  what(
-    'Cosa deve fare durante la lezione?',
-    'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere la lezione più '
-        'adatta alle esigenze dello studente.',
-  ),
-  duration(
-    'Quanto deve durare la lezione?',
-    'Non è possibile organizzare più di due ore di lezione al giorno per la stessa materia. Se hai bisogno di altre ore, puoi richiedere una lezione online.',
-  ),
-  teachers(
-    'Con quale docente?',
-    'Se vuoi, puoi indicare fino a tre docenti preferiti dallo studente. '
-    'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere soddisfatte in base alle esigenze dell\'Associazione.',
-  ),
-  notes(
-    'Altro?',
-    'Se lo desideri, puoi inserire qui sotto altre informazioni che ritieni utili. Le indicazioni saranno lette dal docente che seguirà lo studente.',
-  );
+  String questionFor({required bool isSelf})
+  {
+    return switch (this)
+    {
+      _Step.disciplines => isSelf
+          ? 'Cosa devi studiare di questa materia?'
+          : 'Cosa deve studiare di questa materia?',
+      _Step.what => isSelf ? 'Cosa devi fare durante la lezione?' : 'Cosa deve fare durante la lezione?',
+      _Step.duration => 'Quanto deve durare la lezione?',
+      _Step.teachers => 'Con quale docente?',
+      _Step.notes => 'Altro?',
+    };
+  }
 
-  final String question;
-  final String hint;
+  String hintFor({required String? studentName, required bool isSelf})
+  {
+    final String who = studentName ?? 'lo studente';
+    final String whose = studentName == null ? 'dello studente' : 'di $studentName';
+    final String byWhom = studentName == null ? 'dallo studente' : 'da $studentName';
 
-  const _Step(this.question, this.hint);
+    return switch (this)
+    {
+      _Step.disciplines => 'Almeno uno.',
+      _Step.what => 'Almeno una tipologia. Queste informazioni aiuteranno il docente a rendere '
+          'la lezione più adatta alle ${isSelf ? 'tue esigenze' : 'esigenze $whose'}.',
+      _Step.duration => 'Non è possibile organizzare più di due ore di lezione al giorno per la '
+          'stessa materia. Se hai bisogno di altre ore, puoi richiedere una lezione online.',
+      _Step.teachers => 'Se vuoi, puoi indicare fino a tre docenti '
+          '${isSelf ? 'che preferisci' : 'preferiti $byWhom'}. '
+          'Le preferenze indicate verranno tenute in considerazione, ma potrebbero non essere '
+          'soddisfatte in base alle esigenze dell\'Associazione.',
+      _Step.notes => 'Se lo desideri, puoi inserire qui sotto altre informazioni che ritieni '
+          'utili. Le indicazioni saranno lette dal docente che ${isSelf ? 'ti seguirà' : 'seguirà $who'}.',
+    };
+  }
 }
 
 const double _dialogButtonHeight = 52;
@@ -79,7 +93,15 @@ class SubjectRequestWizard extends StatefulWidget
   // The pupil's programme, to put the teachers who could take the lesson first.
   final int? studentStudyProgramId;
 
+  // Guide copy: named, "lo studente" when null, addressed directly when isSelf; gender for agreement.
+  final String? studentName;
+  final bool isSelf;
+  final String? studentGender;
+
   final bool isEditing;
+
+  // Gated: save is greyed with its reason until every step is answered; else it refuses on the tap.
+  final bool gated;
 
   final int? minutesAvailable;
   final int minutesTakenByOthers;
@@ -96,7 +118,11 @@ class SubjectRequestWizard extends StatefulWidget
     required this.teachers,
     required this.onSave,
     this.studentStudyProgramId,
+    this.studentName,
+    this.isSelf = false,
+    this.studentGender,
     this.isEditing = false,
+    this.gated = false,
     this.minutesAvailable,
     this.minutesTakenByOthers = 0,
     this.minutesByDisciplineTakenByOthers = const {},
@@ -170,8 +196,9 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
     if (step == _Step.duration && _exceeds)
     {
-      return 'La durata totale delle lezioni è ${formatMinutes(_minutesTaken)}, ma lo studente è '
-          'presente per ${formatMinutes(widget.minutesAvailable ?? 0)}.';
+      return 'La durata totale delle lezioni è ${formatMinutes(_minutesTaken)}, ma '
+          '${widget.isSelf ? 'sei presente' : '${widget.studentName ?? 'lo studente'} è presente'} '
+          'per ${formatMinutes(widget.minutesAvailable ?? 0)}.';
     }
 
     if (step == _Step.duration)
@@ -234,7 +261,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return 'La disciplina';
   }
 
-  bool _canSave()
+  String? get _saveBlockedReason
   {
     for (final step in _stepList)
     {
@@ -242,10 +269,22 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
 
       if (reason != null)
       {
-        CustomSnackBar.show(context: context, message: reason, isError: true);
-
-        return false;
+        return reason;
       }
+    }
+
+    return null;
+  }
+
+  bool _canSave()
+  {
+    final String? reason = _saveBlockedReason;
+
+    if (reason != null)
+    {
+      CustomSnackBar.show(context: context, message: reason, isError: true);
+
+      return false;
     }
 
     return true;
@@ -440,7 +479,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
     return AppDialogPill(
       expand: true,
       child: TeacherPicker(
-        label: 'Mi sono trovato meglio con...',
+        label: 'Mi sono ${widget.studentGender == 'F' ? 'trovata' : 'trovato'} meglio con...',
         icon: Icons.thumb_up_outlined,
         chosen: _draft.preferredTeacherTaxCodes,
         offered: teachersFitFirst(
@@ -500,6 +539,7 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
+          disabledReason: widget.gated && _saveBlockedReason != null ? kCompleteFieldsFirst : null,
           onPressed: _save,
         ),
       ),
@@ -510,8 +550,8 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
             child: AppDialogPill(
               expand: true,
               child: PersonEditGuide(
-                question: _stepList[_step].question,
-                hint: _stepList[_step].hint,
+                question: _stepList[_step].questionFor(isSelf: widget.isSelf),
+                hint: _stepList[_step].hintFor(studentName: widget.studentName, isSelf: widget.isSelf),
               ),
             ),
           ),

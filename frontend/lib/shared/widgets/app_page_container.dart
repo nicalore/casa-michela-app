@@ -33,6 +33,11 @@ class _AppPageContainerState extends State<AppPageContainer>
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
 
+  // The two web layouts use different scroll views: without its own key the page loses its state at the compact breakpoint.
+  final GlobalKey _contentKey = GlobalKey();
+
+  Widget _keyed(Widget content) => KeyedSubtree(key: _contentKey, child: content);
+
   @override
   void dispose()
   {
@@ -63,10 +68,12 @@ class _AppPageContainerState extends State<AppPageContainer>
             controller: _verticalController,
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: widget.builder(
-                context,
-                constraints.maxWidth,
-                constraints.maxHeight,
+              child: _keyed(
+                widget.builder(
+                  context,
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                ),
               ),
             ),
           );
@@ -75,8 +82,7 @@ class _AppPageContainerState extends State<AppPageContainer>
         final width = math.max(constraints.maxWidth, widget.minWidth);
         final height = math.max(constraints.maxHeight, widget.minHeight);
 
-        // A ConstrainedBox cannot enforce minWidth on its own (it clamps to the width
-        // it is handed); the scroll view's unbounded axis makes the minimum real.
+        // A ConstrainedBox alone clamps minWidth to the width it is handed; the scroll view's unbounded axis makes it real.
         return Scrollbar(
           controller: _verticalController,
           thumbVisibility: true,
@@ -92,7 +98,7 @@ class _AppPageContainerState extends State<AppPageContainer>
                 controller: _horizontalController,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: width, minHeight: height),
-                  child: widget.builder(context, width, height),
+                  child: _keyed(widget.builder(context, width, height)),
                 ),
               ),
             ),
@@ -102,8 +108,7 @@ class _AppPageContainerState extends State<AppPageContainer>
     );
   }
 
-  // kIsWeb is true on phones too: on web the scrollable branch always wins, and
-  // the native branch is reached only by the Android/iOS builds.
+  // kIsWeb is true on phones too: web always takes the scrollable branch, only Android/iOS builds reach the native one.
   @override
   Widget build(BuildContext context)
   {

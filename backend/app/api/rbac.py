@@ -20,7 +20,7 @@ _ADMIN_ROLE: Final[str] = "ADMIN"
 class IdentityContext:
     tax_code: str
     roles: frozenset[str]
-    # Populated only when "PARENT" is in roles, from parental_responsibilities.
+    # The pupils among their children; empty unless "PARENT" is in roles.
     child_tax_codes: frozenset[str]
 
     # False until the first-access flow is done; a few writes are open only during it.
@@ -32,6 +32,19 @@ class IdentityContext:
     @property
     def is_admin(self) -> bool:
         return _ADMIN_ROLE in self.roles
+
+    # Pupils whose bookings are theirs: self as pupil, children as parent; never admins.
+    @property
+    def own_student_tax_codes(self) -> frozenset[str]:
+        own: set[str] = set()
+
+        if "STUDENT" in self.roles:
+            own.add(self.tax_code)
+
+        if "PARENT" in self.roles:
+            own.update(self.child_tax_codes)
+
+        return frozenset(own)
 
 
 async def get_current_identity(
@@ -51,19 +64,10 @@ async def get_current_identity(
 
     roles = frozenset(RoleService.get_available_roles(account.person))
 
-    child_tax_codes = (
-        frozenset(
-            relationship.child_tax_code
-            for relationship in account.person.parent_profile.children_relationships
-        )
-        if account.person.parent_profile is not None
-        else frozenset()
-    )
-
     identity = IdentityContext(
         tax_code=account.tax_code,
         roles=roles,
-        child_tax_codes=child_tax_codes,
+        child_tax_codes=RoleService.pupil_children_tax_codes(account.person),
         onboarding_completed=account.onboarding_completed_at is not None,
         active_role=RoleService.resolve_active_role(
             roles,
@@ -71,8 +75,7 @@ async def get_current_identity(
         ),
     )
 
-    # The audit middleware runs outside the dependency tree and cannot
-    # resolve an identity of its own.
+    # The audit middleware runs outside the dependency tree and resolves no identity.
     setattr(
         request.state,
         AUDIT_ACTOR_KEY,

@@ -199,22 +199,10 @@ class CalendarDayIndex
       }
     }
 
-    final bookings = <int, SchedulableBooking>{};
-
-    for (final group in groups)
-    {
-      for (final entry in group.bookings)
-      {
-        if (entry.isBorrowed)
-        {
-          bookings.putIfAbsent(entry.id, () => entry);
-        }
-        else
-        {
-          bookings[entry.id] = entry;
-        }
-      }
-    }
+    final bookings = <int, SchedulableBooking>{
+      for (final group in groups)
+        for (final entry in group.bookings) entry.id: entry,
+    };
 
     final byStudent = <String, List<LessonItem>>{};
 
@@ -323,25 +311,24 @@ class CarriedRequest
 
   final Set<String> competentTeachers;
 
-  const CarriedRequest({required this.payload, this.competentTeachers = const {}});
+  // Where the carried hours may land; empty for an activity, any row will do.
+  final List<(int, int)> windows;
+
+  const CarriedRequest({
+    required this.payload,
+    this.competentTeachers = const {},
+    this.windows = const [],
+  });
 }
 
-({(int, int)? window, String mode, Set<String> preferred, Set<String> avoided}) dragOutline(
-  CalendarDragPayload payload, {
-  required int bandStart,
-  required int bandEnd,
-})
+({String mode, Set<String> preferred, Set<String> avoided}) dragOutline(CalendarDragPayload payload)
 {
-  (int, int)? window;
   var mode = kPresenceMode;
   final preferred = <String>{};
   final avoided = <String>{};
 
-  void take(int start, int end, BookingSummaryItem booking)
+  void take(BookingSummaryItem booking)
   {
-    window = window == null
-        ? (start, end)
-        : intersectSpan(window!.$1, window!.$2, start, end);
     preferred.addAll(booking.preferredTeacherTaxCodes);
     avoided.addAll(booking.notPreferredTeacherTaxCodes);
   }
@@ -350,33 +337,59 @@ class CarriedRequest
   {
     case BookingDragPayload(:final entry):
       mode = entry.presence.mode;
-      take(
-        minutesOfTimeOfDay(entry.presence.startTime),
-        minutesOfTimeOfDay(entry.presence.endTime),
-        entry.booking,
-      );
+      take(entry.booking);
 
     case LessonDragPayload(:final lesson):
       mode = lesson.mode;
 
       for (final link in lesson.bookings)
       {
-        take(link.presence.startMinutes, link.presence.endMinutes, link.booking);
+        take(link.booking);
       }
 
-    // No window for activities: any row is as good as any other.
     case ActivityDragPayload():
       break;
   }
 
-  final held = window;
+  return (mode: mode, preferred: preferred, avoided: avoided);
+}
 
-  return (
-    window: held == null ? null : intersectSpan(held.$1, held.$2, bandStart, bandEnd),
-    mode: mode,
-    preferred: preferred,
-    avoided: avoided,
-  );
+// Every span lying in a window of both lists.
+List<(int, int)> intersectWindows(List<(int, int)> first, List<(int, int)> second)
+{
+  return [
+    for (final a in first)
+      for (final b in second) ?intersectSpan(a.$1, a.$2, b.$1, b.$2),
+  ];
+}
+
+// Where the carried hours may land: the pupil's stretches for a booking, the common ones for a multi-pupil lesson.
+List<(int, int)> dragWindows(CalendarDayIndex index, CalendarDragPayload payload)
+{
+  switch (payload)
+  {
+    case BookingDragPayload(:final entry):
+      return entry.windowsIn(index.bandStart, index.bandEnd);
+
+    case LessonDragPayload(:final lesson):
+      List<(int, int)>? common;
+
+      for (final link in lesson.bookings)
+      {
+        final entry = index.bookingsById[link.id];
+
+        // A lesson planned before its pupil's hours changed keeps the stretch it was typed under.
+        final own = entry?.windowsIn(index.bandStart, index.bandEnd) ??
+            [?intersectSpan(link.presence.startMinutes, link.presence.endMinutes, index.bandStart, index.bandEnd)];
+
+        common = common == null ? own : intersectWindows(common, own);
+      }
+
+      return common ?? const [];
+
+    case ActivityDragPayload():
+      return const [];
+  }
 }
 
 class LessonDragPayload extends CalendarDragPayload
@@ -550,15 +563,9 @@ String? _refusePresences({
 {
   for (final entry in bookings)
   {
-    final presence = entry.presence;
-
-    if (startMinutes < minutesOfTimeOfDay(presence.startTime) ||
-        endMinutes > minutesOfTimeOfDay(presence.endTime))
+    if (!entry.fitsAWindow(startMinutes, endMinutes))
     {
-      return outsidePresenceRefusal(
-        presence.student.fullName,
-        formatTimeRange(presence.startTime, presence.endTime),
-      );
+      return outsidePresenceRefusal(entry.presence.student.fullName, entry.hoursLabel);
     }
   }
 
@@ -933,7 +940,7 @@ bool overlapsACertifiedStudent(CalendarDayIndex index, LessonPlacement placement
 String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int> disciplineIds)
 {
   final noneFree = 'Nessun docente è libero nelle ore di ${entry.presence.student.fullName} '
-      '(${formatTimeRange(entry.presence.startTime, entry.presence.endTime)}).';
+      '(${entry.hoursLabel}).';
 
   final service = entry.booking.serviceName;
 
@@ -968,9 +975,7 @@ String noTeacherReason(CalendarDayIndex index, SchedulableBooking entry, Set<int
 
 bool canPlanSomething(CalendarDayIndex index, SchedulableBooking entry)
 {
-  final presence = entry.presence;
-  final presenceStart = minutesOfTimeOfDay(presence.startTime);
-  final presenceEnd = minutesOfTimeOfDay(presence.endTime);
+  final stretches = entry.windowsIn(index.bandStart, index.bandEnd);
 
   final wanted = entry.requestedDisciplineIds.isEmpty
       ? <Set<int>>[const {}]
@@ -978,40 +983,36 @@ bool canPlanSomething(CalendarDayIndex index, SchedulableBooking entry)
 
   for (final lane in index.callableLanes)
   {
-    for (final availability in lane.availabilitiesTaking(presence.mode))
+    for (final availability in lane.availabilitiesTaking(entry.presence.mode))
     {
-      final inBand = intersectSpan(
-        minutesOfTimeOfDay(availability.startTime),
-        minutesOfTimeOfDay(availability.endTime),
-        index.bandStart,
-        index.bandEnd,
-      );
+      final offered = [
+        (minutesOfTimeOfDay(availability.startTime), minutesOfTimeOfDay(availability.endTime)),
+      ];
 
-      final window = inBand == null
-          ? null
-          : intersectSpan(inBand.$1, inBand.$2, presenceStart, presenceEnd);
-
-      if (window == null || window.$2 - window.$1 < kMinimumBandMinutes)
+      for (final window in intersectWindows(offered, stretches))
       {
-        continue;
-      }
-
-      for (final disciplineIds in wanted)
-      {
-        for (var start = snapToQuarter(window.$1); start + kMinimumBandMinutes <= window.$2; start += kQuarterHour)
+        if (window.$2 - window.$1 < kMinimumBandMinutes)
         {
-          final placement = validatePlacement(
-            index: index,
-            teacherTaxCode: lane.teacherTaxCode,
-            startMinutes: start,
-            endMinutes: start + kMinimumBandMinutes,
-            bookings: [entry],
-            disciplineIds: disciplineIds,
-          );
+          continue;
+        }
 
-          if (placement.isValid)
+        for (final disciplineIds in wanted)
+        {
+          for (var start = snapToQuarter(window.$1); start + kMinimumBandMinutes <= window.$2; start += kQuarterHour)
           {
-            return true;
+            final placement = validatePlacement(
+              index: index,
+              teacherTaxCode: lane.teacherTaxCode,
+              startMinutes: start,
+              endMinutes: start + kMinimumBandMinutes,
+              bookings: [entry],
+              disciplineIds: disciplineIds,
+            );
+
+            if (placement.isValid)
+            {
+              return true;
+            }
           }
         }
       }
@@ -1187,7 +1188,7 @@ int _roomAt(CalendarDayIndex index, TeacherLane lane, SchedulableBooking entry, 
 {
   var ceiling = index.bandEnd - startMinutes;
 
-  final presenceEnd = minutesOfTimeOfDay(entry.presence.endTime);
+  final presenceEnd = entry.windowAt(startMinutes)?.$2 ?? startMinutes;
   ceiling = ceiling < presenceEnd - startMinutes ? ceiling : presenceEnd - startMinutes;
 
   final availability = lane.availabilities
@@ -1224,7 +1225,7 @@ int _roomBefore(CalendarDayIndex index, TeacherLane lane, SchedulableBooking ent
 {
   var ceiling = endMinutes - index.bandStart;
 
-  final presenceStart = minutesOfTimeOfDay(entry.presence.startTime);
+  final presenceStart = entry.windowEndingAfter(endMinutes)?.$1 ?? endMinutes;
   ceiling = math.min(ceiling, endMinutes - presenceStart);
 
   final availability = lane.availabilities
@@ -1636,8 +1637,7 @@ LessonPlacement validateActivityPlacement({
   return placement(null, availabilityId: availability.id);
 }
 
-// Only used to shorten a new activity: a moved one keeps its length, and a
-// misfit is refused instead of silently resized.
+// Only shortens a new activity: a moved one keeps its length, and a misfit is refused.
 int _activityRoomAt(CalendarDayIndex index, TeacherLane lane, int startMinutes, {int? ignoring})
 {
   var ceiling = index.bandEnd;

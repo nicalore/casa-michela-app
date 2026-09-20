@@ -50,6 +50,9 @@ const Color kSupervisorColor = AppTheme.trialTealDeep;
 
 const String kLessonDoneLabel = 'Lezione svolta';
 
+// Blocks shorter than this carry a tooltip with the full account.
+const int kTooltipBelowMinutes = 60;
+
 const String kRemoveFromCalendarLabel = 'RIMUOVI DAL CALENDARIO';
 
 const String kRemoveFromCalendarAwayLabel = 'Rimuovi dal calendario';
@@ -118,9 +121,10 @@ String lessonTitle(LessonItem lesson, {CalendarView view = CalendarView.byTeache
       if (!subjects.contains(name)) name,
   ];
 
+  // A single discipline adds nothing to the subject; two or more say which.
   return (
     subject: subjects.isEmpty ? 'Lezione' : subjects.join(' · '),
-    disciplines: rest.isEmpty ? null : rest.join(', '),
+    disciplines: rest.length < 2 ? null : rest.join(', '),
   );
 }
 
@@ -492,8 +496,6 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
 
   bool _isResizing = false;
 
-  bool _isClipped = false;
-
   bool _showsFullHours = true;
 
   bool _showsOnline = false;
@@ -556,23 +558,17 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
     final showsFullHours = !_exceeds(TextSpan(text: _hours, style: _hoursStyle), room);
     final showsOnline = _saysOnline && !_exceeds(TextSpan(text: _hoursOnline, style: _hoursStyle), room);
 
-    final clipped = _about.disciplines != null ||
-        !showsFullHours ||
-        (_saysOnline && !showsOnline) ||
-        _exceeds(TextSpan(text: _title, style: _titleStyle), _textWidth) ||
-        _exceeds(TextSpan(text: _aboutLine, style: _subtitleStyle), _textWidth) ||
-        (_byStudent && _exceeds(_whereSpan(AppTheme.trialTealDeep), _textWidth - 15));
-
-    if (clipped != _isClipped || showsFullHours != _showsFullHours || showsOnline != _showsOnline)
+    if (showsFullHours != _showsFullHours || showsOnline != _showsOnline)
     {
       setState(()
       {
-        _isClipped = clipped;
         _showsFullHours = showsFullHours;
         _showsOnline = showsOnline;
       });
     }
   }
+
+  bool get _hasTooltip => widget.lesson.minutes < kTooltipBelowMinutes;
 
   static bool _exceeds(InlineSpan span, double maxWidth)
   {
@@ -617,21 +613,12 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
 
   String get _fullDetails
   {
-    final lesson = widget.lesson;
     final about = _about;
 
-    final people = _byStudent
-        ? [lesson.teacher.fullName]
-        : [for (final entry in lesson.bookings) entry.presence.student.fullName];
-
-    final mode = modeLabel(lesson.mode);
-
     return [
-      '$_hours · ${formatMinutes(lesson.minutes)}',
-      ...people,
-      about.disciplines == null ? about.subject : '${about.subject}: ${about.disciplines}',
-      _where.label,
-      if (_where.label != mode) mode,
+      _title,
+      about.subject,
+      ?about.disciplines,
     ].join('\n');
   }
 
@@ -654,6 +641,11 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
   double get _marksWidth
   {
     var width = 0.0;
+
+    if (_isNarrow)
+    {
+      return width;
+    }
 
     if (widget.isPreferred)
     {
@@ -856,18 +848,21 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                               style: _hoursStyle.copyWith(color: accent),
                             ),
                           ),
-                          if (widget.isPreferred)
-                            const Icon(Icons.star_rounded, size: 12, color: kPreferredTeacherColor),
-                          if (widget.hasWarning) ...[
-                            if (widget.isPreferred) const SizedBox(width: 2),
-                            const Icon(Icons.circle, size: 8, color: kAvoidedTeacherColor),
-                          ],
-                          if (widget.isPast) ...[
-                            if (widget.isPreferred || widget.hasWarning) const SizedBox(width: _markGap),
-                            const Tooltip(
-                              message: kLessonDoneLabel,
-                              child: Icon(Icons.check_rounded, size: 13, color: AppTheme.trialMutedText),
-                            ),
+                          // Too narrow for the marks: they would push past the edge; the tooltip tells anyway.
+                          if (!_isNarrow) ...[
+                            if (widget.isPreferred)
+                              const Icon(Icons.star_rounded, size: 12, color: kPreferredTeacherColor),
+                            if (widget.hasWarning) ...[
+                              if (widget.isPreferred) const SizedBox(width: 2),
+                              const Icon(Icons.circle, size: 8, color: kAvoidedTeacherColor),
+                            ],
+                            if (widget.isPast) ...[
+                              if (widget.isPreferred || widget.hasWarning) const SizedBox(width: _markGap),
+                              const Tooltip(
+                                message: kLessonDoneLabel,
+                                child: Icon(Icons.check_rounded, size: 13, color: AppTheme.trialMutedText),
+                              ),
+                            ],
                           ],
                         ],
                       ),
@@ -904,7 +899,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       child: block,
     );
 
-    if (!_isClipped)
+    if (!_hasTooltip)
     {
       return shown;
     }

@@ -28,10 +28,17 @@ class AppDestination
   const AppDestination(this.label, this.route);
 }
 
-// What the bar leads to for whoever is signed in: the shell's modules for
-// an administrator, the role's sections for anybody else, and nothing for a
-// role with no area yet. The role is the page's, not the identity's: while
-// a switch is under way the page on its way out keeps the bar it had.
+typedef MenuDestinations = ({AppDestination ownPage, AppDestination settings});
+
+AppDestination _destinationOf(RoleSection section, String? home)
+{
+  return AppDestination(
+    section.label,
+    section.available && home != null ? '$home/${section.slug}' : null,
+  );
+}
+
+// role is the page's, not the identity's: a page leaving after a switch keeps its bar.
 List<AppDestination> destinationsFor(MeResponse user, {String? role})
 {
   role ??= user.activeRole;
@@ -41,9 +48,6 @@ List<AppDestination> destinationsFor(MeResponse user, {String? role})
     return [
       const AppDestination('Home', adminHome),
       for (final module in dashboardModules) AppDestination(module.title, module.route),
-      // The own page sits where every role keeps it: just before the settings.
-      AppDestination(user.firstName, adminOwnPage),
-      const AppDestination('Impostazioni', '/settings'),
     ];
   }
 
@@ -60,12 +64,26 @@ List<AppDestination> destinationsFor(MeResponse user, {String? role})
       role,
       hasParentalResponsibility: user.hasParentalResponsibility,
     ))
-      AppDestination(section.label ?? user.firstName, '$home/${section.slug}'),
+      _destinationOf(section, home),
   ];
 }
 
-// The entry whose route the path lies under; where several do, as a role's
-// home does with every section beneath it, the longest one is meant.
+String _screenRoute(String route, String? from)
+{
+  return from == null ? route : '$route?from=$from';
+}
+
+MenuDestinations menuDestinationsFor(MeResponse user, {String? role, String? from})
+{
+  role ??= user.activeRole;
+
+  return (
+    ownPage: AppDestination(user.firstName, _screenRoute(ownPageForRole(role), from)),
+    settings: AppDestination('Impostazioni', _screenRoute(settingsPageForRole(role), from)),
+  );
+}
+
+// Longest matching route wins: a home matches every section beneath it.
 int? _currentIndex(List<AppDestination> destinations, String path)
 {
   int? current;
@@ -101,8 +119,7 @@ class AppTopNav extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Asked of the router's delegate, not GoRouter.of, which makes nobody a
-    // dependent: nothing would rebuild when the location changes.
+    // GoRouter.of registers no dependency; listening to the delegate rebuilds on location change.
     final GoRouterDelegate delegate = GoRouter.of(context).routerDelegate;
 
     return ListenableBuilder(

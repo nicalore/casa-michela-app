@@ -17,9 +17,6 @@ const Color kActivitySurface = AppTheme.trialPaper;
 
 const String kActivityWord = 'Attività';
 
-// Below this width the block only fits the hours and the name.
-const double _descriptionFrom = 132;
-
 const double _narrowFrom = 110;
 
 String activityHours(ScheduledActivity scheduled)
@@ -29,11 +26,7 @@ String activityHours(ScheduledActivity scheduled)
 
 String activityDetails(ScheduledActivity scheduled)
 {
-  return [
-    '${activityHours(scheduled)} · ${formatMinutes(scheduled.minutes)}',
-    scheduled.name,
-    ?scheduled.description,
-  ].join('\n');
+  return [scheduled.name, ?scheduled.description].join('\n');
 }
 
 class CalendarActivityBlock extends StatefulWidget
@@ -84,16 +77,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
 
   bool get _isNarrow => widget.width < _narrowFrom;
 
-  bool get _saysDescription
-  {
-    return _scheduled.description != null && widget.width >= _descriptionFrom;
-  }
-
-  // Tooltip only when the block is hiding something.
-  bool get _isClipped
-  {
-    return _isNarrow || (_scheduled.description != null && !_saysDescription);
-  }
+  bool get _hasTooltip => _scheduled.minutes < kTooltipBelowMinutes;
 
   bool get _canResize
   {
@@ -222,8 +206,11 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
                   children: [
                     Row(
                       children: [
-                        Icon(kActivityIcon, size: 12, color: kActivityAccent),
-                        const SizedBox(width: 4),
+                        // The icon goes first: on a sliver of a block it would push past the edge.
+                        if (!_isNarrow) ...[
+                          Icon(kActivityIcon, size: 12, color: kActivityAccent),
+                          const SizedBox(width: 4),
+                        ],
                         Expanded(
                           child: Text(
                             _isNarrow
@@ -245,7 +232,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
                     const SizedBox(height: 2),
                     Text(
                       _scheduled.name,
-                      maxLines: _saysDescription ? 1 : 2,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 12.5,
@@ -254,20 +241,6 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
                         color: AppTheme.trialInk,
                       ),
                     ),
-                    if (_saysDescription) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        _scheduled.description!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.1,
-                          color: AppTheme.trialMutedText,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -283,7 +256,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
       child: block,
     );
 
-    if (!_isClipped)
+    if (!_hasTooltip)
     {
       return shown;
     }

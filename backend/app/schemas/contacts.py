@@ -6,8 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.core import field_lengths
 from app.schemas.validators import CleanStr
 
-# Both mirror the CHECKs on people, so a bad value is refused with a message
-# instead of failing at commit.
+# Both mirror the CHECKs on people: refused with a message instead of failing at commit.
 _EMAIL_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$"
 )

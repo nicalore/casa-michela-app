@@ -27,6 +27,10 @@ const double _enterEnd = _enterStart + _slotSpread + _enterSpan;
 
 const double _reentryTurn = 0.5;
 
+// Share of a screen transition over which the cover rises; opaque from then until it falls.
+const double _coverRise = 0.35;
+const double _coverHold = 0.30;
+
 double _reentryProgress(double value)
 {
   return value < _reentryTurn
@@ -466,7 +470,6 @@ class _PageTransitionScope extends InheritedWidget
 
   final Axis axis;
 
-  // Travel runs the other way: what left rightwards comes back from the left.
   final bool reversed;
 
   bool get moving => leaving || progress < 1;
@@ -600,6 +603,12 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
 
   Widget? _held;
 
+  // Where to move once the cover coming down is opaque.
+  int? _pending;
+
+  // A screen pushed over this route, coming or going.
+  Animation<double>? _covering;
+
   @override
   void initState()
   {
@@ -609,26 +618,99 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   }
 
   @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    final Animation<double>? covering = ModalRoute.of(context)?.secondaryAnimation;
+
+    if (covering != _covering)
+    {
+      _covering?.removeListener(_onCoverProgress);
+      _covering = covering?..addListener(_onCoverProgress);
+    }
+  }
+
+  bool get _covered => _covering != null && !_covering!.isDismissed;
+
+  // Still see-through: the cover has just started to rise.
+  bool get _coverRising =>
+      _covering?.status == AnimationStatus.forward && _covering!.value < _coverRise;
+
+  void _moveNow(int index)
+  {
+    _arriving = index;
+    _leaving = null;
+    _held = null;
+    _controller.value = 1;
+  }
+
+  // Deferred move runs once the cover is opaque, or as a handover if the cover lifted instead.
+  void _onCoverProgress()
+  {
+    final int? pending = _pending;
+    final Animation<double> covering = _covering!;
+
+    if (pending == null)
+    {
+      return;
+    }
+
+    if (covering.value >= _coverRise)
+    {
+      setState(()
+      {
+        _pending = null;
+        _moveNow(pending);
+      });
+    }
+    else if (covering.isDismissed)
+    {
+      setState(()
+      {
+        _pending = null;
+        _leaving = _arriving;
+        _arriving = pending;
+        _held = null;
+      });
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
   void didUpdateWidget(_Handover oldWidget)
   {
     super.didUpdateWidget(oldWidget);
 
+    if (widget.index == _arriving)
+    {
+      _pending = null;
+    }
+
     if (widget.index != _arriving)
     {
+      // Under a cover still rising: stay put, the move would show through.
+      if (_coverRising)
+      {
+        _pending = widget.index;
+
+        return;
+      }
+
+      _pending = null;
+
+      // Inside a moving page or under a screen the local handover would show through: jump instead.
+      if ((_PageTransitionScope.maybeOf(context)?.moving ?? false) || _covered)
+      {
+        _moveNow(widget.index);
+
+        return;
+      }
+
       final int left = _arriving;
 
       _arriving = widget.index;
       _held = null;
-
-      // Inside a moving page: skip the local handover, it would paint both
-      // sections at once over the outer one.
-      if (_PageTransitionScope.maybeOf(context)?.moving ?? false)
-      {
-        _leaving = null;
-        _controller.value = 1;
-
-        return;
-      }
 
       _leaving = left;
 
@@ -653,12 +735,12 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   @override
   void dispose()
   {
+    _covering?.removeListener(_onCoverProgress);
     _controller.dispose();
     super.dispose();
   }
 
-  // The leaving section is dropped at _exitEnd: held to the end of the handover
-  // it would stay laid out, and visible, under the arriving one.
+  // Dropped at _exitEnd: kept longer, the leaving section would stay laid out under the arriving one.
   void _onProgress()
   {
     if (_leaving != null && _controller.value >= _exitEnd)
@@ -728,7 +810,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     final enclosing = _PageTransitionScope.maybeOf(context);
     final outer = (enclosing != null && enclosing.moving) ? enclosing : null;
 
-    final Animation<double>? covering = ModalRoute.of(context)?.secondaryAnimation;
+    final Animation<double>? covering = _covering;
 
     return AnimatedBuilder(
       animation: covering == null
@@ -797,8 +879,7 @@ mixin DestinationRefresh<T extends StatefulWidget> on State<T>
   }
 }
 
-// Whether the enclosing destination is the one on show, and not covered by a
-// route pushed over it. True outside a shell.
+// Whether the enclosing destination is on show and uncovered; true outside a shell.
 bool isDestinationShown(BuildContext context) => _DestinationScope.of(context);
 
 class _DestinationScope extends InheritedWidget
@@ -832,15 +913,15 @@ class _ScreenTransition extends StatelessWidget
           begin: 0.0,
           end: 1.0,
         ).chain(CurveTween(curve: Curves.easeOut)),
-        weight: 35,
+        weight: _coverRise,
       ),
-      TweenSequenceItem(tween: ConstantTween(1.0), weight: 30),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: _coverHold),
       TweenSequenceItem(
         tween: Tween(
           begin: 1.0,
           end: 0.0,
         ).chain(CurveTween(curve: Curves.easeIn)),
-        weight: 35,
+        weight: 1 - _coverRise - _coverHold,
       ),
     ]).animate(animation);
 

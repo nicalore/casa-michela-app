@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 
 import '../core/config/api_config.dart';
+import '../core/utils/content_disposition.dart';
 import '../core/utils/json_parsing.dart';
 import '../core/utils/time_bucket.dart';
 import '../features/association/models/association_subject_item.dart';
@@ -122,6 +123,8 @@ MinistrySubjectItem _ministrySubjectFromJson(dynamic json)
     associationSubjects: _associationSubjectOptions(json['association_subjects']),
   );
 }
+
+typedef ApiFile = ({Uint8List bytes, String fileName});
 
 class ApiService
 {
@@ -271,8 +274,7 @@ class ApiService
     await _announceAuthenticated();
   }
 
-  // The identity must be in hand before the session is announced: the router reads the active role
-  // synchronously, and a failure here goes back to the login page rather than somebody else's area.
+  // Identity must be in hand before the session is announced: the router reads the active role synchronously.
   Future<void> _announceAuthenticated() async
   {
     if (identity.value == null)
@@ -685,6 +687,33 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante l\'eliminazione.');
+    }
+  }
+
+  Future<void> reportMissingSubject(String name, String? description) async
+  {
+    try
+    {
+      await _dio.post(
+        '/association-subjects/report-missing',
+        data: {'name': name, 'description': description},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
+    }
+  }
+
+  Future<void> reportProblem(String description) async
+  {
+    try
+    {
+      await _dio.post('/support/report-problem', data: {'description': description});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile inviare la segnalazione. Riprova più tardi.');
     }
   }
 
@@ -1332,6 +1361,12 @@ class ApiService
     return parseList(response.data, PersonItem.fromJson);
   }
 
+  Future<List<PersonItem>> getTeachers() async
+  {
+    final response = await _dio.get('/people/teachers');
+    return parseList(response.data, PersonItem.fromJson);
+  }
+
   Future<PersonItem> getPerson(String fiscalCode) async
   {
     final response = await _dio.get('/people/$fiscalCode');
@@ -1439,6 +1474,26 @@ class ApiService
     on DioException catch (e)
     {
       _refusedBytes(e, 'Errore imprevisto durante la generazione del modulo. Riprova più tardi.');
+    }
+  }
+
+  Future<ApiFile> fetchRegulation() async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/documents/regulation',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      return (
+        bytes: Uint8List.fromList(response.data!),
+        fileName: fileNameOf(response.headers.value('content-disposition')) ?? 'Regolamento.pdf',
+      );
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Errore imprevisto durante il recupero del regolamento. Riprova più tardi.');
     }
   }
 
@@ -1809,7 +1864,7 @@ class ApiService
     }
   }
 
-  // The pupil's whole list as of today.
+  // Replaces the whole list.
   Future<void> updateNotPreferredTeachers(
     String taxCode,
     List<String> teacherTaxCodes,
@@ -2674,7 +2729,7 @@ class ApiService
     await _dio.delete(_lockPath(day, band));
   }
 
-  // The reader's own month; the role is the one the endpoint is gated on.
+  // The caller's own month; gated on role server-side.
   Future<TeacherMonthSummaryItem> getTeacherMonth() async
   {
     final response = await _dio.get('/home/teacher-month');

@@ -81,8 +81,8 @@ void tidyForm(PersonEditForm form)
   form.certificateExpirationCtrl.text = form.certificateExpirationCtrl.text.trim();
   form.ibanCtrl.text = form.ibanCtrl.text.replaceAll(' ', '').toUpperCase();
   form.otherAdminRoleCtrl.text = openingCapital(form.otherAdminRoleCtrl.text.trim());
-  form.studiScolasticiCtrl.text = sentenceCase(form.studiScolasticiCtrl.text.trim());
-  form.studiUniversitariCtrl.text = sentenceCase(form.studiUniversitariCtrl.text.trim());
+  form.studiScolasticiCtrl.text = openingCapital(form.studiScolasticiCtrl.text.trim());
+  form.studiUniversitariCtrl.text = openingCapital(form.studiUniversitariCtrl.text.trim());
   form.otherPaymentMethodCtrl.text = sentenceCase(form.otherPaymentMethodCtrl.text.trim());
   form.otherCertificationCtrl.text = openingCapital(form.otherCertificationCtrl.text.trim());
   form.dsaCertificationCtrl.text = openingCapital(form.dsaCertificationCtrl.text.trim());
@@ -93,7 +93,7 @@ void tidyForm(PersonEditForm form)
 
   for (final row in form.earlyExitRows)
   {
-    row.reasonCtrl.text = sentenceCase(row.reasonCtrl.text.trim());
+    row.reasonCtrl.text = openingCapital(row.reasonCtrl.text.trim());
   }
 }
 
@@ -219,7 +219,8 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       collector.add('cf', 'Non combacia con nome e cognome', PersonEditCardId.identity);
     }
 
-    if (form.birthCityCtrl.text.trim().isEmpty)
+    // Abroad the city may be unknown; the switch fills the province in.
+    if (!form.bornAbroad && form.birthCityCtrl.text.trim().isEmpty)
     {
       collector.add('cittaNascita', 'Campo obbligatorio', PersonEditCardId.birthData);
     }

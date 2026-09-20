@@ -1,5 +1,4 @@
-// Anagraphic text is stored in the shape it is printed in. The same two rules
-// run on the server, which has the last word.
+// The same rules run on the server, which has the last word.
 
 final RegExp _letter = RegExp(r'\p{L}', unicode: true);
 
@@ -20,13 +19,13 @@ String titleCase(String value)
   return shaped.toString();
 }
 
-// For the administrative lines, where nothing inside is worth keeping as typed.
+// Administrative lines.
 String sentenceCase(String value)
 {
   return _split(value, (rest) => rest.toLowerCase());
 }
 
-// For clinical notes, where an acronym or a drug name further in has to survive.
+// Clinical notes: acronyms and drug names further in survive.
 String openingCapital(String value)
 {
   return _split(value, (rest) => rest);

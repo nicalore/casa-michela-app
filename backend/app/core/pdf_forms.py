@@ -21,10 +21,10 @@ from pypdf.generic import (
 # Bit 1 of /Ff (PDF 32000-1 table 221): makes the field read-only.
 _READ_ONLY_FLAG: Final[int] = 1
 
-# Every text widget of the template declares /MaxLen 100; pypdf does not enforce it on /V.
+# Every text widget of the template declares /MaxLen 100; pypdf does not enforce it.
 _MAX_TEXT_LENGTH: Final[int] = 100
 
-# Size in a widget's own /DA, as in "/Helv 8 Tf 0 0 0 rg": the template's choice to make.
+# Size in a widget's own /DA, as in "/Helv 8 Tf 0 0 0 rg": the template's choice.
 _FONT_SIZE_IN_DA: Final[re.Pattern[str]] = re.compile(r"/\S+\s+([\d.]+)\s+Tf")
 
 _DEFAULT_FONT_SIZE: Final[float] = 8.0
@@ -37,8 +37,7 @@ _FIELD_MARGIN: Final[float] = 1.0
 # Font metrics travel in thousandths of an em whatever the font's own grid is.
 _GLYPH_SPACE: Final[int] = 1000
 
-# Accented capitals are left out on purpose: they reach far higher (999 units against
-# 790 for an accented lowercase) and sizing around them would shrink every cell.
+# Accented capitals excluded on purpose: 999 units tall (vs 790) would shrink each cell.
 _INK_SAMPLE: Final[str] = (
     "abcdefghijklmnopqrstuvwxyz"
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -115,7 +114,7 @@ def fill_acroform(
         if not values:
             continue
 
-        # No /NeedAppearances: every appearance is drawn here and the fields are read-only.
+        # No /NeedAppearances: every appearance is drawn here and fields are read-only.
         writer.update_page_form_field_values(page, values, auto_regenerate=False)
 
     _drop_field_tint(writer)
@@ -215,8 +214,7 @@ def _font_size_of(widget: DictionaryObject) -> float:
     return size or _DEFAULT_FONT_SIZE
 
 
-# Ink reach above and below the baseline, in thousandths of an em. Read from the
-# glyphs, not the declared ascent, which is a line-height figure (1038 per 1000 em).
+# Ink reach above/below the baseline in 1/1000 em, from glyphs: /Ascent is line height.
 @lru_cache(maxsize=4)
 def _ink_box(font: bytes) -> tuple[float, float] | None:
     try:
@@ -263,8 +261,7 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
     descendant = resource["/DescendantFonts"][0]
     descriptor = descendant["/FontDescriptor"]
 
-    # pypdf baselines at margin + (height - ascent x size) / 2, centring on /Ascent alone;
-    # feeding it (ink above - ink below) makes that arithmetic centre the ink box instead.
+    # pypdf centres on /Ascent; feeding it (ink above - ink below) centres the ink box.
     top, depth = ink
     descriptor[NameObject("/Ascent")] = NumberObject(round(top - depth))
 
@@ -280,8 +277,7 @@ def _embed_font(writer: PdfWriter, font: bytes, ink: tuple[float, float]) -> str
     return _EMBEDDED_FONT_NAME
 
 
-# The tint is printed into the page, not viewer highlighting: /MK /BG plus the
-# appearance stream. Regenerating appearances drops the second, this the first.
+# Tint = /MK /BG + appearance stream; regenerating drops the latter, this the former.
 def _drop_field_tint(writer: PdfWriter) -> None:
     for page in writer.pages:
         for annotation in page.get("/Annots", []):

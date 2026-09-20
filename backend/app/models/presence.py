@@ -41,8 +41,7 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
     __table_args__ = (
         CheckConstraint("id > 0", name="positive_presence_id"),
         CheckConstraint("end_time > start_time", name="presence_end_after_start"),
-        # Thirty minutes is the shortest teachable stretch. Subsumes the
-        # check above, which stays for its distinct error message.
+        # 30 minutes is the shortest teachable stretch; the check above keeps its error.
         CheckConstraint(
             "end_time - start_time >= INTERVAL '30 minutes'",
             name="presence_minimum_duration",
@@ -113,8 +112,8 @@ def _pairing_is_set(presence: Presence) -> bool:
     )
 
 
-# Who books for whom is judged when it is set. A row booked by a parent since
-# unlinked, or before the pupil came of age, still stands and may be edited.
+# Judged when set: a row booked by a since-unlinked parent, or before the pupil came
+# of age, still stands and may be edited.
 @event.listens_for(Session, "before_flush")
 def _validate_presence_booker(
     session: Session,

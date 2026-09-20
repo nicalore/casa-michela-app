@@ -37,8 +37,7 @@ class CertificationTypeEnum(StrEnum):
     OTHER = "OTHER"
 
 
-# One per tickable cell of the enrolment form's homework-help rate table; primary
-# school has a single flat fee and so no choice to record.
+# One per tickable cell of the enrolment form's rate table; primary school has none.
 class HomeworkTariffEnum(StrEnum):
     PRIMARY_MONTHLY = "PRIMARY_MONTHLY"
     MIDDLE_HOURLY = "MIDDLE_HOURLY"

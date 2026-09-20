@@ -28,7 +28,7 @@ class TeacherAppreciationItem
   }
 }
 
-// Everyone with a signal in the period, best first.
+// Best first.
 class TeacherAppreciationRankingItem
 {
   final List<TeacherAppreciationItem> ranking;

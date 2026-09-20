@@ -1,7 +1,6 @@
 bool isLeapYear(int year) => year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 
-// Feb 29 falls on the 28th in non-leap years; DateTime would roll it over to
-// 1 March.
+// Feb 29 falls on the 28th in non-leap years; DateTime would roll it to 1 March.
 DateTime birthdayIn(int year, DateTime birth)
 {
   final bool leapDay = birth.month == DateTime.february && birth.day == 29;

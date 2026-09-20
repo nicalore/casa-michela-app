@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, time
 
 from fastapi import APIRouter, Depends
 
@@ -23,10 +23,16 @@ from app.repositories.teacher_room_assignment_repository import (
 )
 from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.booking import BookingResponse, PresenceSummary
-from app.schemas.lesson import LessonCreate, LessonResponse, LessonUpdate
+from app.schemas.lesson import (
+    LessonCreate,
+    LessonOverlap,
+    LessonResponse,
+    LessonUpdate,
+)
 from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
 from app.schemas.room import RoomOption
+from app.services.lesson_overlaps import overlaps_of
 from app.services.lesson_service import LessonService
 
 router = APIRouter(
@@ -72,16 +78,46 @@ def _booking_responses(
     return responses
 
 
+TeacherHours = dict[tuple[date, str], list[tuple[int, time, time]]]
+
+
+def _overlaps(lesson: Lesson, hours: TeacherHours) -> list[LessonOverlap]:
+    others = [
+        (start_time, end_time)
+        for lesson_id, start_time, end_time in hours.get(
+            (lesson.date, lesson.availability.teacher_tax_code),
+            [],
+        )
+        if lesson_id != lesson.id
+    ]
+
+    return [
+        LessonOverlap(start_time=start_time, end_time=end_time)
+        for start_time, end_time in overlaps_of(
+            lesson.start_time,
+            lesson.end_time,
+            others,
+        )
+    ]
+
+
 def _to_response(
     lesson: Lesson,
     people: dict[str, Person],
     avoided: AvoidedTeachers,
     rooms: dict[tuple[date, str], TeacherRoomAssignment],
     settled: set[tuple[date, str]],
+    hours: TeacherHours,
     warnings: list[str],
 ) -> LessonResponse:
     teacher_tax_code = lesson.availability.teacher_tax_code
-    assignment = rooms.get((lesson.date, teacher_tax_code))
+
+    # The room is the day's, for teachers in the building: none for a lesson from home.
+    assignment = (
+        rooms.get((lesson.date, teacher_tax_code))
+        if lesson.teacher_mode == "presence"
+        else None
+    )
 
     return LessonResponse(
         id=lesson.id,
@@ -105,6 +141,7 @@ def _to_response(
         ],
         bookings=_booking_responses(lesson, people, avoided),
         is_locked=(lesson.date, lesson.band) in settled,
+        overlaps=_overlaps(lesson, hours),
         warnings=warnings,
         created_at=lesson.created_at,
         updated_at=lesson.updated_at,
@@ -139,8 +176,13 @@ async def _to_responses(
         {(lesson.date, lesson.band) for lesson in lessons},
     )
 
+    hours = await LessonRepository(db).hours_of_teachers(
+        {lesson.date for lesson in lessons},
+        {lesson.availability.teacher_tax_code for lesson in lessons},
+    )
+
     return [
-        _to_response(lesson, people, avoided, rooms, settled, warnings or [])
+        _to_response(lesson, people, avoided, rooms, settled, hours, warnings or [])
         for lesson in lessons
     ]
 

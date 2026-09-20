@@ -14,8 +14,7 @@ if TYPE_CHECKING:
     from app.models.teacher import Teacher
 
 
-# Twin of TeachingCompetence minus the study programme: a service is the same
-# help whoever asks, so the key is just (teacher, service) and the dates.
+# Twin of TeachingCompetence without the programme: key is (teacher, service, dates).
 class TeacherService(Base):
     __tablename__ = "teacher_services"
 

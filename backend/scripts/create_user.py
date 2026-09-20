@@ -85,11 +85,6 @@ Ruoli disponibili:
 
 
 async def main() -> None:
-
-    # ==========================
-    # DATI ANAGRAFICI
-    # ==========================
-
     tax_code = ask("Codice fiscale").upper()
 
     first_name = ask("Nome")
@@ -141,10 +136,6 @@ async def main() -> None:
         & roles
     )
 
-    # ==========================
-    # DATI SPECIFICI
-    # ==========================
-
     student_early_exit = False
 
     if Role.STUDENT in roles:
@@ -191,10 +182,6 @@ async def main() -> None:
         if admin_role == AdministratorRoleEnum.OTHER:
             other_role = ask("Descrizione ruolo")
 
-    # ==========================
-    # ACCOUNT
-    # ==========================
-
     create_account = ask_bool("Creare account")
 
     username = None
@@ -211,10 +198,6 @@ async def main() -> None:
             raise ValueError("Le password non coincidono")
 
         password_hash = hash_password(password)
-
-    # ==========================
-    # RIEPILOGO
-    # ==========================
 
     print("\n====================")
     print(f"{first_name} {last_name}")
@@ -233,10 +216,6 @@ async def main() -> None:
     if not ask_bool("Confermare creazione"):
         print("Operazione annullata.")
         return
-
-    # ==========================
-    # PERSISTENZA
-    # ==========================
 
     async with AsyncSessionLocal() as session:
         existing = await session.scalar(

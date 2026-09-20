@@ -16,8 +16,7 @@ _OUT_OF_WINDOW_ERROR: Final[str] = (
 )
 
 
-# Rolling weekly unlock: every Friday at 20:00 the whole following week opens
-# up, on top of whatever is left of the already unlocked current one.
+# Rolling unlock: every Friday at 20:00 the whole following week opens up.
 def compute_available_window(now: datetime) -> tuple[date, date]:
     today = now.date()
     current_week_monday = today - timedelta(days=today.weekday())

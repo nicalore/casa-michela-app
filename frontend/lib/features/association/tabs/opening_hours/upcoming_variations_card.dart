@@ -43,17 +43,20 @@ class UpcomingVariationsCard extends StatelessWidget
 
   final bool isLoading;
 
-  final ValueChanged<VariationGroup> onEdit;
-  final ValueChanged<VariationGroup> onDelete;
+  // Both null for a reader: the rows then have no actions column at all.
+  final ValueChanged<VariationGroup>? onEdit;
+  final ValueChanged<VariationGroup>? onDelete;
 
   const UpcomingVariationsCard({
     super.key,
     required this.upcomingVariations,
     required this.windowEnd,
     required this.isLoading,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
+
+  bool get _hasActions => onEdit != null || onDelete != null;
 
   @override
   Widget build(BuildContext context)
@@ -94,7 +97,11 @@ class UpcomingVariationsCard extends StatelessWidget
               )
             else ...[
               if (!stackHours)
-                VariationHoursHeader(height: _hoursHeaderHeight, dateWidth: dateWidth),
+                VariationHoursHeader(
+                  height: _hoursHeaderHeight,
+                  dateWidth: dateWidth,
+                  hasActions: _hasActions,
+                ),
               for (var i = 0; i < groups.length; i++) ...[
                 if (i > 0) const SizedBox(height: _groupGap),
                 VariationRow(
@@ -155,8 +162,7 @@ class UpcomingVariationsCard extends StatelessWidget
         dateWidth +
         VariationRow.columnGap +
         _minHoursWidth +
-        VariationRow.columnGap +
-        VariationRow.actionsWidth;
+        (_hasActions ? VariationRow.columnGap + VariationRow.actionsWidth : 0);
   }
 }
 
@@ -185,8 +191,8 @@ class VariationRow extends StatelessWidget
   final double headlineHeight;
   final double hoursHeight;
   final double noteHeight;
-  final ValueChanged<VariationGroup> onEdit;
-  final ValueChanged<VariationGroup> onDelete;
+  final ValueChanged<VariationGroup>? onEdit;
+  final ValueChanged<VariationGroup>? onDelete;
 
   const VariationRow({
     super.key,
@@ -196,11 +202,13 @@ class VariationRow extends StatelessWidget
     required this.headlineHeight,
     required this.hoursHeight,
     required this.noteHeight,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
 
   bool get _hasNote => group.note != null && group.note!.isNotEmpty;
+
+  bool get _hasActions => onEdit != null || onDelete != null;
 
   @override
   Widget build(BuildContext context)
@@ -220,29 +228,33 @@ class VariationRow extends StatelessWidget
                 const SizedBox(width: columnGap),
                 Expanded(child: _buildHours()),
               ],
-              const SizedBox(width: columnGap),
-              if (group.isHoliday)
-                const SizedBox(width: actionsWidth)
-              else
-                SizedBox(
-                  width: actionsWidth,
-                  child: Row(
-                    children: [
-                      FadeHoverIconButton(
-                        icon: Icons.edit_outlined,
-                        color: AppTheme.trialTealDeep,
-                        hoverColor: AppTheme.trialGoldSurface,
-                        onTap: () => onEdit(group),
-                      ),
-                      FadeHoverIconButton(
-                        icon: Icons.delete_outline_rounded,
-                        color: AppTheme.trialDanger,
-                        hoverColor: AppTheme.trialGoldSurface,
-                        onTap: () => onDelete(group),
-                      ),
-                    ],
+              if (_hasActions) ...[
+                const SizedBox(width: columnGap),
+                if (group.isHoliday)
+                  const SizedBox(width: actionsWidth)
+                else
+                  SizedBox(
+                    width: actionsWidth,
+                    child: Row(
+                      children: [
+                        if (onEdit case final edit?)
+                          FadeHoverIconButton(
+                            icon: Icons.edit_outlined,
+                            color: AppTheme.trialTealDeep,
+                            hoverColor: AppTheme.trialGoldSurface,
+                            onTap: () => edit(group),
+                          ),
+                        if (onDelete case final delete?)
+                          FadeHoverIconButton(
+                            icon: Icons.delete_outline_rounded,
+                            color: AppTheme.trialDanger,
+                            hoverColor: AppTheme.trialGoldSurface,
+                            onTap: () => delete(group),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+              ],
             ],
           ),
         ),
@@ -387,7 +399,15 @@ class VariationHoursHeader extends StatelessWidget
   final double height;
   final double dateWidth;
 
-  const VariationHoursHeader({super.key, required this.height, required this.dateWidth});
+  // Whether the rows below end in the actions column it must clear.
+  final bool hasActions;
+
+  const VariationHoursHeader({
+    super.key,
+    required this.height,
+    required this.dateWidth,
+    this.hasActions = true,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -411,8 +431,10 @@ class VariationHoursHeader extends StatelessWidget
                     ],
                   ),
                 ),
-                const SizedBox(width: VariationRow.columnGap),
-                const SizedBox(width: VariationRow.actionsWidth),
+                if (hasActions) ...[
+                  const SizedBox(width: VariationRow.columnGap),
+                  const SizedBox(width: VariationRow.actionsWidth),
+                ],
               ],
             ),
           ),

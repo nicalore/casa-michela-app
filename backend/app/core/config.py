@@ -52,8 +52,7 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
-    # Anchored to the backend package: a relative path must not follow the
-    # working directory the server happens to start from.
+    # Anchored to the backend package, not to the server's working directory.
     @property
     def audit_log_template(self) -> Path:
         path = Path(self.audit_log_path)
@@ -61,8 +60,7 @@ class Settings(BaseSettings):
         return path if path.is_absolute() else _BACKEND_DIR / path
 
     def sqlalchemy_database_url(self, drivername: str) -> str:
-        # A full database_url takes precedence over the single postgres_*
-        # fields: only its driver is replaced with the requested one.
+        # A full database_url beats the postgres_* fields; only its driver is replaced.
         if self.database_url:
             return (
                 make_url(self.database_url)

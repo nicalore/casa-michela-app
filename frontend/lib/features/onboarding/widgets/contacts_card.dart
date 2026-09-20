@@ -6,8 +6,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../people/models/person_item.dart';
 
-// Contacts are the one part of the register anyone may keep current from the
-// first access: no correction request, they are simply typed over.
+// Edited directly, not through a correction request.
 class ContactsCard extends StatefulWidget
 {
   final PersonItem person;

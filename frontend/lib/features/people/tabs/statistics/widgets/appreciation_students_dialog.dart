@@ -16,9 +16,7 @@ import 'stats_data.dart';
 
 const double _dialogWidth = 560;
 
-// The pupils behind one of a teacher's thumbs, each named once, for the
-// period the card was showing. Fetched before the window opens, so it opens
-// at its final size.
+// Fetched before the dialog opens so it opens at its final size.
 Future<void> showAppreciationStudentsDialog(
   BuildContext context, {
   required String taxCode,
@@ -70,7 +68,6 @@ class AppreciationStudentsDialog extends StatelessWidget
   final String period;
   final bool up;
 
-  // One side only, already told apart by the thumb that was tapped.
   final List<PersonOptionItem> students;
 
   const AppreciationStudentsDialog({
@@ -80,7 +77,6 @@ class AppreciationStudentsDialog extends StatelessWidget
     required this.students,
   });
 
-  // The whole top pill: which thumb, how many, over what period.
   Widget _buildHeader()
   {
     return Row(

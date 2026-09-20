@@ -17,6 +17,7 @@ from app.api import (
     calendar_publications,
     calendar_teacher_exclusions,
     courses,
+    documents,
     home,
     lesson_requests,
     lessons,
@@ -30,6 +31,7 @@ from app.api import (
     services,
     statistics,
     study_programs,
+    support,
     teacher_room_assignments,
     weekly_templates,
 )
@@ -83,6 +85,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # A file's own name travels in this header; hidden from the page otherwise.
+    expose_headers=["Content-Disposition"],
 )
 
 app.middleware("http")(audit_logging_middleware)
@@ -96,7 +100,10 @@ app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
+app.include_router(documents.router)
+app.include_router(support.router)
 app.include_router(statistics.router)
+app.include_router(statistics.personal_router)
 app.include_router(home.router)
 app.include_router(availabilities.router)
 app.include_router(presences.router)

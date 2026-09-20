@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../routing/app_router.dart';
+import '../../services/api_service.dart';
+import '../../shared/widgets/app_back_button.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
-import '../../shared/widgets/app_top_bar.dart';
+import '../../shared/widgets/app_segmented_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'tabs/account_tab.dart';
+import 'tabs/appearance_tab.dart';
 import 'tabs/info_tab.dart';
-import 'tabs/profile_tab.dart';
 
-const List<RailGroup> _sections = [
-  RailGroup(
-    title: 'Profilo',
-    entries: ['Informazioni personali', 'Informazioni associative'],
-  ),
-  RailGroup(entries: ['Account', 'Informazioni']),
-];
+const List<String> _sections = ['Aspetto', 'Account', 'Informazioni'];
 
-const int _personalProfileIndex = 0;
-const int _associationProfileIndex = 1;
-const int _accountIndex = 2;
-const int _infoIndex = 3;
+const int _appearanceIndex = 0;
+const int _accountIndex = 1;
+const int _infoIndex = 2;
 
 class SettingsPage extends StatefulWidget
 {
-  const SettingsPage({super.key});
+  // Route the back button returns to; the page is opened from anywhere.
+  final String? origin;
+
+  const SettingsPage({super.key, this.origin});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -36,11 +36,9 @@ class SettingsPage extends StatefulWidget
 
 class _SettingsPageState extends State<SettingsPage> with SectionVisits
 {
-  int _selectedSection = _personalProfileIndex;
+  final ApiService _apiService = ApiService();
 
-  // The profile half last opened, kept apart from _selectedSection so it does
-  // not swap back while the profile is leaving.
-  int _profileSection = _personalProfileIndex;
+  int _selectedSection = _appearanceIndex;
 
   @override
   void initState()
@@ -49,40 +47,29 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
     visitedSections.add(_selectedSection);
   }
 
-  // The two profile entries share one tab: four rail entries, three children.
-  bool get _showingProfile => _selectedSection <= _associationProfileIndex;
+  // Only in-app paths are accepted; anything else falls back to the home.
+  String get _origin
+  {
+    final String? origin = widget.origin;
 
-  bool get _profileVisited =>
-      visitedSections.contains(_personalProfileIndex) ||
-      visitedSections.contains(_associationProfileIndex);
-
-  int get _stackIndex => _showingProfile ? 0 : _selectedSection - 1;
+    return origin != null && origin.startsWith('/')
+        ? origin
+        : homeForRole(_apiService.lastKnownIdentity?.activeRole);
+  }
 
   void _selectSection(int index)
   {
-    openSection(index, ()
-    {
-      _selectedSection = index;
-
-      if (index <= _associationProfileIndex)
-      {
-        _profileSection = index;
-      }
-    });
+    openSection(index, () => _selectedSection = index);
   }
 
   // Not one transition element: each section times its own cards.
   Widget _buildSectionContent()
   {
     return PageSections(
-      index: _stackIndex,
+      index: _selectedSection,
       children: [
-        _profileVisited
-            ? ProfileTab(
-                section: _profileSection == _associationProfileIndex
-                    ? ProfileSection.association
-                    : ProfileSection.personal,
-              )
+        visitedSections.contains(_appearanceIndex)
+            ? const AppearanceTab()
             : const SizedBox.shrink(),
         visitedSections.contains(_accountIndex)
             ? const AccountTab()
@@ -90,6 +77,44 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
         visitedSections.contains(_infoIndex)
             ? const InfoTab()
             : const SizedBox.shrink(),
+      ],
+    );
+  }
+
+  Widget _buildBody(AppWindowSize size)
+  {
+    final Widget content = _buildSectionContent();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (size.hasRail) ...[
+          Align(
+            alignment: Alignment.topLeft,
+            child: AppSectionRail(
+              title: 'Impostazioni',
+              groups: const [RailGroup(entries: _sections)],
+              selectedIndex: _selectedSection,
+              onSelected: _selectSection,
+            ),
+          ),
+          const SizedBox(width: AppSectionRail.gap),
+        ],
+        Expanded(
+          child: size.hasRail
+              ? content
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppSegmentedTabs(
+                      labels: _sections,
+                      selectedIndex: _selectedSection,
+                      onSelected: _selectSection,
+                    ),
+                    Expanded(child: content),
+                  ],
+                ),
+        ),
       ],
     );
   }
@@ -103,8 +128,8 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
         minHeight: AppDimensions.minDashboardHeight,
         builder: (context, width, height)
         {
-          final size = AppBreakpoints.fromWidth(width);
-          final margin = AppBreakpoints.pageMargin(size);
+          final AppWindowSize size = AppBreakpoints.fromWidth(width);
+          final double margin = AppBreakpoints.pageMargin(size);
 
           return Container(
             width: width,
@@ -128,59 +153,27 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
                 const PageWatermark(),
                 SafeArea(
                   child: Padding(
-                    // Top inset clears the bar, which floats over the content.
                     padding: EdgeInsets.only(
                       left: margin,
                       right: margin,
-                      top: AppTopBar.contentTopInsetFor(size),
+                      top: 24,
                       bottom: 24,
                     ),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (size.hasRail) ...[
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: PageTransitionItem(
-                              slot: PageTransitionItem.frame,
-                              child: AppSectionRail(
-                                title: 'Impostazioni',
-                                groups: _sections,
-                                selectedIndex: _selectedSection,
-                                onSelected: _selectSection,
-                              ),
-                            ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: AppBackButton(
+                            tooltip: 'Torna indietro',
+                            onTap: () => context.go(_origin),
                           ),
-                          const SizedBox(width: AppSectionRail.gap),
-                        ],
-                        Expanded(
-                          child: size.isCompact
-                              ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    PageTransitionItem(
-                                      slot: PageTransitionItem.frame,
-                                      child: AppSectionHeading(
-                                        module: 'Impostazioni',
-                                        section: railEntryAt(_sections, _selectedSection),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    Expanded(child: _buildSectionContent()),
-                                  ],
-                                )
-                              : _buildSectionContent(),
                         ),
+                        const SizedBox(height: 24),
+                        Expanded(child: _buildBody(size)),
                       ],
                     ),
                   ),
-                ),
-                AppTopBar(
-                  currentRoute: '/settings',
-                  sectionTitle: 'Impostazioni',
-                  sectionGroups: _sections,
-                  selectedSection: _selectedSection,
-                  onSectionSelected: _selectSection,
                 ),
               ],
             ),

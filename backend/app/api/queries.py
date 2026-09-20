@@ -11,9 +11,7 @@ def select_parents_left_without_children(
     *,
     only: ColumnElement[bool] | None = None,
 ) -> Select[Any]:
-    # Parents linked to this child that have exactly one child overall: once
-    # the child is deleted they would be left with none. `only` narrows the
-    # links that count, e.g. to rows still in force.
+    # Parents whose only child this is; `only` narrows the links that count.
     linked_parents = select(parent_column).where(child_column == child_id)
     counted = select(parent_column)
 

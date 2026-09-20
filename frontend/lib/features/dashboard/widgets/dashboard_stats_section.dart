@@ -18,9 +18,6 @@ class DashboardStat
   });
 }
 
-// How a tile is set: spacious on its own row, compact in a narrow side
-// column with the change beside the figure, or as a strip of four small
-// tiles whose figures are still written large.
 class _StatScale
 {
   final double value;
@@ -32,14 +29,12 @@ class _StatScale
   final double gap;
   final double radius;
 
-  // Between the label and the figure, and between the figure and the change.
   final double labelGap;
   final double valueGap;
 
   // The label's letter spacing: a strip's tiles are too narrow for the full one.
   final double spacing;
 
-  // The change on the figure's line rather than under it.
   final bool inline;
 
   const _StatScale({
@@ -287,7 +282,6 @@ class _StatTile extends StatelessWidget
       ),
     );
 
-    // The arrow says which way; the number says how far since the month began.
     final Widget change = Row(
       mainAxisSize: MainAxisSize.min,
       children: [

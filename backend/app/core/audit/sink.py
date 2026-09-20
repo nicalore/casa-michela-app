@@ -30,9 +30,8 @@ class DateRotatingFileHandler(logging.FileHandler):
 
         return self.filename_template.format(date=date)
 
-    # Covers both the initial open and the rotation below, since FileHandler
-    # sets baseFilename before opening: a new or empty file gets the column
-    # header, reopening a populated one after a restart must not repeat it.
+    # Covers the initial open and the rotation (baseFilename is set before opening):
+    # a new or empty file gets the header, a populated one must not repeat it.
     def _open(self) -> TextIO:
         path = Path(self.baseFilename)
         is_new = not path.exists() or path.stat().st_size == 0
@@ -56,8 +55,7 @@ class DateRotatingFileHandler(logging.FileHandler):
         super().emit(record)
 
 
-# Deliberately lazy: nothing touches the filesystem until the first entry, so
-# the tests can redirect the sink whatever the import order.
+# Lazy on purpose: nothing touches the filesystem before the first entry.
 def configure_audit_logger(template: Path | None = None) -> None:
     global _logger
 

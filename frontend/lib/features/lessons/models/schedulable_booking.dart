@@ -13,22 +13,72 @@ class SchedulableBooking
 {
   final BookingSummaryItem booking;
 
+  // The stretch the booking was typed under: pupil and mode come from here.
   final PresenceItem presence;
 
-  final List<LessonItem> parts;
+  // Every stretch the pupil gave that day in that mode, clock order; a lesson may sit in any.
+  final List<PresenceItem> presences;
 
-  final PresenceItem? storedOn;
+  final List<LessonItem> parts;
 
   const SchedulableBooking({
     required this.booking,
     required this.presence,
+    required this.presences,
     required this.parts,
-    this.storedOn,
   });
 
   int get id => booking.id;
 
-  bool get isBorrowed => storedOn != null;
+  List<(int, int)> get windows
+  {
+    return [
+      for (final stretch in presences)
+        (minutesOfTimeOfDay(stretch.startTime), minutesOfTimeOfDay(stretch.endTime)),
+    ];
+  }
+
+  List<(int, int)> windowsIn(int bandStart, int bandEnd)
+  {
+    return [
+      for (final window in windows) ?intersectSpan(window.$1, window.$2, bandStart, bandEnd),
+    ];
+  }
+
+  (int, int)? windowAt(int minute)
+  {
+    for (final window in windows)
+    {
+      if (window.$1 <= minute && minute < window.$2)
+      {
+        return window;
+      }
+    }
+
+    return null;
+  }
+
+  (int, int)? windowEndingAfter(int minute)
+  {
+    for (final window in windows)
+    {
+      if (window.$1 < minute && minute <= window.$2)
+      {
+        return window;
+      }
+    }
+
+    return null;
+  }
+
+  bool fitsAWindow(int startMinutes, int endMinutes)
+  {
+    return windows.any((window) => window.$1 <= startMinutes && endMinutes <= window.$2);
+  }
+
+  String get hoursLabel => formatWindows(windows);
+
+  int get presenceMinutes => windows.fold(0, (total, window) => total + window.$2 - window.$1);
 
   int get scheduledMinutes => parts.fold(0, (total, lesson) => total + lesson.minutes);
 
@@ -90,28 +140,64 @@ class SchedulableBooking
   }
 }
 
+// "14:00–15:45, 17:00–19:00"
+String formatWindows(Iterable<(int, int)> windows)
+{
+  return [for (final window in windows) formatMinutesRange(window.$1, window.$2)].join(', ');
+}
+
+// One pupil, one mode: their stretches that day and every booking typed under them.
 class PresenceBookingGroup
 {
-  final PresenceItem presence;
+  final List<PresenceItem> presences;
   final List<SchedulableBooking> bookings;
 
-  const PresenceBookingGroup({required this.presence, required this.bookings});
+  const PresenceBookingGroup({required this.presences, required this.bookings});
+
+  PresenceItem get presence => presences.first;
 
   int get startMinutes => minutesOfTimeOfDay(presence.startTime);
-
-  int get endMinutes => minutesOfTimeOfDay(presence.endTime);
 
   String get mode => presence.mode;
 
   bool get isOnline => presence.mode == kOnlineMode;
 
-  String get hoursLabel => formatTimeRange(presence.startTime, presence.endTime);
-
-  String get subtitle => '$hoursLabel · ${modeLabel(presence.mode)}';
-
   bool touches(int bandStart, int bandEnd)
   {
-    return spansOverlap(startMinutes, endMinutes, bandStart, bandEnd);
+    return presences.any((stretch) => spansOverlap(
+          minutesOfTimeOfDay(stretch.startTime),
+          minutesOfTimeOfDay(stretch.endTime),
+          bandStart,
+          bandEnd,
+        ));
+  }
+
+  // The stretches the bookings can be planned in within a band.
+  PresenceBookingGroup within(int bandStart, int bandEnd)
+  {
+    final inBand = [
+      for (final stretch in presences)
+        if (spansOverlap(
+          minutesOfTimeOfDay(stretch.startTime),
+          minutesOfTimeOfDay(stretch.endTime),
+          bandStart,
+          bandEnd,
+        ))
+          stretch,
+    ];
+
+    return PresenceBookingGroup(
+      presences: inBand,
+      bookings: [
+        for (final entry in bookings)
+          SchedulableBooking(
+            booking: entry.booking,
+            presence: entry.presence,
+            presences: inBand,
+            parts: entry.parts,
+          ),
+      ],
+    );
   }
 }
 
@@ -130,8 +216,6 @@ class StudentBookingGroup
     return presences
         .expand((group) => group.bookings)
         .where((entry) => !entry.isFullyCovered)
-        .map((entry) => entry.id)
-        .toSet()
         .length;
   }
 }
@@ -193,46 +277,19 @@ List<PresenceBookingGroup> groupSchedulable({
 
   final groups = <PresenceBookingGroup>[];
 
-  for (final presence in presences)
+  for (final stretches in sameModeByStudent.values)
   {
-    if (!isSameDate(presence.date, day))
-    {
-      continue;
-    }
-
-    final borrowed = <SchedulableBooking>[];
-
-    for (final other in sameModeByStudent[(presence.studentTaxCode, presence.mode)] ?? const <PresenceItem>[])
-    {
-      if (other.id == presence.id)
-      {
-        continue;
-      }
-
-      for (final booking in other.bookings)
-      {
-        if ((partsByBooking[booking.id] ?? const <LessonItem>[]).isNotEmpty)
-        {
-          continue;
-        }
-
-        borrowed.add(SchedulableBooking(
-          booking: booking,
-          presence: presence,
-          parts: const [],
-          storedOn: other,
-        ));
-      }
-    }
+    stretches.sort((a, b) => minutesOfTimeOfDay(a.startTime).compareTo(minutesOfTimeOfDay(b.startTime)));
 
     final bookings = [
-      for (final booking in presence.bookings)
-        SchedulableBooking(
-          booking: booking,
-          presence: presence,
-          parts: partsByBooking[booking.id] ?? const <LessonItem>[],
-        ),
-      ...borrowed,
+      for (final stretch in stretches)
+        for (final booking in stretch.bookings)
+          SchedulableBooking(
+            booking: booking,
+            presence: stretch,
+            presences: stretches,
+            parts: partsByBooking[booking.id] ?? const <LessonItem>[],
+          ),
     ];
 
     if (bookings.isEmpty)
@@ -240,7 +297,7 @@ List<PresenceBookingGroup> groupSchedulable({
       continue;
     }
 
-    groups.add(PresenceBookingGroup(presence: presence, bookings: bookings));
+    groups.add(PresenceBookingGroup(presences: stretches, bookings: bookings));
   }
 
   groups.sort((a, b)

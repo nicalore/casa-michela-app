@@ -17,6 +17,7 @@ from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.availability import AvailabilityUpdate
 from app.schemas.booking import BookingUpdate
+from app.schemas.presence import PresenceUpdate
 from app.schemas.room_supervision import RoomSupervisionCreate
 from app.schemas.teacher_room_assignment import TeacherRoomAssignmentCreate
 from app.services.availability_cleanup import purge_hours_outside_openings
@@ -24,7 +25,7 @@ from app.services.availability_service import AvailabilityService
 from app.services.booking_service import BookingService
 from app.services.presence_service import PresenceService
 from tests.conftest import ADMIN_IDENTITY, identity_of
-from tests.factories import make_room
+from tests.factories import make_presence, make_room
 from tests.services.test_calendar_publication_service import (
     assignments,
     supervisions,
@@ -78,8 +79,7 @@ async def _afternoon_with_a_room(db: AsyncSession):
     return built
 
 
-# A closed day deletes everything on it, published included; the
-# publication row goes via calendar_hours_sync.
+# A closed day deletes everything on it, published included, via calendar_hours_sync.
 async def test_closing_a_published_day_clears_it_too(db: AsyncSession) -> None:
     await _afternoon_with_a_room(db)
 
@@ -265,6 +265,93 @@ async def test_deleting_a_presence_takes_its_hours_with_it(db: AsyncSession) -> 
     await service.delete(ADMIN_IDENTITY, built.presence.id)
 
     assert await _count(db, Lesson) == 0
+
+
+# The second stretch comes first: the day must keep room for the two hours.
+async def _two_stretches(db: AsyncSession):
+    built = await scene(db, duration=120)
+
+    later = await make_presence(
+        db,
+        built.student,
+        day=DAY,
+        start_time=time(17),
+        end_time=time(19),
+    )
+
+    built.presence.end_time = time(15, 45)
+    await db.flush()
+
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(14), end=time(15)),
+    )
+    await lesson_service(db).create(
+        ADMIN_IDENTITY,
+        payload(built, start=time(17), end=time(18)),
+    )
+
+    return built, later
+
+
+async def _lesson_starts(db: AsyncSession) -> list[time]:
+    remaining = (await db.execute(select(Lesson))).scalars().all()
+
+    return sorted(lesson.start_time for lesson in remaining)
+
+
+# Typed under the first stretch; the second hour sits in the other and goes with it.
+async def test_dropping_a_stretch_takes_only_the_hours_inside_it(
+    db: AsyncSession,
+) -> None:
+    _, later = await _two_stretches(db)
+
+    await PresenceService(PresenceRepository(db)).delete(ADMIN_IDENTITY, later.id)
+
+    assert await _lesson_starts(db) == [time(14)]
+
+
+async def test_dropping_the_stretch_of_the_booking_takes_every_hour(
+    db: AsyncSession,
+) -> None:
+    built, _ = await _two_stretches(db)
+
+    await PresenceService(PresenceRepository(db)).delete(
+        ADMIN_IDENTITY,
+        built.presence.id,
+    )
+
+    assert await _count(db, Lesson) == 0
+
+
+async def test_narrowing_a_stretch_drops_what_falls_outside_it(
+    db: AsyncSession,
+) -> None:
+    _, later = await _two_stretches(db)
+
+    db.add(
+        OpeningDay(
+            date=DAY,
+            mode="presence",
+            start_time=time(14),
+            end_time=time(19),
+            is_override=False,
+        ),
+    )
+    await db.flush()
+
+    await PresenceService(PresenceRepository(db)).update(
+        ADMIN_IDENTITY,
+        later.id,
+        PresenceUpdate(
+            date=DAY,
+            mode="presence",
+            start_time=time(17, 30),
+            end_time=time(19),
+        ),
+    )
+
+    assert await _lesson_starts(db) == [time(14)]
 
 
 async def test_deleting_an_availability_takes_its_lessons_with_it(

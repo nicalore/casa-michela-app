@@ -15,9 +15,7 @@ if TYPE_CHECKING:
     from app.models.teacher import Teacher
 
 
-# Dated like a pupil's opinions: withdrawing a competence closes the row, so
-# the statistics can still tell which lessons the teacher could have taught
-# back then. The parents' collections list open rows only.
+# Withdrawing closes the row for past statistics; parent collections list open rows.
 class TeachingCompetence(Base):
     __tablename__ = "teaching_competences"
 

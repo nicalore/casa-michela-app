@@ -54,8 +54,7 @@ async def avoided_teachers(
     return avoided
 
 
-# Everyone a booking response names, in two batched queries: the pupils'
-# standing lists first, so those teachers get their names too.
+# Everyone a booking response names, in two batched queries: standing lists first.
 async def booking_people(
     db: AsyncSession,
     bookings: Sequence[Booking],

@@ -30,8 +30,6 @@ import 'home_schedule_section.dart';
 const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
 
-// Titles and empty-band wording, the only thing that differs between the three
-// cards the roles get.
 String scheduleTitleFor(String role)
 {
   return role == kTeacherRole ? 'Orari e disponibilità' : 'Orari e presenze';
@@ -42,14 +40,16 @@ String emptyBandLabelFor(String role)
   return role == kTeacherRole ? 'Nessuna disponibilità' : 'Nessuna prenotazione';
 }
 
-// Only a teacher can offer hours and be left out of the published calendar.
-String? unconvenedLabelFor(String role)
+String? unconvenedLabelFor(String role, {required bool feminine})
 {
-  return role == kTeacherRole ? 'Non sei stato convocato' : null;
+  if (role != kTeacherRole)
+  {
+    return null;
+  }
+
+  return feminine ? 'Non sei stata convocata' : 'Non sei stato convocato';
 }
 
-// The right column's heading: the teacher's offer, then their call once the
-// calendar is out; a pupil's booking throughout.
 String ownHeadingFor(String role)
 {
   return role == kTeacherRole ? 'Disponibilità' : 'Prenotazioni';
@@ -86,14 +86,13 @@ class RoleHomeLayout extends StatefulWidget
   State<RoleHomeLayout> createState() => _RoleHomeLayoutState();
 }
 
-class _RoleHomeLayoutState extends State<RoleHomeLayout>
+class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
 {
   static const double _greetingBottomGap = 24;
   static const double _sectionGap = 22;
 
   static const double _maxContentWidth = 1240;
 
-  // Two equal columns, so the month card lines up with the pair below.
   static const double _twoColumnsFrom = 700;
 
   // Row minimums, not maximums: cards can grow past them.
@@ -108,8 +107,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
   bool _loadingMonth = true;
   List<HomeFigureGroup>? _month;
 
-  // Bumped on every fetch so a stale response is dropped instead of
-  // overwriting fresher data.
+  // Bumped on every fetch so a stale response is dropped.
   int _todayRequest = 0;
   int _monthRequest = 0;
 
@@ -134,9 +132,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
     }
   }
 
-  // A parent with one child needs no name on the figures; with more, every
-  // child is named. A pupil answers for their own hours only when nobody
-  // else does.
+  @override
+  void onDestinationShown()
+  {
+    _loadTodayData();
+    _loadMonthData();
+  }
+
   Future<void> _loadMonthData() async
   {
     final int request = ++_monthRequest;
@@ -197,10 +199,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
     });
   }
 
-  // Every reading or none: a missing one would misreport the day, so _bands
-  // stays null ("unknown"), which is distinct from an empty day with no
-  // openings. Only the parent's own record, read to name the children, may
-  // fail on its own.
+  // Any failed reading leaves _bands null ("unknown"), distinct from an empty day.
   Future<void> _loadTodayData() async
   {
     final int request = ++_todayRequest;
@@ -231,8 +230,6 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
         ? Future.value(const [])
         : _quiet(_apiService.getPresences(dateFrom: today, dateTo: today));
 
-    // Only the parent needs it, and only to name the children who did not
-    // book: the ones who did arrive named inside their presence.
     final Future<PersonItem?> readerFuture = role == kParentRole && taxCode != null
         ? _quiet(_apiService.getPerson(taxCode))
         : Future.value(null);
@@ -251,16 +248,12 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
       return;
     }
 
-    // A parent with a single child needs no names; more than one, and every
-    // child is listed whether or not they booked.
     final List<String> children =
         (reader?.children ?? const []).map((child) => child.firstName).toList();
 
     final bool named = children.length > 1;
 
-    // The card speaks for the reader's own pupils alone: the server scopes
-    // by role, and one who is an administrator too would be handed
-    // everybody's.
+    // The server scopes by role, so an administrator would also get everybody's presences.
     final Set<String> own = {
       if (role == kParentRole)
         for (final child in reader?.children ?? const []) child.fiscalCode
@@ -306,35 +299,33 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
     });
   }
 
-  // The slot is the card's reading-order position in the grid.
   Widget _staggered({required int slot, required Widget card})
   {
     return PageTransitionItem(slot: PageTransitionItem.header + slot, child: card);
   }
 
-  // Beside the month card the tallest of the two sets the height and the
-  // bands share the extra; alone, the minimum only keeps a quiet day from
-  // collapsing to a strip.
-  Widget _scheduleCard({required bool inRow})
+  Widget _scheduleCard({required bool inRow, required double cardWidth})
   {
     return _staggered(
       slot: 0,
       card: HomeScheduleSection(
         bands: _bands,
         isLoading: _loadingToday,
+        width: cardWidth,
         title: scheduleTitleFor(widget.role),
         ownHeading: ownHeadingFor(widget.role),
         convenedHeading: convenedHeadingFor(widget.role),
         emptyBandLabel: emptyBandLabelFor(widget.role),
-        unconvenedLabel: unconvenedLabelFor(widget.role),
+        unconvenedLabel: unconvenedLabelFor(
+          widget.role,
+          feminine: _apiService.lastKnownIdentity?.gender == 'F',
+        ),
         minHeight: inRow ? _dayRowHeight : 0,
         fill: inRow,
       ),
     );
   }
 
-  // Never taller than its figures: what it leaves of the column goes to
-  // the notices under it.
   Widget _monthCard({required double cardWidth})
   {
     return _staggered(
@@ -348,8 +339,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
     );
   }
 
-  // tall keeps a placeholder from collapsing to a strip; fill is only for a
-  // card given its height from outside, which a column's plain child is not.
+  // fill is only for a card given its height from outside; a column's plain child is not.
   Widget _noticesCard({required bool tall, bool fill = false})
   {
     return _staggered(
@@ -387,20 +377,18 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
   {
     if (width < _twoColumnsFrom)
     {
+      final double cardWidth = width - 2 * DashboardSectionCard.padding.left;
+
       return _column([
-        _scheduleCard(inRow: false),
-        _monthCard(cardWidth: width - 2 * DashboardSectionCard.padding.left),
+        _scheduleCard(inRow: false, cardWidth: cardWidth),
+        _monthCard(cardWidth: cardWidth),
         _tasksCard(tall: false),
         _noticesCard(tall: false),
       ]);
     }
 
-    // The card's own width, less the padding DashboardSectionCard keeps.
     final double cardWidth = (width - _sectionGap) / 2 - 2 * DashboardSectionCard.padding.left;
 
-    // Two columns of one height. The month card is as tall as its figures
-    // and the notices under it take the rest; on the left the day grows
-    // over the tasks the same way.
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -409,7 +397,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _scheduleCard(inRow: true)),
+                Expanded(child: _scheduleCard(inRow: true, cardWidth: cardWidth)),
                 const SizedBox(height: _sectionGap),
                 _tasksCard(tall: true),
               ],

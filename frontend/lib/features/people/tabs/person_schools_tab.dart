@@ -24,21 +24,6 @@ import '../widgets/school_year_wizard.dart';
 
 const double _cardsWidth = 1600;
 
-// A repeat is the same grade at the same education level as the previous year.
-bool _isRepeating(SchoolEnrollmentItem current, List<SchoolEnrollmentItem> all)
-{
-  final previous =
-      all.where((item) => item.startYear == current.startYear - 1).firstOrNull;
-
-  if (previous == null)
-  {
-    return false;
-  }
-
-  return current.grade == previous.grade &&
-      current.educationLevel == previous.educationLevel;
-}
-
 // Shared with the first-access flow, which reads the same years a card at a time.
 Widget schoolEnrollmentCard(
   SchoolEnrollmentItem item,
@@ -46,7 +31,7 @@ Widget schoolEnrollmentCard(
   required bool isCurrent,
 })
 {
-  final bool repeating = _isRepeating(item, all);
+  final bool repeating = isRepeatingYear(item, all);
 
   return AppCard(
     title: 'Anno scolastico ${item.startYear}/${item.startYear + 1}',
@@ -59,7 +44,7 @@ Widget schoolEnrollmentCard(
       facts: [
         PersonFact('Scuola', item.schoolName, flex: 4),
         PersonFact('Livello', item.educationLevel, flex: 3),
-        PersonFact('Percorso', item.studyProgramName, flex: 4),
+        PersonFact('Percorso', item.studyProgramNameOnly, flex: 4),
         PersonFact('Classe', gradeLabel(item.grade)),
         PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
       ],
@@ -83,7 +68,9 @@ void showEditSchoolsDialog(
 class PersonSchoolsTab extends StatelessWidget
 {
   final PersonItem person;
-  final VoidCallback onUpdate;
+
+  // Null for read-only viewers (e.g. a parent): hides the edit button.
+  final VoidCallback? onUpdate;
 
   // Rendered under the edit button, inside the scroll.
   final Widget? footer;
@@ -91,7 +78,7 @@ class PersonSchoolsTab extends StatelessWidget
   const PersonSchoolsTab({
     super.key,
     required this.person,
-    required this.onUpdate,
+    this.onUpdate,
     this.footer,
   });
 
@@ -130,14 +117,16 @@ class PersonSchoolsTab extends StatelessWidget
               ],
               if (current == null && past.isEmpty)
                 const PersonEmptyState(message: 'Nessun anno scolastico registrato.'),
-              const SizedBox(height: kPersonSectionGap),
-              Center(
-                child: AppGradientButton(
-                  label: 'MODIFICA ANNI SCOLASTICI',
-                  icon: Icons.edit_rounded,
-                  onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: onUpdate),
+              if (onUpdate case final VoidCallback update) ...[
+                const SizedBox(height: kPersonSectionGap),
+                Center(
+                  child: AppGradientButton(
+                    label: 'MODIFICA ANNI SCOLASTICI',
+                    icon: Icons.edit_rounded,
+                    onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
+                  ),
                 ),
-              ),
+              ],
               if (footer != null) ...[
                 const SizedBox(height: kPersonSectionGap),
                 footer!,

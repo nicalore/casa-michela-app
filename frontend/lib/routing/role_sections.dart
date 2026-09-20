@@ -1,62 +1,52 @@
-// The sections a role's bar leads to, in reading order. Each is a page of
-// its own under the role's home; the router and the bar both read this.
+// An unavailable section is still listed on the bar, muted and unclickable.
 class RoleSection
 {
   final String slug;
+  final String label;
 
-  // Null for the person's own page, which the bar names after them.
-  final String? label;
+  final bool available;
 
-  const RoleSection(this.slug, this.label);
-
-  bool get isOwnPage => label == null;
+  const RoleSection(this.slug, this.label, {this.available = false});
 }
 
-const RoleSection ownPage = RoleSection('profile', null);
-
-const RoleSection _calendar = RoleSection('calendar', 'Calendario');
-const RoleSection _bookings = RoleSection('bookings', 'Prenotazioni');
+const RoleSection _calendar = RoleSection('calendar', 'Calendario', available: true);
+const RoleSection _bookings = RoleSection('bookings', 'Prenotazioni', available: true);
 const RoleSection _payments = RoleSection('payments', 'Pagamenti');
-const RoleSection _association = RoleSection('association', 'Associazione');
-const RoleSection _settings = RoleSection('settings', 'Impostazioni');
+const RoleSection _association = RoleSection('association', 'Associazione', available: true);
 
 const Map<String, List<RoleSection>> _sectionsByRole = {
   'TEACHER': [
-    RoleSection('availability', 'Disponibilità'),
+    RoleSection('subjects', 'Discipline', available: true),
+    RoleSection('availability', 'Disponibilità', available: true),
     _calendar,
     RoleSection('compensation', 'Compensi'),
     _association,
-    ownPage,
-    _settings,
   ],
   'PARENT': [
     _bookings,
     _calendar,
     _payments,
-    RoleSection('children', 'Figli'),
+    RoleSection('children', 'Figli', available: true),
     _association,
-    ownPage,
-    _settings,
   ],
   'STUDENT': [
     _bookings,
     _calendar,
     _payments,
     _association,
-    ownPage,
-    _settings,
   ],
 };
 
-// Every section the role can be routed to, whoever holds it.
-List<RoleSection> allSectionsOf(String role) => _sectionsByRole[role] ?? const [];
+List<RoleSection> allSectionsOf(String role)
+{
+  return _sectionsByRole[role] ?? const [];
+}
 
-// The sections this person's bar shows: a pupil somebody answers for is not
-// the one who pays.
+// A pupil somebody answers for does not see payments.
 List<RoleSection> sectionsFor(String role, {required bool hasParentalResponsibility})
 {
   return [
-    for (final section in allSectionsOf(role))
+    for (final section in _sectionsByRole[role] ?? const <RoleSection>[])
       if (!(role == 'STUDENT' && hasParentalResponsibility && section == _payments))
         section,
   ];

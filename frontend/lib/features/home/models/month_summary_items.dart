@@ -1,8 +1,6 @@
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 
-// A month so far, up to a day and hour: days already lived, hours already
-// held.
 class TeacherMonthFiguresItem
 {
   final int totalAvailabilities;
@@ -10,8 +8,7 @@ class TeacherMonthFiguresItem
 
   final int workedMinutes;
 
-  // Null for a teacher with no hourly rate; the amount as the backend
-  // serialises its decimal.
+  // Null without an hourly rate; a decimal string as the backend serialises it.
   final String? grossCompensation;
 
   const TeacherMonthFiguresItem({
@@ -37,8 +34,7 @@ class TeacherMonthSummaryItem extends TeacherMonthFiguresItem
   final bool isBelowMonthlyThreshold;
   final bool isBelowWeeklyThreshold;
 
-  // The month before, lived up to the same day and hour, so the two
-  // compare like for like.
+  // Cut at the same day and hour, so the two compare like for like.
   final TeacherMonthFiguresItem lastMonth;
 
   const TeacherMonthSummaryItem({
@@ -79,8 +75,7 @@ class PupilMonthFiguresItem
 
   final int lessonMinutes;
 
-  // How the hours are paid for, as the pupil's record stores it; a
-  // package's balance is not tracked yet.
+  // Package balance is not tracked yet.
   final String? homeworkTariff;
 
   const PupilMonthFiguresItem({
@@ -115,8 +110,6 @@ class StudentMonthSummaryItem
 {
   final PupilMonthFiguresItem figures;
 
-  // A pupil somebody answers for reads a narrower card than one who books
-  // for themselves.
   final bool hasParentalResponsibility;
 
   const StudentMonthSummaryItem({

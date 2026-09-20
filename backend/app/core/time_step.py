@@ -1,10 +1,10 @@
+from collections.abc import Iterable
 from datetime import time
 from typing import Final
 
 _TIME_STEP_MINUTES: Final[int] = 15
 
-# Half an hour is the shortest stretch worth teaching in: anything less is a
-# pupil arriving and leaving.
+# Half an hour is the shortest stretch worth teaching in.
 MINIMUM_BAND_MINUTES: Final[int] = 30
 
 _TIME_STEP_ERROR: Final[str] = (
@@ -21,3 +21,15 @@ def assert_quarter_hour_step(value: time) -> time:
 
 def minutes_between(start: time, end: time) -> int:
     return (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute)
+
+
+# Whole, not merely touching: a lesson cannot straddle the gap between stretches.
+def fits_a_window(
+    start: time,
+    end: time,
+    windows: Iterable[tuple[time, time]],
+) -> bool:
+    return any(
+        window_start <= start and end <= window_end
+        for window_start, window_end in windows
+    )

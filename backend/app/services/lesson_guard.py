@@ -14,6 +14,7 @@ from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
+from app.models.presence import Presence
 from app.repositories.calendar_band_lock_repository import (
     CalendarBandLockRepository,
 )
@@ -98,9 +99,8 @@ async def _holder_label(session: AsyncSession, tax_code: str) -> str:
     return f"{person.first_name} {person.last_name}".strip() or _SOMEBODY_ELSE
 
 
-# Deliberately separate from assert_band_editable: published means nobody
-# edits, taken means one person does. Checks and claims in one statement — the
-# first write claims, later writes renew, so nothing needs undoing afterwards.
+# Separate from assert_band_editable: published means nobody edits, taken means one
+# person does. Checks and claims in one statement; later writes renew, nothing to undo.
 async def assert_band_claimed(
     session: AsyncSession,
     identity: IdentityContext,
@@ -223,6 +223,29 @@ async def find_presence_lessons(
     return list(rows.unique())
 
 
+# Every lesson of the pupil's bookings that day and mode, whatever stretch they sit in.
+async def find_student_day_lessons(
+    session: AsyncSession,
+    *,
+    student_tax_code: str,
+    day: date,
+    mode: str,
+) -> list[Lesson]:
+    rows = await session.scalars(
+        select(Lesson)
+        .join(LessonBooking, LessonBooking.lesson_id == Lesson.id)
+        .join(Booking, Booking.id == LessonBooking.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+        .where(
+            Presence.student_tax_code == student_tax_code,
+            Presence.date == day,
+            Presence.mode == mode,
+        ),
+    )
+
+    return list(rows.unique())
+
+
 async def find_availability_lessons(
     session: AsyncSession,
     availability_id: int,
@@ -234,8 +257,7 @@ async def find_availability_lessons(
     return list(rows)
 
 
-# An excluded teacher takes nothing in the calendar; this answers clients
-# whose exclusion happened after they loaded it.
+# Answers clients whose exclusion happened after they loaded the calendar.
 async def assert_teacher_not_excluded(
     session: AsyncSession,
     day: date,

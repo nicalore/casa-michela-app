@@ -315,7 +315,7 @@ class _TimelineAxis extends StatelessWidget
   }
 }
 
-typedef _DragOutline = ({(int, int)? window, String mode, Set<String> preferred, Set<String> avoided});
+typedef _DragOutline = ({List<(int, int)> windows, String mode, Set<String> preferred, Set<String> avoided});
 
 enum StretchReach
 {
@@ -422,16 +422,14 @@ class _OnlineAlsoHatchPainter extends CustomPainter
 class _PresenceBoundsPainter extends CustomPainter
 {
   final TimelineMetrics metrics;
-  final (int, int)? presence;
+  final List<(int, int)> windows;
 
-  const _PresenceBoundsPainter({required this.metrics, this.presence});
+  const _PresenceBoundsPainter({required this.metrics, this.windows = const []});
 
   @override
   void paint(Canvas canvas, Size size)
   {
-    final window = presence;
-
-    if (window == null)
+    if (windows.isEmpty)
     {
       return;
     }
@@ -440,18 +438,21 @@ class _PresenceBoundsPainter extends CustomPainter
       ..color = AppTheme.trialTealDeep.withValues(alpha: 0.7)
       ..strokeWidth = 1.5;
 
-    for (final minute in [window.$1, window.$2])
+    for (final window in windows)
     {
-      if (minute <= metrics.windowStartMinutes || minute >= metrics.windowEndMinutes)
+      for (final minute in [window.$1, window.$2])
       {
-        continue;
-      }
+        if (minute <= metrics.windowStartMinutes || minute >= metrics.windowEndMinutes)
+        {
+          continue;
+        }
 
-      final x = metrics.xOf(minute);
+        final x = metrics.xOf(minute);
 
-      for (var y = 0.0; y < size.height; y += 9)
-      {
-        canvas.drawLine(Offset(x, y), Offset(x, math.min(y + 5, size.height)), paint);
+        for (var y = 0.0; y < size.height; y += 9)
+        {
+          canvas.drawLine(Offset(x, y), Offset(x, math.min(y + 5, size.height)), paint);
+        }
       }
     }
   }
@@ -459,7 +460,7 @@ class _PresenceBoundsPainter extends CustomPainter
   @override
   bool shouldRepaint(_PresenceBoundsPainter oldDelegate)
   {
-    return oldDelegate.presence != presence ||
+    return !listEquals(oldDelegate.windows, windows) ||
         oldDelegate.metrics.windowStartMinutes != metrics.windowStartMinutes ||
         oldDelegate.metrics.trackWidth != metrics.trackWidth;
   }
@@ -617,7 +618,7 @@ class _LaneHeader extends StatelessWidget
       return (preferred: false, avoided: false);
     }
 
-    final outline = dragOutline(payload, bandStart: bandStart, bandEnd: bandEnd);
+    final outline = dragOutline(payload);
 
     return (
       preferred: outline.preferred.contains(lane.personTaxCode),
@@ -1364,11 +1365,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
 
     final presence = lane.spansIn(kPresenceMode, bandStart, bandEnd);
     final online = lane.spansIn(kOnlineMode, bandStart, bandEnd);
-    final window = outline?.window;
 
     StretchReach reachOf(String mode, (int, int) span)
     {
-      if (outline == null || window == null)
+      if (outline == null || outline.windows.isEmpty)
       {
         return StretchReach.idle;
       }
@@ -1383,11 +1383,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
         return StretchReach.closed;
       }
 
-      final shared = intersectSpan(span.$1, span.$2, window.$1, window.$2);
+      final reachable = intersectWindows([span], outline.windows)
+          .any((shared) => shared.$2 - shared.$1 >= kMinimumBandMinutes);
 
-      return shared != null && shared.$2 - shared.$1 >= kMinimumBandMinutes
-          ? StretchReach.open
-          : StretchReach.closed;
+      return reachable ? StretchReach.open : StretchReach.closed;
     }
 
     final inset = kTimelineRowPadding - kStretchBleed;
@@ -1439,9 +1438,21 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     return ValueListenableBuilder<CarriedRequest?>(
       valueListenable: listenable,
       builder: (context, carried, _) => _backgroundStack(
-        carried == null ? null : dragOutline(carried.payload, bandStart: bandStart, bandEnd: bandEnd),
+        carried == null ? null : _outlineOf(carried),
         carried?.competentTeachers ?? const {},
       ),
+    );
+  }
+
+  _DragOutline _outlineOf(CarriedRequest carried)
+  {
+    final outline = dragOutline(carried.payload);
+
+    return (
+      windows: carried.windows,
+      mode: outline.mode,
+      preferred: outline.preferred,
+      avoided: outline.avoided,
     );
   }
 
@@ -1462,7 +1473,7 @@ class _CalendarTimelineState extends State<CalendarTimeline>
                 ),
               Positioned.fill(
                 child: CustomPaint(
-                  painter: _PresenceBoundsPainter(metrics: metrics, presence: outline?.window),
+                  painter: _PresenceBoundsPainter(metrics: metrics, windows: outline?.windows ?? const []),
                 ),
               ),
             ],

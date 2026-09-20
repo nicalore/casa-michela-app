@@ -281,8 +281,7 @@ def _validate_booking_duration_within_presence(
     deleted_booking_ids = _deleted_ids_of(session, Booking)
 
     for student_tax_code, day, mode in affected:
-        # Queried explicitly so the result does not depend on what the identity
-        # map happens to have cached.
+        # Queried explicitly: the result must not depend on the identity map's cache.
         persisted_presence_rows = session.execute(
             select(Presence.id, Presence.start_time, Presence.end_time).where(
                 Presence.student_tax_code == student_tax_code,

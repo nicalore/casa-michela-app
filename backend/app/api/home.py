@@ -38,8 +38,7 @@ from app.schemas.home import (
 )
 from app.schemas.person import PersonOption
 
-# What a person's home says about their own month; the desk-wide figures
-# live in app/api/statistics.py.
+# A person's own month; desk-wide figures live in app/api/statistics.py.
 router = APIRouter(prefix="/home", tags=["home"])
 
 _MINUTES_PER_HOUR: Final[int] = 60
@@ -48,8 +47,7 @@ _CENTS: Final[Decimal] = Decimal("0.01")
 _Stretch = tuple[date, time, time]
 
 
-# The month so far: from its first day to today included, as the desk
-# statistics count it, so a flag reads the same on both sides.
+# Month to date, today included, counted as statistics.py does so flags agree.
 @dataclass(frozen=True)
 class _Month:
     start: date
@@ -61,8 +59,7 @@ class _Month:
 
         return cls(start=now.date().replace(day=1), now=now)
 
-    # The month before, lived up to the same day and hour: what a figure is
-    # compared with. A day the shorter month never had becomes its last.
+    # Previous month up to the same day and hour; a day it never had becomes its last.
     @property
     def previous(self) -> "_Month":
         start = (self.start - timedelta(days=1)).replace(day=1)
@@ -104,8 +101,7 @@ def _minutes(moment: time) -> int:
     return moment.hour * _MINUTES_PER_HOUR + moment.minute
 
 
-# Lessons of one teacher may overlap (two pupils, staggered), and a room
-# shift runs across them: the day is measured as a union, not a sum.
+# Lessons may overlap and a shift spans them: the day is a union, not a sum.
 def _union_minutes(stretches: Iterable[_Stretch]) -> int:
     by_day: dict[date, list[tuple[int, int]]] = defaultdict(list)
 

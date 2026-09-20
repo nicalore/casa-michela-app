@@ -38,10 +38,15 @@ List<Widget> entityTabHeader({
   required TextEditingController searchController,
   required ValueChanged<String> onSearchChanged,
   required String searchHint,
-  required String actionLabel,
-  required VoidCallback onAction,
+  // Both null for a reader.
+  String? actionLabel,
+  VoidCallback? onAction,
+  IconData actionIcon = Icons.add_rounded,
+  LinearGradient actionGradient = AppTheme.brandGradient,
+  Color actionAccent = AppTheme.trialTealDeep,
   required SortCriterion sort,
   required ValueChanged<SortCriterion> onSortChanged,
+  List<SortCriterion> sortCriteria = SortCriterion.values,
   required String countLabel,
   List<Widget> filters = const [],
 })
@@ -53,14 +58,18 @@ List<Widget> entityTabHeader({
         onChanged: onSearchChanged,
         hintText: searchHint,
       ),
-      action: AppGradientButton(
-        label: actionLabel,
-        icon: Icons.add_rounded,
-        height: _actionHeight,
-        radius: _actionRadius,
-        fontSize: _actionFontSize,
-        onPressed: onAction,
-      ),
+      action: actionLabel != null && onAction != null
+          ? AppGradientButton(
+              label: actionLabel,
+              icon: actionIcon,
+              gradient: actionGradient,
+              accent: actionAccent,
+              height: _actionHeight,
+              radius: _actionRadius,
+              fontSize: _actionFontSize,
+              onPressed: onAction,
+            )
+          : null,
     ),
     const SizedBox(height: 28),
     Wrap(
@@ -68,7 +77,7 @@ List<Widget> entityTabHeader({
       runSpacing: _filterSpacing,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        AppSortPill(value: sort, onChanged: onSortChanged),
+        AppSortPill(value: sort, onChanged: onSortChanged, criteria: sortCriteria),
         ...filters,
       ],
     ),
@@ -91,17 +100,24 @@ class TabHeaderRow extends StatelessWidget
   static const double _stackedGap = 12;
 
   final Widget search;
-  final Widget action;
+  final Widget? action;
 
   const TabHeaderRow({
     super.key,
     required this.search,
-    required this.action,
+    this.action,
   });
 
   @override
   Widget build(BuildContext context)
   {
+    final Widget? action = this.action;
+
+    if (action == null)
+    {
+      return search;
+    }
+
     return LayoutBuilder(
       builder: (context, constraints)
       {

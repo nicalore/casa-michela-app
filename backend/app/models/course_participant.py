@@ -39,8 +39,7 @@ class CourseParticipant(Base):
         nullable=True,
     )
 
-    # Renaming a course rewrites this value; deleting one that is still in use
-    # is refused by the database.
+    # Renaming a course rewrites this value; deleting one in use is refused by the DB.
     course_type: Mapped[str] = mapped_column(
         String(255),
         ForeignKey("courses.name", onupdate="CASCADE", ondelete="RESTRICT"),

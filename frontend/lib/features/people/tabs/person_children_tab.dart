@@ -380,8 +380,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
         .toList();
   }
 
-  // Refused when a minor would be left with no parent; only warned about when
-  // the child is already an adult.
+  // A minor left with no parent is refused; an adult child only warns.
   String? _validateRemovals()
   {
     var hasAdultRemoval = false;
@@ -448,8 +447,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
     return null;
   }
 
-  // The endpoint takes the whole person: an omitted field would be cleared
-  // server side.
+  // Full-record endpoint: an omitted field is cleared server side.
   Map<String, dynamic> _buildPayload()
   {
     final person = widget.person;
@@ -518,7 +516,7 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       {
         CustomSnackBar.show(
           context: context,
-          message: 'Associazione figli aggiornata con successo!',
+          message: 'Figli aggiornati con successo!',
           isError: false,
         );
 

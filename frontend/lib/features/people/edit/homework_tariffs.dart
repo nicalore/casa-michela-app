@@ -42,7 +42,6 @@ const Map<String, Map<String, String>> _tariffCodes = {
   },
 };
 
-// Primary school has one rate and no question to answer, so it needs no choice.
 String? homeworkTariffCodeOf({required String? level, required String? choice})
 {
   if (level == 'PRIMARY_SCHOOL')
@@ -53,7 +52,6 @@ String? homeworkTariffCodeOf({required String? level, required String? choice})
   return _tariffCodes[level]?[choice];
 }
 
-// The choice buried in a stored code, so reopening a pupil restores the chips.
 String? homeworkTariffChoiceOf(String? code)
 {
   for (final Map<String, String> byChoice in _tariffCodes.values)
