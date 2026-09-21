@@ -15,8 +15,11 @@ SENDER: Final[str] = "Associazione Casa Michela <supporto@app.casamichela.it>"
 # The association's mailbox: replies, and reports until a president with an email.
 CONTACT_ADDRESS: Final[str] = "nicolo.calore@casamichela.it"
 
-# Whoever builds the app: problems with it go here, not to the president.
+# Whoever builds the app: problems and corrections go here, not to the president.
 DEVELOPER_ADDRESS: Final[str] = "nicolo.calore@casamichela.it"
+DEVELOPER_GREETING: Final[str] = "Ciao Nicolò,"
+
+GREETING: Final[str] = "Ciao,"
 
 LOGO_URL: Final[str] = (
     "https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/"
@@ -47,7 +50,7 @@ _TEMPLATE: Final[str] = """
         </div>
         <h2 style="margin: 0 0 20px 0; color: {ink}; font-size: 24px; font-weight: 700;
                    line-height: 1.25;"> {heading} </h2>
-        <p style="margin: 0 0 14px 0;">Ciao,</p>
+        <p style="margin: 0 0 14px 0;">{greeting}</p>
         {body_html}
         <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {line};
                   color: {muted}; font-size: 14px;">
@@ -78,6 +81,7 @@ def send_email(
     heading: str,
     body: str,
     reply_to: str = CONTACT_ADDRESS,
+    greeting: str = GREETING,
 ) -> None:
     resend.Emails.send(
         {
@@ -88,6 +92,7 @@ def send_email(
             "html": _TEMPLATE.format(
                 logo_url=LOGO_URL,
                 heading=heading,
+                greeting=greeting,
                 body_html=body,
                 paper=PAPER,
                 line=LINE,

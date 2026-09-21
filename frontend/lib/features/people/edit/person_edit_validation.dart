@@ -219,6 +219,11 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       collector.add('cf', 'Non combacia con nome e cognome', PersonEditCardId.identity);
     }
 
+    if (cf.length == 16 && !collector.errors.containsKey('cf') && form.isTaxCodeTaken(cf))
+    {
+      collector.add('cf', 'Codice fiscale già presente', PersonEditCardId.identity);
+    }
+
     // Abroad the city may be unknown; the switch fills the province in.
     if (!form.bornAbroad && form.birthCityCtrl.text.trim().isEmpty)
     {

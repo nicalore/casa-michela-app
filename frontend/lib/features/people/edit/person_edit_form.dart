@@ -179,6 +179,22 @@ class PersonEditForm
 
   bool get isCreation => person == null;
 
+  // Someone already holds it, on the server or in the dialog that opened this one.
+  bool isTaxCodeTaken(String taxCode)
+  {
+    return reservedTaxCodes.contains(taxCode) ||
+        allPeople.any((candidate) => candidate.fiscalCode == taxCode);
+  }
+
+  // Handed to a nested dialog: this person plus the ones already created here.
+  Set<String> get taxCodesInHand
+  {
+    return {
+      cfCtrl.text.trim().toUpperCase(),
+      for (final pending in pendingPeople) (pending['person'] as PersonItem).fiscalCode,
+    }..remove('');
+  }
+
   // Once on file the consent is settled for good, so the wizard stops asking.
   bool get asksSpecialCategoryDataConsent =>
       !(person?.specialCategoryDataConsent ?? false);
@@ -376,6 +392,9 @@ class PersonEditForm
   // People created inside this dialog; they must reach the server first.
   final List<Map<String, dynamic>> pendingPeople = [];
 
+  // Held by the dialog that opened this one: not on the server yet, but taken.
+  final Set<String> reservedTaxCodes = {};
+
   final Map<String, ParentalRelationshipDraft> selectedParents = {};
   final Map<String, ParentalRelationshipDraft> selectedMinors = {};
 
@@ -389,6 +408,7 @@ class PersonEditForm
   List<AssociationSubjectItem> allSubjects = [];
   List<ServiceItem> allServices = [];
   List<CourseItem> allCourses = [];
+  List<PersonItem> allPeople = [];
   List<PersonItem> allAdults = [];
   List<PersonItem> allMinors = [];
 
@@ -407,6 +427,7 @@ class PersonEditForm
   factory PersonEditForm.blank({
     Set<String> roles = const {},
     int involvement = -1,
+    Set<String> reservedTaxCodes = const {},
   })
   {
     final PersonEditForm form = PersonEditForm._(null);
@@ -414,6 +435,7 @@ class PersonEditForm
 
     form.involvementType = involvement;
     form.selectedRoles.addAll(roles);
+    form.reservedTaxCodes.addAll(reservedTaxCodes);
     form.setBornAbroad(false);
 
     form.membershipRows.add(MembershipRowData.empty(
@@ -613,6 +635,7 @@ class PersonEditForm
     allSubjects = subjects;
     allServices = services;
     allCourses = courses;
+    allPeople = people;
 
     allMinors = people
         .where((candidate) =>

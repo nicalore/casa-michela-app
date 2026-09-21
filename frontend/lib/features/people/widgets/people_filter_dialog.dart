@@ -16,6 +16,8 @@ import '../models/people_filter_state.dart';
 class PeopleFilterDialog extends StatefulWidget
 {
   final PeopleFilterState                 initialState;
+  final List<String>                      availableBirthNations;
+  final List<String>                      availableBirthCities;
   final List<String>                      availableCities;
   final List<String>                      availableSchools;
   final List<String>                      availableStudyPrograms;
@@ -25,6 +27,8 @@ class PeopleFilterDialog extends StatefulWidget
   const PeopleFilterDialog({
     super.key,
     required this.initialState,
+    required this.availableBirthNations,
+    required this.availableBirthCities,
     required this.availableCities,
     required this.availableSchools,
     required this.availableStudyPrograms,
@@ -45,6 +49,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
 
   late PeopleFilterState _currentState;
 
+  final TextEditingController _birthNationController  = TextEditingController();
+  final TextEditingController _birthCityController    = TextEditingController();
   final TextEditingController _cityController         = TextEditingController();
   final TextEditingController _schoolController       = TextEditingController();
   final TextEditingController _studyProgramController = TextEditingController();
@@ -68,6 +74,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     super.initState();
     _currentState = widget.initialState;
 
+    _birthNationController.text  = '';
+    _birthCityController.text    = _currentState.birthCity      ?? '';
     _cityController.text         = _currentState.city           ?? '';
     _schoolController.text       = _currentState.schoolName     ?? '';
     _studyProgramController.text = _currentState.studyProgram   ?? '';
@@ -78,6 +86,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   @override
   void dispose()
   {
+    _birthNationController.dispose();
+    _birthCityController.dispose();
     _cityController.dispose();
     _schoolController.dispose();
     _studyProgramController.dispose();
@@ -105,6 +115,52 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       _currentState = _currentState.copyWith(
         selectedRoles: updatedRoles,
         clearRoles:    updatedRoles.isEmpty,
+      );
+    });
+  }
+
+  // Naming a nation only makes sense abroad; Italy is the other chip.
+  void _setBirthPlace(String? place)
+  {
+    setState(()
+    {
+      _currentState = _currentState.copyWith(
+        birthPlace:        place,
+        clearBirthPlace:   place == null,
+        clearBirthNations: place != PeopleFilterState.bornAbroad,
+      );
+
+      if (place != PeopleFilterState.bornAbroad)
+      {
+        _birthNationController.clear();
+      }
+    });
+  }
+
+  void _addBirthNation(String nation)
+  {
+    String n = nation.trim();
+    if (n.isEmpty || !widget.availableBirthNations.contains(n) || _currentState.birthNations.contains(n))
+    {
+      return;
+    }
+
+    setState(()
+    {
+      List<String> updated = List.from(_currentState.birthNations)..add(n);
+      _currentState        = _currentState.copyWith(birthNations: updated);
+    });
+  }
+
+  void _removeBirthNation(String nation)
+  {
+    setState(()
+    {
+      List<String> updated = List.from(_currentState.birthNations)..remove(nation);
+
+      _currentState = _currentState.copyWith(
+        birthNations:      updated,
+        clearBirthNations: updated.isEmpty,
       );
     });
   }
@@ -143,6 +199,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     {
       _currentState = const PeopleFilterState();
 
+      _birthNationController.clear();
+      _birthCityController.clear();
       _cityController.clear();
       _schoolController.clear();
       _studyProgramController.clear();
@@ -377,6 +435,54 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ),
 
                         _buildPillBreak(),
+                        _buildFieldLabel('Nazione di nascita'),
+                        _buildChoiceChips<String>(
+                          value: _currentState.birthPlace,
+                          options: const [
+                            (PeopleFilterState.bornInItaly, 'Italia'),
+                            (PeopleFilterState.bornAbroad, 'Estero'),
+                          ],
+                          onChanged: _setBirthPlace,
+                        ),
+                        if (_currentState.birthPlace == PeopleFilterState.bornAbroad) ...[
+                          const SizedBox(height: 12),
+                          _AutocompleteField(
+                            controller:  _birthNationController,
+                            hint:        'Es. Romania',
+                            options:     widget.availableBirthNations,
+                            onChanged:   (_) {},
+                            onSubmitted: _addBirthNation,
+                          ),
+                          if (_currentState.birthNations.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing:    8,
+                              runSpacing: 8,
+                              children:   _currentState.birthNations.map((n)
+                              {
+                                return AppDeletableChip(
+                                  label:    n,
+                                  onDelete: () => _removeBirthNation(n),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ],
+
+                        _buildFieldLabel('Città di nascita'),
+                        _AutocompleteField(
+                          controller: _birthCityController,
+                          hint:       'Es. Thiene',
+                          options:    widget.availableBirthCities,
+                          onChanged:  (val) => setState(()
+                          {
+                            _currentState = _currentState.copyWith(
+                              birthCity:      val,
+                              clearBirthCity: val.isEmpty,
+                            );
+                          }),
+                        ),
+
                         _buildFieldLabel('Città di residenza'),
                         _AutocompleteField(
                           controller: _cityController,

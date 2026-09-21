@@ -42,21 +42,34 @@ class PersonEditDialog extends StatefulWidget
 
   final ResidenceOffer? offeredResidence;
 
+  // Tax codes the opener already holds: its own person and the ones created there.
+  final Set<String> reservedTaxCodes;
+
   const PersonEditDialog({super.key, required PersonItem this.person})
       : purpose = PersonEditPurpose.edit,
-        offeredResidence = null;
+        offeredResidence = null,
+        reservedTaxCodes = const {};
 
   const PersonEditDialog.create({super.key})
       : person = null,
         purpose = PersonEditPurpose.create,
-        offeredResidence = null;
+        offeredResidence = null,
+        reservedTaxCodes = const {};
 
   // Hands the payload back to the opener instead of saving it.
-  const PersonEditDialog.createParent({super.key, this.offeredResidence})
+  const PersonEditDialog.createParent({
+    super.key,
+    this.offeredResidence,
+    this.reservedTaxCodes = const {},
+  })
       : person = null,
         purpose = PersonEditPurpose.createParent;
 
-  const PersonEditDialog.createMinor({super.key, this.offeredResidence})
+  const PersonEditDialog.createMinor({
+    super.key,
+    this.offeredResidence,
+    this.reservedTaxCodes = const {},
+  })
       : person = null,
         purpose = PersonEditPurpose.createMinor;
 
@@ -104,6 +117,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
                 : const {},
             // The involvement step is skipped here, so the answer is preset.
             involvement: widget.handsBackPayload ? 0 : -1,
+            reservedTaxCodes: widget.reservedTaxCodes,
           )
         : PersonEditForm.fromPerson(widget.person!);
     _loadCatalogues();
@@ -579,6 +593,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       barrierLabel: 'ParentCreation',
       builder: (context) => PersonEditDialog.createParent(
         offeredResidence: _form.residenceOffer(label: 'Stessa residenza del minore'),
+        reservedTaxCodes: _form.taxCodesInHand,
       ),
     );
 
@@ -597,6 +612,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       barrierLabel: 'MinorCreation',
       builder: (context) => PersonEditDialog.createMinor(
         offeredResidence: _form.residenceOffer(label: 'Stessa residenza del genitore'),
+        reservedTaxCodes: _form.taxCodesInHand,
       ),
     );
 

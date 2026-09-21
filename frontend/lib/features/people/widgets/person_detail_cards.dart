@@ -111,10 +111,20 @@ String? _certificationText(PersonItem person)
     return null;
   }
 
-  return person.certificationTypes
-      .map((type) =>
-          type == _otherOptionCode ? orDash(person.certificationOtherDetail) : type)
-      .join(_listSeparator);
+  return person.certificationTypes.map((type) => switch (type)
+  {
+    _otherOptionCode => orDash(person.certificationOtherDetail),
+    _dsaOptionCode => _dsaText(person),
+    _ => type,
+  }).join(_listSeparator);
+}
+
+// The disorder rides along on the same line: a hidden type next to a plain one hides nothing.
+String _dsaText(PersonItem person)
+{
+  final String? detail = person.certificationDsaDetail;
+
+  return detail == null || detail.isEmpty ? _dsaOptionCode : '$_dsaOptionCode ($detail)';
 }
 
 String _residenceAddress(PersonItem person)
@@ -392,13 +402,6 @@ List<PersonDetailCard> pupilDetailCards(PersonItem person)
   final List<DetailRowData> certificationRows = [
     if (certification != null)
       DetailRowData('Tipologia', certification, isSensitive: true, hidesLength: true),
-    if (person.certificationTypes.contains(_dsaOptionCode))
-      DetailRowData(
-        'Tipo di DSA',
-        orDash(person.certificationDsaDetail),
-        isSensitive: true,
-        hidesLength: true,
-      ),
   ];
 
   return [

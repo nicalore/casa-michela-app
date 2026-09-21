@@ -14,6 +14,7 @@ import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../edit/person_edit_dialog.dart';
+import '../edit/person_edit_form.dart' show kBornInItalyNation;
 import '../models/people_filter_state.dart';
 import '../models/person_item.dart';
 import '../widgets/people_filter_dialog.dart';
@@ -83,6 +84,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
   List<PersonItem> _people = [];
 
+  List<String> _availableBirthNations = [];
+  List<String> _availableBirthCities = [];
   List<String> _availableCities = [];
   List<String> _availableSchools = [];
   List<String> _availableStudyPrograms = [];
@@ -153,6 +156,11 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       setState(()
       {
         _people = data;
+        // Italy has its own chip: offering it here too would say the same thing twice.
+        _availableBirthNations = _distinctSorted(_people
+            .map((person) => person.birthNation)
+            .where((nation) => nation?.toLowerCase() != kBornInItalyNation.toLowerCase()));
+        _availableBirthCities = _distinctSorted(_people.map((person) => person.birthCity));
         _availableCities = _distinctSorted(_people.map((person) => person.city));
         _availableSchools = _distinctSorted(_people.map((person) => person.schoolName));
         _availableStudyPrograms = _distinctSorted(_people.map((person) => person.studyProgram));
@@ -311,6 +319,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         _matchesChildrenCount(person) &&
         _matchesSubjects(person) &&
         _matchesCertifications(person) &&
+        _filterState.matchesBirthNation(person.birthNation) &&
+        _matchesText(person.birthCity, _filterState.birthCity) &&
         _matchesText(person.city, _filterState.city) &&
         _matchesText(person.schoolName, _filterState.schoolName) &&
         _matchesText(person.studyProgram, _filterState.studyProgram) &&
@@ -352,6 +362,8 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       barrierLabel: 'PeopleFilter',
       builder: (context) => PeopleFilterDialog(
         initialState: _filterState,
+        availableBirthNations: _availableBirthNations,
+        availableBirthCities: _availableBirthCities,
         availableCities: _availableCities,
         availableSchools: _availableSchools,
         availableStudyPrograms: _availableStudyPrograms,

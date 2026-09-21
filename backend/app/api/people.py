@@ -2,9 +2,9 @@ import shutil
 from collections import defaultdict
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime
+from html import escape
 from typing import Annotated, Any, Final
 
-import resend
 from fastapi import (
     APIRouter,
     Depends,
@@ -25,7 +25,6 @@ from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.core import field_lengths
 from app.core.booking_window import today_in_rome
-from app.core.config import settings
 from app.core.downloads import inline_disposition
 from app.core.labels import (
     roman_numeral,
@@ -113,8 +112,6 @@ from app.services.teaching_competence import (
 )
 
 router = APIRouter(prefix="/people", tags=["people"])
-
-resend.api_key = settings.resend_api_key
 
 _ROLE_PARENT: Final[str] = "Genitore"
 _ROLE_MEMBER: Final[str] = "Associato"
@@ -320,39 +317,30 @@ _FORBIDDEN_CONTACTS_ERROR: Final[str] = (
     "Puoi aggiornare solo i contatti tuoi o dei tuoi figli"
 )
 
-_REPORT_EMAIL_SENDER: Final[str] = (
-    "Associazione Casa Michela <supporto@app.casamichela.it>"
-)
 _REPORT_EMAIL_SUBJECT: Final[str] = "Richiesta correzione anagrafica - {full_name}"
+_REPORT_EMAIL_HEADING: Final[str] = "Errore anagrafica"
 
-_REPORT_FIELD_TEMPLATE: Final[str] = """
-    <div style="margin-bottom: 16px;">
-        <p style="margin: 0 0 4px 0; font-weight: bold; color: #003C82;">{field}</p>
-        <p style="margin: 0; padding: 12px; background-color: #F1F5F9; border-left: 4px solid #003C82; border-radius: 0 4px 4px 0;">
-            {value}
-        </p>
+_REPORT_EMAIL_BODY: Final[str] = """
+    <p>È stata inviata una richiesta di correzione per i dati anagrafici di <strong>{full_name}</strong>.</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px;">
+        <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
+                  letter-spacing: 1.4px; text-transform: uppercase;">Codice fiscale attuale</p>
+        <p style="margin: 0;"><strong style="color: {ink}; font-size: 17px;">{tax_code}</strong></p>
+    </div>
+    <p>Correzioni e modifiche richieste:</p>
+    <div style="margin: 24px 0; padding: 18px 20px; background-color: {paper};
+                border: 1px solid {line}; border-radius: 18px;">
+        {fields}
     </div>
 """
 
-_REPORT_EMAIL_TEMPLATE: Final[str] = """
-<div style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #333333; line-height: 1.6;">
-    <div style="text-align: center; margin-bottom: 30px;">
-        <img src="https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100" alt="Associazione Casa Michela" style="width: 120px; height: auto;" />
-        <p style="margin-top: 10px; color: #003C82; font-weight: bold; font-size: 18px;">Associazione Casa Michela</p>
-    </div>
-    <h2 style="color: #003C82;">Segnalazione Errore Anagrafica</h2>
-    <p>Ciao Nicolò,</p>
-    <p>È stata inviata una richiesta di correzione per i dati anagrafici di un utente.</p>
-
-    <div style="background-color: #F8FAFC; padding: 20px; border-radius: 8px; border: 1px solid #E2E8F0; margin: 20px 0;">
-        <p style="margin: 0 0 8px 0;"><strong>Persona interessata:</strong> {full_name}</p>
-        <p style="margin: 0;"><strong>Codice Fiscale Attuale:</strong> {tax_code}</p>
-    </div>
-
-    <h3 style="color: #003C82; margin-top: 30px; margin-bottom: 15px;">Correzioni e modifiche richieste:</h3>
-    {fields}
-</div>
+_REPORT_FIELD: Final[str] = """
+        <p style="margin: 0 0 4px 0; color: {muted}; font-size: 11px; font-weight: 600;
+                  letter-spacing: 1.4px; text-transform: uppercase;">{field}</p>
+        <p style="margin: 0;">{value}</p>
 """
+_REPORT_FIELD_GAP: Final[str] = '<div style="height: 16px;"></div>'
 
 _ADMIN_UNIQUENESS_ERRORS: Final[dict[str, str]] = {
     "uq_administrator_president": (
@@ -2151,26 +2139,30 @@ async def report_person_error(
         )
 
     full_name = f"{person.first_name} {person.last_name}"
-    fields = "".join(
-        _REPORT_FIELD_TEMPLATE.format(field=field, value=value)
+    fields = _REPORT_FIELD_GAP.join(
+        _REPORT_FIELD.format(
+            field=escape(field),
+            value=escape(value),
+            muted=email_service.MUTED,
+        )
         for field, value in corrections.items()
     )
 
-    recipient = await email_service.president_address(db)
-
     try:
-        resend.Emails.send(
-            {
-                "from": _REPORT_EMAIL_SENDER,
-                "to": recipient,
-                "reply_to": recipient,
-                "subject": _REPORT_EMAIL_SUBJECT.format(full_name=full_name),
-                "html": _REPORT_EMAIL_TEMPLATE.format(
-                    full_name=full_name,
-                    tax_code=person.tax_code,
-                    fields=fields,
-                ),
-            }
+        email_service.send_email(
+            recipient=email_service.DEVELOPER_ADDRESS,
+            subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
+            heading=_REPORT_EMAIL_HEADING,
+            greeting=email_service.DEVELOPER_GREETING,
+            body=_REPORT_EMAIL_BODY.format(
+                full_name=escape(full_name),
+                tax_code=escape(person.tax_code),
+                fields=fields,
+                paper=email_service.PAPER,
+                line=email_service.LINE,
+                ink=email_service.INK,
+                muted=email_service.MUTED,
+            ),
         )
 
     except Exception as err:

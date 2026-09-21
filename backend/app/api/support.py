@@ -50,6 +50,7 @@ async def report_problem(
             reply_to=person.email,
             subject=_REPORT_EMAIL_SUBJECT.format(full_name=full_name),
             heading=_REPORT_EMAIL_HEADING,
+            greeting=email_service.DEVELOPER_GREETING,
             body=_REPORT_EMAIL_BODY.format(
                 full_name=escape(full_name),
                 role=escape(role_label(identity.active_role or "")),
