@@ -59,12 +59,17 @@ CustomTransitionPage<void> buildAppTransitionPage({
   return CustomTransitionPage<void>(
     key: key,
     child: child,
-    opaque: false,
+    // Opaque once settled: the covered route stops painting and ticking.
+    opaque: true,
     transitionDuration: _pageTransition,
     reverseTransitionDuration: _pageTransition,
     transitionsBuilder: (context, animation, secondaryAnimation, child)
     {
-      return _ScreenTransition(animation: animation, child: child);
+      return _ScreenTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
+      );
     },
   );
 }
@@ -861,6 +866,9 @@ mixin DestinationRefresh<T extends StatefulWidget> on State<T>
 {
   bool? _wasShown;
 
+  // As of the last dependency change; true before the first.
+  bool get destinationShown => _wasShown ?? true;
+
   void onDestinationShown();
 
   @override
@@ -900,9 +908,14 @@ class _DestinationScope extends InheritedWidget
 class _ScreenTransition extends StatelessWidget
 {
   final Animation<double> animation;
+  final Animation<double> secondaryAnimation;
   final Widget child;
 
-  const _ScreenTransition({required this.animation, required this.child});
+  const _ScreenTransition({
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -932,11 +945,18 @@ class _ScreenTransition extends StatelessWidget
     ]).animate(animation);
 
     return AnimatedBuilder(
-      animation: overlayAnimation,
+      animation: Listenable.merge([overlayAnimation, secondaryAnimation]),
       builder: (context, _)
       {
         final double blurIntensity = overlayAnimation.value * 20.0;
         final double backgroundOpacity = overlayAnimation.value;
+
+        // A route on its way out under an arriving one is blurred by that one already.
+        final bool covered = secondaryAnimation.value > 0;
+
+        final Widget cover = Container(
+          color: Colors.white.withValues(alpha: backgroundOpacity),
+        );
 
         return Stack(
           fit: StackFit.expand,
@@ -950,17 +970,17 @@ class _ScreenTransition extends StatelessWidget
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: blurIntensity > 0.1 ? blurIntensity : 0.1,
-                        sigmaY: blurIntensity > 0.1 ? blurIntensity : 0.1,
-                      ),
-                      child: Container(
-                        color: Colors.white.withValues(
-                          alpha: backgroundOpacity,
+                    // Skipped where invisible: under an opaque cover, under another route's blur, or too faint to see.
+                    if (backgroundOpacity >= 1 || covered || blurIntensity < 0.5)
+                      cover
+                    else
+                      BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: blurIntensity > 0.1 ? blurIntensity : 0.1,
+                          sigmaY: blurIntensity > 0.1 ? blurIntensity : 0.1,
                         ),
+                        child: cover,
                       ),
-                    ),
                     Opacity(
                       opacity: overlayAnimation.value,
                       child: const CasaMichelaLoader(isOverlay: false),

@@ -12,7 +12,7 @@ __all__ = ["AsyncSessionLocal", "Base", "engine"]
 
 engine: AsyncEngine = create_async_engine(
     settings.async_database_url,
-    echo=settings.debug,
+    echo=settings.sql_echo,
     pool_pre_ping=True,
 )
 

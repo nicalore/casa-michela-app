@@ -202,7 +202,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     try
     {
-      final user = await _apiService.me();
+      final user = _apiService.lastKnownIdentity ?? await _apiService.me();
 
       if (!mounted)
       {
@@ -490,13 +490,11 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
             tint: AppTheme.trialDeepWater,
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
-            animated: true,
           ),
           const CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,
-            animated: true,
           ),
           const PageWatermark(),
           Positioned.fill(

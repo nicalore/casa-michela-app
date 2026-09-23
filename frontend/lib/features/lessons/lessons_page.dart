@@ -228,8 +228,14 @@ class _LessonsPageState extends State<LessonsPage>
         _apiService.getPeople(),
         _apiService.getMinistrySubjects(),
         _apiService.getStudyPrograms(),
-        _apiService.getAvailabilities(),
-        _apiService.getPresences(),
+        _apiService.getAvailabilities(
+          dateFrom: _availableDays.first,
+          dateTo: _availableDays.last,
+        ),
+        _apiService.getPresences(
+          dateFrom: _availableDays.first,
+          dateTo: _availableDays.last,
+        ),
         _apiService.getOpeningDays(
           dateFrom: _availableDays.first,
           dateTo: _availableDays.last,
@@ -267,8 +273,16 @@ class _LessonsPageState extends State<LessonsPage>
         _people = results[0] as List<PersonItem>;
         _ministrySubjects = results[1] as List<MinistrySubjectItem>;
         _studyPrograms = results[2] as List<StudyProgramItem>;
-        _availabilities = results[3] as List<AvailabilityItem>;
-        _presences = results[4] as List<PresenceItem>;
+        _availabilities = _keepingDaysOutsideWindow(
+          _availabilities,
+          results[3] as List<AvailabilityItem>,
+          (item) => item.date,
+        );
+        _presences = _keepingDaysOutsideWindow(
+          _presences,
+          results[4] as List<PresenceItem>,
+          (item) => item.date,
+        );
         _openingDays = _keepingDaysOutsideWindow(
           _openingDays,
           [
@@ -2021,13 +2035,11 @@ class _LessonsPageState extends State<LessonsPage>
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 SafeArea(

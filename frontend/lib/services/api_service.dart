@@ -126,6 +126,65 @@ MinistrySubjectItem _ministrySubjectFromJson(dynamic json)
 
 typedef ApiFile = ({Uint8List bytes, String fileName});
 
+// One list per endpoint: concurrent readers share the request, later readers
+// the value, a write drops both. Copies go out, so a caller sorting in place
+// cannot touch the cache.
+class _ListMemo<T>
+{
+  List<T>? _value;
+  Future<List<T>>? _inFlight;
+  int _epoch = 0;
+
+  Future<List<T>> read(Future<List<T>> Function() fetch, {bool refresh = false}) async
+  {
+    final Future<List<T>>? shared = _inFlight;
+
+    if (shared != null)
+    {
+      return List<T>.of(await shared);
+    }
+
+    final List<T>? known = _value;
+
+    if (!refresh && known != null)
+    {
+      return List<T>.of(known);
+    }
+
+    final int epoch = _epoch;
+    final Future<List<T>> request = fetch();
+
+    _inFlight = request;
+
+    try
+    {
+      final List<T> value = await request;
+
+      // A write in the meantime bumped the epoch: this result predates it.
+      if (epoch == _epoch)
+      {
+        _value = value;
+      }
+
+      return List<T>.of(value);
+    }
+    finally
+    {
+      if (identical(_inFlight, request))
+      {
+        _inFlight = null;
+      }
+    }
+  }
+
+  void invalidate()
+  {
+    _value = null;
+    _inFlight = null;
+    _epoch++;
+  }
+}
+
 class ApiService
 {
   static final ApiService _instance = ApiService._internal();
@@ -141,12 +200,49 @@ class ApiService
   static String? _accessToken;
   static String? _refreshToken;
 
-  bool _isRefreshing = false;
+  Future<void>? _refreshing;
 
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
   // The router's redirect is synchronous and needs the active role, so the identity lives in a notifier.
   final ValueNotifier<MeResponse?> identity = ValueNotifier(null);
+
+  final _ListMemo<PersonItem> _peopleMemo = _ListMemo();
+  final _ListMemo<PersonItem> _teachersMemo = _ListMemo();
+  final _ListMemo<SchoolItem> _schoolsMemo = _ListMemo();
+  final _ListMemo<StudyProgramItem> _studyProgramsMemo = _ListMemo();
+  final _ListMemo<AssociationSubjectItem> _associationSubjectsMemo = _ListMemo();
+  final _ListMemo<MinistrySubjectItem> _ministrySubjectsMemo = _ListMemo();
+  final _ListMemo<ServiceItem> _servicesMemo = _ListMemo();
+  final _ListMemo<CourseItem> _coursesMemo = _ListMemo();
+  final _ListMemo<RoomItem> _roomsMemo = _ListMemo();
+
+  Future<MeResponse>? _meInFlight;
+
+  void _forgetPeople()
+  {
+    _peopleMemo.invalidate();
+    _teachersMemo.invalidate();
+  }
+
+  // A renamed subject, service or school shows up in the register too.
+  void _forgetCatalogues()
+  {
+    _schoolsMemo.invalidate();
+    _studyProgramsMemo.invalidate();
+    _associationSubjectsMemo.invalidate();
+    _ministrySubjectsMemo.invalidate();
+    _servicesMemo.invalidate();
+    _coursesMemo.invalidate();
+    _roomsMemo.invalidate();
+    _forgetPeople();
+  }
+
+  void _forgetAll()
+  {
+    _forgetCatalogues();
+    _meInFlight = null;
+  }
 
   ApiService._internal()
   {
@@ -172,40 +268,46 @@ class ApiService
         },
         onError: (error, handler) async
         {
-          if (error.response?.statusCode != 401 || _refreshToken == null || _isRefreshing)
+          final RequestOptions request = error.requestOptions;
+
+          if (error.response?.statusCode != 401 ||
+              _refreshToken == null ||
+              request.extra['retried'] == true)
           {
             return handler.next(error);
           }
 
-          _isRefreshing = true;
+          // A request that failed on an older token retries with the one in hand.
+          if (request.headers['Authorization'] == 'Bearer $_accessToken')
+          {
+            try
+            {
+              await _refreshOnce();
+            }
+            catch (_)
+            {
+              await _clearSession();
+              authState.value = AuthState.unauthenticated;
+
+              return handler.next(error);
+            }
+          }
+
+          request.headers['Authorization'] = 'Bearer $_accessToken';
+          request.extra['retried'] = true;
+
+          if (request.data is Map && (request.data as Map).containsKey('refresh_token'))
+          {
+            (request.data as Map)['refresh_token'] = _refreshToken;
+          }
 
           try
           {
-            await _performTokenRefresh();
-
-            final requestOptions = error.requestOptions;
-            requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
-
-            if (requestOptions.data is Map &&
-                (requestOptions.data as Map).containsKey('refresh_token'))
-            {
-              (requestOptions.data as Map)['refresh_token'] = _refreshToken;
-            }
-
-            final retryResponse = await _dio.fetch(requestOptions);
-
-            return handler.resolve(retryResponse);
+            return handler.resolve(await _dio.fetch(request));
           }
-          catch (_)
+          on DioException catch (retryError)
           {
-            await _clearSession();
-            authState.value = AuthState.unauthenticated;
-
-            return handler.next(error);
-          }
-          finally
-          {
-            _isRefreshing = false;
+            return handler.next(retryError);
           }
         },
       ),
@@ -215,6 +317,50 @@ class ApiService
   bool get isAuthenticated
   {
     return _accessToken != null && _refreshToken != null;
+  }
+
+  // Every 401 during a refresh waits for the same one instead of failing.
+  Future<void> _refreshOnce()
+  {
+    return _refreshing ??= _performTokenRefresh()
+        .then((_) {})
+        .whenComplete(() => _refreshing = null);
+  }
+
+  // Seconds before the token expires; zero when it cannot be read.
+  static int _secondsLeft(String token)
+  {
+    final List<String> parts = token.split('.');
+
+    if (parts.length != 3)
+    {
+      return 0;
+    }
+
+    try
+    {
+      final Map<String, dynamic> claims = Map<String, dynamic>.from(
+        jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))),
+      );
+
+      return (claims['exp'] as num).toInt() - DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    }
+    catch (_)
+    {
+      return 0;
+    }
+  }
+
+  static bool _passwordResetRequired(Object error)
+  {
+    if (error is! DioException || error.response?.statusCode != 403)
+    {
+      return false;
+    }
+
+    final data = error.response?.data;
+
+    return data is Map && data['detail'] == 'PASSWORD_RESET_REQUIRED';
   }
 
   Never _refused(DioException error, String fallback)
@@ -283,8 +429,16 @@ class ApiService
       {
         await me();
       }
-      catch (_)
+      catch (e)
       {
+        // Refused until the forced password change is done, like a login is.
+        if (_passwordResetRequired(e))
+        {
+          authState.value = AuthState.passwordChangeRequired;
+
+          return;
+        }
+
         await _clearSession();
         authState.value = AuthState.unauthenticated;
 
@@ -297,6 +451,7 @@ class ApiService
 
   Future<void> _clearSession() async
   {
+    _forgetAll();
     _accessToken = null;
     _refreshToken = null;
     identity.value = null;
@@ -330,8 +485,17 @@ class ApiService
 
     try
     {
-      await _performTokenRefresh();
-      return true;
+      // A token with time left skips the refresh: one round trip, not two.
+      if (_secondsLeft(_accessToken!) > 60)
+      {
+        await _announceAuthenticated();
+      }
+      else
+      {
+        await _performTokenRefresh();
+      }
+
+      return isAuthenticated;
     }
     catch (_)
     {
@@ -343,6 +507,8 @@ class ApiService
 
   Future<LoginResponse> login({required String username, required String password}) async
   {
+    _forgetAll();
+
     final response = await _dio.post(
       '/auth/login',
       data: {'username': username, 'password': password},
@@ -436,10 +602,13 @@ class ApiService
     }
   }
 
-  Future<List<AssociationSubjectItem>> getAssociationSubjects() async
+  Future<List<AssociationSubjectItem>> getAssociationSubjects({bool refresh = false})
   {
-    final response = await _dio.get('/association-subjects/');
-    return parseList(response.data, AssociationSubjectItem.fromJson);
+    return _associationSubjectsMemo.read(() async
+    {
+      final response = await _dio.get('/association-subjects/');
+      return parseList(response.data, AssociationSubjectItem.fromJson);
+    }, refresh: refresh);
   }
 
   Future<List<OpeningDayItem>> getOpeningDays({required DateTime dateFrom, required DateTime dateTo, required String mode}) async
@@ -660,6 +829,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la creazione. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<AssociationSubjectItem> updateAssociationSubject(int id, String name, String area, String description) async
@@ -676,6 +849,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteAssociationSubject(int id) async
@@ -687,6 +864,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante l\'eliminazione.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -744,10 +925,13 @@ class ApiService
 
   String _servicePath(String name) => '/services/${Uri.encodeComponent(name)}';
 
-  Future<List<ServiceItem>> getServices() async
+  Future<List<ServiceItem>> getServices({bool refresh = false})
   {
-    final response = await _dio.get('/services/');
-    return parseList(response.data, ServiceItem.fromJson);
+    return _servicesMemo.read(() async
+    {
+      final response = await _dio.get('/services/');
+      return parseList(response.data, ServiceItem.fromJson);
+    }, refresh: refresh);
   }
 
   Future<ServiceItem> createService(String name, String description) async
@@ -763,6 +947,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -780,6 +968,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteService(String name) async
@@ -792,14 +984,21 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   String _coursePath(String name) => '/courses/${Uri.encodeComponent(name)}';
 
-  Future<List<CourseItem>> getCourses() async
+  Future<List<CourseItem>> getCourses({bool refresh = false})
   {
-    final response = await _dio.get('/courses/');
-    return parseList(response.data, CourseItem.fromJson);
+    return _coursesMemo.read(() async
+    {
+      final response = await _dio.get('/courses/');
+      return parseList(response.data, CourseItem.fromJson);
+    }, refresh: refresh);
   }
 
   Future<CourseItem> createCourse(String name, String cost, String description) async
@@ -815,6 +1014,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -832,6 +1035,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteCourse(String name) async
@@ -844,13 +1051,20 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
-  Future<List<RoomItem>> getRooms() async
+  Future<List<RoomItem>> getRooms({bool refresh = false})
   {
-    final response = await _dio.get('/rooms/');
+    return _roomsMemo.read(() async
+    {
+      final response = await _dio.get('/rooms/');
 
-    return parseList(response.data, RoomItem.fromJson);
+      return parseList(response.data, RoomItem.fromJson);
+    }, refresh: refresh);
   }
 
   Future<RoomItem> createRoom({required String name, required String description, int? capacity}) async
@@ -867,6 +1081,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione della stanza. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -885,6 +1103,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica della stanza.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteRoom(int id) async
@@ -896,6 +1118,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante l\'eliminazione della stanza.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -1029,7 +1255,13 @@ class ApiService
 
   MeResponse? get lastKnownIdentity => identity.value;
 
-  Future<MeResponse> me() async
+  // Concurrent callers share one round trip; the value itself is never cached.
+  Future<MeResponse> me()
+  {
+    return _meInFlight ??= _fetchMe().whenComplete(() => _meInFlight = null);
+  }
+
+  Future<MeResponse> _fetchMe() async
   {
     final response = await _dio.get('/auth/me');
     final me = MeResponse.fromJson(Map<String, dynamic>.from(response.data));
@@ -1090,6 +1322,10 @@ class ApiService
     {
       _refused(e, 'Errore durante il salvataggio dei contatti. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> updateTeacherEducation({
@@ -1114,6 +1350,10 @@ class ApiService
     {
       _refused(e, 'Errore durante il salvataggio degli studi. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   int profileImageVersion = 0;
@@ -1136,6 +1376,10 @@ class ApiService
     {
       _refused(e, 'Errore durante il caricamento dell\'immagine.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> deleteProfileImage() async
@@ -1150,13 +1394,20 @@ class ApiService
     {
       _refused(e, 'Errore durante la rimozione dell\'immagine.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
-  Future<List<SchoolItem>> getSchools() async
+  Future<List<SchoolItem>> getSchools({bool refresh = false})
   {
-    final response = await _dio.get('/schools/');
+    return _schoolsMemo.read(() async
+    {
+      final response = await _dio.get('/schools/');
 
-    return parseList(response.data, _schoolFromJson);
+      return parseList(response.data, _schoolFromJson);
+    }, refresh: refresh);
   }
 
   Future<SchoolItem> createSchool({String? code, required String name, required String city, required String province, required List<int> studyProgramIds}) async
@@ -1179,6 +1430,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione della scuola. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -1203,6 +1458,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica della scuola. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteSchool(int id) async
@@ -1215,13 +1474,20 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione della scuola. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
-  Future<List<StudyProgramItem>> getStudyPrograms() async
+  Future<List<StudyProgramItem>> getStudyPrograms({bool refresh = false})
   {
-    final response = await _dio.get('/study-programs/');
+    return _studyProgramsMemo.read(() async
+    {
+      final response = await _dio.get('/study-programs/');
 
-    return parseList(response.data, _studyProgramFromJson);
+      return parseList(response.data, _studyProgramFromJson);
+    }, refresh: refresh);
   }
 
   Future<StudyProgramItem> createStudyProgram({required String name, required String? sector, required String description, required String level, required String? highSchoolTrack, required int? minYear, required int? maxYear, required List<int> ministrySubjectIds}) async
@@ -1248,6 +1514,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione del percorso. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -1276,6 +1546,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica del percorso. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteStudyProgram(int id) async
@@ -1288,13 +1562,20 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione del percorso. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
-  Future<List<MinistrySubjectItem>> getMinistrySubjects() async
+  Future<List<MinistrySubjectItem>> getMinistrySubjects({bool refresh = false})
   {
-    final response = await _dio.get('/ministry-subjects/');
+    return _ministrySubjectsMemo.read(() async
+    {
+      final response = await _dio.get('/ministry-subjects/');
 
-    return parseList(response.data, _ministrySubjectFromJson);
+      return parseList(response.data, _ministrySubjectFromJson);
+    }, refresh: refresh);
   }
 
   Future<MinistrySubjectItem> createMinistrySubject({required String name, required String level, required List<String> areas, required String description, required List<int> associationSubjectIds}) async
@@ -1317,6 +1598,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione della materia. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetCatalogues();
     }
   }
 
@@ -1341,6 +1626,10 @@ class ApiService
     {
       _refused(e, 'Errore durante la modifica della materia. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
   Future<void> deleteMinistrySubject(int id) async
@@ -1353,18 +1642,28 @@ class ApiService
     {
       _refused(e, 'Errore durante l\'eliminazione della materia. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetCatalogues();
+    }
   }
 
-  Future<List<PersonItem>> getPeople() async
+  Future<List<PersonItem>> getPeople({bool refresh = false})
   {
-    final response = await _dio.get('/people/');
-    return parseList(response.data, PersonItem.fromJson);
+    return _peopleMemo.read(() async
+    {
+      final response = await _dio.get('/people/');
+      return parseList(response.data, PersonItem.fromJson);
+    }, refresh: refresh);
   }
 
-  Future<List<PersonItem>> getTeachers() async
+  Future<List<PersonItem>> getTeachers({bool refresh = false})
   {
-    final response = await _dio.get('/people/teachers');
-    return parseList(response.data, PersonItem.fromJson);
+    return _teachersMemo.read(() async
+    {
+      final response = await _dio.get('/people/teachers');
+      return parseList(response.data, PersonItem.fromJson);
+    }, refresh: refresh);
   }
 
   Future<PersonItem> getPerson(String fiscalCode) async
@@ -1386,6 +1685,7 @@ class ApiService
           'file': MultipartFile.fromBytes(imageBytes, filename: '${newTaxCode}_profile.jpg'),
         });
         await _dio.post('/people/$newTaxCode/image', data: formData);
+        profileImageVersion++;
       }
 
       return newTaxCode;
@@ -1393,6 +1693,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto durante l\'aggiornamento. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
     }
   }
 
@@ -1413,11 +1717,16 @@ class ApiService
         });
 
         await _dio.post('/people/$taxCode/image', data: formData);
+        profileImageVersion++;
       }
     }
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto durante la creazione della persona. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
     }
   }
 
@@ -1551,6 +1860,10 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto durante l\'aggiornamento delle iscrizioni. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> revokePersonMembership(String fiscalCode, String revocationType, DateTime? expectedUpdatedAt) async
@@ -1569,6 +1882,10 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto durante la revoca dell\'iscrizione. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> updatePersonSchoolEnrollments(
@@ -1586,6 +1903,8 @@ class ApiService
         if (expectedUpdatedAt != null) 'expected_updated_at': expectedUpdatedAt.toIso8601String(),
       },
     );
+
+    _forgetPeople();
   }
   on DioException catch (e)
   {
@@ -1615,6 +1934,10 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> updateParent(
@@ -1640,6 +1963,10 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   Future<void> removeParent(String childTaxCode, String parentTaxCode) async
@@ -1651,6 +1978,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
     }
   }
 
@@ -1862,6 +2193,10 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
+    finally
+    {
+      _forgetPeople();
+    }
   }
 
   // Replaces the whole list.
@@ -1884,6 +2219,10 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+    finally
+    {
+      _forgetPeople();
     }
   }
 

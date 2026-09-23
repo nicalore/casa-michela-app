@@ -29,7 +29,6 @@ class _TrendLineChartState extends State<TrendLineChart>
 {
   static const double _hoverRadius = 16.0;
 
-  Offset? _hoverPosition;
   int? _hoveredIndex;
   Offset? _popupTargetPosition;
   int? _cachedMembersValue;
@@ -71,9 +70,13 @@ class _TrendLineChartState extends State<TrendLineChart>
   {
     final foundIndex = _pointNearest(points, position);
 
+    if (foundIndex == _hoveredIndex)
+    {
+      return;
+    }
+
     setState(()
     {
-      _hoverPosition = position;
       _hoveredIndex = foundIndex;
 
       // Target and value survive pointer exit, so the popup fades out in place.
@@ -101,18 +104,13 @@ class _TrendLineChartState extends State<TrendLineChart>
             Positioned.fill(
               child: MouseRegion(
                 onHover: (event) => _onHover(event.localPosition, points),
-                onExit: (_) => setState(()
-                {
-                  _hoverPosition = null;
-                  _hoveredIndex = null;
-                }),
+                onExit: (_) => setState(() => _hoveredIndex = null),
                 child: CustomPaint(
                   size: Size.infinite,
                   painter: _TrendLineChartPainter(
                     data: widget.data,
                     maxValue: maxValue,
                     isMonthly: widget.isMonthly,
-                    hoverPosition: _hoverPosition,
                   ),
                 ),
               ),
@@ -138,13 +136,11 @@ class _TrendLineChartPainter extends CustomPainter
   final List<MemberTrendItem> data;
   final int maxValue;
   final bool isMonthly;
-  final Offset? hoverPosition;
 
   _TrendLineChartPainter({
     required this.data,
     required this.maxValue,
     required this.isMonthly,
-    this.hoverPosition,
   });
 
   TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
@@ -323,6 +319,6 @@ class _TrendLineChartPainter extends CustomPainter
   @override
   bool shouldRepaint(covariant _TrendLineChartPainter oldDelegate)
   {
-    return oldDelegate.hoverPosition != hoverPosition || oldDelegate.data != data;
+    return oldDelegate.data != data;
   }
 }

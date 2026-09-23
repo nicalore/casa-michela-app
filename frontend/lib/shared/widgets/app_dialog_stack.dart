@@ -227,7 +227,7 @@ class AppDialogStack extends StatelessWidget
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: _WhileItIsThere(
-        // Full screen on purpose: showBlurredDialog's BackdropFilter sizes itself to its child.
+        // Full screen on purpose: the pieces are aligned within the whole window.
         child: Align(
           alignment: alignment,
           child: ConstrainedBox(
@@ -288,7 +288,7 @@ class _WhileItIsThere extends StatelessWidget
   }
 }
 
-class AppDialogPiece extends StatelessWidget
+class AppDialogPiece extends StatefulWidget
 {
   final int index;
   final Widget child;
@@ -303,18 +303,68 @@ class AppDialogPiece extends StatelessWidget
   });
 
   @override
-  Widget build(BuildContext context)
+  State<AppDialogPiece> createState() => _AppDialogPieceState();
+}
+
+// Owns its curves: a CurvedAnimation listens to the route and must be disposed, not made per build.
+class _AppDialogPieceState extends State<AppDialogPiece>
+{
+  Animation<double>? _route;
+  int? _index;
+
+  CurvedAnimation? _fade;
+  CurvedAnimation? _pop;
+  Animation<double>? _scale;
+
+  @override
+  void didChangeDependencies()
   {
-    final route = ModalRoute.of(context)?.animation;
+    super.didChangeDependencies();
+    _sync(ModalRoute.of(context)?.animation);
+  }
+
+  @override
+  void didUpdateWidget(AppDialogPiece oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+    _sync(_route);
+  }
+
+  @override
+  void dispose()
+  {
+    _release();
+    super.dispose();
+  }
+
+  void _release()
+  {
+    _fade?.dispose();
+    _pop?.dispose();
+    _fade = null;
+    _pop = null;
+    _scale = null;
+  }
+
+  void _sync(Animation<double>? route)
+  {
+    if (identical(route, _route) && widget.index == _index)
+    {
+      return;
+    }
+
+    _route = route;
+    _index = widget.index;
+    _release();
 
     if (route == null)
     {
-      return child;
+      return;
     }
 
-    final start = (index * _staggerStep).clamp(0.0, 1.0 - _staggerSpan);
+    final start = (widget.index * _staggerStep).clamp(0.0, 1.0 - _staggerSpan);
 
-    final animation = CurvedAnimation(
+    _fade = CurvedAnimation(
       parent: route,
       curve: Interval(start, start + _staggerSpan, curve: Curves.easeOutCubic),
       reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
@@ -326,12 +376,27 @@ class AppDialogPiece extends StatelessWidget
       reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
     );
 
+    _pop = pop;
+    _scale = Tween<double>(begin: _pieceScale, end: 1).animate(pop);
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final Animation<double>? fade = _fade;
+    final Animation<double>? scale = _scale;
+
+    if (fade == null || scale == null)
+    {
+      return widget.child;
+    }
+
     return FadeTransition(
-      key: named ? ValueKey('appDialogPiece$index') : null,
-      opacity: animation,
+      key: widget.named ? ValueKey('appDialogPiece${widget.index}') : null,
+      opacity: fade,
       child: ScaleTransition(
-        scale: Tween<double>(begin: _pieceScale, end: 1).animate(pop),
-        child: child,
+        scale: scale,
+        child: widget.child,
       ),
     );
   }

@@ -1,11 +1,14 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 from app.api import (
     association_subjects,
@@ -45,6 +48,15 @@ from app.middleware import audit_logging_middleware
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
 
 
+# Photos are written under timestamped names: what a URL serves never changes.
+class _ImmutableStaticFiles(StaticFiles):
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+
+        return response
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bootstrap = asyncio.create_task(bootstrap_calendar_on_startup())
@@ -75,7 +87,7 @@ PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount(
     f"/{UPLOADS_DIR.as_posix()}",
-    StaticFiles(directory=UPLOADS_DIR),
+    _ImmutableStaticFiles(directory=UPLOADS_DIR),
     name="uploads",
 )
 
@@ -90,6 +102,9 @@ app.add_middleware(
 )
 
 app.middleware("http")(audit_logging_middleware)
+
+# Added last, so outermost: the audit middleware keeps reading plain bodies.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.include_router(auth.router)
 app.include_router(association_subjects.router)

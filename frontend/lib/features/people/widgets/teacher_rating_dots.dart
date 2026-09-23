@@ -72,6 +72,18 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
     return index + (within > widget.dotSize / 2 ? 1 : kTeacherRatingStep);
   }
 
+  void _previewAt(double dx)
+  {
+    final double value = _valueAt(dx);
+
+    if (value == _preview)
+    {
+      return;
+    }
+
+    setState(() => _preview = value);
+  }
+
   void _tapped(double dx)
   {
     final double picked = _valueAt(dx);
@@ -158,8 +170,7 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
       message: TeacherRatingDots._hint,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        onHover: (event) =>
-            setState(() => _preview = _valueAt(event.localPosition.dx)),
+        onHover: (event) => _previewAt(event.localPosition.dx),
         onExit: (_) => setState(() => _preview = null),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,

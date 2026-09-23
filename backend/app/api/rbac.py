@@ -5,12 +5,9 @@ from typing import Annotated, Final
 from fastapi import Depends, HTTPException, Request, status
 
 from app.api.current_account import CurrentAccount
-from app.api.dependencies import DbSession
 from app.core.audit import AUDIT_ACTOR_KEY, AuditActor
-from app.repositories.identity_repository import IdentityRepository
 from app.services.role_service import RoleService
 
-_IDENTITY_NOT_FOUND_ERROR: Final[str] = "Identità non trovata"
 _FORBIDDEN_ROLE_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
 
 _ADMIN_ROLE: Final[str] = "ADMIN"
@@ -50,18 +47,8 @@ class IdentityContext:
 async def get_current_identity(
     request: Request,
     current_account: CurrentAccount,
-    db: DbSession,
 ) -> IdentityContext:
-    account = await IdentityRepository(db).get_account_identity(
-        current_account.tax_code
-    )
-
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=_IDENTITY_NOT_FOUND_ERROR,
-        )
-
+    account = current_account
     roles = frozenset(RoleService.get_available_roles(account.person))
 
     identity = IdentityContext(

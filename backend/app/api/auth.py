@@ -14,12 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.current_account import CurrentAccount, CurrentAccountAllowPendingReset
 from app.api.dependencies import DbSession
 from app.core.password_policy import PasswordPolicyError
-from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
+from app.core.storage import PROFILE_IMAGES_DIR, store_profile_image
 from app.models.account import Account
 from app.models.administrator import AdministratorRoleEnum
 from app.models.person import Person
 from app.repositories.account_repository import AccountRepository
-from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.auth.active_role_request import ActiveRoleRequest
 from app.schemas.auth.change_password_request import ChangePasswordRequest
@@ -57,7 +56,6 @@ _ACCOUNT_LOCKED_ERROR: Final[str] = (
     "Account temporaneamente bloccato fino al {locked_until}"
 )
 _INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
-_ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
 
 # Mirrored by frontend/lib/features/auth/models/me_response.dart.
 _BOARD_ROLES: Final[frozenset[AdministratorRoleEnum]] = frozenset(
@@ -226,23 +224,9 @@ def _identity_payload(account: Account) -> dict[str, Any]:
     }
 
 
-async def _identity_or_404(db: AsyncSession, tax_code: str) -> Account:
-    account = await IdentityRepository(db).get_account_identity(tax_code)
-
-    if account is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=_ACCOUNT_NOT_FOUND_ERROR,
-        )
-
-    return account
-
-
 @router.get("/me")
-async def me(current_account: CurrentAccount, db: DbSession) -> dict[str, Any]:
-    account = await _identity_or_404(db, current_account.tax_code)
-
-    return _identity_payload(account)
+async def me(current_account: CurrentAccount) -> dict[str, Any]:
+    return _identity_payload(current_account)
 
 
 # Presentation only: RBAC still reads every role, so switching changes no permission.
@@ -252,7 +236,7 @@ async def set_active_role(
     current_account: CurrentAccount,
     db: DbSession,
 ) -> dict[str, Any]:
-    account = await _identity_or_404(db, current_account.tax_code)
+    account = current_account
     role = request.role
 
     if role not in RoleService.get_available_roles(account.person):
@@ -280,7 +264,7 @@ async def complete_onboarding(
     current_account: CurrentAccount,
     db: DbSession,
 ) -> dict[str, Any]:
-    account = await _identity_or_404(db, current_account.tax_code)
+    account = current_account
 
     if account.onboarding_completed_at is None:
         account.onboarding_completed_at = datetime.now(UTC)
@@ -308,27 +292,11 @@ async def upload_profile_image(
             detail=_MISSING_FILENAME_ERROR,
         )
 
-    PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Filenames carry the extension, so a new format writes a new file: delete the old.
-    previous_url = current_account.person.profile_image_url
-
-    if previous_url is not None:
-        previous_path = PROFILE_IMAGES_DIR / Path(previous_url).name
-
-        if previous_path.exists():
-            previous_path.unlink()
-
-    extension = Path(file.filename).suffix.lower()
-    filename = f"{current_account.tax_code}{extension}"
-    destination = PROFILE_IMAGES_DIR / filename
-
-    content = await file.read()
-
-    with destination.open("wb") as output:
-        output.write(content)
-
-    profile_image_url = f"{PROFILE_IMAGES_URL_PREFIX}/{filename}"
+    profile_image_url = store_profile_image(
+        current_account.tax_code,
+        current_account.person.profile_image_url,
+        await file.read(),
+    )
     current_account.person.profile_image_url = profile_image_url
 
     await db.commit()

@@ -1,16 +1,22 @@
 from collections.abc import Sequence
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
+from app.api.rbac import get_current_identity, require_role
 from app.models.service import Service
 from app.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 
-router = APIRouter(prefix="/services", tags=["services"])
+router = APIRouter(
+    prefix="/services",
+    tags=["services"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _SERVICE_NOT_FOUND_ERROR: Final[str] = "Servizio non trovato."
 _DUPLICATE_SERVICE_ERROR: Final[str] = 'Esiste già il servizio "{name}"'
@@ -55,7 +61,11 @@ async def get_services(db: DbSession) -> Sequence[Service]:
     return (await db.execute(select(Service).order_by(Service.name))).scalars().all()
 
 
-@router.post("/", response_model=ServiceResponse)
+@router.post(
+    "/",
+    response_model=ServiceResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_service(payload: ServiceCreate, db: DbSession) -> Service:
     await _assert_name_available(db, payload.name)
 
@@ -79,7 +89,11 @@ async def get_service(name: str, db: DbSession) -> Service:
     return await _get_service_or_404(db, name)
 
 
-@router.put("/{name}", response_model=ServiceResponse)
+@router.put(
+    "/{name}",
+    response_model=ServiceResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_service(
     name: str,
     payload: ServiceUpdate,
@@ -107,7 +121,10 @@ async def update_service(
     return service
 
 
-@router.delete("/{name}")
+@router.delete(
+    "/{name}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_service(name: str, db: DbSession) -> dict[str, str]:
     service = await _get_service_or_404(db, name)
 

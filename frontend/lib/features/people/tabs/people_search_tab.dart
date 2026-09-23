@@ -141,12 +141,13 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     }
   }
 
-  // quiet: a failure leaves the existing list standing without an error.
+  // quiet: a refresh behind a list already on show, so it asks the server
+  // rather than the cache, and a failure leaves the list standing without an error.
   Future<void> _loadData({bool quiet = false}) async
   {
     try
     {
-      final data = await _apiService.getPeople();
+      final data = await _apiService.getPeople(refresh: quiet);
 
       if (!mounted)
       {

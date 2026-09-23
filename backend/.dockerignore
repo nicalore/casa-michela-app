@@ -1,0 +1,15 @@
+.venv
+.git
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+tests/
+*.csv
+test.http
+.DS_Store
+# Passed with --env-file; never baked into a layer.
+.env
+# Mounted volumes.
+logs/
+uploads/

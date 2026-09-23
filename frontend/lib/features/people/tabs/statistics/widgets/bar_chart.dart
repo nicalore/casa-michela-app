@@ -74,6 +74,11 @@ class _BarChartState extends State<BarChart>
       }
     }
 
+    if (foundIndex == _hoveredIndex)
+    {
+      return;
+    }
+
     setState(()
     {
       _hoveredIndex = foundIndex;

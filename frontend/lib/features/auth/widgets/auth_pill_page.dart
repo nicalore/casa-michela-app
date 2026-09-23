@@ -28,13 +28,11 @@ class AuthPageBackground extends StatelessWidget
             tint: AppTheme.trialDeepWater,
             edgeTint: AppTheme.trialOcean,
             intensity: 1.25,
-            animated: true,
           ),
           const CornerGlow(
             corner: GlowCorner.bottomLeft,
             tint: AppTheme.trialSeaGreen,
             edgeTint: AppTheme.trialTealDeep,
-            animated: true,
           ),
           if (watermark) const PageWatermark(),
           SafeArea(child: child),

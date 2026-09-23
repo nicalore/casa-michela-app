@@ -1,4 +1,3 @@
-import shutil
 from collections import defaultdict
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime
@@ -32,7 +31,7 @@ from app.core.labels import (
     translate_education_level,
 )
 from app.core.optimistic_concurrency import assert_not_stale
-from app.core.storage import PROFILE_IMAGES_DIR, PROFILE_IMAGES_URL_PREFIX
+from app.core.storage import store_profile_image
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.booking import Booking
 from app.models.course_participant import CourseParticipant
@@ -794,63 +793,48 @@ def _map_person_to_response(
 
 
 def _person_load_options() -> tuple[ExecutableOption, ...]:
-    children_enrollments = (
+    member = joinedload(Person.member_profile)
+    student = member.joinedload(Member.student_profile)
+    staff = member.joinedload(Member.staff_profile)
+    teacher = staff.joinedload(Staff.teacher_profile)
+
+    # Collections go through selectinload: joined, each one multiplies the rows.
+    children = (
         joinedload(Person.parent_profile)
-        .joinedload(Parent.children_relationships)
+        .selectinload(Parent.children_relationships)
         .joinedload(ParentalResponsibility.child)
         .joinedload(Person.member_profile)
         .joinedload(Member.student_profile)
-        .joinedload(Student.school_enrollments)
+        .selectinload(Student.school_enrollments)
         .joinedload(SchoolEnrollment.school_study_program)
     )
 
-    own_enrollments = (
-        joinedload(Person.member_profile)
-        .joinedload(Member.student_profile)
-        .joinedload(Student.school_enrollments)
-        .joinedload(SchoolEnrollment.school_study_program)
+    own_enrollments = student.selectinload(Student.school_enrollments).joinedload(
+        SchoolEnrollment.school_study_program
     )
 
-    # selectinload, not joinedload: a second collection would multiply the join.
-    early_exit_schedules = (
-        joinedload(Person.member_profile)
-        .joinedload(Member.student_profile)
-        .selectinload(Student.early_exit_schedules)
-    )
-
-    not_preferred_teachers = (
-        joinedload(Person.member_profile)
-        .joinedload(Member.student_profile)
-        .selectinload(Student.current_not_preferred_teachers)
-        .joinedload(StudentNotPreferredTeacher.person)
-    )
-
-    staff = joinedload(Person.member_profile).joinedload(Member.staff_profile)
-
-    teacher_profile = staff.joinedload(Staff.teacher_profile)
-    teaching_competences = teacher_profile.joinedload(Teacher.teaching_competences)
+    competences = teacher.selectinload(Teacher.teaching_competences)
 
     return (
-        joinedload(Person.account),
-        children_enrollments.joinedload(SchoolStudyProgram.school),
-        children_enrollments.joinedload(SchoolStudyProgram.study_program),
-        joinedload(Person.parental_relationships)
+        children.joinedload(SchoolStudyProgram.school),
+        children.joinedload(SchoolStudyProgram.study_program),
+        selectinload(Person.parental_relationships)
         .joinedload(ParentalResponsibility.parent)
         .joinedload(Parent.person),
-        joinedload(Person.member_profile).joinedload(Member.memberships),
-        joinedload(Person.member_profile).joinedload(Member.course_participant_profile),
+        member.selectinload(Member.memberships),
+        member.joinedload(Member.course_participant_profile),
+        member.joinedload(Member.psychological_support_profile),
         own_enrollments.joinedload(SchoolStudyProgram.school),
         own_enrollments.joinedload(SchoolStudyProgram.study_program),
-        early_exit_schedules,
-        not_preferred_teachers,
-        staff.joinedload(Staff.administrator_profile),
-        teaching_competences.joinedload(TeachingCompetence.association_subject),
-        teaching_competences.joinedload(TeachingCompetence.study_program),
-        teacher_profile.joinedload(Teacher.teacher_services),
-        staff.joinedload(Staff.psychologist_profile),
-        joinedload(Person.member_profile).joinedload(
-            Member.psychological_support_profile
+        student.selectinload(Student.early_exit_schedules),
+        student.selectinload(Student.current_not_preferred_teachers).joinedload(
+            StudentNotPreferredTeacher.person
         ),
+        staff.joinedload(Staff.administrator_profile),
+        staff.joinedload(Staff.psychologist_profile),
+        competences.joinedload(TeachingCompetence.association_subject),
+        competences.joinedload(TeachingCompetence.study_program),
+        teacher.selectinload(Teacher.teacher_services),
     )
 
 
@@ -1493,7 +1477,11 @@ async def _commit_person_update(db: AsyncSession) -> None:
         ) from err
 
 
-@router.get("/", response_model=list[PersonResponse])
+@router.get(
+    "/",
+    response_model=list[PersonResponse],
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def get_people(
     identity: CurrentIdentity,
     db: DbSession,
@@ -2007,7 +1995,11 @@ async def update_person_school_enrollments(
     return {"message": _SCHOOL_YEARS_UPDATED_MESSAGE}
 
 
-@router.post("/{tax_code}/parents", status_code=status.HTTP_200_OK)
+@router.post(
+    "/{tax_code}/parents",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def add_parental_responsibility(
     tax_code: str,
     payload: ParentUpdatePayload,
@@ -2056,7 +2048,11 @@ async def add_parental_responsibility(
     return {"message": _PARENT_ADDED_MESSAGE}
 
 
-@router.put("/{tax_code}/parents/{old_parent_tax_code}", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{tax_code}/parents/{old_parent_tax_code}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_parental_responsibility(
     tax_code: str,
     old_parent_tax_code: str,
@@ -2104,7 +2100,11 @@ async def update_parental_responsibility(
     return {"message": _PARENT_UPDATED_MESSAGE}
 
 
-@router.delete("/{tax_code}/parents/{parent_tax_code}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{tax_code}/parents/{parent_tax_code}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_parental_responsibility(
     tax_code: str,
     parent_tax_code: str,
@@ -2128,8 +2128,19 @@ _ReportedValue = Annotated[
 async def report_person_error(
     tax_code: str,
     corrections: dict[str, _ReportedValue],
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
+    target = tax_code.upper()
+    own = target == identity.tax_code
+    a_child = "PARENT" in identity.roles and target in identity.child_tax_codes
+
+    if not (identity.is_admin or own or a_child):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_PERSON_FORBIDDEN_ERROR,
+        )
+
     person = await db.get(Person, tax_code)
 
     if person is None:
@@ -2174,7 +2185,11 @@ async def report_person_error(
     return {"status": "success", "message": _REPORT_SENT_MESSAGE}
 
 
-@router.post("/wizard/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/wizard/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def wizard_create_person(
     payload: PersonWizardPayload,
     db: DbSession,
@@ -2363,7 +2378,11 @@ async def person_early_exit_form(
     return await _early_exit_form_response(request_for_person(person))
 
 
-@router.post("/{tax_code}/image", status_code=status.HTTP_200_OK)
+@router.post(
+    "/{tax_code}/image",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def upload_profile_image(
     tax_code: str,
     db: DbSession,
@@ -2377,16 +2396,11 @@ async def upload_profile_image(
             detail=_PERSON_NOT_FOUND_ERROR,
         )
 
-    PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-    safe_filename = file.filename or "profile.jpg"
-    extension = safe_filename.split(".")[-1] if "." in safe_filename else "jpg"
-    destination = PROFILE_IMAGES_DIR / f"{tax_code}.{extension}"
-
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    image_url = f"{PROFILE_IMAGES_URL_PREFIX}/{destination.name}"
+    image_url = store_profile_image(
+        person.tax_code,
+        person.profile_image_url,
+        await file.read(),
+    )
     person.profile_image_url = image_url
 
     await db.commit()
@@ -2394,7 +2408,11 @@ async def upload_profile_image(
     return {"profile_image_url": image_url}
 
 
-@router.put("/{tax_code}/memberships", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{tax_code}/memberships",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_person_memberships(
     tax_code: str,
     payload: PersonMembershipsUpdate,
@@ -2455,7 +2473,11 @@ async def update_person_memberships(
     return {"message": _MEMBERSHIPS_UPDATED_MESSAGE}
 
 
-@router.put("/{tax_code}/revoke-membership", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{tax_code}/revoke-membership",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def revoke_person_membership(
     tax_code: str,
     payload: RevokeMembershipPayload,
@@ -2514,8 +2536,18 @@ async def revoke_person_membership(
 async def update_teacher_competences(
     tax_code: str,
     payload: PersonTeacherCompetencesUpdate,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
+    # Administrators, or the teacher themself while still on first access.
+    own = "TEACHER" in identity.roles and tax_code.upper() == identity.tax_code
+
+    if not (identity.is_admin or (own and not identity.onboarding_completed)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_PERSON_FORBIDDEN_ERROR,
+        )
+
     if not payload.competences and not payload.service_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

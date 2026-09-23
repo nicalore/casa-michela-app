@@ -105,6 +105,13 @@
         return false;
       }
 
+      // No touch, no tablet: the estimate below would promote a scaled-up
+      // laptop screen and make it rasterise 21% more pixels.
+      if (maxTouchPoints === 0)
+      {
+        return false;
+      }
+
       // Unknown user agent: estimate the physical diagonal from the screen
       // size assuming an average pixel density, since no API exposes the
       // real one.

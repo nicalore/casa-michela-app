@@ -1,11 +1,18 @@
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 
 const double _dialogBlurSigma = 8.0;
+
+const Color _dialogTint = Colors.black;
+const double _dialogTintOpacity = 0.15;
+
+// Wraps everything a dialog covers: its last frame is what the dialog shows blurred.
+final GlobalKey dialogBackdropKey = GlobalKey(debugLabel: 'dialogBackdrop');
 
 Future<T?> showBlurredDialog<T>({
   required BuildContext context,
@@ -21,19 +28,159 @@ Future<T?> showBlurredDialog<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: barrierLabel,
-    barrierColor: Colors.black.withValues(alpha: .15),
+    // The tint is painted with the backdrop, over the snapshot rather than under it.
+    barrierColor: Colors.transparent,
     transitionDuration: transitionDuration,
-    pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
+    // Built once here: transitionBuilder runs on every tick of the animation.
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
     transitionBuilder: (context, animation, secondaryAnimation, child)
     {
-      final blurValue = animation.value * _dialogBlurSigma;
-
-      return BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurValue, sigmaY: blurValue),
-        child: builder(context),
-      );
+      return _DialogBackdrop(animation: animation, child: child);
     },
   );
+}
+
+// The window behind a dialog, rasterised and blurred once: a texture per frame
+// instead of a full-window BackdropFilter on every frame the dialog is open.
+class _Backdrop
+{
+  final ui.Image image;
+
+  _Backdrop(this.image);
+
+  static _Backdrop? capture(double pixelRatio)
+  {
+    final RenderObject? boundary = dialogBackdropKey.currentContext?.findRenderObject();
+
+    if (boundary is! RenderRepaintBoundary || !boundary.hasSize)
+    {
+      return null;
+    }
+
+    try
+    {
+      final ui.Image sharp = boundary.toImageSync(pixelRatio: pixelRatio);
+      final ui.Image blurred = _blur(sharp, _dialogBlurSigma * pixelRatio);
+
+      sharp.dispose();
+
+      return _Backdrop(blurred);
+    }
+    catch (_)
+    {
+      // No snapshot: the dialog falls back to a live BackdropFilter.
+      return null;
+    }
+  }
+
+  static ui.Image _blur(ui.Image source, double sigma)
+  {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    canvas.drawImage(
+      source,
+      Offset.zero,
+      Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: sigma,
+          sigmaY: sigma,
+          tileMode: ui.TileMode.clamp,
+        ),
+    );
+
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image blurred = picture.toImageSync(source.width, source.height);
+
+    picture.dispose();
+
+    return blurred;
+  }
+
+  void dispose() => image.dispose();
+}
+
+class _DialogBackdrop extends StatefulWidget
+{
+  final Animation<double> animation;
+  final Widget child;
+
+  const _DialogBackdrop({required this.animation, required this.child});
+
+  @override
+  State<_DialogBackdrop> createState() => _DialogBackdropState();
+}
+
+// Outlives the transition ticks and frees the snapshot with the route.
+class _DialogBackdropState extends State<_DialogBackdrop>
+{
+  _Backdrop? _backdrop;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    // After the first frame: the dialog is still invisible in it, and nothing waits to repaint.
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (!mounted)
+      {
+        return;
+      }
+
+      final _Backdrop? backdrop = _Backdrop.capture(
+        MediaQuery.devicePixelRatioOf(context),
+      );
+
+      if (backdrop != null)
+      {
+        setState(() => _backdrop = backdrop);
+      }
+    });
+  }
+
+  @override
+  void dispose()
+  {
+    _backdrop?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final _Backdrop? backdrop = _backdrop;
+    final double progress = widget.animation.value;
+
+    // The barrier's own easing, painted here so the tint sits on the snapshot.
+    final double tint = _dialogTintOpacity * Curves.ease.transform(progress);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        IgnorePointer(
+          child: backdrop == null
+              ? BackdropFilter(
+                  filter: ui.ImageFilter.blur(
+                    sigmaX: _dialogBlurSigma * progress,
+                    sigmaY: _dialogBlurSigma * progress,
+                  ),
+                  child: const SizedBox.expand(),
+                )
+              : RawImage(
+                  image: backdrop.image,
+                  fit: BoxFit.fill,
+                  opacity: widget.animation,
+                ),
+        ),
+        IgnorePointer(
+          child: ColoredBox(color: _dialogTint.withValues(alpha: tint)),
+        ),
+        widget.child,
+      ],
+    );
+  }
 }
 
 class ResponsiveDialogButtonsRow extends StatelessWidget

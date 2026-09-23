@@ -1,16 +1,22 @@
 from collections.abc import Sequence
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
+from app.api.rbac import get_current_identity, require_role
 from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseResponse, CourseUpdate
 
-router = APIRouter(prefix="/courses", tags=["courses"])
+router = APIRouter(
+    prefix="/courses",
+    tags=["courses"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _COURSE_NOT_FOUND_ERROR: Final[str] = "Corso non trovato."
 _DUPLICATE_COURSE_ERROR: Final[str] = 'Esiste già il corso "{name}"'
@@ -55,7 +61,11 @@ async def get_courses(db: DbSession) -> Sequence[Course]:
     return (await db.execute(select(Course).order_by(Course.name))).scalars().all()
 
 
-@router.post("/", response_model=CourseResponse)
+@router.post(
+    "/",
+    response_model=CourseResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_course(payload: CourseCreate, db: DbSession) -> Course:
     await _assert_name_available(db, payload.name)
 
@@ -79,7 +89,11 @@ async def get_course(name: str, db: DbSession) -> Course:
     return await _get_course_or_404(db, name)
 
 
-@router.put("/{name}", response_model=CourseResponse)
+@router.put(
+    "/{name}",
+    response_model=CourseResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_course(
     name: str,
     payload: CourseUpdate,
@@ -108,7 +122,10 @@ async def update_course(
     return course
 
 
-@router.delete("/{name}")
+@router.delete(
+    "/{name}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_course(name: str, db: DbSession) -> dict[str, str]:
     course = await _get_course_or_404(db, name)
 

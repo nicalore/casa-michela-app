@@ -46,27 +46,6 @@ class ProfileAvatarState extends State<ProfileAvatar>
 
   final ImagePicker _picker = ImagePicker();
 
-  // Regenerated only when profileImageUrl changes: a per-rebuild value reloads the image on hover.
-  late String _cacheBuster;
-
-  @override
-  void initState() 
-  {
-    super.initState();
-    _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
-  }
-
-  @override
-  void didUpdateWidget(covariant ProfileAvatar oldWidget) 
-  {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.profileImageUrl != widget.profileImageUrl) 
-    {
-      _cacheBuster = DateTime.now().millisecondsSinceEpoch.toString();
-    }
-  }
-
   String? get _absoluteImageUrl 
   {
     if (widget.profileImageUrl == null || widget.profileImageUrl!.isEmpty) 
@@ -81,7 +60,8 @@ class ProfileAvatarState extends State<ProfileAvatar>
       url = '${ApiConfig.baseUrl}$url';
     }
 
-    return '$url?v=$_cacheBuster';
+    // The shared version moves only on upload, so the browser keeps the file.
+    return '\$url?v=\${ApiService().profileImageVersion}';
   }
 
   String get _initials

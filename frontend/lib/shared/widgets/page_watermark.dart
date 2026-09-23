@@ -25,13 +25,12 @@ class PageWatermark extends StatelessWidget
       height: window.height,
       child: IgnorePointer(
         child: Center(
-          child: Opacity(
-            opacity: _opacity,
-            child: Image.asset(
-              'assets/images/house_watermark.png',
-              width: _imageWidth,
-              fit: BoxFit.contain,
-            ),
+          // Paint alpha, not an Opacity widget: no offscreen layer per frame.
+          child: Image.asset(
+            'assets/images/house_watermark.png',
+            width: _imageWidth,
+            fit: BoxFit.contain,
+            opacity: const AlwaysStoppedAnimation(_opacity),
           ),
         ),
       ),

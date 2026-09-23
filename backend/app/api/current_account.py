@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.api.dependencies import DbSession
 from app.core.security import decode_access_token
 from app.models.account import Account
-from app.repositories.account_repository import AccountRepository
+from app.repositories.identity_repository import IdentityRepository
 
 bearer_scheme = HTTPBearer()
 
@@ -29,8 +29,8 @@ async def get_current_account(
             detail=_INVALID_ACCESS_TOKEN_ERROR,
         ) from None
 
-    repository = AccountRepository(db)
-    account = await repository.get_by_tax_code(payload["sub"])
+    # With the role graph: every later dependency reads it off this object.
+    account = await IdentityRepository(db).get_account_identity(payload["sub"])
 
     if account is None:
         raise HTTPException(

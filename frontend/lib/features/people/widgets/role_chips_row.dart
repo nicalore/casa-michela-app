@@ -47,16 +47,34 @@ class RoleChipsRow extends StatelessWidget
     this.runSpacing = 6,
   });
 
+  // Chips repeat across cards and hover rebuilds: each text is laid out once per style.
+  static final Map<(String, TextStyle, TextScaler), double> _textWidths = {};
+
   double _measureChipWidth(String text, TextStyle style, TextScaler textScaler)
   {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-      maxLines: 1,
-    )..layout();
+    final key = (text, style, textScaler);
+    double? width = _textWidths[key];
 
-    return painter.width + 2 * horizontalPadding;
+    if (width == null)
+    {
+      if (_textWidths.length >= 512)
+      {
+        _textWidths.clear();
+      }
+
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: textScaler,
+        maxLines: 1,
+      )..layout();
+
+      width = painter.width;
+      painter.dispose();
+      _textWidths[key] = width;
+    }
+
+    return width + 2 * horizontalPadding;
   }
 
   @override

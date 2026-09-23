@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
+from app.api.rbac import get_current_identity, require_role
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_subject import MinistrySubject
 from app.models.study_program import EducationLevelEnum
@@ -19,7 +20,12 @@ from app.schemas.ministry_subject import (
     MinistrySubjectUpdate,
 )
 
-router = APIRouter(prefix="/ministry-subjects", tags=["ministry-subjects"])
+router = APIRouter(
+    prefix="/ministry-subjects",
+    tags=["ministry-subjects"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _SUBJECT_NOT_FOUND_ERROR: Final[str] = "Materia non trovata."
 _NO_ASSOCIATION_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una disciplina interna."
@@ -110,7 +116,11 @@ async def get_ministry_subjects(db: DbSession) -> Sequence[MinistrySubject]:
     return result.scalars().all()
 
 
-@router.post("/", response_model=MinistrySubjectResponse)
+@router.post(
+    "/",
+    response_model=MinistrySubjectResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_ministry_subject(
     payload: MinistrySubjectCreate,
     db: DbSession,
@@ -156,7 +166,11 @@ async def create_ministry_subject(
     return (await db.execute(stmt_reload)).scalars().first()
 
 
-@router.put("/{subject_id}", response_model=MinistrySubjectResponse)
+@router.put(
+    "/{subject_id}",
+    response_model=MinistrySubjectResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_ministry_subject(
     subject_id: int,
     payload: MinistrySubjectUpdate,
@@ -196,7 +210,10 @@ async def update_ministry_subject(
     return subject
 
 
-@router.delete("/{subject_id}")
+@router.delete(
+    "/{subject_id}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_ministry_subject(subject_id: int, db: DbSession) -> dict[str, str]:
     subject = await _get_subject_or_404(db, subject_id)
 

@@ -12,7 +12,6 @@ dependencies:
   flutter_svg: ^2.0.17
   shared_preferences: ^2.5.3
   intl: ^0.19.0
-  flutter_dotenv: ^5.1.0
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -47,7 +46,6 @@ flutter:
     # rootBundle la prima volta che qualcuno stampa, e google_fonts li ritrova
     # nel manifest, così i pesi presenti qui non passano dalla rete.
     - assets/fonts/
-    - ../backend/.env
 
   # La famiglia registrata dal motore prima del primo frame, con ogni variante
   # che l'app chiede: nessuna arriva più dalla rete a pagina già disegnata. Il

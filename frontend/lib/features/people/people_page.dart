@@ -124,13 +124,11 @@ class _PeoplePageState extends State<PeoplePage> with SectionVisits
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 SafeArea(

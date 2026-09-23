@@ -422,6 +422,7 @@ class _PersonPickerCardState extends State<PersonPickerCard>
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                cacheWidth: (PersonPickerCard._avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

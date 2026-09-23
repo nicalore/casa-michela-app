@@ -6,7 +6,8 @@ enum GlowCorner
   bottomLeft,
 }
 
-class CornerGlow extends StatefulWidget
+// Static on purpose: on web every animated frame rasterises the whole window.
+class CornerGlow extends StatelessWidget
 {
   static const double _diameter = 1600;
 
@@ -33,123 +34,25 @@ class CornerGlow extends StatefulWidget
 
   final double intensity;
 
-  final bool animated;
-
   const CornerGlow({
     super.key,
     required this.corner,
     this.tint = _defaultTint,
     this.edgeTint,
     this.intensity = 1.0,
-    this.animated = false,
   });
-
-  @override
-  State<CornerGlow> createState() => _CornerGlowState();
-}
-
-class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateMixin
-{
-  static const Duration _topRightPeriod = Duration(seconds: 11);
-  static const Duration _bottomLeftPeriod = Duration(seconds: 15);
-
-  static const double _restScale = 1.0;
-  static const double _breathScale = 1.22;
-
-  static const double _driftDistance = 34;
-
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-  late final Animation<double> _drift;
-
-  @override
-  void initState()
-  {
-    super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.corner == GlowCorner.topRight ? _topRightPeriod : _bottomLeftPeriod,
-    );
-
-    final eased = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-
-    _scale = Tween<double>(begin: _restScale, end: _breathScale).animate(eased);
-    _drift = Tween<double>(begin: 0, end: _driftDistance).animate(eased);
-  }
-
-  @override
-  void didChangeDependencies()
-  {
-    super.didChangeDependencies();
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(CornerGlow oldWidget)
-  {
-    super.didUpdateWidget(oldWidget);
-    _syncAnimation();
-  }
-
-  @override
-  void dispose()
-  {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _syncAnimation()
-  {
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final shouldRun = widget.animated && !reduceMotion;
-
-    if (shouldRun && !_controller.isAnimating)
-    {
-      _controller.repeat(reverse: true);
-
-      return;
-    }
-
-    if (!shouldRun && _controller.isAnimating)
-    {
-      _controller.stop();
-      _controller.value = 0;
-    }
-  }
 
   @override
   Widget build(BuildContext context)
   {
-    final isTopRight = widget.corner == GlowCorner.topRight;
-    final outerTint = widget.edgeTint ?? widget.tint;
+    final isTopRight = corner == GlowCorner.topRight;
+    final outerTint = edgeTint ?? tint;
 
     // Clamped: intensity is a free-form knob and alpha outside 0..1 throws.
-    final innerAlpha = (CornerGlow._innerOpacity * widget.intensity).clamp(0.0, 1.0);
-    final midAlpha = (CornerGlow._midOpacity * widget.intensity).clamp(0.0, 1.0);
+    final innerAlpha = (_innerOpacity * intensity).clamp(0.0, 1.0);
+    final midAlpha = (_midOpacity * intensity).clamp(0.0, 1.0);
 
-    final diameter = CornerGlow._diameterFor(context);
-
-    final Widget glow = RepaintBoundary(
-      child: SizedBox(
-        width: diameter,
-        height: diameter,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                widget.tint.withValues(alpha: innerAlpha),
-                outerTint.withValues(alpha: midAlpha),
-                outerTint.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.55, 1.0],
-            ),
-          ),
-        ),
-      ),
-    );
-
+    final diameter = _diameterFor(context);
     final offset = -diameter / 2;
 
     return Positioned(
@@ -158,22 +61,23 @@ class _CornerGlowState extends State<CornerGlow> with SingleTickerProviderStateM
       bottom: isTopRight ? null : offset,
       left: isTopRight ? null : offset,
       child: IgnorePointer(
-        child: widget.animated
-            ? AnimatedBuilder(
-                animation: _controller,
-                child: glow,
-                builder: (context, child) => Transform.translate(
-                  offset: Offset(
-                    isTopRight ? -_drift.value : _drift.value,
-                    isTopRight ? _drift.value : -_drift.value,
-                  ),
-                  child: Transform.scale(
-                    scale: _scale.value,
-                    child: child,
-                  ),
-                ),
-              )
-            : glow,
+        child: SizedBox(
+          width: diameter,
+          height: diameter,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  tint.withValues(alpha: innerAlpha),
+                  outerTint.withValues(alpha: midAlpha),
+                  outerTint.withValues(alpha: 0),
+                ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

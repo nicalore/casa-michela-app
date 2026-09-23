@@ -55,7 +55,6 @@ const double _dialogButtonFontSize = 14;
 const Duration _tick = Duration(minutes: 1);
 
 const String _parentRole = 'PARENT';
-const String _teacherRoleLabel = 'Docente';
 const String _studentRoleLabel = 'Studente';
 
 // This week from its Monday; the next week unlocks Friday 20:00.
@@ -87,7 +86,7 @@ class _BookingsPageState extends State<BookingsPage>
   List<PresenceItem> _presences = [];
   List<OpeningDayItem> _openingDays = [];
 
-  List<PersonItem> _people = [];
+  List<PersonItem> _teachers = [];
   List<MinistrySubjectItem> _ministrySubjects = [];
   List<AssociationSubjectItem> _associationSubjects = [];
   List<ServiceItem> _services = [];
@@ -110,15 +109,19 @@ class _BookingsPageState extends State<BookingsPage>
 
   List<DateTime> get _shownDays => daysOfWeek(addDays(_thisMonday, 7 * _weekIndex));
 
-  List<PersonItem> get _teachers =>
-      _people.where((person) => person.roles.contains(_teacherRoleLabel)).toList();
-
   @override
   void initState()
   {
     super.initState();
 
-    _clock = Timer.periodic(_tick, (_) => _advanceClock());
+    _clock = Timer.periodic(_tick, (_)
+    {
+      // Offstage the tick is skipped; onDestinationShown realigns the clock.
+      if (destinationShown)
+      {
+        _advanceClock();
+      }
+    });
 
     _loadData();
   }
@@ -158,36 +161,21 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  Future<List<PersonItem>> _readPupils(List<PersonItem> people) async
+  // One's own record, or the children's: the register is the administrators' alone.
+  Future<List<PersonItem>> _readPupils() async
   {
     final me = _apiService.lastKnownIdentity ?? await _apiService.me();
-
-    PersonItem? onRoster(String taxCode)
-    {
-      for (final person in people)
-      {
-        if (person.fiscalCode == taxCode)
-        {
-          return person;
-        }
-      }
-
-      return null;
-    }
+    final reader = await _apiService.getPerson(me.taxCode);
 
     if (!_isParent)
     {
-      final self = onRoster(me.taxCode) ?? await _apiService.getPerson(me.taxCode);
-
-      return [self];
+      return [reader];
     }
 
-    final reader = await _apiService.getPerson(me.taxCode);
-
-    final List<PersonItem> children = [
+    final List<PersonItem> children = await Future.wait([
       for (final child in reader.children ?? const [])
-        onRoster(child.fiscalCode) ?? await _apiService.getPerson(child.fiscalCode),
-    ];
+        _apiService.getPerson(child.fiscalCode),
+    ]);
 
     return children.where((child) => child.roles.contains(_studentRoleLabel)).toList();
   }
@@ -200,14 +188,14 @@ class _BookingsPageState extends State<BookingsPage>
 
     try
     {
-      final bool catalogued = _people.isNotEmpty && _pupils.isNotEmpty;
+      final bool catalogued = _teachers.isNotEmpty && _pupils.isNotEmpty;
 
       final results = await Future.wait([
         _apiService.getPresences(dateFrom: from, dateTo: to),
         _apiService.getOpeningDays(dateFrom: from, dateTo: to, mode: kPresenceMode),
         _apiService.getOpeningDays(dateFrom: from, dateTo: to, mode: kOnlineMode),
         if (!catalogued) ...[
-          _apiService.getPeople(),
+          _apiService.getTeachers(),
           _apiService.getMinistrySubjects(),
           _apiService.getAssociationSubjects(),
           _apiService.getServices(),
@@ -219,7 +207,7 @@ class _BookingsPageState extends State<BookingsPage>
 
       if (!catalogued)
       {
-        pupils = await _readPupils(results[3] as List<PersonItem>);
+        pupils = await _readPupils();
       }
 
       if (!mounted)
@@ -237,7 +225,7 @@ class _BookingsPageState extends State<BookingsPage>
 
         if (!catalogued)
         {
-          _people = results[3] as List<PersonItem>;
+          _teachers = results[3] as List<PersonItem>;
           _ministrySubjects = results[4] as List<MinistrySubjectItem>;
           _associationSubjects = results[5] as List<AssociationSubjectItem>;
           _services = results[6] as List<ServiceItem>;
@@ -1476,13 +1464,11 @@ class _BookingsPageState extends State<BookingsPage>
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 Positioned.fill(

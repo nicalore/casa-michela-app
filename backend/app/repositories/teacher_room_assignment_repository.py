@@ -24,6 +24,22 @@ class TeacherRoomAssignmentRepository(WritableRepository[TeacherRoomAssignment])
 
         return (await self.session.execute(stmt)).scalars().all()
 
+    async def list_for_days(
+        self,
+        days: Collection[date],
+    ) -> Sequence[TeacherRoomAssignment]:
+        if not days:
+            return []
+
+        stmt = (
+            select(TeacherRoomAssignment)
+            .options(*_EAGER_LOADER)
+            .where(TeacherRoomAssignment.date.in_(days))
+            .order_by(TeacherRoomAssignment.date, TeacherRoomAssignment.teacher_tax_code)
+        )
+
+        return (await self.session.execute(stmt)).scalars().all()
+
     async def get(
         self,
         day: date,

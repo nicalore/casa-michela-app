@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
-from app.api.rbac import CurrentIdentity, require_role
+from app.api.rbac import CurrentIdentity, get_current_identity, require_role
 from app.models.association_subject import AssociationSubject
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.person import Person
@@ -22,7 +22,12 @@ from app.schemas.association_subject import (
 )
 from app.services import email_service
 
-router = APIRouter(prefix="/association-subjects", tags=["association-subjects"])
+router = APIRouter(
+    prefix="/association-subjects",
+    tags=["association-subjects"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _REPORTER_ROLES: Final[tuple[str, ...]] = ("STUDENT", "PARENT")
 
@@ -153,7 +158,11 @@ async def get_subjects(db: DbSession) -> Sequence[AssociationSubject]:
     return result.scalars().all()
 
 
-@router.post("/", response_model=AssociationSubjectResponse)
+@router.post(
+    "/",
+    response_model=AssociationSubjectResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_subject(
     payload: AssociationSubjectCreate,
     db: DbSession,
@@ -167,7 +176,11 @@ async def create_subject(
     return new_subject
 
 
-@router.put("/{subject_id}", response_model=AssociationSubjectResponse)
+@router.put(
+    "/{subject_id}",
+    response_model=AssociationSubjectResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_subject(
     subject_id: int,
     payload: AssociationSubjectUpdate,
@@ -194,7 +207,10 @@ async def update_subject(
     return subject
 
 
-@router.delete("/{subject_id}")
+@router.delete(
+    "/{subject_id}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_subject(subject_id: int, db: DbSession) -> dict[str, str]:
     subject = await _get_subject_or_404(db, subject_id)
 

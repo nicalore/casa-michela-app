@@ -57,6 +57,7 @@ class PersonAvatar extends StatelessWidget
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

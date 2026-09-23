@@ -166,11 +166,12 @@ async def _to_responses(
     )
 
     assignments = TeacherRoomAssignmentRepository(db)
-    rooms: dict[tuple[date, str], TeacherRoomAssignment] = {}
-
-    for day in {lesson.date for lesson in lessons}:
-        for assignment in await assignments.list_for_day(day):
-            rooms[(day, assignment.teacher_tax_code)] = assignment
+    rooms: dict[tuple[date, str], TeacherRoomAssignment] = {
+        (assignment.date, assignment.teacher_tax_code): assignment
+        for assignment in await assignments.list_for_days(
+            {lesson.date for lesson in lessons},
+        )
+    }
 
     settled = await CalendarPublicationRepository(db).find_settled_pairs(
         {(lesson.date, lesson.band) for lesson in lessons},

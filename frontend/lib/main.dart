@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
 import 'routing/app_router.dart';
 import 'services/api_service.dart';
+import 'shared/widgets/dialog_components.dart';
 
 void main() async 
 {
@@ -48,7 +49,7 @@ class CasaMichelaApp extends StatelessWidget
                 exitDuration: Duration.zero,
               ),
             ),
-            child: child!,
+            child: RepaintBoundary(key: dialogBackdropKey, child: child!),
           ),
         );
       },

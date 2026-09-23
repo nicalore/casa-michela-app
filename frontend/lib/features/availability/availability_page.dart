@@ -85,7 +85,14 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
   {
     super.initState();
 
-    _clock = Timer.periodic(_tick, (_) => _advanceClock());
+    _clock = Timer.periodic(_tick, (_)
+    {
+      // Offstage the tick is skipped; onDestinationShown realigns the clock.
+      if (destinationShown)
+      {
+        _advanceClock();
+      }
+    });
 
     _loadData();
   }
@@ -591,13 +598,11 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 Positioned.fill(

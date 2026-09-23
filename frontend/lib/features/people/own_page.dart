@@ -114,8 +114,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
 
   int _selectedSection = 0;
 
-  late String _imageVersion;
-
   List<OwnPageSection> get _sections
   {
     final PersonItem? person = _person;
@@ -128,7 +126,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
   {
     super.initState();
 
-    _imageVersion = DateTime.now().millisecondsSinceEpoch.toString();
     visitedSections.add(_selectedSection);
     _load();
   }
@@ -151,7 +148,6 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       setState(()
       {
         _person = person;
-        _imageVersion = DateTime.now().millisecondsSinceEpoch.toString();
         _isLoading = false;
         _failed = false;
       });
@@ -337,13 +333,11 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 SafeArea(
@@ -359,7 +353,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
                       children: [
                         PersonDetailHeader(
                           person: _person,
-                          imageVersion: _imageVersion,
+                          imageVersion: '${_apiService.profileImageVersion}',
                           size: size,
                           backTooltip: 'Torna indietro',
                           onBack: () => context.go(_origin),

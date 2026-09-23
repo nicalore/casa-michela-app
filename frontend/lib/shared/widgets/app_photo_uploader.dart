@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/api_service.dart';
 import 'app_badged_face.dart';
 import 'app_check_mark.dart';
 import 'snackbar.dart';
@@ -34,14 +35,6 @@ class _AppPhotoUploaderState
 {
   final ImagePicker _picker = ImagePicker();
   bool _isDeleted = false;
-  late String _cacheBustTimestamp;
-
-  @override
-  void initState()
-  {
-    super.initState();
-    _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
-  }
 
   Future<void> _pickImage() async
   {
@@ -103,7 +96,7 @@ class _AppPhotoUploaderState
 
       if (url.startsWith('/'))
       {
-        url = url = '${ApiConfig.buildUrl(url)}?v=$_cacheBustTimestamp';
+        url = '${ApiConfig.buildUrl(url)}?v=${ApiService().profileImageVersion}';
       }
 
       imageProvider = NetworkImage(url);

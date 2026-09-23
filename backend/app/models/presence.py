@@ -59,7 +59,7 @@ class Presence(CreatedAtMixin, UpdatedAtMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
 
     # Same two modes the opening hours are kept in.
     mode: Mapped[str] = mapped_column(String(20), nullable=False)

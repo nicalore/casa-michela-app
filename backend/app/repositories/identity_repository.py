@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.models.account import Account
 from app.models.member import Member
@@ -11,26 +11,27 @@ from app.repositories.base import SessionRepository
 
 
 class IdentityRepository(SessionRepository):
+    # One statement for the one-to-one chain; only the two collections use an IN.
     async def get_account_identity(self, tax_code: str) -> Account | None:
-        person_loader = selectinload(Account.person)
-        parent_loader = person_loader.selectinload(Person.parent_profile)
-        children_loader = parent_loader.selectinload(Parent.children_relationships)
-        member_loader = person_loader.selectinload(Person.member_profile)
-        staff_loader = member_loader.selectinload(Member.staff_profile)
+        person = joinedload(Account.person)
+        member = person.joinedload(Person.member_profile)
+        staff = member.joinedload(Member.staff_profile)
 
         return await self.session.scalar(
             select(Account)
             .options(
                 # Whether each child is a pupil decides the parent role.
-                children_loader.selectinload(ParentalResponsibility.child)
-                .selectinload(Person.member_profile)
-                .selectinload(Member.student_profile),
-                person_loader.selectinload(Person.parental_relationships),
-                member_loader.selectinload(Member.student_profile),
-                member_loader.selectinload(Member.course_participant_profile),
-                staff_loader.selectinload(Staff.administrator_profile),
-                staff_loader.selectinload(Staff.teacher_profile),
-                staff_loader.selectinload(Staff.psychologist_profile),
+                person.joinedload(Person.parent_profile)
+                .selectinload(Parent.children_relationships)
+                .joinedload(ParentalResponsibility.child)
+                .joinedload(Person.member_profile)
+                .joinedload(Member.student_profile),
+                person.selectinload(Person.parental_relationships),
+                member.joinedload(Member.student_profile),
+                member.joinedload(Member.course_participant_profile),
+                staff.joinedload(Staff.administrator_profile),
+                staff.joinedload(Staff.teacher_profile),
+                staff.joinedload(Staff.psychologist_profile),
             )
             .where(Account.tax_code == tax_code)
         )

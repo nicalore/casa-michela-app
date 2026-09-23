@@ -81,6 +81,7 @@ class _PersonCardState extends State<PersonCard>
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                cacheWidth: (PersonCard.avatarSize * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace)
                 {
                   debugPrint('Errore caricamento immagine per ${widget.person.firstName}: $error');

@@ -42,7 +42,7 @@ class PersonDetailHeader extends StatelessWidget
     this.onFaceChanged,
   });
 
-  Widget _buildAvatar(PersonItem person, bool compact)
+  Widget _buildAvatar(BuildContext context, PersonItem person, bool compact)
   {
     final double size = compact ? _compactIdentityAvatar : _identityAvatar;
 
@@ -97,6 +97,7 @@ class PersonDetailHeader extends StatelessWidget
             ? Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
+                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,
@@ -104,7 +105,7 @@ class PersonDetailHeader extends StatelessWidget
     );
   }
 
-  Widget _buildIdentityCard(PersonItem person, bool compact)
+  Widget _buildIdentityCard(BuildContext context, PersonItem person, bool compact)
   {
     final List<String> roles = RoleLabelMapper.processRoles(person.roles);
 
@@ -151,14 +152,14 @@ class PersonDetailHeader extends StatelessWidget
             ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildAvatar(person, true),
+                  _buildAvatar(context, person, true),
                   const SizedBox(height: 16),
                   nameAndRoles,
                 ],
               )
             : Row(
                 children: [
-                  _buildAvatar(person, false),
+                  _buildAvatar(context, person, false),
                   const SizedBox(width: 28),
                   Expanded(child: nameAndRoles),
                 ],
@@ -189,7 +190,7 @@ class PersonDetailHeader extends StatelessWidget
         children: [
           _buildBackButton(),
           const SizedBox(height: 16),
-          _buildIdentityCard(person, true),
+          _buildIdentityCard(context, person, true),
         ],
       );
     }
@@ -201,7 +202,7 @@ class PersonDetailHeader extends StatelessWidget
           width: AppSectionRail.width + AppSectionRail.gap,
           child: Align(alignment: Alignment.centerLeft, child: _buildBackButton()),
         ),
-        Expanded(child: Center(child: _buildIdentityCard(person, false))),
+        Expanded(child: Center(child: _buildIdentityCard(context, person, false))),
       ],
     );
   }

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     app_name: str = "Casa Michela API"
     environment: str = "development"
     debug: bool = False
+    sql_echo: bool = False
     cors_origins: str = "http://localhost:3000"
 
     database_url: str | None = None

@@ -121,13 +121,13 @@ class _AssociationPageState extends State<AssociationPage>
     try
     {
       final results = await Future.wait([
-        _apiService.getSchools(),
-        _apiService.getStudyPrograms(),
-        _apiService.getMinistrySubjects(),
-        _apiService.getAssociationSubjects(),
-        _apiService.getServices(),
-        _apiService.getCourses(),
-        _apiService.getRooms(),
+        _apiService.getSchools(refresh: quiet),
+        _apiService.getStudyPrograms(refresh: quiet),
+        _apiService.getMinistrySubjects(refresh: quiet),
+        _apiService.getAssociationSubjects(refresh: quiet),
+        _apiService.getServices(refresh: quiet),
+        _apiService.getCourses(refresh: quiet),
+        _apiService.getRooms(refresh: quiet),
         _apiService.getWeeklyTemplates(),
       ]);
 
@@ -573,13 +573,11 @@ class _AssociationPageState extends State<AssociationPage>
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 SafeArea(

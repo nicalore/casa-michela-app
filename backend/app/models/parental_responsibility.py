@@ -45,6 +45,8 @@ class ParentalResponsibility(Base):
     child_tax_code: Mapped[str] = mapped_column(
         ForeignKey("people.tax_code", ondelete="CASCADE", onupdate="CASCADE"),
         primary_key=True,
+        # Second column of the key: lookups by child need their own index.
+        index=True,
     )
 
     authorized_pickup: Mapped[bool] = mapped_column(

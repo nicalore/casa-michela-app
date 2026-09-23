@@ -88,7 +88,14 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   {
     super.initState();
 
-    _clock = Timer.periodic(_tick, (_) => setState(() => _now = DateTime.now()));
+    _clock = Timer.periodic(_tick, (_)
+    {
+      // Offstage the tick is skipped; onDestinationShown realigns the clock.
+      if (destinationShown)
+      {
+        setState(() => _now = DateTime.now());
+      }
+    });
 
     _loadDay();
   }

@@ -1,19 +1,25 @@
 from collections.abc import Sequence
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.dependencies import DbSession
+from app.api.rbac import get_current_identity, require_role
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
 from app.schemas.school import SchoolCreate, SchoolResponse, SchoolUpdate
 
-router = APIRouter(prefix="/schools", tags=["schools"])
+router = APIRouter(
+    prefix="/schools",
+    tags=["schools"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _SCHOOL_NOT_FOUND_ERROR: Final[str] = "Scuola non trovata."
 _DUPLICATE_SCHOOL_ERROR: Final[str] = 'Esiste già una scuola "{name}" a {city}.'
@@ -117,7 +123,11 @@ async def get_schools(db: DbSession) -> Sequence[School]:
     return result.scalars().unique().all()
 
 
-@router.post("/", response_model=SchoolResponse)
+@router.post(
+    "/",
+    response_model=SchoolResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_school(payload: SchoolCreate, db: DbSession) -> School | None:
     await _assert_name_available(db, payload.name, payload.city)
 
@@ -150,7 +160,11 @@ async def create_school(payload: SchoolCreate, db: DbSession) -> School | None:
     return await _load_school_with_programs(db, school_id)
 
 
-@router.put("/{school_id}", response_model=SchoolResponse)
+@router.put(
+    "/{school_id}",
+    response_model=SchoolResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_school(
     school_id: int,
     payload: SchoolUpdate,
@@ -205,7 +219,10 @@ async def update_school(
     return await _load_school_with_programs(db, school_id)
 
 
-@router.delete("/{school_id}")
+@router.delete(
+    "/{school_id}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_school(school_id: int, db: DbSession) -> dict[str, str]:
     school = await _get_school_or_404(db, school_id)
 

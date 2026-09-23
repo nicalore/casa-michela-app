@@ -17,7 +17,8 @@ import 'tabs/person_subjects_tab.dart';
 
 const String _teacherRole = 'TEACHER';
 
-const String _intro =
+// Shared with the mobile section, which shows it behind its (i).
+const String kTeacherSubjectsIntro =
     'Qui puoi indicare le discipline che desideri insegnare e i percorsi di '
     'studio per i quali sei disponibile. Ti chiediamo di mantenere queste '
     'informazioni sempre aggiornate e corrette, poiché verranno utilizzate '
@@ -127,7 +128,7 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
       child: Text(
-        _intro,
+        kTeacherSubjectsIntro,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -161,13 +162,11 @@ class _TeacherSubjectsPageState extends State<TeacherSubjectsPage> with Destinat
                   tint: AppTheme.trialDeepWater,
                   edgeTint: AppTheme.trialOcean,
                   intensity: 1.25,
-                  animated: true,
                 ),
                 const CornerGlow(
                   corner: GlowCorner.bottomLeft,
                   tint: AppTheme.trialSeaGreen,
                   edgeTint: AppTheme.trialTealDeep,
-                  animated: true,
                 ),
                 const PageWatermark(),
                 Positioned.fill(

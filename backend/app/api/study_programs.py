@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Final
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,7 @@ from sqlalchemy.sql.base import ExecutableOption
 
 from app.api.dependencies import DbSession
 from app.api.queries import select_parents_left_without_children
+from app.api.rbac import get_current_identity, require_role
 from app.models.ministry_subject import MinistrySubject
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
@@ -21,7 +22,12 @@ from app.schemas.study_program import (
     StudyProgramUpdate,
 )
 
-router = APIRouter(prefix="/study-programs", tags=["study-programs"])
+router = APIRouter(
+    prefix="/study-programs",
+    tags=["study-programs"],
+    # Reading takes a login; writing an administrator, route by route.
+    dependencies=[Depends(get_current_identity)],
+)
 
 _PROGRAM_NOT_FOUND_ERROR: Final[str] = "Indirizzo di studio non trovato."
 _NO_MINISTRY_SUBJECTS_ERROR: Final[str] = "Seleziona almeno una materia ministeriale."
@@ -159,7 +165,11 @@ async def get_study_programs(db: DbSession) -> Sequence[StudyProgram]:
     return result.scalars().unique().all()
 
 
-@router.post("/", response_model=StudyProgramResponse)
+@router.post(
+    "/",
+    response_model=StudyProgramResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def create_study_program(
     payload: StudyProgramCreate,
     db: DbSession,
@@ -211,7 +221,11 @@ async def create_study_program(
     return await _load_program_with_subjects(db, new_program.id)
 
 
-@router.put("/{program_id}", response_model=StudyProgramResponse)
+@router.put(
+    "/{program_id}",
+    response_model=StudyProgramResponse,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_study_program(
     program_id: int,
     payload: StudyProgramUpdate,
@@ -269,7 +283,10 @@ async def update_study_program(
     return await _load_program_with_subjects(db, program_id)
 
 
-@router.delete("/{program_id}")
+@router.delete(
+    "/{program_id}",
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def delete_study_program(program_id: int, db: DbSession) -> dict[str, str]:
     program = await _get_program_or_404(db, program_id)
 
