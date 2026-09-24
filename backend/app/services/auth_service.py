@@ -463,6 +463,18 @@ class AuthService:
 
         await self.account_repository.commit()
 
+    async def revoke_other_sessions(
+        self,
+        account_tax_code: str,
+        session_id: str,
+    ) -> None:
+        await self.refresh_token_repository.revoke_sessions_except(
+            account_tax_code,
+            session_id,
+        )
+
+        await self.account_repository.commit()
+
     async def logout(self, refresh_token: str) -> None:
         _, stored_token = await self._load_valid_refresh_token(refresh_token)
 

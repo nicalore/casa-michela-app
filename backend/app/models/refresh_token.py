@@ -27,6 +27,13 @@ class TokenTypeEnum(StrEnum):
     PASSWORD_RESET = "PASSWORD_RESET"
 
 
+class DeviceTypeEnum(StrEnum):
+    DESKTOP = "DESKTOP"
+    PHONE = "PHONE"
+    TABLET = "TABLET"
+    UNKNOWN = "UNKNOWN"
+
+
 class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "refresh_tokens"
 
@@ -64,6 +71,30 @@ class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
         default=TokenTypeEnum.REFRESH,
         server_default="REFRESH",
     )
+
+    # Shared by every token of one sign-in: rotation carries it over, so a
+    # session can be listed and revoked as a whole.
+    session_id: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+    )
+
+    # The sign-in that opened the session; rotation carries it over too.
+    logged_in_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    device_type: Mapped[DeviceTypeEnum] = mapped_column(
+        SqlEnum(DeviceTypeEnum, name="device_type_enum"),
+        nullable=False,
+        default=DeviceTypeEnum.UNKNOWN,
+        server_default="UNKNOWN",
+    )
+
+    # "Chrome su macOS", "App iOS": read off the request that signed in.
+    device_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

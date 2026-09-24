@@ -13,15 +13,30 @@ import '../../shared/widgets/app_segmented_tabs.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
-import 'tabs/account_tab.dart';
+import 'tabs/access_tab.dart';
 import 'tabs/appearance_tab.dart';
+import 'tabs/devices_tab.dart';
 import 'tabs/info_tab.dart';
 
-const List<String> _sections = ['Aspetto', 'Account', 'Informazioni'];
+const String _appearance = 'Aspetto';
+const String _access = 'Accesso';
+const String _devices = 'Dispositivi';
+const String _info = 'Informazioni';
+
+// Order matches the PageSections below; the constants under it index both.
+const List<RailGroup> _groups = [
+  RailGroup(entries: [_appearance]),
+  RailGroup(title: 'Account', entries: [_access, _devices]),
+  RailGroup(entries: [_info]),
+];
+
+// The compact bar has no groups: the same entries, flat.
+const List<String> _sections = [_appearance, _access, _devices, _info];
 
 const int _appearanceIndex = 0;
-const int _accountIndex = 1;
-const int _infoIndex = 2;
+const int _accessIndex = 1;
+const int _devicesIndex = 2;
+const int _infoIndex = 3;
 
 class SettingsPage extends StatefulWidget
 {
@@ -71,8 +86,11 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
         visitedSections.contains(_appearanceIndex)
             ? const AppearanceTab()
             : const SizedBox.shrink(),
-        visitedSections.contains(_accountIndex)
-            ? const AccountTab()
+        visitedSections.contains(_accessIndex)
+            ? const AccessTab()
+            : const SizedBox.shrink(),
+        visitedSections.contains(_devicesIndex)
+            ? const DevicesTab()
             : const SizedBox.shrink(),
         visitedSections.contains(_infoIndex)
             ? const InfoTab()
@@ -93,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
             alignment: Alignment.topLeft,
             child: AppSectionRail(
               title: 'Impostazioni',
-              groups: const [RailGroup(entries: _sections)],
+              groups: _groups,
               selectedIndex: _selectedSection,
               onSelected: _selectSection,
             ),

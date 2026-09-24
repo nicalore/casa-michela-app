@@ -246,6 +246,11 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Logout",
         actor_fallback=ActorSource.BODY_REFRESH_TOKEN,
     ),
+    ("DELETE", "/auth/sessions"): AuditRule("Other sessions revocation"),
+    ("DELETE", "/auth/sessions/{session_id}"): AuditRule(
+        "Session revocation",
+        path_params=("session_id",),
+    ),
     ("PUT", "/auth/active-role"): AuditRule(
         "Active role change",
         body_fields=("role",),

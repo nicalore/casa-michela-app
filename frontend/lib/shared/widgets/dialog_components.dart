@@ -11,6 +11,13 @@ const double _dialogBlurSigma = 8.0;
 const Color _dialogTint = Colors.black;
 const double _dialogTintOpacity = 0.15;
 
+// Clamped like the snapshot's blur, so swapping one for the other leaves no seam at the edges.
+final ui.ImageFilter _liveBlur = ui.ImageFilter.blur(
+  sigmaX: _dialogBlurSigma,
+  sigmaY: _dialogBlurSigma,
+  tileMode: ui.TileMode.clamp,
+);
+
 // Wraps everything a dialog covers: its last frame is what the dialog shows blurred.
 final GlobalKey dialogBackdropKey = GlobalKey(debugLabel: 'dialogBackdrop');
 
@@ -121,30 +128,69 @@ class _DialogBackdropState extends State<_DialogBackdrop>
   {
     super.initState();
 
-    // After the first frame: the dialog is still invisible in it, and nothing waits to repaint.
-    WidgetsBinding.instance.addPostFrameCallback((_)
+    widget.animation.addStatusListener(_onStatus);
+
+    if (widget.animation.isCompleted)
     {
-      if (!mounted)
-      {
-        return;
-      }
+      _captureAfterFrame();
+    }
+  }
 
-      final _Backdrop? backdrop = _Backdrop.capture(
-        MediaQuery.devicePixelRatioOf(context),
-      );
+  @override
+  void didUpdateWidget(_DialogBackdrop oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
 
-      if (backdrop != null)
-      {
-        setState(() => _backdrop = backdrop);
-      }
-    });
+    if (!identical(oldWidget.animation, widget.animation))
+    {
+      oldWidget.animation.removeStatusListener(_onStatus);
+      widget.animation.addStatusListener(_onStatus);
+    }
   }
 
   @override
   void dispose()
   {
+    widget.animation.removeStatusListener(_onStatus);
     _backdrop?.dispose();
     super.dispose();
+  }
+
+  void _onStatus(AnimationStatus status)
+  {
+    if (status.isCompleted)
+    {
+      _captureAfterFrame();
+    }
+  }
+
+  // Once the dialog is open and nothing moves any more: until then the window behind
+  // is still settling, e.g. the hover of the button that opened it is fading out.
+  void _captureAfterFrame()
+  {
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      final RenderObject? veil = mounted ? context.findRenderObject() : null;
+
+      if (_backdrop != null || veil is! _RenderVeil)
+      {
+        return;
+      }
+
+      // A ticker still running asks for the next frame, so this retry is never left hanging.
+      if (WidgetsBinding.instance.transientCallbackCount > 0)
+      {
+        _captureAfterFrame();
+        return;
+      }
+
+      final double pixelRatio = MediaQuery.devicePixelRatioOf(context);
+      final _Backdrop? backdrop = veil.paintedOut(() => _Backdrop.capture(pixelRatio));
+      if (backdrop != null)
+      {
+        setState(() => _backdrop = backdrop);
+      }
+    });
   }
 
   @override
@@ -156,30 +202,80 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     // The barrier's own easing, painted here so the tint sits on the snapshot.
     final double tint = _dialogTintOpacity * Curves.ease.transform(progress);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        IgnorePointer(
-          child: backdrop == null
-              ? BackdropFilter(
-                  filter: ui.ImageFilter.blur(
-                    sigmaX: _dialogBlurSigma * progress,
-                    sigmaY: _dialogBlurSigma * progress,
+    return _Veil(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          IgnorePointer(
+            child: backdrop == null
+                // The blurred window faded in over the sharp one, as the snapshot is.
+                ? BackdropFilter(
+                    filter: ui.ImageFilter.compose(
+                      outer: ColorFilter.mode(Color.fromRGBO(0, 0, 0, progress), BlendMode.dstIn),
+                      inner: _liveBlur,
+                    ),
+                    child: const SizedBox.expand(),
+                  )
+                : RawImage(
+                    image: backdrop.image,
+                    fit: BoxFit.fill,
+                    opacity: widget.animation,
                   ),
-                  child: const SizedBox.expand(),
-                )
-              : RawImage(
-                  image: backdrop.image,
-                  fit: BoxFit.fill,
-                  opacity: widget.animation,
-                ),
-        ),
-        IgnorePointer(
-          child: ColoredBox(color: _dialogTint.withValues(alpha: tint)),
-        ),
-        widget.child,
-      ],
+          ),
+          IgnorePointer(
+            child: ColoredBox(color: _dialogTint.withValues(alpha: tint)),
+          ),
+          widget.child,
+        ],
+      ),
     );
+  }
+}
+
+// Leaves the dialog out of one offscreen repaint, so a capture sees only the window behind it.
+class _Veil extends SingleChildRenderObjectWidget
+{
+  const _Veil({super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderVeil();
+}
+
+class _RenderVeil extends RenderProxyBox
+{
+  bool _out = false;
+
+  T paintedOut<T>(T Function() capture)
+  {
+    final PipelineOwner pipeline = owner!;
+
+    _repaint(pipeline, out: true);
+
+    try
+    {
+      return capture();
+    }
+    finally
+    {
+      _repaint(pipeline, out: false);
+    }
+  }
+
+  // Updates the layers without compositing a frame: the screen never shows the dialog gone.
+  void _repaint(PipelineOwner pipeline, {required bool out})
+  {
+    _out = out;
+    markNeedsPaint();
+    pipeline.flushPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset)
+  {
+    if (!_out)
+    {
+      super.paint(context, offset);
+    }
   }
 }
 

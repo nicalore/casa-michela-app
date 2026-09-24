@@ -35,15 +35,15 @@ String _formatLastLogin(DateTime? lastLogin)
   return _lastLoginFormat.format(lastLogin);
 }
 
-class AccountTab extends StatefulWidget
+class AccessTab extends StatefulWidget
 {
-  const AccountTab({super.key});
+  const AccessTab({super.key});
 
   @override
-  State<AccountTab> createState() => _AccountTabState();
+  State<AccessTab> createState() => _AccessTabState();
 }
 
-class _AccountTabState extends State<AccountTab>
+class _AccessTabState extends State<AccessTab>
 {
   final ApiService _apiService = ApiService();
 
@@ -150,7 +150,7 @@ class _AccountTabState extends State<AccountTab>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 AppCard(
-                  title: 'Credenziali di accesso',
+                  title: 'Accesso',
                   compact: true,
                   selectable: false,
                   leading: const AppCardBadge(

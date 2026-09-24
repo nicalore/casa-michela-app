@@ -118,6 +118,26 @@ class RefreshTokenRepository:
 
         return result.rowcount
 
+    async def revoke_sessions_except(
+        self,
+        account_tax_code: str,
+        session_id: str,
+    ) -> int:
+        result = await self.session.execute(
+            update(RefreshToken)
+            .where(
+                RefreshToken.account_tax_code == account_tax_code,
+                RefreshToken.session_id != session_id,
+                RefreshToken.token_type == TokenTypeEnum.REFRESH,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .values(revoked_at=datetime.now(UTC))
+        )
+
+        await self.session.flush()
+
+        return result.rowcount
+
     async def delete(self, refresh_token: RefreshToken) -> None:
         await self.session.delete(refresh_token)
         await self.session.flush()

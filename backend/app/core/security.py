@@ -60,25 +60,32 @@ def _encode_token(
     )
 
 
-def create_access_token(subject: str, username: str) -> str:
+def create_access_token(subject: str, username: str, session_id: str) -> str:
     return _encode_token(
         {
             "sub": subject,
             "username": username,
             "type": _ACCESS_TOKEN_TYPE,
+            "sid": session_id,
         },
         settings.jwt_access_secret,
         timedelta(minutes=settings.access_token_expire_minutes),
     )
 
 
-def create_refresh_token(subject: str, username: str, token_id: str) -> str:
+def create_refresh_token(
+    subject: str,
+    username: str,
+    token_id: str,
+    session_id: str,
+) -> str:
     return _encode_token(
         {
             "sub": subject,
             "username": username,
             "type": _REFRESH_TOKEN_TYPE,
             "jti": token_id,
+            "sid": session_id,
         },
         settings.jwt_refresh_secret,
         timedelta(days=settings.refresh_token_expire_days),

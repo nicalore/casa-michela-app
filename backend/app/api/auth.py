@@ -6,13 +6,19 @@ from fastapi import (
     APIRouter,
     File,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.current_account import CurrentAccount, CurrentAccountAllowPendingReset
+from app.api.current_account import (
+    CurrentAccount,
+    CurrentAccountAllowPendingReset,
+    CurrentSessionId,
+)
 from app.api.dependencies import DbSession
+from app.core.client_device import FORM_FACTOR_HEADER, ClientDevice, describe_client
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import PROFILE_IMAGES_DIR, store_profile_image
 from app.models.account import Account
@@ -27,6 +33,7 @@ from app.schemas.auth.login_response import LoginResponse
 from app.schemas.auth.logout_request import LogoutRequest
 from app.schemas.auth.password_reset import PasswordResetConfirm, PasswordResetRequest
 from app.schemas.auth.refresh_request import RefreshRequest
+from app.schemas.auth.session_response import SessionResponse
 from app.services.auth_service import (
     AccountDisabledError,
     AccountLockedError,
@@ -34,6 +41,7 @@ from app.services.auth_service import (
     AuthService,
     InvalidRefreshTokenError,
     PasswordReuseError,
+    SessionNotFoundError,
 )
 from app.services.role_service import RoleService
 
@@ -56,6 +64,11 @@ _ACCOUNT_LOCKED_ERROR: Final[str] = (
     "Account temporaneamente bloccato fino al {locked_until}"
 )
 _INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
+_CURRENT_SESSION_ERROR: Final[str] = "La sessione in uso si chiude con l'uscita"
+_SESSION_NOT_FOUND_ERROR: Final[str] = "Sessione non trovata o già disattivata"
+_UNKNOWN_CURRENT_SESSION_ERROR: Final[str] = (
+    "Sessione in uso non riconosciuta: esci e accedi di nuovo"
+)
 
 # Mirrored by frontend/lib/features/auth/models/me_response.dart.
 _BOARD_ROLES: Final[frozenset[AdministratorRoleEnum]] = frozenset(
@@ -93,14 +106,26 @@ def _build_auth_service(db: AsyncSession) -> AuthService:
     )
 
 
+def _client_device(request: Request) -> ClientDevice:
+    return describe_client(
+        request.headers.get("user-agent"),
+        request.headers.get(FORM_FACTOR_HEADER),
+    )
+
+
 @router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, db: DbSession) -> LoginResponse:
+async def login(
+    request: LoginRequest,
+    http_request: Request,
+    db: DbSession,
+) -> LoginResponse:
     auth_service = _build_auth_service(db)
 
     try:
         result = await auth_service.authenticate(
             username=request.username,
             password=request.password,
+            device=_client_device(http_request),
         )
 
         return LoginResponse(
@@ -128,11 +153,18 @@ async def login(request: LoginRequest, db: DbSession) -> LoginResponse:
 
 
 @router.post("/refresh", response_model=LoginResponse)
-async def refresh(request: RefreshRequest, db: DbSession) -> LoginResponse:
+async def refresh(
+    request: RefreshRequest,
+    http_request: Request,
+    db: DbSession,
+) -> LoginResponse:
     auth_service = _build_auth_service(db)
 
     try:
-        result = await auth_service.refresh(request.refresh_token)
+        result = await auth_service.refresh(
+            request.refresh_token,
+            device=_client_device(http_request),
+        )
 
         return LoginResponse(
             access_token=result.access_token,
@@ -157,6 +189,77 @@ async def logout(request: LogoutRequest, db: DbSession) -> None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_INVALID_REFRESH_TOKEN_ERROR,
+        ) from None
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+async def list_sessions(
+    current_account: CurrentAccount,
+    current_session_id: CurrentSessionId,
+    db: DbSession,
+) -> list[SessionResponse]:
+    sessions = await _build_auth_service(db).list_sessions(current_account.tax_code)
+
+    items = [
+        SessionResponse(
+            session_id=session.session_id,
+            logged_in_at=session.logged_in_at,
+            # The live token is the one the last refresh issued.
+            last_used_at=session.created_at,
+            device_type=session.device_type,
+            device_name=session.device_name,
+            current=session.session_id == current_session_id,
+        )
+        for session in sessions
+    ]
+
+    # This session first; the rest stay most recently used first.
+    return sorted(items, key=lambda item: not item.current)
+
+
+# Everything but the session in use, which keeps working as it is.
+@router.delete("/sessions", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_other_sessions(
+    current_account: CurrentAccount,
+    current_session_id: CurrentSessionId,
+    db: DbSession,
+) -> None:
+    # A token from before sessions were tracked names no session to spare.
+    if current_session_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_UNKNOWN_CURRENT_SESSION_ERROR,
+        )
+
+    await _build_auth_service(db).revoke_other_sessions(
+        current_account.tax_code,
+        current_session_id,
+    )
+
+
+# The session in use ends with a logout, which clears the client as well.
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_session(
+    session_id: str,
+    current_account: CurrentAccount,
+    current_session_id: CurrentSessionId,
+    db: DbSession,
+) -> None:
+    if session_id == current_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_CURRENT_SESSION_ERROR,
+        )
+
+    try:
+        await _build_auth_service(db).revoke_session(
+            current_account.tax_code,
+            session_id,
+        )
+    except SessionNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=_SESSION_NOT_FOUND_ERROR,
         ) from None
 
 

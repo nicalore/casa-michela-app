@@ -1,6 +1,6 @@
 from typing import Annotated, Final
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.dependencies import DbSession
@@ -15,8 +15,11 @@ _ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
 
 _PASSWORD_RESET_REQUIRED_CODE: Final[str] = "PASSWORD_RESET_REQUIRED"
 
+_SESSION_ID_STATE_KEY: Final[str] = "session_id"
+
 
 async def get_current_account(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer_scheme)],
     db: DbSession,
 ) -> Account:
@@ -28,6 +31,10 @@ async def get_current_account(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_INVALID_ACCESS_TOKEN_ERROR,
         ) from None
+
+    # Tells "this" session apart on the sessions routes; tokens issued before
+    # sessions were tracked carry none.
+    setattr(request.state, _SESSION_ID_STATE_KEY, payload.get("sid"))
 
     # With the role graph: every later dependency reads it off this object.
     account = await IdentityRepository(db).get_account_identity(payload["sub"])
@@ -52,6 +59,17 @@ async def get_current_active_account(
 
     return account
 
+
+# Depends on the account on purpose: the id is published while it is resolved.
+async def get_current_session_id(
+    request: Request,
+    _: Annotated[Account, Depends(get_current_active_account)],
+) -> str | None:
+    return getattr(request.state, _SESSION_ID_STATE_KEY, None)
+
+
 CurrentAccount = Annotated[Account, Depends(get_current_active_account)]
 
 CurrentAccountAllowPendingReset = Annotated[Account, Depends(get_current_account)]
+
+CurrentSessionId = Annotated[str | None, Depends(get_current_session_id)]

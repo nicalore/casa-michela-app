@@ -822,6 +822,19 @@ class ApiService
     }
   }
 
+  // Every session but this one; the tokens in hand stay valid.
+  Future<void> revokeOtherSessions() async
+  {
+    try
+    {
+      await _dio.delete('/auth/sessions');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile disattivare le altre sessioni.');
+    }
+  }
+
   Future<void> changePassword({required String currentPassword, required String newPassword}) async
   {
     // The body names the session to keep: the pair another tab renewed.
