@@ -31,20 +31,87 @@ Future<T?> showBlurredDialog<T>({
   Duration transitionDuration = const Duration(milliseconds: 560),
 })
 {
-  return showGeneralDialog<T>(
-    context: context,
-    barrierDismissible: barrierDismissible,
-    barrierLabel: barrierLabel,
-    // The tint is painted with the backdrop, over the snapshot rather than under it.
-    barrierColor: Colors.transparent,
-    transitionDuration: transitionDuration,
-    // Built once here: transitionBuilder runs on every tick of the animation.
-    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-    transitionBuilder: (context, animation, secondaryAnimation, child)
-    {
-      return _DialogBackdrop(animation: animation, child: child);
-    },
+  return Navigator.of(context, rootNavigator: true).push<T>(
+    _BlurredDialogRoute<T>(
+      builder: builder,
+      label: barrierLabel,
+      dismissible: barrierDismissible,
+      duration: transitionDuration,
+    ),
   );
+}
+
+// A popup that turns opaque once its snapshot stands in for the routes below:
+// the framework then stops painting and ticking them.
+class _BlurredDialogRoute<T> extends PopupRoute<T>
+{
+  final WidgetBuilder builder;
+  final String label;
+  final bool dismissible;
+  final Duration duration;
+
+  bool _covers = false;
+
+  _BlurredDialogRoute({
+    required this.builder,
+    required this.label,
+    required this.dismissible,
+    required this.duration,
+  });
+
+  // The tint is painted with the backdrop, over the snapshot rather than under it.
+  @override
+  Color? get barrierColor => Colors.transparent;
+
+  @override
+  bool get barrierDismissible => dismissible;
+
+  @override
+  String get barrierLabel => label;
+
+  @override
+  Duration get transitionDuration => duration;
+
+  @override
+  bool get opaque => _covers;
+
+  void coverBelow()
+  {
+    _covers = true;
+
+    // The framework applies opaque only when the transition settles; here it may have already.
+    if (animation?.isCompleted ?? false)
+    {
+      overlayEntries.first.opaque = true;
+    }
+
+    changedInternalState();
+  }
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  )
+  {
+    return Semantics(
+      scopesRoute: true,
+      explicitChildNodes: true,
+      child: builder(context),
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  )
+  {
+    return _DialogBackdrop(route: this, animation: animation, child: child);
+  }
 }
 
 // The window behind a dialog, rasterised and blurred once: a texture per frame
@@ -109,10 +176,15 @@ class _Backdrop
 
 class _DialogBackdrop extends StatefulWidget
 {
+  final _BlurredDialogRoute<dynamic> route;
   final Animation<double> animation;
   final Widget child;
 
-  const _DialogBackdrop({required this.animation, required this.child});
+  const _DialogBackdrop({
+    required this.route,
+    required this.animation,
+    required this.child,
+  });
 
   @override
   State<_DialogBackdrop> createState() => _DialogBackdropState();
@@ -189,6 +261,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
       if (backdrop != null)
       {
         setState(() => _backdrop = backdrop);
+        widget.route.coverBelow();
       }
     });
   }
