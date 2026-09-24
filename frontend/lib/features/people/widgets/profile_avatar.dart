@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/config/api_config.dart';
+import '../../../core/constants/profile_photo.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_badged_face.dart';
@@ -61,7 +62,7 @@ class ProfileAvatarState extends State<ProfileAvatar>
     }
 
     // The shared version moves only on upload, so the browser keeps the file.
-    return '\$url?v=\${ApiService().profileImageVersion}';
+    return '$url?v=${ApiService().profileImageVersion}';
   }
 
   String get _initials
@@ -76,7 +77,12 @@ class ProfileAvatarState extends State<ProfileAvatar>
   {
     try 
     {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: ProfilePhoto.maxSide,
+        maxHeight: ProfilePhoto.maxSide,
+        imageQuality: ProfilePhoto.quality,
+      );
 
       if (image == null) 
       {

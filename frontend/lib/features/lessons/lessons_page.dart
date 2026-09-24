@@ -117,6 +117,7 @@ class _LessonsPageState extends State<LessonsPage>
   late final CalendarBandWatch _watch = CalendarBandWatch(
     beat: _beat,
     poll: _pollShownDay,
+    releasedElsewhere: _apiService.calendarLocksReleasedElsewhere,
   );
 
   List<OpeningDayItem> _openingDays = [];

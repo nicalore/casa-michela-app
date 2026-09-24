@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -43,7 +44,10 @@ import '../features/people/models/student_presence_statistics_item.dart';
 import '../features/people/models/teacher_appreciation_item.dart';
 import '../features/people/models/teacher_availability_statistics_item.dart';
 import '../features/people/models/teacher_subjects_statistics_item.dart';
+import '../features/settings/models/session_item.dart';
 import 'auth_state.dart';
+import 'browser_tabs.dart';
+import 'client_form_factor.dart';
 import 'session_service.dart';
 
 int _byName(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
@@ -126,6 +130,22 @@ MinistrySubjectItem _ministrySubjectFromJson(dynamic json)
 
 typedef ApiFile = ({Uint8List bytes, String fileName});
 
+// What a tab tells the other tabs of its browser.
+abstract final class _TabNews
+{
+  static const String signedIn = 'signed-in';
+  static const String signedOut = 'signed-out';
+  static const String peopleChanged = 'people-changed';
+  static const String cataloguesChanged = 'catalogues-changed';
+  static const String bandReleased = 'band-released';
+}
+
+// The session ended in another tab while this one waited its turn.
+class _SessionEnded implements Exception
+{
+  const _SessionEnded();
+}
+
 // One list per endpoint: concurrent readers share the request, later readers
 // the value, a write drops both. Copies go out, so a caller sorting in place
 // cannot touch the cache.
@@ -202,6 +222,16 @@ class ApiService
 
   Future<void>? _refreshing;
 
+  static const String _formFactorHeader = 'X-Client-Form-Factor';
+
+  // A browser refuses a page-set agent and sends its own; the native apps
+  // announce themselves, as the default "Dart/x.y" says nothing useful.
+  static final String? _appUserAgent =
+      kIsWeb ? null : 'CasaMichela/app (${defaultTargetPlatform.name.toLowerCase()})';
+
+  // Resolved on first use: a native view has no size before its first frame.
+  String? _formFactor;
+
   final ValueNotifier<AuthState> authState = ValueNotifier(AuthState.loading);
 
   // The router's redirect is synchronous and needs the active role, so the identity lives in a notifier.
@@ -219,14 +249,20 @@ class ApiService
 
   Future<MeResponse>? _meInFlight;
 
-  void _forgetPeople()
+  // The band lock belongs to the account, not the tab: bumped when another
+  // tab lets one go, so a tab still editing takes it back.
+  final ValueNotifier<int> calendarLocksReleasedElsewhere = ValueNotifier(0);
+
+  static const String _sessionLock = 'casa-michela-session';
+
+  void _dropPeople()
   {
     _peopleMemo.invalidate();
     _teachersMemo.invalidate();
   }
 
   // A renamed subject, service or school shows up in the register too.
-  void _forgetCatalogues()
+  void _dropCatalogues()
   {
     _schoolsMemo.invalidate();
     _studyProgramsMemo.invalidate();
@@ -235,13 +271,56 @@ class ApiService
     _servicesMemo.invalidate();
     _coursesMemo.invalidate();
     _roomsMemo.invalidate();
-    _forgetPeople();
+    _dropPeople();
+  }
+
+  // After a write: the other tabs of the browser drop their copies too.
+  void _forgetPeople()
+  {
+    _dropPeople();
+    tellOtherTabs({'news': _TabNews.peopleChanged});
+  }
+
+  void _forgetCatalogues()
+  {
+    _dropCatalogues();
+    tellOtherTabs({'news': _TabNews.cataloguesChanged});
   }
 
   void _forgetAll()
   {
-    _forgetCatalogues();
+    _dropCatalogues();
     _meInFlight = null;
+  }
+
+  void _hearFromOtherTab(Map<String, String> message)
+  {
+    switch (message['news'])
+    {
+      case _TabNews.signedIn:
+        // A tab waiting at the sign-in page follows the one that signed in.
+        if (authState.value == AuthState.unauthenticated)
+        {
+          unawaited(restoreSession());
+        }
+
+      case _TabNews.signedOut:
+        final String? own = _refreshToken;
+
+        if (own != null && _sessionOf(own) == message['session'])
+        {
+          _leaveSession();
+        }
+
+      case _TabNews.peopleChanged:
+        _dropPeople();
+
+      case _TabNews.cataloguesChanged:
+        _dropCatalogues();
+
+      case _TabNews.bandReleased:
+        calendarLocksReleasedElsewhere.value++;
+    }
   }
 
   ApiService._internal()
@@ -255,10 +334,23 @@ class ApiService
     _dio = Dio(options);
     _tokenDio = Dio(options);
 
+    _tokenDio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler)
+        {
+          _describeClient(options);
+
+          return handler.next(options);
+        },
+      ),
+    );
+
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler)
         {
+          _describeClient(options);
+
           if (_accessToken != null)
           {
             options.headers['Authorization'] = 'Bearer $_accessToken';
@@ -284,12 +376,21 @@ class ApiService
             {
               await _refreshOnce();
             }
-            catch (_)
+            catch (refreshError)
             {
-              await _clearSession();
-              authState.value = AuthState.unauthenticated;
+              if (_sessionRefused(refreshError))
+              {
+                _leaveSession();
 
-              return handler.next(error);
+                return handler.next(error);
+              }
+
+              // No answer: the session stays, the next request renews it.
+              return handler.next(
+                refreshError is DioException
+                    ? refreshError.copyWith(requestOptions: request)
+                    : DioException(requestOptions: request, error: refreshError),
+              );
             }
           }
 
@@ -299,6 +400,12 @@ class ApiService
           if (request.data is Map && (request.data as Map).containsKey('refresh_token'))
           {
             (request.data as Map)['refresh_token'] = _refreshToken;
+          }
+
+          // A FormData can be sent only once: the retry needs a fresh copy.
+          if (request.data is FormData)
+          {
+            request.data = (request.data as FormData).clone();
           }
 
           try
@@ -312,6 +419,30 @@ class ApiService
         },
       ),
     );
+
+    listenToOtherTabs(_hearFromOtherTab);
+  }
+
+  // The request that opens or renews a session says what device it is on, so
+  // the sessions list can name it.
+  void _describeClient(RequestOptions options)
+  {
+    if (options.path != '/auth/login' && options.path != '/auth/refresh')
+    {
+      return;
+    }
+
+    _formFactor ??= clientFormFactor();
+
+    if (_formFactor != null)
+    {
+      options.headers[_formFactorHeader] = _formFactor;
+    }
+
+    if (_appUserAgent != null)
+    {
+      options.headers['User-Agent'] = _appUserAgent;
+    }
   }
 
   bool get isAuthenticated
@@ -322,33 +453,128 @@ class ApiService
   // Every 401 during a refresh waits for the same one instead of failing.
   Future<void> _refreshOnce()
   {
-    return _refreshing ??= _performTokenRefresh()
-        .then((_) {})
-        .whenComplete(() => _refreshing = null);
+    return _refreshing ??= _renewTokens().whenComplete(() => _refreshing = null);
   }
 
-  // Seconds before the token expires; zero when it cannot be read.
-  static int _secondsLeft(String token)
+  // The tabs of one browser share a session: they renew it in turn, and a tab
+  // finding it already renewed by another adopts that pair instead. Tokens
+  // only, no /auth/me: a renewal started by a refused /auth/me would
+  // otherwise wait on that very request, and neither would ever finish.
+  Future<void> _renewTokens()
+  {
+    return inTurnWithOtherTabs(_sessionLock, () async
+    {
+      if (await _catchUpWithOtherTabs() && _secondsLeft(_accessToken!) > 60)
+      {
+        return;
+      }
+
+      final String? spent = _refreshToken;
+
+      if (spent == null)
+      {
+        throw const _SessionEnded();
+      }
+
+      try
+      {
+        await _adoptTokens(await _performTokenRefresh());
+      }
+      catch (error)
+      {
+        if (_sessionRefused(error))
+        {
+          await SessionService.clearIfHolding(spent);
+          tellOtherTabs({'news': _TabNews.signedOut, 'session': _sessionOf(spent) ?? ''});
+        }
+
+        rethrow;
+      }
+    });
+  }
+
+  // A pair stored by another tab for the same account is newer than the one
+  // in memory: renewals take turns and each stores its pair before the next.
+  Future<bool> _catchUpWithOtherTabs() async
+  {
+    final String? own = _refreshToken;
+    final StoredSession stored = await SessionService.read();
+    final String? storedAccess = stored.accessToken;
+    final String? storedRefresh = stored.refreshToken;
+
+    if (own == null || storedAccess == null || storedRefresh == null || storedRefresh == own)
+    {
+      return false;
+    }
+
+    final String? account = _accountOf(own);
+
+    if (account == null || _accountOf(storedRefresh) != account)
+    {
+      return false;
+    }
+
+    _accessToken = storedAccess;
+    _refreshToken = storedRefresh;
+
+    return true;
+  }
+
+  // Read unverified, to choose between tokens: the server verifies them.
+  static Map<String, dynamic> _claims(String token)
   {
     final List<String> parts = token.split('.');
 
     if (parts.length != 3)
     {
-      return 0;
+      return const {};
     }
 
     try
     {
-      final Map<String, dynamic> claims = Map<String, dynamic>.from(
+      return Map<String, dynamic>.from(
         jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))),
       );
-
-      return (claims['exp'] as num).toInt() - DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
     catch (_)
     {
+      return const {};
+    }
+  }
+
+  // Seconds before the token expires; zero when it cannot be read.
+  static int _secondsLeft(String token)
+  {
+    final Object? expiry = _claims(token)['exp'];
+
+    if (expiry is! num)
+    {
       return 0;
     }
+
+    return expiry.toInt() - DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  }
+
+  static String? _accountOf(String token)
+  {
+    final Object? subject = _claims(token)['sub'];
+
+    return subject is String ? subject : null;
+  }
+
+  // Tokens issued before sessions were tracked carry no id: the account
+  // stands in for it.
+  static String? _sessionOf(String token)
+  {
+    final Object? session = _claims(token)['sid'];
+
+    return session is String ? session : _accountOf(token);
+  }
+
+  // Only the server turning the tokens down ends a session.
+  static bool _sessionRefused(Object error)
+  {
+    return error is _SessionEnded || (error is DioException && error.response?.statusCode == 401);
   }
 
   static bool _passwordResetRequired(Object error)
@@ -403,6 +629,16 @@ class ApiService
 
   Future<void> _adoptSession(LoginResponse loginResponse) async
   {
+    await _adoptTokens(loginResponse);
+
+    if (!loginResponse.passwordResetRequired)
+    {
+      await _announceAuthenticated();
+    }
+  }
+
+  Future<void> _adoptTokens(LoginResponse loginResponse) async
+  {
     _accessToken = loginResponse.accessToken;
     _refreshToken = loginResponse.refreshToken;
 
@@ -414,10 +650,7 @@ class ApiService
     if (loginResponse.passwordResetRequired)
     {
       authState.value = AuthState.passwordChangeRequired;
-      return;
     }
-
-    await _announceAuthenticated();
   }
 
   // Identity must be in hand before the session is announced: the router reads the active role synchronously.
@@ -439,8 +672,7 @@ class ApiService
           return;
         }
 
-        await _clearSession();
-        authState.value = AuthState.unauthenticated;
+        _leaveSession();
 
         return;
       }
@@ -449,13 +681,20 @@ class ApiService
     authState.value = AuthState.authenticated;
   }
 
-  Future<void> _clearSession() async
+  // Memory only: a refused pair left storage with the renewal that met the
+  // refusal, and one without an answer stays there for the next start.
+  void _leaveSession()
+  {
+    _forgetSession();
+    authState.value = AuthState.unauthenticated;
+  }
+
+  void _forgetSession()
   {
     _forgetAll();
     _accessToken = null;
     _refreshToken = null;
     identity.value = null;
-    await SessionService.clear();
   }
 
   Future<LoginResponse> _performTokenRefresh() async
@@ -465,17 +704,15 @@ class ApiService
       data: {'refresh_token': _refreshToken},
     );
 
-    final loginResponse = LoginResponse.fromJson(refreshResponse.data);
-
-    await _adoptSession(loginResponse);
-
-    return loginResponse;
+    return LoginResponse.fromJson(refreshResponse.data);
   }
 
   Future<bool> restoreSession() async
   {
-    _accessToken = await SessionService.getAccessToken();
-    _refreshToken = await SessionService.getRefreshToken();
+    final StoredSession stored = await SessionService.read();
+
+    _accessToken = stored.accessToken;
+    _refreshToken = stored.refreshToken;
 
     if (_accessToken == null || _refreshToken == null)
     {
@@ -486,21 +723,18 @@ class ApiService
     try
     {
       // A token with time left skips the refresh: one round trip, not two.
-      if (_secondsLeft(_accessToken!) > 60)
+      if (_secondsLeft(_accessToken!) <= 60)
       {
-        await _announceAuthenticated();
+        await _renewTokens();
       }
-      else
-      {
-        await _performTokenRefresh();
-      }
+
+      await _announceAuthenticated();
 
       return isAuthenticated;
     }
     catch (_)
     {
-      await _clearSession();
-      authState.value = AuthState.unauthenticated;
+      _leaveSession();
       return false;
     }
   }
@@ -518,29 +752,81 @@ class ApiService
 
     await _adoptSession(loginResponse);
 
+    tellOtherTabs({'news': _TabNews.signedIn});
+
     return loginResponse;
   }
 
+  // In turn with renewals, so the server gets the pair another tab may have
+  // just renewed rather than the spent one in memory.
   Future<void> logout() async
   {
-    try
+    final String? ended = await inTurnWithOtherTabs(_sessionLock, () async
     {
-      if (_refreshToken != null)
+      await _catchUpWithOtherTabs();
+
+      final String? refreshToken = _refreshToken;
+
+      if (refreshToken == null)
+      {
+        return null;
+      }
+
+      try
       {
         await _tokenDio.post(
           '/auth/logout',
-          data: {'refresh_token': _refreshToken},
+          data: {'refresh_token': refreshToken},
         );
       }
-    }
-    catch (_) {}
+      catch (_) {}
 
-    await _clearSession();
-    authState.value = AuthState.unauthenticated;
+      await SessionService.clearIfHolding(refreshToken);
+
+      return refreshToken;
+    });
+
+    if (ended != null)
+    {
+      tellOtherTabs({'news': _TabNews.signedOut, 'session': _sessionOf(ended) ?? ''});
+    }
+
+    _leaveSession();
+  }
+
+  Future<List<SessionItem>> getSessions() async
+  {
+    try
+    {
+      final response = await _dio.get('/auth/sessions');
+
+      return (response.data as List)
+          .map((item) => SessionItem.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le sessioni.');
+    }
+  }
+
+  Future<void> revokeSession(String sessionId) async
+  {
+    try
+    {
+      await _dio.delete('/auth/sessions/$sessionId');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile disattivare la sessione.');
+    }
   }
 
   Future<void> changePassword({required String currentPassword, required String newPassword}) async
   {
+    // The body names the session to keep: the pair another tab renewed.
+    await _catchUpWithOtherTabs();
+
     try
     {
       await _dio.post(
@@ -568,6 +854,12 @@ class ApiService
     }
     on DioException catch (e)
     {
+      // No response means no server was reached: callers tell that apart from a refusal.
+      if (e.response == null)
+      {
+        rethrow;
+      }
+
       _refused(e, 'Errore durante la richiesta di recupero password. Riprova più tardi.');
     }
   }
@@ -1358,6 +1650,9 @@ class ApiService
 
   int profileImageVersion = 0;
 
+  // On the web one deadline (connect + receive) also covers sending the file.
+  static const Duration _uploadTimeout = Duration(seconds: 60);
+
   Future<String> uploadProfileImage(List<int> bytes, String fileName) async
   {
     final formData = FormData.fromMap({
@@ -1366,7 +1661,11 @@ class ApiService
 
     try
     {
-      final response = await _dio.post('/auth/profile-image', data: formData);
+      final response = await _dio.post(
+        '/auth/profile-image',
+        data: formData,
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
 
       profileImageVersion++;
 
@@ -1684,7 +1983,11 @@ class ApiService
         final formData = FormData.fromMap({
           'file': MultipartFile.fromBytes(imageBytes, filename: '${newTaxCode}_profile.jpg'),
         });
-        await _dio.post('/people/$newTaxCode/image', data: formData);
+        await _dio.post(
+          '/people/$newTaxCode/image',
+          data: formData,
+          options: Options(receiveTimeout: _uploadTimeout),
+        );
         profileImageVersion++;
       }
 
@@ -1716,7 +2019,11 @@ class ApiService
           'file': MultipartFile.fromBytes(imageBytes, filename: '${taxCode}_profile.jpg'),
         });
 
-        await _dio.post('/people/$taxCode/image', data: formData);
+        await _dio.post(
+          '/people/$taxCode/image',
+          data: formData,
+          options: Options(receiveTimeout: _uploadTimeout),
+        );
         profileImageVersion++;
       }
     }
@@ -3066,6 +3373,8 @@ class ApiService
   }) async
   {
     await _dio.delete(_lockPath(day, band));
+
+    tellOtherTabs({'news': _TabNews.bandReleased});
   }
 
   // The caller's own month; gated on role server-side.

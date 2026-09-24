@@ -7,7 +7,7 @@ from app.models.mixins import UpdatedAtMixin
 
 # The subject is the author, so the sentence reads well with any label.
 _STALE_ENTITY_ERROR: Final[str] = (
-    "Un altro utente ha modificato {entity_label} nel frattempo. "
+    "Qualcuno ha modificato {entity_label} nel frattempo. "
     "Ricarica la pagina e riprova."
 )
 

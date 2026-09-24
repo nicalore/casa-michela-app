@@ -1,40 +1,33 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'session_store_stub.dart' if (dart.library.js_interop) 'session_store_web.dart';
+
+typedef StoredSession = ({String? accessToken, String? refreshToken});
 
 class SessionService
 {
-  static const _accessTokenKey = 'access_token';
-  static const _refreshTokenKey = 'refresh_token';
-
   static Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
-  }) async
+  })
   {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
+    return writeSessionImpl(accessToken, refreshToken);
   }
 
-  static Future<String?> getAccessToken() async
+  static Future<StoredSession> read()
   {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString(_accessTokenKey);
+    return readSessionImpl();
   }
 
-  static Future<String?> getRefreshToken() async
+  static Future<void> clear()
   {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString(_refreshTokenKey);
+    return clearSessionImpl();
   }
 
-  static Future<void> clear() async
+  // Only that pair: another tab may have stored one of its own since.
+  static Future<void> clearIfHolding(String refreshToken) async
   {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
+    if ((await read()).refreshToken == refreshToken)
+    {
+      await clear();
+    }
   }
 }

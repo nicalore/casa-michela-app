@@ -14,6 +14,7 @@ from jwt import (
     encode as jwt_encode,
 )
 
+from app.core.client_device import UNKNOWN_DEVICE, ClientDevice
 from app.core.config import settings
 from app.core.password_policy import validate_password
 from app.core.security import (
@@ -25,7 +26,7 @@ from app.core.security import (
     verify_password_async,
 )
 from app.models.account import Account, AccountStatusEnum
-from app.models.refresh_token import RefreshToken, TokenTypeEnum
+from app.models.refresh_token import DeviceTypeEnum, RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services import email_service
@@ -104,6 +105,10 @@ class InvalidRefreshTokenError(Exception):
 
 
 class PasswordReuseError(Exception):
+    pass
+
+
+class SessionNotFoundError(Exception):
     pass
 
 
@@ -186,10 +191,18 @@ class AuthService:
             ),
         )
 
-    async def _create_session(self, account: Account, now: datetime) -> AuthResult:
+    async def _create_session(
+        self,
+        account: Account,
+        now: datetime,
+        session_id: str,
+        logged_in_at: datetime,
+        device: ClientDevice,
+    ) -> AuthResult:
         access_token = create_access_token(
             subject=account.tax_code,
             username=account.username,
+            session_id=session_id,
         )
 
         refresh_token_id = str(uuid4())
@@ -198,6 +211,7 @@ class AuthService:
             subject=account.tax_code,
             username=account.username,
             token_id=refresh_token_id,
+            session_id=session_id,
         )
 
         refresh_token_record = RefreshToken(
@@ -206,6 +220,10 @@ class AuthService:
             token_hash=hash_refresh_token(refresh_token),
             expires_at=now + timedelta(days=settings.refresh_token_expire_days),
             token_type=TokenTypeEnum.REFRESH,
+            session_id=session_id,
+            logged_in_at=logged_in_at,
+            device_type=device.device_type,
+            device_name=device.name,
         )
 
         await self.refresh_token_repository.save(refresh_token_record)
@@ -220,6 +238,7 @@ class AuthService:
         self,
         refresh_token: str,
         now: datetime | None = None,
+        rotating: bool = False,
     ) -> tuple[dict[str, Any], RefreshToken]:
         try:
             payload = decode_refresh_token(refresh_token)
@@ -230,9 +249,17 @@ class AuthService:
         if not isinstance(token_id, str):
             raise InvalidRefreshTokenError()
 
-        stored_token = await self.refresh_token_repository.get_by_token_id(token_id)
+        stored_token = await self.refresh_token_repository.get_by_token_id(
+            token_id,
+            for_update=rotating,
+        )
 
-        if stored_token is None or stored_token.revoked_at is not None:
+        if stored_token is None:
+            raise InvalidRefreshTokenError()
+
+        if stored_token.revoked_at is not None and not (
+            rotating and await self._replaced_moments_ago(stored_token)
+        ):
             raise InvalidRefreshTokenError()
 
         if stored_token.token_type != TokenTypeEnum.REFRESH:
@@ -247,6 +274,21 @@ class AuthService:
             raise InvalidRefreshTokenError()
 
         return payload, stored_token
+
+    # A client that never got the answer to a rotation still holds the token
+    # it replaced: honoured for a short while, unless the session has ended.
+    async def _replaced_moments_ago(self, stored_token: RefreshToken) -> bool:
+        now = datetime.now(UTC)
+        grace = timedelta(seconds=settings.refresh_token_grace_seconds)
+
+        if stored_token.revoked_at is None or now - stored_token.revoked_at > grace:
+            return False
+
+        return await self.refresh_token_repository.session_is_live(
+            stored_token.account_tax_code,
+            stored_token.session_id,
+            now,
+        )
 
     async def _load_valid_reset_token(
         self,
@@ -286,7 +328,12 @@ class AuthService:
 
         return tax_code, stored_token
 
-    async def authenticate(self, username: str, password: str) -> AuthResult:
+    async def authenticate(
+        self,
+        username: str,
+        password: str,
+        device: ClientDevice = UNKNOWN_DEVICE,
+    ) -> AuthResult:
         account = await self.account_repository.get_by_username(username)
 
         if account is None:
@@ -313,6 +360,14 @@ class AuthService:
                 account.locked_until = new_lock
 
             await self.account_repository.save(account)
+
+            # Whoever is guessing must not keep a foothold: a lockout ends
+            # every session too.
+            if new_lock is not None:
+                await self.refresh_token_repository.revoke_all_for_account(
+                    account.tax_code
+                )
+
             await self.account_repository.commit()
 
             if new_lock is not None:
@@ -330,17 +385,28 @@ class AuthService:
         account.last_login = now
 
         await self.account_repository.save(account)
-        result = await self._create_session(account, now)
+        result = await self._create_session(
+            account,
+            now,
+            session_id=str(uuid4()),
+            logged_in_at=now,
+            device=device,
+        )
         await self.account_repository.commit()
 
         return result
 
-    async def refresh(self, refresh_token: str) -> AuthResult:
+    async def refresh(
+        self,
+        refresh_token: str,
+        device: ClientDevice = UNKNOWN_DEVICE,
+    ) -> AuthResult:
         now = datetime.now(UTC)
 
         payload, stored_token = await self._load_valid_refresh_token(
             refresh_token,
             now,
+            rotating=True,
         )
 
         tax_code = payload.get("sub")
@@ -351,11 +417,51 @@ class AuthService:
         if account is None:
             raise InvalidRefreshTokenError()
 
-        await self.refresh_token_repository.revoke(stored_token)
-        result = await self._create_session(account, now)
+        # The whole session, not the token alone: on a replay the live one is
+        # the successor the client never received.
+        await self.refresh_token_repository.revoke_session(
+            stored_token.account_tax_code,
+            stored_token.session_id,
+        )
+        result = await self._create_session(
+            account,
+            now,
+            session_id=stored_token.session_id,
+            logged_in_at=stored_token.logged_in_at,
+            device=self._session_device(stored_token, device),
+        )
         await self.account_repository.commit()
 
         return result
+
+    # Read once, at sign-in; a session from before devices were recorded takes
+    # the first description it is given.
+    @staticmethod
+    def _session_device(
+        stored_token: RefreshToken,
+        device: ClientDevice,
+    ) -> ClientDevice:
+        if stored_token.device_type != DeviceTypeEnum.UNKNOWN:
+            return ClientDevice(stored_token.device_type, stored_token.device_name)
+
+        return device
+
+    async def list_sessions(self, account_tax_code: str) -> list[RefreshToken]:
+        return await self.refresh_token_repository.get_active_sessions(
+            account_tax_code,
+            datetime.now(UTC),
+        )
+
+    async def revoke_session(self, account_tax_code: str, session_id: str) -> None:
+        revoked = await self.refresh_token_repository.revoke_session(
+            account_tax_code,
+            session_id,
+        )
+
+        if revoked == 0:
+            raise SessionNotFoundError()
+
+        await self.account_repository.commit()
 
     async def logout(self, refresh_token: str) -> None:
         _, stored_token = await self._load_valid_refresh_token(refresh_token)
@@ -418,12 +524,15 @@ class AuthService:
                 algorithm=settings.jwt_algorithm,
             )
 
+            # Not a session: the two columns are filled to satisfy the table.
             reset_token_record = RefreshToken(
                 account_tax_code=account.tax_code,
                 token_id=reset_token_id,
                 token_hash=hash_refresh_token(reset_token),
                 expires_at=now + _RESET_TOKEN_LIFETIME,
                 token_type=TokenTypeEnum.PASSWORD_RESET,
+                session_id=reset_token_id,
+                logged_in_at=now,
             )
 
             await self.refresh_token_repository.save(reset_token_record)

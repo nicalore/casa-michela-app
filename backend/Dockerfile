@@ -4,6 +4,9 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 
+# Cache and venv sit on different filesystems in the build: copy, do not hardlink.
+ENV UV_LINK_MODE=copy
+
 RUN pip install --no-cache-dir uv && \
     uv sync --frozen --no-dev
 

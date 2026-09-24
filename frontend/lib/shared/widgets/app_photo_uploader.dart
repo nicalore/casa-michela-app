@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/config/api_config.dart';
+import '../../core/constants/profile_photo.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/api_service.dart';
 import 'app_badged_face.dart';
@@ -40,7 +41,12 @@ class _AppPhotoUploaderState
   {
     try
     {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: ProfilePhoto.maxSide,
+        maxHeight: ProfilePhoto.maxSide,
+        imageQuality: ProfilePhoto.quality,
+      );
 
       if (image == null)
       {

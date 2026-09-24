@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    # A token just replaced still renews its session this long: the answer
+    # carrying its successor may never have reached the client.
+    refresh_token_grace_seconds: int = 120
     max_failed_login_attempts: int = 5
     failed_login_reset_minutes: int = 30
     account_lock_minutes: int = 20

@@ -19,7 +19,11 @@ class CalendarBandWatch
 
   final Future<void> Function() poll;
 
-  CalendarBandWatch({required this.beat, required this.poll});
+  // Another tab of the browser let a band go. The lock is the account's, not
+  // the tab's: it may be the one this tab is still editing under.
+  final Listenable releasedElsewhere;
+
+  CalendarBandWatch({required this.beat, required this.poll, required this.releasedElsewhere});
 
   Timer? _beating;
   Timer? _polling;
@@ -39,6 +43,8 @@ class CalendarBandWatch
       onShow: () => _say(inFront: true),
       onHide: () => _say(inFront: false),
     );
+
+    releasedElsewhere.addListener(_takeItBack);
   }
 
   void dispose()
@@ -46,6 +52,15 @@ class CalendarBandWatch
     _beating?.cancel();
     _polling?.cancel();
     _lifecycle?.dispose();
+    releasedElsewhere.removeListener(_takeItBack);
+  }
+
+  void _takeItBack()
+  {
+    if (_awake && _holding)
+    {
+      unawaited(beat());
+    }
   }
 
   void _say({bool? inFront})
