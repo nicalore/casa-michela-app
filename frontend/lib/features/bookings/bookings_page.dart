@@ -500,7 +500,6 @@ class _BookingsPageState extends State<BookingsPage>
         isSelf: !_isParent,
         studentGender: lane.pupil.gender,
         isEditing: true,
-        gated: true,
         // The wizard counts the edited booking's own duration itself.
         minutesAvailable: group.minutesOfferedIn(slot.mode),
         minutesTakenByOthers: group.minutesAskedFor(slot.mode) - existing.duration,

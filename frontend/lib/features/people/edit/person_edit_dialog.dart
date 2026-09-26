@@ -292,6 +292,22 @@ class _PersonEditDialogState extends State<PersonEditDialog>
 
   bool _formIsSound()
   {
+    // A choice left unanswered comes first: the steps after it depend on it.
+    final List<PersonEditStep> steps = _steps;
+
+    for (var i = 0; i < steps.length; i++)
+    {
+      final String? reason = stepBlockedReason(steps[i].id, _form);
+
+      if (reason != null)
+      {
+        _goToStep(i);
+        CustomSnackBar.show(context: context, message: reason, isError: true);
+
+        return false;
+      }
+    }
+
     final PersonEditValidation validation = validatePersonEdit(_form);
 
     setState(()
@@ -810,7 +826,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           movingForward: _movingForward,
           maxContentWidth: _contentMaxWidth,
           canGoBack: index > 0,
-          canGoForward: index < steps.length - 1 && stepIsAnswered(_step.id, _form),
+          canGoForward: index < steps.length - 1,
+          forwardBlockedReason: stepBlockedReason(_step.id, _form),
           onBack: () => _goToStep(index - 1),
           onForward: () => _goForward(index),
           header: _buildStepQuestion(),

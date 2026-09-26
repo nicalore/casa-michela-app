@@ -744,7 +744,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         !_hasAnyFrozen &&
         !_isClearing)
     {
-      return 'Indica almeno un orario, in presenza od online.';
+      return 'Indica almeno un orario.';
     }
 
     for (final group in groups)
@@ -1678,7 +1678,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         isSelf: _isSelf,
         studentGender: _selectedStudent?.gender,
         isEditing: editing,
-        gated: _isOwn,
         minutesAvailable: answers.hours[mode]!.totalMinutes,
         minutesTakenByOthers: _minutesAsked(group, mode) -
             (editing ? (draft.duration ?? 0) : 0),
@@ -2001,7 +2000,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          disabledReason: _isOwn && _saveBlockedReason != null ? kCompleteFieldsFirst : null,
           onPressed: _save,
         ),
       ),
@@ -2022,7 +2020,8 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           maxContentWidth: _widthOf(card),
           canGoBack: _cardIndex > 0,
           canGoForward: _cardIndex < cards.length - 1,
-          showArrows: cards.length > 1,
+          // Alone while nothing is chosen yet: the cards that follow hang on the answer.
+          showArrows: cards.length > 1 || _blockedReason(card) != null,
           forwardBlockedReason: _blockedReason(card),
           onBack: () => _goToCard(_cardIndex - 1),
           onForward: () => _goToCard(_cardIndex + 1),

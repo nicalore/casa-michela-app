@@ -8,6 +8,10 @@ import '../../core/theme/app_theme.dart';
 
 const double _dialogBlurSigma = 8.0;
 
+// Logical pixels per snapshot pixel: on web toImageSync reads the pixels back
+// from the GPU, and under a blur this wide a quarter scale loses nothing visible.
+const double _snapshotScale = 0.25;
+
 const Color _dialogTint = Colors.black;
 const double _dialogTintOpacity = 0.15;
 
@@ -20,6 +24,9 @@ final ui.ImageFilter _liveBlur = ui.ImageFilter.blur(
 
 // Wraps everything a dialog covers: its last frame is what the dialog shows blurred.
 final GlobalKey dialogBackdropKey = GlobalKey(debugLabel: 'dialogBackdrop');
+
+// True from a dialog's push until it is gone, closing animation included.
+bool get isBlurredDialogOpen => _BlurredDialogRoute._open > 0;
 
 Future<T?> showBlurredDialog<T>({
   required BuildContext context,
@@ -52,12 +59,28 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
 
   bool _covers = false;
 
+  static int _open = 0;
+
   _BlurredDialogRoute({
     required this.builder,
     required this.label,
     required this.dismissible,
     required this.duration,
   });
+
+  @override
+  void install()
+  {
+    super.install();
+    _open++;
+  }
+
+  @override
+  void dispose()
+  {
+    _open--;
+    super.dispose();
+  }
 
   // The tint is painted with the backdrop, over the snapshot rather than under it.
   @override
@@ -122,7 +145,7 @@ class _Backdrop
 
   _Backdrop(this.image);
 
-  static _Backdrop? capture(double pixelRatio)
+  static _Backdrop? capture()
   {
     final RenderObject? boundary = dialogBackdropKey.currentContext?.findRenderObject();
 
@@ -133,8 +156,8 @@ class _Backdrop
 
     try
     {
-      final ui.Image sharp = boundary.toImageSync(pixelRatio: pixelRatio);
-      final ui.Image blurred = _blur(sharp, _dialogBlurSigma * pixelRatio);
+      final ui.Image sharp = boundary.toImageSync(pixelRatio: _snapshotScale);
+      final ui.Image blurred = _blur(sharp, _dialogBlurSigma * _snapshotScale);
 
       sharp.dispose();
 
@@ -193,19 +216,26 @@ class _DialogBackdrop extends StatefulWidget
 // Outlives the transition ticks and frees the snapshot with the route.
 class _DialogBackdropState extends State<_DialogBackdrop>
 {
+  // Share of the opening over which the snapshot fades in. Quick on purpose:
+  // the window behind is gone before the hover of the button that opened the
+  // dialog visibly fades, so the button stays lit under the blur instead of
+  // going out and coming back with the snapshot.
+  static const double _fadeInShare = 0.2;
+
+  // Share of the closing, at its end, over which the snapshot fades out: the
+  // length of a button's hover animation, so the button it froze lit goes out
+  // as it would on its own, and the blur leaves with the last piece.
+  static const double _fadeOutShare = 0.32;
+
   _Backdrop? _backdrop;
+
+  late CurvedAnimation _fade = _fadeOf(widget.animation);
 
   @override
   void initState()
   {
     super.initState();
-
-    widget.animation.addStatusListener(_onStatus);
-
-    if (widget.animation.isCompleted)
-    {
-      _captureAfterFrame();
-    }
+    _captureAfterFrame();
   }
 
   @override
@@ -215,29 +245,32 @@ class _DialogBackdropState extends State<_DialogBackdrop>
 
     if (!identical(oldWidget.animation, widget.animation))
     {
-      oldWidget.animation.removeStatusListener(_onStatus);
-      widget.animation.addStatusListener(_onStatus);
+      _fade.dispose();
+      _fade = _fadeOf(widget.animation);
     }
   }
 
   @override
   void dispose()
   {
-    widget.animation.removeStatusListener(_onStatus);
+    _fade.dispose();
     _backdrop?.dispose();
     super.dispose();
   }
 
-  void _onStatus(AnimationStatus status)
+  // Quick in at the start of the opening, quick out at the end of the closing.
+  static CurvedAnimation _fadeOf(Animation<double> animation)
   {
-    if (status.isCompleted)
-    {
-      _captureAfterFrame();
-    }
+    return CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0, _fadeInShare, curve: Curves.easeOut),
+      reverseCurve: const Interval(0, _fadeOutShare, curve: Curves.easeIn),
+    );
   }
 
-  // Once the dialog is open and nothing moves any more: until then the window behind
-  // is still settling, e.g. the hover of the button that opened it is fading out.
+  // Right after the first frame, which shows nothing of the dialog yet: the
+  // window behind stays as it was at the tap, and every frame of the opening
+  // is a cross-fade over a texture rather than a live blur.
   void _captureAfterFrame()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -249,20 +282,15 @@ class _DialogBackdropState extends State<_DialogBackdrop>
         return;
       }
 
-      // A ticker still running asks for the next frame, so this retry is never left hanging.
-      if (WidgetsBinding.instance.transientCallbackCount > 0)
+      final _Backdrop? backdrop = veil.paintedOut(_Backdrop.capture);
+
+      if (backdrop == null)
       {
-        _captureAfterFrame();
         return;
       }
 
-      final double pixelRatio = MediaQuery.devicePixelRatioOf(context);
-      final _Backdrop? backdrop = veil.paintedOut(() => _Backdrop.capture(pixelRatio));
-      if (backdrop != null)
-      {
-        setState(() => _backdrop = backdrop);
-        widget.route.coverBelow();
-      }
+      setState(() => _backdrop = backdrop);
+      widget.route.coverBelow();
     });
   }
 
@@ -271,6 +299,13 @@ class _DialogBackdropState extends State<_DialogBackdrop>
   {
     final _Backdrop? backdrop = _backdrop;
     final double progress = widget.animation.value;
+    final double fade = _fade.value;
+
+    // Closing over another dialog: that one is leaving underneath, piece by
+    // piece, which the snapshot would freeze. The blur goes live for these
+    // frames, ramping down as it always did.
+    final bool liveClose =
+        widget.animation.status == AnimationStatus.reverse && _BlurredDialogRoute._open > 1;
 
     // The barrier's own easing, painted here so the tint sits on the snapshot.
     final double tint = _dialogTintOpacity * Curves.ease.transform(progress);
@@ -280,20 +315,33 @@ class _DialogBackdropState extends State<_DialogBackdrop>
         fit: StackFit.expand,
         children: [
           IgnorePointer(
-            child: backdrop == null
-                // The blurred window faded in over the sharp one, as the snapshot is.
-                ? BackdropFilter(
-                    filter: ui.ImageFilter.compose(
-                      outer: ColorFilter.mode(Color.fromRGBO(0, 0, 0, progress), BlendMode.dstIn),
-                      inner: _liveBlur,
-                    ),
-                    child: const SizedBox.expand(),
-                  )
-                : RawImage(
-                    image: backdrop.image,
-                    fit: BoxFit.fill,
-                    opacity: widget.animation,
+            child: switch (backdrop)
+            {
+              // Invisible at the start, and a BackdropFilter costs the whole window even then.
+              null when fade == 0 => const SizedBox.expand(),
+              // The blurred window faded in over the sharp one, as the snapshot is.
+              null => BackdropFilter(
+                  filter: ui.ImageFilter.compose(
+                    outer: ColorFilter.mode(Color.fromRGBO(0, 0, 0, fade), BlendMode.dstIn),
+                    inner: _liveBlur,
                   ),
+                  child: const SizedBox.expand(),
+                ),
+              _ when liveClose => BackdropFilter(
+                  filter: ui.ImageFilter.blur(
+                    sigmaX: _dialogBlurSigma * progress,
+                    sigmaY: _dialogBlurSigma * progress,
+                    tileMode: ui.TileMode.clamp,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              _ => RawImage(
+                  image: backdrop.image,
+                  fit: BoxFit.fill,
+                  filterQuality: FilterQuality.low,
+                  opacity: _fade,
+                ),
+            },
           ),
           IgnorePointer(
             child: ColoredBox(color: _dialogTint.withValues(alpha: tint)),

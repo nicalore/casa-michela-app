@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -6,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
 import 'routing/app_router.dart';
+import 'routing/dialog_history_guard.dart';
 import 'services/api_service.dart';
 import 'shared/widgets/dialog_components.dart';
 
@@ -19,6 +21,11 @@ void main() async
 
   usePathUrlStrategy();
   await ApiService().restoreSession();
+
+  if (kIsWeb)
+  {
+    DialogHistoryGuard.install(appRouter);
+  }
 
   runApp(const CasaMichelaApp());
 

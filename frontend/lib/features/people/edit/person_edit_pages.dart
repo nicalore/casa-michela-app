@@ -281,12 +281,21 @@ List<PersonEditStep> buildEditSteps(
 // Field steps answer true: they are validated when the forward arrow is pressed.
 bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
 {
+  return stepBlockedReason(id, form) == null;
+}
+
+// What a choice step still waits for, shown on its disabled forward arrow.
+String? stepBlockedReason(PersonEditStepId id, PersonEditForm form)
+{
   return switch (id)
   {
-    PersonEditStepId.type => form.involvementType >= 0,
-    PersonEditStepId.roles => form.activeRoles.isNotEmpty,
-    PersonEditStepId.association => form.parentIsMember != null,
-    _ => true,
+    PersonEditStepId.type when form.involvementType < 0 =>
+      'Scegli il rapporto con l\'Associazione per andare avanti.',
+    PersonEditStepId.roles when form.activeRoles.isEmpty =>
+      'Seleziona almeno un ruolo per andare avanti.',
+    PersonEditStepId.association when form.parentIsMember == null =>
+      'Indica se vuole iscriversi anche personalmente per andare avanti.',
+    _ => null,
   };
 }
 

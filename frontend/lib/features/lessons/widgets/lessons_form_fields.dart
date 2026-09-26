@@ -9,8 +9,6 @@ import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 
-const String kCompleteFieldsFirst = 'Completa tutti i campi prima di procedere.';
-
 // Mirrors AppTextField's surface, radius, border and height.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;

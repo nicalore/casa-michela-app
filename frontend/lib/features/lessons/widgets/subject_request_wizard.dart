@@ -22,7 +22,6 @@ import '../models/subject_request.dart';
 import '../utils/opening_window.dart';
 import '../utils/teacher_fit.dart';
 import 'booking_fields_section.dart';
-import 'lessons_form_fields.dart';
 import 'subject_request_tile.dart';
 
 enum _Step
@@ -100,9 +99,6 @@ class SubjectRequestWizard extends StatefulWidget
 
   final bool isEditing;
 
-  // Gated: save is greyed with its reason until every step is answered; else it refuses on the tap.
-  final bool gated;
-
   final int? minutesAvailable;
   final int minutesTakenByOthers;
 
@@ -122,7 +118,6 @@ class SubjectRequestWizard extends StatefulWidget
     this.isSelf = false,
     this.studentGender,
     this.isEditing = false,
-    this.gated = false,
     this.minutesAvailable,
     this.minutesTakenByOthers = 0,
     this.minutesByDisciplineTakenByOthers = const {},
@@ -539,7 +534,6 @@ class _SubjectRequestWizardState extends State<SubjectRequestWizard>
           busy: _isSaving,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          disabledReason: widget.gated && _saveBlockedReason != null ? kCompleteFieldsFirst : null,
           onPressed: _save,
         ),
       ),
