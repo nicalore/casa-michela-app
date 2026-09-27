@@ -22,6 +22,7 @@ import '../../shared/widgets/app_segmented_tabs.dart';
 import '../auth/models/me_response.dart';
 import 'models/person_item.dart';
 import 'edit/person_edit_dialog.dart';
+import 'tabs/person_account_tab.dart';
 import 'tabs/person_children_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
@@ -30,7 +31,9 @@ import 'tabs/person_parents_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
+import 'tabs/person_teacher_parent_tab.dart';
 import 'widgets/person_detail_header.dart';
+import 'widgets/person_detail_widgets.dart';
 
 class PersonDetailPage extends StatefulWidget
 {
@@ -46,7 +49,17 @@ class PersonDetailPage extends StatefulWidget
 }
 
 class _PersonDetailPageState extends State<PersonDetailPage>
+    with SectionVisits
 {
+  // Roles with an Account section; DOCENTE is left out on purpose.
+  static const Set<String> _accountRoles = {
+    'STUDENTE',
+    'GENITORE',
+    'AMMINISTRATORE',
+    'CORSISTA',
+    'PSICOLOGO',
+  };
+
   int _selectedSection = 0;
   bool _isLoading = true;
   bool _isGeneratingForm = false;
@@ -55,14 +68,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   MeResponse? _currentUser;
 
   late String _currentFiscalCode;
-  late String _cacheBustTimestamp;
 
   @override
   void initState()
   {
     super.initState();
     _currentFiscalCode = widget.fiscalCode;
-    _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    visitedSections.add(_selectedSection);
     _fetchPersonData();
     _fetchCurrentUser();
   }
@@ -72,7 +84,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   {
     try
     {
-      final me = await ApiService().me();
+      final me = ApiService().lastKnownIdentity ?? await ApiService().me();
 
       if (mounted)
       {
@@ -110,7 +122,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         setState(()
         {
           _person = person;
-          _cacheBustTimestamp = DateTime.now().millisecondsSinceEpoch.toString();
           _isLoading = false;
 
           // A refresh can drop the selected section; fall back to the first.
@@ -164,7 +175,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
 
     final person = _person!;
-    final roles = person.roles.map((role) => role.toUpperCase()).toSet();
+    final roles = person.shownRoles.map((role) => role.toUpperCase()).toSet();
     final isRevoked = _isRevoked;
 
     final sections = <PersonSection>[
@@ -202,11 +213,14 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
 
     final bool isMinor = person.age != null && person.age! < 18;
-    final parents = person.parents ?? [];
 
-    if (isMinor || parents.isNotEmpty)
+    if (isMinor || (person.parents?.isNotEmpty ?? false))
     {
-      if (parents.isEmpty)
+      if (person.isTeacherOnly)
+      {
+        sections.addAll(_teacherParentSections(person));
+      }
+      else
       {
         sections.add(PersonSection(
           label: 'Genitori',
@@ -214,53 +228,22 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             person: person,
             onUpdate: _fetchPersonData,
             onResponsibilityRemoved: _onParentalResponsibilityRemoved,
+            onOpenPerson: _openRelative,
           ),
         ));
-      }
-      else
-      {
-        for (var i = 0; i < parents.length; i++)
-        {
-          sections.add(PersonSection(
-            group: 'Genitori',
-            label: '${parents[i].firstName} ${parents[i].lastName}',
-            view: PersonParentsTab(
-              person: person,
-              onUpdate: _fetchPersonData,
-              onResponsibilityRemoved: _onParentalResponsibilityRemoved,
-              selectedIndex: i,
-            ),
-          ));
-        }
       }
     }
 
     if (roles.contains('GENITORE'))
     {
-      final children = person.children ?? [];
-
-      if (children.isEmpty)
-      {
-        sections.add(PersonSection(
-          label: 'Figli',
-          view: PersonChildrenTab(person: person, onUpdate: _fetchPersonData),
-        ));
-      }
-      else
-      {
-        for (var i = 0; i < children.length; i++)
-        {
-          sections.add(PersonSection(
-            group: 'Figli',
-            label: '${children[i].firstName} ${children[i].lastName}',
-            view: PersonChildrenTab(
-              person: person,
-              onUpdate: _fetchPersonData,
-              selectedIndex: i,
-            ),
-          ));
-        }
-      }
+      sections.add(PersonSection(
+        label: 'Figli',
+        view: PersonChildrenTab(
+          person: person,
+          onUpdate: _fetchPersonData,
+          onOpenPerson: _openRelative,
+        ),
+      ));
     }
 
     if (roles.contains('DOCENTE') && !isRevoked)
@@ -287,7 +270,40 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ));
     }
 
+    if (roles.any(_accountRoles.contains))
+    {
+      sections.add(PersonSection(
+        label: 'Account',
+        view: PersonAccountTab(person: person),
+      ));
+    }
+
     return sections;
+  }
+
+  // A teacher's parents are paperwork: each shown in full, the links left alone.
+  List<PersonSection> _teacherParentSections(PersonItem person)
+  {
+    final parents = person.parents ?? [];
+
+    if (parents.isEmpty)
+    {
+      return const [
+        PersonSection(
+          label: 'Genitori',
+          view: PersonEmptyState(message: 'Nessun genitore associato a sistema.'),
+        ),
+      ];
+    }
+
+    return [
+      for (final parent in parents)
+        PersonSection(
+          group: 'Genitori',
+          label: '${parent.firstName} ${parent.lastName}',
+          view: PersonTeacherParentTab(parent: parent, onUpdate: _fetchPersonData),
+        ),
+    ];
   }
 
   Future<void> _generateEnrollmentForm() async
@@ -422,6 +438,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return origin != null && origin.startsWith('/') ? origin : '/people';
   }
 
+  // The relative inherits this record's way back: one tap leaves the whole chain.
+  void _openRelative(String fiscalCode)
+  {
+    context.go(Uri(path: '/people/$fiscalCode', queryParameters: {'from': _origin}).toString());
+  }
+
   Widget _buildBody(AppWindowSize size, List<PersonSection> sections)
   {
     if (_isLoading)
@@ -445,9 +467,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
 
     // Sections animate their own transitions; wrapping here would animate them as one block.
+    // Only sections opened so far are mounted: each loads its own data on mount.
     final Widget content = PageSections(
       index: _selectedSection,
-      children: [for (final section in sections) section.view],
+      children: [
+        for (var i = 0; i < sections.length; i++)
+          visitedSections.contains(i) ? sections[i].view : const SizedBox.shrink(),
+      ],
     );
 
     return Row(
@@ -486,7 +512,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   void _selectSection(int index)
   {
-    setState(() => _selectedSection = index);
+    openSection(index, () => _selectedSection = index);
   }
 
   @override
@@ -534,7 +560,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       children: [
                         PersonDetailHeader(
                           person: _person,
-                          imageVersion: _cacheBustTimestamp,
+                          imageVersion: '${ApiService().profileImageVersion}',
                           size: size,
                           backTooltip: 'Torna alle anagrafiche',
                           onBack: () => context.go(_origin),

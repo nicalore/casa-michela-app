@@ -156,7 +156,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
       setState(()
       {
-        _people = data;
+        _people = data.where((person) => !person.isPaperworkOnly).toList();
         // Italy has its own chip: offering it here too would say the same thing twice.
         _availableBirthNations = _distinctSorted(_people
             .map((person) => person.birthNation)
@@ -200,14 +200,14 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
     final specificRoles = selectedRoles.where((role) => role != RoleLabelMapper.memberLabel);
 
-    if (person.roles.any(specificRoles.contains))
+    if (person.shownRoles.any(specificRoles.contains))
     {
       return true;
     }
 
     // "Associato" matches plain members only, not teachers or students.
     return selectedRoles.contains(RoleLabelMapper.memberLabel) &&
-        RoleLabelMapper.hasOnlyMemberRole(person.roles);
+        RoleLabelMapper.hasOnlyMemberRole(person.shownRoles);
   }
 
   bool _matchesAgeRange(PersonItem person)

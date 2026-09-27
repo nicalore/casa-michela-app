@@ -450,6 +450,13 @@ class _PersonEditDialogState extends State<PersonEditDialog>
       return;
     }
 
+    final List<PersonItem> parentsToDelete = _parentsLeftWithoutChildren;
+
+    if (parentsToDelete.isNotEmpty && !await _confirmParentsDeletion(parentsToDelete))
+    {
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     String? blockedNote;
@@ -555,6 +562,77 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           ? DateFormat('dd/MM/yyyy').parse(_form.birthDateCtrl.text.trim())
           : null,
     );
+  }
+
+  // A teacher's parent held by nothing else is deleted with the teacher's last link.
+  List<PersonItem> get _parentsLeftWithoutChildren
+  {
+    final PersonItem? person = widget.person;
+
+    if (person == null || !_form.isTeacherOnly)
+    {
+      return const [];
+    }
+
+    final Set<String> dropped = {
+      for (final parent in person.parents ?? const [])
+        if (!_form.selectedParents.containsKey(parent.fiscalCode)) parent.fiscalCode,
+    };
+
+    return _form.allAdults
+        .where((adult) =>
+            dropped.contains(adult.fiscalCode) &&
+            adult.isPaperworkOnly &&
+            adult.teacherChildrenTaxCodes.every((code) => code == person.fiscalCode))
+        .toList();
+  }
+
+  Future<bool> _confirmParentsDeletion(List<PersonItem> parents) async
+  {
+    final String names =
+        parents.map((parent) => '${parent.firstName} ${parent.lastName}').join(' e ');
+
+    final bool? confirmed = await showBlurredDialog<bool>(
+      context: context,
+      barrierLabel: 'ConfirmParentsDeletion',
+      builder: (confirmContext) => AppDialogStack(
+        eyebrow: 'Genitori',
+        title: 'Confermi?',
+        showClose: false,
+        maxWidth: 520,
+        footer: AppDialogFooter(
+          secondary: AppGradientButton(
+            label: 'ANNULLA',
+            icon: Icons.close_rounded,
+            gradient: AppTheme.dismissGradient,
+            accent: AppTheme.trialViolet,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => Navigator.of(confirmContext).pop(false),
+          ),
+          primary: AppGradientButton(
+            label: 'ELIMINA',
+            icon: Icons.delete_outline_rounded,
+            gradient: AppTheme.dangerGradient,
+            accent: AppTheme.trialDanger,
+            height: kPersonDialogButtonHeight,
+            fontSize: kPersonDialogButtonFontSize,
+            onPressed: () => Navigator.of(confirmContext).pop(true),
+          ),
+        ),
+        children: [
+          AppDialogPill(
+            child: Text(
+              parents.length == 1
+                  ? 'Senza altri figli associati, l\'anagrafica di $names verrà eliminata.'
+                  : 'Senza altri figli associati, le anagrafiche di $names verranno eliminate.',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
   }
 
   Future<void> _confirmDiscard() async
@@ -720,6 +798,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           selected: _form.selectedParents,
           personName: _personName,
           pickingParents: true,
+          asksPickup: !_form.isTeacherOnly,
           searchHint: 'Cerca genitore...',
           emptyMessage: 'Nessun genitore trovato.',
           onChanged: () => setState(() {}),

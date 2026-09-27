@@ -96,7 +96,7 @@ class _PersonCardState extends State<PersonCard>
   @override
   Widget build(BuildContext context)
   {
-    final List<String> processedRoles = RoleLabelMapper.processRoles(widget.person.roles);
+    final List<String> processedRoles = RoleLabelMapper.processRoles(widget.person.shownRoles);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,

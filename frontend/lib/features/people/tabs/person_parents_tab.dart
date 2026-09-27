@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
@@ -20,14 +19,13 @@ import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
 import '../widgets/authorized_pickup_dialog.dart';
 import '../widgets/person_detail_widgets.dart';
+import '../widgets/relative_card.dart';
 
 const int _adultAge = 18;
 const int _maxParentsPerPerson = 2;
 
 // Matched case-insensitively: the endpoints are inconsistent on capitalisation.
 const String _parentRoleLabel = 'GENITORE';
-
-final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
 enum _ParentSort
 {
@@ -65,14 +63,14 @@ class PersonParentsTab extends StatefulWidget
   // then, and the caller redirects elsewhere.
   final VoidCallback onResponsibilityRemoved;
 
-  final int selectedIndex;
+  final ValueChanged<String> onOpenPerson;
 
   const PersonParentsTab({
     super.key,
     required this.person,
     required this.onUpdate,
     required this.onResponsibilityRemoved,
-    this.selectedIndex = 0,
+    required this.onOpenPerson,
   });
 
   @override
@@ -286,12 +284,17 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     }
   }
 
-  String _residenceAddress(ParentItem parent)
+  String _residence(ParentItem parent)
   {
-    final joined =
-        '${parent.residenceType?.trim() ?? ''} ${parent.address?.trim() ?? ''}'.trim();
+    final city = parent.city?.trim() ?? '';
+    final province = parent.province?.trim() ?? '';
 
-    return joined.isEmpty ? missingValue : joined;
+    if (city.isEmpty)
+    {
+      return missingValue;
+    }
+
+    return province.isEmpty ? city : '$city ($province)';
   }
 
   Widget _buildEmptyState()
@@ -306,71 +309,23 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     );
   }
 
-  List<Widget> _buildDetailCards(ParentItem parent)
+  Widget _buildCard(ParentItem parent)
   {
-    final birthDate =
-        parent.birthDate != null ? _dateFormat.format(parent.birthDate!) : missingValue;
+    final age = parent.age;
 
-    return [
-      PersonDetailCardPair(
-        first: PersonDetailCard(
-          title: 'Identità',
-          icon: Icons.badge_rounded,
-          rows: [
-            DetailRowData('Nome', parent.firstName),
-            DetailRowData('Cognome', parent.lastName),
-            DetailRowData('Sesso', orDash(parent.gender)),
-            DetailRowData('Codice fiscale', parent.fiscalCode),
-            null,
-          ],
-        ),
-        second: PersonDetailCard(
-          title: 'Residenza',
-          icon: Icons.home_rounded,
-          rows: [
-            DetailRowData('Indirizzo', _residenceAddress(parent)),
-            DetailRowData('N°', orDash(parent.addressNumber)),
-            DetailRowData('Città', orDash(parent.city)),
-            DetailRowData('Provincia', orDash(parent.province)),
-            DetailRowData('CAP', orDash(parent.zipCode)),
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-      PersonDetailCardPair(
-        first: PersonDetailCard(
-          title: 'Dati anagrafici',
-          icon: Icons.cake_rounded,
-          rows: [
-            DetailRowData('Data di nascita', birthDate),
-            DetailRowData('Città di nascita', orDash(parent.birthCity)),
-            DetailRowData('Provincia', orDash(parent.birthProvince)),
-          ],
-        ),
-        second: PersonDetailCard(
-          title: 'Contatti',
-          icon: Icons.alternate_email_rounded,
-          rows: [
-            DetailRowData('Email', orDash(parent.email)),
-            DetailRowData('Telefono', orDash(formatPhoneNumber(parent.phoneNumber))),
-            null,
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-      SizedBox(
-        width: double.infinity,
-        child: PersonDetailCard(
-          title: 'Autorizzazione al ritiro',
-          icon: Icons.how_to_reg_outlined,
-          rows: [
-            DetailRowData('Autorizzato', parent.authorizedPickup ? 'Sì' : 'No'),
-            if (!parent.authorizedPickup)
-              DetailRowData('Motivo', orDash(parent.pickupRestrictionReason)),
-          ],
-        ),
-      ),
-    ];
+    return RelativeCard(
+      person: parent,
+      roles: parent.roles,
+      facts: [
+        RelativeFact(Icons.cake_rounded, age == null ? missingValue : ageLabel(age)),
+        RelativeFact(Icons.call_rounded, orDash(formatPhoneNumber(parent.phoneNumber))),
+        RelativeFact(Icons.alternate_email_rounded, orDash(parent.email)),
+        RelativeFact(Icons.home_rounded, _residence(parent)),
+      ],
+      authorizedPickup: widget.person.isAdult ? null : parent.authorizedPickup,
+      pickupRestrictionReason: parent.pickupRestrictionReason,
+      onTap: () => widget.onOpenPerson(parent.fiscalCode),
+    );
   }
 
   @override
@@ -383,10 +338,6 @@ class _PersonParentsTabState extends State<PersonParentsTab>
       return _buildEmptyState();
     }
 
-    // Guards against a selection left over from a longer list.
-    final index = widget.selectedIndex < parents.length ? widget.selectedIndex : 0;
-    final parent = parents[index];
-
     // Only an adult can be released from parental responsibility.
     final isAdult = widget.person.age != null && widget.person.age! >= _adultAge;
 
@@ -396,15 +347,12 @@ class _PersonParentsTabState extends State<PersonParentsTab>
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: pageTransitionBlocks([
-              ..._buildDetailCards(parent),
+              RelativeCardGrid(cards: [for (final parent in parents) _buildCard(parent)]),
               const SizedBox(height: 48),
-              Center(
-                child: _ResponsiveParentActionButtonsRow(
-                  onModify: _openParentSelectionDialog,
-                  onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
-                ),
+              _ResponsiveParentActionButtonsRow(
+                onManage: _openParentSelectionDialog,
+                onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
               ),
             ]),
           ),
@@ -416,26 +364,26 @@ class _PersonParentsTabState extends State<PersonParentsTab>
 
 class _ResponsiveParentActionButtonsRow extends StatelessWidget
 {
-  final VoidCallback onModify;
+  final VoidCallback onManage;
   final VoidCallback? onRemoveResponsibility;
 
   const _ResponsiveParentActionButtonsRow({
-    required this.onModify,
+    required this.onManage,
     required this.onRemoveResponsibility,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    final Widget modify = AppGradientButton(
-      label: 'MODIFICA GENITORI',
-      icon: Icons.edit_rounded,
-      onPressed: onModify,
+    final Widget manage = AppGradientButton(
+      label: 'GESTISCI GENITORI',
+      icon: Icons.family_restroom_rounded,
+      onPressed: onManage,
     );
 
     if (onRemoveResponsibility == null)
     {
-      return modify;
+      return manage;
     }
 
     return Wrap(
@@ -443,7 +391,7 @@ class _ResponsiveParentActionButtonsRow extends StatelessWidget
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: [
-        modify,
+        manage,
         AppGradientButton(
           label: 'RIMUOVI RESPONSABILITÀ',
           icon: Icons.gavel_rounded,

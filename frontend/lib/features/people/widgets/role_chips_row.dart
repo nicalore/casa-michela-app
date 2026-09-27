@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 
 // No AppTheme equivalent: this fill is unique to the role chips.
-const Color _chipBackground = Color(0xFFE8F7F5);
+const Color roleChipBackground = Color(0xFFE8F7F5);
 
 // Role chips packed into the available width; whatever does not fit becomes a
 // "+N" chip whose tooltip lists the hidden ones.
@@ -246,7 +246,7 @@ class RoleChipsRow extends StatelessWidget
     final Widget chip = Container(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
       decoration: BoxDecoration(
-        color: _chipBackground,
+        color: roleChipBackground,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Text(label, style: style),

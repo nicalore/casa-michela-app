@@ -34,9 +34,7 @@ def store_profile_image(tax_code: str, previous_url: str | None, content: bytes)
     flattened.thumbnail((PROFILE_IMAGE_MAX_SIDE, PROFILE_IMAGE_MAX_SIDE))
 
     PROFILE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-
-    if previous_url is not None:
-        (PROFILE_IMAGES_DIR / Path(previous_url).name).unlink(missing_ok=True)
+    discard_profile_image(previous_url)
 
     digest = hashlib.sha256(content).hexdigest()[:12]
     filename = f"{tax_code}-{digest}.jpg"
@@ -48,6 +46,12 @@ def store_profile_image(tax_code: str, previous_url: str | None, content: bytes)
     )
 
     return f"{PROFILE_IMAGES_URL_PREFIX}/{filename}"
+
+
+def discard_profile_image(url: str | None) -> None:
+    if url is not None:
+        (PROFILE_IMAGES_DIR / Path(url).name).unlink(missing_ok=True)
+
 
 # Resolved from the package, not the working directory, which varies by entry point.
 DOCUMENTS_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "documents"

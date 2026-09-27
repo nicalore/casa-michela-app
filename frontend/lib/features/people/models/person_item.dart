@@ -1,3 +1,4 @@
+import '../../../core/utils/birthday.dart';
 import '../../../core/utils/json_parsing.dart';
 import '../../lessons/models/person_option_item.dart';
 
@@ -105,6 +106,10 @@ class PersonItem implements PersonFace
   final List<SchoolEnrollmentItem>? schoolEnrollments;
   final List<ParentItem>? parents;
   final List<ChildItem>? children;
+
+  // Children who teach: on record for their paperwork only, so never listed.
+  final List<String> teacherChildrenTaxCodes;
+
   final List<TeacherSubjectItem>? teacherSubjects;
 
   final List<String>? teacherServices;
@@ -176,6 +181,7 @@ class PersonItem implements PersonFace
     this.schoolEnrollments,
     this.parents,
     this.children,
+    this.teacherChildrenTaxCodes = const [],
     this.teacherSubjects,
     this.teacherServices,
     this.notPreferredTeachers,
@@ -254,6 +260,7 @@ class PersonItem implements PersonFace
       schoolEnrollments: parseOptionalList(json['school_enrollments'], SchoolEnrollmentItem.fromJson),
       parents: parseOptionalList(json['parents'], ParentItem.fromJson),
       children: parseOptionalList(json['children'], ChildItem.fromJson),
+      teacherChildrenTaxCodes: parseStringList(json['teacher_children_tax_codes']),
       teacherSubjects: parseOptionalList(json['teacher_subjects'], TeacherSubjectItem.fromJson),
       teacherServices: json['teacher_services'] == null
           ? null
@@ -297,29 +304,26 @@ class PersonItem implements PersonFace
     );
   }
 
-  int? get age
-  {
-    final birth = birthDate;
-
-    if (birth == null)
-    {
-      return null;
-    }
-
-    final today = DateTime.now();
-    var years = today.year - birth.year;
-
-    if (today.month < birth.month ||
-        (today.month == birth.month && today.day < birth.day))
-    {
-      years--;
-    }
-
-    return years;
-  }
+  int? get age => ageToday(birthDate);
 
   // An unknown birth date reads as a minor: the safer of the two.
   bool get isAdult => (age ?? 0) >= adultAge;
+
+  bool _hasRole(String role) => roles.any((label) => label.toUpperCase() == role);
+
+  // A teacher who is not also a pupil: the parents are there for paperwork only.
+  bool get isTeacherOnly => _hasRole('DOCENTE') && !_hasRole('STUDENTE');
+
+  bool get isTeachersParentOnly =>
+      teacherChildrenTaxCodes.isNotEmpty && (children?.isEmpty ?? true);
+
+  // A parent of teachers alone is not presented as a parent.
+  List<String> get shownRoles => isTeachersParentOnly
+      ? roles.where((role) => role.toUpperCase() != 'GENITORE').toList()
+      : roles;
+
+  // Kept out of every list: nothing but a teacher's paperwork holds them.
+  bool get isPaperworkOnly => isTeachersParentOnly && shownRoles.isEmpty;
 }
 
 List<PersonItem> activeCollaborators(List<PersonItem> people)

@@ -312,9 +312,11 @@ final appRouter = GoRouter(
               {
                 final fiscalCode = state.pathParameters['fiscalCode']!;
 
-                return _buildPage(
-                  state,
-                  PersonDetailPage(
+                // Keyed on the location: state.pageKey is the route pattern, so
+                // moving to another record would keep the previous one's state.
+                return buildAppTransitionPage(
+                  key: ValueKey<String>(state.matchedLocation),
+                  child: PersonDetailPage(
                     fiscalCode: fiscalCode,
                     origin: state.uri.queryParameters['from'],
                   ),

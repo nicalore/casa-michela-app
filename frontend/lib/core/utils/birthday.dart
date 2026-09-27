@@ -19,3 +19,21 @@ bool isBirthdayToday(DateTime? birth, DateTime today)
 
   return when.month == today.month && when.day == today.day;
 }
+
+int? ageToday(DateTime? birth)
+{
+  if (birth == null)
+  {
+    return null;
+  }
+
+  final DateTime today = DateTime.now();
+  var years = today.year - birth.year;
+
+  if (today.month < birth.month || (today.month == birth.month && today.day < birth.day))
+  {
+    years--;
+  }
+
+  return years;
+}

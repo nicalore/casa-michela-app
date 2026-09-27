@@ -14,7 +14,7 @@ from fastapi import (
     status,
 )
 from pydantic import StringConstraints
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
@@ -31,7 +31,7 @@ from app.core.labels import (
     translate_education_level,
 )
 from app.core.optimistic_concurrency import assert_not_stale
-from app.core.storage import store_profile_image
+from app.core.storage import discard_profile_image, store_profile_image
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.booking import Booking
 from app.models.course_participant import CourseParticipant
@@ -241,6 +241,8 @@ _UPDATE_SUCCESS_MESSAGE: Final[str] = "Anagrafica aggiornata con successo"
 
 _MAX_PARENTS: Final[int] = 2
 
+_ADULT_AGE: Final[int] = 18
+
 _NO_STUDENT_PROFILE_ERROR: Final[str] = "L'utente non possiede un profilo da studente."
 _STUDENT_HAS_LESSONS_ERROR: Final[str] = (
     "Impossibile rimuovere il profilo studente: ha prenotazioni già abbinate "
@@ -262,6 +264,13 @@ _NEW_PARENT_ALREADY_LINKED_ERROR: Final[str] = (
 )
 _MAX_PARENTS_ERROR: Final[str] = "Numero massimo di genitori (2) già raggiunto."
 _PARENTAL_LINK_NOT_FOUND_ERROR: Final[str] = "Associazione genitoriale non trovata."
+_TEACHER_PARENTS_LOCKED_ERROR: Final[str] = (
+    "È possibile modificare i genitori di un docente solo all'interno "
+    "dell'anagrafica del docente stesso."
+)
+_ADULT_TEACHER_PARENTS_ERROR: Final[str] = (
+    "I genitori di un docente maggiorenne non possono essere modificati."
+)
 _EMPTY_MEMBERSHIPS_ERROR: Final[str] = (
     "Impossibile salvare lo storico iscrizioni vuoto. "
     "È necessaria almeno un'iscrizione."
@@ -369,6 +378,54 @@ def _latest_enrollment(enrollments: list[SchoolEnrollment]) -> SchoolEnrollment 
     return max(enrollments, key=lambda enrollment: enrollment.start_year)
 
 
+# A teacher who is not also a pupil: the parents are on record for paperwork only.
+def _is_teacher_only(person: Person) -> bool:
+    member = person.member_profile
+
+    if member is None or member.student_profile is not None:
+        return False
+
+    staff = member.staff_profile
+
+    return staff is not None and staff.teacher_profile is not None
+
+
+def _roles_of(person: Person) -> list[str]:
+    roles: list[str] = []
+
+    if person.parent_profile is not None:
+        roles.append(_ROLE_PARENT)
+
+    member = person.member_profile
+
+    if member is None:
+        return roles
+
+    roles.append(_ROLE_MEMBER)
+
+    if member.course_participant_profile is not None:
+        roles.append(_ROLE_COURSE_PARTICIPANT)
+
+    if member.student_profile is not None:
+        roles.append(_ROLE_STUDENT)
+
+    staff = member.staff_profile
+
+    if staff is None:
+        return roles
+
+    if staff.administrator_profile is not None:
+        roles.append(_ROLE_ADMIN)
+
+    if staff.teacher_profile is not None:
+        roles.append(_ROLE_TEACHER)
+
+    if staff.psychologist_profile is not None:
+        roles.append(_ROLE_PSYCHOLOGIST)
+
+    return roles
+
+
 def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
     child = relationship.child
 
@@ -376,7 +433,9 @@ def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
     school_class = None
     study_program = None
 
-    student = child.member_profile.student_profile if child.member_profile else None
+    member = child.member_profile
+    student = member.student_profile if member else None
+    course = member.course_participant_profile if member else None
 
     if student is not None:
         latest = _latest_enrollment(student.school_enrollments)
@@ -409,9 +468,15 @@ def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
         postal_code=child.postal_code,
         city=child.residence_city,
         birth_date=child.birth_date,
+        profile_image_url=child.profile_image_url,
+        roles=_roles_of(child),
         school_name=school_name,
         school_class=school_class,
         study_program=study_program,
+        course_type=course.course_type if course else None,
+        medical_certificate_expiration=(
+            course.medical_certificate_expiration if course else None
+        ),
         authorized_pickup=relationship.authorized_pickup,
         pickup_restriction_reason=relationship.pickup_restriction_reason,
     )
@@ -437,6 +502,8 @@ def _map_parent_info(relationship: ParentalResponsibility) -> ParentInfoResponse
         postal_code=parent.postal_code,
         city=parent.residence_city,
         birth_date=parent.birth_date,
+        profile_image_url=parent.profile_image_url,
+        roles=_roles_of(parent),
         authorized_pickup=relationship.authorized_pickup,
         pickup_restriction_reason=relationship.pickup_restriction_reason,
     )
@@ -487,8 +554,9 @@ def _map_person_to_response(
     *,
     show_teacher_rating: bool,
 ) -> PersonResponse:
-    roles: list[str] = []
+    roles = _roles_of(person)
     children: list[ChildInfoResponse] = []
+    teacher_children_tax_codes: list[str] = []
     memberships: list[MembershipResponse] = []
     school_enrollments: list[SchoolEnrollmentResponse] = []
     taught_subjects: list[str] = []
@@ -544,13 +612,16 @@ def _map_person_to_response(
     student_updated_at = None
     teacher_updated_at = None
 
+    # A parent's teacher children are left out: they show on the teacher's side only.
     if person.parent_profile is not None:
-        roles.append(_ROLE_PARENT)
-        children = [
-            _map_child_info(relationship)
-            for relationship in person.parent_profile.children_relationships
-            if relationship.child
-        ]
+        for relationship in person.parent_profile.children_relationships:
+            if not relationship.child:
+                continue
+
+            if _is_teacher_only(relationship.child):
+                teacher_children_tax_codes.append(relationship.child_tax_code)
+            else:
+                children.append(_map_child_info(relationship))
 
     parents = [
         _map_parent_info(relationship)
@@ -561,7 +632,6 @@ def _map_person_to_response(
     member = person.member_profile
 
     if member is not None:
-        roles.append(_ROLE_MEMBER)
         is_active_collaborator = member.collaborating_active
         member_updated_at = member.updated_at
 
@@ -602,7 +672,6 @@ def _map_person_to_response(
             ]
 
         if member.course_participant_profile is not None:
-            roles.append(_ROLE_COURSE_PARTICIPANT)
             course_profile = member.course_participant_profile
             course_type = course_profile.course_type
             medical_certificate_expiration = (
@@ -614,7 +683,6 @@ def _map_person_to_response(
             )
 
         if member.student_profile is not None:
-            roles.append(_ROLE_STUDENT)
             student = member.student_profile
             early_exit = student.authorized_early_exit
             early_exit_start_date = student.early_exit_start_date
@@ -691,12 +759,10 @@ def _map_person_to_response(
             gross_compensation = staff.gross_compensation
 
             if staff.administrator_profile is not None:
-                roles.append(_ROLE_ADMIN)
                 admin_role = staff.administrator_profile.role
                 admin_other_role = staff.administrator_profile.other_role
 
             if staff.teacher_profile is not None:
-                roles.append(_ROLE_TEACHER)
                 teacher = staff.teacher_profile
                 is_high_school_student = teacher.is_high_school_student
                 school_education = teacher.school_education
@@ -708,14 +774,7 @@ def _map_person_to_response(
                     entry.service_name for entry in teacher.teacher_services
                 )
 
-            if staff.psychologist_profile is not None:
-                roles.append(_ROLE_PSYCHOLOGIST)
-
-    children_count = (
-        len(person.parent_profile.children_relationships)
-        if person.parent_profile
-        else None
-    )
+    children_count = len(children) if person.parent_profile else None
 
     return PersonResponse(
         fiscal_code=person.tax_code,
@@ -756,6 +815,7 @@ def _map_person_to_response(
         school_enrollments=school_enrollments or None,
         parents=parents or None,
         children=children or None,
+        teacher_children_tax_codes=teacher_children_tax_codes,
         teacher_subjects=teacher_subjects or None,
         teacher_services=teacher_services or None,
         not_preferred_teachers=not_preferred_teachers,
@@ -799,15 +859,26 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
     teacher = staff.joinedload(Staff.teacher_profile)
 
     # Collections go through selectinload: joined, each one multiplies the rows.
-    children = (
+    child = (
         joinedload(Person.parent_profile)
         .selectinload(Parent.children_relationships)
         .joinedload(ParentalResponsibility.child)
-        .joinedload(Person.member_profile)
-        .joinedload(Member.student_profile)
+    )
+    child_member = child.joinedload(Person.member_profile)
+    child_staff = child_member.joinedload(Member.staff_profile)
+    children = (
+        child_member.joinedload(Member.student_profile)
         .selectinload(Student.school_enrollments)
         .joinedload(SchoolEnrollment.school_study_program)
     )
+
+    parent = (
+        selectinload(Person.parental_relationships)
+        .joinedload(ParentalResponsibility.parent)
+        .joinedload(Parent.person)
+    )
+    parent_member = parent.joinedload(Person.member_profile)
+    parent_staff = parent_member.joinedload(Member.staff_profile)
 
     own_enrollments = student.selectinload(Student.school_enrollments).joinedload(
         SchoolEnrollment.school_study_program
@@ -818,9 +889,17 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
     return (
         children.joinedload(SchoolStudyProgram.school),
         children.joinedload(SchoolStudyProgram.study_program),
-        selectinload(Person.parental_relationships)
-        .joinedload(ParentalResponsibility.parent)
-        .joinedload(Parent.person),
+        child.joinedload(Person.parent_profile),
+        child_member.joinedload(Member.course_participant_profile),
+        child_staff.joinedload(Staff.administrator_profile),
+        child_staff.joinedload(Staff.psychologist_profile),
+        child_staff.joinedload(Staff.teacher_profile),
+        parent.joinedload(Person.parent_profile),
+        parent_member.joinedload(Member.student_profile),
+        parent_member.joinedload(Member.course_participant_profile),
+        parent_staff.joinedload(Staff.administrator_profile),
+        parent_staff.joinedload(Staff.psychologist_profile),
+        parent_staff.joinedload(Staff.teacher_profile),
         member.selectinload(Member.memberships),
         member.joinedload(Member.course_participant_profile),
         member.joinedload(Member.psychological_support_profile),
@@ -900,16 +979,135 @@ async def _sync_parent_profile(
     await db.flush()
 
 
+async def _teacher_only_tax_codes(
+    db: AsyncSession,
+    tax_codes: Collection[str],
+) -> set[str]:
+    if not tax_codes:
+        return set()
+
+    rows = await db.scalars(
+        select(Teacher.tax_code)
+        .outerjoin(Student, Student.tax_code == Teacher.tax_code)
+        .where(
+            Teacher.tax_code.in_([code.upper() for code in tax_codes]),
+            Student.tax_code.is_(None),
+        )
+    )
+
+    return set(rows)
+
+
+async def _teacher_children_of(db: AsyncSession, parent_tax_code: str) -> set[str]:
+    children = await db.scalars(
+        select(ParentalResponsibility.child_tax_code).where(
+            ParentalResponsibility.parent_tax_code == parent_tax_code
+        )
+    )
+
+    return await _teacher_only_tax_codes(db, list(children))
+
+
+async def _assert_not_teacher_only(db: AsyncSession, tax_code: str) -> None:
+    if await _teacher_only_tax_codes(db, [tax_code]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+        )
+
+
+def _is_adult(birth_date: date) -> bool:
+    today = today_in_rome()
+    before_birthday = (today.month, today.day) < (birth_date.month, birth_date.day)
+
+    return today.year - birth_date.year - before_birthday >= _ADULT_AGE
+
+
+# A teacher's parents change only from the teacher's record, and only while a
+# minor. Returns the parents the edit drops from the teacher.
+async def _check_teacher_relationships(
+    db: AsyncSession,
+    person: Person,
+    payload: PersonUpdatePayload,
+    roles: list[str],
+    teacher_children: set[str],
+) -> set[str]:
+    relationships = payload.relationships
+
+    if relationships is None:
+        return set()
+
+    minors = [minor.tax_code for minor in relationships.minors_tax_codes]
+
+    if await _teacher_only_tax_codes(db, minors) - teacher_children:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+        )
+
+    if _ROLE_CODE_TEACHER not in roles or _ROLE_CODE_STUDENT in roles:
+        return set()
+
+    before = set(
+        await db.scalars(
+            select(ParentalResponsibility.parent_tax_code).where(
+                ParentalResponsibility.child_tax_code == person.tax_code
+            )
+        )
+    )
+    after = {parent.tax_code.upper() for parent in relationships.parents_tax_codes}
+
+    if before != after and _is_adult(payload.general_data.birth_date):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_ADULT_TEACHER_PARENTS_ERROR,
+        )
+
+    return before - after
+
+
+# Nothing but the teacher kept a parent on record: one left childless goes,
+# unless they have a role of their own. Returns the photo to discard on commit.
+async def _discard_childless_parent(db: AsyncSession, tax_code: str) -> str | None:
+    remaining = await db.scalar(
+        select(func.count())
+        .select_from(ParentalResponsibility)
+        .where(ParentalResponsibility.parent_tax_code == tax_code)
+    )
+
+    if remaining:
+        return None
+
+    parent = await _load_person_or_404(
+        db,
+        tax_code,
+        joinedload(Person.member_profile),
+        joinedload(Person.account),
+    )
+
+    if parent.member_profile is not None or parent.account is not None:
+        await db.execute(delete(Parent).where(Parent.tax_code == tax_code))
+
+        return None
+
+    await db.execute(delete(Person).where(Person.tax_code == tax_code))
+
+    return parent.profile_image_url
+
+
 async def _create_parental_relationships(
     db: AsyncSession,
     person: Person,
     relationships: RelationshipsUpdate,
     *,
     is_parent: bool,
+    kept_children: Collection[str] = (),
 ) -> None:
     if is_parent:
         for minor in relationships.minors_tax_codes:
-            if minor.tax_code == person.tax_code:
+            code = minor.tax_code.upper()
+
+            if code == person.tax_code or code in kept_children:
                 continue
 
             db.add(
@@ -1721,13 +1919,28 @@ async def update_person(
             detail=_PSYCHOLOGIST_SUPPORT_ERROR,
         )
 
-    is_parent = _ROLE_CODE_PARENT in roles
+    # Teacher children are managed from their own record: this rewrite keeps them.
+    teacher_children = await _teacher_children_of(db, person.tax_code)
+    kept_children = list(teacher_children)
+    is_parent = _ROLE_CODE_PARENT in roles or bool(teacher_children)
+    dropped_parents: set[str] = set()
 
     if payload.relationships is not None:
+        dropped_parents = await _check_teacher_relationships(
+            db,
+            person,
+            payload,
+            roles,
+            teacher_children,
+        )
+
         await db.execute(
             delete(ParentalResponsibility).where(
                 or_(
-                    ParentalResponsibility.parent_tax_code == person.tax_code,
+                    and_(
+                        ParentalResponsibility.parent_tax_code == person.tax_code,
+                        ParentalResponsibility.child_tax_code.not_in(kept_children),
+                    ),
                     ParentalResponsibility.child_tax_code == person.tax_code,
                 )
             )
@@ -1742,7 +1955,16 @@ async def update_person(
             person,
             payload.relationships,
             is_parent=is_parent,
+            kept_children=teacher_children,
         )
+
+    discarded_images: list[str] = []
+
+    for parent_tax_code in dropped_parents:
+        image = await _discard_childless_parent(db, parent_tax_code)
+
+        if image is not None:
+            discarded_images.append(image)
 
     if any(role in roles for role in _MEMBER_ROLE_CODES):
         member = await db.scalar(
@@ -1804,6 +2026,9 @@ async def update_person(
         await _delete_all_member_profiles(db, person)
 
     await _commit_person_update(db)
+
+    for image in discarded_images:
+        discard_profile_image(image)
 
     return {
         "message": _UPDATE_SUCCESS_MESSAGE,
@@ -2005,6 +2230,8 @@ async def add_parental_responsibility(
     payload: ParentUpdatePayload,
     db: DbSession,
 ) -> dict[str, str]:
+    await _assert_not_teacher_only(db, tax_code)
+
     await _load_person_or_404(db, tax_code)
     await _load_parent_with_profile(
         db,
@@ -2059,6 +2286,8 @@ async def update_parental_responsibility(
     payload: ParentUpdatePayload,
     db: DbSession,
 ) -> dict[str, str]:
+    await _assert_not_teacher_only(db, tax_code)
+
     link = await _get_parental_link_or_404(db, tax_code, old_parent_tax_code)
 
     restriction_reason = (
@@ -2110,6 +2339,8 @@ async def delete_parental_responsibility(
     parent_tax_code: str,
     db: DbSession,
 ) -> dict[str, str]:
+    await _assert_not_teacher_only(db, tax_code)
+
     link = await _get_parental_link_or_404(db, tax_code, parent_tax_code)
 
     await db.delete(link)
@@ -2194,6 +2425,14 @@ async def wizard_create_person(
     payload: PersonWizardPayload,
     db: DbSession,
 ) -> dict[str, str]:
+    minors = [minor.tax_code for minor in payload.relationships.minors_tax_codes]
+
+    if await _teacher_only_tax_codes(db, minors):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_TEACHER_PARENTS_LOCKED_ERROR,
+        )
+
     try:
         new_person = await create_person_from_wizard(db, payload)
 

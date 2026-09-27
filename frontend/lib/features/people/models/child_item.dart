@@ -1,10 +1,17 @@
+import '../../../core/utils/birthday.dart';
 import '../../../core/utils/json_parsing.dart';
+import 'person_face.dart';
 
-class ChildItem
+class ChildItem implements PersonFace
 {
   final String fiscalCode;
+
+  @override
   final String firstName;
+
+  @override
   final String lastName;
+
   final String? gender;
   final String? email;
   final String? phoneNumber;
@@ -17,9 +24,16 @@ class ChildItem
   final String? zipCode;
   final String? city;
   final DateTime? birthDate;
+
+  @override
+  final String? profileImageUrl;
+
+  final List<String> roles;
   final String? schoolName;
   final String? schoolClass;
   final String? studyProgram;
+  final String? courseType;
+  final DateTime? medicalCertificateExpiration;
 
   // Describe the relation with the current parent, not the child in general:
   // the same child can be collectable by one parent and not by another.
@@ -42,12 +56,18 @@ class ChildItem
     this.zipCode,
     this.city,
     this.birthDate,
+    this.profileImageUrl,
+    this.roles = const [],
     this.schoolName,
     this.schoolClass,
     this.studyProgram,
+    this.courseType,
+    this.medicalCertificateExpiration,
     this.authorizedPickup = true,
     this.pickupRestrictionReason,
   });
+
+  int? get age => ageToday(birthDate);
 
   factory ChildItem.fromJson(Map<String, dynamic> json)
   {
@@ -67,9 +87,13 @@ class ChildItem
       zipCode: json['postal_code'],
       city: json['city'],
       birthDate: parseDate(json['birth_date']),
+      profileImageUrl: json['profile_image_url'],
+      roles: parseStringList(json['roles']),
       schoolName: json['school_name'],
       schoolClass: json['school_class'],
       studyProgram: json['study_program'],
+      courseType: json['course_type'],
+      medicalCertificateExpiration: parseDate(json['medical_certificate_expiration']),
       authorizedPickup: json['authorized_pickup'] ?? true,
       pickupRestrictionReason: json['pickup_restriction_reason'],
     );

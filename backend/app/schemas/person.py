@@ -157,6 +157,8 @@ class _RelatedPersonResponse(BaseModel):
     postal_code: str | None = None
     city: str | None = None
     birth_date: date | None = None
+    profile_image_url: str | None = None
+    roles: list[str] = []
 
     authorized_pickup: bool = True
     pickup_restriction_reason: str | None = None
@@ -170,6 +172,8 @@ class ChildInfoResponse(_RelatedPersonResponse):
     school_name: str | None = None
     school_class: str | None = None
     study_program: str | None = None
+    course_type: str | None = None
+    medical_certificate_expiration: date | None = None
 
 
 # Shared by every road into the register: the wizard and the person form.
@@ -600,6 +604,7 @@ class PersonResponse(BaseModel):
     school_enrollments: list[SchoolEnrollmentResponse] | None = None
     parents: list[ParentInfoResponse] | None = None
     children: list[ChildInfoResponse] | None = None
+    teacher_children_tax_codes: list[str] = []
     teacher_subjects: list[TeacherSubjectResponse] | None = None
 
     teacher_services: list[str] | None = None

@@ -49,6 +49,9 @@ class PersonEditPeopleCard extends StatefulWidget
   // Swaps parent and child in the pickup question, and applies the cap of two.
   final bool pickingParents;
 
+  // False links at once: pickup does not apply to a teacher.
+  final bool asksPickup;
+
   final String searchHint;
   final String emptyMessage;
   final VoidCallback onChanged;
@@ -64,6 +67,7 @@ class PersonEditPeopleCard extends StatefulWidget
     required this.selected,
     required this.personName,
     required this.pickingParents,
+    this.asksPickup = true,
     required this.searchHint,
     required this.emptyMessage,
     required this.onChanged,
@@ -120,13 +124,15 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
       return;
     }
 
-    final ParentalRelationshipDraft? draft = await showAuthorizedPickupDialog(
-      context,
-      personTaxCode: person.fiscalCode,
-      parentName: widget.pickingParents ? _nameOf(person) : widget.personName,
-      childName: widget.pickingParents ? widget.personName : _nameOf(person),
-      existing: widget.selected[person.fiscalCode],
-    );
+    final ParentalRelationshipDraft? draft = widget.asksPickup
+        ? await showAuthorizedPickupDialog(
+            context,
+            personTaxCode: person.fiscalCode,
+            parentName: widget.pickingParents ? _nameOf(person) : widget.personName,
+            childName: widget.pickingParents ? widget.personName : _nameOf(person),
+            existing: widget.selected[person.fiscalCode],
+          )
+        : ParentalRelationshipDraft(taxCode: person.fiscalCode);
 
     if (draft == null)
     {
@@ -152,12 +158,14 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
 
     widget.people.add(person);
 
-    final ParentalRelationshipDraft? draft = await showAuthorizedPickupDialog(
-      context,
-      personTaxCode: person.fiscalCode,
-      parentName: widget.pickingParents ? _nameOf(person) : widget.personName,
-      childName: widget.pickingParents ? widget.personName : _nameOf(person),
-    );
+    final ParentalRelationshipDraft? draft = widget.asksPickup
+        ? await showAuthorizedPickupDialog(
+            context,
+            personTaxCode: person.fiscalCode,
+            parentName: widget.pickingParents ? _nameOf(person) : widget.personName,
+            childName: widget.pickingParents ? widget.personName : _nameOf(person),
+          )
+        : null;
 
     widget.selected[person.fiscalCode] = draft ??
         ParentalRelationshipDraft(taxCode: person.fiscalCode);
@@ -232,7 +240,7 @@ class _PersonEditPeopleCardState extends State<PersonEditPeopleCard>
                     person: person,
                     isSelected: widget.selected.containsKey(person.fiscalCode),
                     onTap: () => _open(person),
-                    onEdit: widget.selected.containsKey(person.fiscalCode)
+                    onEdit: widget.asksPickup && widget.selected.containsKey(person.fiscalCode)
                         ? () => _open(person)
                         : null,
                     onRemove: widget.selected.containsKey(person.fiscalCode)

@@ -19,11 +19,18 @@ import '../models/child_item.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
 import '../models/person_item.dart';
+import '../models/school_enrollment_item.dart';
 import '../widgets/person_detail_widgets.dart';
 import '../widgets/authorized_pickup_dialog.dart';
+import '../widgets/relative_card.dart';
 
 const int _adultAge = 18;
 const int _maxParentsPerMinor = 2;
+
+// Roles whose card rows describe the child in place of their contacts.
+const Set<String> _describingRoles = {'STUDENTE', 'CORSISTA'};
+
+final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
 // Derived from the label so a rename in RoleLabelMapper cannot leave this stale.
 final String _memberOnlyFilterValue = RoleLabelMapper.memberLabel.toUpperCase();
@@ -61,13 +68,13 @@ class PersonChildrenTab extends StatefulWidget
 
   final VoidCallback onUpdate;
 
-  final int selectedIndex;
+  final ValueChanged<String> onOpenPerson;
 
   const PersonChildrenTab({
     super.key,
     required this.person,
     required this.onUpdate,
-    this.selectedIndex = 0,
+    required this.onOpenPerson,
   });
 
   @override
@@ -107,84 +114,90 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     );
   }
 
-  String _residenceAddress(ChildItem child)
+  RelativeFact _certificateFact(DateTime? expiration)
   {
-    final joined = '${child.residenceType?.trim() ?? ''} ${child.address?.trim() ?? ''}'.trim();
+    if (expiration == null)
+    {
+      return const RelativeFact(
+        Icons.medical_information_rounded,
+        'Certificato non consegnato',
+        isWarning: true,
+      );
+    }
 
-    return joined.isEmpty ? missingValue : joined;
+    final now = DateTime.now();
+    final date = _dateFormat.format(expiration);
+
+    if (expiration.isBefore(DateTime(now.year, now.month, now.day)))
+    {
+      return RelativeFact(
+        Icons.medical_information_rounded,
+        'Certificato scaduto il $date',
+        isWarning: true,
+      );
+    }
+
+    return RelativeFact(Icons.medical_information_rounded, 'Certificato valido fino al $date');
   }
 
-  Widget _buildAuthorizationCard(ChildItem child)
+  // One role speaks for the child, student before course participant; the chips
+  // still list them all. Teachers never get here: their parents are paperwork.
+  List<RelativeFact> _roleFacts(ChildItem child, Set<String> roles)
   {
-    return SizedBox(
-      width: double.infinity,
-      child: PersonDetailCard(
-        title: 'Ritiro dei figli',
-        icon: Icons.how_to_reg_outlined,
-        rows: [
-          DetailRowData('Autorizzato', child.authorizedPickup ? 'Sì' : 'No'),
-          if (!child.authorizedPickup)
-            DetailRowData('Motivo', orDash(child.pickupRestrictionReason)),
-        ],
-      ),
+    if (roles.contains('STUDENTE'))
+    {
+      final school = child.schoolName?.trim() ?? '';
+      final program = child.studyProgram;
+      final grade = [program == null ? null : studyProgramNameOnlyOf(program), child.schoolClass]
+          .map((part) => part?.trim() ?? '')
+          .where((part) => part.isNotEmpty)
+          .join(' - ');
+
+      return [
+        if (school.isNotEmpty) RelativeFact(Icons.school_rounded, school),
+        if (grade.isNotEmpty) RelativeFact(Icons.menu_book_rounded, grade),
+      ];
+    }
+
+    if (roles.contains('CORSISTA'))
+    {
+      final course = child.courseType?.trim() ?? '';
+
+      return [
+        if (course.isNotEmpty) RelativeFact(Icons.self_improvement_rounded, course),
+        _certificateFact(child.medicalCertificateExpiration),
+      ];
+    }
+
+    return const [];
+  }
+
+  Widget _buildCard(ChildItem child)
+  {
+    final age = child.age;
+    final isAdult = (age ?? 0) >= _adultAge;
+    final roles = child.roles.map((role) => role.toUpperCase()).toSet();
+    final roleFacts = _roleFacts(child, roles);
+
+    // A minor's contacts are usually the parent's own.
+    final showsContacts = isAdult || !roles.any(_describingRoles.contains);
+
+    final phone = formatPhoneNumber(child.phoneNumber);
+    final email = child.email?.trim() ?? '';
+
+    return RelativeCard(
+      person: child,
+      roles: child.roles,
+      facts: [
+        if (age != null) RelativeFact(Icons.cake_rounded, ageLabel(age)),
+        ...roleFacts,
+        if (showsContacts && phone.isNotEmpty) RelativeFact(Icons.call_rounded, phone),
+        if (showsContacts && email.isNotEmpty) RelativeFact(Icons.alternate_email_rounded, email),
+      ],
+      authorizedPickup: isAdult ? null : child.authorizedPickup,
+      pickupRestrictionReason: child.pickupRestrictionReason,
+      onTap: () => widget.onOpenPerson(child.fiscalCode),
     );
-  }
-
-  List<Widget> _buildDetailCards(ChildItem child)
-  {
-    final birthDate = child.birthDate != null
-        ? DateFormat('dd/MM/yyyy').format(child.birthDate!)
-        : missingValue;
-
-    return [
-      PersonDetailCardPair(
-        first: PersonDetailCard(
-          title: 'Identità',
-          icon: Icons.badge_rounded,
-          rows: [
-            DetailRowData('Nome', child.firstName),
-            DetailRowData('Cognome', child.lastName),
-            DetailRowData('Sesso', orDash(child.gender)),
-            DetailRowData('Codice fiscale', child.fiscalCode),
-            null,
-          ],
-        ),
-        second: PersonDetailCard(
-          title: 'Residenza',
-          icon: Icons.home_rounded,
-          rows: [
-            DetailRowData('Indirizzo', _residenceAddress(child)),
-            DetailRowData('N°', orDash(child.addressNumber)),
-            DetailRowData('Città', orDash(child.city)),
-            DetailRowData('Provincia', orDash(child.province)),
-            DetailRowData('CAP', orDash(child.zipCode)),
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-      PersonDetailCardPair(
-        first: PersonDetailCard(
-          title: 'Dati anagrafici',
-          icon: Icons.cake_rounded,
-          rows: [
-            DetailRowData('Data di nascita', birthDate),
-            DetailRowData('Città di nascita', orDash(child.birthCity)),
-            DetailRowData('Provincia', orDash(child.birthProvince)),
-          ],
-        ),
-        second: PersonDetailCard(
-          title: 'Contatti',
-          icon: Icons.alternate_email_rounded,
-          rows: [
-            DetailRowData('Email', orDash(child.email)),
-            DetailRowData('Telefono', orDash(formatPhoneNumber(child.phoneNumber))),
-            null,
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-      _buildAuthorizationCard(child),
-    ];
   }
 
   @override
@@ -197,21 +210,16 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
       return _buildEmptyState();
     }
 
-    // Guards against a selection left over from a longer list.
-    final index = widget.selectedIndex < children.length ? widget.selectedIndex : 0;
-    final child = children[index];
-
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 16, bottom: 32),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: pageTransitionBlocks([
-              ..._buildDetailCards(child),
+              RelativeCardGrid(cards: [for (final child in children) _buildCard(child)]),
               const SizedBox(height: 48),
-              Center(child: _buildManageButton('GESTISCI FIGLI')),
+              _buildManageButton('GESTISCI FIGLI'),
             ]),
           ),
         ),
@@ -219,6 +227,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     );
   }
 }
+
 class ChildrenEditDialog extends StatefulWidget
 {
   final PersonItem person;
@@ -270,9 +279,10 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
   }
 
   // An existing relationship stays editable even after the child turns adult.
+  // A teacher's parents are chosen from the teacher's record only.
   bool _isCandidate(PersonItem person)
   {
-    if (person.fiscalCode == widget.person.fiscalCode)
+    if (person.fiscalCode == widget.person.fiscalCode || person.isTeacherOnly)
     {
       return false;
     }

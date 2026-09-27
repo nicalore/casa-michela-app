@@ -637,11 +637,13 @@ class PersonEditForm
     allCourses = courses;
     allPeople = people;
 
+    // A teacher's parents are chosen from the teacher's record only.
     allMinors = people
         .where((candidate) =>
             ((candidate.age != null && candidate.age! < 18) ||
                 (person?.children?.any((child) => child.fiscalCode == candidate.fiscalCode) ??
                     false)) &&
+            !candidate.isTeacherOnly &&
             candidate.fiscalCode != person?.fiscalCode)
         .toList();
 
@@ -741,6 +743,10 @@ class PersonEditForm
 
   List<StudyProgramItem> programsFor(int subjectId) =>
       programsBySubjectId[subjectId] ?? const [];
+
+  // A teacher who is not also a pupil: the parents are there for paperwork only.
+  bool get isTeacherOnly =>
+      selectedRoles.contains('DOCENTE') && !selectedRoles.contains('STUDENTE');
 
   bool get isMinor
   {
