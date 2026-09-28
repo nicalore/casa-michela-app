@@ -6,12 +6,14 @@ import '../../../../core/theme/app_theme.dart';
 class PersonEditGuide extends StatelessWidget
 {
   final String question;
-  final String hint;
+
+  // Some steps ask their question alone.
+  final String? hint;
 
   const PersonEditGuide({
     super.key,
     required this.question,
-    required this.hint,
+    this.hint,
   });
 
   @override
@@ -30,16 +32,18 @@ class PersonEditGuide extends StatelessWidget
             color: AppTheme.trialOcean,
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          hint,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
-            height: 1.45,
-            color: AppTheme.trialMutedText,
+        if (hint case final hint?) ...[
+          const SizedBox(height: 6),
+          Text(
+            hint,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+              color: AppTheme.trialMutedText,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

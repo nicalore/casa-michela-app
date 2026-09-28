@@ -23,8 +23,7 @@ import 'models/weekly_template_item.dart';
 import 'tabs/association_subjects_tab.dart';
 import 'tabs/courses_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
-import 'tabs/online_hours_tab.dart';
-import 'tabs/presence_hours_tab.dart';
+import 'tabs/opening_hours/combined_hours_view.dart';
 import 'tabs/rooms_tab.dart';
 import 'tabs/schools_tab.dart';
 import 'tabs/services_tab.dart';
@@ -55,18 +54,15 @@ const RailGroup _teaching = RailGroup(
   ],
 );
 
-const RailGroup _hours = RailGroup(title: 'Orari', entries: ['In presenza', 'Online']);
-
 // Order matches the PageSections below; the constants above index both.
 List<RailGroup> _sectionsFor({required bool onBoard})
 {
   return [
     _teaching,
     RailGroup(
-      entries: ['Corsi', 'Stanze', if (onBoard) _meetings, _notices],
+      entries: ['Corsi', 'Stanze', if (onBoard) _meetings, _notices, 'Orari'],
       unavailable: {_meetings, _notices},
     ),
-    _hours,
   ];
 }
 
@@ -89,9 +85,7 @@ class _AssociationPageState extends State<AssociationPage>
 
   late final List<RailGroup> _sections = _sectionsFor(onBoard: _onBoard);
 
-  int get _presenceHoursContentIndex => _roomsContentIndex + _hoursAfterRooms + (_onBoard ? 1 : 0);
-
-  int get _onlineHoursContentIndex => _presenceHoursContentIndex + 1;
+  int get _hoursContentIndex => _roomsContentIndex + _hoursAfterRooms + (_onBoard ? 1 : 0);
 
   // Shared entities; setState here reaches mounted tabs via didUpdateWidget.
   bool _isLoading = true;
@@ -535,11 +529,8 @@ class _AssociationPageState extends State<AssociationPage>
         // Not built yet: named on the rail, never opened.
         if (_onBoard) const SizedBox.shrink(),
         const SizedBox.shrink(),
-        visitedSections.contains(_presenceHoursContentIndex)
-            ? PresenceHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
-            : const SizedBox.shrink(),
-        visitedSections.contains(_onlineHoursContentIndex)
-            ? OnlineHoursTab(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
+        visitedSections.contains(_hoursContentIndex)
+            ? CombinedHoursView(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),
       ],
     );

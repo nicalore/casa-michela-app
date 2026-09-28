@@ -916,14 +916,15 @@ class ApiService
     }, refresh: refresh);
   }
 
-  Future<List<OpeningDayItem>> getOpeningDays({required DateTime dateFrom, required DateTime dateTo, required String mode}) async
+  // Both modes when [mode] is null.
+  Future<List<OpeningDayItem>> getOpeningDays({required DateTime dateFrom, required DateTime dateTo, String? mode}) async
   {
     final response = await _dio.get(
       '/opening-days/',
       queryParameters: {
         'date_from': formatDateOnly(dateFrom),
         'date_to': formatDateOnly(dateTo),
-        'mode': mode,
+        'mode': ?mode,
       },
     );
     return parseList(response.data, OpeningDayItem.fromJson);

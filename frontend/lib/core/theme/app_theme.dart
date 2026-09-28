@@ -37,6 +37,9 @@ abstract final class AppTheme
 
   static const Color closedSurface = Color(0xFFE2ECEA);
 
+  // A decided closure (holiday, works), under trialDanger text.
+  static const Color closedOverrideSurface = Color(0xFFFCEDEA);
+
   static const Color arrowDisabledSurface = Color(0xFFDDE3EA);
 
   static const Color todaySurface = Color(0xFFEAF7F5);

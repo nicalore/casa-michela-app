@@ -11,33 +11,30 @@ import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
-import 'tabs/opening_hours/opening_hours_view.dart';
+import 'tabs/opening_hours/combined_hours_view.dart';
 import 'tabs/pupil_subjects_tab.dart';
 import 'tabs/pupil_teachers_tab.dart';
 
 const String _teacherRole = 'TEACHER';
 const String _parentRole = 'PARENT';
 
-const int _presenceHoursIndex = 0;
-const int _onlineHoursIndex = 1;
-const int _subjectsIndex = 2;
-const int _teachersIndex = 3;
+const int _hoursIndex = 0;
+const int _subjectsIndex = 1;
+const int _teachersIndex = 2;
 
+const String _hours = 'Orari';
 const String _meetings = 'Colloqui';
 const String _notices = 'Comunicazioni e avvisi';
-
-const RailGroup _hours = RailGroup(title: 'Orari', entries: ['In presenza', 'Online']);
 
 // Order matches the PageSections below; the constants above index both.
 List<RailGroup> _sectionsFor(String role)
 {
   return [
-    _hours,
     if (role == _teacherRole)
-      const RailGroup(entries: [_notices], unavailable: {_notices})
+      const RailGroup(entries: [_hours, _notices], unavailable: {_notices})
     else
       RailGroup(
-        entries: ['Discipline', 'Docenti', if (role == _parentRole) _meetings, _notices],
+        entries: [_hours, 'Discipline', 'Docenti', if (role == _parentRole) _meetings, _notices],
         unavailable: const {_meetings, _notices},
       ),
   ];
@@ -63,7 +60,7 @@ class RoleAssociationPage extends StatefulWidget
 
 class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionVisits
 {
-  int _selectedSection = _presenceHoursIndex;
+  int _selectedSection = _hoursIndex;
 
   late final List<RailGroup> _sections = _sectionsFor(widget.role);
 
@@ -85,12 +82,7 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
     return PageSections(
       index: _selectedSection,
       children: [
-        visitedSections.contains(_presenceHoursIndex)
-            ? const OpeningHoursView(mode: 'presence', readOnly: true)
-            : const SizedBox.shrink(),
-        visitedSections.contains(_onlineHoursIndex)
-            ? const OpeningHoursView(mode: 'online', readOnly: true)
-            : const SizedBox.shrink(),
+        visitedSections.contains(_hoursIndex) ? const CombinedHoursView() : const SizedBox.shrink(),
         if (widget.role != _teacherRole) ...[
           visitedSections.contains(_subjectsIndex)
               ? PupilSubjectsTab(canReport: _canSpeak(widget.role))
