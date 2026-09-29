@@ -224,6 +224,9 @@ class ApiService
 
   static const String _formFactorHeader = 'X-Client-Form-Factor';
 
+  // Long enough for a phone to settle on its new network after a switch.
+  static const Duration _resendPause = Duration(seconds: 1);
+
   // A browser refuses a page-set agent and sends its own; the native apps
   // announce themselves, as the default "Dart/x.y" says nothing useful.
   static final String? _appUserAgent =
@@ -361,6 +364,25 @@ class ApiService
         onError: (error, handler) async
         {
           final RequestOptions request = error.requestOptions;
+
+          // A read that got no answer goes out once more: a phone's network
+          // blip passes unseen.
+          if (request.method == 'GET' &&
+              error.type == DioExceptionType.connectionError &&
+              request.extra['resent'] != true)
+          {
+            request.extra['resent'] = true;
+            await Future<void>.delayed(_resendPause);
+
+            try
+            {
+              return handler.resolve(await _dio.fetch(request));
+            }
+            on DioException catch (resendError)
+            {
+              return handler.next(resendError);
+            }
+          }
 
           if (error.response?.statusCode != 401 ||
               _refreshToken == null ||
