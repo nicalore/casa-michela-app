@@ -51,6 +51,25 @@ class _LoginLayoutState extends State<LoginLayout>
   final ApiService _apiService = ApiService();
 
   @override
+  void initState()
+  {
+    super.initState();
+
+    final String? notice = _apiService.takeSignInNotice();
+
+    if (notice != null)
+    {
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        if (mounted)
+        {
+          CustomSnackBar.show(context: context, message: notice, tone: SnackBarTone.warning);
+        }
+      });
+    }
+  }
+
+  @override
   void dispose()
   {
     _usernameController.dispose();

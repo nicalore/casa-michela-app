@@ -12,7 +12,7 @@ import '../../../../shared/widgets/app_dialog_stack.dart';
 import '../../../../shared/widgets/app_gradient_button.dart';
 import '../../../../shared/widgets/app_selectable_chip.dart';
 import '../../../../shared/widgets/snackbar.dart';
-import '../../../availability/utils/availability_copy.dart';
+import '../../../availability/utils/availability_strings.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/lessons_form_fields.dart';
 import '../../../people/edit/widgets/person_edit_guide.dart';
@@ -42,12 +42,8 @@ class _WeekdayGroup
 
 typedef _Card = ({_WeekdayGroup group, String mode});
 
-// The weekly schedule of both modes: first from when and on which weekdays,
-// then the hours in presenza and online. Weekdays whose hours differ today are
-// asked separately, as the availability wizard does with days.
 class StandardHoursWizard extends StatefulWidget
 {
-  // Both modes' rows.
   final List<WeeklyTemplateItem> currentTemplates;
 
   final Future<void> Function() onSaved;
@@ -194,9 +190,7 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
     return true;
   }
 
-  // Only the weekdays and modes whose hours change are written, so touching
-  // online leaves presence alone. Nothing changed means the admin meant the
-  // date: the weekdays chosen are re-applied from it, as before.
+  // Only changed weekdays and modes are written; with no change, all are re-applied from the date.
   List<(int, String, BandDrafts)> get _writes
   {
     final all = [
@@ -314,7 +308,6 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
 
     setState(() => _isSaving = false);
 
-    // Declined before anything was written: nothing to report, the wizard stays open.
     if (confirmation.declined && successCount == 0 && errors.isEmpty)
     {
       return;

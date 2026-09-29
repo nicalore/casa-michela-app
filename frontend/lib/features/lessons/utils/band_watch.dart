@@ -10,17 +10,14 @@ const Duration kWatchingPoll = Duration(seconds: 10);
 
 const Duration kRestingPoll = Duration(seconds: 60);
 
-// Beat and poll run only while the calendar section is shown and the app is
-// foregrounded, so an abandoned tab or backgrounded app stops beating and its
-// lock expires on its own.
+// Runs only while the calendar is shown and the app foregrounded, so an abandoned lock expires.
 class CalendarBandWatch
 {
   final Future<void> Function() beat;
 
   final Future<void> Function() poll;
 
-  // Another tab of the browser let a band go. The lock is the account's, not
-  // the tab's: it may be the one this tab is still editing under.
+  // Another tab released a band; locks are per account, so it may be the one this tab edits.
   final Listenable releasedElsewhere;
 
   CalendarBandWatch({required this.beat, required this.poll, required this.releasedElsewhere});
@@ -79,9 +76,7 @@ class CalendarBandWatch
     _sync();
   }
 
-  // Both flags are derived from the lock list, never remembered here: there
-  // is no call that takes a band (writing does), so the locks are the only
-  // source of truth.
+  // Derived from the lock list, never remembered: only a write takes a band, so locks are the truth.
   void says({required bool holding, required bool watching})
   {
     if (_holding == holding && _watching == watching)

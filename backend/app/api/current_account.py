@@ -32,8 +32,7 @@ async def get_current_account(
             detail=_INVALID_ACCESS_TOKEN_ERROR,
         ) from None
 
-    # Tells "this" session apart on the sessions routes; tokens issued before
-    # sessions were tracked carry none.
+    # Tokens issued before sessions were tracked carry no sid.
     setattr(request.state, _SESSION_ID_STATE_KEY, payload.get("sid"))
 
     # With the role graph: every later dependency reads it off this object.

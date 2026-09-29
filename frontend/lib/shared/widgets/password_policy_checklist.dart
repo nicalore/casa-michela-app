@@ -18,8 +18,7 @@ class PasswordPolicyRule
   const PasswordPolicyRule(this.label, this.satisfied);
 }
 
-// Client-side mirror of app/core/password_policy.py: the server check stays
-// authoritative and the two are kept in sync by hand.
+// Mirrors app/core/password_policy.py, synced by hand; the server check stays authoritative.
 class PasswordPolicyStatus
 {
   static const int minLength = 12;
@@ -72,6 +71,17 @@ class PasswordPolicyStatus
 
   int get missingCount => rules.where((rule) => !rule.satisfied).length;
 
+  String get caption
+  {
+    final int missing = missingCount;
+
+    return missing == 0
+        ? 'Tutti i requisiti soddisfatti'
+        : missing == 1
+            ? 'Manca un requisito'
+            : 'Mancano $missing requisiti';
+  }
+
   double get progress => (rules.length - missingCount) / rules.length;
 }
 
@@ -81,37 +91,10 @@ class PasswordPolicyChecklist extends StatelessWidget
 
   const PasswordPolicyChecklist({super.key, required this.status});
 
-  Widget _buildMeter()
-  {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(_meterHeight),
-      child: Stack(
-        children: [
-          Container(height: _meterHeight, color: AppTheme.trialLine),
-          AnimatedFractionallySizedBox(
-            duration: _meterFill,
-            curve: Curves.easeOut,
-            widthFactor: status.progress,
-            alignment: Alignment.centerLeft,
-            child: Container(
-              height: _meterHeight,
-              decoration: const BoxDecoration(gradient: AppTheme.brandGradient),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCaption()
   {
     final int missingCount = status.missingCount;
-
-    final String text = missingCount == 0
-        ? 'Tutti i requisiti soddisfatti'
-        : missingCount == 1
-            ? 'Manca un requisito'
-            : 'Mancano $missingCount requisiti';
+    final String text = status.caption;
 
     return Row(
       children: [
@@ -144,7 +127,7 @@ class PasswordPolicyChecklist extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildMeter(),
+        PasswordPolicyMeter(progress: status.progress),
         const SizedBox(height: 12),
         _buildCaption(),
         for (final rule in status.rules) _PolicyRuleRow(rule: rule),
@@ -231,6 +214,39 @@ class _PolicyRuleRow extends StatelessWidget
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class PasswordPolicyMeter extends StatelessWidget
+{
+  final double progress;
+
+  // Unfilled part: darker on the phone's glass.
+  final Color track;
+
+  const PasswordPolicyMeter({super.key, required this.progress, this.track = AppTheme.trialLine});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_meterHeight),
+      child: Stack(
+        children: [
+          Container(height: _meterHeight, color: track),
+          AnimatedFractionallySizedBox(
+            duration: _meterFill,
+            curve: Curves.easeOut,
+            widthFactor: progress,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: _meterHeight,
+              decoration: const BoxDecoration(gradient: AppTheme.brandGradient),
+            ),
+          ),
+        ],
       ),
     );
   }

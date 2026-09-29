@@ -1,19 +1,4 @@
-import 'dart:js_interop';
+import 'splash_bridge_stub.dart' if (dart.library.js_interop) 'splash_bridge_web.dart';
 
-@JS('__hideCasaMichelaSplash')
-external void _hideCasaMichelaSplash();
-
-// Contract with index.html: triggers the CSS fade of #splash-overlay once the
-// first frame is painted.
-void hideInitialSplash()
-{
-  try
-  {
-    _hideCasaMichelaSplash();
-  }
-  catch (_)
-  {
-    // The hook is absent when a cached index.html predates the overlay: never
-    // block startup on it.
-  }
-}
+// Contract with index.html: fades #splash-overlay once the first frame is painted.
+void hideInitialSplash() => hideInitialSplashImpl();

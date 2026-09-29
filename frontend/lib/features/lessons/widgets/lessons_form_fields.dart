@@ -23,7 +23,6 @@ Widget _fieldLabel(String text, [TextStyle? style])
   );
 }
 
-// Shared tappable field shell used by every picker in this feature.
 class _PickerFieldShell extends StatefulWidget
 {
   final String label;
@@ -118,7 +117,6 @@ class SelectionOption<T>
   });
 }
 
-// Tappable field opening a searchable single-select list.
 class SelectionField<T> extends StatelessWidget
 {
   final String label;
@@ -378,7 +376,6 @@ class _SelectionListItemState<T> extends State<_SelectionListItem<T>>
   }
 }
 
-// Free-text field with filtered, keyboard-navigable suggestions.
 class AutocompleteField<T> extends StatefulWidget
 {
   final String label;
@@ -387,15 +384,12 @@ class AutocompleteField<T> extends StatefulWidget
   final String hint;
   final ValueChanged<T> onSelected;
 
-  // Called when the field is emptied and then loses focus, so the caller can
-  // clear the selection instead of the field reverting to the last value.
+  // Emptied then blurred: the caller clears the selection instead of the field reverting.
   final VoidCallback? onCleared;
 
-  // When true, an empty field shows every option — for small fixed sets meant
-  // to be browsed by click.
+  // For small fixed sets browsed by click.
   final bool showAllOptionsWhenEmpty;
 
-  // Trailing icon; null leaves the end of the field bare.
   final IconData? icon;
 
   final TextStyle? labelStyle;
@@ -618,7 +612,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
   }
 }
 
-// Read-only fact shown in place of a field the dialog no longer asks for.
+// Shown in place of a field the dialog no longer asks for.
 class WizardFact extends StatelessWidget
 {
   final String label;

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -23,7 +25,9 @@ const double _dialogWidth = 1280;
 
 const double _cardGap = 20;
 
-const double _columnGap = 32;
+const double _labelGap = 24;
+
+const double _rowPadding = 11;
 
 // Read off the window: a LayoutBuilder cannot sit inside the IntrinsicHeight that levels the cards.
 const double _twoColumnsFromWindow = 1160;
@@ -32,28 +36,27 @@ const double _voiceGap = 18;
 
 const double _headingGap = 14;
 
-const String _empty = '—';
+const String kVoiceEmpty = '—';
+
+const String _empty = kVoiceEmpty;
 
 const String _otherCertification = 'OTHER';
 
-const String _studentFailedNote = 'Non è stato possibile leggere i dati dello studente.';
+const String kStudentFailedNote = 'Non è stato possibile leggere i dati dello studente.';
 
 const String _sharedWith = 'Questa lezione è in compresenza con un altro studente';
-const String _teacherFailedNote = 'Non è stato possibile leggere i dati del docente.';
+const String kTeacherFailedNote = 'Non è stato possibile leggere i dati del docente.';
 
-class _Voice
+class LessonVoice
 {
   final String label;
   final String value;
 
-  final bool alone;
-
   final bool sensitive;
 
-  const _Voice({
+  const LessonVoice({
     required this.label,
     required this.value,
-    required this.alone,
     this.sensitive = false,
   });
 }
@@ -64,8 +67,22 @@ Future<void> showOwnLessonDialog({
   required List<MinistrySubjectItem> ministrySubjects,
   required CalendarView view,
   required Future<PersonItem> other,
-})
+}) async
 {
+  // Read before opening, so the cards come up at their final size.
+  PersonItem? person;
+
+  try
+  {
+    person = await other;
+  }
+  catch (_) {}
+
+  if (!context.mounted)
+  {
+    return;
+  }
+
   return showBlurredDialog<void>(
     context: context,
     barrierLabel: 'OwnLessonDetails',
@@ -73,7 +90,7 @@ Future<void> showOwnLessonDialog({
       lesson: lesson,
       ministrySubjects: ministrySubjects,
       view: view,
-      other: other,
+      other: person,
     ),
   );
 }
@@ -112,12 +129,83 @@ SchoolEnrollmentItem? _currentYear(PersonItem person)
   return years.reduce((a, b) => a.startYear >= b.startYear ? a : b);
 }
 
+List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects)
+{
+  String perBooking(String Function(BookingSummaryItem booking) said)
+  {
+    return _joined([for (final entry in lesson.bookings) said(entry.booking)]);
+  }
+
+  final topic = perBooking((booking) => booking.topic ?? '');
+  final notes = perBooking((booking) => booking.notes ?? '');
+
+  final disciplines = lessonAbout(lesson, ministrySubjects).disciplines;
+
+  return [
+    LessonVoice(
+      label: 'Orario',
+      value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
+    ),
+    LessonVoice(
+      label: 'Materia',
+      value: perBooking((booking) => bookingTitle(booking, ministrySubjects)),
+    ),
+    if (disciplines != null) LessonVoice(label: 'Discipline', value: disciplines),
+    LessonVoice(
+      label: 'Tipo di lezione',
+      value: perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
+    ),
+    LessonVoice(label: 'Argomento', value: topic),
+    LessonVoice(label: 'Note', value: notes),
+  ];
+}
+
+List<LessonVoice> studentVoicesOf(PersonItem person)
+{
+  final age = person.age;
+  final year = _currentYear(person);
+  final repeating = year != null && isRepeatingYear(year, person.schoolEnrollments ?? const []);
+
+  return [
+    LessonVoice(label: 'Età', value: age == null ? _empty : '$age anni'),
+    LessonVoice(
+      label: 'Certificazioni',
+      value: _certifications(person),
+      sensitive: true,
+    ),
+    LessonVoice(label: 'Scuola', value: person.schoolName?.trim() ?? _empty),
+    LessonVoice(label: 'Livello', value: person.educationLevel?.trim() ?? _empty),
+    LessonVoice(
+      label: 'Percorso di studi',
+      value: person.studyProgram == null ? _empty : studyProgramNameOnlyOf(person.studyProgram!),
+    ),
+    LessonVoice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty),
+    LessonVoice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No')),
+    // Not stored by the backend yet.
+    LessonVoice(label: 'Osservazioni tecniche', value: _empty),
+    LessonVoice(label: 'Osservazioni metodologiche', value: _empty),
+  ];
+}
+
+List<LessonVoice> teacherVoicesOf(PersonItem person)
+{
+  final age = person.age;
+
+  return [
+    LessonVoice(label: 'Età', value: age == null ? _empty : '$age anni'),
+    LessonVoice(label: 'Studi scolastici', value: person.schoolEducation?.trim() ?? _empty),
+    LessonVoice(label: 'Studi universitari', value: person.universityEducation?.trim() ?? _empty),
+  ];
+}
+
 class _OwnLessonDialog extends StatelessWidget
 {
   final LessonItem lesson;
   final List<MinistrySubjectItem> ministrySubjects;
   final CalendarView view;
-  final Future<PersonItem> other;
+
+  // Null when it could not be read.
+  final PersonItem? other;
 
   const _OwnLessonDialog({
     required this.lesson,
@@ -127,69 +215,6 @@ class _OwnLessonDialog extends StatelessWidget
   });
 
   bool get _byStudent => view == CalendarView.byStudent;
-
-  String _perBooking(String Function(BookingSummaryItem booking) said)
-  {
-    return _joined([for (final entry in lesson.bookings) said(entry.booking)]);
-  }
-
-  List<_Voice> get _lessonVoices
-  {
-    final topic = _perBooking((booking) => booking.topic ?? '');
-    final notes = _perBooking((booking) => booking.notes ?? '');
-
-    final disciplines = lessonAbout(lesson, ministrySubjects).disciplines;
-
-    return [
-      _Voice(
-        label: 'Orario',
-        value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
-        alone: false,
-      ),
-      _Voice(
-        label: 'Materia',
-        value: _perBooking((booking) => bookingTitle(booking, ministrySubjects)),
-        alone: false,
-      ),
-      if (disciplines != null) _Voice(label: 'Discipline', value: disciplines, alone: false),
-      _Voice(
-        label: 'Tipo di lezione',
-        value: _perBooking((booking) => bookingTagLabels(booking.tags).join(', ')),
-        alone: disciplines == null,
-      ),
-      _Voice(label: 'Argomento', value: topic, alone: true),
-      _Voice(label: 'Note', value: notes, alone: true),
-    ];
-  }
-
-  List<_Voice> _studentVoices(PersonItem person)
-  {
-    final age = person.age;
-    final year = _currentYear(person);
-    final repeating = year != null && isRepeatingYear(year, person.schoolEnrollments ?? const []);
-
-    return [
-      _Voice(label: 'Età', value: age == null ? _empty : '$age anni', alone: false),
-      _Voice(
-        label: 'Certificazioni',
-        value: _certifications(person),
-        alone: false,
-        sensitive: true,
-      ),
-      _Voice(label: 'Scuola', value: person.schoolName?.trim() ?? _empty, alone: true),
-      _Voice(label: 'Livello', value: person.educationLevel?.trim() ?? _empty, alone: true),
-      _Voice(
-        label: 'Percorso di studi',
-        value: person.studyProgram == null ? _empty : studyProgramNameOnlyOf(person.studyProgram!),
-        alone: true,
-      ),
-      _Voice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty, alone: false),
-      _Voice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No'), alone: false),
-      // Not stored by the backend yet.
-      _Voice(label: 'Osservazioni tecniche', value: _empty, alone: true),
-      _Voice(label: 'Osservazioni metodologiche', value: _empty, alone: true),
-    ];
-  }
 
   // Empty when the hour is shared throughout.
   String get _sharedSentence
@@ -233,17 +258,6 @@ class _OwnLessonDialog extends StatelessWidget
         ],
       ),
     );
-  }
-
-  List<_Voice> _teacherVoices(PersonItem person)
-  {
-    final age = person.age;
-
-    return [
-      _Voice(label: 'Età', value: age == null ? _empty : '$age anni', alone: true),
-      _Voice(label: 'Studi scolastici', value: person.schoolEducation?.trim() ?? _empty, alone: true),
-      _Voice(label: 'Studi universitari', value: person.universityEducation?.trim() ?? _empty, alone: true),
-    ];
   }
 
   Widget _buildHeading(String text)
@@ -291,7 +305,7 @@ class _OwnLessonDialog extends StatelessWidget
     );
   }
 
-  Widget _buildLessonSection({required bool wide})
+  Widget _buildLessonSection()
   {
     return _buildSection(
       'Lezione',
@@ -299,48 +313,22 @@ class _OwnLessonDialog extends StatelessWidget
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _VoicesGrid(voices: _lessonVoices, wide: wide),
+          _VoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects)),
           if (_byStudent && lesson.isShared) _buildSharedLine(),
         ],
       ),
     );
   }
 
-  Widget _buildOtherSection({required bool wide})
+  Widget _buildOtherSection()
   {
+    final person = other;
+
     return _buildSection(
       _byStudent ? 'Docente' : 'Studente',
-      FutureBuilder<PersonItem>(
-        future: other,
-        builder: (context, snapshot)
-        {
-          final person = snapshot.data;
-
-          if (person != null)
-          {
-            return _VoicesGrid(
-              voices: _byStudent ? _teacherVoices(person) : _studentVoices(person),
-              wide: wide,
-            );
-          }
-
-          if (snapshot.hasError)
-          {
-            return _buildNote(_byStudent ? _teacherFailedNote : _studentFailedNote);
-          }
-
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
-            child: Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.trialTurquoise),
-              ),
-            ),
-          );
-        },
-      ),
+      person == null
+          ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
+          : _VoicesTable(voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person)),
     );
   }
 
@@ -370,15 +358,20 @@ class _OwnLessonDialog extends StatelessWidget
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _buildLessonSection(wide: true)),
+                // The row is one piece of the stack; nested pieces stagger the two cards.
+                Expanded(
+                  child: AppDialogPiece(index: 1, named: false, child: _buildLessonSection()),
+                ),
                 const SizedBox(width: _cardGap),
-                Expanded(child: _buildOtherSection(wide: true)),
+                Expanded(
+                  child: AppDialogPiece(index: 2, named: false, child: _buildOtherSection()),
+                ),
               ],
             ),
           )
         else ...[
-          _buildLessonSection(wide: false),
-          _buildOtherSection(wide: false),
+          _buildLessonSection(),
+          _buildOtherSection(),
         ],
       ],
     );
@@ -455,90 +448,77 @@ class _ObscurableValueState extends State<_ObscurableValue>
   }
 }
 
-class _VoicesGrid extends StatelessWidget
+class _VoicesTable extends StatelessWidget
 {
-  final List<_Voice> voices;
+  final List<LessonVoice> voices;
 
-  final bool wide;
+  const _VoicesTable({required this.voices});
 
-  const _VoicesGrid({required this.voices, required this.wide});
-
-  List<List<_Voice>> get _rows
+  // Measured over the ambient style, as the labels are drawn.
+  double _labelWidth(BuildContext context)
   {
-    final rows = <List<_Voice>>[];
+    final TextStyle style = DefaultTextStyle.of(context).style.merge(fieldLabelStyle());
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+
+    var widest = 0.0;
 
     for (final voice in voices)
     {
-      if (voice.alone || rows.isEmpty || rows.last.length == 2 || rows.last.single.alone)
-      {
-        rows.add([voice]);
+      final painter = TextPainter(
+        text: TextSpan(text: voice.label, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
 
-        continue;
-      }
-
-      rows.last.add(voice);
+      widest = math.max(widest, painter.width);
+      painter.dispose();
     }
 
-    return rows;
+    return widest.ceilToDouble();
   }
 
-  Widget _buildVoice(_Voice voice)
+  Widget _buildValue(LessonVoice voice)
   {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppFieldLabel(voice.label),
-        const SizedBox(height: 6),
-        if (voice.sensitive && voice.value != _empty)
-          _ObscurableValue(value: voice.value)
-        else
-          _VoiceValue(value: voice.value),
-      ],
-    );
-  }
-
-  Widget _buildRow(List<_Voice> row, {required bool wide})
-  {
-    if (!wide || row.length == 1)
-    {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var index = 0; index < row.length; index++) ...[
-            if (index > 0) const SizedBox(height: _voiceGap),
-            _buildVoice(row[index]),
-          ],
-        ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var index = 0; index < row.length; index++) ...[
-          if (index > 0) const SizedBox(width: _columnGap),
-          Expanded(child: _buildVoice(row[index])),
-        ],
-      ],
-    );
+    return voice.sensitive && voice.value != _empty
+        ? _ObscurableValue(value: voice.value)
+        : _VoiceValue(value: voice.value);
   }
 
   @override
   Widget build(BuildContext context)
   {
-    final rows = _rows;
+    // Measured again once fonts load, as the labels themselves are laid out again.
+    return ListenableBuilder(
+      listenable: PaintingBinding.instance.systemFonts,
+      builder: (context, _) => _buildRows(context, _labelWidth(context)),
+    );
+  }
 
+  Widget _buildRows(BuildContext context, double labelWidth)
+  {
     return SelectionArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var index = 0; index < rows.length; index++) ...[
-            if (index > 0) const SizedBox(height: _voiceGap),
-            _buildRow(rows[index], wide: wide),
-          ],
+          for (final (index, voice) in voices.indexed)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: index == 0 ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(top: index == 0 ? 0 : _rowPadding, bottom: _rowPadding),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    SizedBox(width: labelWidth, child: AppFieldLabel(voice.label)),
+                    const SizedBox(width: _labelGap),
+                    Expanded(child: _buildValue(voice)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

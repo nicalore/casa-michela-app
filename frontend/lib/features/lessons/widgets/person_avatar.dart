@@ -5,7 +5,6 @@ import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../people/models/person_face.dart';
 
-// A person's photo, or their initials when there is none.
 class PersonAvatar extends StatelessWidget
 {
   static const double listSize = 42;

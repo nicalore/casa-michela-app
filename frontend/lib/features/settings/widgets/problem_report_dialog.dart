@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
+import '../utils/settings_strings.dart';
 
 // Keeps 'INVIA SEGNALAZIONE' on one line.
 const double _footerWidth = 576;
@@ -57,7 +58,7 @@ class _ProblemReportDialogState extends State<_ProblemReportDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: 'La descrizione non può essere vuota.',
+        message: kReportEmpty,
         isError: true,
       );
 
@@ -75,7 +76,7 @@ class _ProblemReportDialogState extends State<_ProblemReportDialog>
         return;
       }
 
-      CustomSnackBar.show(context: context, message: 'Segnalazione inviata con successo. Grazie!', isError: false);
+      CustomSnackBar.show(context: context, message: kReportSent, isError: false);
       Navigator.of(context).pop();
     }
     catch (e)
@@ -98,12 +99,12 @@ class _ProblemReportDialogState extends State<_ProblemReportDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Segnalazione',
-      title: 'Segnala un problema',
+      eyebrow: kReportEyebrow,
+      title: kReportTitle,
       maxWidth: kWizardDialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'INVIA SEGNALAZIONE',
+          label: kReportSendLabel.toUpperCase(),
           icon: Icons.send_rounded,
           busy: _isSending,
           height: kWizardButtonHeight,
@@ -116,8 +117,8 @@ class _ProblemReportDialogState extends State<_ProblemReportDialog>
         AppDialogPill(
           child: AppTextField(
             controller: _descriptionController,
-            label: 'Descrizione',
-            hintText: 'Descrivi il problema riscontrato...',
+            label: kReportDescriptionLabel,
+            hintText: kReportDescriptionHint,
             maxLength: FieldLimits.description,
             textCapitalization: TextCapitalization.sentences,
             minLines: 3,

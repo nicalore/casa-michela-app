@@ -221,7 +221,7 @@ class _OwnPageState extends State<OwnPage> with SectionVisits
       OwnPageSection.other => OwnOtherInfoTab(person: person, onUpdate: _load, footer: report),
       OwnPageSection.stats => PersonPersonalStatsTab(
           person: person,
-          showAppreciation: false,
+          forOwner: true,
           footer: centred,
         ),
     };

@@ -11,6 +11,7 @@ import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
+import 'association_strings.dart';
 import 'tabs/opening_hours/combined_hours_view.dart';
 import 'tabs/pupil_subjects_tab.dart';
 import 'tabs/pupil_teachers_tab.dart';
@@ -22,9 +23,9 @@ const int _hoursIndex = 0;
 const int _subjectsIndex = 1;
 const int _teachersIndex = 2;
 
-const String _hours = 'Orari';
+const String _hours = kAssociationHoursLabel;
 const String _meetings = 'Colloqui';
-const String _notices = 'Comunicazioni e avvisi';
+const String _notices = kAssociationNoticesLabel;
 
 // Order matches the PageSections below; the constants above index both.
 List<RailGroup> _sectionsFor(String role)

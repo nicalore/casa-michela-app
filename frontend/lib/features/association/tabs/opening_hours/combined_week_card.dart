@@ -6,28 +6,25 @@ import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
+import 'hours_strings.dart';
 import 'hours_grid.dart';
 import 'hours_week_nav.dart';
 import 'mode_hours_parts.dart';
 import 'opening_hours_layout.dart';
 
-// The week day by day with both modes on each day, for readers who need both
-// at once.
 class CombinedWeekCard extends StatelessWidget
 {
   static const double _bandsFontSize = 15;
 
   final DateTime weekStart;
 
-  // Both modes' rows.
   final List<OpeningDayItem> openingDays;
 
   final bool isLoading;
   final VoidCallback onPreviousWeek;
   final VoidCallback onNextWeek;
-  final VoidCallback onToday;
+  final ValueChanged<DateTime> onPickDay;
 
-  // For an administrator: a day opens its variation.
   final ValueChanged<DateTime>? onDayTap;
 
   const CombinedWeekCard({
@@ -37,7 +34,7 @@ class CombinedWeekCard extends StatelessWidget
     required this.isLoading,
     required this.onPreviousWeek,
     required this.onNextWeek,
-    required this.onToday,
+    required this.onPickDay,
     this.onDayTap,
   });
 
@@ -48,7 +45,7 @@ class CombinedWeekCard extends StatelessWidget
       stacked: stacked,
       onPreviousWeek: onPreviousWeek,
       onNextWeek: onNextWeek,
-      onToday: onToday,
+      onPickDay: onPickDay,
     );
   }
 
@@ -65,8 +62,9 @@ class CombinedWeekCard extends StatelessWidget
         final navBeside = constraints.maxWidth >= kHoursTableNavBreakpoint;
 
         return AppCard(
-          title: 'Orario settimanale',
+          title: kWeeklyHoursTitle,
           compact: true,
+          selectable: false,
           leading: const AppCardBadge(icon: Icons.calendar_month_rounded, compact: true),
           trailing: navBeside ? _weekNav(stacked: false) : null,
           child: Column(

@@ -96,7 +96,6 @@ class _PieChartState extends State<PieChart>
   {
     final foundIndex = _sliceAt(position, center, radius, total);
 
-    // Over a slice the popup follows the pointer; off the ring nothing moves.
     if (foundIndex == null && _hoveredIndex == null)
     {
       return;

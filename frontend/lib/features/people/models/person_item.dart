@@ -317,7 +317,6 @@ class PersonItem implements PersonFace
   bool get isTeachersParentOnly =>
       teacherChildrenTaxCodes.isNotEmpty && (children?.isEmpty ?? true);
 
-  // A parent of teachers alone is not presented as a parent.
   List<String> get shownRoles => isTeachersParentOnly
       ? roles.where((role) => role.toUpperCase() != 'GENITORE').toList()
       : roles;
@@ -326,23 +325,22 @@ class PersonItem implements PersonFace
   bool get isPaperworkOnly => isTeachersParentOnly && shownRoles.isEmpty;
 }
 
+// The only people a booking or availability may name.
 List<PersonItem> activeCollaborators(List<PersonItem> people)
 {
   return people
-      .where((person) =>
-          (person.isActiveCollaborator ?? false) && !person.isMembershipRevoked)
+      .where((person) => person.isEnrolled && (person.isActiveCollaborator ?? false))
       .toList();
 }
 
-// The teachers a pupil may still ask for: those on their list are left out.
 List<PersonItem> askableTeachers(
-  List<PersonItem> teachers,
+  List<PersonItem> eligible,
   Iterable<String> notPreferredTaxCodes,
 )
 {
   final avoided = notPreferredTaxCodes.toSet();
 
-  return activeCollaborators(teachers)
+  return eligible
       .where((teacher) => !avoided.contains(teacher.fiscalCode))
       .toList();
 }

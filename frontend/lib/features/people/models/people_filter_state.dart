@@ -11,7 +11,6 @@ class PeopleFilterState
   // Sentinel chip value for "no certification"; not null, since chips are a set.
   static const String noCertification = 'NONE';
 
-  // Birthplace chips: Italy is one nation, abroad is every other.
   static const String bornInItaly = 'ITALY';
   static const String bornAbroad = 'ABROAD';
 

@@ -37,6 +37,27 @@ const Map<String, String> _revocationLabels = {
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 final DateFormat _dayMonthFormat = DateFormat('dd/MM');
 
+const String kNoMembershipsMessage = 'Nessuna iscrizione registrata.';
+
+String membershipStatusLabel({required bool isEnrolled, required bool isFemale})
+{
+  return isEnrolled
+      ? (isFemale ? 'Iscritta' : 'Iscritto')
+      : (isFemale ? 'Non iscritta' : 'Non iscritto');
+}
+
+String collaborationStatusLabel({required bool isActive, required bool isFemale})
+{
+  return isActive
+      ? (isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo')
+      : 'Non collaborante';
+}
+
+String revokedMembershipLabel(MembershipItem membership)
+{
+  return 'Iscrizione revocata (${_revocationLabels[membership.revocation] ?? membership.revocation})';
+}
+
 // A membership counts as running until the renewal window has passed, not on the end date itself.
 class PersonMembershipsTab extends StatelessWidget
 {
@@ -83,13 +104,10 @@ class PersonMembershipsTab extends StatelessWidget
     required bool isActiveCollaborator,
   })
   {
-    final statusText = isEnrolled
-        ? (isFemale ? 'Iscritta' : 'Iscritto')
-        : (isFemale ? 'Non iscritta' : 'Non iscritto');
+    final statusText = membershipStatusLabel(isEnrolled: isEnrolled, isFemale: isFemale);
 
-    final collaborationText = isActiveCollaborator
-        ? (isFemale ? 'Collaboratrice attiva' : 'Collaboratore attivo')
-        : 'Non collaborante';
+    final collaborationText =
+        collaborationStatusLabel(isActive: isActiveCollaborator, isFemale: isFemale);
 
     return Center(
       child: ConstrainedBox(
@@ -186,11 +204,7 @@ class PersonMembershipsTab extends StatelessWidget
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isRevoked) ...[
-            Center(
-              child: _RevokedNotice(
-                label: _revocationLabels[membership.revocation] ?? membership.revocation,
-              ),
-            ),
+            Center(child: _RevokedNotice(text: revokedMembershipLabel(membership))),
             const SizedBox(height: 20),
           ],
           PersonFactsRow(
@@ -286,7 +300,7 @@ class PersonMembershipsTab extends StatelessWidget
                 ],
               ],
               if (currentMembership == null && pastMemberships.isEmpty)
-                const PersonEmptyState(message: 'Nessuna iscrizione registrata.'),
+                const PersonEmptyState(message: kNoMembershipsMessage),
               if (!isRevoked && latest != null && onUpdate != null) ...[
                 const SizedBox(height: kPersonSectionGap),
                 Center(child: _buildActions(context)),
@@ -305,9 +319,9 @@ class PersonMembershipsTab extends StatelessWidget
 
 class _RevokedNotice extends StatelessWidget
 {
-  final String label;
+  final String text;
 
-  const _RevokedNotice({required this.label});
+  const _RevokedNotice({required this.text});
 
   @override
   Widget build(BuildContext context)
@@ -325,7 +339,7 @@ class _RevokedNotice extends StatelessWidget
           const SizedBox(width: 10),
           Flexible(
             child: Text(
-              'Iscrizione revocata ($label)',
+              text,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

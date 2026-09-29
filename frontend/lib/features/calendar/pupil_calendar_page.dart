@@ -20,6 +20,7 @@ import '../lessons/models/presence_item.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast;
+import 'utils/calendar_strings.dart';
 import 'utils/pupil_band_presence.dart';
 import 'widgets/band_summary_card.dart';
 import 'widgets/calendar_page_shell.dart';
@@ -71,6 +72,9 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   bool _isLoading = true;
   bool _failed = false;
 
+  // The person is read before the dialog opens; a second click meanwhile is dropped.
+  bool _isOpeningLesson = false;
+
   int _request = 0;
 
   List<OpeningDayItem> _openingDays = [];
@@ -88,7 +92,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
   bool get _isToday => isSameDate(_day, _today);
 
-  bool get _isFirstDay => !_day.isAfter(kAssociationFoundedOn);
+  bool get _isFirstDay => !_day.isAfter(oldestKeptDay(_now));
 
   @override
   void initState()
@@ -203,7 +207,10 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   void _goToDay(DateTime day)
   {
     final DateTime normalised = DateTime(day.year, day.month, day.day);
-    final DateTime target = normalised.isAfter(_today) ? _today : normalised;
+    final DateTime oldest = oldestKeptDay(_now);
+    final DateTime target = normalised.isAfter(_today)
+        ? _today
+        : (normalised.isBefore(oldest) ? oldest : normalised);
 
     if (isSameDate(target, _day))
     {
@@ -289,13 +296,27 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
   Future<void> _openLesson(LessonItem lesson) async
   {
-    await showOwnLessonDialog(
-      context: context,
-      lesson: lesson,
-      ministrySubjects: _ministrySubjects,
-      view: CalendarView.byStudent,
-      other: _apiService.getPerson(lesson.teacherTaxCode),
-    );
+    if (_isOpeningLesson)
+    {
+      return;
+    }
+
+    _isOpeningLesson = true;
+
+    try
+    {
+      await showOwnLessonDialog(
+        context: context,
+        lesson: lesson,
+        ministrySubjects: _ministrySubjects,
+        view: CalendarView.byStudent,
+        other: _apiService.getPerson(lesson.teacherTaxCode),
+      );
+    }
+    finally
+    {
+      _isOpeningLesson = false;
+    }
   }
 
   String get _whom
@@ -405,7 +426,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     if (_failed)
     {
-      return const CalendarNote('Non è stato possibile caricare il calendario.');
+      return const CalendarNote(kCalendarLoadFailed);
     }
 
     if (!_isPublished)

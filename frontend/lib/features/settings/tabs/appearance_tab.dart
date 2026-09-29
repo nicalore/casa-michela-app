@@ -4,6 +4,7 @@ import '../../../core/layout/app_breakpoints.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../utils/settings_strings.dart';
 
 const double _maxWidth = 560;
 const double _cardGap = 24;
@@ -11,46 +12,11 @@ const double _chipGap = 10;
 
 const double _comingOpacity = 0.6;
 
-class _Option
-{
-  final String label;
-
-  // False for an option not built yet: muted and inert.
-  final bool available;
-
-  const _Option(this.label, {this.available = true});
-}
-
-class _Setting
-{
-  final String title;
-  final IconData icon;
-
-  // The first is the one in force.
-  final List<_Option> options;
-
-  const _Setting(this.title, this.icon, this.options);
-}
-
-const List<_Setting> _settings = [
-  _Setting('Tema', Icons.brightness_6_rounded, [
-    _Option('Chiaro'),
-    _Option('Scuro', available: false),
-  ]),
-  _Setting('Colori', Icons.palette_rounded, [
-    _Option('Casa Michela'),
-  ]),
-  _Setting('Lingua', Icons.translate_rounded, [
-    _Option('Italiano'),
-    _Option('Inglese', available: false),
-  ]),
-];
-
 class AppearanceTab extends StatelessWidget
 {
   const AppearanceTab({super.key});
 
-  Widget _buildOption(_Option option, {required bool chosen})
+  Widget _buildOption(AppearanceOption option, {required bool chosen})
   {
     final Widget chip = AppSelectableChip(
       label: option.label,
@@ -65,7 +31,7 @@ class AppearanceTab extends StatelessWidget
     }
 
     return Tooltip(
-      message: 'In arrivo',
+      message: kComingSoon,
       waitDuration: const Duration(milliseconds: 400),
       child: IgnorePointer(
         child: Opacity(opacity: _comingOpacity, child: chip),
@@ -73,7 +39,7 @@ class AppearanceTab extends StatelessWidget
     );
   }
 
-  Widget _buildSetting(_Setting setting)
+  Widget _buildSetting(AppearanceSetting setting)
   {
     return AppCard(
       title: setting.title,
@@ -109,9 +75,9 @@ class AppearanceTab extends StatelessWidget
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
-                for (var i = 0; i < _settings.length; i++) ...[
+                for (var i = 0; i < kAppearanceSettings.length; i++) ...[
                   if (i > 0) const SizedBox(height: _cardGap),
-                  _buildSetting(_settings[i]),
+                  _buildSetting(kAppearanceSettings[i]),
                 ],
               ]),
             ),

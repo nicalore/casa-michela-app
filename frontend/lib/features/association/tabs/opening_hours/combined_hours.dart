@@ -3,9 +3,52 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../models/opening_day_item.dart';
+import 'current_schedule.dart';
 
-// Presence first, as the two modes are listed everywhere else.
 const List<String> kHoursModes = [kPresenceMode, kOnlineMode];
+
+// Lookback covers a holiday weekday's past hours; the fetch overshoots so runs keep their real end.
+const int kScheduleLookbackDays = 27;
+const int kVariationsWindowDays = 60;
+const int kVariationsFetchDays = kVariationsWindowDays + 90;
+
+// Mode to weekday (1-7) to the bands in force on the next occurrence of that day.
+typedef StandardSchedule = Map<String, Map<int, List<OpeningDayItem>>>;
+
+List<OpeningDayItem> upcomingVariationsOf(List<OpeningDayItem> days, DateTime today)
+{
+  final day = DateTime(today.year, today.month, today.day);
+
+  return days.where((d) => d.isOverride && !d.date.isBefore(day)).toList();
+}
+
+StandardSchedule standardScheduleOf(List<OpeningDayItem> days, DateTime today)
+{
+  return {
+    for (final mode in kHoursModes)
+      mode: currentScheduleByWeekday(days.where((d) => d.mode == mode).toList(), today),
+  };
+}
+
+List<OpeningDayItem> standardBands(StandardSchedule schedule, String mode, int weekday)
+{
+  final rows = schedule[mode]?[weekday] ?? const <OpeningDayItem>[];
+
+  return sortedByStart(rows.where((band) => band.startTime != null && band.endTime != null));
+}
+
+bool hasStandardHours(StandardSchedule schedule)
+{
+  for (var weekday = 1; weekday <= 7; weekday++)
+  {
+    if (kHoursModes.any((mode) => standardBands(schedule, mode, weekday).isNotEmpty))
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // Closures (no hours) sort before any timed band.
 List<OpeningDayItem> sortedByStart(Iterable<OpeningDayItem> rows)
@@ -15,7 +58,6 @@ List<OpeningDayItem> sortedByStart(Iterable<OpeningDayItem> rows)
   return rows.toList()..sort((a, b) => minutesOf(a.startTime).compareTo(minutesOf(b.startTime)));
 }
 
-// The two modes can carry different notes on the same day; neither is dropped.
 String? joinedNote(Iterable<OpeningDayItem> rows)
 {
   final notes = <String>[];
@@ -45,10 +87,8 @@ String _hoursOf(OpeningDayItem row)
   return row.startTime == null ? 'chiuso' : formatTimeRange(row.startTime!, row.endTime!);
 }
 
-// One mode on one day of the weekly table.
 class ModeDayHours
 {
-  // Earliest first; empty on a closure.
   final List<OpeningDayItem> bands;
 
   // A row with no hours: a decided closure.
@@ -57,7 +97,6 @@ class ModeDayHours
   // No rows: the template never opens that day in this mode.
   final bool isOrdinaryClosure;
 
-  // The reason a variation gave, if any; shown on hover, not written out.
   final String? note;
 
   const ModeDayHours({
@@ -77,8 +116,7 @@ class CombinedDay
 
   const CombinedDay({required this.date, required this.byMode});
 
-  // [isLoading] stops a day from reading as closed while the rows on hand are
-  // still the previous week's.
+  // [isLoading] keeps a day from reading closed while the rows are still the previous week's.
   factory CombinedDay.read(List<OpeningDayItem> rows, DateTime day, {required bool isLoading})
   {
     final forDay = rows.where((row) => isSameDate(row.date, day)).toList();
@@ -105,20 +143,18 @@ class CombinedDay
 
   ModeDayHours of(String mode) => byMode[mode]!;
 
-  // Both modes shut for the same reason: one Chiuso across the row instead of two.
   bool get isClosedAllDay => isOverrideClosedAllDay || byMode.values.every((hours) => hours.isOrdinaryClosure);
 
   bool get isOverrideClosedAllDay => byMode.values.every((hours) => hours.isOverrideClosure);
 }
 
-// A run of consecutive days carrying the same variations in both modes and the
-// same note. A mode missing from [bandsByMode] keeps its standard hours.
+// A mode missing from [bandsByMode] keeps its standard hours.
 class CombinedVariation
 {
   final DateTime start;
   final DateTime end;
 
-  // Bands of one day of the run; a closure is a single band with no hours.
+  // A closure is a single band with no hours.
   final Map<String, List<OpeningDayItem>> bandsByMode;
 
   final String? note;
@@ -144,8 +180,7 @@ class CombinedVariation
     return bands != null && bands.first.startTime == null;
   }
 
-  // [startsOnOrBefore] filters whole runs, not the rows going in: a run
-  // starting inside the window keeps its real end date.
+  // [startsOnOrBefore] filters whole runs, not input rows, so a run keeps its real end date.
   static List<CombinedVariation> from(List<OpeningDayItem> variations, {DateTime? startsOnOrBefore})
   {
     final byDate = <DateTime, List<OpeningDayItem>>{};
@@ -198,7 +233,6 @@ class CombinedVariation
     };
   }
 
-  // Two days join a run only when both modes' bands and the note match.
   static String _signature(List<OpeningDayItem> rows)
   {
     final byMode = _byMode(rows);

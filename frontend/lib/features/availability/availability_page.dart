@@ -28,6 +28,7 @@ import '../lessons/models/availability_item.dart';
 import '../lessons/utils/booking_window.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/widgets/availability_wizard.dart';
+import 'utils/availability_strings.dart';
 import 'widgets/availability_day_row.dart';
 
 const double _headerGap = 22;
@@ -252,7 +253,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
         }
       },
       apply: () => _availabilities = _availabilities.where((a) => !removed.contains(a.id)).toList(),
-      done: 'Disponibilità eliminata con successo!',
+      done: kAvailabilityDeleted,
     );
   }
 
@@ -284,13 +285,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
   void _confirmDelete(DateTime day, List<AvailabilityItem> slots, {TimeBucket? band})
   {
-    final String when = formatAvailableDayLabel(day).toLowerCase();
-
-    final String warning = band == null
-        ? "L'orario ${formatTimeRange(slots.single.startTime, slots.single.endTime)} "
-            '${slots.single.mode == kOnlineMode ? kOnScreen : kInBuilding} di $when '
-            'verrà eliminato definitivamente.'
-        : 'La tua disponibilità ${_ofBand(band)} di $when verrà eliminata definitivamente.';
+    final String warning = availabilityDeletionWarning(day, slots, band: band);
 
     showBlurredDialog<void>(
       context: context,
@@ -342,16 +337,6 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     );
   }
 
-  static String _ofBand(TimeBucket band)
-  {
-    return switch (band)
-    {
-      TimeBucket.morning => 'della mattina',
-      TimeBucket.afternoon => 'del pomeriggio',
-      TimeBucket.evening => 'della sera',
-    };
-  }
-
   List<AvailabilityItem> _slotsOn(DateTime day)
   {
     final onTheDay = _availabilities.where((availability) => isSameDate(availability.date, day)).toList();
@@ -376,21 +361,15 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
   String get _summary
   {
     final int given = _shownDays.where((day) => _slotsOn(day).isNotEmpty).length;
-    final String week = _weekIndex == 0 ? 'questa settimana' : 'la settimana prossima';
 
-    if (given == 0)
-    {
-      return 'Non hai ancora dato disponibilità $week';
-    }
-
-    return 'Hai dato disponibilità per $given ${given == 1 ? 'giorno' : 'giorni'} $week';
+    return availabilitySummary(given, thisWeek: _weekIndex == 0);
   }
 
   String get _summaryLine
   {
     return [
       if (!_isLoading && !_failed) _summary,
-      if (!_isNextWeekUnlocked) 'La settimana prossima si sblocca venerdì alle 20:00',
+      if (!_isNextWeekUnlocked) kNextWeekUnlockNotice,
     ].join(' · ');
   }
 
@@ -434,10 +413,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Per le lezioni del mattino, è possibile aggiungere o modificare ' 
-                'le disponibilità fino alle 20:00 del giorno precedente; '
-                'per quelle del pomeriggio, fino alle 11:00 dello stesso '
-                'giorno; per quelle della sera, fino alle 18:00 dello stesso giorno.',
+                kAvailabilityDeadlines,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w600,

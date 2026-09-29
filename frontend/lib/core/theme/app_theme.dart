@@ -10,6 +10,7 @@ abstract final class AppTheme
 
   static const Color trialDeepWater = Color(0xFF0B3350);
   static const Color trialSeaGreen = Color(0xFF12907F);
+  static const Color trialLagoon = Color(0xFF1AA27E);
 
   static const Color trialViolet = Color(0xFF6C3F95);
 
@@ -136,8 +137,7 @@ abstract final class AppTheme
       colorScheme: colorScheme,
       scaffoldBackgroundColor: trialPaper,
       canvasColor: Colors.white,
-      // Must match the family in pubspec.yaml and the one google_fonts uses in
-      // its fallbacks, or the app falls back to the engine font.
+      // Must match pubspec.yaml and google_fonts' fallbacks, or the engine font takes over.
       fontFamily: 'PlusJakartaSans',
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: trialTurquoise,

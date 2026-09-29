@@ -17,7 +17,6 @@ import 'tabs/person_subjects_tab.dart';
 
 const String _teacherRole = 'TEACHER';
 
-// Shared with the mobile section, which shows it behind its (i).
 const String kTeacherSubjectsIntro =
     'Qui puoi indicare le discipline che desideri insegnare e i percorsi di '
     'studio per i quali sei disponibile. Ti chiediamo di mantenere queste '

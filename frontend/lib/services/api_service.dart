@@ -130,7 +130,6 @@ MinistrySubjectItem _ministrySubjectFromJson(dynamic json)
 
 typedef ApiFile = ({Uint8List bytes, String fileName});
 
-// What a tab tells the other tabs of its browser.
 abstract final class _TabNews
 {
   static const String signedIn = 'signed-in';
@@ -146,9 +145,7 @@ class _SessionEnded implements Exception
   const _SessionEnded();
 }
 
-// One list per endpoint: concurrent readers share the request, later readers
-// the value, a write drops both. Copies go out, so a caller sorting in place
-// cannot touch the cache.
+// Per endpoint: concurrent reads share the request; any write drops it. Callers get copies.
 class _ListMemo<T>
 {
   List<T>? _value;
@@ -227,8 +224,7 @@ class ApiService
   // Long enough for a phone to settle on its new network after a switch.
   static const Duration _resendPause = Duration(seconds: 1);
 
-  // A browser refuses a page-set agent and sends its own; the native apps
-  // announce themselves, as the default "Dart/x.y" says nothing useful.
+  // Browsers ignore a page-set User-Agent; native apps replace the useless "Dart/x.y".
   static final String? _appUserAgent =
       kIsWeb ? null : 'CasaMichela/app (${defaultTargetPlatform.name.toLowerCase()})';
 
@@ -252,11 +248,16 @@ class ApiService
 
   Future<MeResponse>? _meInFlight;
 
-  // The band lock belongs to the account, not the tab: bumped when another
-  // tab lets one go, so a tab still editing takes it back.
+  // Band locks are per account: bumped when another tab releases one, so an editing tab retakes it.
   final ValueNotifier<int> calendarLocksReleasedElsewhere = ValueNotifier(0);
 
   static const String _sessionLock = 'casa-michela-session';
+
+  // Mirrored by backend/app/api/auth.py.
+  static const String _passwordChangeExpiredCode = 'PASSWORD_CHANGE_EXPIRED';
+
+  static const String _passwordChangeExpiredNotice =
+      'Per scegliere la nuova password, accedi di nuovo con quella provvisoria.';
 
   void _dropPeople()
   {
@@ -277,7 +278,7 @@ class ApiService
     _dropPeople();
   }
 
-  // After a write: the other tabs of the browser drop their copies too.
+  // After a write: other tabs drop their copies too.
   void _forgetPeople()
   {
     _dropPeople();
@@ -365,8 +366,7 @@ class ApiService
         {
           final RequestOptions request = error.requestOptions;
 
-          // A read that got no answer goes out once more: a phone's network
-          // blip passes unseen.
+          // Unanswered GETs (idempotent) are resent once, hiding a phone's network blip.
           if (request.method == 'GET' &&
               error.type == DioExceptionType.connectionError &&
               request.extra['resent'] != true)
@@ -391,7 +391,7 @@ class ApiService
             return handler.next(error);
           }
 
-          // A request that failed on an older token retries with the one in hand.
+          // Refresh only if the 401 came on the current token; an older one just retries.
           if (request.headers['Authorization'] == 'Bearer $_accessToken')
           {
             try
@@ -445,8 +445,7 @@ class ApiService
     listenToOtherTabs(_hearFromOtherTab);
   }
 
-  // The request that opens or renews a session says what device it is on, so
-  // the sessions list can name it.
+  // Login and refresh name the device for the sessions list.
   void _describeClient(RequestOptions options)
   {
     if (options.path != '/auth/login' && options.path != '/auth/refresh')
@@ -478,10 +477,8 @@ class ApiService
     return _refreshing ??= _renewTokens().whenComplete(() => _refreshing = null);
   }
 
-  // The tabs of one browser share a session: they renew it in turn, and a tab
-  // finding it already renewed by another adopts that pair instead. Tokens
-  // only, no /auth/me: a renewal started by a refused /auth/me would
-  // otherwise wait on that very request, and neither would ever finish.
+  // Tabs share one session and renew in turn, adopting a pair another tab already renewed.
+  // Tokens only: awaiting /auth/me here would deadlock a renewal it triggered.
   Future<void> _renewTokens()
   {
     return inTurnWithOtherTabs(_sessionLock, () async
@@ -506,6 +503,11 @@ class ApiService
       {
         if (_sessionRefused(error))
         {
+          if (_passwordChangeExpired(error))
+          {
+            _signInNotice = _passwordChangeExpiredNotice;
+          }
+
           await SessionService.clearIfHolding(spent);
           tellOtherTabs({'news': _TabNews.signedOut, 'session': _sessionOf(spent) ?? ''});
         }
@@ -515,8 +517,7 @@ class ApiService
     });
   }
 
-  // A pair stored by another tab for the same account is newer than the one
-  // in memory: renewals take turns and each stores its pair before the next.
+  // A different stored pair for the same account is newer: renewals take turns and store first.
   Future<bool> _catchUpWithOtherTabs() async
   {
     final String? own = _refreshToken;
@@ -564,7 +565,6 @@ class ApiService
     }
   }
 
-  // Seconds before the token expires; zero when it cannot be read.
   static int _secondsLeft(String token)
   {
     final Object? expiry = _claims(token)['exp'];
@@ -584,8 +584,7 @@ class ApiService
     return subject is String ? subject : null;
   }
 
-  // Tokens issued before sessions were tracked carry no id: the account
-  // stands in for it.
+  // Pre-session tokens carry no sid: the account stands in.
   static String? _sessionOf(String token)
   {
     final Object? session = _claims(token)['sid'];
@@ -609,6 +608,19 @@ class ApiService
     final data = error.response?.data;
 
     return data is Map && data['detail'] == 'PASSWORD_RESET_REQUIRED';
+  }
+
+  // The short session opened for a forced password change expired.
+  static bool _passwordChangeExpired(Object error)
+  {
+    if (error is! DioException || error.response?.statusCode != 401)
+    {
+      return false;
+    }
+
+    final data = error.response?.data;
+
+    return data is Map && data['detail'] == _passwordChangeExpiredCode;
   }
 
   Never _refused(DioException error, String fallback)
@@ -675,7 +687,7 @@ class ApiService
     }
   }
 
-  // Identity must be in hand before the session is announced: the router reads the active role synchronously.
+  // Identity before announcing, if the server answers: the router reads the role synchronously.
   Future<void> _announceAuthenticated() async
   {
     if (identity.value == null)
@@ -686,7 +698,7 @@ class ApiService
       }
       catch (e)
       {
-        // Refused until the forced password change is done, like a login is.
+        // Refused until the forced password change, like a login.
         if (_passwordResetRequired(e))
         {
           authState.value = AuthState.passwordChangeRequired;
@@ -694,17 +706,52 @@ class ApiService
           return;
         }
 
-        _leaveSession();
+        // Only a refusal ends the session; with no answer the pair stays and the identity is retried.
+        if (_sessionRefused(e))
+        {
+          _leaveSession();
 
-        return;
+          return;
+        }
+
+        unawaited(_recoverIdentity());
       }
     }
 
     authState.value = AuthState.authenticated;
   }
 
-  // Memory only: a refused pair left storage with the renewal that met the
-  // refusal, and one without an answer stays there for the next start.
+  // Backoff until answered or refused; the identity moves the router off the placeholder home.
+  Future<void> _recoverIdentity() async
+  {
+    for (var attempt = 0; identity.value == null && isAuthenticated; attempt++)
+    {
+      await Future<void>.delayed(Duration(seconds: 2 << (attempt < 4 ? attempt : 4)));
+
+      try
+      {
+        await me();
+      }
+      catch (e)
+      {
+        if (_passwordResetRequired(e))
+        {
+          authState.value = AuthState.passwordChangeRequired;
+
+          return;
+        }
+
+        if (_sessionRefused(e))
+        {
+          _leaveSession();
+
+          return;
+        }
+      }
+    }
+  }
+
+  // Memory only: a refused pair already left storage; an unanswered one stays for the next start.
   void _leaveSession()
   {
     _forgetSession();
@@ -749,16 +796,21 @@ class ApiService
       {
         await _renewTokens();
       }
-
-      await _announceAuthenticated();
-
-      return isAuthenticated;
     }
-    catch (_)
+    catch (error)
     {
-      _leaveSession();
-      return false;
+      // As the interceptor does: no answer keeps the pair for the next request.
+      if (_sessionRefused(error))
+      {
+        _leaveSession();
+
+        return false;
+      }
     }
+
+    await _announceAuthenticated();
+
+    return isAuthenticated;
   }
 
   Future<LoginResponse> login({required String username, required String password}) async
@@ -779,8 +831,7 @@ class ApiService
     return loginResponse;
   }
 
-  // In turn with renewals, so the server gets the pair another tab may have
-  // just renewed rather than the spent one in memory.
+  // In turn with renewals, so the server gets the pair another tab may have just renewed.
   Future<void> logout() async
   {
     final String? ended = await inTurnWithOtherTabs(_sessionLock, () async
@@ -857,7 +908,8 @@ class ApiService
     }
   }
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) async
+  // No current password for the change forced right after the sign-in.
+  Future<void> changePassword({String? currentPassword, required String newPassword}) async
   {
     // The body names the session to keep: the pair another tab renewed.
     await _catchUpWithOtherTabs();
@@ -867,7 +919,7 @@ class ApiService
       await _dio.post(
         '/auth/change-password',
         data: {
-          'current_password': currentPassword,
+          'current_password': ?currentPassword,
           'new_password': newPassword,
           'refresh_token': _refreshToken,
         },
@@ -1583,6 +1635,25 @@ class ApiService
 
   MeResponse? get lastKnownIdentity => identity.value;
 
+  // Read off the token: known even while /auth/me is refused pending the password change.
+  String? get signedInTaxCode
+  {
+    final String? token = _accessToken;
+
+    return token == null ? null : _accountOf(token);
+  }
+
+  String? _signInNotice;
+
+  // Read once, by the sign-in page that opens after the session ended.
+  String? takeSignInNotice()
+  {
+    final String? notice = _signInNotice;
+    _signInNotice = null;
+
+    return notice;
+  }
+
   // Concurrent callers share one round trip; the value itself is never cached.
   Future<MeResponse> me()
   {
@@ -1656,9 +1727,9 @@ class ApiService
     }
   }
 
+  // The "still at school" flag is set from the register, not here.
   Future<void> updateTeacherEducation({
     required String taxCode,
-    required bool isHighSchoolStudent,
     String? schoolEducation,
     String? universityEducation,
   }) async
@@ -1668,7 +1739,6 @@ class ApiService
       await _dio.put(
         '/people/$taxCode/teacher-education',
         data: {
-          'is_high_school_student': isHighSchoolStudent,
           'school_education': schoolEducation,
           'university_education': universityEducation,
         },

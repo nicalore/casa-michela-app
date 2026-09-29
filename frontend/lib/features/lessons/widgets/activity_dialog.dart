@@ -40,8 +40,7 @@ const String _kNoTeacherNote =
 
 const String _kNameRequired = "Un'attività deve avere un nome.";
 
-// Both availability modes are offered: an activity needs the teacher's time,
-// not a room.
+// Both availability modes are offered: an activity needs the teacher's time, not a room.
 class _Slot
 {
   final TeacherLane lane;
@@ -369,8 +368,7 @@ class _ActivityDialogState extends State<ActivityDialog>
     }
   }
 
-  // keepingTheHours=false is TOGLI DAL CALENDARIO: same save, with no teacher.
-  // A placement refusal does not block removal.
+  // keepingTheHours=false is "TOGLI DAL CALENDARIO": same save, no teacher, never blocked by placement.
   Future<void> _confirm({bool keepingTheHours = true}) async
   {
     final name = _name.text.trim();
@@ -454,8 +452,7 @@ class _ActivityDialogState extends State<ActivityDialog>
 
   bool get _canDelete => widget.onDelete != null && !_isLocked;
 
-  // As the calendar has it, not as this window has it: an unconfirmed pick is
-  // not on the calendar yet.
+  // As the calendar has it: an unconfirmed pick is not on the calendar yet.
   bool get _isOnTheCalendar => _activity?.isAssigned ?? false;
 
   Widget _buildFooter()

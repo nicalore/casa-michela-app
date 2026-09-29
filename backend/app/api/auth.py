@@ -40,6 +40,7 @@ from app.services.auth_service import (
     AuthenticationError,
     AuthService,
     InvalidRefreshTokenError,
+    PasswordChangeExpiredError,
     PasswordReuseError,
     SessionNotFoundError,
 )
@@ -64,6 +65,8 @@ _ACCOUNT_LOCKED_ERROR: Final[str] = (
     "Account temporaneamente bloccato fino al {locked_until}"
 )
 _INVALID_REFRESH_TOKEN_ERROR: Final[str] = "Token di sessione non valido"
+# Mirrored by frontend/lib/services/api_service.dart.
+_PASSWORD_CHANGE_EXPIRED_CODE: Final[str] = "PASSWORD_CHANGE_EXPIRED"
 _CURRENT_SESSION_ERROR: Final[str] = "La sessione in uso si chiude con l'uscita"
 _SESSION_NOT_FOUND_ERROR: Final[str] = "Sessione non trovata o già disattivata"
 _UNKNOWN_CURRENT_SESSION_ERROR: Final[str] = (
@@ -177,6 +180,11 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_INVALID_REFRESH_TOKEN_ERROR,
         ) from None
+    except PasswordChangeExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=_PASSWORD_CHANGE_EXPIRED_CODE,
+        ) from None
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -217,7 +225,6 @@ async def list_sessions(
     return sorted(items, key=lambda item: not item.current)
 
 
-# Everything but the session in use, which keeps working as it is.
 @router.delete("/sessions", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_other_sessions(
     current_account: CurrentAccount,
@@ -465,6 +472,11 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_INVALID_REFRESH_TOKEN_ERROR,
+        ) from None
+    except PasswordChangeExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=_PASSWORD_CHANGE_EXPIRED_CODE,
         ) from None
 
 

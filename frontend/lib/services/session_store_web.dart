@@ -5,8 +5,7 @@ import 'package:web/web.dart' as web;
 
 import 'session_store_stub.dart' as legacy;
 
-// IndexedDB, not localStorage: once a write has committed every tab reads it,
-// while a tab's copy of localStorage can lag behind another tab's write.
+// IndexedDB, not localStorage: every tab sees a committed write; a tab's localStorage copy can lag.
 const String _databaseName = 'casa-michela';
 const String _storeName = 'session';
 const String _accessTokenKey = 'access_token';

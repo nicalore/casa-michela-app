@@ -161,7 +161,7 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  // One's own record, or the children's: the register is the administrators' alone.
+  // Own record or the children's: the full register is admin-only.
   Future<List<PersonItem>> _readPupils() async
   {
     final me = _apiService.lastKnownIdentity ?? await _apiService.me();
@@ -484,17 +484,19 @@ class _BookingsPageState extends State<BookingsPage>
       return;
     }
 
-    final avoided = group.notPreferredTeacherTaxCodes.toSet();
+    // The catalogue comes already vetted by the server.
+    final teachers = askableTeachers(_teachers, group.notPreferredTeacherTaxCodes);
+    final offered = {for (final teacher in teachers) teacher.fiscalCode};
 
-    // The picker hides avoided teachers, so drop them from the draft or they could never be removed.
+    // The picker shows only these, so drop the rest from the draft or they could never be removed.
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectRequestWizard',
       builder: (context) => SubjectRequestWizard(
         mode: slot.mode,
-        draft: _draftOf(existing)..preferredTeacherTaxCodes.removeWhere(avoided.contains),
+        draft: _draftOf(existing)..preferredTeacherTaxCodes.retainWhere(offered.contains),
         ministrySubjects: _offeredSubjectsFor(lane.pupil),
-        teachers: askableTeachers(_teachers, avoided),
+        teachers: teachers,
         studentStudyProgramId: currentStudyProgramId(lane.pupil),
         studentName: lane.pupil.firstName,
         isSelf: !_isParent,

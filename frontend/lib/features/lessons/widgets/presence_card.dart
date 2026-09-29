@@ -167,8 +167,7 @@ class _PresenceCardState extends State<PresenceCard>
     return student == null ? null : currentStudyProgramId(student);
   }
 
-  // Returns the row as the page has it NOW, not as the dialog captured it:
-  // a stale updated_at token would make the server answer 409.
+  // The row as the page has it now, not as the dialog captured it: a stale updated_at gets a 409.
   ({int presenceId, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
   {
     for (final slot in widget.group.slots)
@@ -185,8 +184,7 @@ class _PresenceCardState extends State<PresenceCard>
     return null;
   }
 
-  // The endpoints write a booking whole: any field left out of the payload is
-  // emptied, not preserved.
+  // The endpoints write a booking whole: omitted fields are emptied, not kept.
   Future<bool> _writeSubject(BookingSummaryItem existing, SubjectRequestDraft draft) async
   {
     if (!draft.isComplete)
@@ -531,8 +529,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
       return held.draft;
     }
 
-    // Built from the whole booking: the wizard writes back whatever it was
-    // handed, so a partial draft would wipe the missing fields.
+    // From the whole booking: the wizard writes back all it was handed, so a partial draft wipes fields.
     final draft = SubjectRequestDraft.fromBooking(
       booking,
       ministrySubjectName: ministrySubjectName(
@@ -662,17 +659,18 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 
   void _showSubjectWizard(BuildContext context, String mode, {required BookingSummaryItem existing})
   {
-    final avoided = group.notPreferredTeacherTaxCodes.toSet();
+    final teachers = askableTeachers(activeCollaborators(widget.teachers), group.notPreferredTeacherTaxCodes);
+    final offered = {for (final teacher in teachers) teacher.fiscalCode};
 
-    // The picker hides avoided teachers, so drop them from the draft or they could never be removed.
+    // The picker shows only these, so drop the rest from the draft or they could never be removed.
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectRequestWizard',
       builder: (context) => SubjectRequestWizard(
         mode: mode,
-        draft: _draftOf(existing)..preferredTeacherTaxCodes.removeWhere(avoided.contains),
+        draft: _draftOf(existing)..preferredTeacherTaxCodes.retainWhere(offered.contains),
         ministrySubjects: widget.offeredSubjects,
-        teachers: askableTeachers(widget.teachers, avoided),
+        teachers: teachers,
         studentStudyProgramId: widget.studentStudyProgramId,
         studentName: group.student.firstName,
         studentGender: widget.studentGender,

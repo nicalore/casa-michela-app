@@ -1171,7 +1171,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
               value: student.fiscalCode,
               label: '${student.firstName} ${student.lastName}',
               leading: PersonAvatar(person: student, size: PersonAvatar.pickerSize),
-              subtitle: currentSchoolAndProgramLabel(student),
             ))
         .toList();
 
@@ -1655,11 +1654,16 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     bool editing = false,
   })
   {
-    final avoided = _avoidedTeachers;
+    // The pupils' catalogue comes already vetted by the server, without the memberships to vet it here.
+    final teachers = askableTeachers(
+      _isOwn ? widget.teachers : activeCollaborators(widget.teachers),
+      _avoidedTeachers,
+    );
+    final offered = {for (final teacher in teachers) teacher.fiscalCode};
     final _Answers answers = _answersOf(group);
 
-    // The picker hides avoided teachers, so drop them here or they could never be removed.
-    draft.preferredTeacherTaxCodes.removeWhere(avoided.contains);
+    // The picker shows only these, so drop the rest here or they could never be removed.
+    draft.preferredTeacherTaxCodes.retainWhere(offered.contains);
 
     showBlurredDialog(
       context: context,
@@ -1668,7 +1672,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         mode: mode,
         draft: draft,
         ministrySubjects: widget.ministrySubjects,
-        teachers: askableTeachers(widget.teachers, avoided),
+        teachers: teachers,
         studentStudyProgramId: switch (_selectedStudent)
         {
           final student? => currentStudyProgramId(student),

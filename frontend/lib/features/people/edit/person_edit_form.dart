@@ -179,14 +179,12 @@ class PersonEditForm
 
   bool get isCreation => person == null;
 
-  // Someone already holds it, on the server or in the dialog that opened this one.
   bool isTaxCodeTaken(String taxCode)
   {
     return reservedTaxCodes.contains(taxCode) ||
         allPeople.any((candidate) => candidate.fiscalCode == taxCode);
   }
 
-  // Handed to a nested dialog: this person plus the ones already created here.
   Set<String> get taxCodesInHand
   {
     return {
@@ -744,7 +742,6 @@ class PersonEditForm
   List<StudyProgramItem> programsFor(int subjectId) =>
       programsBySubjectId[subjectId] ?? const [];
 
-  // A teacher who is not also a pupil: the parents are there for paperwork only.
   bool get isTeacherOnly =>
       selectedRoles.contains('DOCENTE') && !selectedRoles.contains('STUDENTE');
 

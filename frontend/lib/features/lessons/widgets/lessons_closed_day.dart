@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/tab_layout.dart';
+import '../../calendar/utils/calendar_strings.dart';
 import '../utils/booking_window.dart';
 
 class LessonsClosedDay extends StatelessWidget
@@ -39,7 +40,7 @@ class LessonsClosedDay extends StatelessWidget
                   const Icon(Icons.event_busy_rounded, size: 52, color: AppTheme.trialMutedText),
                   const SizedBox(height: 20),
                   Text(
-                    "L'Associazione è chiusa",
+                    kAssociationClosedTitle,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 30,

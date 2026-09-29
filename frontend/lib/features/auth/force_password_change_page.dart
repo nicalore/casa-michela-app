@@ -26,7 +26,6 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   static const double _buttonHeight = 52;
   static const double _buttonFontSize = 14;
 
-  final TextEditingController _currentPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final ApiService _apiService = ApiService();
@@ -49,7 +48,6 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
   void dispose()
   {
     _newPasswordController.removeListener(_onPasswordChanged);
-    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -76,24 +74,12 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
 
   Future<void> _handleSave() async
   {
-    final currentPassword = _currentPasswordController.text;
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
+    if (newPassword.isEmpty || confirmPassword.isEmpty)
     {
       CustomSnackBar.show(context: context, message: 'Compila tutti i campi', isError: true);
-      return;
-    }
-
-    if (currentPassword == newPassword)
-    {
-      CustomSnackBar.show(
-        context: context,
-        message: 'La nuova password non può coincidere con quella attuale.',
-        isError: true,
-      );
-
       return;
     }
 
@@ -120,10 +106,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     {
       // changePassword updates authState; the router redirect then takes the
       // user to the dashboard without a second login.
-      await _apiService.changePassword(
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-      );
+      await _apiService.changePassword(newPassword: newPassword);
 
       if (!mounted)
       {
@@ -140,7 +123,8 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
     }
     catch (e)
     {
-      if (!mounted)
+      // Too long after the sign-in the session is gone: the login says why.
+      if (!mounted || !_apiService.isAuthenticated)
       {
         return;
       }
@@ -222,15 +206,6 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
           ),
           AppDialogPill(
             expand: true,
-            child: PasswordField(
-              controller: _currentPasswordController,
-              label: 'Password attuale',
-              hintText: 'Inserisci la password attuale',
-              nothingAbove: true,
-            ),
-          ),
-          AppDialogPill(
-            expand: true,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,6 +214,7 @@ class _ForcePasswordChangePageState extends State<ForcePasswordChangePage>
                   controller: _newPasswordController,
                   label: 'Nuova password',
                   hintText: 'Inserisci nuova password',
+                  nothingAbove: true,
                 ),
                 const SizedBox(height: 16),
                 PasswordPolicyChecklist(status: _policyStatus),

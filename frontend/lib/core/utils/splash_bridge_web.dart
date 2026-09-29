@@ -11,7 +11,6 @@ void hideInitialSplashImpl()
   }
   catch (_)
   {
-    // The hook is absent when a cached index.html predates the overlay: never
-    // block startup on it.
+    // Absent when a cached index.html predates the overlay: never block startup.
   }
 }

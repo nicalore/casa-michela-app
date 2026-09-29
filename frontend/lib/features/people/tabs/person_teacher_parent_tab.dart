@@ -15,8 +15,7 @@ import '../widgets/person_detail_widgets.dart';
 
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
-// One of a teacher's parents, shown in full: they are on record for the
-// paperwork only, so the link is not managed here and pickup does not apply.
+// A teacher's parent is on record for paperwork only: no link management, no pickup.
 class PersonTeacherParentTab extends StatefulWidget
 {
   final ParentItem parent;

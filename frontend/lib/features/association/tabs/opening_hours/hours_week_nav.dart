@@ -3,12 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
-import '../../../../shared/widgets/app_today_button.dart';
+import '../../../../shared/widgets/app_calendar_button.dart';
 import '../../../../shared/widgets/carousel_arrow_button.dart';
+import '../../../calendar/utils/day_marks_loader.dart';
 import 'calendar_bounds.dart';
 
-// Deliberately not wired to a loading state: disabling during a fast fetch
-// reads as flicker; the views owning it still guard double-clicks.
+String hoursWeekLabel(DateTime weekStart)
+{
+  final weekEnd = addDays(weekStart, 6);
+
+  return '${formatDayMonthShort(weekStart)} – ${formatDayMonthShort(weekEnd)} ${weekEnd.year}';
+}
+
+// No loading state: disabling during a fast fetch flickers; the owning views guard double-clicks.
 class HoursWeekNav extends StatelessWidget
 {
   // Fixed so the arrows never shift as the week label's text changes length.
@@ -16,12 +23,12 @@ class HoursWeekNav extends StatelessWidget
 
   final DateTime weekStart;
 
-  // Arrows either side of the label and Oggi underneath, for a narrow card.
   final bool stacked;
 
   final VoidCallback onPreviousWeek;
   final VoidCallback onNextWeek;
-  final VoidCallback onToday;
+
+  final ValueChanged<DateTime> onPickDay;
 
   const HoursWeekNav({
     super.key,
@@ -29,19 +36,18 @@ class HoursWeekNav extends StatelessWidget
     required this.stacked,
     required this.onPreviousWeek,
     required this.onNextWeek,
-    required this.onToday,
+    required this.onPickDay,
   });
 
   @override
   Widget build(BuildContext context)
   {
     final weekEnd = addDays(weekStart, 6);
-    final isFirstWeek = !weekStart.isAfter(startOfWeek(kAssociationFoundedOn));
-    // Days past the horizon do not exist until the December run generates them.
-    final isLastWeek = addDays(weekStart, 7).isAfter(calendarHorizon());
+    final isFirstWeek = isOldestKeptWeek(weekStart);
+    final isLastWeek = isLastCalendarWeek(weekStart);
 
     final weekLabel = Text(
-      '${formatDayMonthShort(weekStart)} – ${formatDayMonthShort(weekEnd)} ${weekEnd.year}',
+      hoursWeekLabel(weekStart),
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
@@ -65,19 +71,24 @@ class HoursWeekNav extends StatelessWidget
       onTap: onNextWeek,
     );
 
+    final calendar = AppCalendarButton(
+      selected: weekStart,
+      selectedEnd: weekEnd,
+      first: oldestKeptDay(),
+      last: calendarHorizon(),
+      onPicked: onPickDay,
+      loadMarks: (from, to) => loadDayMarks(from, to),
+    );
+
     if (stacked)
     {
-      return Column(
+      return Row(
         children: [
-          Row(
-            children: [
-              back,
-              Expanded(child: Center(child: weekLabel)),
-              forward,
-            ],
-          ),
-          const SizedBox(height: 12),
-          AppTodayButton(onTap: onToday),
+          calendar,
+          const SizedBox(width: 8),
+          back,
+          Expanded(child: Center(child: weekLabel)),
+          forward,
         ],
       );
     }
@@ -85,7 +96,7 @@ class HoursWeekNav extends StatelessWidget
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppTodayButton(onTap: onToday),
+        calendar,
         const SizedBox(width: 12),
         back,
         const SizedBox(width: 8),

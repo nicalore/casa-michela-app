@@ -7,16 +7,18 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/association_logo.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../utils/settings_strings.dart';
 import '../widgets/problem_report_dialog.dart';
-
-const String _regulationTitle = 'Regolamento dell\'Associazione';
 
 // Matches the own page's report pill.
 const double _reportHeight = 50;
 const double _reportRadius = 25;
 const double _reportFontSize = 14;
+
+const double _logoSize = 64;
 
 class InfoTab extends StatefulWidget
 {
@@ -38,7 +40,7 @@ class _InfoTabState extends State<InfoTab>
       return;
     }
 
-    final PdfTab? tab = openPdfTab(title: _regulationTitle);
+    final PdfTab? tab = openPdfTab(title: kRegulationTitle);
 
     setState(() => _isOpeningRegulation = true);
 
@@ -61,7 +63,7 @@ class _InfoTabState extends State<InfoTab>
     }
     catch (e)
     {
-      tab?.fail('Non è stato possibile aprire il regolamento.');
+      tab?.fail(kRegulationOpenFailed);
 
       if (mounted)
       {
@@ -81,13 +83,12 @@ class _InfoTabState extends State<InfoTab>
   Widget build(BuildContext context)
   {
     final int currentYear = DateTime.now().year;
-    const String appVersion = '0.2.3';
 
     final List<(String, VoidCallback)> documents = [
-      ('Statuto dell\'Associazione', () {}),
-      (_regulationTitle, _openRegulation),
-      ('Termini e condizioni', () {}),
-      ('Privacy policy', () {}),
+      (kStatuteTitle, () {}),
+      (kRegulationTitle, _openRegulation),
+      (kTermsTitle, () {}),
+      (kPrivacyTitle, () {}),
     ];
 
     return PageTransitionScrollView(
@@ -113,7 +114,7 @@ class _InfoTabState extends State<InfoTab>
                 const SizedBox(height: 24),
                 Center(
                   child: AppGradientButton(
-                    label: 'SEGNALA UN PROBLEMA',
+                    label: kReportProblemLabel.toUpperCase(),
                     icon: Icons.flag_rounded,
                     gradient: AppTheme.dismissGradient,
                     accent: AppTheme.trialViolet,
@@ -123,9 +124,11 @@ class _InfoTabState extends State<InfoTab>
                     onPressed: () => showProblemReportDialog(context),
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 44),
+                const Center(child: AssociationLogo(size: _logoSize)),
+                const SizedBox(height: 26),
                 Text(
-                  '© $currentYear Nicolò Calore\nVersione $appVersion\nATTENZIONE: Applicazione attualmente in sviluppo. Potrebbero verificarsi comportamenti inaspettati.',
+                  '${appCredits(currentYear)}\n$kDevelopmentWarning',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.trialMutedText,

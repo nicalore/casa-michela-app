@@ -8,10 +8,10 @@ import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
+import 'hours_strings.dart';
 import 'hours_grid.dart';
 import 'mode_hours_parts.dart';
 
-// The schedule in force right now, weekday by weekday with both modes.
 class CombinedStandardCard extends StatelessWidget
 {
   static const double _bandsFontSize = 15;
@@ -22,8 +22,7 @@ class CombinedStandardCard extends StatelessWidget
     color: AppTheme.trialMutedText,
   );
 
-  // Mode to weekday (1-7) to the bands in force on the next occurrence of that day.
-  final Map<String, Map<int, List<OpeningDayItem>>> scheduleByMode;
+  final StandardSchedule scheduleByMode;
 
   final bool isLoading;
 
@@ -33,8 +32,9 @@ class CombinedStandardCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Orario standard',
+      title: kStandardHoursTitle,
       compact: true,
+      selectable: false,
       leading: const AppCardBadge(icon: Icons.schedule_rounded, compact: true),
       child: _buildBody(context),
     );
@@ -47,10 +47,10 @@ class CombinedStandardCard extends StatelessWidget
       return const SizedBox.shrink();
     }
 
-    if (!_hasAnyOpening)
+    if (!hasStandardHours(scheduleByMode))
     {
       return Text(
-        'Nessun orario standard configurato.',
+        kNoStandardHours,
         style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
       );
     }
@@ -97,23 +97,5 @@ class CombinedStandardCard extends StatelessWidget
     ].reduce(math.max);
   }
 
-  List<OpeningDayItem> _bandsFor(String mode, int weekday)
-  {
-    final rows = scheduleByMode[mode]?[weekday] ?? const <OpeningDayItem>[];
-
-    return sortedByStart(rows.where((band) => band.startTime != null && band.endTime != null));
-  }
-
-  bool get _hasAnyOpening
-  {
-    for (var weekday = 1; weekday <= 7; weekday++)
-    {
-      if (kHoursModes.any((mode) => _bandsFor(mode, weekday).isNotEmpty))
-      {
-        return true;
-      }
-    }
-
-    return false;
-  }
+  List<OpeningDayItem> _bandsFor(String mode, int weekday) => standardBands(scheduleByMode, mode, weekday);
 }

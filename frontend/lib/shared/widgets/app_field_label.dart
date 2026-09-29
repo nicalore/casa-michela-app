@@ -12,6 +12,16 @@ const double _fieldLineHeightRatio = 1.28;
 
 const double kFieldLabelLineHeight = _fieldFontSize * _fieldLineHeightRatio;
 
+TextStyle fieldLabelStyle()
+{
+  return GoogleFonts.plusJakartaSans(
+    color: AppTheme.trialOcean,
+    fontWeight: FontWeight.w700,
+    fontSize: _fieldFontSize,
+    height: _fieldLineHeightRatio,
+  );
+}
+
 class AppFieldLabel extends StatelessWidget
 {
   final String text;
@@ -21,15 +31,7 @@ class AppFieldLabel extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Text(
-      text,
-      style: GoogleFonts.plusJakartaSans(
-        color: AppTheme.trialOcean,
-        fontWeight: FontWeight.w700,
-        fontSize: _fieldFontSize,
-        height: _fieldLineHeightRatio,
-      ),
-    );
+    return Text(text, style: fieldLabelStyle());
   }
 }
 

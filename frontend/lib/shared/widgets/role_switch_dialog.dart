@@ -25,7 +25,7 @@ const Map<String, IconData> _roleIcons = <String, IconData>{
   'PARENT': Icons.family_restroom_outlined,
 };
 
-IconData _roleIcon(String role) => _roleIcons[role] ?? Icons.badge_outlined;
+IconData roleIconFor(String role) => _roleIcons[role] ?? Icons.badge_outlined;
 
 Future<void> showRoleSwitchDialog({
   required BuildContext context,
@@ -161,7 +161,7 @@ class _RoleRowState extends State<_RoleRow>
       ),
       child: Row(
         children: [
-          Icon(_roleIcon(widget.role), size: 20, color: iconColor ?? foreground),
+          Icon(roleIconFor(widget.role), size: 20, color: iconColor ?? foreground),
           const SizedBox(width: 14),
           Expanded(
             child: Text(

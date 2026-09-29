@@ -141,8 +141,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     }
   }
 
-  // quiet: a refresh behind a list already on show, so it asks the server
-  // rather than the cache, and a failure leaves the list standing without an error.
+  // quiet: bypasses the cache, and a failure keeps the list without an error.
   Future<void> _loadData({bool quiet = false}) async
   {
     try

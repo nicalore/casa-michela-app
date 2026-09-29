@@ -4,8 +4,7 @@ import 'dart:js_interop_unsafe';
 
 import 'package:web/web.dart' as web;
 
-// Web Locks need a secure page, both need a recent browser: without them
-// each tab goes on alone, as before.
+// Web Locks need a secure context; without them or BroadcastChannel each tab goes alone.
 final bool _hasLocks = web.window.navigator.has('locks');
 final bool _hasChannel = globalContext.has('BroadcastChannel');
 
@@ -32,8 +31,7 @@ Future<T> inTurnWithOtherTabsImpl<T>(String lock, Future<T> Function() body) asy
   Object? failure;
   StackTrace? failureTrace;
 
-  // The failure is carried across by hand: a rejection passing through
-  // JavaScript would come back as a JavaScript error, not the Dart one.
+  // Carried by hand: a rejection crossing JavaScript would return as a JS error, not the Dart one.
   JSPromise granted(web.Lock? _)
   {
     return () async

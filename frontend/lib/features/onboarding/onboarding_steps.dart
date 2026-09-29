@@ -68,6 +68,56 @@ List<OnboardingStep> onboardingStepsFor({
   return steps;
 }
 
+// 'M' and 'F' as the register stores them; anything else gets both endings.
+String onboardingWelcome(String? gender)
+{
+  return switch (gender?.toUpperCase())
+  {
+    'M' => 'Benvenuto',
+    'F' => 'Benvenuta',
+    _ => 'Benvenuto/a',
+  };
+}
+
+String onboardingStepTitle(OnboardingStep step)
+{
+  final String? name = step.childName;
+
+  return switch (step.kind)
+  {
+    OnboardingStepKind.ownRecord => 'I tuoi dati',
+    OnboardingStepKind.childRecord => 'I dati di $name',
+    OnboardingStepKind.childSchool => 'Il percorso scolastico di $name',
+    OnboardingStepKind.ownSchool => 'Il tuo percorso scolastico',
+    OnboardingStepKind.teacherSubjects => 'Le tue discipline',
+  };
+}
+
+String onboardingStepQuestion(OnboardingStep step, {bool arrows = true})
+{
+  final String? name = step.childName;
+  final String scroll = arrows ? 'Scorri le schede con le frecce e verifica' : 'Scorri le schede e verifica';
+
+  return switch (step.kind)
+  {
+    OnboardingStepKind.ownRecord =>
+      '$scroll che le informazioni siano corrette. '
+          'Se trovi un errore, ti preghiamo di segnalarlo utilizzando il bottone in fondo. Puoi modificare direttamente la foto profilo e i dati di contatto.',
+    OnboardingStepKind.childRecord =>
+      '$scroll che le informazioni di $name siano corrette. '
+          'Se trovi un errore, ti preghiamo di segnalarlo utilizzando il bottone in fondo. Puoi modificare direttamente i dati di contatto.',
+    OnboardingStepKind.childSchool =>
+      'Verifica che il percorso scolastico di $name sia corretto e, se necessario, modificalo. '
+          'Puoi anche aggiungere altri anni scolastici per fornirci maggiori informazioni sul suo percorso. Non sarà possibile modificare questi dati una volta confermati.',
+    OnboardingStepKind.ownSchool =>
+      'Verifica che il tuo percorso scolastico sia corretto e, se necessario, modificalo. '
+          'Puoi anche aggiungere altri anni scolastici per fornirci maggiori informazioni sul tuo percorso. Non sarà possibile modificare questi dati una volta confermati.',
+    OnboardingStepKind.teacherSubjects =>
+      'Indica le discipline che desideri insegnare e, per ognuna, i percorsi di studio per cui sei disponibile. '
+          'Ti consigliamo di prestare attenzione a questo passaggio, perché le informazioni inserite verranno utilizzate per assegnarti le lezioni. Potrai modificare questi dati anche in un secondo momento.',
+  };
+}
+
 bool includesAssociationCards({
   required bool isAdult,
   required List<String> roles,

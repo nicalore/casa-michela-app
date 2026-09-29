@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
@@ -14,6 +13,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/session_item.dart';
+import '../utils/settings_strings.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
@@ -23,10 +23,6 @@ const double _confirmWidth = 480;
 const double _rowButtonHeight = 44;
 const double _rowButtonFontSize = 13;
 const double _rowButtonPadding = 18;
-
-const String _unknownDeviceLabel = 'Dispositivo sconosciuto';
-
-final DateFormat _timestampFormat = DateFormat('dd/MM/yyyy, HH:mm');
 
 class DevicesTab extends StatefulWidget
 {
@@ -76,15 +72,11 @@ class _DevicesTabState extends State<DevicesTab>
   void _confirmRevoke(SessionItem session)
   {
     _askConfirmation(
-      eyebrow: 'Sessione',
+      eyebrow: kSessionEyebrow,
       message: [
-        const TextSpan(text: 'La sessione su '),
-        TextSpan(
-          text: session.deviceName ?? _unknownDeviceLabel,
-          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-        ),
-        const TextSpan(
-          text: ' verrà interrotta: dovrai effettuare nuovamente l\'accesso su quel dispositivo.',
+        revokeSessionWarning(
+          session,
+          deviceStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
         ),
       ],
       onConfirm: () => _revokeSession(session),
@@ -94,13 +86,8 @@ class _DevicesTabState extends State<DevicesTab>
   void _confirmRevokeOthers()
   {
     _askConfirmation(
-      eyebrow: 'Sessioni',
-      message: const [
-        TextSpan(
-          text: 'Tutte le sessioni tranne questa verranno interrotte: '
-              'dovrai effettuare nuovamente l\'accesso sugli altri dispositivi.',
-        ),
-      ],
+      eyebrow: kSessionsEyebrow,
+      message: const [TextSpan(text: kRevokeOthersWarning)],
       onConfirm: _revokeOthers,
     );
   }
@@ -130,7 +117,7 @@ class _DevicesTabState extends State<DevicesTab>
             onPressed: () => Navigator.pop(confirmContext),
           ),
           primary: AppGradientButton(
-            label: 'DISATTIVA',
+            label: kRevokeSessionLabel.toUpperCase(),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDanger,
@@ -171,7 +158,7 @@ class _DevicesTabState extends State<DevicesTab>
       if (mounted)
       {
         setState(() => _sessions?.removeWhere((s) => s.sessionId == session.sessionId));
-        CustomSnackBar.show(context: context, message: 'Sessione disattivata', isError: false);
+        CustomSnackBar.show(context: context, message: kSessionRevoked, isError: false);
       }
     }
     catch (e)
@@ -203,7 +190,7 @@ class _DevicesTabState extends State<DevicesTab>
         setState(() => _sessions?.removeWhere((s) => !s.isCurrent));
         CustomSnackBar.show(
           context: context,
-          message: 'Le altre sessioni sono state disattivate',
+          message: kOtherSessionsRevoked,
           isError: false,
         );
       }
@@ -238,7 +225,7 @@ class _DevicesTabState extends State<DevicesTab>
           child: Padding(
             padding: const EdgeInsets.only(top: 40.0),
             child: Text(
-              'Errore durante il caricamento delle sessioni. Riprova più tardi.',
+              kSessionsLoadFailed,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -279,7 +266,7 @@ class _DevicesTabState extends State<DevicesTab>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 AppCard(
-                  title: 'Sessioni attive',
+                  title: kActiveSessionsTitle,
                   compact: true,
                   selectable: false,
                   leading: const AppCardBadge(
@@ -309,14 +296,14 @@ class _DevicesTabState extends State<DevicesTab>
                 const SizedBox(height: 40),
                 Center(
                   child: AppGradientButton(
-                    label: 'DISATTIVA LE ALTRE SESSIONI',
+                    label: kRevokeOthersLabel.toUpperCase(),
                     icon: Icons.logout_rounded,
                     gradient: AppTheme.dangerGradient,
                     accent: AppTheme.trialDanger,
                     busy: _revokingOthers,
                     disabledReason: sessions.any((s) => !s.isCurrent)
                         ? null
-                        : 'Nessun\'altra sessione attiva',
+                        : kNoOtherSessions,
                     onPressed: _confirmRevokeOthers,
                   ),
                 ),
@@ -343,14 +330,6 @@ class _SessionRow extends StatelessWidget
     required this.onRevoke,
   });
 
-  IconData get _icon => switch (session.deviceType)
-  {
-    SessionDeviceType.desktop => Icons.computer_rounded,
-    SessionDeviceType.phone => Icons.smartphone_rounded,
-    SessionDeviceType.tablet => Icons.tablet_mac_rounded,
-    SessionDeviceType.unknown => Icons.devices_other_rounded,
-  };
-
   @override
   Widget build(BuildContext context)
   {
@@ -365,7 +344,7 @@ class _SessionRow extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          session.deviceName ?? _unknownDeviceLabel,
+          sessionDeviceName(session),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -373,15 +352,15 @@ class _SessionRow extends StatelessWidget
           ),
         ),
         const SizedBox(height: 4),
-        Text('Accesso: ${_timestampFormat.format(session.loggedInAt)}', style: detailStyle),
-        Text('Ultima attività: ${_timestampFormat.format(session.lastUsedAt)}', style: detailStyle),
+        Text('$kSessionLoginLabel: ${formatSessionTime(session.loggedInAt)}', style: detailStyle),
+        Text('$kSessionLastUsedLabel: ${formatSessionTime(session.lastUsedAt)}', style: detailStyle),
       ],
     );
 
     final Widget action = session.isCurrent
         ? const _CurrentSessionChip()
         : AppGradientButton(
-            label: 'DISATTIVA',
+            label: kRevokeSessionLabel.toUpperCase(),
             icon: Icons.logout_rounded,
             gradient: AppTheme.dangerGradient,
             accent: AppTheme.trialDanger,
@@ -392,7 +371,7 @@ class _SessionRow extends StatelessWidget
             onPressed: onRevoke,
           );
 
-    final Widget icon = Icon(_icon, size: 28, color: AppTheme.trialTealDeep);
+    final Widget icon = Icon(sessionDeviceIcon(session.deviceType), size: 28, color: AppTheme.trialTealDeep);
 
     if (AppBreakpoints.of(context).isCompact)
     {
@@ -442,7 +421,7 @@ class _CurrentSessionChip extends StatelessWidget
         border: Border.all(color: AppTheme.trialTurquoise, width: 1.5),
       ),
       child: Text(
-        'Questa sessione',
+        kCurrentSessionLabel,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w700,

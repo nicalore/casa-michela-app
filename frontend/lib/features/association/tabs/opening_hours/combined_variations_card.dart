@@ -9,10 +9,9 @@ import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/shared_components.dart';
 import '../../models/opening_day_item.dart';
 import 'combined_hours.dart';
+import 'hours_strings.dart';
 import 'mode_hours_parts.dart';
 
-// Upcoming variations of both modes, one line each naming only the modes that
-// change; the other keeps its standard hours. A line wraps rather than widen.
 class CombinedVariationsCard extends StatelessWidget
 {
   static const double _bandsFontSize = 15;
@@ -27,8 +26,7 @@ class CombinedVariationsCard extends StatelessWidget
     color: AppTheme.trialInk,
   );
 
-  // Both modes' override rows from today; rows past [windowEnd] are still fed
-  // in so a run keeps its real end date.
+  // Rows past [windowEnd] are included so a run keeps its real end date.
   final List<OpeningDayItem> upcomingVariations;
 
   final DateTime windowEnd;
@@ -51,9 +49,10 @@ class CombinedVariationsCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AppCard(
-      title: 'Prossime variazioni',
+      title: kUpcomingVariationsTitle,
       compact: true,
-      leading: const AppCardBadge(icon: Icons.flag_rounded, compact: true),
+      selectable: false,
+      leading: const AppCardBadge(icon: kVariationIcon, compact: true),
       child: _buildBody(context),
     );
   }
@@ -77,12 +76,11 @@ class CombinedVariationsCard extends StatelessWidget
     if (runs.isEmpty)
     {
       return Text(
-        'Nessuna variazione programmata.',
+        kNoUpcomingVariations,
         style: GoogleFonts.plusJakartaSans(fontSize: 16, color: AppTheme.trialMutedText),
       );
     }
 
-    // One date column for every line, so the changes start level.
     final dateWidth = runs.map((run) => measureText(context, run.dateLabel, _dateStyle)).reduce(math.max);
 
     return LayoutBuilder(
@@ -122,7 +120,6 @@ class CombinedVariationsCard extends StatelessWidget
               children: [
                 ModeHeading(mode: mode, fontSize: 14, iconSize: 18),
                 const SizedBox(width: 10),
-                // Flexible so many bands wrap beside the heading on a phone.
                 Flexible(child: _modeHours(run, mode)),
               ],
             ),
@@ -197,6 +194,6 @@ class CombinedVariationsCard extends StatelessWidget
       return const ClosedPill(isOverride: true);
     }
 
-    return BandTimes(bands: run.bandsByMode[mode]!, fontSize: _bandsFontSize, flagVariations: false);
+    return BandTimes(bands: run.bandsByMode[mode]!, fontSize: _bandsFontSize, markVariations: false);
   }
 }

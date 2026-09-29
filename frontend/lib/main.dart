@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'core/platform/app_platform.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
+import 'mobile/mobile_app.dart';
 import 'routing/app_router.dart';
 import 'routing/dialog_history_guard.dart';
 import 'services/api_service.dart';
@@ -15,12 +18,21 @@ void main() async
 {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // All font variants are bundled in assets/fonts: no runtime fetching, so an
-  // unbundled weight fails at startup instead of reflowing text later.
+  // Fonts are bundled in assets/fonts: an unbundled weight fails at startup, not by reflowing later.
   GoogleFonts.config.allowRuntimeFetching = false;
 
   usePathUrlStrategy();
   await ApiService().restoreSession();
+
+  if (AppPlatform.isNativeMobile)
+  {
+    // Edge to edge on every Android version, as iOS always is.
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    runApp(const MobileApp());
+
+    return;
+  }
 
   if (kIsWeb)
   {

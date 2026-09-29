@@ -11,7 +11,7 @@ import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
-import '../../../shared/widgets/app_today_button.dart';
+import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -23,6 +23,7 @@ import '../../association/models/opening_day_item.dart';
 import '../../association/models/room_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/tabs/opening_hours/calendar_bounds.dart';
+import '../../../shared/utils/day_marks.dart';
 import '../../people/models/person_item.dart';
 import '../models/activity_item.dart';
 import '../models/availability_item.dart';
@@ -228,6 +229,9 @@ class CalendarTab extends StatefulWidget
 
   final Future<bool> Function(DateTime day, Function(String) onError)? onLoadDay;
 
+  // Closures for the month picker; days go unmarked without it.
+  final DayMarksLoader? loadMarks;
+
   final List<RoomItem> rooms;
 
   final Future<RoomDayPlan?> Function(
@@ -288,6 +292,7 @@ class CalendarTab extends StatefulWidget
     this.onUpdateActivity,
     this.onDeleteActivity,
     this.onLoadDay,
+    this.loadMarks,
     this.onLoadRoomPlan,
     this.onSaveRoomPlan,
     this.excludedTeachers = const {},
@@ -1360,14 +1365,28 @@ class _CalendarTabState extends State<CalendarTab>
     );
   }
 
+  Widget _buildCalendarButton()
+  {
+    final now = widget.today ?? DateTime.now();
+
+    return AppCalendarButton(
+      selected: _day,
+      today: now,
+      first: oldestKeptDay(now),
+      last: calendarHorizon(now),
+      onPicked: _goToDay,
+      loadMarks: widget.loadMarks,
+    );
+  }
+
   Widget _buildDayNav()
   {
-    final isFirstDay = !_day.isAfter(kAssociationFoundedOn);
+    final isFirstDay = !_day.isAfter(oldestKeptDay());
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppTodayButton(onTap: () => _goToDay(DateTime.now())),
+        _buildCalendarButton(),
         const SizedBox(width: 12),
         CarouselArrowButton(
           icon: Icons.chevron_left_rounded,
@@ -1388,28 +1407,23 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildNarrowDayNav()
   {
-    final isFirstDay = !_day.isAfter(kAssociationFoundedOn);
+    final isFirstDay = !_day.isAfter(oldestKeptDay());
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
       children: [
-        Row(
-          children: [
-            CarouselArrowButton(
-              icon: Icons.chevron_left_rounded,
-              isDisabled: isFirstDay || _isFetchingDay,
-              onTap: () => _goToDay(addDays(_day, -1)),
-            ),
-            Expanded(child: Center(child: _buildDayLabel())),
-            CarouselArrowButton(
-              icon: Icons.chevron_right_rounded,
-              isDisabled: _isFetchingDay,
-              onTap: () => _goToDay(addDays(_day, 1)),
-            ),
-          ],
+        _buildCalendarButton(),
+        const SizedBox(width: 8),
+        CarouselArrowButton(
+          icon: Icons.chevron_left_rounded,
+          isDisabled: isFirstDay || _isFetchingDay,
+          onTap: () => _goToDay(addDays(_day, -1)),
         ),
-        const SizedBox(height: 12),
-        AppTodayButton(onTap: () => _goToDay(DateTime.now())),
+        Expanded(child: Center(child: _buildDayLabel())),
+        CarouselArrowButton(
+          icon: Icons.chevron_right_rounded,
+          isDisabled: _isFetchingDay,
+          onTap: () => _goToDay(addDays(_day, 1)),
+        ),
       ],
     );
   }

@@ -7,12 +7,10 @@ import '../../../../core/theme/app_theme.dart';
 import 'combined_hours.dart';
 import 'mode_hours_parts.dart';
 
-// One day, or one variation, of an hours card: what each mode does on it.
 class HoursGridDay
 {
   final String title;
 
-  // Under the title in a column heading, after it elsewhere.
   final String? subtitle;
 
   final bool isToday;
@@ -20,7 +18,6 @@ class HoursGridDay
   // A mode left out does not concern this day.
   final Map<String, Widget> modes;
 
-  // The whole day answers it: column, tile or line.
   final VoidCallback? onTap;
 
   const HoursGridDay({
@@ -34,10 +31,6 @@ class HoursGridDay
   String get fullTitle => subtitle == null ? title : '$title $subtitle';
 }
 
-// Days as columns and modes as rows when every day fits side by side, so the
-// width goes to the days and another band only adds height. Otherwise a tile
-// per day, the rows as even as they can be, and a plain list where only one
-// tile would fit.
 class HoursGrid extends StatelessWidget
 {
   static const double _cellPadding = 8;
@@ -114,8 +107,7 @@ class HoursGrid extends StatelessWidget
   {
     final lastRow = kHoursModes.length;
 
-    // The rules between rows belong to the cells: in today's column they are
-    // inset by the frame's rim, so they meet it instead of cutting through it.
+    // Row rules belong to the cells, inset by the rim in today's column so they meet the frame.
     Widget cell(int row, Widget child, {HoursGridDay? day})
     {
       final inset = (day?.isToday ?? false) ? TodayFrame.rim : 0.0;
@@ -201,7 +193,6 @@ class HoursGrid extends StatelessWidget
       children: [
         for (final (i, row) in rows.indexed) ...[
           if (i > 0) const SizedBox(height: _tileGap),
-          // IntrinsicHeight so the tiles of a row end level.
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,8 +316,7 @@ class HoursGrid extends StatelessWidget
   }
 }
 
-// Today as the teachers' availability marks it: white inside a rim running
-// from ocean to violet.
+// Matches the today mark of the teachers' availability.
 class TodayFrame extends StatelessWidget
 {
   static const double rim = 2.5;

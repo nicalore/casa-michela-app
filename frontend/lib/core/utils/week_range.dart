@@ -116,6 +116,28 @@ String formatDayMonthFull(DateTime date)
   return '${date.day} ${_monthNamesFull[date.month - 1]}';
 }
 
+// "Settembre 2026".
+String formatMonthYear(DateTime month)
+{
+  final name = _monthNamesFull[month.month - 1];
+
+  return '${name[0].toUpperCase()}${name.substring(1)} ${month.year}';
+}
+
+const List<String> kWeekdayInitials = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
+
+// Six weeks from the Monday on or before the 1st, null outside the month: every month has one height.
+List<DateTime?> monthGridDays(DateTime month)
+{
+  final lead = DateTime(month.year, month.month, 1).weekday - 1;
+  final count = DateTime(month.year, month.month + 1, 0).day;
+
+  return [
+    for (var i = 0; i < 42; i++)
+      if (i < lead || i >= lead + count) null else DateTime(month.year, month.month, i - lead + 1),
+  ];
+}
+
 // "Dal 20 al 22 agosto", collapsing the repeated month.
 String formatDateSpan(DateTime start, DateTime end)
 {
@@ -127,8 +149,7 @@ String formatDateSpan(DateTime start, DateTime end)
   return 'Dal ${formatDayMonthFull(start)} al ${formatDayMonthFull(end)}';
 }
 
-// "09:00" — display-only; json_parsing's formatTimeOfDay makes "09:00:00"
-// for the backend.
+// "09:00", display-only; json_parsing's formatTimeOfDay makes "09:00:00" for the backend.
 String formatTimeOfDayShort(TimeOfDay time)
 {
   return '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';

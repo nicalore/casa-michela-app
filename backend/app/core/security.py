@@ -35,9 +35,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-# Argon2 hashing is CPU-bound and deliberately slow: calling it directly
-# inside a coroutine blocks the event loop and serializes concurrent
-# logins.
+# Argon2 is deliberately slow: run off the event loop so logins don't serialize.
 async def hash_password_async(password: str) -> str:
     return await asyncio.to_thread(hash_password, password)
 

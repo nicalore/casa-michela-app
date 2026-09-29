@@ -1,10 +1,8 @@
 import '../../../../core/utils/week_range.dart';
 import '../../models/opening_day_item.dart';
 
-// Hours in force per weekday (1-7): latest non-override occurrence of each
-// weekday within the next week, so a future change is not shown as today's
-// schedule. Read from the generated calendar rather than weekly_templates:
-// templates can hold future or superseded rows.
+// Only the next week counts, so a future change is not shown as today's schedule.
+// Read from the generated calendar: weekly_templates can hold future or superseded rows.
 Map<int, List<OpeningDayItem>> currentScheduleByWeekday(List<OpeningDayItem> days, DateTime today)
 {
   final horizon = addDays(today, 6);

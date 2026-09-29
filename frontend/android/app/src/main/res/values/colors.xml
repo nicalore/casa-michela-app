@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppTheme.trialDeepWater, where the backdrop gradient starts. -->
+    <color name="launch_background">#0B3350</color>
+</resources>

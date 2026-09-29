@@ -27,26 +27,26 @@ Future<void> showActivityDetailsDialog({
   );
 }
 
+List<({String label, String value})> activityVoicesOf(ActivityItem activity)
+{
+  final placement = activity.placement;
+  final description = activity.description?.trim() ?? '';
+
+  return [
+    if (placement != null)
+      (
+        label: 'Orario',
+        value: '${formatTimeRange(placement.startTime, placement.endTime)} · ${formatMinutes(placement.minutes)}',
+      ),
+    (label: 'Descrizione', value: description.isEmpty ? _empty : description),
+  ];
+}
+
 class _ActivityDetailsDialog extends StatelessWidget
 {
   final ActivityItem activity;
 
   const _ActivityDetailsDialog({required this.activity});
-
-  List<({String label, String value})> get _voices
-  {
-    final placement = activity.placement;
-    final description = activity.description?.trim() ?? '';
-
-    return [
-      if (placement != null)
-        (
-          label: 'Orario',
-          value: '${formatTimeRange(placement.startTime, placement.endTime)} · ${formatMinutes(placement.minutes)}',
-        ),
-      (label: 'Descrizione', value: description.isEmpty ? _empty : description),
-    ];
-  }
 
   Widget _buildVoice(String label, String value)
   {
@@ -72,7 +72,7 @@ class _ActivityDetailsDialog extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final voices = _voices;
+    final voices = activityVoicesOf(activity);
 
     return AppDialogStack(
       eyebrow: kActivityWord,

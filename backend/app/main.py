@@ -48,7 +48,7 @@ from app.middleware import audit_logging_middleware
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
 
 
-# Photos are written under timestamped names: what a URL serves never changes.
+# Photos are named after their content: what a URL serves never changes.
 class _ImmutableStaticFiles(StaticFiles):
     def file_response(self, *args: Any, **kwargs: Any) -> Response:
         response = super().file_response(*args, **kwargs)

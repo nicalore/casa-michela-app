@@ -36,6 +36,8 @@ _LOCAL_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
 _RESET_TOKEN_TYPE: Final[str] = "reset"
 _RESET_TOKEN_LIFETIME: Final[timedelta] = timedelta(hours=1)
+# A forced password change must follow its sign-in within this window.
+_PENDING_CHANGE_WINDOW: Final[timedelta] = timedelta(minutes=15)
 _PASSWORD_RESET_MIN_DURATION_SECONDS: Final[float] = 2.0
 
 _INVALID_CREDENTIALS_ERROR: Final[str] = "Nome utente o password non validi"
@@ -109,6 +111,10 @@ class PasswordReuseError(Exception):
 
 
 class SessionNotFoundError(Exception):
+    pass
+
+
+class PasswordChangeExpiredError(Exception):
     pass
 
 
@@ -275,8 +281,7 @@ class AuthService:
 
         return payload, stored_token
 
-    # A client that never got the answer to a rotation still holds the token
-    # it replaced: honoured for a short while, unless the session has ended.
+    # A just-replaced token is honoured briefly, unless its session has ended.
     async def _replaced_moments_ago(self, stored_token: RefreshToken) -> bool:
         now = datetime.now(UTC)
         grace = timedelta(seconds=settings.refresh_token_grace_seconds)
@@ -361,8 +366,7 @@ class AuthService:
 
             await self.account_repository.save(account)
 
-            # Whoever is guessing must not keep a foothold: a lockout ends
-            # every session too.
+            # A lockout ends every session too: a guesser keeps no foothold.
             if new_lock is not None:
                 await self.refresh_token_repository.revoke_all_for_account(
                     account.tax_code
@@ -417,8 +421,10 @@ class AuthService:
         if account is None:
             raise InvalidRefreshTokenError()
 
-        # The whole session, not the token alone: on a replay the live one is
-        # the successor the client never received.
+        if self._pending_change_expired(account, stored_token, now):
+            raise PasswordChangeExpiredError()
+
+        # Whole session revoked: on a replay the live token is the unseen successor.
         await self.refresh_token_repository.revoke_session(
             stored_token.account_tax_code,
             stored_token.session_id,
@@ -434,8 +440,18 @@ class AuthService:
 
         return result
 
-    # Read once, at sign-in; a session from before devices were recorded takes
-    # the first description it is given.
+    @staticmethod
+    def _pending_change_expired(
+        account: Account,
+        stored_token: RefreshToken,
+        now: datetime,
+    ) -> bool:
+        return (
+            account.password_reset_required
+            and now - stored_token.logged_in_at > _PENDING_CHANGE_WINDOW
+        )
+
+    # Fixed at sign-in; sessions predating devices take the first one seen.
     @staticmethod
     def _session_device(
         stored_token: RefreshToken,
@@ -484,19 +500,31 @@ class AuthService:
     async def change_password(
         self,
         account: Account,
-        current_password: str,
+        current_password: str | None,
         new_password: str,
         refresh_token: str,
     ) -> None:
-        if not await verify_password_async(current_password, account.password_hash):
+        _, stored_token = await self._load_valid_refresh_token(refresh_token)
+
+        # Its sign-in time stands for the current password below.
+        if stored_token.account_tax_code != account.tax_code:
+            raise InvalidRefreshTokenError()
+
+        if current_password is None:
+            # Typed at the sign-in a moment ago: only the forced change skips it.
+            if not account.password_reset_required:
+                raise AuthenticationError(_CURRENT_PASSWORD_ERROR)
+
+            if self._pending_change_expired(account, stored_token, datetime.now(UTC)):
+                raise PasswordChangeExpiredError()
+
+        elif not await verify_password_async(current_password, account.password_hash):
             raise AuthenticationError(_CURRENT_PASSWORD_ERROR)
 
         if await verify_password_async(new_password, account.password_hash):
             raise PasswordReuseError(_PASSWORD_REUSE_ERROR)
 
         validate_password(new_password)
-
-        _, stored_token = await self._load_valid_refresh_token(refresh_token)
 
         account.password_hash = await hash_password_async(new_password)
         account.password_reset_required = False

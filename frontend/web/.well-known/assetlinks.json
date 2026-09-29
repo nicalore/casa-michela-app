@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.casamichela.app",
+      "sha256_cert_fingerprints": [
+        "95:67:52:67:B7:4A:8E:B5:4B:76:08:74:58:A9:FB:E7:4B:72:C3:0C:D2:4A:42:0C:6D:D1:E4:9D:21:26:C6:1C"
+      ]
+    }
+  }
+]

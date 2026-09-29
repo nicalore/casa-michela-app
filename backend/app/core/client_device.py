@@ -3,9 +3,7 @@ from typing import Final
 
 from app.models.refresh_token import DeviceTypeEnum
 
-# Sent by the app with the request that opens a session. Preferred to the user
-# agent: iPadOS Safari presents itself as a Mac, and the native apps' agent
-# says nothing about the screen.
+# Preferred to the user agent: iPadOS Safari poses as a Mac, apps omit the screen.
 FORM_FACTOR_HEADER: Final[str] = "X-Client-Form-Factor"
 
 _FORM_FACTORS: Final[dict[str, DeviceTypeEnum]] = {
@@ -14,8 +12,7 @@ _FORM_FACTORS: Final[dict[str, DeviceTypeEnum]] = {
     "tablet": DeviceTypeEnum.TABLET,
 }
 
-# A browser sends its own agent, which a page cannot override; the native apps
-# announce themselves as "CasaMichela/app (ios)".
+# Native apps send "CasaMichela/app (ios)"; a web page cannot set its own agent.
 _APP_AGENT_PREFIX: Final[str] = "CasaMichela/"
 
 _APP_SYSTEMS: Final[dict[str, str]] = {

@@ -33,19 +33,14 @@ enum _Change { unchanged, closed, varied }
 
 const List<String> _changeLabels = ['Invariato', 'Chiuso', 'Orari diversi'];
 
-// A closure or an extraordinary opening over one or more days, both modes at
-// once: first when and why, then what changes in presenza and online, each
-// left as it is, closed, or given other hours.
 class VariationWizard extends StatefulWidget
 {
-  // Both modes' rows, to tell a real change from the standard hours.
   final List<WeeklyTemplateItem> standardTemplates;
 
   final Future<void> Function() onSaved;
 
   final CombinedVariation? initial;
 
-  // Where a new variation starts, as picked from the week.
   final DateTime? day;
 
   const VariationWizard({
@@ -68,7 +63,7 @@ class _VariationWizardState extends State<VariationWizard>
   final TextEditingController _toCtrl = TextEditingController();
   final TextEditingController _noteCtrl = TextEditingController();
 
-  // Al follows Dal until typed in.
+  // The end date follows the start date until typed in.
   bool _toTouched = false;
 
   final Map<String, _Change> _changes = {for (final mode in kHoursModes) mode: _Change.unchanged};
@@ -171,7 +166,7 @@ class _VariationWizardState extends State<VariationWizard>
     });
   }
 
-  // "Orari diversi" opens on the standard hours of the first day, to be changed from there.
+  // "Orari diversi" starts from the first day's standard hours.
   void _choose(String mode, _Change change)
   {
     setState(()
@@ -199,7 +194,7 @@ class _VariationWizardState extends State<VariationWizard>
     });
   }
 
-  // Other hours with every band closed are a closure.
+  // Null leaves the mode unchanged; an empty list, even from all bands closed, is a closure.
   List<(TimeOfDay, TimeOfDay)>? _bandsToWrite(String mode)
   {
     return switch (_changes[mode]!)
@@ -226,8 +221,7 @@ class _VariationWizardState extends State<VariationWizard>
     });
   }
 
-  // The modes that really vary: a change matching the standard hours on
-  // every day chosen is no change at all.
+  // A change matching the standard hours on every chosen day is no change.
   Map<String, List<(TimeOfDay, TimeOfDay)>> get _variedModes
   {
     final dates = _dates;
@@ -321,9 +315,7 @@ class _VariationWizardState extends State<VariationWizard>
     return false;
   }
 
-  // Standard hours come back on the days of [mode] the edited variation no
-  // longer covers: the whole old range for a mode now left unchanged, the
-  // days cut from either end for the others.
+  // Days the edited variation stops covering: all for a released mode, else the trimmed ends.
   List<(String, DateTime, DateTime)> _restorations(DateTime start, DateTime end)
   {
     final initial = widget.initial;
@@ -408,8 +400,7 @@ class _VariationWizardState extends State<VariationWizard>
     final written = <DateTime>{};
     final errors = <String>[];
 
-    // Each day is written whole in one call: delete-then-create would leave it
-    // momentarily closed, taking its lessons and published calendar with it.
+    // One call per day: delete-then-create would briefly close it, dropping its lessons and calendar.
     outer:
     for (final date in dates)
     {
@@ -456,7 +447,6 @@ class _VariationWizardState extends State<VariationWizard>
 
     setState(() => _isSaving = false);
 
-    // Declined before anything was written: nothing to report, the wizard stays open.
     if (confirmation.declined && written.isEmpty && errors.isEmpty && varied.isNotEmpty)
     {
       return;

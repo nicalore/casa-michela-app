@@ -119,7 +119,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     });
   }
 
-  // Naming a nation only makes sense abroad; Italy is the other chip.
   void _setBirthPlace(String? place)
   {
     setState(()

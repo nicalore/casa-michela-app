@@ -27,7 +27,7 @@ from app.schemas.validators import (
     UpperCaseStr,
 )
 
-_UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
+UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR: Final[str] = (
     "Un docente che frequenta le superiori non può dichiarare studi universitari."
 )
 
@@ -245,9 +245,21 @@ class TeacherEducationData(BaseModel):
     @model_validator(mode="after")
     def _university_education_only_after_high_school(self) -> Self:
         if self.is_high_school_student and self.university_education is not None:
-            raise ValueError(_UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR)
+            raise ValueError(UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR)
 
         return self
+
+
+# A teacher's own studies; the still-at-school flag is the register's, not theirs.
+class OwnEducationData(BaseModel):
+    school_education: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.EDUCATION,
+    )
+    university_education: OptionalOpeningCapitalStr = Field(
+        None,
+        max_length=field_lengths.EDUCATION,
+    )
 
 
 class TeacherUpdateData(TeacherEducationData):

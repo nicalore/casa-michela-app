@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/field_limits.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_field_label.dart';
-import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../people/models/person_item.dart';
 
@@ -26,15 +24,10 @@ class TeacherEducationCard extends StatefulWidget
 
 class TeacherEducationDraft
 {
-  final bool isHighSchoolStudent;
   final String? schoolEducation;
   final String? universityEducation;
 
-  const TeacherEducationDraft({
-    required this.isHighSchoolStudent,
-    this.schoolEducation,
-    this.universityEducation,
-  });
+  const TeacherEducationDraft({this.schoolEducation, this.universityEducation});
 }
 
 class _TeacherEducationCardState extends State<TeacherEducationCard>
@@ -42,14 +35,14 @@ class _TeacherEducationCardState extends State<TeacherEducationCard>
   late final TextEditingController _school;
   late final TextEditingController _university;
 
-  late bool _isHighSchoolStudent;
+  // The server refuses a university course for somebody still at school.
+  bool get _atSchool => widget.person.isHighSchoolStudent ?? false;
 
   @override
   void initState()
   {
     super.initState();
 
-    _isHighSchoolStudent = widget.person.isHighSchoolStudent ?? false;
     _school = TextEditingController(text: widget.person.schoolEducation ?? '');
     _university = TextEditingController(text: widget.person.universityEducation ?? '');
 
@@ -78,10 +71,8 @@ class _TeacherEducationCardState extends State<TeacherEducationCard>
     }
 
     widget.onChanged(TeacherEducationDraft(
-      isHighSchoolStudent: _isHighSchoolStudent,
       schoolEducation: cleaned(_school),
-      // The record refuses a university course for somebody still at school.
-      universityEducation: _isHighSchoolStudent ? null : cleaned(_university),
+      universityEducation: _atSchool ? null : cleaned(_university),
     ));
   }
 
@@ -94,17 +85,6 @@ class _TeacherEducationCardState extends State<TeacherEducationCard>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppFieldLabel('Sei studente delle superiori?'),
-          AppSegmentedSwitch(
-            value: _isHighSchoolStudent,
-            hugContent: true,
-            onChanged: (value) => setState(()
-            {
-              _isHighSchoolStudent = value;
-              _publish();
-            }),
-          ),
-          const SizedBox(height: 18),
           AppTextField(
             controller: _school,
             label: 'Studi scolastici',
@@ -112,7 +92,7 @@ class _TeacherEducationCardState extends State<TeacherEducationCard>
             maxLength: FieldLimits.education,
             textCapitalization: TextCapitalization.sentences,
           ),
-          if (!_isHighSchoolStudent)
+          if (!_atSchool)
             AppTextField(
               controller: _university,
               label: 'Studi universitari',

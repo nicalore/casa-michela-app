@@ -18,17 +18,15 @@ import 'combined_hours.dart';
 import 'combined_standard_card.dart';
 import 'combined_variations_card.dart';
 import 'combined_week_card.dart';
-import 'current_schedule.dart';
+import 'hours_strings.dart';
 import 'lost_calendars.dart';
+import 'mode_hours_parts.dart';
 import 'opening_hours_layout.dart';
 import 'standard_hours_wizard.dart';
 import 'variation_wizard.dart';
 
-// Orari with in presenza and online on one page, so nobody has to compare two
-// tabs. Given the weekly templates, it is the administrator's page and edits.
 class CombinedHoursView extends StatefulWidget
 {
-  // Both modes' rows; read only by the wizards.
   final List<WeeklyTemplateItem> weeklyTemplates;
 
   final Future<void> Function()? onWeeklyTemplatesChanged;
@@ -41,13 +39,6 @@ class CombinedHoursView extends StatefulWidget
 
 class _CombinedHoursViewState extends State<CombinedHoursView>
 {
-  static const int _scheduleLookbackDays = 27;
-
-  static const int _variationsWindowDays = 60;
-
-  // Fetches past the window so a run starting inside it keeps its real end date.
-  static const int _variationsFetchDays = _variationsWindowDays + 90;
-
   final ApiService _apiService = ApiService();
 
   late DateTime _weekStart;
@@ -64,14 +55,14 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   // Kept beside the data so the card filters on the window the rows were fetched for.
   late DateTime _variationsWindowEnd;
 
-  Map<String, Map<int, List<OpeningDayItem>>> _scheduleByMode = {};
+  StandardSchedule _scheduleByMode = {};
 
   @override
   void initState()
   {
     super.initState();
     _weekStart = startOfWeek(DateTime.now());
-    _variationsWindowEnd = addDays(DateTime.now(), _variationsWindowDays);
+    _variationsWindowEnd = addDays(DateTime.now(), kVariationsWindowDays);
     _loadWeek();
     _loadUpcomingVariations();
   }
@@ -104,7 +95,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       }
 
       setState(() => _isLoadingWeek = false);
-      CustomSnackBar.show(context: context, message: 'Impossibile caricare gli orari della settimana.', isError: true);
+      CustomSnackBar.show(context: context, message: kWeekHoursLoadFailed, isError: true);
     }
   }
 
@@ -115,10 +106,9 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
     try
     {
-      // Reaches back so a holiday's weekday can still show a past occurrence's hours.
       final days = await _apiService.getOpeningDays(
-        dateFrom: addDays(today, -_scheduleLookbackDays),
-        dateTo: addDays(today, _variationsFetchDays),
+        dateFrom: addDays(today, -kScheduleLookbackDays),
+        dateTo: addDays(today, kVariationsFetchDays),
       );
 
       if (!mounted || requestId != _variationsRequestId)
@@ -126,18 +116,11 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
         return;
       }
 
-      final variations = days
-          .where((d) => d.isOverride && !d.date.isBefore(DateTime(today.year, today.month, today.day)))
-          .toList();
-
       setState(()
       {
-        _upcomingVariations = variations;
-        _variationsWindowEnd = addDays(today, _variationsWindowDays);
-        _scheduleByMode = {
-          for (final mode in kHoursModes)
-            mode: currentScheduleByWeekday(days.where((d) => d.mode == mode).toList(), today),
-        };
+        _upcomingVariations = upcomingVariationsOf(days, today);
+        _variationsWindowEnd = addDays(today, kVariationsWindowDays);
+        _scheduleByMode = standardScheduleOf(days, today);
         _isLoadingVariations = false;
       });
     }
@@ -149,14 +132,14 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
       }
 
       setState(() => _isLoadingVariations = false);
-      CustomSnackBar.show(context: context, message: 'Impossibile caricare le variazioni programmate.', isError: true);
+      CustomSnackBar.show(context: context, message: kVariationsLoadFailed, isError: true);
     }
   }
 
   // Ignores clicks while loading so overlapping fetches cannot land out of order.
   void _goToPreviousWeek()
   {
-    if (_isLoadingWeek || !_weekStart.isAfter(startOfWeek(kAssociationFoundedOn)))
+    if (_isLoadingWeek || isOldestKeptWeek(_weekStart))
     {
       return;
     }
@@ -171,7 +154,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
   void _goToNextWeek()
   {
-    if (_isLoadingWeek || addDays(_weekStart, 7).isAfter(calendarHorizon()))
+    if (_isLoadingWeek || isLastCalendarWeek(_weekStart))
     {
       return;
     }
@@ -184,16 +167,18 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     _loadWeek();
   }
 
-  void _goToToday()
+  void _goToWeekOf(DateTime day)
   {
-    if (_isLoadingWeek)
+    final DateTime weekStart = startOfWeek(day);
+
+    if (_isLoadingWeek || isSameDate(weekStart, _weekStart))
     {
       return;
     }
 
     setState(()
     {
-      _weekStart = startOfWeek(DateTime.now());
+      _weekStart = weekStart;
       _isLoadingWeek = true;
     });
     _loadWeek();
@@ -218,7 +203,6 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     showBlurredDialog(
       context: context,
       barrierLabel: 'StandardHoursWizard',
-      // Not barrier-dismissible: a stray tap would discard everything set.
       barrierDismissible: false,
       transitionDuration: const Duration(milliseconds: 420),
       builder: (_) => StandardHoursWizard(
@@ -250,7 +234,6 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
     );
   }
 
-  // A day inside an upcoming variation opens that variation; any other day a new one.
   void _openDay(DateTime day)
   {
     final run = CombinedVariation.from(_upcomingVariations)
@@ -363,14 +346,13 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
     final extraordinary = AppGradientButton(
       label: 'CHIUSURA/APERTURA STRAORDINARIA',
-      icon: Icons.flag_rounded,
+      icon: kVariationIcon,
       height: kHoursActionButtonHeight,
       fontSize: 14,
       onPressed: _openVariationWizard,
     );
 
-    // Not ResponsiveDialogButtonsRow: it swaps its children's order when
-    // stacking, which is wrong for two peer actions.
+    // Not ResponsiveDialogButtonsRow: it reverses its children when stacking, wrong for peer actions.
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -397,7 +379,6 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   @override
   Widget build(BuildContext context)
   {
-    // Full width each: the days take the width, more bands only add height.
     return PageTransitionScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -410,7 +391,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
               isLoading: _isLoadingWeek,
               onPreviousWeek: _goToPreviousWeek,
               onNextWeek: _goToNextWeek,
-              onToday: _goToToday,
+              onPickDay: _goToWeekOf,
               onDayTap: _isAdmin ? _openDay : null,
             ),
           ),

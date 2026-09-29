@@ -281,7 +281,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return sections;
   }
 
-  // A teacher's parents are paperwork: each shown in full, the links left alone.
   List<PersonSection> _teacherParentSections(PersonItem person)
   {
     final parents = person.parents ?? [];

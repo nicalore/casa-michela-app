@@ -72,8 +72,7 @@ class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
         server_default="REFRESH",
     )
 
-    # Shared by every token of one sign-in: rotation carries it over, so a
-    # session can be listed and revoked as a whole.
+    # Shared by every token of one sign-in; rotation carries it over.
     session_id: Mapped[str] = mapped_column(
         String(36),
         nullable=False,
@@ -93,7 +92,7 @@ class RefreshToken(CreatedAtMixin, UpdatedAtMixin, Base):
         server_default="UNKNOWN",
     )
 
-    # "Chrome su macOS", "App iOS": read off the request that signed in.
+    # Display label, read off the request that signed in.
     device_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     expires_at: Mapped[datetime] = mapped_column(

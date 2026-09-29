@@ -27,7 +27,6 @@ class RelativeFact
   const RelativeFact(this.icon, this.text, {this.isWarning = false});
 }
 
-// A parent or a child shown from the other's record; the whole card opens theirs.
 class RelativeCard extends StatefulWidget
 {
   static const double minWidth = 320;
@@ -69,8 +68,7 @@ class _RelativeCardState extends State<RelativeCard>
       color: AppTheme.trialTealDeep,
     );
 
-    // A plain Wrap, not RoleChipsRow: its LayoutBuilder cannot sit inside the
-    // grid's IntrinsicHeight.
+    // Not RoleChipsRow: its LayoutBuilder cannot sit inside the grid's IntrinsicHeight.
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 8,
@@ -91,7 +89,6 @@ class _RelativeCardState extends State<RelativeCard>
 
   Widget _buildFact(RelativeFact fact)
   {
-    // Two lines before the ellipsis: three cards to a row leave little room.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -263,7 +260,6 @@ class _RelativeCardState extends State<RelativeCard>
   }
 }
 
-// Cards in rows of equal height, as many per row as fit and centred.
 class RelativeCardGrid extends StatelessWidget
 {
   static const double _gap = 24;

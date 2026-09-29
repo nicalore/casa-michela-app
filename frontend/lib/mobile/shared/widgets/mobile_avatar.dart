@@ -3,8 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/api_service.dart';
+import 'mobile_load_switcher.dart';
 
-// Profile picture, or initials, in the gold ring of the brand mark.
 class MobileAvatar extends StatelessWidget
 {
   final String firstName;
@@ -37,6 +38,12 @@ class MobileAvatar extends StatelessWidget
       url = ApiConfig.buildUrl(url);
     }
 
+    // Cache buster: an uploaded photo keeps its URL.
+    if (url != null && url.isNotEmpty)
+    {
+      url = '$url?v=${ApiService().profileImageVersion}';
+    }
+
     final Widget fallback = Center(
       child: Text(
         initials,
@@ -67,7 +74,26 @@ class MobileAvatar extends StatelessWidget
             ? Image.network(
                 url,
                 fit: BoxFit.cover,
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+                // Twice the width keeps landscape photos up to 2:1 sharp when covering the circle.
+                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2).round(),
+                frameBuilder: (context, photo, frame, synchronous) => synchronous
+                    ? photo
+                    : Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          fallback,
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(begin: 1, end: frame == null ? 1 : 0),
+                            duration: kMobileRiseDuration,
+                            curve: Curves.easeOutCubic,
+                            builder: (context, shift, photo) => FractionalTranslation(
+                              translation: Offset(0, shift),
+                              child: photo,
+                            ),
+                            child: photo,
+                          ),
+                        ],
+                      ),
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

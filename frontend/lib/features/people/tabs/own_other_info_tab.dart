@@ -163,7 +163,6 @@ class _EditEducationDialogState extends State<_EditEducationDialog>
     {
       await ApiService().updateTeacherEducation(
         taxCode: widget.person.fiscalCode,
-        isHighSchoolStudent: _atSchool,
         schoolEducation: _cleaned(_school),
         universityEducation: _atSchool ? null : _cleaned(_university),
       );

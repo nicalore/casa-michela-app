@@ -17,16 +17,17 @@ import 'tabs/access_tab.dart';
 import 'tabs/appearance_tab.dart';
 import 'tabs/devices_tab.dart';
 import 'tabs/info_tab.dart';
+import 'utils/settings_strings.dart';
 
-const String _appearance = 'Aspetto';
-const String _access = 'Accesso';
-const String _devices = 'Dispositivi';
-const String _info = 'Informazioni';
+const String _appearance = kAppearanceSection;
+const String _access = kAccessSection;
+const String _devices = kDevicesSection;
+const String _info = kInfoSection;
 
 // Order matches the PageSections below; the constants under it index both.
 const List<RailGroup> _groups = [
   RailGroup(entries: [_appearance]),
-  RailGroup(title: 'Account', entries: [_access, _devices]),
+  RailGroup(title: kAccountGroup, entries: [_access, _devices]),
   RailGroup(entries: [_info]),
 ];
 
@@ -110,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> with SectionVisits
           Align(
             alignment: Alignment.topLeft,
             child: AppSectionRail(
-              title: 'Impostazioni',
+              title: kSettingsTitle,
               groups: _groups,
               selectedIndex: _selectedSection,
               onSelected: _selectSection,

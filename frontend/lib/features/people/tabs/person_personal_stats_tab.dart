@@ -27,8 +27,8 @@ class PersonPersonalStatsTab extends StatefulWidget
 {
   final PersonItem person;
 
-  // False on the teacher's own page.
-  final bool showAppreciation;
+  // The teacher's own page: no appreciation, and the notices speak to them.
+  final bool forOwner;
 
   // Rendered under the cards, inside the scroll.
   final Widget? footer;
@@ -36,7 +36,7 @@ class PersonPersonalStatsTab extends StatefulWidget
   const PersonPersonalStatsTab({
     super.key,
     required this.person,
-    this.showAppreciation = true,
+    this.forOwner = false,
     this.footer,
   });
 
@@ -82,7 +82,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
 
     await Future.wait([
       if (_isTeacher) _loadTeacherStats(),
-      if (_isTeacher && widget.showAppreciation) _loadAppreciationStats(),
+      if (_isTeacher && !widget.forOwner) _loadAppreciationStats(),
       if (_isStudent) _loadStudentStats(),
     ]);
 
@@ -202,6 +202,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
           statistics: teacherStats,
           period: _teacherPeriod,
           isLoading: _isTeacherLoading,
+          forOwner: widget.forOwner,
           onPeriodChanged: (value)
           {
             setState(() => _teacherPeriod = value);
@@ -302,12 +303,25 @@ class _Figure extends StatelessWidget
   }
 }
 
+List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {required bool forOwner})
+{
+  return [
+    if (statistics.isBelowWeeklyThreshold)
+      'Nel periodo selezionato la media è sotto le 2 disponibilità a '
+          'settimana (${statistics.weeklyAverage.toStringAsFixed(1)}).',
+    if (statistics.isBelowMonthlyThreshold)
+      'Nel mese selezionato ${forOwner ? 'hai' : 'ha'} dato meno di 9 disponibilità '
+          '(${statistics.totalAvailabilities}).',
+  ];
+}
+
 class PersonalAvailabilityCard extends StatelessWidget
 {
   final TeacherPersonalStatisticsItem statistics;
   final String period;
   final ValueChanged<String> onPeriodChanged;
   final bool isLoading;
+  final bool forOwner;
 
   const PersonalAvailabilityCard({
     super.key,
@@ -315,6 +329,7 @@ class PersonalAvailabilityCard extends StatelessWidget
     required this.period,
     required this.onPeriodChanged,
     this.isLoading = false,
+    this.forOwner = false,
   });
 
   Widget _banner(String message)
@@ -352,17 +367,8 @@ class PersonalAvailabilityCard extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final banners = <Widget>[
-      if (statistics.isBelowWeeklyThreshold)
-        _banner(
-          'Nel periodo selezionato la media è sotto le 2 disponibilità a '
-          'settimana (${statistics.weeklyAverage.toStringAsFixed(1)}).',
-        ),
-      if (statistics.isBelowMonthlyThreshold)
-        _banner(
-          'Nel mese selezionato ha dato meno di 9 disponibilità '
-          '(${statistics.totalAvailabilities}).',
-        ),
+    final banners = [
+      for (final shortfall in availabilityShortfalls(statistics, forOwner: forOwner)) _banner(shortfall),
     ];
 
     return AppCard(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
@@ -16,24 +15,12 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../auth/models/me_response.dart';
+import '../utils/settings_strings.dart';
 
 const double _labelWidth = 170;
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
-
-final DateFormat _lastLoginFormat = DateFormat('dd/MM/yyyy, HH:mm');
-
-// Null only for an account that has never logged in.
-String _formatLastLogin(DateTime? lastLogin)
-{
-  if (lastLogin == null)
-  {
-    return '-';
-  }
-
-  return _lastLoginFormat.format(lastLogin);
-}
 
 class AccessTab extends StatefulWidget
 {
@@ -120,7 +107,7 @@ class _AccessTabState extends State<AccessTab>
           child: Padding(
             padding: const EdgeInsets.only(top: 40.0),
             child: Text(
-              'Errore durante il caricamento dell\'account. Riprova più tardi.',
+              kAccountLoadFailed,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -150,7 +137,7 @@ class _AccessTabState extends State<AccessTab>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: pageTransitionBlocks([
                 AppCard(
-                  title: 'Accesso',
+                  title: kAccessSection,
                   compact: true,
                   selectable: false,
                   leading: const AppCardBadge(
@@ -162,14 +149,14 @@ class _AccessTabState extends State<AccessTab>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       AppInfoRow(
-                        label: 'Nome utente',
+                        label: kUsernameLabel,
                         value: me.username,
                         labelWidth: _labelWidth,
                       ),
                       const SizedBox(height: 16),
                       AppInfoRow(
-                        label: 'Ultimo accesso',
-                        value: _formatLastLogin(me.lastLogin),
+                        label: kLastLoginLabel,
+                        value: formatLastLogin(me.lastLogin),
                         labelWidth: _labelWidth,
                       ),
                     ],
@@ -178,7 +165,7 @@ class _AccessTabState extends State<AccessTab>
                 const SizedBox(height: 40),
                 Center(
                   child: AppGradientButton(
-                    label: 'MODIFICA PASSWORD',
+                    label: kChangePasswordLabel.toUpperCase(),
                     onPressed: () => _showChangePasswordDialog(context),
                   ),
                 ),
@@ -254,7 +241,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
           ),
           const SizedBox(width: 8),
           Text(
-            matches ? 'Le password coincidono' : 'Le password non coincidono',
+            matches ? kPasswordsMatch : kPasswordsDiffer,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -272,35 +259,15 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (oldPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
-    {
-      CustomSnackBar.show(context: context, message: 'Compila tutti i campi', isError: true);
-      return;
-    }
+    final String? problem = passwordChangeProblem(
+      current: oldPassword,
+      next: newPassword,
+      confirmation: confirmPassword,
+    );
 
-    if (oldPassword == newPassword)
+    if (problem != null)
     {
-      CustomSnackBar.show(
-        context: context,
-        message: 'La nuova password non può coincidere con quella attuale.',
-        isError: true,
-      );
-      return;
-    }
-
-    if (newPassword != confirmPassword)
-    {
-      CustomSnackBar.show(context: context, message: 'Le password non coincidono', isError: true);
-      return;
-    }
-
-    if (!PasswordPolicyStatus.of(newPassword).isSatisfied)
-    {
-      CustomSnackBar.show(
-        context: context,
-        message: 'La password non rispetta i criteri di sicurezza',
-        isError: true,
-      );
+      CustomSnackBar.show(context: context, message: problem, isError: true);
       return;
     }
 
@@ -308,8 +275,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
 
     try
     {
-      // changePassword keeps the current refresh token and revokes every other one,
-      // so no re-login is needed.
+      // Keeps this refresh token and revokes every other one, so no re-login is needed.
       await ApiService().changePassword(
         currentPassword: oldPassword,
         newPassword: newPassword,
@@ -317,7 +283,7 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
 
       if (mounted)
       {
-        CustomSnackBar.show(context: context, message: 'Password cambiata con successo!', isError: false);
+        CustomSnackBar.show(context: context, message: kPasswordChanged, isError: false);
         Navigator.of(context).pop();
       }
     }
@@ -341,12 +307,12 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Account',
-      title: 'Modifica password',
+      eyebrow: kPasswordEyebrow,
+      title: kPasswordTitle,
       maxWidth: 560,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'SALVA',
+          label: kSavePasswordLabel.toUpperCase(),
           icon: Icons.check_rounded,
           busy: _isSaving,
           height: _dialogButtonHeight,
@@ -359,8 +325,8 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
           expand: true,
           child: PasswordField(
             controller: _oldPasswordController,
-            label: 'Password attuale',
-            hintText: 'Inserisci password attuale',
+            label: kCurrentPasswordLabel,
+            hintText: kCurrentPasswordHint,
             nothingAbove: true,
           ),
         ),
@@ -372,8 +338,8 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
             children: [
               PasswordField(
                 controller: _newPasswordController,
-                label: 'Nuova password',
-                hintText: 'Inserisci nuova password',
+                label: kNewPasswordLabel,
+                hintText: kNewPasswordHint,
               ),
               const SizedBox(height: 16),
               PasswordPolicyChecklist(
@@ -381,8 +347,8 @@ class _ChangePasswordDialogContentState extends State<_ChangePasswordDialogConte
               ),
               PasswordField(
                 controller: _confirmPasswordController,
-                label: 'Conferma password',
-                hintText: 'Ripeti nuova password',
+                label: kConfirmPasswordLabel,
+                hintText: kConfirmPasswordHint,
               ),
               const SizedBox(height: 8),
               // Keeps its height even when empty, so the buttons do not move.

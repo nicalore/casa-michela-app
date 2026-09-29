@@ -1,5 +1,4 @@
-// The server keeps 512 px anyway (backend/app/core/storage.py): shrinking on the
-// device keeps a phone photo light enough to upload on mobile data.
+// The server keeps 512 px anyway (backend/app/core/storage.py); shrinking here eases mobile uploads.
 abstract final class ProfilePhoto
 {
   static const double maxSide = 1024;

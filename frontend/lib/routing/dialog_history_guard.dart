@@ -4,10 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../shared/widgets/dialog_components.dart';
 
-// Browser back and forward while a dialog is open are swallowed, and the
-// history is given a fresh entry for the page on show so the address bar comes
-// back to it. Installed before the router builds: the first observer to answer
-// a history change wins, and the router's own would apply it.
+// Swallows browser back/forward while a dialog is open, re-pushing the shown page's entry.
+// Installed before the router builds: the first observer to answer a history change wins.
 class DialogHistoryGuard with WidgetsBindingObserver
 {
   final GoRouter router;

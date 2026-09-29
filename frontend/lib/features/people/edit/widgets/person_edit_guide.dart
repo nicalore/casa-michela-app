@@ -6,8 +6,6 @@ import '../../../../core/theme/app_theme.dart';
 class PersonEditGuide extends StatelessWidget
 {
   final String question;
-
-  // Some steps ask their question alone.
   final String? hint;
 
   const PersonEditGuide({

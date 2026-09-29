@@ -21,6 +21,8 @@ import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/activity_details_dialog.dart';
 import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast;
+import 'utils/calendar_strings.dart';
+import 'utils/day_marks_loader.dart';
 import 'utils/teacher_band_call.dart';
 import 'widgets/calendar_page_shell.dart';
 import 'widgets/convocation_card.dart';
@@ -59,6 +61,9 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   bool _isLoading = true;
   bool _failed = false;
 
+  // The person is read before the dialog opens; a second click meanwhile is dropped.
+  bool _isOpeningLesson = false;
+
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
 
@@ -77,7 +82,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
   bool get _isPastDay => _day.isBefore(_today);
 
-  bool get _isFirstDay => !_day.isAfter(kAssociationFoundedOn);
+  bool get _isFirstDay => !_day.isAfter(oldestKeptDay(_now));
 
   String? get _meTaxCode => _apiService.lastKnownIdentity?.taxCode;
 
@@ -179,7 +184,10 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   void _goToDay(DateTime day)
   {
     final DateTime normalised = DateTime(day.year, day.month, day.day);
-    final DateTime target = normalised.isAfter(_today) ? _today : normalised;
+    final DateTime oldest = oldestKeptDay(_now);
+    final DateTime target = normalised.isAfter(_today)
+        ? _today
+        : (normalised.isBefore(oldest) ? oldest : normalised);
 
     if (isSameDate(target, _day))
     {
@@ -281,13 +289,27 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       return;
     }
 
-    await showOwnLessonDialog(
-      context: context,
-      lesson: lesson,
-      ministrySubjects: _ministrySubjects,
-      view: CalendarView.byTeacher,
-      other: _apiService.getPerson(student.taxCode),
-    );
+    if (_isOpeningLesson)
+    {
+      return;
+    }
+
+    _isOpeningLesson = true;
+
+    try
+    {
+      await showOwnLessonDialog(
+        context: context,
+        lesson: lesson,
+        ministrySubjects: _ministrySubjects,
+        view: CalendarView.byTeacher,
+        other: _apiService.getPerson(student.taxCode),
+      );
+    }
+    finally
+    {
+      _isOpeningLesson = false;
+    }
   }
 
   Future<void> _openActivity(ActivityItem activity) async
@@ -336,7 +358,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     if (_failed)
     {
-      return const CalendarNote('Non è stato possibile caricare il calendario.');
+      return const CalendarNote(kCalendarLoadFailed);
     }
 
     if (!_isPublished)
@@ -354,12 +376,8 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
       return CalendarEmptyBand(
         icon: Icons.free_cancellation_rounded,
-        title: !inBuilding
-            ? 'Nessuna lezione'
-            : _isFeminine
-                ? 'Non sei stata convocata'
-                : 'Non sei stato convocato',
-        message: 'Nel calendario ${ofBand(_band)} non ci sono lezioni per te.',
+        title: inBuilding ? notConvenedTitle(feminine: _isFeminine) : kNoLessonsTitle,
+        message: noOwnLessonsMessage(_band),
       );
     }
 
@@ -412,6 +430,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
+      loadMarks: (from, to) => loadDayMarks(from, to, lessons: true, teacherTaxCode: _meTaxCode),
       body: _buildBody,
     );
   }

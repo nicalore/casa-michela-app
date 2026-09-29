@@ -12,7 +12,9 @@ import '../../models/opening_day_item.dart';
 
 const String kClosedLabel = 'Chiuso';
 
-// A variation's reason, on hover rather than written under the hours.
+// Not a flag icon: elsewhere a flag means reporting.
+const IconData kVariationIcon = Icons.update_rounded;
+
 Widget withReason(String? note, Widget child)
 {
   if (note == null)
@@ -23,9 +25,7 @@ Widget withReason(String? note, Widget child)
   return Tooltip(message: note, child: child);
 }
 
-// Rounded up, so a column sized to it never wraps or clips its own text.
-// Merged with the inherited style as Text does: the Material body style adds
-// letter spacing, enough to wrap a column measured without it.
+// Merged with the inherited style as Text does: Material's body letter spacing would wrap the column.
 double measureText(BuildContext context, String text, TextStyle style)
 {
   final painter = TextPainter(
@@ -41,8 +41,6 @@ double measureText(BuildContext context, String text, TextStyle style)
   return width;
 }
 
-// Icon and name of a mode in the mode's colour, as lessons show it: teal in
-// presenza, orange online.
 class ModeHeading extends StatelessWidget
 {
   final String mode;
@@ -84,17 +82,14 @@ class ModeHeading extends StatelessWidget
   }
 }
 
-// A decided closure (holiday, works) in red; a day the mode never opens in grey.
 class ClosedPill extends StatelessWidget
 {
   static const double _padding = 16;
 
   final bool isOverride;
 
-  // As wide as it is let be, rather than hugging its word.
   final bool expand;
 
-  // Why a decided closure was decided.
   final String? note;
 
   const ClosedPill({super.key, required this.isOverride, this.expand = false, this.note});
@@ -134,27 +129,22 @@ class ClosedPill extends StatelessWidget
   }
 }
 
-// A mode's bands on one day, earliest first, in the mode's colour; a band set
-// by a variation carries a flag.
 class BandTimes extends StatelessWidget
 {
   static const double _spacing = 22;
-  static const double _flagGap = 4;
+  static const double _markGap = 4;
 
-  // Kept small: a flag must not cost the week its seven columns.
-  static double _flagSize(double fontSize) => (fontSize * 0.85).roundToDouble();
+  // Kept small: a mark must not cost the week its seven columns.
+  static double _markSize(double fontSize) => (fontSize * 0.85).roundToDouble();
 
   final List<OpeningDayItem> bands;
   final double fontSize;
   final FontWeight fontWeight;
 
-  // One band per line instead of side by side.
   final bool stacked;
 
-  // Off where every band is a variation anyway, as in the variations list.
-  final bool flagVariations;
+  final bool markVariations;
 
-  // The variation's reason, shown on hovering its flags.
   final String? variationNote;
 
   const BandTimes({
@@ -163,7 +153,7 @@ class BandTimes extends StatelessWidget
     this.fontSize = 16,
     this.fontWeight = FontWeight.w600,
     this.stacked = false,
-    this.flagVariations = true,
+    this.markVariations = true,
     this.variationNote,
   });
 
@@ -179,20 +169,19 @@ class BandTimes extends StatelessWidget
     );
   }
 
-  // Side by side, the bands on one line with their spacing.
   static double widthOf(
     BuildContext context,
     List<OpeningDayItem> bands, {
     double fontSize = 16,
     FontWeight fontWeight = FontWeight.w600,
     bool stacked = false,
-    bool flagVariations = true,
+    bool markVariations = true,
   })
   {
     final widths = [
       for (final band in bands)
         measureText(context, _label(band), _style(band, fontSize, fontWeight)) +
-            (flagVariations && band.isOverride ? _flagGap + _flagSize(fontSize) : 0),
+            (markVariations && band.isOverride ? _markGap + _markSize(fontSize) : 0),
     ];
 
     if (widths.isEmpty)
@@ -208,15 +197,15 @@ class BandTimes extends StatelessWidget
   {
     final times = <Widget>[
       for (final band in bands)
-        if (flagVariations && band.isOverride)
+        if (markVariations && band.isOverride)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(_label(band), maxLines: 1, softWrap: false, style: _style(band, fontSize, fontWeight)),
-              const SizedBox(width: _flagGap),
+              const SizedBox(width: _markGap),
               withReason(
                 variationNote,
-                Icon(Icons.flag_rounded, size: _flagSize(fontSize), color: lessonAccent(band.mode)),
+                Icon(kVariationIcon, size: _markSize(fontSize), color: lessonAccent(band.mode)),
               ),
             ],
           )
@@ -238,7 +227,6 @@ class BandTimes extends StatelessWidget
       );
     }
 
-    // Wraps only when the card is too narrow for the column's measured width.
     return Wrap(spacing: _spacing, runSpacing: 4, children: times);
   }
 }
@@ -253,7 +241,6 @@ class VariationNote extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Hugs its text, so it can also sit in a line among other pieces.
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,

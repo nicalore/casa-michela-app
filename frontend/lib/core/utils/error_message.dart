@@ -6,9 +6,7 @@ const String connectionFailureMessage = 'Impossibile raggiungere il server. Cont
 // No answer at all: offline, wrong host, timeout. A refusal has a response.
 bool isConnectionFailure(Object error) => error is DioException && error.response == null;
 
-// ApiService wraps failures in Exception, whose toString() prefixes
-// "Exception: "; that prefix must not reach the user. A Dio failure it left
-// unwrapped, answered or not, gets the one sentence.
+// Strips the "Exception: " prefix of ApiService's wrapping; unwrapped Dio failures get one sentence.
 String readableApiError(Object error)
 {
   if (error is DioException)

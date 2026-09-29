@@ -140,8 +140,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     return RelativeFact(Icons.medical_information_rounded, 'Certificato valido fino al $date');
   }
 
-  // One role speaks for the child, student before course participant; the chips
-  // still list them all. Teachers never get here: their parents are paperwork.
+  // Teachers never get here: their parents are paperwork.
   List<RelativeFact> _roleFacts(ChildItem child, Set<String> roles)
   {
     if (roles.contains('STUDENTE'))

@@ -46,7 +46,7 @@ const List<String> _levelsUpwards = <String>[
   'HIGH_SCHOOL',
 ];
 
-enum _Step
+enum SchoolYearStep
 {
   when(
     'In quale anno scolastico?',
@@ -71,7 +71,7 @@ enum _Step
   final String question;
   final String hint;
 
-  const _Step(this.question, this.hint);
+  const SchoolYearStep(this.question, this.hint);
 }
 
 class SchoolYearChoice
@@ -103,6 +103,51 @@ class SchoolYearChoice
       grade: row.grade,
       program: row.program,
     );
+  }
+}
+
+int? parseSchoolStartYear(String text)
+{
+  final String trimmed = text.trim();
+
+  return RegExp(r'^\d{4}$').hasMatch(trimmed) ? int.parse(trimmed) : null;
+}
+
+String? schoolYearBlockedReason(
+  SchoolYearStep step,
+  SchoolYearChoice choice, {
+  required int? year,
+  required Set<int> takenYears,
+})
+{
+  switch (step)
+  {
+    case SchoolYearStep.when:
+      if (year == null)
+      {
+        return 'Inserisci l\'anno di inizio, quattro cifre.';
+      }
+
+      if (year > currentSchoolYearStart())
+      {
+        return 'Non è possibile inserire un anno scolastico futuro.';
+      }
+
+      if (takenYears.contains(year))
+      {
+        return 'C\'è già un anno scolastico $year/${year + 1}.';
+      }
+
+      return choice.level == null ? 'Scegli il livello di scuola per andare avanti.' : null;
+
+    case SchoolYearStep.school:
+      return choice.school == null ? 'Scegli la scuola per andare avanti.' : null;
+
+    case SchoolYearStep.grade:
+      return choice.grade == null ? 'Scegli la classe per andare avanti.' : null;
+
+    case SchoolYearStep.program:
+      return choice.program == null ? 'Scegli il percorso di studi.' : null;
   }
 }
 
@@ -232,7 +277,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
     super.dispose();
   }
 
-  _Step get _current => _Step.values[_step];
+  SchoolYearStep get _current => SchoolYearStep.values[_step];
 
   void _goTo(int step)
   {
@@ -244,53 +289,15 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
     setState(()
     {
       _movingForward = step > _step;
-      _step = step.clamp(0, _Step.values.length - 1);
+      _step = step.clamp(0, SchoolYearStep.values.length - 1);
     });
   }
 
-  int? get _year
+  int? get _year => parseSchoolStartYear(_yearController.text);
+
+  String? _blockedReason(SchoolYearStep step)
   {
-    final String text = _yearController.text.trim();
-
-    return RegExp(r'^\d{4}$').hasMatch(text) ? int.parse(text) : null;
-  }
-
-  String? _blockedReason(_Step step)
-  {
-    return switch (step)
-    {
-      _Step.when => _whenBlockedReason,
-      _Step.school => _choice.school == null ? 'Scegli la scuola per andare avanti.' : null,
-      _Step.grade => _choice.grade == null ? 'Scegli la classe per andare avanti.' : null,
-      _Step.program => _choice.program == null ? 'Scegli il percorso di studi.' : null,
-    };
-  }
-
-  String? get _whenBlockedReason
-  {
-    final int? year = _year;
-
-    if (year == null)
-    {
-      return 'Inserisci l\'anno di inizio, quattro cifre.';
-    }
-
-    if (year > currentSchoolYearStart())
-    {
-      return 'Non è possibile inserire un anno scolastico futuro.';
-    }
-
-    if (widget.takenYears.contains(year))
-    {
-      return 'C\'è già un anno scolastico ${_yearSpan(year)}.';
-    }
-
-    if (_choice.level == null)
-    {
-      return 'Scegli il livello di scuola per andare avanti.';
-    }
-
-    return null;
+    return schoolYearBlockedReason(step, _choice, year: _year, takenYears: widget.takenYears);
   }
 
   String _yearSpan(int year) => '$year/${year + 1}';
@@ -327,7 +334,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
 
   void _confirm()
   {
-    for (final step in _Step.values)
+    for (final step in SchoolYearStep.values)
     {
       final String? reason = _blockedReason(step);
 
@@ -551,10 +558,10 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
   {
     return switch (_current)
     {
-      _Step.when => _buildWhenStep(),
-      _Step.school => _buildSchoolStep(),
-      _Step.grade => _buildGradeStep(),
-      _Step.program => _buildProgramStep(),
+      SchoolYearStep.when => _buildWhenStep(),
+      SchoolYearStep.school => _buildSchoolStep(),
+      SchoolYearStep.grade => _buildGradeStep(),
+      SchoolYearStep.program => _buildProgramStep(),
     };
   }
 
@@ -562,7 +569,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Passo ${_step + 1} di ${_Step.values.length}',
+      eyebrow: 'Passo ${_step + 1} di ${SchoolYearStep.values.length}',
       title: widget.isEditing
           ? 'Modifica anno scolastico'
           : 'Aggiungi anno scolastico',
@@ -594,7 +601,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
           movingForward: _movingForward,
           maxContentWidth: _cardWidth,
           canGoBack: _step > 0,
-          canGoForward: _step < _Step.values.length - 1,
+          canGoForward: _step < SchoolYearStep.values.length - 1,
           forwardBlockedReason: _blockedReason(_current),
           onBack: () => _goTo(_step - 1),
           onForward: () => _goTo(_step + 1),

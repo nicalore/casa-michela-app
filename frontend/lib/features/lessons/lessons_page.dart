@@ -22,6 +22,7 @@ import '../association/models/opening_day_item.dart';
 import '../association/models/room_item.dart';
 import '../association/models/service_item.dart';
 import '../association/models/study_program_item.dart';
+import '../calendar/utils/day_marks_loader.dart';
 import '../people/models/person_item.dart';
 import 'models/activity_item.dart';
 import 'models/availability_item.dart';
@@ -1944,6 +1945,7 @@ class _LessonsPageState extends State<LessonsPage>
                 isReadOnly: _isCalendarReadOnly,
                 onViewChanged: _onCalendarViewChanged,
                 onLoadDay: _executeLoadDay,
+                loadMarks: (from, to) => loadDayMarks(from, to),
                 onLoadRoomPlan: _executeLoadRoomPlan,
                 onPublishBand: _isCalendarReadOnly ? null : _executePublishBand,
                 onReopenBand: _isCalendarReadOnly ? null : _executeReopenBand,

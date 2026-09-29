@@ -5,10 +5,8 @@ import '../core/platform/app_platform.dart';
 import '../core/utils/browser_tablet_flag.dart';
 import '../mobile/layout/mobile_breakpoints.dart';
 
-// Value of the X-Client-Form-Factor header sent with a sign-in or a refresh,
-// which the server prefers to the user agent. Null leaves it to the server: a
-// browser that is not a tablet reads fine off its agent, and a native view
-// has no size before its first frame.
+// X-Client-Form-Factor for sign-in and refresh, which the server prefers to the user agent.
+// Null defers to the agent: fine for non-tablet browsers; a native view has no size before its first frame.
 String? clientFormFactor()
 {
   if (kIsWeb)

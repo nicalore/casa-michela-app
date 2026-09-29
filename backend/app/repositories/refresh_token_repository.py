@@ -48,8 +48,7 @@ class RefreshTokenRepository:
 
         await self.session.flush()
 
-    # Sessions only: a pending reset link must survive, being how a locked-out
-    # user gets back in.
+    # Sessions only: a pending reset link is how a locked-out user gets back in.
     async def revoke_all_for_account(self, account_tax_code: str) -> None:
         await self.session.execute(
             update(RefreshToken)

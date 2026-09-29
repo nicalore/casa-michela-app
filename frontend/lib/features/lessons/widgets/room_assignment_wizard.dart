@@ -61,8 +61,7 @@ List<TeacherLane> teachersInBuilding(List<TeacherLane> lanes)
       .toList();
 }
 
-// Stored shift durations are ignored: a supervisor covers the hours they
-// currently teach in the room, recomputed from today's lessons.
+// Stored shift durations are ignored: supervisors cover their current lessons in the room.
 bool isRoomPlanSettled({
   required List<TeacherLane> lanes,
   required List<TeacherRoomAssignmentItem> assignments,
@@ -142,7 +141,7 @@ String _hoursLabel(TeacherLane lane)
   return formatMinutesRange(spans.first.$1, spans.last.$2);
 }
 
-// Only in-person lessons count — not availabilities, not attività.
+// Only in-person lessons count, not availabilities or activities.
 List<(int, int)> _lessonSpans(TeacherLane lane)
 {
   return mergeSpans([
@@ -411,8 +410,7 @@ typedef _Bar = ({double start, double end, double alpha});
 
 double _lerp(double from, double to, double t) => from + (to - from) * t;
 
-// Each new span interpolates from the old span it shares the most minutes with;
-// unmatched spans open from, or close onto, their midpoint.
+// New spans tween from the old span they overlap most; unmatched ones open or close at their midpoint.
 List<_Bar> _barsBetween(List<(int, int)> from, List<(int, int)> to, double t)
 {
   final bars = <_Bar>[];
@@ -518,8 +516,7 @@ class _SpanBarsState extends State<_SpanBars> with SingleTickerProviderStateMixi
       return;
     }
 
-    // Retarget from the bar's current position so rapid changes do not restart
-    // from the pre-animation state.
+    // Retarget from the current position so rapid changes do not restart the animation.
     _from = [
       for (final bar in _barsBetween(_from, oldWidget.spans, _progress.value))
         if (bar.alpha >= 0.5) (bar.start.round(), bar.end.round()),

@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../availability/utils/availability_strings.dart';
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/availability_group.dart';
@@ -244,7 +245,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
   String _shutLabelFor(_DayGroup group, String mode, TimeBucket bucket)
   {
-    return _sharedWindow(group, mode, bucket) == null ? 'Associazione chiusa' : 'Disponibilità chiuse';
+    return _sharedWindow(group, mode, bucket) == null ? kAssociationShut : kAvailabilityShut;
   }
 
   bool _hasFrozen(String mode) => _frozen[mode]!.values.any((held) => held.isNotEmpty);
@@ -285,22 +286,15 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
   String _dayTooltip(DateTime day)
   {
+    final bool shut = !_modes.any((mode) => isOpenOn(widget.openingDays, day, mode));
+    final bool closed = !shut && _openModesOn(day).isEmpty;
+
+    if (shut || closed || _isOwn)
+    {
+      return availabilityDayRefusal(day, shut: shut, closed: closed);
+    }
+
     final when = formatAvailableDayLabel(day).toLowerCase();
-
-    if (!_modes.any((mode) => isOpenOn(widget.openingDays, day, mode)))
-    {
-      return "L'Associazione è chiusa $when.";
-    }
-
-    if (_openModesOn(day).isEmpty)
-    {
-      return 'Le prenotazioni di $when sono chiuse.';
-    }
-
-    if (_isOwn)
-    {
-      return 'Hai già una disponibilità $when: aprila per cambiarne gli orari.';
-    }
 
     final teacher = _selectedTeacher;
     final name = teacher == null ? 'Il docente' : '${teacher.firstName} ${teacher.lastName}';
@@ -436,7 +430,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     if (_days.isEmpty)
     {
-      return 'Scegli almeno una giornata per andare avanti.';
+      return kPickADay;
     }
 
     return null;
@@ -499,9 +493,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     {
       CustomSnackBar.show(
         context: context,
-        message: _isEditing
-            ? 'Indica almeno un orario di disponibilità, oppure elimina la disponibilità dalla sua scheda.'
-            : 'Indica almeno un orario di disponibilità.',
+        message: availabilityMissingHours(editing: _isEditing),
         isError: true,
       );
 
@@ -528,7 +520,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
           CustomSnackBar.show(
             context: context,
             message: _isOwn
-                ? 'Hai già una disponibilità $when: aprila per cambiarne gli orari.'
+                ? availabilityTakenWarning(day, mode)
                 : 'Il docente ha già una disponibilità $when: aprila per cambiarne gli orari.',
             isError: true,
           );
@@ -625,13 +617,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     CustomSnackBar.show(
       context: context,
-      message: clearing
-          ? 'Disponibilità eliminata con successo!'
-          : _isEditing
-              ? 'Disponibilità modificata con successo!'
-              : (_days.length == 1
-                  ? 'Disponibilità creata con successo!'
-                  : '${_days.length} disponibilità create con successo!'),
+      message: availabilitySaved(clearing: clearing, editing: _isEditing, days: _days.length),
       isError: false,
     );
 
@@ -665,9 +651,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       days: widget.availableDays,
       values: _days,
       onChanged: _selectDays,
-      summary: (count) => _groups.length > 1
-          ? 'Le giornate scelte hanno orari di apertura diversi: gli orari verranno chiesti separatamente.'
-          : 'Gli orari scelti varranno su tutte e $count le giornate.',
+      summary: (count) => availabilityDaysSummary(count, split: _groups.length > 1),
       isEnabled: _isDayOffered,
       disabledTooltip: _dayTooltip,
     );
@@ -685,7 +669,6 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
               value: teacher.fiscalCode,
               label: '${teacher.firstName} ${teacher.lastName}',
               leading: PersonAvatar(person: teacher, size: PersonAvatar.pickerSize),
-              subtitle: teacher.taughtSubjects.isEmpty ? null : teacher.taughtSubjects.take(3).join(', '),
             ))
         .toList();
 
@@ -716,7 +699,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     return BandScheduleField<AvailabilityItem>(
       schedule: _bandsOf(group)[mode]!,
       windowFor: (bucket) => _windowFor(group, mode, bucket),
-      offLabel: 'Non disponibile',
+      offLabel: kNotAvailable,
       disabledLabelFor: _isOwn ? (bucket) => _shutLabelFor(group, mode, bucket) : null,
       frozen: _isEditing ? _frozen[mode]! : const {},
       onChanged: () => setState(() {}),
@@ -742,15 +725,12 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     );
   }
 
-  ({String question, String hint}) get _guide
+  AvailabilityGuide get _guide
   {
     if (_onAskedCard)
     {
       return _isOwn
-          ? (
-              question: 'Quando?',
-              hint: 'Indica le giornate in cui sei disponibile. Puoi selezionarne anche più di una.',
-            )
+          ? kOwnDaysGuide
           : (
               question: 'Per chi e quando?',
               hint: 'Indica il docente per cui stai creando la disponibilità e i giorni. '
@@ -761,10 +741,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     if (_shownCard.mode == kPresenceMode)
     {
       return _isOwn
-          ? (
-              question: 'Quando sei disponibile in presenza?',
-              hint: 'Indica gli orari in cui puoi essere in Associazione per le lezioni.',
-            )
+          ? kOwnPresenceGuide
           : (
               question: 'Quando è disponibile in presenza?',
               hint: 'Indica gli orari in cui il docente può essere presente in Associazione '
@@ -773,10 +750,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     }
 
     return _isOwn
-        ? (
-            question: 'Quando sei disponibile online?',
-            hint: 'Indica gli orari in cui puoi fare lezione a distanza.',
-          )
+        ? kOwnOnlineGuide
         : (
             question: 'Quando è disponibile online?',
             hint: 'Indica gli orari in cui il docente può effettuare lezioni a distanza.',
@@ -790,7 +764,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     return AppDialogStack(
       eyebrow: _eyebrow,
-      title: _isEditing ? 'Modifica disponibilità' : 'Nuova disponibilità',
+      title: _isEditing ? kEditAvailabilityTitle : kNewAvailabilityTitle,
       shrinkTitle: true,
       onClose: _closeDialog,
       maxWidth: _stackMaxWidth,

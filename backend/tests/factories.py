@@ -10,6 +10,7 @@ from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.member import Member
+from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
 from app.models.parent import Parent
@@ -165,6 +166,29 @@ async def make_president(db: AsyncSession) -> Administrator:
     return await _persist(
         db,
         Administrator(tax_code=person.tax_code, role="PRESIDENT"),
+    )
+
+
+# Defaults to this year's, which counts through its 31-day renewal window.
+async def make_membership(
+    db: AsyncSession,
+    member: Student | Teacher,
+    *,
+    year: int | None = None,
+    revocation: MembershipRevocationEnum = MembershipRevocationEnum.NO,
+) -> Membership:
+    year = date.today().year if year is None else year
+
+    return await _persist(
+        db,
+        Membership(
+            member_tax_code=member.tax_code,
+            year=year,
+            start_date=date(year, 1, 1),
+            end_date=date(year, 12, 31),
+            renewal_period_days=31 if revocation == MembershipRevocationEnum.NO else 0,
+            revocation=revocation,
+        ),
     )
 
 

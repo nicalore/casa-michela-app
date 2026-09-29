@@ -19,8 +19,7 @@ PROFILE_IMAGE_QUALITY: Final[int] = 85
 INVALID_IMAGE_ERROR: Final[str] = "Sono ammesse solo immagini JPEG, PNG e WEBP"
 
 
-# Shrunk, flattened onto white and named after its content, so a URL always
-# serves the same bytes and may be cached for good; the previous file goes.
+# Named after its content, so a URL always serves the same bytes and caches for good.
 def store_profile_image(tax_code: str, previous_url: str | None, content: bytes) -> str:
     try:
         with Image.open(BytesIO(content)) as image:

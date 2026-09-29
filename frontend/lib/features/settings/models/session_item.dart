@@ -27,10 +27,9 @@ class SessionItem
 
   final SessionDeviceType deviceType;
 
-  // "Chrome su macOS", "App iOS"; null when the server could not tell.
+  // Null when the server could not tell the device.
   final String? deviceName;
 
-  // The session this very client is using.
   final bool isCurrent;
 
   const SessionItem({

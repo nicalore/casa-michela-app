@@ -7,14 +7,20 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_page_container.dart';
+import '../../../shared/utils/day_marks.dart';
+import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
-import '../../../shared/widgets/app_today_button.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
+import '../../association/tabs/opening_hours/calendar_bounds.dart';
 import '../../lessons/widgets/lessons_closed_day.dart';
+import '../utils/calendar_strings.dart';
+import '../utils/day_marks_loader.dart';
+
+export '../utils/calendar_strings.dart' show ofBand;
 
 const double _headerGap = 22;
 
@@ -28,16 +34,6 @@ const double kCalendarCardGap = 52;
 
 // Below this the page lists lessons instead of a timeline, matching the admin's kCalendarTimelineMin.
 const double kCalendarListBelow = 900;
-
-String ofBand(TimeBucket band)
-{
-  return switch (band)
-  {
-    TimeBucket.morning => 'della mattina',
-    TimeBucket.afternoon => 'del pomeriggio',
-    TimeBucket.evening => 'della sera',
-  };
-}
 
 class CalendarPageShell extends StatelessWidget
 {
@@ -55,6 +51,9 @@ class CalendarPageShell extends StatelessWidget
   final bool isClosed;
   final String? closureNote;
 
+  // What the month picker marks besides closures; closures alone when null.
+  final DayMarksLoader? loadMarks;
+
   final List<Widget> Function(bool isNarrow) tools;
 
   final Widget Function(bool isNarrow) body;
@@ -71,6 +70,7 @@ class CalendarPageShell extends StatelessWidget
     required this.onDay,
     required this.isClosed,
     this.closureNote,
+    this.loadMarks,
     this.tools = _noTools,
     required this.body,
   });
@@ -122,12 +122,25 @@ class CalendarPageShell extends StatelessWidget
     );
   }
 
+  Widget _buildCalendarButton()
+  {
+    final DateTime now = DateTime.now();
+
+    return AppCalendarButton(
+      selected: day,
+      first: oldestKeptDay(now),
+      last: DateTime(now.year, now.month, now.day),
+      onPicked: onDay,
+      loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to),
+    );
+  }
+
   Widget _buildDayNav()
   {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppTodayButton(onTap: () => onDay(DateTime.now())),
+        _buildCalendarButton(),
         const SizedBox(width: 12),
         _buildBackArrow(),
         const SizedBox(width: 8),
@@ -140,18 +153,13 @@ class CalendarPageShell extends StatelessWidget
 
   Widget _buildNarrowDayNav()
   {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
       children: [
-        Row(
-          children: [
-            _buildBackArrow(),
-            Expanded(child: Center(child: _buildDayLabel())),
-            _buildForwardArrow(),
-          ],
-        ),
-        const SizedBox(height: 12),
-        AppTodayButton(onTap: () => onDay(DateTime.now())),
+        _buildCalendarButton(),
+        const SizedBox(width: 8),
+        _buildBackArrow(),
+        Expanded(child: Center(child: _buildDayLabel())),
+        _buildForwardArrow(),
       ],
     );
   }
@@ -353,8 +361,8 @@ class CalendarUnpublishedBand extends StatelessWidget
   {
     return CalendarEmptyBand(
       icon: Icons.pending_actions_rounded,
-      title: 'Calendario in preparazione',
-      message: 'Il calendario ${ofBand(band)} non è ancora stato pubblicato.',
+      title: kCalendarUnpublishedTitle,
+      message: unpublishedBandMessage(band),
     );
   }
 }

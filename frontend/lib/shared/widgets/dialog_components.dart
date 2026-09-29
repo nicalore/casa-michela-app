@@ -8,8 +8,7 @@ import '../../core/theme/app_theme.dart';
 
 const double _dialogBlurSigma = 8.0;
 
-// Logical pixels per snapshot pixel: on web toImageSync reads the pixels back
-// from the GPU, and under a blur this wide a quarter scale loses nothing visible.
+// Web toImageSync reads back from the GPU; under this blur a quarter scale loses nothing.
 const double _snapshotScale = 0.25;
 
 const Color _dialogTint = Colors.black;
@@ -32,8 +31,7 @@ Future<T?> showBlurredDialog<T>({
   required BuildContext context,
   required String barrierLabel,
   required WidgetBuilder builder,
-  // Off for every dialog: the paper between floating pieces counts as "outside",
-  // and a tap landing there must not throw the edit away.
+  // Off everywhere: a tap on the paper between floating pieces would discard the edit.
   bool barrierDismissible = false,
   Duration transitionDuration = const Duration(milliseconds: 560),
 })
@@ -48,8 +46,7 @@ Future<T?> showBlurredDialog<T>({
   );
 }
 
-// A popup that turns opaque once its snapshot stands in for the routes below:
-// the framework then stops painting and ticking them.
+// Turns opaque once the snapshot stands in, so the routes below stop painting and ticking.
 class _BlurredDialogRoute<T> extends PopupRoute<T>
 {
   final WidgetBuilder builder;
@@ -137,8 +134,7 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
   }
 }
 
-// The window behind a dialog, rasterised and blurred once: a texture per frame
-// instead of a full-window BackdropFilter on every frame the dialog is open.
+// Blurred once into a texture instead of a full-window BackdropFilter every frame.
 class _Backdrop
 {
   final ui.Image image;
@@ -216,15 +212,10 @@ class _DialogBackdrop extends StatefulWidget
 // Outlives the transition ticks and frees the snapshot with the route.
 class _DialogBackdropState extends State<_DialogBackdrop>
 {
-  // Share of the opening over which the snapshot fades in. Quick on purpose:
-  // the window behind is gone before the hover of the button that opened the
-  // dialog visibly fades, so the button stays lit under the blur instead of
-  // going out and coming back with the snapshot.
+  // Quick: the capture beats the opener's hover fade, so that button stays lit under the blur.
   static const double _fadeInShare = 0.2;
 
-  // Share of the closing, at its end, over which the snapshot fades out: the
-  // length of a button's hover animation, so the button it froze lit goes out
-  // as it would on its own, and the blur leaves with the last piece.
+  // A button's hover duration, so the button frozen lit fades out as it would on its own.
   static const double _fadeOutShare = 0.32;
 
   _Backdrop? _backdrop;
@@ -258,7 +249,6 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     super.dispose();
   }
 
-  // Quick in at the start of the opening, quick out at the end of the closing.
   static CurvedAnimation _fadeOf(Animation<double> animation)
   {
     return CurvedAnimation(
@@ -268,9 +258,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     );
   }
 
-  // Right after the first frame, which shows nothing of the dialog yet: the
-  // window behind stays as it was at the tap, and every frame of the opening
-  // is a cross-fade over a texture rather than a live blur.
+  // After the first frame, before the dialog shows: the opening cross-fades a texture, not a live blur.
   void _captureAfterFrame()
   {
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -301,9 +289,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     final double progress = widget.animation.value;
     final double fade = _fade.value;
 
-    // Closing over another dialog: that one is leaving underneath, piece by
-    // piece, which the snapshot would freeze. The blur goes live for these
-    // frames, ramping down as it always did.
+    // Closing over another dialog: the snapshot would freeze the one leaving below, so blur live.
     final bool liveClose =
         widget.animation.status == AnimationStatus.reverse && _BlurredDialogRoute._open > 1;
 

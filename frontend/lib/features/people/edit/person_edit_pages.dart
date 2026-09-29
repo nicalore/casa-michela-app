@@ -284,7 +284,6 @@ bool stepIsAnswered(PersonEditStepId id, PersonEditForm form)
   return stepBlockedReason(id, form) == null;
 }
 
-// What a choice step still waits for, shown on its disabled forward arrow.
 String? stepBlockedReason(PersonEditStepId id, PersonEditForm form)
 {
   return switch (id)

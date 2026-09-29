@@ -14,11 +14,12 @@ from fastapi import (
     status,
 )
 from pydantic import StringConstraints
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, delete, exists, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import aliased, joinedload, selectinload
 from sqlalchemy.sql.base import ExecutableOption
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
@@ -60,12 +61,14 @@ from app.repositories.lesson_repository import LessonRepository
 from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
+    UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
     AdminUpdateData,
     ChildInfoResponse,
     CourseParticipantUpdateData,
     EarlyExitScheduleResponse,
     GeneralDataUpdate,
     MembershipResponse,
+    OwnEducationData,
     ParentInfoResponse,
     ParentUpdatePayload,
     PersonMembershipsUpdate,
@@ -82,7 +85,6 @@ from app.schemas.person import (
     StaffUpdateData,
     StudentUpdateData,
     TeacherCompetenceUpdateItem,
-    TeacherEducationData,
     TeacherProgramResponse,
     TeacherSubjectResponse,
     TeacherUpdateData,
@@ -1807,6 +1809,21 @@ def _catalogue_entry(
     return PersonResponse(**data)
 
 
+# Enrolled: the latest membership, unrevoked and inside its renewal window.
+def _enrolled() -> ColumnElement[bool]:
+    newer = aliased(Membership)
+
+    return exists().where(
+        Membership.member_tax_code == Member.tax_code,
+        Membership.revocation == MembershipRevocationEnum.NO,
+        Membership.end_date + Membership.renewal_period_days > today_in_rome(),
+        ~exists().where(
+            newer.member_tax_code == Membership.member_tax_code,
+            newer.year > Membership.year,
+        ),
+    )
+
+
 # Whole staff in the reduced view, each with the disciplines teachable to the
 # reader's pupils. Declared before /{tax_code}, which would otherwise claim it.
 @router.get(
@@ -1823,7 +1840,7 @@ async def get_active_teachers(
         .join(Member, Member.tax_code == Person.tax_code)
         .join(Staff, Staff.tax_code == Member.tax_code)
         .join(Teacher, Teacher.tax_code == Staff.tax_code)
-        .where(Member.collaborating_active.is_(True))
+        .where(Member.collaborating_active.is_(True), _enrolled())
         .options(*_person_load_options())
         .order_by(Person.first_name, Person.last_name)
     )
@@ -2778,7 +2795,6 @@ async def update_teacher_competences(
     identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
-    # Administrators, or the teacher themself while still on first access.
     own = "TEACHER" in identity.roles and tax_code.upper() == identity.tax_code
 
     if not (identity.is_admin or (own and not identity.onboarding_completed)):
@@ -2927,7 +2943,7 @@ async def update_not_preferred_teachers(
 @router.put("/{tax_code}/teacher-education", status_code=status.HTTP_200_OK)
 async def update_teacher_education(
     tax_code: str,
-    payload: TeacherEducationData,
+    payload: OwnEducationData,
     identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
@@ -2955,7 +2971,12 @@ async def update_teacher_education(
             detail=_NO_TEACHER_PROFILE_ERROR,
         )
 
-    teacher.is_high_school_student = payload.is_high_school_student
+    if teacher.is_high_school_student and payload.university_education is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=UNIVERSITY_EDUCATION_AT_HIGH_SCHOOL_ERROR,
+        )
+
     teacher.school_education = payload.school_education
     teacher.university_education = payload.university_education
     teacher.updated_at = datetime.now(UTC)

@@ -5,8 +5,7 @@ import '../../../../core/utils/time_bucket.dart';
 import '../../../../shared/widgets/band_time_range_slider.dart';
 import '../../models/weekly_template_item.dart';
 
-// One band as a wizard edits it: open between start and end, closed when both
-// are null. The slider always sets both or neither.
+// Closed when both are null; the slider always sets both or neither.
 class BandDraft
 {
   TimeOfDay? start;
@@ -72,7 +71,6 @@ bool draftsMatchRows(BandDrafts drafts, Map<TimeBucket, List<WeeklyTemplateItem>
   });
 }
 
-// Two days with the same key open alike in every band.
 String rowsSignature(Map<TimeBucket, List<WeeklyTemplateItem>> rows)
 {
   return [
@@ -83,7 +81,6 @@ String rowsSignature(Map<TimeBucket, List<WeeklyTemplateItem>> rows)
   ].join('|');
 }
 
-// Mattina, pomeriggio and sera, each open or closed.
 class BandSliders extends StatelessWidget
 {
   final BandDrafts drafts;
