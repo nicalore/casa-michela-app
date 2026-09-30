@@ -6,7 +6,9 @@ from itertools import chain
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.rbac import IdentityContext
 from app.models.booking import Booking
+from app.models.competence_waiver import CompetenceWaiver
 from app.models.person import Person
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.repositories.person_repository import PersonRepository
@@ -74,6 +76,30 @@ async def booking_people(
     )
 
     return people, avoided
+
+
+# Booking id → teachers let take it without the competence; empty for non-admins.
+async def competence_waivers(
+    db: AsyncSession,
+    identity: IdentityContext,
+    bookings: Iterable[Booking],
+) -> dict[int, list[str]]:
+    booking_ids = [booking.id for booking in bookings]
+
+    if not identity.is_admin or not booking_ids:
+        return {}
+
+    rows = await db.execute(
+        select(CompetenceWaiver.booking_id, CompetenceWaiver.teacher_tax_code)
+        .where(CompetenceWaiver.booking_id.in_(booking_ids))
+        .order_by(CompetenceWaiver.teacher_tax_code),
+    )
+    waivers: dict[int, list[str]] = {}
+
+    for booking_id, teacher_tax_code in rows.all():
+        waivers.setdefault(booking_id, []).append(teacher_tax_code)
+
+    return waivers
 
 
 def person_options(

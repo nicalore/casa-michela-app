@@ -9,11 +9,17 @@ const Duration _enterDuration = Duration(milliseconds: 450);
 const Duration _exitDuration = Duration(milliseconds: 250);
 const Duration _defaultVisibleDuration = Duration(seconds: 5);
 
+// Longer, so there is time to reach the button.
+const Duration _withButtonVisibleDuration = Duration(seconds: 10);
+
 const Duration kUntilDismissed = Duration(days: 1);
 
 const Offset _enterOffset = Offset(0, 1.5);
 
 const double _bottomMargin = 24;
+
+// Also the button's height: no taller than the icon, offering it never grows the bar.
+const double _iconSize = 28;
 const double _horizontalMargin = 20;
 
 enum SnackBarTone
@@ -74,6 +80,14 @@ class _SnackBarStyle
   }
 }
 
+class SnackBarButton
+{
+  final String label;
+  final VoidCallback onPressed;
+
+  const SnackBarButton({required this.label, required this.onPressed});
+}
+
 abstract final class CustomSnackBar
 {
   static OverlayEntry? _currentOverlayEntry;
@@ -86,7 +100,8 @@ abstract final class CustomSnackBar
     required String message,
     bool isError = false,
     SnackBarTone? tone,
-    Duration duration = _defaultVisibleDuration,
+    Duration? duration,
+    SnackBarButton? button,
   })
   {
     dismiss();
@@ -103,7 +118,8 @@ abstract final class CustomSnackBar
         key: key,
         message: message,
         tone: tone ?? (isError ? SnackBarTone.error : SnackBarTone.info),
-        duration: duration,
+        duration: duration ?? _visibleDurationWith(button),
+        button: button,
         // Identity check: a newer snackbar may have replaced this entry while it was
         // fading, and it must not be removed twice.
         onDismissed: ()
@@ -123,7 +139,7 @@ abstract final class CustomSnackBar
     overlay.insert(entry);
   }
 
-  static bool keepShowing()
+  static bool keepShowing({SnackBarButton? button})
   {
     final state = _currentKey?.currentState;
 
@@ -132,9 +148,14 @@ abstract final class CustomSnackBar
       return false;
     }
 
-    state.keepFor(_defaultVisibleDuration);
+    state.keepFor(_visibleDurationWith(button), button: button);
 
     return true;
+  }
+
+  static Duration _visibleDurationWith(SnackBarButton? button)
+  {
+    return button == null ? _defaultVisibleDuration : _withButtonVisibleDuration;
   }
 
   static void dismiss()
@@ -150,6 +171,7 @@ class _SnackBarAnimationWidget extends StatefulWidget
   final String message;
   final SnackBarTone tone;
   final Duration duration;
+  final SnackBarButton? button;
   final VoidCallback onDismissed;
 
   const _SnackBarAnimationWidget({
@@ -158,6 +180,7 @@ class _SnackBarAnimationWidget extends StatefulWidget
     required this.tone,
     required this.duration,
     required this.onDismissed,
+    this.button,
   });
 
   @override
@@ -172,6 +195,10 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
   late final Animation<Offset> _slideAnimation;
 
   Timer? _dismissTimer;
+
+  late SnackBarButton? _button = widget.button;
+
+  bool _isLeaving = false;
 
   @override
   void initState()
@@ -202,10 +229,28 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
     _dismissTimer = Timer(widget.duration, _startExitAnimation);
   }
 
-  void keepFor(Duration duration)
+  void keepFor(Duration duration, {SnackBarButton? button})
   {
     _dismissTimer?.cancel();
     _dismissTimer = Timer(duration, _startExitAnimation);
+
+    if (button != null)
+    {
+      setState(() => _button = button);
+    }
+  }
+
+  // Leaves before acting, and only once: a second click must not repeat the action.
+  void _press(SnackBarButton button)
+  {
+    if (_isLeaving)
+    {
+      return;
+    }
+
+    _dismissTimer?.cancel();
+    _startExitAnimation();
+    button.onPressed();
   }
 
   @override
@@ -222,6 +267,8 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
     {
       return;
     }
+
+    _isLeaving = true;
 
     _animationController
         .animateTo(0.0, duration: _exitDuration, curve: Curves.easeIn)
@@ -260,7 +307,7 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
               ),
               child: Row(
                 children: [
-                  Icon(style.icon, color: style.iconColor, size: 28),
+                  Icon(style.icon, color: style.iconColor, size: _iconSize),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
@@ -275,8 +322,76 @@ class _SnackBarAnimationWidgetState extends State<_SnackBarAnimationWidget>
                       ),
                     ),
                   ),
+                  if (_button case final button?) ...[
+                    const SizedBox(width: 16),
+                    _SnackBarButtonView(
+                      label: button.label,
+                      style: style,
+                      onTap: () => _press(button),
+                    ),
+                  ],
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SnackBarButtonView extends StatefulWidget
+{
+  final String label;
+  final _SnackBarStyle style;
+  final VoidCallback onTap;
+
+  const _SnackBarButtonView({
+    required this.label,
+    required this.style,
+    required this.onTap,
+  });
+
+  @override
+  State<_SnackBarButtonView> createState() => _SnackBarButtonViewState();
+}
+
+class _SnackBarButtonViewState extends State<_SnackBarButtonView>
+{
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final style = widget.style;
+
+    // Opaque both ways: lerping a translucent white into a translucent red dips darker midway.
+    Color over(Color color) => Color.alphaBlend(color, style.background);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          height: _iconSize,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: over(_hover ? style.iconColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.6)),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: over(style.iconColor.withValues(alpha: _hover ? 0.7 : 0.4)), width: 1.5),
+          ),
+          child: Text(
+            widget.label,
+            maxLines: 1,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: style.textColor,
             ),
           ),
         ),

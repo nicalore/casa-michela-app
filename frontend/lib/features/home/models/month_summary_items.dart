@@ -29,10 +29,33 @@ class TeacherMonthFiguresItem
   }
 }
 
+class TeacherWeekItem
+{
+  final int given;
+  final int needed;
+
+  const TeacherWeekItem({required this.given, required this.needed});
+
+  bool get isShort => given < needed;
+
+  factory TeacherWeekItem.fromJson(Map<String, dynamic> json)
+  {
+    return TeacherWeekItem(
+      given: json['given'] as int,
+      needed: json['required'] as int,
+    );
+  }
+}
+
 class TeacherMonthSummaryItem extends TeacherMonthFiguresItem
 {
   final bool isBelowMonthlyThreshold;
-  final bool isBelowWeeklyThreshold;
+
+  // Weeks already over with fewer days than asked.
+  final int shortWeekCount;
+
+  // The week still being filled; null once no opening is left in it.
+  final TeacherWeekItem? currentWeek;
 
   // Cut at the same day and hour, so the two compare like for like.
   final TeacherMonthFiguresItem lastMonth;
@@ -43,7 +66,8 @@ class TeacherMonthSummaryItem extends TeacherMonthFiguresItem
     required super.workedMinutes,
     super.grossCompensation,
     required this.isBelowMonthlyThreshold,
-    required this.isBelowWeeklyThreshold,
+    required this.shortWeekCount,
+    this.currentWeek,
     required this.lastMonth,
   });
 
@@ -57,7 +81,10 @@ class TeacherMonthSummaryItem extends TeacherMonthFiguresItem
       workedMinutes: now.workedMinutes,
       grossCompensation: now.grossCompensation,
       isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
-      isBelowWeeklyThreshold: json['is_below_weekly_threshold'] as bool,
+      shortWeekCount: json['short_week_count'] as int,
+      currentWeek: json['current_week'] == null
+          ? null
+          : TeacherWeekItem.fromJson(json['current_week'] as Map<String, dynamic>),
       lastMonth: TeacherMonthFiguresItem.fromJson(json['last_month'] as Map<String, dynamic>),
     );
   }

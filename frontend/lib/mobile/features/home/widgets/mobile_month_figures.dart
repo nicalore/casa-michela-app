@@ -9,7 +9,7 @@ import '../../../../features/home/widgets/home_month_section.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 
-// The thresholds behind the month's warnings ("Meno di 9", "Meno di 2").
+// The thresholds the two gauges fill towards.
 const int _monthlyThreshold = 9;
 const int _weeklyThreshold = 2;
 
@@ -41,7 +41,7 @@ class MobileMonthFigures extends StatelessWidget
         return _Gauge(
           fraction: month.weeklyAvailabilities / _weeklyThreshold,
           label: '${figure.value}/$_weeklyThreshold',
-          warning: month.isBelowWeeklyThreshold,
+          warning: figure.warning != null,
         );
 
       case 2:
@@ -175,12 +175,14 @@ class _Aside extends StatelessWidget
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: color,
+        Flexible(
+          child: Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ),
       ],

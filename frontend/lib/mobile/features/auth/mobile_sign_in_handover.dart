@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../shared/widgets/mobile_handover.dart';
+import '../../shared/widgets/mobile_load_switcher.dart';
 import '../shell/mobile_role_shell.dart';
 import 'mobile_login_page.dart';
 
 const Duration _duration = Duration(milliseconds: 1000);
+
+// Past this the area comes in with its wheel rather than keep the button spinning.
+const Duration _holdCap = Duration(seconds: 3);
 
 // Both pages stay on screen, untouchable, while the card becomes the menu bar and back.
 class MobileSignInHandover extends StatefulWidget
@@ -27,22 +33,87 @@ class _MobileSignInHandoverState extends State<MobileSignInHandover> with Single
 
   final GlobalKey _cardKey = GlobalKey();
 
+  final ValueNotifier<int> _holds = ValueNotifier<int>(0);
+
+  // Signed in, the area built out of sight until its pages have their data.
+  bool _waiting = false;
+  Timer? _cap;
+
   @override
   void didUpdateWidget(MobileSignInHandover oldWidget)
   {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.signedIn != oldWidget.signedIn)
+    if (widget.signedIn == oldWidget.signedIn)
     {
-      widget.signedIn ? _progress.forward() : _progress.reverse();
+      return;
+    }
+
+    if (widget.signedIn)
+    {
+      _waiting = true;
+      // After the area's first build, when its pages have asked to be waited for.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startWhenLoaded());
+    }
+    else
+    {
+      _stopWaiting();
+      _progress.reverse();
     }
   }
 
   @override
   void dispose()
   {
+    _stopWaiting();
+    _holds.dispose();
     _progress.dispose();
     super.dispose();
+  }
+
+  void _startWhenLoaded()
+  {
+    if (!mounted || !_waiting)
+    {
+      return;
+    }
+
+    if (_holds.value == 0)
+    {
+      _start();
+
+      return;
+    }
+
+    _holds.addListener(_onHolds);
+    _cap = Timer(_holdCap, _start);
+  }
+
+  void _onHolds()
+  {
+    if (_holds.value == 0)
+    {
+      _start();
+    }
+  }
+
+  void _stopWaiting()
+  {
+    _waiting = false;
+    _holds.removeListener(_onHolds);
+    _cap?.cancel();
+    _cap = null;
+  }
+
+  void _start()
+  {
+    if (!mounted || !_waiting)
+    {
+      return;
+    }
+
+    setState(_stopWaiting);
+    _progress.forward();
   }
 
   // Rebuilds at the end to drop the old page; didUpdateWidget covers the start.
@@ -64,16 +135,20 @@ class _MobileSignInHandoverState extends State<MobileSignInHandover> with Single
       progress: _progress,
       cardKey: _cardKey,
       moving: moving,
-      child: IgnorePointer(
-        ignoring: moving,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (status != AnimationStatus.dismissed)
-              const KeyedSubtree(key: ValueKey('area'), child: MobileRoleShell()),
-            if (status != AnimationStatus.completed)
-              const KeyedSubtree(key: ValueKey('signIn'), child: MobileLoginPage()),
-          ],
+      waiting: _waiting,
+      child: MobileHoldScope(
+        holds: _holds,
+        child: IgnorePointer(
+          ignoring: moving || _waiting,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_waiting || status != AnimationStatus.dismissed)
+                const KeyedSubtree(key: ValueKey('area'), child: MobileRoleShell()),
+              if (status != AnimationStatus.completed)
+                const KeyedSubtree(key: ValueKey('signIn'), child: MobileLoginPage()),
+            ],
+          ),
         ),
       ),
     );

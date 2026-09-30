@@ -27,10 +27,14 @@ class LowAvailabilityTeacherItem
   final double weeklyAverage;
   final int availabilityCount;
 
+  // Weeks already over with fewer days than asked.
+  final int shortWeekCount;
+
   const LowAvailabilityTeacherItem({
     required this.teacher,
     required this.weeklyAverage,
     required this.availabilityCount,
+    required this.shortWeekCount,
   });
 
   factory LowAvailabilityTeacherItem.fromJson(Map<String, dynamic> json)
@@ -39,6 +43,7 @@ class LowAvailabilityTeacherItem
       teacher: PersonOptionItem.fromJson(json['teacher'] as Map<String, dynamic>),
       weeklyAverage: parseDouble(json['weekly_average']),
       availabilityCount: json['availability_count'] as int,
+      shortWeekCount: json['short_week_count'] as int,
     );
   }
 }

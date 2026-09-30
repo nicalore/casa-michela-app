@@ -91,7 +91,7 @@ class TeacherAvailabilityCard extends StatelessWidget
         TeacherWarningSection(
           title: 'Sotto 2 disponibilità a settimana',
           flagged: statistics.lowAvailabilityTeachers,
-          describe: (item) => '${item.weeklyAverage.toStringAsFixed(1)} a settimana',
+          describe: (item) => '${item.shortWeekCount} ${item.shortWeekCount == 1 ? 'settimana' : 'settimane'}',
           listMaxHeight: listHeight,
         ),
         if (paired) ...[

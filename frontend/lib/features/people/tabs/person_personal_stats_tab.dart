@@ -306,9 +306,8 @@ class _Figure extends StatelessWidget
 List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {required bool forOwner})
 {
   return [
-    if (statistics.isBelowWeeklyThreshold)
-      'Nel periodo selezionato la media è sotto le 2 disponibilità a '
-          'settimana (${statistics.weeklyAverage.toStringAsFixed(1)}).',
+    if (statistics.shortWeekCount > 0)
+      'Settimane con meno di 2 disponibilità: ${statistics.shortWeekCount}.',
     if (statistics.isBelowMonthlyThreshold)
       'Nel mese selezionato ${forOwner ? 'hai' : 'ha'} dato meno di 9 disponibilità '
           '(${statistics.totalAvailabilities}).',

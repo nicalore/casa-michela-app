@@ -76,7 +76,7 @@ class _MobileTeacherHomePageState extends State<MobileTeacherHomePage>
   void initState()
   {
     super.initState();
-    _reload();
+    _reload().whenComplete(MobileHoldScope.hold(context));
   }
 
   @override

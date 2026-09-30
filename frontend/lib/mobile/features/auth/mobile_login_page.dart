@@ -58,6 +58,25 @@ class _MobileLoginPageState extends State<MobileLoginPage>
 
   double _shift(MobileEntrancePart part) => _entrance?.shift(part) ?? 0;
 
+  // Signed in, it spins while the next page loads out of sight, never on the way out.
+  bool get _spinning
+  {
+    final MobileEntranceMotion? entrance = _entrance;
+    final MobileHandover? handover = _handover;
+
+    if (entrance != null && entrance.leaving)
+    {
+      return entrance.waiting;
+    }
+
+    if (handover != null && (handover.waiting || handover.moving))
+    {
+      return handover.waiting;
+    }
+
+    return _busy;
+  }
+
   @override
   void didChangeDependencies()
   {
@@ -245,7 +264,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
             MobileGoldButton(
               label: 'Accedi',
               icon: Icons.arrow_forward_rounded,
-              busy: _busy,
+              busy: _spinning,
               onPressed: _login,
             ),
             const SizedBox(height: 18),

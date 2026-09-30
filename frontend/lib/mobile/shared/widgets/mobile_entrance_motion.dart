@@ -35,11 +35,15 @@ class MobileEntranceMotion extends InheritedWidget
 
   final bool moving;
 
+  // The arriving page loading out of sight before anything moves.
+  final bool waiting;
+
   const MobileEntranceMotion({
     super.key,
     required this.progress,
     required this.leaving,
     required this.moving,
+    required this.waiting,
     required super.child,
   });
 
@@ -82,7 +86,10 @@ class MobileEntranceMotion extends InheritedWidget
   @override
   bool updateShouldNotify(MobileEntranceMotion oldWidget)
   {
-    return progress != oldWidget.progress || leaving != oldWidget.leaving || moving != oldWidget.moving;
+    return progress != oldWidget.progress ||
+        leaving != oldWidget.leaving ||
+        moving != oldWidget.moving ||
+        waiting != oldWidget.waiting;
   }
 }
 

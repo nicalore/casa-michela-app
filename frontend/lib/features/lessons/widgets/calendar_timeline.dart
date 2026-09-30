@@ -974,7 +974,8 @@ class CalendarTimeline extends StatefulWidget
   final LessonPlacement Function(ScheduledActivity scheduled, int startMinutes, int endMinutes)?
       onPlanActivityResize;
 
-  final void Function(String refusal)? onRefused;
+  // [insertAnyway] is given when only the teacher's missing competence stands in the way.
+  final void Function(String refusal, {VoidCallback? insertAnyway})? onRefused;
 
   final ValueListenable<CarriedRequest?>? carried;
 
@@ -1220,9 +1221,17 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       return;
     }
 
+    final resized = lanes
+        .expand((lane) => lane.lessons)
+        .where((lesson) => lesson.id == placement.lessonId)
+        .firstOrNull;
+
     if (!placement.isValid)
     {
-      widget.onRefused?.call(placement.refusal ?? kTooShortRefusal);
+      widget.onRefused?.call(
+        placement.refusal ?? kTooShortRefusal,
+        insertAnyway: resized == null ? null : _insertAnyway(LessonDragPayload(lesson: resized), placement),
+      );
       _carriedAt.value = CarriedPlacement.idle;
 
       return;
@@ -1247,15 +1256,22 @@ class _CalendarTimelineState extends State<CalendarTimeline>
       return;
     }
 
-    final lesson = lanes
-        .expand((lane) => lane.lessons)
-        .where((lesson) => lesson.id == placement.lessonId)
-        .firstOrNull;
-
-    if (lesson != null)
+    if (resized != null)
     {
-      widget.onDrop?.call(LessonDragPayload(lesson: lesson), placement);
+      widget.onDrop?.call(LessonDragPayload(lesson: resized), placement);
     }
+  }
+
+  VoidCallback? _insertAnyway(CalendarDragPayload payload, LessonPlacement placement)
+  {
+    final drop = widget.onDrop;
+
+    if (drop == null || !placement.lacksCompetence)
+    {
+      return null;
+    }
+
+    return () => drop(payload, placement.waivingCompetence());
   }
 
   void _onMove(DragTargetDetails<CalendarDragPayload> details)
@@ -1334,7 +1350,10 @@ class _CalendarTimelineState extends State<CalendarTimeline>
     if (!placement.isValid)
     {
       _setPreview(null);
-      widget.onRefused?.call(placement.refusal ?? kOutsideAvailabilityRefusal);
+      widget.onRefused?.call(
+        placement.refusal ?? kOutsideAvailabilityRefusal,
+        insertAnyway: _insertAnyway(details.data, placement),
+      );
       _carriedAt.value = CarriedPlacement.idle;
 
       return;

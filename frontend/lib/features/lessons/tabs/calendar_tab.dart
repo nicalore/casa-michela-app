@@ -143,6 +143,7 @@ class CalendarTab extends StatefulWidget
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     required Function(String) onError,
+    bool waiveCompetence,
   })? onCreateLesson;
 
   final Future<LessonItem?> Function({
@@ -153,6 +154,7 @@ class CalendarTab extends StatefulWidget
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     required Function(String) onError,
+    bool waiveCompetence,
   })? onUpdateLesson;
 
   final Future<bool> Function(int id, Function(String) onError)? onDeleteLesson;
@@ -189,6 +191,7 @@ class CalendarTab extends StatefulWidget
     required TimeOfDay secondStartTime,
     required TimeOfDay secondEndTime,
     required Function(String) onError,
+    bool waiveCompetence,
   })? onSplitLesson;
 
   final List<CalendarPublicationItem> publications;
@@ -969,6 +972,7 @@ class _CalendarTabState extends State<CalendarTab>
         startTime: timeOfDayFromMinutes(placement.startMinutes),
         endTime: timeOfDayFromMinutes(placement.endMinutes),
         onError: report,
+        waiveCompetence: placement.waivesCompetence,
       );
     }
     else
@@ -1013,6 +1017,7 @@ class _CalendarTabState extends State<CalendarTab>
           secondStartTime: timeOfDayFromMinutes(remainder.startMinutes),
           secondEndTime: timeOfDayFromMinutes(remainder.endMinutes),
           onError: report,
+          waiveCompetence: placement.waivesCompetence,
         );
 
         if (!mounted || written == null)
@@ -1038,6 +1043,7 @@ class _CalendarTabState extends State<CalendarTab>
         startTime: timeOfDayFromMinutes(placement.startMinutes),
         endTime: timeOfDayFromMinutes(placement.endMinutes),
         onError: report,
+        waiveCompetence: placement.waivesCompetence,
       );
     }
 
@@ -1225,9 +1231,22 @@ class _CalendarTabState extends State<CalendarTab>
     CustomSnackBar.show(context: context, message: refusal, isError: true);
   }
 
-  void _reportCarriedRefusal(String refusal)
+  void _reportCarriedRefusal(String refusal, {VoidCallback? insertAnyway})
   {
-    if (_carriedRefusal == refusal && CustomSnackBar.keepShowing())
+    final button = insertAnyway == null
+        ? null
+        : SnackBarButton(
+            label: 'Inserisci comunque',
+            onPressed: ()
+            {
+              if (mounted)
+              {
+                insertAnyway();
+              }
+            },
+          );
+
+    if (_carriedRefusal == refusal && CustomSnackBar.keepShowing(button: button))
     {
       _carriedRefusal = null;
 
@@ -1235,7 +1254,7 @@ class _CalendarTabState extends State<CalendarTab>
     }
 
     _carriedRefusal = null;
-    CustomSnackBar.show(context: context, message: refusal, isError: true);
+    CustomSnackBar.show(context: context, message: refusal, isError: true, button: button);
   }
 
   Future<void> _planBooking(SchedulableBooking entry, CalendarDayIndex index) async
@@ -1291,6 +1310,7 @@ class _CalendarTabState extends State<CalendarTab>
       startTime: timeOfDayFromMinutes(placement.startMinutes),
       endTime: timeOfDayFromMinutes(placement.endMinutes),
       onError: (message) => failure = message,
+      waiveCompetence: placement.waivesCompetence,
     );
 
     if (!mounted)

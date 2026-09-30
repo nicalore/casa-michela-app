@@ -7,15 +7,21 @@ from app.api.booking_presentation import (
     AvoidedTeachers,
     booking_people,
     booking_summaries,
+    competence_waivers,
     person_options,
 )
 from app.api.dependencies import DbSession
-from app.api.rbac import CurrentIdentity, require_role
+from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.models.person import Person
 from app.models.presence import Presence
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.person import PersonOption
-from app.schemas.presence import PresenceCreate, PresenceResponse, PresenceUpdate
+from app.schemas.presence import (
+    CompetenceWaiverResponse,
+    PresenceCreate,
+    PresenceResponse,
+    PresenceUpdate,
+)
 from app.services.presence_service import PresenceService
 
 router = APIRouter(
@@ -29,6 +35,7 @@ def _to_response(
     presence: Presence,
     people: dict[str, Person],
     avoided: AvoidedTeachers,
+    waivers: dict[int, list[str]],
 ) -> PresenceResponse:
     avoided_tax_codes = avoided.get(presence.student_tax_code, [])
 
@@ -44,6 +51,14 @@ def _to_response(
         booker=PersonOption.model_validate(people[presence.booker_tax_code]),
         bookings=booking_summaries(presence.bookings, people, avoided_tax_codes),
         not_preferred_teachers=person_options(avoided_tax_codes, people),
+        competence_waivers=[
+            CompetenceWaiverResponse(
+                booking_id=booking.id,
+                teacher_tax_code=teacher_tax_code,
+            )
+            for booking in presence.bookings
+            for teacher_tax_code in waivers.get(booking.id, [])
+        ],
         created_at=presence.created_at,
         updated_at=presence.updated_at,
     )
@@ -51,16 +66,21 @@ def _to_response(
 
 async def to_responses(
     db: DbSession,
+    identity: IdentityContext,
     presences: Sequence[Presence],
 ) -> list[PresenceResponse]:
+    bookings = [booking for presence in presences for booking in presence.bookings]
     people, avoided = await booking_people(
         db,
-        [booking for presence in presences for booking in presence.bookings],
+        bookings,
         students=(presence.student_tax_code for presence in presences),
         also=(presence.booker_tax_code for presence in presences),
     )
+    waivers = await competence_waivers(db, identity, bookings)
 
-    return [_to_response(presence, people, avoided) for presence in presences]
+    return [
+        _to_response(presence, people, avoided, waivers) for presence in presences
+    ]
 
 
 @router.get("/", response_model=list[PresenceResponse])
@@ -81,7 +101,7 @@ async def list_presences(
         date_to=date_to,
     )
 
-    return await to_responses(db, presences)
+    return await to_responses(db, identity, presences)
 
 
 @router.post("/", response_model=PresenceResponse)
@@ -93,7 +113,7 @@ async def create_presence(
     service = PresenceService(PresenceRepository(db))
     presence = await service.create(identity, payload)
 
-    return (await to_responses(db, [presence]))[0]
+    return (await to_responses(db, identity, [presence]))[0]
 
 
 @router.get("/{presence_id}", response_model=PresenceResponse)
@@ -105,7 +125,7 @@ async def get_presence(
     service = PresenceService(PresenceRepository(db))
     presence = await service.get_owned_or_404(identity, presence_id)
 
-    return (await to_responses(db, [presence]))[0]
+    return (await to_responses(db, identity, [presence]))[0]
 
 
 @router.put("/{presence_id}", response_model=PresenceResponse)
@@ -118,7 +138,7 @@ async def update_presence(
     service = PresenceService(PresenceRepository(db))
     presence = await service.update(identity, presence_id, payload)
 
-    return (await to_responses(db, [presence]))[0]
+    return (await to_responses(db, identity, [presence]))[0]
 
 
 @router.delete("/{presence_id}")

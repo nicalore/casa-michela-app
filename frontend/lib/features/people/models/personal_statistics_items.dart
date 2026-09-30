@@ -23,8 +23,10 @@ class TeacherPersonalStatisticsItem
   // Always the last twelve months, whatever period is selected.
   final List<MemberTrendItem> monthlyTrend;
 
+  // Weeks already over with fewer days than asked.
+  final int shortWeekCount;
+
   // isBelowMonthlyThreshold is meaningful only when isSingleMonth is true.
-  final bool isBelowWeeklyThreshold;
   final bool isSingleMonth;
   final bool isBelowMonthlyThreshold;
 
@@ -32,7 +34,7 @@ class TeacherPersonalStatisticsItem
     required this.weeklyAverage,
     required this.totalAvailabilities,
     required this.monthlyTrend,
-    required this.isBelowWeeklyThreshold,
+    required this.shortWeekCount,
     required this.isSingleMonth,
     required this.isBelowMonthlyThreshold,
   });
@@ -43,7 +45,7 @@ class TeacherPersonalStatisticsItem
       weeklyAverage: parseDouble(json['weekly_average']),
       totalAvailabilities: json['total_availabilities'] as int,
       monthlyTrend: monthlyTrendPoints(json['monthly_trend']),
-      isBelowWeeklyThreshold: json['is_below_weekly_threshold'] as bool,
+      shortWeekCount: json['short_week_count'] as int,
       isSingleMonth: json['is_single_month'] as bool,
       isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
     );

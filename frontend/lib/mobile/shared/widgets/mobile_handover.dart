@@ -32,11 +32,16 @@ class MobileHandover extends InheritedWidget
 
   final bool moving;
 
+  // Signed in, the area loading out of sight before anything moves.
+  final bool waiting;
+
+
   const MobileHandover({
     super.key,
     required this.progress,
     required this.cardKey,
     required this.moving,
+    required this.waiting,
     required super.child,
   });
 
@@ -71,7 +76,10 @@ class MobileHandover extends InheritedWidget
   @override
   bool updateShouldNotify(MobileHandover oldWidget)
   {
-    return progress != oldWidget.progress || cardKey != oldWidget.cardKey || moving != oldWidget.moving;
+    return progress != oldWidget.progress ||
+        cardKey != oldWidget.cardKey ||
+        moving != oldWidget.moving ||
+        waiting != oldWidget.waiting;
   }
 }
 

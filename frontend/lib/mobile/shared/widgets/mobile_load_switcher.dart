@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'mobile_entrance_motion.dart';
+import 'mobile_handover.dart';
+
 const Duration kMobileRiseDuration = Duration(milliseconds: 520);
 const Duration _dropDuration = Duration(milliseconds: 260);
 
@@ -40,9 +43,13 @@ class MobileLoadSwitcher extends StatelessWidget
     final Widget? child = this.child;
     final double height = MediaQuery.sizeOf(context).height;
 
+    // Loaded out of sight before its page comes in: nothing to see rise.
+    final bool unseen = (MobileHandover.maybeOf(context)?.waiting ?? false) ||
+        (MobileEntranceMotion.maybeOf(context)?.waiting ?? false);
+
     final Widget switcher = AnimatedSwitcher(
-      duration: kMobileRiseDuration,
-      reverseDuration: _dropDuration,
+      duration: unseen ? Duration.zero : kMobileRiseDuration,
+      reverseDuration: unseen ? Duration.zero : _dropDuration,
       switchInCurve: Curves.easeOutCubic,
       // Runs in reverse on the way out, so the leaving child speeds up.
       switchOutCurve: Curves.easeOutCubic,
@@ -84,6 +91,66 @@ class MobileLoadSwitcher extends StatelessWidget
           )
         : switcher;
   }
+}
+
+// Around pages that may come in: a page loading what it shows asks every
+// transition bringing it in to wait until the release is called, so it comes
+// in complete rather than with its wheel.
+class MobileHoldScope extends StatelessWidget
+{
+  final ValueNotifier<int> holds;
+  final Widget child;
+
+  const MobileHoldScope({super.key, required this.holds, required this.child});
+
+  // Callable from initState.
+  static VoidCallback hold(BuildContext context)
+  {
+    final List<ValueNotifier<int>> scopes = [];
+
+    context.visitAncestorElements((element)
+    {
+      final Widget widget = element.widget;
+
+      if (widget is MobileHoldScope)
+      {
+        scopes.add(widget.holds);
+      }
+
+      return true;
+    });
+
+    for (final ValueNotifier<int> holds in scopes)
+    {
+      holds.value++;
+    }
+
+    bool released = false;
+
+    // After the frame that builds what was loaded: that frame still sees the
+    // wait, so the content switches in place instead of rising.
+    return ()
+    {
+      if (released)
+      {
+        return;
+      }
+
+      released = true;
+
+      WidgetsBinding.instance.addPostFrameCallback((_)
+      {
+        for (final ValueNotifier<int> holds in scopes)
+        {
+          holds.value--;
+        }
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
 // For content built anew once data arrives, where no switcher held the wait.

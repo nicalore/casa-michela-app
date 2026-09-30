@@ -23,9 +23,6 @@ import 'widgets/mobile_first_access_parts.dart';
 import 'widgets/mobile_record_step.dart';
 import 'widgets/mobile_school_step.dart';
 
-const Duration _turn = Duration(milliseconds: 340);
-const Curve _turnCurve = Curves.easeInOutCubic;
-
 // Before the first step: the welcome page.
 const int _welcome = -1;
 
@@ -75,7 +72,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   void initState()
   {
     super.initState();
-    _load();
+    _load().whenComplete(MobileHoldScope.hold(context));
   }
 
   Future<void> _load() async
@@ -228,7 +225,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       final OnboardingStep step = _steps[index];
 
       // After the slide, not over it.
-      Future<void>.delayed(_turn, ()
+      Future<void>.delayed(kMobileFlowTurn, ()
       {
         if (mounted && _index == index)
         {
@@ -481,9 +478,9 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
   {
     return ClipRect(
       child: AnimatedSwitcher(
-        duration: _turn,
-        switchInCurve: _turnCurve,
-        switchOutCurve: _turnCurve,
+        duration: kMobileFlowTurn,
+        switchInCurve: kMobileFlowTurnCurve,
+        switchOutCurve: kMobileFlowTurnCurve,
         layoutBuilder: (current, previous) => Stack(
           fit: StackFit.expand,
           children: [...previous, ?current],

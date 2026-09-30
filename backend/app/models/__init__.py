@@ -8,6 +8,7 @@ from app.models.calendar_activity import CalendarActivity
 from app.models.calendar_band_lock import CalendarBandLock
 from app.models.calendar_publication import CalendarPublication
 from app.models.calendar_teacher_exclusion import CalendarTeacherExclusion
+from app.models.competence_waiver import CompetenceWaiver
 from app.models.course import Course
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
@@ -55,6 +56,7 @@ __all__ = [
     "CalendarBandLock",
     "CalendarPublication",
     "CalendarTeacherExclusion",
+    "CompetenceWaiver",
     "Course",
     "CourseParticipant",
     "EarlyExitSchedule",

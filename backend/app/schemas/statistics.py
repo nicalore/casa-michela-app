@@ -98,9 +98,12 @@ class LowAvailabilityTeacherItem(BaseModel):
     weekly_average: float
     availability_count: int
 
+    # Weeks already over with fewer days than asked.
+    short_week_count: int
+
 
 class TeacherAvailabilityStatisticsResponse(BaseModel):
-    # Slots per week across the whole staff.
+    # Days per week across the whole staff, each week read whole.
     weekly_average: float
     total_availabilities: int
     top_teachers: list[TeacherAvailabilityRankItem]
@@ -151,8 +154,11 @@ class TeacherPersonalStatisticsResponse(BaseModel):
     # Always the last twelve months, whatever period was requested.
     monthly_trend: list[MonthlyCountItem]
 
-    # Period average against the two-days-a-week threshold.
+    # The average under two, as apps before short_week_count word it.
     is_below_weekly_threshold: bool
+
+    # Weeks already over with fewer days than asked.
+    short_week_count: int
 
     # Under nine days in the month, answerable only about a single month.
     is_single_month: bool

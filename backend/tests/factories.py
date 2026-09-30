@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 from itertools import count
 from string import ascii_uppercase
 
@@ -13,6 +13,7 @@ from app.models.member import Member
 from app.models.membership import Membership, MembershipRevocationEnum
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.opening_day import OpeningDay
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
 from app.models.person import (
@@ -375,6 +376,26 @@ async def make_room(
         db,
         Room(name=name or f"Aula {next(_counter)}", capacity=capacity),
     )
+
+
+# Presence afternoons from Monday to Friday, both ends included.
+async def make_weekday_openings(db: AsyncSession, first: date, last: date) -> None:
+    day = first
+
+    while day <= last:
+        if day.weekday() < 5:
+            db.add(
+                OpeningDay(
+                    date=day,
+                    mode="presence",
+                    start_time=time(14),
+                    end_time=time(19),
+                ),
+            )
+
+        day += timedelta(days=1)
+
+    await db.flush()
 
 
 async def make_availability(

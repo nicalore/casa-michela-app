@@ -42,4 +42,4 @@ async def create_lesson_request(
 ) -> list[PresenceResponse]:
     presences = await _service(db).create(identity, payload)
 
-    return await to_responses(db, presences)
+    return await to_responses(db, identity, presences)

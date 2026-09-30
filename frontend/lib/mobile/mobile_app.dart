@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -13,6 +15,10 @@ import 'layout/mobile_rotation_veil.dart';
 import 'shared/mobile_links.dart';
 import 'shared/widgets/mobile_background.dart';
 import 'shared/widgets/mobile_entrance_motion.dart';
+import 'shared/widgets/mobile_load_switcher.dart';
+
+// Past this the page comes in with its wheel rather than keep the button spinning.
+const Duration _holdCap = Duration(seconds: 3);
 
 // Scaffolds stay transparent over one backdrop that outlives the pages.
 class MobileApp extends StatefulWidget
@@ -148,6 +154,12 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
   Key? _leavingKey;
   Widget? _leaving;
 
+  final ValueNotifier<int> _holds = ValueNotifier<int>(0);
+
+  // The arriving page built out of sight until it has its data.
+  bool _waiting = false;
+  Timer? _cap;
+
   @override
   void didUpdateWidget(_EntranceSwitcher oldWidget)
   {
@@ -157,6 +169,8 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
     {
       return;
     }
+
+    _stopWaiting();
 
     // Returning to the page still leaving: no motion.
     if (oldWidget.placeholder || widget.pageKey == _leavingKey)
@@ -173,14 +187,65 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
 
     _leavingKey = oldWidget.pageKey;
     _leaving = oldWidget.page;
-    _motion.forward(from: 0);
+    _motion.value = 0;
+    _waiting = true;
+
+    // After the arriving page's first build, when its pages have asked to be waited for.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startWhenLoaded());
   }
 
   @override
   void dispose()
   {
+    _stopWaiting();
+    _holds.dispose();
     _motion.dispose();
     super.dispose();
+  }
+
+  void _startWhenLoaded()
+  {
+    if (!mounted || !_waiting)
+    {
+      return;
+    }
+
+    if (_holds.value == 0)
+    {
+      _start();
+
+      return;
+    }
+
+    _holds.addListener(_onHolds);
+    _cap = Timer(_holdCap, _start);
+  }
+
+  void _onHolds()
+  {
+    if (_holds.value == 0)
+    {
+      _start();
+    }
+  }
+
+  void _stopWaiting()
+  {
+    _waiting = false;
+    _holds.removeListener(_onHolds);
+    _cap?.cancel();
+    _cap = null;
+  }
+
+  void _start()
+  {
+    if (!mounted || !_waiting)
+    {
+      return;
+    }
+
+    setState(_stopWaiting);
+    _motion.forward(from: 0);
   }
 
   // The start comes from didUpdateWidget, which builds anyway.
@@ -203,21 +268,36 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
     final Key? leavingKey = _leavingKey;
     final Widget? leaving = _leaving;
 
-    return IgnorePointer(
-      ignoring: moving,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (leavingKey != null && leaving != null)
+    return MobileHoldScope(
+      holds: _holds,
+      child: IgnorePointer(
+        ignoring: moving || _waiting,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (leavingKey != null && leaving != null)
+              KeyedSubtree(
+                key: leavingKey,
+                child: MobileEntranceMotion(
+                  progress: _motion,
+                  leaving: true,
+                  moving: moving,
+                  waiting: _waiting,
+                  child: leaving,
+                ),
+              ),
             KeyedSubtree(
-              key: leavingKey,
-              child: MobileEntranceMotion(progress: _motion, leaving: true, moving: moving, child: leaving),
+              key: widget.pageKey,
+              child: MobileEntranceMotion(
+                progress: _motion,
+                leaving: false,
+                moving: moving,
+                waiting: _waiting,
+                child: widget.page,
+              ),
             ),
-          KeyedSubtree(
-            key: widget.pageKey,
-            child: MobileEntranceMotion(progress: _motion, leaving: false, moving: moving, child: widget.page),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -3,15 +3,18 @@ from datetime import UTC, date, datetime, time
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.calendar_publication import CalendarPublication
+from app.models.competence_waiver import CompetenceWaiver
 from app.models.presence import Presence
 from app.models.student import Student
 from app.models.teacher import Teacher
+from app.models.teaching_competence import TeachingCompetence
 from app.repositories.lesson_repository import LessonRepository, LessonVisibility
 from app.schemas.lesson import LessonCreate, LessonUpdate
 from app.services.lesson_service import LessonService
@@ -92,6 +95,10 @@ def payload(
         start=start,
         end=end,
     )
+
+
+def waived(lesson: LessonCreate) -> LessonCreate:
+    return lesson.model_copy(update={"waive_competence": True})
 
 
 def pupil_payload(
@@ -613,6 +620,113 @@ async def test_a_teacher_without_the_competence_is_refused(
 
     assert error.value.status_code == 400
     assert "competenza" in error.value.detail
+
+
+async def test_a_waived_competence_seats_the_teacher_without_granting_it(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, competent=False)
+
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+
+    held = await db.scalars(
+        select(TeachingCompetence).where(
+            TeachingCompetence.teacher_tax_code == built.teacher.tax_code,
+        ),
+    )
+
+    assert lesson.availability_id == built.availability.id
+    assert held.all() == []
+
+
+async def test_a_waived_lesson_moves_without_a_new_waiver(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, competent=False, duration=120)
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+
+    moved = LessonUpdate(
+        availability_id=built.availability.id,
+        start_time=time(16),
+        end_time=time(17),
+        booking_ids=[built.booking.id],
+        association_subject_ids=[built.subject_id],
+    )
+    updated, _ = await service(db).update(ADMIN_IDENTITY, lesson.id, moved)
+
+    assert updated.start_time == time(16)
+
+
+async def test_a_waived_lesson_taken_off_goes_back_without_a_new_waiver(
+    db: AsyncSession,
+) -> None:
+    built = await scene(db, competent=False)
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+
+    await service(db).delete(ADMIN_IDENTITY, lesson.id)
+    again, _ = await service(db).create(ADMIN_IDENTITY, payload(built))
+
+    assert again.id != lesson.id
+
+
+async def test_a_waiver_is_for_one_teacher_only(db: AsyncSession) -> None:
+    built = await scene(db, competent=False)
+    lesson, _ = await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+    await service(db).delete(ADMIN_IDENTITY, lesson.id)
+
+    other = await make_availability(
+        db,
+        await make_teacher(db),
+        day=DAY,
+        start_time=_OPEN_FROM,
+        end_time=_OPEN_TO,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await service(db).create(
+            ADMIN_IDENTITY,
+            lesson_payload(
+                other,
+                booking_ids=[built.booking.id],
+                association_subject_ids=[built.subject_id],
+            ),
+        )
+
+    assert "competenza" in error.value.detail
+
+
+async def test_a_waiver_is_for_one_booking_only(db: AsyncSession) -> None:
+    built = await scene(db, competent=False)
+    await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+
+    second = await make_booking(
+        db,
+        built.presence,
+        association_subject_id=built.subject_id,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await service(db).create(
+            ADMIN_IDENTITY,
+            payload(
+                built,
+                start=time(17),
+                end=time(18),
+                booking_ids=[second.id],
+            ),
+        )
+
+    assert "competenza" in error.value.detail
+
+
+async def test_a_competent_teacher_leaves_no_waiver(db: AsyncSession) -> None:
+    built = await scene(db)
+
+    await service(db).create(ADMIN_IDENTITY, waived(payload(built)))
+
+    waivers = await db.scalars(select(CompetenceWaiver))
+
+    assert waivers.all() == []
 
 
 async def test_an_unwanted_teacher_is_a_warning_and_not_a_refusal(

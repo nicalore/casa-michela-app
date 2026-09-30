@@ -121,6 +121,9 @@ class CalendarDayIndex
   // Excluded teachers keep their lanes but nothing is offered to or lands on them.
   final Set<String> excludedTeachers;
 
+  // (booking id, teacher) once let through without the competence: no longer asked.
+  final Set<(int, String)> competenceWaivers;
+
   const CalendarDayIndex({
     required this.day,
     required this.band,
@@ -136,6 +139,7 @@ class CalendarDayIndex
     required this.disciplinesByProgramme,
     required this.disciplineNames,
     this.excludedTeachers = const {},
+    this.competenceWaivers = const {},
   });
 
   int get bandStart => bandStartMinutes(band);
@@ -149,6 +153,11 @@ class CalendarDayIndex
   }
 
   int get bandEnd => bandEndMinutes(band);
+
+  bool waivesCompetence(Iterable<int> bookingIds, String teacherTaxCode)
+  {
+    return bookingIds.isNotEmpty && bookingIds.every((id) => competenceWaivers.contains((id, teacherTaxCode)));
+  }
 
   factory CalendarDayIndex.build({
     required DateTime day,
@@ -240,6 +249,11 @@ class CalendarDayIndex
       },
       disciplineNames: {for (final subject in associationSubjects) subject.id: subject.name},
       excludedTeachers: excludedTeachers,
+      competenceWaivers: {
+        for (final entry in bookings.values)
+          for (final waiver in entry.presence.competenceWaivers)
+            if (waiver.$1 == entry.id) waiver,
+      },
     );
   }
 
@@ -454,6 +468,12 @@ class LessonPlacement
   final String? refusal;
   final List<String> warnings;
 
+  // Refused for the teacher's competence alone, which the admin may waive.
+  final bool lacksCompetence;
+
+  // The admin chose to insert it anyway: the server skips its competence check.
+  final bool waivesCompetence;
+
   const LessonPlacement({
     required this.teacherTaxCode,
     required this.startMinutes,
@@ -468,9 +488,13 @@ class LessonPlacement
     this.activityId,
     this.refusal,
     this.warnings = const [],
+    this.lacksCompetence = false,
+    this.waivesCompetence = false,
   });
 
   bool get isValid => refusal == null && availabilityId != null;
+
+  bool get isValidWaivingCompetence => isValid || lacksCompetence;
 
   int get minutes => endMinutes - startMinutes;
 
@@ -493,6 +517,27 @@ class LessonPlacement
       activityId: activityId,
       refusal: refusal,
       warnings: warnings,
+      lacksCompetence: lacksCompetence,
+      waivesCompetence: waivesCompetence,
+    );
+  }
+
+  LessonPlacement waivingCompetence()
+  {
+    return LessonPlacement(
+      teacherTaxCode: teacherTaxCode,
+      startMinutes: startMinutes,
+      endMinutes: endMinutes,
+      kind: kind,
+      availabilityId: availabilityId,
+      mode: mode,
+      bookingIds: bookingIds,
+      associationSubjectIds: associationSubjectIds,
+      lessonId: lessonId,
+      deleteLessonId: deleteLessonId,
+      activityId: activityId,
+      warnings: warnings,
+      waivesCompetence: true,
     );
   }
 }
@@ -687,6 +732,11 @@ String? _refuseCompetence({
   required Set<int> disciplineIds,
 })
 {
+  if (index.waivesCompetence([for (final entry in bookings) entry.id], teacherTaxCode))
+  {
+    return null;
+  }
+
   final missing = missingCompetence(
     index,
     teacherTaxCode: teacherTaxCode,
@@ -785,7 +835,13 @@ LessonPlacement validatePlacement({
   int? deleteLessonId,
 })
 {
-  LessonPlacement placement(String? refusal, {int? availabilityId, String mode = kPresenceMode, List<String> warnings = const []})
+  LessonPlacement placement(
+    String? refusal, {
+    int? availabilityId,
+    String mode = kPresenceMode,
+    List<String> warnings = const [],
+    bool lacksCompetence = false,
+  })
   {
     return LessonPlacement(
       teacherTaxCode: teacherTaxCode,
@@ -799,6 +855,7 @@ LessonPlacement validatePlacement({
       deleteLessonId: deleteLessonId,
       refusal: refusal,
       warnings: warnings,
+      lacksCompetence: lacksCompetence,
     );
   }
 
@@ -877,12 +934,6 @@ LessonPlacement validatePlacement({
         deleteLessonId: deleteLessonId,
       ) ??
       _refuseDisciplines(bookings: bookings, disciplineIds: disciplineIds) ??
-      _refuseCompetence(
-        index: index,
-        teacherTaxCode: teacherTaxCode,
-        bookings: bookings,
-        disciplineIds: disciplineIds,
-      ) ??
       _refuseBudget(
         index: index,
         bookings: bookings,
@@ -904,7 +955,21 @@ LessonPlacement validatePlacement({
         notPreferredWarning(lane.teacher.fullName, entry.presence.student.fullName),
   ];
 
-  return placement(null, availabilityId: availability.id, mode: mode, warnings: warnings);
+  // Checked last, so that when it refuses it is the only obstacle left to waive.
+  final competenceRefusal = _refuseCompetence(
+    index: index,
+    teacherTaxCode: teacherTaxCode,
+    bookings: bookings,
+    disciplineIds: disciplineIds,
+  );
+
+  return placement(
+    competenceRefusal,
+    availabilityId: availability.id,
+    mode: mode,
+    warnings: warnings,
+    lacksCompetence: competenceRefusal != null,
+  );
 }
 
 // Must be asked of the index as it stands before the write.
@@ -1069,12 +1134,13 @@ Set<int> missingCompetence(
 
 Set<String> teachersWhoCouldTeach(CalendarDayIndex index, CalendarDragPayload payload)
 {
-  final (disciplineIds, services, students) = switch (payload)
+  final (disciplineIds, services, students, bookingIds) = switch (payload)
   {
     BookingDragPayload(:final entry, :final disciplineIds) => (
         disciplineIds,
         {?entry.booking.serviceName},
         {entry.presence.studentTaxCode},
+        {entry.id},
       ),
     LessonDragPayload(:final lesson) => (
         lesson.disciplineIds,
@@ -1083,22 +1149,28 @@ Set<String> teachersWhoCouldTeach(CalendarDayIndex index, CalendarDragPayload pa
             if (link.booking.serviceName != null) link.booking.serviceName!,
         },
         lesson.studentTaxCodes,
+        lesson.bookingIds,
       ),
     // Activities require no competence: any teacher qualifies.
-    ActivityDragPayload() => (const <int>{}, const <String>{}, const <String>{}),
+    ActivityDragPayload() => (const <int>{}, const <String>{}, const <String>{}, const <int>{}),
   };
 
   final programmes = programmesOf(index, students);
 
+  bool competent(String teacherTaxCode)
+  {
+    return missingCompetence(
+          index,
+          teacherTaxCode: teacherTaxCode,
+          disciplineIds: disciplineIds,
+          programmes: programmes,
+        ).isEmpty &&
+        services.difference(index.serviceNamesByTeacher[teacherTaxCode] ?? const <String>{}).isEmpty;
+  }
+
   return {
     for (final lane in index.callableLanes)
-      if (missingCompetence(
-                index,
-                teacherTaxCode: lane.teacherTaxCode,
-                disciplineIds: disciplineIds,
-                programmes: programmes,
-              ).isEmpty &&
-          services.difference(index.serviceNamesByTeacher[lane.teacherTaxCode] ?? const <String>{}).isEmpty)
+      if (index.waivesCompetence(bookingIds, lane.teacherTaxCode) || competent(lane.teacherTaxCode))
         lane.teacherTaxCode,
   };
 }
@@ -1140,7 +1212,7 @@ LessonPlacement planDrop(CalendarDayIndex index, BookingDragPayload drag, String
 
     final placement = join(grown);
 
-    if (placement.isValid || grown == host.endMinutes)
+    if (placement.isValidWaivingCompetence || grown == host.endMinutes)
     {
       return placement;
     }
@@ -1519,12 +1591,12 @@ LessonPlacement? planMerge(
   final rightwards = grownFrom(survivor.startMinutes);
   final leftwards = grownFrom(survivor.endMinutes - minutes);
 
-  if (!rightwards.isValid)
+  if (!rightwards.isValidWaivingCompetence)
   {
-    return leftwards.isValid ? leftwards : rightwards;
+    return leftwards.isValidWaivingCompetence ? leftwards : rightwards;
   }
 
-  if (!leftwards.isValid)
+  if (!leftwards.isValidWaivingCompetence)
   {
     return rightwards;
   }

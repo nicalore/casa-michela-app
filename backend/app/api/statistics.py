@@ -73,6 +73,14 @@ from app.schemas.statistics import (
     TeacherPersonalStatisticsResponse,
     TeacherSubjectsStatisticsResponse,
 )
+from app.services.availability_weeks import (
+    AvailabilityWeek,
+    days_given,
+    teacher_weeks,
+    week_frames,
+    weekly_average,
+    weeks_of,
+)
 from app.services.teaching_competence import lacks_competence
 
 # Admin-only figures about everybody; a person's own month is served by api/home.py.
@@ -1343,15 +1351,13 @@ def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
     )
 
 
-# Active collaborators under the threshold; outer-joined so those with zero days appear.
-async def _teachers_under(
+# Active collaborators, fewest days first; outer-joined so those with none appear.
+async def _collaborators(
     db: AsyncSession,
     window: tuple[date, date],
-    threshold: int,
-) -> list[LowAvailabilityTeacherItem]:
+) -> Sequence[Any]:
     counts = _availability_counts_stmt(window).subquery()
     given = func.coalesce(counts.c.availability_count, 0)
-    weeks = _weeks_of(window)
 
     query = (
         select(
@@ -1366,20 +1372,23 @@ async def _teachers_under(
         .join(Member, Member.tax_code == Staff.tax_code)
         .join(Person, Person.tax_code == Teacher.tax_code)
         .outerjoin(counts, counts.c.teacher_tax_code == Teacher.tax_code)
-        .where(Member.collaborating_active.is_(True), given < threshold)
+        .where(Member.collaborating_active.is_(True))
         .order_by(given, Person.last_name, Person.first_name)
     )
 
-    result = await db.execute(query)
+    return (await db.execute(query)).all()
 
-    return [
-        LowAvailabilityTeacherItem(
-            teacher=_person_option_of(row),
-            weekly_average=round(row.given / weeks, 1) if weeks > 0 else 0.0,
-            availability_count=row.given,
-        )
-        for row in result.all()
-    ]
+
+def _low_availability_item(
+    row: Any,
+    weeks: Sequence[AvailabilityWeek],
+) -> LowAvailabilityTeacherItem:
+    return LowAvailabilityTeacherItem(
+        teacher=_person_option_of(row),
+        weekly_average=round(weekly_average(weeks), 1),
+        availability_count=row.given,
+        short_week_count=sum(1 for week in weeks if week.is_short),
+    )
 
 
 @router.get(
@@ -1393,7 +1402,8 @@ async def get_teacher_availability_statistics(
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
 ) -> TeacherAvailabilityStatisticsResponse:
     window = _stats_window(months, year, month)
-    weeks = _weeks_of(window)
+    frames = await week_frames(db, *window, today_in_rome())
+    given_by_teacher = await days_given(db, frames)
 
     # One named month or "the last month": both are a single calendar month.
     is_single_month = months == 1 or (year is not None and month is not None)
@@ -1408,7 +1418,9 @@ async def get_teacher_availability_statistics(
         or 0
     )
 
-    weekly_average = total_availabilities / weeks if weeks > 0 else 0.0
+    given_in_weeks = sum(
+        sum(by_week.values()) for by_week in given_by_teacher.values()
+    )
 
     top_query = (
         select(
@@ -1428,8 +1440,16 @@ async def get_teacher_availability_statistics(
     )
     top_result = await db.execute(top_query)
 
+    collaborators = [
+        _low_availability_item(
+            row,
+            weeks_of(frames, given_by_teacher.get(row.tax_code, {})),
+        )
+        for row in await _collaborators(db, window)
+    ]
+
     return TeacherAvailabilityStatisticsResponse(
-        weekly_average=round(weekly_average, 1),
+        weekly_average=round(given_in_weeks / len(frames), 1) if frames else 0.0,
         total_availabilities=total_availabilities,
         top_teachers=[
             TeacherAvailabilityRankItem(
@@ -1438,14 +1458,17 @@ async def get_teacher_availability_statistics(
             )
             for row in top_result.all()
         ],
-        low_availability_teachers=await _teachers_under(
-            db,
-            window,
-            round(LOW_AVAILABILITY_WEEKLY_THRESHOLD * weeks),
+        low_availability_teachers=sorted(
+            (item for item in collaborators if item.short_week_count > 0),
+            key=lambda item: -item.short_week_count,
         ),
         is_single_month=is_single_month,
         low_monthly_teachers=(
-            await _teachers_under(db, window, LOW_AVAILABILITY_MONTHLY_THRESHOLD)
+            [
+                item
+                for item in collaborators
+                if item.availability_count < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+            ]
             if is_single_month
             else []
         ),
@@ -1497,8 +1520,7 @@ async def get_teacher_personal_statistics(
         )
         or 0
     )
-    weeks = _weeks_of(window)
-    weekly_average = total / weeks if weeks > 0 else 0.0
+    weeks = await teacher_weeks(db, tax_code, *window, today_in_rome())
 
     # The chart is always the last twelve months, whatever period was requested.
     trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
@@ -1530,10 +1552,13 @@ async def get_teacher_personal_statistics(
     )
 
     return TeacherPersonalStatisticsResponse(
-        weekly_average=round(weekly_average, 1),
+        weekly_average=round(weekly_average(weeks), 1),
         total_availabilities=total,
         monthly_trend=monthly_trend,
-        is_below_weekly_threshold=weekly_average < LOW_AVAILABILITY_WEEKLY_THRESHOLD,
+        is_below_weekly_threshold=(
+            weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
+        ),
+        short_week_count=sum(1 for week in weeks if week.is_short),
         is_single_month=is_single_month,
         is_below_monthly_threshold=(
             is_single_month and total < LOW_AVAILABILITY_MONTHLY_THRESHOLD

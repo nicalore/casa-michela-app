@@ -35,8 +35,14 @@ from app.schemas.home import (
     StudentMonthSummaryResponse,
     TeacherMonthFigures,
     TeacherMonthSummaryResponse,
+    WeekFigures,
 )
 from app.schemas.person import PersonOption
+from app.services.availability_weeks import (
+    AvailabilityWeek,
+    teacher_weeks,
+    weekly_average,
+)
 
 # A person's own month; desk-wide figures live in app/api/statistics.py.
 router = APIRouter(prefix="/home", tags=["home"])
@@ -288,11 +294,20 @@ async def _pupil_figures(
     }
 
 
+async def _teacher_weeks(
+    db: AsyncSession,
+    tax_code: str,
+    month: _Month,
+) -> list[AvailabilityWeek]:
+    return await teacher_weeks(db, tax_code, month.start, month.end, month.today)
+
+
 async def _teacher_figures(
     db: AsyncSession,
     tax_code: str,
     month: _Month,
     rate: Decimal | None,
+    weeks: Sequence[AvailabilityWeek],
 ) -> TeacherMonthFigures:
     total = (
         await db.scalar(
@@ -311,7 +326,7 @@ async def _teacher_figures(
 
     return TeacherMonthFigures(
         total_availabilities=total,
-        weekly_availabilities=round(total / month.weeks, 1),
+        weekly_availabilities=round(weekly_average(weeks), 1),
         worked_minutes=worked,
         gross_compensation=(
             None
@@ -340,20 +355,31 @@ async def get_teacher_month(
         select(Staff.gross_compensation).where(Staff.tax_code == identity.tax_code),
     )
 
-    figures = await _teacher_figures(db, identity.tax_code, month, rate)
-    weekly = figures.total_availabilities / month.weeks
+    weeks = await _teacher_weeks(db, identity.tax_code, month)
+    figures = await _teacher_figures(db, identity.tax_code, month, rate, weeks)
+    short = sum(1 for week in weeks if week.is_short)
+    current = next((week for week in weeks if week.is_open), None)
 
     return TeacherMonthSummaryResponse(
         **figures.model_dump(),
         is_below_monthly_threshold=(
             figures.total_availabilities < LOW_AVAILABILITY_MONTHLY_THRESHOLD
         ),
-        is_below_weekly_threshold=weekly < LOW_AVAILABILITY_WEEKLY_THRESHOLD,
+        is_below_weekly_threshold=(
+            weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
+        ),
+        short_week_count=short,
+        current_week=(
+            None
+            if current is None
+            else WeekFigures(given=current.given, required=current.required)
+        ),
         last_month=await _teacher_figures(
             db,
             identity.tax_code,
             month.previous,
             rate,
+            await _teacher_weeks(db, identity.tax_code, month.previous),
         ),
     )
 

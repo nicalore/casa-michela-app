@@ -15,6 +15,10 @@ const double _footerClearance = 20;
 
 const double _capsuleHeight = 36;
 
+// A step of the way in turning, and the aside sliding along with it.
+const Duration kMobileFlowTurn = Duration(milliseconds: 340);
+const Curve kMobileFlowTurnCurve = Curves.easeInOutCubic;
+
 // The keyboard covers the floating buttons instead of lifting them.
 class MobileFlowScaffold extends StatelessWidget
 {
@@ -67,20 +71,21 @@ class MobileFlowScaffold extends StatelessWidget
         children: [
           MobileEntranceShift(
             part: MobileEntrancePart.head,
+            // Always a row, so the page is not built anew when the aside comes.
             child: Scaffold(
-              body: aside == null
-                  ? page
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(width: asideWidth, child: aside),
-                        Expanded(child: page),
-                      ],
-                    ),
+              body: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Aside(width: asideWidth, child: aside),
+                  Expanded(child: page),
+                ],
+              ),
             ),
           ),
           if (tablet)
-            Positioned(
+            AnimatedPositioned(
+              duration: kMobileFlowTurn,
+              curve: kMobileFlowTurnCurve,
               left: left,
               right: 0,
               bottom: bottom,
@@ -90,6 +95,73 @@ class MobileFlowScaffold extends StatelessWidget
             Positioned(left: margin, right: margin, bottom: bottom, child: footer),
         ],
       ),
+    );
+  }
+}
+
+// Slides in from the left edge as the page narrows beside it, and back out.
+class _Aside extends StatefulWidget
+{
+  final double width;
+  final Widget? child;
+
+  const _Aside({required this.width, required this.child});
+
+  @override
+  State<_Aside> createState() => _AsideState();
+}
+
+class _AsideState extends State<_Aside>
+{
+  // Kept while it slides out.
+  Widget? _shown;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _shown = widget.child;
+  }
+
+  @override
+  void didUpdateWidget(_Aside oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.child != null)
+    {
+      _shown = widget.child;
+    }
+  }
+
+  void _onEnd()
+  {
+    if (widget.child == null && _shown != null)
+    {
+      setState(() => _shown = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: widget.child == null ? 0 : 1),
+      duration: kMobileFlowTurn,
+      curve: kMobileFlowTurnCurve,
+      onEnd: _onEnd,
+      builder: (context, open, aside) => SizedBox(
+        width: widget.width * open,
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.centerRight,
+            minWidth: widget.width,
+            maxWidth: widget.width,
+            child: aside,
+          ),
+        ),
+      ),
+      child: _shown ?? const SizedBox.shrink(),
     );
   }
 }
@@ -146,6 +218,10 @@ class MobileFlowFooter extends StatelessWidget
   Widget build(BuildContext context)
   {
     final VoidCallback? onBack = this.onBack;
+
+    // Leaving, it spins while the next page loads out of sight, never on the way out.
+    final MobileEntranceMotion? entrance = MobileEntranceMotion.maybeOf(context);
+    final bool busy = entrance != null && entrance.leaving ? entrance.waiting : this.busy;
 
     return Row(
       children: [

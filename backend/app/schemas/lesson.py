@@ -27,6 +27,10 @@ class LessonBase(TimeBandMixin):
 
     association_subject_ids: list[int] = Field(default_factory=list)
 
+    # Records a CompetenceWaiver instead of refusing; the teacher's competences
+    # stay untouched.
+    waive_competence: bool = False
+
     @field_validator("booking_ids", "association_subject_ids")
     @classmethod
     def _unique(cls, values: list[int]) -> list[int]:

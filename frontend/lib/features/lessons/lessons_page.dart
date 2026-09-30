@@ -1552,6 +1552,7 @@ class _LessonsPageState extends State<LessonsPage>
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     required Function(String) onError,
+    bool waiveCompetence = false,
   }) async
   {
     final provisional = _provisionalLesson(
@@ -1575,6 +1576,7 @@ class _LessonsPageState extends State<LessonsPage>
         associationSubjectIds: associationSubjectIds,
         startTime: startTime,
         endTime: endTime,
+        waiveCompetence: waiveCompetence,
       );
 
       if (mounted)
@@ -1586,6 +1588,11 @@ class _LessonsPageState extends State<LessonsPage>
               if (lesson.id != provisional?.id) lesson,
             created,
           ];
+
+          if (waiveCompetence)
+          {
+            _rememberWaiver(bookingIds, created.teacherTaxCode);
+          }
         });
       }
 
@@ -1653,6 +1660,7 @@ class _LessonsPageState extends State<LessonsPage>
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     required Function(String) onError,
+    bool waiveCompetence = false,
   }) async
   {
     final optimistic = _optimisticUpdate(
@@ -1679,11 +1687,20 @@ class _LessonsPageState extends State<LessonsPage>
         startTime: startTime,
         endTime: endTime,
         expectedUpdatedAt: existing.updatedAt,
+        waiveCompetence: waiveCompetence,
       );
 
       if (mounted)
       {
-        setState(() => _lessons = _lessons.map((lesson) => lesson.id == existing.id ? updated : lesson).toList());
+        setState(()
+        {
+          _lessons = _lessons.map((lesson) => lesson.id == existing.id ? updated : lesson).toList();
+
+          if (waiveCompetence)
+          {
+            _rememberWaiver(bookingIds, updated.teacherTaxCode);
+          }
+        });
       }
 
       await _refreshPublications(updated.date);
@@ -1705,6 +1722,12 @@ class _LessonsPageState extends State<LessonsPage>
 
   int _nextProvisionalLessonId = -1;
 
+  // The server now holds a waiver for these bookings and this teacher: later moves ask nothing.
+  void _rememberWaiver(List<int> bookingIds, String teacherTaxCode)
+  {
+    _presences = [for (final presence in _presences) presence.waiving(bookingIds, teacherTaxCode)];
+  }
+
   Future<LessonItem?> _executeSplitLesson({
     required LessonItem existing,
     required int availabilityId,
@@ -1717,6 +1740,7 @@ class _LessonsPageState extends State<LessonsPage>
     required TimeOfDay secondStartTime,
     required TimeOfDay secondEndTime,
     required Function(String) onError,
+    bool waiveCompetence = false,
   }) async
   {
     final shrunk = _optimisticUpdate(
@@ -1759,6 +1783,7 @@ class _LessonsPageState extends State<LessonsPage>
 
     try
     {
+      // The remainder was judged on its own, so the waiver stays with this part.
       updated = await _apiService.updateLesson(
         id: existing.id,
         availabilityId: availabilityId,
@@ -1767,6 +1792,7 @@ class _LessonsPageState extends State<LessonsPage>
         startTime: startTime,
         endTime: endTime,
         expectedUpdatedAt: existing.updatedAt,
+        waiveCompetence: waiveCompetence,
       );
     }
     catch (e)
@@ -1779,6 +1805,11 @@ class _LessonsPageState extends State<LessonsPage>
       onError(readableApiError(e));
 
       return null;
+    }
+
+    if (waiveCompetence && mounted)
+    {
+      setState(() => _rememberWaiver(bookingIds, updated.teacherTaxCode));
     }
 
     draw([for (final lesson in _lessons) lesson.id == existing.id ? updated : lesson]);

@@ -3113,6 +3113,7 @@ class ApiService
     required List<int> associationSubjectIds,
     required TimeOfDay startTime,
     required TimeOfDay endTime,
+    bool waiveCompetence = false,
   }) async
   {
     try
@@ -3125,6 +3126,7 @@ class ApiService
           'association_subject_ids': associationSubjectIds,
           'start_time': formatTimeOfDay(startTime),
           'end_time': formatTimeOfDay(endTime),
+          'waive_competence': waiveCompetence,
         },
       );
 
@@ -3144,6 +3146,7 @@ class ApiService
     required TimeOfDay startTime,
     required TimeOfDay endTime,
     required DateTime expectedUpdatedAt,
+    bool waiveCompetence = false,
   }) async
   {
     try
@@ -3157,6 +3160,7 @@ class ApiService
           'start_time': formatTimeOfDay(startTime),
           'end_time': formatTimeOfDay(endTime),
           'expected_updated_at': expectedUpdatedAt.toIso8601String(),
+          'waive_competence': waiveCompetence,
         },
       );
 

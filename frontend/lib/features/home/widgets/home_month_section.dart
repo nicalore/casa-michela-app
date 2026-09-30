@@ -93,6 +93,27 @@ HomeDelta _delta(
   );
 }
 
+// The week under way first: it can still be made good, the ones behind cannot.
+// Non-breaking spaces keep "1 su 2" and "di due" whole on a narrow tile.
+String? _weeklyWarning(TeacherMonthSummaryItem month)
+{
+  final TeacherWeekItem? current = month.currentWeek;
+
+  if (current != null && current.isShort)
+  {
+    return 'Questa settimana: ${current.given}\u00a0su\u00a0${current.needed}';
+  }
+
+  final int short = month.shortWeekCount;
+
+  if (short == 0)
+  {
+    return null;
+  }
+
+  return '$short ${short == 1 ? 'settimana' : 'settimane'} con meno di\u00a0due';
+}
+
 List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
 {
   final TeacherMonthFiguresItem last = month.lastMonth;
@@ -122,7 +143,7 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
       label: 'A settimana',
       value: month.weeklyAvailabilities.toStringAsFixed(1),
       unit: _days(month.weeklyAvailabilities),
-      warning: month.isBelowWeeklyThreshold ? 'Meno di 2' : null,
+      warning: _weeklyWarning(month),
       delta: _delta(
         weeklyTenths,
         (change) => (change / 10).toStringAsFixed(1),
@@ -203,6 +224,7 @@ class _TileScale
 
   static const double labelGap = 10;
   static const double warningGap = 8;
+  static const double warningLineHeight = 1.25;
 
   final double value;
   final double unit;
@@ -532,47 +554,72 @@ class _FigureTile extends StatelessWidget
     // Text height 1 makes its box the type size, so it centres on the icon.
     final HomeDelta? delta = figure.delta;
 
-    final (IconData, Color, String)? aside = warned
-        ? (Icons.warning_amber_rounded, AppTheme.modifiedAccent, warning)
-        : delta == null
-            ? null
-            : (
-                delta.direction == 0
-                    ? Icons.remove_rounded
-                    : delta.direction > 0
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded,
-                delta.direction == 0
-                    ? AppTheme.trialMutedText
-                    : delta.direction > 0
-                        ? AppTheme.trialSeaGreen
-                        : AppTheme.trialDanger,
-                delta.text,
-              );
+    final (IconData, Color, String)? aside = delta == null || warned
+        ? null
+        : (
+            delta.direction == 0
+                ? Icons.remove_rounded
+                : delta.direction > 0
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+            delta.direction == 0
+                ? AppTheme.trialMutedText
+                : delta.direction > 0
+                    ? AppTheme.trialSeaGreen
+                    : AppTheme.trialDanger,
+            delta.text,
+          );
 
-    final Widget asideLine = SizedBox(
-      height: scale.warning + 2,
-      child: aside == null
-          ? null
-          : line(Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
+    // A warning wraps, never shrinks or cuts; the icon sits in the text so later lines
+    // take the full width. Its row grows with it.
+    final Widget asideLine = warned
+        ? Text.rich(
+            TextSpan(
               children: [
-                Icon(aside.$1, size: scale.warning + 2, color: aside.$2),
-                const SizedBox(width: 5),
-                Text(
-                  aside.$3,
-                  maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: scale.warning,
-                    fontWeight: FontWeight.w600,
-                    height: 1,
-                    color: aside.$2,
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 5),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      size: scale.warning + 2,
+                      color: AppTheme.modifiedAccent,
+                    ),
                   ),
                 ),
+                TextSpan(text: warning),
               ],
-            )),
-    );
+            ),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: scale.warning,
+              fontWeight: FontWeight.w600,
+              height: _TileScale.warningLineHeight,
+              color: AppTheme.modifiedAccent,
+            ),
+          )
+        : SizedBox(
+            height: scale.warning + 2,
+            child: aside == null
+                ? null
+                : line(Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(aside.$1, size: scale.warning + 2, color: aside.$2),
+                      const SizedBox(width: 5),
+                      Text(
+                        aside.$3,
+                        maxLines: 1,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: scale.warning,
+                          fontWeight: FontWeight.w600,
+                          height: 1,
+                          color: aside.$2,
+                        ),
+                      ),
+                    ],
+                  )),
+          );
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: scale.side, vertical: scale.padding),
@@ -584,15 +631,15 @@ class _FigureTile extends StatelessWidget
           width: _TileScale.border,
         ),
       ),
+      // Top-aligned: beside a wrapped warning, labels and values stay level.
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           label,
           const SizedBox(height: _TileScale.labelGap),
           SizedBox(height: scale.value, child: value),
-          if (aside != null || keepsAsideLine) ...[
+          if (figure.hasAside || keepsAsideLine) ...[
             const SizedBox(height: _TileScale.warningGap),
             asideLine,
           ],

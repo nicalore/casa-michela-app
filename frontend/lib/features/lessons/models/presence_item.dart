@@ -22,6 +22,9 @@ class PresenceItem
   // The pupil's standing list: left out of the offer when asking for teachers.
   final List<PersonOptionItem> notPreferredTeachers;
 
+  // (booking id, teacher) the admin let through without the competence; admins only.
+  final Set<(int, String)> competenceWaivers;
+
   final DateTime updatedAt;
 
   const PresenceItem({
@@ -36,11 +39,45 @@ class PresenceItem
     required this.booker,
     required this.bookings,
     this.notPreferredTeachers = const [],
+    this.competenceWaivers = const {},
     required this.updatedAt,
   });
 
   List<String> get notPreferredTeacherTaxCodes =>
       [for (final teacher in notPreferredTeachers) teacher.taxCode];
+
+  // Mirrors the waivers the server records, so the next drop needs no round trip.
+  PresenceItem waiving(Iterable<int> bookingIds, String teacherTaxCode)
+  {
+    final mine = [
+      for (final id in bookingIds)
+        if (bookings.any((booking) => booking.id == id)) id,
+    ];
+
+    if (mine.isEmpty)
+    {
+      return this;
+    }
+
+    return PresenceItem(
+      id: id,
+      date: date,
+      mode: mode,
+      startTime: startTime,
+      endTime: endTime,
+      studentTaxCode: studentTaxCode,
+      student: student,
+      bookerTaxCode: bookerTaxCode,
+      booker: booker,
+      bookings: bookings,
+      notPreferredTeachers: notPreferredTeachers,
+      competenceWaivers: {
+        ...competenceWaivers,
+        for (final id in mine) (id, teacherTaxCode),
+      },
+      updatedAt: updatedAt,
+    );
+  }
 
   factory PresenceItem.fromJson(Map<String, dynamic> json)
   {
@@ -59,6 +96,10 @@ class PresenceItem
         json['not_preferred_teachers'],
         PersonOptionItem.fromJson,
       ),
+      competenceWaivers: parseList(
+        json['competence_waivers'],
+        (e) => (e['booking_id'] as int, e['teacher_tax_code'] as String),
+      ).toSet(),
       updatedAt: parseInstant(json['updated_at'])!,
     );
   }

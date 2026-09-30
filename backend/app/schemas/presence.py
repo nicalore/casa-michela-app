@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.booking import BookingSummaryResponse
 from app.schemas.opening_day import OpeningModeEnum
@@ -28,6 +28,11 @@ class PresenceUpdate(PresenceBase):
     expected_updated_at: datetime | None = None
 
 
+class CompetenceWaiverResponse(BaseModel):
+    booking_id: int
+    teacher_tax_code: str
+
+
 class PresenceResponse(PresenceBase):
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,5 +44,7 @@ class PresenceResponse(PresenceBase):
     bookings: list[BookingSummaryResponse]
     # The pupil's standing list, for the wizard to leave them out of the offer.
     not_preferred_teachers: list[PersonOption] = Field(default_factory=list)
+    # Admins only: to anyone else it would name the teacher of a draft calendar.
+    competence_waivers: list[CompetenceWaiverResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

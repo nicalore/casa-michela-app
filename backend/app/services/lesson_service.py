@@ -16,6 +16,7 @@ from app.core.time_step import fits_a_window
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
+from app.models.competence_waiver import CompetenceWaiver
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
@@ -127,6 +128,7 @@ class _ValidatedLesson:
     bookings: list[Booking]
     disciplines: list[AssociationSubject]
     warnings: list[str]
+    waivers: list[CompetenceWaiver]
 
     def links(self) -> list[LessonBooking]:
         return [LessonBooking(booking=booking) for booking in self.bookings]
@@ -459,12 +461,12 @@ class LessonService:
 
         return set(rows)
 
-    async def _assert_discipline_competences(
+    async def _discipline_refusal(
         self,
         teacher_tax_code: str,
         disciplines: Sequence[AssociationSubject],
         bookings: Sequence[Booking],
-    ) -> None:
+    ) -> str | None:
         programmes = await self._study_programmes_of(bookings)
         within = await self._disciplines_within(programmes, disciplines)
 
@@ -498,17 +500,16 @@ class LessonService:
             )
         )
 
-        if lacking:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MISSING_COMPETENCE_ERROR.format(subjects=", ".join(lacking)),
-            )
+        if not lacking:
+            return None
 
-    async def _assert_service_competences(
+        return _MISSING_COMPETENCE_ERROR.format(subjects=", ".join(lacking))
+
+    async def _service_refusal(
         self,
         teacher_tax_code: str,
         bookings: Sequence[Booking],
-    ) -> None:
+    ) -> str | None:
         service_names = {
             booking.service_name
             for booking in bookings
@@ -516,7 +517,7 @@ class LessonService:
         }
 
         if not service_names:
-            return
+            return None
 
         offered = set(
             await self.session.scalars(
@@ -530,28 +531,69 @@ class LessonService:
 
         lacking = sorted(service_names - offered)
 
-        if lacking:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=_MISSING_SERVICE_ERROR.format(services=", ".join(lacking)),
-            )
+        if not lacking:
+            return None
 
-    async def _assert_competences(
+        return _MISSING_SERVICE_ERROR.format(services=", ".join(lacking))
+
+    async def _competence_refusal(
         self,
         teacher_tax_code: str,
         disciplines: Sequence[AssociationSubject],
         bookings: Sequence[Booking],
-    ) -> None:
+    ) -> str | None:
         if disciplines:
-            await self._assert_discipline_competences(
+            return await self._discipline_refusal(
                 teacher_tax_code,
                 disciplines,
                 bookings,
             )
 
-            return
+        return await self._service_refusal(teacher_tax_code, bookings)
 
-        await self._assert_service_competences(teacher_tax_code, bookings)
+    # A waiver outlives the lesson: moved, or taken off and put back, the hour
+    # needs no new one. Returns the waivers this write adds.
+    async def _competence_waivers(
+        self,
+        payload: LessonCreate | LessonUpdate,
+        teacher_tax_code: str,
+        disciplines: Sequence[AssociationSubject],
+        bookings: Sequence[Booking],
+    ) -> list[CompetenceWaiver]:
+        waived = set(
+            await self.session.scalars(
+                select(CompetenceWaiver.booking_id).where(
+                    CompetenceWaiver.teacher_tax_code == teacher_tax_code,
+                    CompetenceWaiver.booking_id.in_(
+                        [booking.id for booking in bookings],
+                    ),
+                ),
+            ),
+        )
+
+        if all(booking.id in waived for booking in bookings):
+            return []
+
+        refusal = await self._competence_refusal(
+            teacher_tax_code,
+            disciplines,
+            bookings,
+        )
+
+        if refusal is None:
+            return []
+
+        if not payload.waive_competence:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=refusal,
+            )
+
+        return [
+            CompetenceWaiver(booking_id=booking.id, teacher_tax_code=teacher_tax_code)
+            for booking in bookings
+            if booking.id not in waived
+        ]
 
     # One warning per pupil, however many of their bookings the lesson holds.
     async def _not_preferred_warnings(
@@ -639,7 +681,8 @@ class LessonService:
         disciplines = await self._disciplines_or_400(
             payload.association_subject_ids,
         )
-        await self._assert_competences(
+        waivers = await self._competence_waivers(
+            payload,
             availability.teacher_tax_code,
             disciplines,
             bookings,
@@ -656,6 +699,7 @@ class LessonService:
             bookings=bookings,
             disciplines=disciplines,
             warnings=warnings,
+            waivers=waivers,
         )
 
     async def list_for(
@@ -712,6 +756,7 @@ class LessonService:
         )
 
         async with integrity_guard(self.session, _CREATE_ERROR):
+            self.session.add_all(validated.waivers)
             await self.repository.create(lesson)
             await self.repository.commit()
 
@@ -752,6 +797,7 @@ class LessonService:
         lesson.lesson_disciplines = validated.discipline_rows()
 
         async with integrity_guard(self.session, _UPDATE_ERROR):
+            self.session.add_all(validated.waivers)
             await self.repository.commit()
 
         return await self._reload(lesson.id), validated.warnings
