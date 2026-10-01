@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
-import 'mobile_load_switcher.dart';
 
 class MobileAvatar extends StatelessWidget
 {
@@ -76,24 +75,9 @@ class MobileAvatar extends StatelessWidget
                 fit: BoxFit.cover,
                 // Twice the width keeps landscape photos up to 2:1 sharp when covering the circle.
                 cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2).round(),
-                frameBuilder: (context, photo, frame, synchronous) => synchronous
-                    ? photo
-                    : Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          fallback,
-                          TweenAnimationBuilder<double>(
-                            tween: Tween<double>(begin: 1, end: frame == null ? 1 : 0),
-                            duration: kMobileRiseDuration,
-                            curve: Curves.easeOutCubic,
-                            builder: (context, shift, photo) => FractionalTranslation(
-                              translation: Offset(0, shift),
-                              child: photo,
-                            ),
-                            child: photo,
-                          ),
-                        ],
-                      ),
+                // The initials hold the circle until the photo is decoded.
+                frameBuilder: (context, photo, frame, synchronous) =>
+                    synchronous || frame != null ? photo : fallback,
                 errorBuilder: (context, error, stackTrace) => fallback,
               )
             : fallback,

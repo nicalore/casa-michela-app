@@ -16,29 +16,62 @@ const double _rowHeight = 58;
 const double _rowRadius = 16;
 const double _rowGap = 10;
 
-Future<String?> showMobileRoleSheet({
+// Stays open, the chosen row spinning, until onChoose completes: the new
+// role's area is then ready to come in as the sheet closes.
+Future<void> showMobileRoleSheet({
   required BuildContext context,
   required String activeRole,
   required List<String> availableRoles,
+  required Future<void> Function(String role) onChoose,
 })
 {
-  return showMobileSheet<String>(
+  return showMobileSheet<void>(
     context: context,
-    builder: (context) => _RoleSheet(activeRole: activeRole, availableRoles: availableRoles),
+    builder: (context) => _RoleSheet(
+      activeRole: activeRole,
+      availableRoles: availableRoles,
+      onChoose: onChoose,
+    ),
   );
 }
 
-class _RoleSheet extends StatelessWidget
+class _RoleSheet extends StatefulWidget
 {
   final String activeRole;
   final List<String> availableRoles;
+  final Future<void> Function(String role) onChoose;
 
-  const _RoleSheet({required this.activeRole, required this.availableRoles});
+  const _RoleSheet({required this.activeRole, required this.availableRoles, required this.onChoose});
+
+  @override
+  State<_RoleSheet> createState() => _RoleSheetState();
+}
+
+class _RoleSheetState extends State<_RoleSheet>
+{
+  String? _choosing;
+
+  Future<void> _choose(String role) async
+  {
+    if (_choosing != null)
+    {
+      return;
+    }
+
+    setState(() => _choosing = role);
+    await widget.onChoose(role);
+
+    if (mounted)
+    {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   Widget build(BuildContext context)
   {
-    final List<String> roles = availableRoles.where((role) => role != activeRole).toList();
+    final String activeRole = widget.activeRole;
+    final List<String> roles = widget.availableRoles.where((role) => role != activeRole).toList();
     final double bottom = MediaQuery.paddingOf(context).bottom + 24;
 
     return MobileGlassPanel.sheet(
@@ -80,7 +113,11 @@ class _RoleSheet extends StatelessWidget
           const SizedBox(height: 20),
           for (var i = 0; i < roles.length; i++) ...[
             if (i > 0) const SizedBox(height: _rowGap),
-            _RoleRow(role: roles[i]),
+            _RoleRow(
+              role: roles[i],
+              choosing: roles[i] == _choosing,
+              onTap: _choosing == null ? () => _choose(roles[i]) : null,
+            ),
           ],
         ],
       ),
@@ -91,8 +128,10 @@ class _RoleSheet extends StatelessWidget
 class _RoleRow extends StatelessWidget
 {
   final String role;
+  final bool choosing;
+  final VoidCallback? onTap;
 
-  const _RoleRow({required this.role});
+  const _RoleRow({required this.role, required this.choosing, required this.onTap});
 
   @override
   Widget build(BuildContext context)
@@ -103,7 +142,7 @@ class _RoleRow extends StatelessWidget
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: offered ? () => Navigator.of(context).pop(role) : null,
+      onTap: offered ? onTap : null,
       child: Container(
         height: _rowHeight,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -131,6 +170,11 @@ class _RoleRow extends StatelessWidget
               ),
             ),
             if (!offered) const MobilePill('In arrivo', tone: MobilePillTone.teal),
+            if (choosing)
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
+              ),
           ],
         ),
       ),

@@ -92,8 +92,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   {
     super.initState();
 
-    _loadWeek();
-    _loadOutlook();
+    Future.wait([_loadWeek(), _loadOutlook()]).whenComplete(MobileHoldScope.hold(context));
   }
 
   @override

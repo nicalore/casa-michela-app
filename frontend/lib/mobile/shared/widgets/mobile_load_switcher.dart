@@ -6,6 +6,21 @@ import 'mobile_handover.dart';
 const Duration kMobileRiseDuration = Duration(milliseconds: 520);
 const Duration _dropDuration = Duration(milliseconds: 260);
 
+// Loading out of sight before its page comes in: nothing to animate.
+bool mobileUnseen(BuildContext context)
+{
+  return (MobileHandover.maybeOf(context)?.waiting ?? false) ||
+      (MobileEntranceMotion.maybeOf(context)?.waiting ?? false) ||
+      MobileHoldScope.waitingOf(context);
+}
+
+// At once when nobody sees it, but never zero: AnimatedSize would re-dirty
+// itself while laying out.
+Duration mobileRiseDurationOf(BuildContext context)
+{
+  return mobileUnseen(context) ? const Duration(milliseconds: 1) : kMobileRiseDuration;
+}
+
 class MobileWaiting extends StatelessWidget
 {
   const MobileWaiting({super.key});
@@ -43,9 +58,7 @@ class MobileLoadSwitcher extends StatelessWidget
     final Widget? child = this.child;
     final double height = MediaQuery.sizeOf(context).height;
 
-    // Loaded out of sight before its page comes in: nothing to see rise.
-    final bool unseen = (MobileHandover.maybeOf(context)?.waiting ?? false) ||
-        (MobileEntranceMotion.maybeOf(context)?.waiting ?? false);
+    final bool unseen = mobileUnseen(context);
 
     final Widget switcher = AnimatedSwitcher(
       duration: unseen ? Duration.zero : kMobileRiseDuration,
@@ -84,7 +97,7 @@ class MobileLoadSwitcher extends StatelessWidget
 
     return contained
         ? AnimatedSize(
-            duration: kMobileRiseDuration,
+            duration: mobileRiseDurationOf(context),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: switcher,
@@ -96,12 +109,20 @@ class MobileLoadSwitcher extends StatelessWidget
 // Around pages that may come in: a page loading what it shows asks every
 // transition bringing it in to wait until the release is called, so it comes
 // in complete rather than with its wheel.
-class MobileHoldScope extends StatelessWidget
+class MobileHoldScope extends InheritedWidget
 {
   final ValueNotifier<int> holds;
-  final Widget child;
 
-  const MobileHoldScope({super.key, required this.holds, required this.child});
+  // The pages under it are loading out of sight.
+  final bool waiting;
+
+  const MobileHoldScope({super.key, required this.holds, this.waiting = false, required super.child});
+
+  // Whether the nearest scope keeps its pages out of sight.
+  static bool waitingOf(BuildContext context)
+  {
+    return context.dependOnInheritedWidgetOfExactType<MobileHoldScope>()?.waiting ?? false;
+  }
 
   // Callable from initState.
   static VoidCallback hold(BuildContext context)
@@ -150,7 +171,10 @@ class MobileHoldScope extends StatelessWidget
   }
 
   @override
-  Widget build(BuildContext context) => child;
+  bool updateShouldNotify(MobileHoldScope oldWidget)
+  {
+    return waiting != oldWidget.waiting || holds != oldWidget.holds;
+  }
 }
 
 // For content built anew once data arrives, where no switcher held the wait.
@@ -166,9 +190,34 @@ class MobileRiseIn extends StatefulWidget
 
 class _MobileRiseInState extends State<MobileRiseIn> with SingleTickerProviderStateMixin
 {
-  late final AnimationController _rise = AnimationController(vsync: this, duration: kMobileRiseDuration)..forward();
+  late final AnimationController _rise = AnimationController(vsync: this, duration: kMobileRiseDuration);
 
   late final Animation<double> _curve = CurvedAnimation(parent: _rise, curve: Curves.easeOutCubic);
+
+  bool _started = false;
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (_started)
+    {
+      return;
+    }
+
+    _started = true;
+
+    // Built out of sight, it is already in place when its page comes in.
+    if (mobileUnseen(context))
+    {
+      _rise.value = 1;
+    }
+    else
+    {
+      _rise.forward();
+    }
+  }
 
   @override
   void dispose()

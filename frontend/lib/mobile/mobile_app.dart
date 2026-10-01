@@ -160,6 +160,30 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
   bool _waiting = false;
   Timer? _cap;
 
+  // Replacing the launch placeholder: once loaded, the page simply appears.
+  bool _cut = false;
+
+  // Opening straight onto a page: the system's launch screen stays up until it has its data.
+  bool _deferring = false;
+
+  @override
+  void initState()
+  {
+    super.initState();
+
+    if (widget.placeholder)
+    {
+      return;
+    }
+
+    _cut = true;
+    _waiting = true;
+    _motion.value = 0;
+    _deferring = true;
+    WidgetsBinding.instance.deferFirstFrame();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startWhenLoaded());
+  }
+
   @override
   void didUpdateWidget(_EntranceSwitcher oldWidget)
   {
@@ -173,11 +197,12 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
     _stopWaiting();
 
     // Returning to the page still leaving: no motion.
-    if (oldWidget.placeholder || widget.pageKey == _leavingKey)
+    if (widget.pageKey == _leavingKey)
     {
       _leavingKey = null;
       _leaving = null;
       _motion.value = 1;
+      _allowFirstFrame();
 
       return;
     }
@@ -187,6 +212,8 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
 
     _leavingKey = oldWidget.pageKey;
     _leaving = oldWidget.page;
+    // A page never drawn is not seen leaving either.
+    _cut = oldWidget.placeholder || _deferring;
     _motion.value = 0;
     _waiting = true;
 
@@ -198,9 +225,19 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
   void dispose()
   {
     _stopWaiting();
+    _allowFirstFrame();
     _holds.dispose();
     _motion.dispose();
     super.dispose();
+  }
+
+  void _allowFirstFrame()
+  {
+    if (_deferring)
+    {
+      _deferring = false;
+      WidgetsBinding.instance.allowFirstFrame();
+    }
   }
 
   void _startWhenLoaded()
@@ -244,8 +281,23 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
       return;
     }
 
+    if (_cut)
+    {
+      setState(()
+      {
+        _stopWaiting();
+        _leavingKey = null;
+        _leaving = null;
+      });
+      _motion.value = 1;
+      _allowFirstFrame();
+
+      return;
+    }
+
     setState(_stopWaiting);
     _motion.forward(from: 0);
+    _allowFirstFrame();
   }
 
   // The start comes from didUpdateWidget, which builds anyway.
@@ -270,6 +322,7 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
 
     return MobileHoldScope(
       holds: _holds,
+      waiting: _waiting,
       child: IgnorePointer(
         ignoring: moving || _waiting,
         child: Stack(

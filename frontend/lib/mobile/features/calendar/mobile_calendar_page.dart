@@ -115,7 +115,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     super.initState();
 
     _tick();
-    _load();
+    _load().whenComplete(MobileHoldScope.hold(context));
   }
 
   @override
@@ -489,7 +489,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
           ),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(end: folded ? 0 : 1),
-            duration: kMobileRiseDuration,
+            duration: mobileRiseDurationOf(context),
             curve: Curves.easeOutCubic,
             builder: (context, shown, strip) => ClipRect(
               clipBehavior: shown < 1 ? Clip.hardEdge : Clip.none,

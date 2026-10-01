@@ -77,7 +77,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   void initState()
   {
     super.initState();
-    _load();
+    _load().whenComplete(MobileHoldScope.hold(context));
   }
 
   @override
@@ -192,7 +192,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           child: _buildTitle(person, tablet: tablet),
         ),
         AnimatedSize(
-          duration: kMobileRiseDuration,
+          duration: mobileRiseDurationOf(context),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           clipBehavior: Clip.none,
@@ -295,7 +295,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
                 ),
               ),
               AnimatedSize(
-                duration: kMobileRiseDuration,
+                duration: mobileRiseDurationOf(context),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topLeft,
                 clipBehavior: Clip.none,

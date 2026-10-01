@@ -124,6 +124,9 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   bool _failed = false;
   bool _saving = false;
 
+  // Its introduction waits until the page is on screen.
+  bool _introduced = false;
+
   String? _taxCode;
   DateTime? _updatedAt;
 
@@ -142,10 +145,18 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   void initState()
   {
     super.initState();
-    _load();
+    _load().whenComplete(MobileHoldScope.hold(context));
+  }
 
-    if (widget.heading == null)
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    // Once on screen, not while it loads out of sight.
+    if (!_introduced && widget.heading == null && !MobileHoldScope.waitingOf(context))
     {
+      _introduced = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
     }
   }

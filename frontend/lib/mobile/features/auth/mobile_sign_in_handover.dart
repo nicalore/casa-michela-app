@@ -138,6 +138,7 @@ class _MobileSignInHandoverState extends State<MobileSignInHandover> with Single
       waiting: _waiting,
       child: MobileHoldScope(
         holds: _holds,
+        waiting: _waiting,
         child: IgnorePointer(
           ignoring: moving || _waiting,
           child: Stack(

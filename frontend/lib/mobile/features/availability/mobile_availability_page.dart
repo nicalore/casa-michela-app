@@ -68,6 +68,9 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   bool _failed = false;
   bool _deleting = false;
 
+  // Its introduction waits until the page is on screen.
+  bool _introduced = false;
+
   String? _taxCode;
 
   List<AvailabilityItem> _availabilities = const [];
@@ -82,9 +85,21 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   void initState()
   {
     super.initState();
-    _load();
+    _load().whenComplete(MobileHoldScope.hold(context));
     _tick();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    // Once on screen, not while it loads out of sight.
+    if (!_introduced && !MobileHoldScope.waitingOf(context))
+    {
+      _introduced = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _introduceOnce());
+    }
   }
 
   @override

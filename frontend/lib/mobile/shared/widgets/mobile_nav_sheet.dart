@@ -49,7 +49,8 @@ class MobileNavSheet extends StatefulWidget
 
   final String current;
 
-  final ValueChanged<String> onDestination;
+  // Completes once the chosen page is in, ready under the still open sheet.
+  final Future<void> Function(String slug) onDestination;
   final ValueChanged<MobileNavAction> onAction;
 
   // Raised while a contextual sheet is up; set by showMobileSheet.
@@ -145,11 +146,30 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     });
   }
 
-  void _toggle() => _settle(_isOpen ? 0 : 1);
+  // A chosen page loading: the sheet stays open, its row spinning, until it is in.
+  String? _arriving;
+
+  bool get _locked => _arriving != null;
+
+  void _toggle()
+  {
+    if (!_locked)
+    {
+      _settle(_isOpen ? 0 : 1);
+    }
+  }
+
+  void _close()
+  {
+    if (!_locked)
+    {
+      _settle(0);
+    }
+  }
 
   void _onDragUpdate(DragUpdateDetails details)
   {
-    if (_travel <= 0)
+    if (_travel <= 0 || _locked)
     {
       return;
     }
@@ -159,7 +179,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
 
   void _onDragEnd(DragEndDetails details)
   {
-    if (_travel <= 0)
+    if (_travel <= 0 || _locked)
     {
       return;
     }
@@ -204,13 +224,43 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
 
   void _choose(VoidCallback act)
   {
+    if (_locked)
+    {
+      return;
+    }
+
     _settle(0);
     act();
+  }
+
+  // Closes on the page complete rather than on its wheel.
+  Future<void> _chooseDestination(String slug) async
+  {
+    if (_locked)
+    {
+      return;
+    }
+
+    setState(() => _arriving = slug);
+    await widget.onDestination(slug);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    setState(() => _arriving = null);
+    _settle(0);
   }
 
   // Sign-out turns the bar back into the login card, so wait until nearly closed.
   void _chooseOnceClosed(VoidCallback act)
   {
+    if (_locked)
+    {
+      return;
+    }
+
     _settle(0);
 
     void check()
@@ -313,19 +363,20 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
           icon: destination.icon,
           label: destination.label,
           muted: !destination.available,
-          trailing: destination.available
-              ? null
-              : const MobilePill('In arrivo', tone: MobilePillTone.teal),
-          onTap: destination.available
-              ? () => _choose(() => widget.onDestination(destination.slug))
-              : null,
+          trailing: destination.slug == _arriving
+              ? const _RowSpinner()
+              : destination.available
+                  ? null
+                  : const MobilePill('In arrivo', tone: MobilePillTone.teal),
+          onTap: destination.available ? () => _chooseDestination(destination.slug) : null,
         ),
       _buildSeparator(),
       for (final destination in _otherUserDestinations)
         _SheetRow(
           icon: destination.icon,
           label: destination.label,
-          onTap: () => _choose(() => widget.onDestination(destination.slug)),
+          trailing: destination.slug == _arriving ? const _RowSpinner() : null,
+          onTap: () => _chooseDestination(destination.slug),
         ),
       if (user.availableRoles.length > 1)
         _SheetRow(
@@ -357,7 +408,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
           ignoring: _isClosed,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _settle(0),
+            onTap: _close,
             child: ColoredBox(
               color: AppTheme.trialDeepWater.withValues(alpha: _scrimAlpha * progress),
             ),
@@ -407,7 +458,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                       {
                         if (!didPop)
                         {
-                          _settle(0);
+                          _close();
                         }
                       },
                       child: SizedBox(
@@ -558,6 +609,20 @@ class _Glass extends StatelessWidget
         borderRadius: const BorderRadius.vertical(top: Radius.circular(_radius)),
         child: child,
       ),
+    );
+  }
+}
+
+class _RowSpinner extends StatelessWidget
+{
+  const _RowSpinner();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return const SizedBox.square(
+      dimension: 20,
+      child: CircularProgressIndicator(strokeWidth: 2.4, color: AppTheme.trialTealDeep),
     );
   }
 }
