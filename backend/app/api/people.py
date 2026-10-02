@@ -1,6 +1,6 @@
 from collections import defaultdict
 from collections.abc import Collection, Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from html import escape
 from typing import Annotated, Any, Final
 
@@ -33,6 +33,7 @@ from app.core.labels import (
 )
 from app.core.optimistic_concurrency import assert_not_stale
 from app.core.storage import discard_profile_image, store_profile_image
+from app.models.account import Account, AccountStatusEnum
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.booking import Booking
 from app.models.course_participant import CourseParticipant
@@ -58,6 +59,7 @@ from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
 from app.repositories.lesson_repository import LessonRepository
+from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.contacts import ContactsUpdate
 from app.schemas.enrollment_form import EnrollmentFormRequest
 from app.schemas.person import (
@@ -506,6 +508,7 @@ def _map_parent_info(relationship: ParentalResponsibility) -> ParentInfoResponse
         birth_date=parent.birth_date,
         profile_image_url=parent.profile_image_url,
         roles=_roles_of(parent),
+        has_account=parent.account is not None,
         authorized_pickup=relationship.authorized_pickup,
         pickup_restriction_reason=relationship.pickup_restriction_reason,
     )
@@ -785,6 +788,7 @@ def _map_person_to_response(
         roles=roles,
         created_at=person.created_at,
         profile_image_url=person.profile_image_url,
+        has_account=person.account is not None,
         gender=person.gender,
         email=person.email,
         phone=person.phone,
@@ -889,6 +893,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
     competences = teacher.selectinload(Teacher.teaching_competences)
 
     return (
+        joinedload(Person.account).load_only(Account.tax_code),
         children.joinedload(SchoolStudyProgram.school),
         children.joinedload(SchoolStudyProgram.study_program),
         child.joinedload(Person.parent_profile),
@@ -897,6 +902,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         child_staff.joinedload(Staff.psychologist_profile),
         child_staff.joinedload(Staff.teacher_profile),
         parent.joinedload(Person.parent_profile),
+        parent.joinedload(Person.account).load_only(Account.tax_code),
         parent_member.joinedload(Member.student_profile),
         parent_member.joinedload(Member.course_participant_profile),
         parent_staff.joinedload(Staff.administrator_profile),
@@ -2776,12 +2782,30 @@ async def revoke_person_membership(
             detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
         )
 
+    lapses_on = latest_membership.end_date + timedelta(
+        days=latest_membership.renewal_period_days
+    )
+
+    # Only a running membership can be revoked: same bound as _enrolled().
+    if lapses_on <= today_in_rome():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_NO_MEMBERSHIP_TO_REVOKE_ERROR,
+        )
+
     latest_membership.end_date = date.today()
     latest_membership.renewal_period_days = 0
     latest_membership.revocation = MembershipRevocationEnum(payload.revocation_type)
 
     member.collaborating_active = False
     member.updated_at = datetime.now(UTC)
+
+    account = await db.get(Account, person.tax_code)
+
+    # The account goes with the membership, for good.
+    if account is not None:
+        account.status = AccountStatusEnum.REVOKED
+        await RefreshTokenRepository(db).revoke_all_for_account(person.tax_code)
 
     await _commit_or_500(db, _REVOKE_COMMIT_ERROR)
 

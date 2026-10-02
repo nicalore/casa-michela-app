@@ -29,7 +29,10 @@ if TYPE_CHECKING:
 
 class AccountStatusEnum(StrEnum):
     ACTIVE = "ACTIVE"
+    # Suspended by an administrator; it can be lifted.
     DISABLED = "DISABLED"
+    # Suspended with the membership's revocation; never lifted.
+    REVOKED = "REVOKED"
 
 
 class Account(CreatedAtMixin, UpdatedAtMixin, Base):
@@ -109,6 +112,14 @@ class Account(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
     password_reset_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
+    # Lets an answered-for pupil book too; payments stay with the parents.
+    autonomous_bookings: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,

@@ -46,6 +46,17 @@ class RoleService:
             and relationship.child.member_profile.student_profile is not None
         )
 
+    # Only a pupil is answered for: a staff minor has parents for paperwork alone.
+    @staticmethod
+    def is_answered_for(person: Person) -> bool:
+        member = person.member_profile
+
+        return (
+            member is not None
+            and member.student_profile is not None
+            and bool(person.parental_relationships)
+        )
+
     @staticmethod
     def get_available_roles(person: Person) -> list[str]:
         roles: list[str] = []

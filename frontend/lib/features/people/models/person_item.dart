@@ -29,6 +29,8 @@ class PersonItem implements PersonFace
 
   final DateTime createdAt;
 
+  final bool hasAccount;
+
   final String? gender;
   final String? email;
   final String? phoneNumber;
@@ -124,6 +126,7 @@ class PersonItem implements PersonFace
     required this.roles,
     required this.createdAt,
     this.profileImageUrl,
+    this.hasAccount = false,
     this.gender,
     this.email,
     this.phoneNumber,
@@ -199,6 +202,7 @@ class PersonItem implements PersonFace
       roles: parseStringList(json['roles']),
       createdAt: DateTime.parse(json['created_at']),
       profileImageUrl: json['profile_image_url'],
+      hasAccount: json['has_account'] == true,
       gender: json['gender'],
       email: json['email'],
       phoneNumber: json['phone'],

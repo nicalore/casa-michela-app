@@ -79,7 +79,15 @@ class PersonDetailCardPair extends StatelessWidget
   final Widget first;
   final Widget second;
 
-  const PersonDetailCardPair({super.key, required this.first, required this.second});
+  // Below this width the cards stack.
+  final double breakpoint;
+
+  const PersonDetailCardPair({
+    super.key,
+    required this.first,
+    required this.second,
+    this.breakpoint = _breakpoint,
+  });
 
   @override
   Widget build(BuildContext context)
@@ -87,7 +95,7 @@ class PersonDetailCardPair extends StatelessWidget
     return LayoutBuilder(
       builder: (context, constraints)
       {
-        if (constraints.maxWidth < _breakpoint)
+        if (constraints.maxWidth < breakpoint)
         {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,6 +135,8 @@ class PersonDetailCard extends StatelessWidget
   // Replaces the badge (the first-access flow puts the editable avatar here).
   final Widget? leading;
 
+  final bool selectable;
+
   const PersonDetailCard({
     super.key,
     required this.title,
@@ -134,6 +144,7 @@ class PersonDetailCard extends StatelessWidget
     required this.rows,
     this.labelWidth = 160,
     this.leading,
+    this.selectable = true,
   });
 
   List<Widget> _buildRows()
@@ -193,6 +204,7 @@ class PersonDetailCard extends StatelessWidget
     return AppCard(
       title: title,
       leading: leading ?? AppCardBadge(icon: icon),
+      selectable: selectable,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

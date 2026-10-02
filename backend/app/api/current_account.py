@@ -5,13 +5,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.api.dependencies import DbSession
 from app.core.security import decode_access_token
-from app.models.account import Account
+from app.models.account import Account, AccountStatusEnum
 from app.repositories.identity_repository import IdentityRepository
 
 bearer_scheme = HTTPBearer()
 
 _INVALID_ACCESS_TOKEN_ERROR: Final[str] = "Token di accesso non valido"
 _ACCOUNT_NOT_FOUND_ERROR: Final[str] = "Account non trovato"
+_ACCOUNT_DISABLED_ERROR: Final[str] = "Account disabilitato"
 
 _PASSWORD_RESET_REQUIRED_CODE: Final[str] = "PASSWORD_RESET_REQUIRED"
 
@@ -42,6 +43,13 @@ async def get_current_account(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_ACCOUNT_NOT_FOUND_ERROR,
+        )
+
+    # A suspension takes effect at once, not when the access token expires.
+    if account.status != AccountStatusEnum.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=_ACCOUNT_DISABLED_ERROR,
         )
 
     return account

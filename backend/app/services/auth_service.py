@@ -118,6 +118,10 @@ class PasswordChangeExpiredError(Exception):
     pass
 
 
+class MissingEmailError(Exception):
+    pass
+
+
 class AccountLockedError(Exception):
     def __init__(self, locked_until: datetime) -> None:
         self.locked_until = locked_until
@@ -186,16 +190,20 @@ class AuthService:
             body=_PASSWORD_CHANGED_EMAIL_BODY,
         )
 
-    def _send_password_reset_email(self, account: Account, reset_link: str) -> None:
-        self._send_email(
-            recipient=account.person.email,
-            subject="Recupero password - Associazione Casa Michela",
-            heading="Recupero password",
-            body=_PASSWORD_RESET_EMAIL_BODY.format(
+    def _password_reset_email(
+        self,
+        account: Account,
+        reset_link: str,
+    ) -> dict[str, str]:
+        return {
+            "recipient": account.person.email,
+            "subject": "Recupero password - Associazione Casa Michela",
+            "heading": "Recupero password",
+            "body": _PASSWORD_RESET_EMAIL_BODY.format(
                 reset_link=reset_link,
                 teal=email_service.TEAL,
             ),
-        )
+        }
 
     async def _create_session(
         self,
@@ -418,7 +426,7 @@ class AuthService:
             raise InvalidRefreshTokenError()
 
         account = await self.account_repository.get_by_tax_code(tax_code)
-        if account is None:
+        if account is None or account.status != AccountStatusEnum.ACTIVE:
             raise InvalidRefreshTokenError()
 
         if self._pending_change_expired(account, stored_token, now):
@@ -491,6 +499,10 @@ class AuthService:
 
         await self.account_repository.commit()
 
+    async def revoke_all_sessions(self, account_tax_code: str) -> None:
+        await self.refresh_token_repository.revoke_all_for_account(account_tax_code)
+        await self.account_repository.commit()
+
     async def logout(self, refresh_token: str) -> None:
         _, stored_token = await self._load_valid_refresh_token(refresh_token)
 
@@ -538,49 +550,52 @@ class AuthService:
 
         self._send_password_changed_email(account)
 
+    async def _issue_reset_link(self, account: Account) -> str:
+        now = datetime.now(UTC)
+        reset_token_id = str(uuid4())
+
+        reset_token = jwt_encode(
+            {
+                "sub": account.tax_code,
+                "type": _RESET_TOKEN_TYPE,
+                "jti": reset_token_id,
+                "exp": now + _RESET_TOKEN_LIFETIME,
+            },
+            settings.jwt_access_secret,
+            algorithm=settings.jwt_algorithm,
+        )
+
+        # Not a session: the two columns are filled to satisfy the table.
+        reset_token_record = RefreshToken(
+            account_tax_code=account.tax_code,
+            token_id=reset_token_id,
+            token_hash=hash_refresh_token(reset_token),
+            expires_at=now + _RESET_TOKEN_LIFETIME,
+            token_type=TokenTypeEnum.PASSWORD_RESET,
+            session_id=reset_token_id,
+            logged_in_at=now,
+        )
+
+        await self.refresh_token_repository.save(reset_token_record)
+        await self.account_repository.commit()
+
+        return f"{settings.frontend_url}/reset-password?token={reset_token}"
+
     async def request_password_reset(self, username: str) -> None:
         started_at = asyncio.get_running_loop().time()
 
         try:
             account = await self.account_repository.get_by_username(username)
 
-            if account is None:
+            if account is None or account.status != AccountStatusEnum.ACTIVE:
                 return
 
             if account.person is None or not account.person.email:
                 return
 
-            now = datetime.now(UTC)
-            reset_token_id = str(uuid4())
+            reset_link = await self._issue_reset_link(account)
 
-            reset_token = jwt_encode(
-                {
-                    "sub": account.tax_code,
-                    "type": _RESET_TOKEN_TYPE,
-                    "jti": reset_token_id,
-                    "exp": now + _RESET_TOKEN_LIFETIME,
-                },
-                settings.jwt_access_secret,
-                algorithm=settings.jwt_algorithm,
-            )
-
-            # Not a session: the two columns are filled to satisfy the table.
-            reset_token_record = RefreshToken(
-                account_tax_code=account.tax_code,
-                token_id=reset_token_id,
-                token_hash=hash_refresh_token(reset_token),
-                expires_at=now + _RESET_TOKEN_LIFETIME,
-                token_type=TokenTypeEnum.PASSWORD_RESET,
-                session_id=reset_token_id,
-                logged_in_at=now,
-            )
-
-            await self.refresh_token_repository.save(reset_token_record)
-            await self.account_repository.commit()
-
-            reset_link = f"{settings.frontend_url}/reset-password?token={reset_token}"
-
-            self._send_password_reset_email(account, reset_link)
+            self._send_email(**self._password_reset_email(account, reset_link))
 
         finally:
             # Constant minimum duration, or timing would reveal account existence.
@@ -589,6 +604,53 @@ class AuthService:
 
             if remaining > 0:
                 await asyncio.sleep(remaining)
+
+    # Sent on an administrator's behalf, so a failed delivery is raised, not swallowed.
+    async def send_password_reset(self, account: Account) -> None:
+        if account.status != AccountStatusEnum.ACTIVE:
+            raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
+
+        if account.person is None or not account.person.email:
+            raise MissingEmailError()
+
+        reset_link = await self._issue_reset_link(account)
+
+        email_service.send_email(**self._password_reset_email(account, reset_link))
+
+    # Sessions end too: a live one would only meet refusals until it expired.
+    async def force_password_change(self, account: Account) -> None:
+        account.password_reset_required = True
+
+        await self.account_repository.save(account)
+        await self.refresh_token_repository.revoke_all_for_account(account.tax_code)
+        await self.account_repository.commit()
+
+    # A suspension ends every session; signing in is refused until it is lifted.
+    async def suspend(self, account: Account, status: AccountStatusEnum) -> None:
+        account.status = status
+
+        await self.account_repository.save(account)
+        await self.refresh_token_repository.revoke_all_for_account(account.tax_code)
+        await self.account_repository.commit()
+
+    async def reactivate(self, account: Account) -> None:
+        account.status = AccountStatusEnum.ACTIVE
+
+        await self.account_repository.save(account)
+        await self.account_repository.commit()
+
+    async def unlock(self, account: Account) -> None:
+        account.failed_login_attempts = 0
+        account.last_failed_login_attempt = None
+        account.locked_until = None
+
+        await self.account_repository.save(account)
+        await self.account_repository.commit()
+
+    # Same bound as the sign-in, which refuses up to the lock's last instant.
+    @staticmethod
+    def is_locked(account: Account, now: datetime) -> bool:
+        return account.locked_until is not None and now <= account.locked_until
 
     async def reset_password(self, token: str, new_password: str) -> None:
         tax_code, stored_token = await self._load_valid_reset_token(
@@ -599,6 +661,9 @@ class AuthService:
         account = await self.account_repository.get_by_tax_code(tax_code)
         if account is None:
             raise AuthenticationError(_ACCOUNT_NOT_FOUND_ERROR)
+
+        if account.status != AccountStatusEnum.ACTIVE:
+            raise AuthenticationError(_ACCOUNT_DISABLED_ERROR)
 
         validate_password(new_password)
 

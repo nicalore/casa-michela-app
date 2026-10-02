@@ -113,8 +113,6 @@ String? passwordChangeProblem({
   return null;
 }
 
-const String kActiveSessionsTitle = 'Sessioni attive';
-
 const String kSessionsLoadFailed = 'Errore durante il caricamento delle sessioni. Riprova più tardi.';
 
 const String kUnknownDeviceLabel = 'Dispositivo sconosciuto';
@@ -125,7 +123,6 @@ const String kSessionLastUsedLabel = 'Ultima attività';
 
 const String kRevokeSessionLabel = 'Disattiva';
 const String kRevokeOthersLabel = 'Disattiva le altre sessioni';
-const String kNoOtherSessions = "Nessun'altra sessione attiva";
 
 const String kSessionEyebrow = 'Sessione';
 const String kSessionsEyebrow = 'Sessioni';
@@ -172,7 +169,7 @@ const String kPrivacyTitle = 'Privacy policy';
 
 const String kRegulationOpenFailed = 'Non è stato possibile aprire il regolamento.';
 
-const String kAppVersion = '0.3.0';
+const String kAppVersion = '0.3.1';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

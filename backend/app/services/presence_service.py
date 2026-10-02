@@ -5,7 +5,7 @@ from typing import Final
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
-from app.api.rbac import IdentityContext
+from app.api.rbac import IdentityContext, assert_may_book_for
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.booking_window import assert_within_booking_window
 from app.core.integrity import integrity_guard
@@ -118,19 +118,9 @@ class PresenceService:
         identity: IdentityContext,
         requested: str,
     ) -> str:
-        if identity.is_admin:
-            return requested
+        assert_may_book_for(identity, requested)
 
-        if "STUDENT" in identity.roles and requested == identity.tax_code:
-            return requested
-
-        if "PARENT" in identity.roles and requested in identity.child_tax_codes:
-            return requested
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_FORBIDDEN_STUDENT_TAX_CODE_ERROR,
-        )
+        return requested
 
     def _resolve_booker_tax_code_for_create(
         self,
@@ -257,6 +247,12 @@ class PresenceService:
         identity: IdentityContext,
         payload: PresenceCreate,
     ) -> Presence:
+        # Who may book comes before when: a refusal is not hidden by a closed day.
+        student_tax_code = self._resolve_student_tax_code_for_create(
+            identity,
+            payload.student_tax_code,
+        )
+
         assert_within_booking_window(payload.date)
         self._assert_still_theirs(
             identity,
@@ -265,10 +261,6 @@ class PresenceService:
             payload.end_time,
         )
 
-        student_tax_code = self._resolve_student_tax_code_for_create(
-            identity,
-            payload.student_tax_code,
-        )
         booker_tax_code = self._resolve_booker_tax_code_for_create(
             identity,
             payload.booker_tax_code,
@@ -321,6 +313,7 @@ class PresenceService:
         payload: PresenceUpdate,
     ) -> Presence:
         presence = await self.get_owned_or_404(identity, presence_id)
+        assert_may_book_for(identity, presence.student_tax_code)
 
         assert_not_stale(
             presence,
@@ -408,6 +401,7 @@ class PresenceService:
 
     async def delete(self, identity: IdentityContext, presence_id: int) -> None:
         presence = await self.get_owned_or_404(identity, presence_id)
+        assert_may_book_for(identity, presence.student_tax_code)
 
         self._assert_still_theirs(
             identity,

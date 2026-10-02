@@ -48,6 +48,9 @@ class Settings(BaseSettings):
 
     resend_api_key: str | None = None
     frontend_url: str = "http://localhost:3000"
+    # Store pages of the mobile app; the welcome email names only those set.
+    app_store_url: str | None = None
+    play_store_url: str | None = None
 
     audit_log_path: str = "logs/audit_{date}.log"
 

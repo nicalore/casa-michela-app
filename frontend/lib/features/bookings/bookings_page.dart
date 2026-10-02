@@ -96,9 +96,14 @@ class _BookingsPageState extends State<BookingsPage>
 
   bool get _isParent => widget.role == _parentRole;
 
+  // A pupil the parents answer for only looks, unless allowed to book too.
   bool get _isReadOnly
   {
-    return !_isParent && (_apiService.lastKnownIdentity?.hasParentalResponsibility ?? false);
+    final identity = _apiService.lastKnownIdentity;
+
+    return !_isParent &&
+        (identity?.hasParentalResponsibility ?? false) &&
+        !identity!.autonomousBookings;
   }
 
   DateTime get _today => DateTime(_now.year, _now.month, _now.day);

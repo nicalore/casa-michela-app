@@ -487,7 +487,7 @@ class _PersonEditDialogState extends State<PersonEditDialog>
           );
         }
 
-        await ApiService().createPersonFromWizard(
+        final String createdTaxCode = await ApiService().createPersonFromWizard(
           _form.buildCreatePayload(),
           imageBytes: _form.fotoProfilo,
         );
@@ -504,7 +504,8 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               : 'Persona creata con successo! $blockedNote',
           isError: false,
         );
-        Navigator.of(context).pop('');
+        // The opener offers the account next.
+        Navigator.of(context).pop(createdTaxCode);
 
         return;
       }

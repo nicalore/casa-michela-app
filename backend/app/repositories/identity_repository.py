@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.models.account import Account
 from app.models.member import Member
@@ -34,4 +34,33 @@ class IdentityRepository(SessionRepository):
                 staff.joinedload(Staff.psychologist_profile),
             )
             .where(Account.tax_code == tax_code)
+        )
+
+    # The same role graph from the person's side, for one who may have no account yet.
+    async def get_person_identity(self, tax_code: str) -> Person | None:
+        member = joinedload(Person.member_profile)
+        staff = member.joinedload(Member.staff_profile)
+
+        return await self.session.scalar(
+            select(Person)
+            .options(
+                joinedload(Person.account),
+                joinedload(Person.parent_profile)
+                .selectinload(Parent.children_relationships)
+                .joinedload(ParentalResponsibility.child)
+                .joinedload(Person.member_profile)
+                .joinedload(Member.student_profile),
+                # Their accounts decide whether the pupil's brings theirs along.
+                selectinload(Person.parental_relationships)
+                .joinedload(ParentalResponsibility.parent)
+                .joinedload(Parent.person)
+                .joinedload(Person.account),
+                member.joinedload(Member.student_profile),
+                member.joinedload(Member.course_participant_profile),
+                member.selectinload(Member.memberships),
+                staff.joinedload(Staff.administrator_profile),
+                staff.joinedload(Staff.teacher_profile),
+                staff.joinedload(Staff.psychologist_profile),
+            )
+            .where(Person.tax_code == tax_code)
         )

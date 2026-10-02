@@ -9,6 +9,10 @@ from app.core.audit import AUDIT_ACTOR_KEY, AuditActor
 from app.services.role_service import RoleService
 
 _FORBIDDEN_ROLE_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
+_FORBIDDEN_PUPIL_ERROR: Final[str] = (
+    "Puoi gestire solo le presenze relative a te stesso o ai tuoi figli"
+)
+_PARENTS_BOOK_ERROR: Final[str] = "Le tue prenotazioni sono gestite dai tuoi genitori"
 
 _ADMIN_ROLE: Final[str] = "ADMIN"
 
@@ -26,6 +30,10 @@ class IdentityContext:
     # Which hat the user is wearing. Presentation only: RBAC reads roles.
     active_role: str | None = None
 
+    # A pupil whose parents answer for them books only when allowed to.
+    answered_for: bool = False
+    autonomous_bookings: bool = False
+
     @property
     def is_admin(self) -> bool:
         return _ADMIN_ROLE in self.roles
@@ -36,6 +44,21 @@ class IdentityContext:
         own: set[str] = set()
 
         if "STUDENT" in self.roles:
+            own.add(self.tax_code)
+
+        if "PARENT" in self.roles:
+            own.update(self.child_tax_codes)
+
+        return frozenset(own)
+
+    # The subset this user may book, change or cancel for.
+    @property
+    def bookable_student_tax_codes(self) -> frozenset[str]:
+        own: set[str] = set()
+
+        if "STUDENT" in self.roles and (
+            not self.answered_for or self.autonomous_bookings
+        ):
             own.add(self.tax_code)
 
         if "PARENT" in self.roles:
@@ -60,6 +83,8 @@ async def get_current_identity(
             roles,
             account.last_active_role,
         ),
+        answered_for=RoleService.is_answered_for(account.person),
+        autonomous_bookings=account.autonomous_bookings,
     )
 
     # The audit middleware runs outside the dependency tree and resolves no identity.
@@ -91,3 +116,16 @@ def require_role(*roles: str) -> Callable[[CurrentIdentity], IdentityContext]:
         return identity
 
     return _dependency
+
+
+# Writes only: an answered-for pupil still reads every booking of theirs.
+def assert_may_book_for(identity: IdentityContext, student_tax_code: str) -> None:
+    if identity.is_admin or student_tax_code in identity.bookable_student_tax_codes:
+        return
+
+    themself = "STUDENT" in identity.roles and student_tax_code == identity.tax_code
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=_PARENTS_BOOK_ERROR if themself else _FORBIDDEN_PUPIL_ERROR,
+    )

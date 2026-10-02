@@ -165,7 +165,7 @@ class _RelatedPersonResponse(BaseModel):
 
 
 class ParentInfoResponse(_RelatedPersonResponse):
-    pass
+    has_account: bool = False
 
 
 class ChildInfoResponse(_RelatedPersonResponse):
@@ -546,6 +546,7 @@ class PersonResponse(BaseModel):
     roles: list[str]
     created_at: datetime
     profile_image_url: str | None = None
+    has_account: bool = False
 
     gender: str | None = None
     email: str | None = None

@@ -233,6 +233,42 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Not preferred teachers modification",
         path_params=("tax_code",),
     ),
+    ("POST", "/people/{tax_code}/account"): AuditRule(
+        "Account creation",
+        path_params=("tax_code",),
+    ),
+    ("POST", "/people/{tax_code}/account/password-change"): AuditRule(
+        "Forced password change",
+        path_params=("tax_code",),
+    ),
+    ("POST", "/people/{tax_code}/account/password-reset-email"): AuditRule(
+        "Password reset email",
+        path_params=("tax_code",),
+    ),
+    ("PUT", "/people/{tax_code}/account/autonomous-bookings"): AuditRule(
+        "Autonomous bookings change",
+        path_params=("tax_code",),
+    ),
+    ("POST", "/people/{tax_code}/account/suspension"): AuditRule(
+        "Account suspension",
+        path_params=("tax_code",),
+    ),
+    ("DELETE", "/people/{tax_code}/account/suspension"): AuditRule(
+        "Account reactivation",
+        path_params=("tax_code",),
+    ),
+    ("DELETE", "/people/{tax_code}/account/lock"): AuditRule(
+        "Account unlock",
+        path_params=("tax_code",),
+    ),
+    ("DELETE", "/people/{tax_code}/account/sessions"): AuditRule(
+        "Account sessions revocation",
+        path_params=("tax_code",),
+    ),
+    ("DELETE", "/people/{tax_code}/account/sessions/{session_id}"): AuditRule(
+        "Account session revocation",
+        path_params=("tax_code", "session_id"),
+    ),
     # Auth: the actor is whoever the request claims, as no bearer token is guaranteed.
     ("POST", "/auth/login"): AuditRule(
         "Authentication",

@@ -231,7 +231,8 @@ class PersonMembershipsTab extends StatelessWidget
       onPressed: () => _showEditDialog(context),
     );
 
-    if (isOwnProfile)
+    // Only a running membership can be revoked; a lapsed one has nothing left to end.
+    if (isOwnProfile || !person.isEnrolled)
     {
       return edit;
     }
@@ -429,7 +430,8 @@ class _RevokeMembershipDialogState extends State<_RevokeMembershipDialog>
           Expanded(
             child: Text(
               "L'operazione è irreversibile: l'iscrizione terminerà in data odierna "
-              'e lo stato di collaborazione verrà disattivato.',
+              'e lo stato di collaborazione verrà disattivato.'
+              "${widget.person.hasAccount ? " L'account verrà sospeso definitivamente." : ''}",
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

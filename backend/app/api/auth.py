@@ -282,17 +282,6 @@ def _board_role(person: Person) -> str | None:
     return administrator.role.value
 
 
-# Only a pupil is answered for: a minor on the staff has parents for paperwork alone.
-def _is_answered_for(person: Person) -> bool:
-    member = person.member_profile
-
-    return (
-        member is not None
-        and member.student_profile is not None
-        and bool(person.parental_relationships)
-    )
-
-
 def _identity_payload(account: Account) -> dict[str, Any]:
     person = account.person
     roles = RoleService.sorted_by_label(RoleService.get_available_roles(person))
@@ -316,7 +305,9 @@ def _identity_payload(account: Account) -> dict[str, Any]:
         # Stays required until the whole flow ends; the password change is step one.
         "onboarding_required": account.onboarding_completed_at is None,
         # A pupil somebody answers for: parents book and pay, so their area is narrower.
-        "has_parental_responsibility": _is_answered_for(person),
+        "has_parental_responsibility": RoleService.is_answered_for(person),
+        # Such a pupil may still be allowed to book; payments stay with the parents.
+        "autonomous_bookings": account.autonomous_bookings,
         "board_role": _board_role(person),
         # Stored aware, in UTC; the client picks the wall clock.
         "last_login": account.last_login.isoformat() if account.last_login else None,

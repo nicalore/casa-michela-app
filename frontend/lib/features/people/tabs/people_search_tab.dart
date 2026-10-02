@@ -17,6 +17,7 @@ import '../edit/person_edit_dialog.dart';
 import '../edit/person_edit_form.dart' show kBornInItalyNation;
 import '../models/people_filter_state.dart';
 import '../models/person_item.dart';
+import '../widgets/create_account_dialog.dart';
 import '../widgets/people_filter_dialog.dart';
 import '../widgets/person_card.dart';
 
@@ -135,9 +136,42 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
       builder: (context) => const PersonEditDialog.create(),
     );
 
-    if (created != null && mounted)
+    if (created == null || !mounted)
     {
-      await _loadData();
+      return;
+    }
+
+    await _loadData();
+
+    if (created.isNotEmpty && mounted)
+    {
+      await _offerAccount(created);
+    }
+  }
+
+  // As if «Crea account» had been pressed on the new record; a failed read stays silent,
+  // the record's Account section still offers it.
+  Future<void> _offerAccount(String fiscalCode) async
+  {
+    final PersonItem person;
+
+    try
+    {
+      person = await _apiService.getPerson(fiscalCode);
+    }
+    catch (_)
+    {
+      return;
+    }
+
+    if (!mounted || !mayOpenAccount(person))
+    {
+      return;
+    }
+
+    if (await runAccountCreation(context, person) && mounted)
+    {
+      await _loadData(quiet: true);
     }
   }
 

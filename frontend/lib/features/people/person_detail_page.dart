@@ -20,10 +20,13 @@ import '../../shared/widgets/page_watermark.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../../shared/widgets/app_segmented_tabs.dart';
 import '../auth/models/me_response.dart';
+import '../settings/utils/settings_strings.dart';
 import 'models/person_item.dart';
 import 'edit/person_edit_dialog.dart';
+import 'tabs/person_account_shared.dart';
 import 'tabs/person_account_tab.dart';
 import 'tabs/person_children_tab.dart';
+import 'tabs/person_devices_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_not_preferred_teachers_tab.dart';
@@ -32,6 +35,7 @@ import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
 import 'tabs/person_subjects_tab.dart';
 import 'tabs/person_teacher_parent_tab.dart';
+import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
 import 'widgets/person_detail_widgets.dart';
 
@@ -51,21 +55,15 @@ class PersonDetailPage extends StatefulWidget
 class _PersonDetailPageState extends State<PersonDetailPage>
     with SectionVisits
 {
-  // Roles with an Account section; DOCENTE is left out on purpose.
-  static const Set<String> _accountRoles = {
-    'STUDENTE',
-    'GENITORE',
-    'AMMINISTRATORE',
-    'CORSISTA',
-    'PSICOLOGO',
-  };
-
   int _selectedSection = 0;
   bool _isLoading = true;
   bool _isGeneratingForm = false;
   String? _errorMessage;
   PersonItem? _person;
   MeResponse? _currentUser;
+
+  // Shared by Accesso and Dispositivi; a new one comes with each reload of the record.
+  PersonAccountController? _accountController;
 
   late String _currentFiscalCode;
 
@@ -77,6 +75,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     visitedSections.add(_selectedSection);
     _fetchPersonData();
     _fetchCurrentUser();
+  }
+
+  @override
+  void dispose()
+  {
+    _accountController?.dispose();
+    super.dispose();
   }
 
   // Failure is silent: _isOwnProfile just stays false.
@@ -122,6 +127,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         setState(()
         {
           _person = person;
+          _accountController?.dispose();
+          _accountController =
+              person.hasAccount ? PersonAccountController(person.fiscalCode) : null;
           _isLoading = false;
 
           // A refresh can drop the selected section; fall back to the first.
@@ -270,11 +278,43 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ));
     }
 
-    if (roles.any(_accountRoles.contains))
+    final PersonAccountController? account = _accountController;
+
+    // As in the settings: Accesso and Dispositivi under one heading.
+    if (account != null)
+    {
+      sections.addAll([
+        PersonSection(
+          group: kAccountGroup,
+          label: kAccessSection,
+          view: PersonAccountTab(
+            person: person,
+            controller: account,
+            isOwnProfile: _isOwnProfile,
+            onAccountCreated: _fetchPersonData,
+          ),
+        ),
+        PersonSection(
+          group: kAccountGroup,
+          label: kDevicesSection,
+          view: PersonDevicesTab(
+            person: person,
+            controller: account,
+            isOwnProfile: _isOwnProfile,
+          ),
+        ),
+      ]);
+    }
+    else if (mayOpenAccount(person))
     {
       sections.add(PersonSection(
-        label: 'Account',
-        view: PersonAccountTab(person: person),
+        label: kAccountGroup,
+        view: PersonAccountTab(
+          person: person,
+          controller: null,
+          isOwnProfile: _isOwnProfile,
+          onAccountCreated: _fetchPersonData,
+        ),
       ));
     }
 

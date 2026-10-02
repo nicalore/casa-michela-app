@@ -4,7 +4,7 @@ from typing import Final
 
 from fastapi import HTTPException, status
 
-from app.api.rbac import IdentityContext
+from app.api.rbac import IdentityContext, assert_may_book_for
 from app.core.booking_close import assert_still_open, bands_of
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
@@ -66,6 +66,8 @@ class BookingService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=_PRESENCE_NOT_FOUND_ERROR,
             )
+
+        assert_may_book_for(identity, presence.student_tax_code)
 
         return presence
 
@@ -313,6 +315,7 @@ class BookingService:
         payload: BookingUpdate,
     ) -> Booking:
         booking = await self.get_owned_or_404(identity, booking_id)
+        assert_may_book_for(identity, booking.presence.student_tax_code)
 
         assert_not_stale(
             booking,
@@ -362,6 +365,7 @@ class BookingService:
 
     async def delete(self, identity: IdentityContext, booking_id: int) -> None:
         booking = await self.get_owned_or_404(identity, booking_id)
+        assert_may_book_for(identity, booking.presence.student_tax_code)
 
         self._assert_still_theirs(identity, booking.presence)
 

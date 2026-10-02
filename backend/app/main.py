@@ -27,6 +27,7 @@ from app.api import (
     ministry_subjects,
     opening_days,
     people,
+    person_accounts,
     presences,
     room_supervisions,
     rooms,
@@ -115,6 +116,7 @@ app.include_router(study_programs.router)
 app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
+app.include_router(person_accounts.router)
 app.include_router(documents.router)
 app.include_router(support.router)
 app.include_router(statistics.router)

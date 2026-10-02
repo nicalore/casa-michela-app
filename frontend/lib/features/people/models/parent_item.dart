@@ -31,6 +31,8 @@ class ParentItem implements PersonFace
 
   final List<String> roles;
 
+  final bool hasAccount;
+
   // Both describe the ParentalResponsibility relation between this parent and
   // the person the list was built for, not the parent in general.
   final bool authorizedPickup;
@@ -55,6 +57,7 @@ class ParentItem implements PersonFace
     this.birthDate,
     this.profileImageUrl,
     this.roles = const [],
+    this.hasAccount = false,
     this.authorizedPickup = true,
     this.pickupRestrictionReason,
   });
@@ -82,6 +85,7 @@ class ParentItem implements PersonFace
       birthDate: parseDate(json['birth_date']),
       profileImageUrl: json['profile_image_url'],
       roles: parseStringList(json['roles']),
+      hasAccount: json['has_account'] == true,
       authorizedPickup: json['authorized_pickup'] ?? true,
       pickupRestrictionReason: json['pickup_restriction_reason'],
     );

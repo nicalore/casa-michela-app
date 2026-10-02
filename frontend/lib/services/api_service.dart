@@ -37,6 +37,7 @@ import '../features/people/models/course_distribution_item.dart';
 import '../features/people/models/current_totals_item.dart';
 import '../features/people/models/education_distribution_item.dart';
 import '../features/people/models/member_trend_item.dart';
+import '../features/people/models/person_account_item.dart';
 import '../features/people/models/person_item.dart';
 import '../features/people/models/retention_rate_item.dart';
 import '../features/people/models/personal_statistics_items.dart';
@@ -2077,6 +2078,149 @@ class ApiService
     return PersonItem.fromJson(response.data);
   }
 
+  // Also opens the accounts of the parents named; each one gets a welcome email.
+  Future<void> createAccount(
+    String fiscalCode, {
+    required bool autonomousBookings,
+    required List<String> parentTaxCodes,
+  }) async
+  {
+    try
+    {
+      await _dio.post(
+        '/people/$fiscalCode/account',
+        data: {
+          'autonomous_bookings': autonomousBookings,
+          'parent_tax_codes': parentTaxCodes,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile creare l'account.");
+    }
+    finally
+    {
+      _forgetPeople();
+    }
+  }
+
+  Future<PersonAccountItem> getPersonAccount(String fiscalCode) async
+  {
+    try
+    {
+      final response = await _dio.get('/people/$fiscalCode/account');
+
+      return PersonAccountItem.fromJson(Map<String, dynamic>.from(response.data));
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile caricare l'account.");
+    }
+  }
+
+  // Also ends every session of the account.
+  Future<void> forcePasswordChange(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.post('/people/$fiscalCode/account/password-change');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile richiedere il cambio password.');
+    }
+  }
+
+  Future<void> sendPasswordResetEmail(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.post('/people/$fiscalCode/account/password-reset-email');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile inviare l'email di recupero.");
+    }
+  }
+
+  Future<void> setAutonomousBookings(String fiscalCode, {required bool enabled}) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$fiscalCode/account/autonomous-bookings',
+        data: {'enabled': enabled},
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile modificare le prenotazioni autonome.');
+    }
+  }
+
+  // Ends every session as well.
+  Future<void> suspendAccount(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.post('/people/$fiscalCode/account/suspension');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile sospendere l'account.");
+    }
+  }
+
+  Future<void> reactivateAccount(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.delete('/people/$fiscalCode/account/suspension');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile riattivare l'account.");
+    }
+  }
+
+  Future<void> unlockAccount(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.delete('/people/$fiscalCode/account/lock');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Impossibile sbloccare l'account.");
+    }
+  }
+
+  Future<void> revokePersonSession(String fiscalCode, String sessionId) async
+  {
+    try
+    {
+      await _dio.delete('/people/$fiscalCode/account/sessions/$sessionId');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile disattivare la sessione.');
+    }
+  }
+
+  // On one's own record the session in use survives.
+  Future<void> revokePersonSessions(String fiscalCode) async
+  {
+    try
+    {
+      await _dio.delete('/people/$fiscalCode/account/sessions');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile disattivare le sessioni.');
+    }
+  }
+
   Future<String> updatePerson(String fiscalCode, Map<String, dynamic> payload, {Uint8List? imageBytes}) async
   {
     try
@@ -2109,7 +2253,8 @@ class ApiService
     }
   }
 
-  Future<void> createPersonFromWizard(Map<String, dynamic> payload, {Uint8List? imageBytes}) async
+  // Returns the new person's tax code.
+  Future<String> createPersonFromWizard(Map<String, dynamic> payload, {Uint8List? imageBytes}) async
   {
     try
     {
@@ -2132,6 +2277,8 @@ class ApiService
         );
         profileImageVersion++;
       }
+
+      return response.data['tax_code'] as String;
     }
     on DioException catch (e)
     {

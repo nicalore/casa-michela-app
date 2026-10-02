@@ -17,6 +17,9 @@ class MeResponse
   // True for a pupil a parent answers for, not for the parent; their area is narrower.
   final bool hasParentalResponsibility;
 
+  // Such a pupil may book too when the administration allows it; payments stay with the parents.
+  final bool autonomousBookings;
+
   // PRESIDENT, VICE_PRESIDENT or TREASURER for a seat on the board; null
   // for everybody else. Mirrors _BOARD_ROLES on the server.
   final String? boardRole;
@@ -49,6 +52,7 @@ class MeResponse
     required this.passwordResetRequired,
     this.onboardingRequired = false,
     this.hasParentalResponsibility = false,
+    this.autonomousBookings = false,
     this.boardRole,
     this.lastLogin,
     this.gender,
@@ -79,6 +83,7 @@ class MeResponse
       passwordResetRequired: json['password_reset_required'],
       onboardingRequired: json['onboarding_required'] ?? false,
       hasParentalResponsibility: json['has_parental_responsibility'] ?? false,
+      autonomousBookings: json['autonomous_bookings'] ?? false,
       boardRole: json['board_role'] as String?,
       // The server sends UTC; convert to local or it reads hours behind.
       lastLogin: json['last_login'] != null
