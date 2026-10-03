@@ -8,6 +8,9 @@ class PersonAccountItem
   // ACTIVE, DISABLED (suspended by an administrator) or REVOKED (with the membership, for good).
   final String status;
 
+  // MEMBERSHIP or CHILDREN while no enrollment stands behind the account; re-enrolling lifts it.
+  final String? lapse;
+
   // A pupil the parents answer for; only then can autonomous bookings be set.
   final bool answeredFor;
   final bool autonomousBookings;
@@ -28,6 +31,7 @@ class PersonAccountItem
   const PersonAccountItem({
     required this.username,
     required this.status,
+    required this.lapse,
     required this.answeredFor,
     required this.autonomousBookings,
     required this.lastLogin,
@@ -40,7 +44,9 @@ class PersonAccountItem
 
   bool get isLocked => lockedUntil != null;
 
-  bool get isSuspended => status != 'ACTIVE';
+  bool get isSuspended => status != 'ACTIVE' || lapse != null;
+
+  bool get isDisabled => status == 'DISABLED';
 
   bool get isRevoked => status == 'REVOKED';
 
@@ -49,6 +55,7 @@ class PersonAccountItem
     return PersonAccountItem(
       username: json['username'],
       status: json['status'] ?? 'ACTIVE',
+      lapse: json['lapse'],
       answeredFor: json['answered_for'] == true,
       autonomousBookings: json['autonomous_bookings'] == true,
       lastLogin: parseInstant(json['last_login'])?.toLocal(),

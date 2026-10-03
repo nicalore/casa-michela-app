@@ -4,7 +4,7 @@ from string import ascii_uppercase
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.administrator import Administrator
+from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.association_subject import AssociationSubject, SubjectAreaEnum
 from app.models.availability import Availability
 from app.models.booking import Booking
@@ -106,15 +106,24 @@ async def make_person(
     )
 
 
+# Members are enrolled as on the register; tests about enrollment opt out.
+async def _make_member(db: AsyncSession, person: Person, *, enrolled: bool) -> None:
+    await _persist(db, Member(tax_code=person.tax_code))
+
+    if enrolled:
+        await make_membership(db, person)
+
+
 async def _make_staff_person(
     db: AsyncSession,
     *,
     first_name: str,
     last_name: str,
+    enrolled: bool = True,
 ) -> Person:
     person = await make_person(db, first_name=first_name, last_name=last_name)
 
-    await _persist(db, Member(tax_code=person.tax_code))
+    await _make_member(db, person, enrolled=enrolled)
     await _persist(
         db,
         Staff(tax_code=person.tax_code, collaboration_type="VOLUNTEER"),
@@ -128,8 +137,14 @@ async def make_teacher(
     *,
     first_name: str = "Anna",
     last_name: str = "Bianchi",
+    enrolled: bool = True,
 ) -> Teacher:
-    person = await _make_staff_person(db, first_name=first_name, last_name=last_name)
+    person = await _make_staff_person(
+        db,
+        first_name=first_name,
+        last_name=last_name,
+        enrolled=enrolled,
+    )
 
     return await _persist(db, Teacher(tax_code=person.tax_code))
 
@@ -139,41 +154,56 @@ async def make_student(
     *,
     first_name: str = "Luca",
     last_name: str = "Verdi",
+    enrolled: bool = True,
 ) -> Student:
     person = await make_person(db, first_name=first_name, last_name=last_name)
 
-    await _persist(db, Member(tax_code=person.tax_code))
+    await _make_member(db, person, enrolled=enrolled)
 
     return await _persist(db, Student(tax_code=person.tax_code))
 
 
-async def make_administrator(db: AsyncSession) -> Administrator:
-    person = await _make_staff_person(db, first_name="Giulia", last_name="Neri")
+async def make_administrator(
+    db: AsyncSession,
+    *,
+    enrolled: bool = True,
+) -> Administrator:
+    person = await _make_staff_person(
+        db,
+        first_name="Giulia",
+        last_name="Neri",
+        enrolled=enrolled,
+    )
 
     # OTHER: the named roles have a partial unique index and would collide.
     return await _persist(
         db,
         Administrator(
             tax_code=person.tax_code,
-            role="OTHER",
+            role=AdministratorRoleEnum.OTHER,
             other_role="Segreteria",
         ),
     )
 
 
-async def make_president(db: AsyncSession) -> Administrator:
-    person = await _make_staff_person(db, first_name="Carla", last_name="Rossi")
+async def make_president(db: AsyncSession, *, enrolled: bool = True) -> Administrator:
+    person = await _make_staff_person(
+        db,
+        first_name="Carla",
+        last_name="Rossi",
+        enrolled=enrolled,
+    )
 
     return await _persist(
         db,
-        Administrator(tax_code=person.tax_code, role="PRESIDENT"),
+        Administrator(tax_code=person.tax_code, role=AdministratorRoleEnum.PRESIDENT),
     )
 
 
 # Defaults to this year's, which counts through its 31-day renewal window.
 async def make_membership(
     db: AsyncSession,
-    member: Student | Teacher,
+    member: Person | Student | Teacher | Administrator,
     *,
     year: int | None = None,
     revocation: MembershipRevocationEnum = MembershipRevocationEnum.NO,

@@ -1035,7 +1035,6 @@ class PersonEditForm
       final bool minor = isMinor;
 
       memberData = {
-        'collaborating_active': involvementType == 0,
         'memberships': membershipsData,
         'payment_method': paymentMethod,
         'payment_method_other':

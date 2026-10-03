@@ -35,6 +35,13 @@ class AccountStatusEnum(StrEnum):
     REVOKED = "REVOKED"
 
 
+# Why an ACTIVE account is suspended all the same. Never stored: re-enrolling lifts it.
+class AccessLapseEnum(StrEnum):
+    MEMBERSHIP = "MEMBERSHIP"
+    # A parent who is no member and has no enrolled pupil left.
+    CHILDREN = "CHILDREN"
+
+
 class Account(CreatedAtMixin, UpdatedAtMixin, Base):
     __tablename__ = "accounts"
 

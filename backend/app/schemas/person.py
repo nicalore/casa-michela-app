@@ -425,16 +425,17 @@ class RelationshipsUpdate(BaseModel):
     parents_tax_codes: list[ParentalRelationshipInput] = []
 
 
+# No revocation: revoke-membership alone writes one.
 class MembershipUpdateItem(BaseModel):
     year: int
     start_date: date
     end_date: date
     renewal_period_days: int
-    revocation: str
 
 
 class PersonMembershipsUpdate(BaseModel):
-    collaborating_active: bool
+    # Set only from the memberships menu; the person form leaves it out.
+    collaborating_active: bool | None = None
     memberships: list[MembershipUpdateItem]
 
     payment_method: str | None = None
@@ -547,6 +548,8 @@ class PersonResponse(BaseModel):
     created_at: datetime
     profile_image_url: str | None = None
     has_account: bool = False
+    # No enrollment stands behind an account: none may be opened, or used.
+    access_lapsed: bool = False
 
     gender: str | None = None
     email: str | None = None

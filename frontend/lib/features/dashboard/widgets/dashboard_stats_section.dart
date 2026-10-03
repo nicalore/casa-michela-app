@@ -183,7 +183,7 @@ class DashboardStatsSection extends StatelessWidget
   Widget build(BuildContext context)
   {
     return DashboardSectionCard(
-      eyebrow: 'Persone',
+      eyebrow: 'Questo mese',
       title: 'Alcune statistiche',
       minHeight: minHeight,
       fill: fill,
@@ -192,7 +192,7 @@ class DashboardStatsSection extends StatelessWidget
           ? const Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(
-                child: CircularProgressIndicator(color: AppTheme.trialTurquoise),
+                child: CircularProgressIndicator(color: Color.fromARGB(255, 36, 43, 42)),
               ),
             )
           : _grid(),

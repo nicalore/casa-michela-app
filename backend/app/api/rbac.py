@@ -30,7 +30,8 @@ class IdentityContext:
     # Which hat the user is wearing. Presentation only: RBAC reads roles.
     active_role: str | None = None
 
-    # A pupil whose parents answer for them books only when allowed to.
+    # A pupil whose parents answer for them acts alone only when allowed to: booking,
+    # reporting a missing discipline, naming teachers they got on less well with.
     answered_for: bool = False
     autonomous_bookings: bool = False
 
@@ -51,14 +52,18 @@ class IdentityContext:
 
         return frozenset(own)
 
+    @property
+    def acts_for_self(self) -> bool:
+        return "STUDENT" in self.roles and (
+            not self.answered_for or self.autonomous_bookings
+        )
+
     # The subset this user may book, change or cancel for.
     @property
     def bookable_student_tax_codes(self) -> frozenset[str]:
         own: set[str] = set()
 
-        if "STUDENT" in self.roles and (
-            not self.answered_for or self.autonomous_bookings
-        ):
+        if self.acts_for_self:
             own.add(self.tax_code)
 
         if "PARENT" in self.roles:

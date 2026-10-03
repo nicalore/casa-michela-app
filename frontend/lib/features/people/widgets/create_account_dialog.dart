@@ -68,12 +68,13 @@ List<ParentItem> parentsGettingAnAccount(PersonItem person)
   return parents;
 }
 
-// Everyone but a bare member, unless the membership was revoked; a teacher's parents
-// never show up (shownRoles drops their GENITORE).
+// Everyone but a bare member, unless the membership was revoked or no enrollment stands
+// behind them; a teacher's parents never show up (shownRoles drops their GENITORE).
 bool mayOpenAccount(PersonItem person)
 {
   return !person.hasAccount &&
       !person.isMembershipRevoked &&
+      !person.accessLapsed &&
       person.shownRoles.any((role) => role.toUpperCase() != 'ASSOCIATO');
 }
 

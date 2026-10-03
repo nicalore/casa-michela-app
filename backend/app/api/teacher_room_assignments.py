@@ -7,6 +7,9 @@ from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
 from app.models.person import Person
 from app.models.teacher_room_assignment import TeacherRoomAssignment
+from app.repositories.calendar_publication_repository import (
+    CalendarPublicationRepository,
+)
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.person_repository import PersonRepository
 from app.repositories.room_repository import RoomRepository
@@ -77,8 +80,14 @@ def _service(db: DbSession) -> TeacherRoomAssignmentService:
 @router.get("/", response_model=list[TeacherRoomAssignmentResponse])
 async def list_assignments(
     day: date,
+    identity: CurrentIdentity,
     db: DbSession,
 ) -> list[TeacherRoomAssignmentResponse]:
+    # As with lessons: a teacher sees the rooms once a band of the day is published.
+    if not identity.is_admin:
+        if not await CalendarPublicationRepository(db).find_published_bands(day):
+            return []
+
     assignments = await _service(db).list_for_day(day)
 
     return await _to_responses(db, assignments)

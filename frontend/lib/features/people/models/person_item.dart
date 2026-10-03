@@ -31,6 +31,9 @@ class PersonItem implements PersonFace
 
   final bool hasAccount;
 
+  // No enrollment stands behind an account: none can be opened, and an existing one is suspended.
+  final bool accessLapsed;
+
   final String? gender;
   final String? email;
   final String? phoneNumber;
@@ -127,6 +130,7 @@ class PersonItem implements PersonFace
     required this.createdAt,
     this.profileImageUrl,
     this.hasAccount = false,
+    this.accessLapsed = false,
     this.gender,
     this.email,
     this.phoneNumber,
@@ -203,6 +207,7 @@ class PersonItem implements PersonFace
       createdAt: DateTime.parse(json['created_at']),
       profileImageUrl: json['profile_image_url'],
       hasAccount: json['has_account'] == true,
+      accessLapsed: json['access_lapsed'] == true,
       gender: json['gender'],
       email: json['email'],
       phoneNumber: json['phone'],

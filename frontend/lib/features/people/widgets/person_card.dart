@@ -12,17 +12,20 @@ const double _nameFontSize = 18;
 const double _nameHeightFactor = 1.2;
 const double _nameLineHeight = _nameFontSize * _nameHeightFactor;
 
-const int _maxNameLines = 3;
+const int _maxNameLines = 2;
+
+const int _maxRoleChips = 2;
 
 class PersonCard extends StatefulWidget
 {
-  static const double minWidth = 255;
+  // Leaves room beside the portrait for two role chips and the counter.
+  static const double minWidth = 325;
 
   static const double maxWidth = 420;
 
-  static const double height = 230;
+  static const double height = 102;
 
-  static const double avatarSize = 84;
+  static const double avatarSize = 68;
 
   final PersonItem person;
   final VoidCallback onTap;
@@ -53,7 +56,7 @@ class _PersonCardState extends State<PersonCard>
       child: Text(
         initials,
         style: GoogleFonts.plusJakartaSans(
-          fontSize: 28,
+          fontSize: 23,
           fontWeight: FontWeight.w700,
           color: AppTheme.trialTealDeep,
         ),
@@ -109,10 +112,10 @@ class _PersonCardState extends State<PersonCard>
           curve: Curves.easeOut,
           width: widget.width,
           height: PersonCard.height,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(26),
             border: Border.all(
               color: _isHovering
                   ? AppTheme.trialGold
@@ -121,45 +124,52 @@ class _PersonCardState extends State<PersonCard>
             ),
             boxShadow: AppTheme.cardShadow,
           ),
-          child: Column(
+          child: Row(
             children: [
               _buildAvatar(),
-              const SizedBox(height: 10),
-              // Line count computed from the room left: fixed at two, a second
-              // roles row sliced the name through the middle.
+              const SizedBox(width: 14),
               Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints)
-                  {
-                    final fitting = (constraints.maxHeight / _nameLineHeight).floor();
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Line count computed from the room left: a scaled-up text
+                    // must lose a line rather than be sliced through the middle.
+                    Flexible(
+                      child: LayoutBuilder(
+                        builder: (context, constraints)
+                        {
+                          final lineHeight = MediaQuery.textScalerOf(context).scale(_nameLineHeight);
+                          final fitting = (constraints.maxHeight / lineHeight).floor();
 
-                    return Center(
-                      child: OverflowTooltipText(
-                        text: '${widget.person.firstName} ${widget.person.lastName}',
-                        maxLines: fitting.clamp(1, _maxNameLines),
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: _nameFontSize,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.trialOcean,
-                          height: _nameHeightFactor,
-                        ),
+                          return OverflowTooltipText(
+                            text: '${widget.person.firstName} ${widget.person.lastName}',
+                            maxLines: fitting.clamp(1, _maxNameLines),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: _nameFontSize,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.trialOcean,
+                              height: _nameHeightFactor,
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ),
+                    if (processedRoles.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      RoleChipsRow(
+                        roles: processedRoles,
+                        maxChips: _maxRoleChips,
+                        fontSize: 12,
+                        horizontalPadding: 10,
+                        verticalPadding: 4,
+                        borderRadius: 20,
+                        applyTextScaler: true,
+                        safetyMargin: 2,
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              RoleChipsRow(
-                roles: processedRoles,
-                centered: true,
-                maxLines: 2,
-                fontSize: 12,
-                horizontalPadding: 10,
-                verticalPadding: 4,
-                borderRadius: 20,
-                applyTextScaler: true,
-                safetyMargin: 2,
               ),
             ],
           ),

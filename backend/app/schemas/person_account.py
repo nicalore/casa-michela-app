@@ -2,13 +2,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.account import AccountStatusEnum
+from app.models.account import AccessLapseEnum, AccountStatusEnum
 from app.schemas.auth.session_response import SessionResponse
 
 
 class PersonAccountResponse(BaseModel):
     username: str
     status: AccountStatusEnum
+    # Set while no enrollment stands behind the account, whatever its status.
+    lapse: AccessLapseEnum | None
     # A pupil whose parents answer for them; only then do autonomous bookings apply.
     answered_for: bool
     autonomous_bookings: bool

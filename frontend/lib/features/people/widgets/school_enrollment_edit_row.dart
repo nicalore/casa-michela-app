@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
-import '../../association/models/subject_taxonomy.dart';
 import 'person_detail_widgets.dart';
 import 'person_row_models.dart';
 
@@ -149,18 +148,13 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
   {
     final List<_RowFact> facts = [
       _RowFact(
-        'Livello',
-        row.program == null ? null : schoolLevelShortLabel(row.program!.level),
-        flex: 2,
-      ),
-      _RowFact(
         'Scuola',
         row.school == null ? null : '${row.school!.name} (${row.school!.city})',
-        flex: 4,
+        flex: 5,
         lines: 2,
       ),
       _RowFact('Classe', row.grade),
-      _RowFact('Percorso', row.program?.fullName, flex: 4, lines: 2),
+      _RowFact('Percorso', row.program?.fullName, flex: 5, lines: 2),
     ];
 
     return PersonEditRow(

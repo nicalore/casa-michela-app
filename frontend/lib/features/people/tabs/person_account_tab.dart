@@ -26,6 +26,8 @@ const String _statusLabel = 'Stato';
 const String _active = 'Attivo';
 const String _suspended = 'Sospeso';
 const String _revokedMembership = 'Iscrizione revocata';
+const String _expiredMembership = 'Iscrizione scaduta';
+const String _noEnrolledChild = 'Nessun figlio iscritto';
 
 const String _securityTitle = 'Sicurezza';
 const String _passwordChangeLabel = 'Cambio password';
@@ -271,6 +273,22 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     );
   }
 
+  // A manual suspension alone needs no reason.
+  String? _suspensionReason(PersonAccountItem account)
+  {
+    if (account.isRevoked)
+    {
+      return _revokedMembership;
+    }
+
+    return switch (account.lapse)
+    {
+      'MEMBERSHIP' => _expiredMembership,
+      'CHILDREN' => _noEnrolledChild,
+      _ => null,
+    };
+  }
+
   Widget _buildValue(String text, {String? detail})
   {
     final Widget value = Text(
@@ -332,10 +350,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
           DetailRowData.drawn(
             _statusLabel,
             account.isSuspended
-                ? _buildValue(
-                    _suspended,
-                    detail: account.isRevoked ? _revokedMembership : null,
-                  )
+                ? _buildValue(_suspended, detail: _suspensionReason(account))
                 : _buildValue(_active),
           ),
         ],
@@ -435,11 +450,11 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     ];
   }
 
-  // Apart from the rest: they take access away or give it back. A revocation's is for good.
+  // Apart from the rest: they take access away or give it back. Only a manual suspension is lifted here.
   List<Widget> _buildSuspension(PersonAccountItem account)
   {
     return [
-      if (account.isSuspended && !account.isRevoked)
+      if (account.isDisabled)
         AppGradientButton(
           label: _reactivateLabel.toUpperCase(),
           icon: Icons.how_to_reg_rounded,

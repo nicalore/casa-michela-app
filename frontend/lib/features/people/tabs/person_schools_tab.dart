@@ -42,9 +42,8 @@ Widget schoolEnrollmentCard(
     ),
     child: PersonFactsRow(
       facts: [
-        PersonFact('Scuola', item.schoolName, flex: 4),
-        PersonFact('Livello', item.educationLevel, flex: 3),
-        PersonFact('Percorso', item.studyProgramNameOnly, flex: 4),
+        PersonFact('Scuola', item.schoolName, flex: 5),
+        PersonFact('Percorso', item.studyProgramNameOnly, flex: 5),
         PersonFact('Classe', gradeLabel(item.grade)),
         PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
       ],

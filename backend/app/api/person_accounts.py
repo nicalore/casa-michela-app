@@ -145,11 +145,12 @@ async def create_person_account(
             detail=_ACCOUNT_EXISTS_ERROR,
         )
 
-    if not RoleService.get_available_roles(person):
-        raise _bad_request(_NO_ROLE_ERROR)
-
+    # Checked first: a revocation leaves no role either.
     if membership_revoked(person):
         raise _bad_request(_REVOKED_MEMBERSHIP_ERROR)
+
+    if not RoleService.get_available_roles(person):
+        raise _bad_request(_NO_ROLE_ERROR)
 
     parents = _parents_to_open(person, payload.parent_tax_codes)
 
@@ -215,6 +216,7 @@ async def get_person_account(
     return PersonAccountResponse(
         username=account.username,
         status=account.status,
+        lapse=RoleService.access_lapse(account.person),
         answered_for=RoleService.is_answered_for(account.person),
         autonomous_bookings=account.autonomous_bookings,
         last_login=account.last_login,

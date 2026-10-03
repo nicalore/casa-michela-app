@@ -29,6 +29,9 @@ class RoleChipsRow extends StatelessWidget
 
   final int maxLines;
 
+  // Chips shown before the rest go into the counter, room or not.
+  final int? maxChips;
+
   final double runSpacing;
 
   const RoleChipsRow({
@@ -44,6 +47,7 @@ class RoleChipsRow extends StatelessWidget
     this.scrollable = false,
     this.centered = false,
     this.maxLines = 1,
+    this.maxChips,
     this.runSpacing = 6,
   });
 
@@ -114,6 +118,11 @@ class RoleChipsRow extends StatelessWidget
 
         for (final role in roles)
         {
+          if (maxChips != null && placed >= maxChips!)
+          {
+            break;
+          }
+
           final width = _measureChipWidth(role, chipStyle, textScaler);
           final needed = line.isEmpty ? width : width + spacing;
 
@@ -259,26 +268,18 @@ class RoleChipsRow extends StatelessWidget
 
     return Tooltip(
       waitDuration: const Duration(milliseconds: 600),
+      // Same heading as the booking notes' tooltip.
       richMessage: TextSpan(
         children: [
           TextSpan(
-            text: 'Altri ruoli:\n',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              color: AppTheme.slate400,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
+            text: 'ALTRI RUOLI\n',
+            style: AppTheme.tooltipTextStyle.copyWith(
+              fontSize: 10,
+              letterSpacing: 1.2,
+              color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
-          TextSpan(
-            text: hiddenRoles.join('\n'),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-              height: 1.4,
-            ),
-          ),
+          TextSpan(text: hiddenRoles.join('\n'), style: AppTheme.tooltipTextStyle),
         ],
       ),
       child: chip,

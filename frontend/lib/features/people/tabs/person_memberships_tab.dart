@@ -102,6 +102,7 @@ class PersonMembershipsTab extends StatelessWidget
     required bool isEnrolled,
     required bool isFemale,
     required bool isActiveCollaborator,
+    required bool showCollaboration,
   })
   {
     final statusText = membershipStatusLabel(isEnrolled: isEnrolled, isFemale: isFemale);
@@ -144,41 +145,43 @@ class PersonMembershipsTab extends StatelessWidget
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isActiveCollaborator ? _collaboratingSurface : AppTheme.trialPaper,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isActiveCollaborator
-                            ? Icons.handshake_rounded
-                            : Icons.work_off_rounded,
-                        color: isActiveCollaborator
-                            ? AppTheme.trialTealDeep
-                            : AppTheme.trialMutedText,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          collaborationText,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: isActiveCollaborator
-                                ? AppTheme.trialTealDeep
-                                : AppTheme.trialMutedText,
+                if (showCollaboration) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isActiveCollaborator ? _collaboratingSurface : AppTheme.trialPaper,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isActiveCollaborator
+                              ? Icons.handshake_rounded
+                              : Icons.work_off_rounded,
+                          color: isActiveCollaborator
+                              ? AppTheme.trialTealDeep
+                              : AppTheme.trialMutedText,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            collaborationText,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: isActiveCollaborator
+                                  ? AppTheme.trialTealDeep
+                                  : AppTheme.trialMutedText,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -284,6 +287,8 @@ class PersonMembershipsTab extends StatelessWidget
                 isFemale: isFemale,
                 // Collaboration only counts while the membership is running.
                 isActiveCollaborator: isEnrolled && (person.isActiveCollaborator ?? false),
+                // Only the administrator's editable view shows it.
+                showCollaboration: onUpdate != null,
               ),
               const SizedBox(height: kPersonSectionGap),
               if (currentMembership != null) ...[

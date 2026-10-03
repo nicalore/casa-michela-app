@@ -196,7 +196,6 @@ async def create_person_from_wizard(
                         start_date=membership_data.start_date,
                         end_date=membership_data.end_date,
                         renewal_period_days=membership_data.renewal_period_days,
-                        revocation=membership_data.revocation,
                     )
                 )
 

@@ -33,7 +33,6 @@ import 'band_schedule.dart';
 import 'booking_fields_section.dart' show maxDailyMinutesPerDiscipline;
 import 'lesson_day_field.dart';
 import 'lessons_form_fields.dart';
-import 'person_avatar.dart';
 import 'subject_pick_row.dart';
 import 'subject_request_tile.dart' show disciplineNames, ministrySubjectName;
 import 'subject_request_wizard.dart';
@@ -1166,13 +1165,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   Widget _buildWho()
   {
-    final studentOptions = activeCollaborators(widget.students)
-        .map((student) => SelectionOption<String>(
-              value: student.fiscalCode,
-              label: '${student.firstName} ${student.lastName}',
-              leading: PersonAvatar(person: student, size: PersonAvatar.pickerSize),
-            ))
-        .toList();
+    final studentOptions = personPickerOptions(widget.students);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

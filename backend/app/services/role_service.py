@@ -1,16 +1,30 @@
 from collections.abc import Iterable
+from datetime import timedelta
 from typing import ClassVar, Final
 
 from fastapi import HTTPException, status
 
+from app.core.booking_window import today_in_rome
 from app.core.labels import role_label
+from app.models.account import AccessLapseEnum
 from app.models.administrator import AdministratorRoleEnum
+from app.models.member import Member
+from app.models.membership import MembershipRevocationEnum
 from app.models.person import Person
 from app.models.staff import CollaborationTypeEnum
 
 _UNPAID_ADMIN_ROLE_ERROR: Final[str] = (
     "Presidente, Vicepresidente e Tesoriere devono avere "
     "tipo di collaborazione 'Non pagato'."
+)
+
+# Mirrored by frontend/lib/features/auth/models/me_response.dart.
+BOARD_ROLES: Final[frozenset[AdministratorRoleEnum]] = frozenset(
+    {
+        AdministratorRoleEnum.PRESIDENT,
+        AdministratorRoleEnum.VICE_PRESIDENT,
+        AdministratorRoleEnum.TREASURER,
+    }
 )
 
 
@@ -31,7 +45,33 @@ class RoleService:
         AdministratorRoleEnum.TREASURER,
     }
 
-    # Pupils only: a minor on the staff has parents on record for paperwork alone.
+    # The register's rule (people._enrolled): the latest membership, unrevoked and
+    # inside its renewal window.
+    @staticmethod
+    def is_enrolled(member: Member | None) -> bool:
+        if member is None or not member.memberships:
+            return False
+
+        latest = max(member.memberships, key=lambda membership: membership.year)
+        lapses_on = latest.end_date + timedelta(days=latest.renewal_period_days)
+
+        return (
+            latest.revocation == MembershipRevocationEnum.NO
+            and lapses_on > today_in_rome()
+        )
+
+    # The board keeps its roles past a lapse: somebody must be able to renew.
+    @staticmethod
+    def in_good_standing(member: Member) -> bool:
+        staff = member.staff_profile
+        administrator = staff.administrator_profile if staff is not None else None
+
+        if administrator is not None and administrator.role in BOARD_ROLES:
+            return True
+
+        return RoleService.is_enrolled(member)
+
+    # Enrolled pupils only: a minor on the staff has parents for paperwork alone.
     @staticmethod
     def pupil_children_tax_codes(person: Person) -> frozenset[str]:
         parent = person.parent_profile
@@ -44,7 +84,24 @@ class RoleService:
             for relationship in parent.children_relationships
             if relationship.child.member_profile is not None
             and relationship.child.member_profile.student_profile is not None
+            and RoleService.is_enrolled(relationship.child.member_profile)
         )
+
+    # None while some enrollment stands behind the account.
+    @staticmethod
+    def access_lapse(person: Person) -> AccessLapseEnum | None:
+        member = person.member_profile
+
+        if member is not None and RoleService.in_good_standing(member):
+            return None
+
+        if RoleService.pupil_children_tax_codes(person):
+            return None
+
+        if member is not None:
+            return AccessLapseEnum.MEMBERSHIP
+
+        return AccessLapseEnum.CHILDREN
 
     # Only a pupil is answered for: a staff minor has parents for paperwork alone.
     @staticmethod
@@ -66,7 +123,7 @@ class RoleService:
 
         member = person.member_profile
 
-        if member is None:
+        if member is None or not RoleService.in_good_standing(member):
             return roles
 
         if member.student_profile is not None:

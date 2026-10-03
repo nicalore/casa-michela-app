@@ -6,7 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/people/models/membership_item.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/tabs/person_memberships_tab.dart'
-    show collaborationStatusLabel, kNoMembershipsMessage, membershipStatusLabel, revokedMembershipLabel;
+    show kNoMembershipsMessage, membershipStatusLabel, revokedMembershipLabel;
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
@@ -42,41 +42,28 @@ class MobileMembershipStatusCard extends StatelessWidget
     final bool enrolled = person.isEnrolled;
     final bool female = person.gender == 'F';
 
-    // Collaboration only counts while the membership is running.
-    final bool collaborating = enrolled && (person.isActiveCollaborator ?? false);
-
     return MobileGlassPanel(
       padding: const EdgeInsets.all(18),
       borderRadius: const BorderRadius.all(Radius.circular(22)),
       child: Center(
-        child: Column(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MobileCardBadge(
-                  icon: enrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                  tint: enrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    membershipStatusLabel(isEnrolled: enrolled, isFemale: female),
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.trialInk,
-                    ),
-                  ),
-                ),
-              ],
+            MobileCardBadge(
+              icon: enrolled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              tint: enrolled ? AppTheme.trialSeaGreen : AppTheme.trialDanger,
             ),
-            const SizedBox(height: 10),
-            _CollaborationPill(
-              text: collaborationStatusLabel(isActive: collaborating, isFemale: female),
-              active: collaborating,
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                membershipStatusLabel(isEnrolled: enrolled, isFemale: female),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.trialInk,
+                ),
+              ),
             ),
           ],
         ),
@@ -120,47 +107,6 @@ class MobileMembershipYearsCard extends StatelessWidget
     final DateTime deadline = membership.endDate.add(Duration(days: membership.renewalPeriodDays));
 
     return DetailRowData('Rinnovo entro', _dateFormat.format(deadline));
-  }
-}
-
-class _CollaborationPill extends StatelessWidget
-{
-  final String text;
-  final bool active;
-
-  const _CollaborationPill({required this.text, required this.active});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final Color tint = active ? AppTheme.trialTealDeep : MobilePalette.mutedText;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration: BoxDecoration(
-        color: active
-            ? AppTheme.trialTurquoise.withValues(alpha: 0.15)
-            : AppTheme.trialInk.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(active ? Icons.handshake_rounded : Icons.work_off_rounded, size: 16, color: tint),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              text,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: tint,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

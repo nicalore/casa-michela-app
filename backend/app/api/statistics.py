@@ -5,8 +5,9 @@ from datetime import date, timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
@@ -195,22 +196,35 @@ def _area_label(area: Any) -> str:
     return str(area) if area else _UNKNOWN_AREA_LABEL
 
 
-async def _count_memberships(
+# The register's rule (people._enrolled) on a given day: the latest membership
+# started by then, inside its renewal window. A revocation ends it that day.
+def _enrolled_on(day: date) -> ColumnElement[bool]:
+    newer = aliased(Membership)
+
+    return and_(
+        Membership.start_date <= day,
+        Membership.end_date + Membership.renewal_period_days > day,
+        ~exists().where(
+            newer.member_tax_code == Membership.member_tax_code,
+            newer.year > Membership.year,
+            newer.start_date <= day,
+        ),
+    )
+
+
+# Collaboration has no history: past days are read with today's flag.
+async def _count_enrolled(
     db: AsyncSession,
     role: str | None,
     *,
-    year: int,
-    before_month: int | None = None,
+    on: date,
     only_collaborating: bool = False,
 ) -> int:
     stmt = (
-        select(func.count(Membership.member_tax_code))
+        select(func.count(func.distinct(Membership.member_tax_code)))
         .join(Member)
-        .where(Membership.year == year)
+        .where(_enrolled_on(on))
     )
-
-    if before_month is not None:
-        stmt = stmt.where(_month_of(Membership.start_date) < before_month)
 
     if only_collaborating:
         stmt = stmt.where(Member.collaborating_active.is_(True))
@@ -222,35 +236,30 @@ async def _calculate_current_totals_dashboard(
     role: str | None,
     db: AsyncSession,
 ) -> CurrentTotalsResponse:
-    today = date.today()
-    year = today.year
-    month = today.month
+    today = today_in_rome()
+    # Deltas compare with the eve of the month and of the year.
+    month_eve = today.replace(day=1) - timedelta(days=1)
+    year_eve = date(today.year - 1, 12, 31)
 
-    members_now = await _count_memberships(db, role, year=year)
-    collaborators_now = await _count_memberships(
+    members_now = await _count_enrolled(db, role, on=today)
+    collaborators_now = await _count_enrolled(
         db,
         role,
-        year=year,
+        on=today,
         only_collaborating=True,
     )
-    members_month_start = await _count_memberships(
+    members_month_start = await _count_enrolled(db, role, on=month_eve)
+    collaborators_month_start = await _count_enrolled(
         db,
         role,
-        year=year,
-        before_month=month,
-    )
-    collaborators_month_start = await _count_memberships(
-        db,
-        role,
-        year=year,
-        before_month=month,
+        on=month_eve,
         only_collaborating=True,
     )
-    members_year_start = await _count_memberships(db, role, year=year - 1)
-    collaborators_year_start = await _count_memberships(
+    members_year_start = await _count_enrolled(db, role, on=year_eve)
+    collaborators_year_start = await _count_enrolled(
         db,
         role,
-        year=year - 1,
+        on=year_eve,
         only_collaborating=True,
     )
 
@@ -258,11 +267,11 @@ async def _calculate_current_totals_dashboard(
     percentage_collaborators = None
 
     if role is not None:
-        general_members = await _count_memberships(db, None, year=year)
-        general_collaborators = await _count_memberships(
+        general_members = await _count_enrolled(db, None, on=today)
+        general_collaborators = await _count_enrolled(
             db,
             None,
-            year=year,
+            on=today,
             only_collaborating=True,
         )
 

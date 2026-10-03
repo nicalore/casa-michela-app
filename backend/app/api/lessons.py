@@ -9,7 +9,7 @@ from app.api.booking_presentation import (
     booking_summary,
 )
 from app.api.dependencies import DbSession
-from app.api.rbac import CurrentIdentity, require_role
+from app.api.rbac import CurrentIdentity, IdentityContext, require_role
 from app.core.time_band import TimeBandEnum
 from app.models.lesson import Lesson
 from app.models.person import Person
@@ -151,6 +151,7 @@ def _to_response(
 async def _to_responses(
     db: DbSession,
     lessons: Sequence[Lesson],
+    identity: IdentityContext,
     *,
     warnings: list[str] | None = None,
 ) -> list[LessonResponse]:
@@ -164,6 +165,14 @@ async def _to_responses(
         students=(booking.presence.student_tax_code for booking in bookings),
         also=(lesson.availability.teacher_tax_code for lesson in lessons),
     )
+
+    # A pupil's avoided teachers are for the pupil and the parents, not the teacher.
+    if not identity.is_admin:
+        avoided = {
+            code: teachers
+            for code, teachers in avoided.items()
+            if code in identity.own_student_tax_codes
+        }
 
     assignments = TeacherRoomAssignmentRepository(db)
     rooms: dict[tuple[date, str], TeacherRoomAssignment] = {
@@ -211,7 +220,7 @@ async def list_lessons(
         teacher_tax_code=teacher_tax_code,
     )
 
-    return await _to_responses(db, lessons)
+    return await _to_responses(db, lessons, identity)
 
 
 @router.post("/", response_model=LessonResponse, dependencies=_ADMIN_ONLY)
@@ -222,7 +231,7 @@ async def create_lesson(
 ) -> LessonResponse:
     lesson, warnings = await _service(db).create(identity, payload)
 
-    return (await _to_responses(db, [lesson], warnings=warnings))[0]
+    return (await _to_responses(db, [lesson], identity, warnings=warnings))[0]
 
 
 @router.get("/{lesson_id}", response_model=LessonResponse)
@@ -233,7 +242,7 @@ async def get_lesson(
 ) -> LessonResponse:
     lesson = await _service(db).get_visible_or_404(identity, lesson_id)
 
-    return (await _to_responses(db, [lesson]))[0]
+    return (await _to_responses(db, [lesson], identity))[0]
 
 
 @router.put("/{lesson_id}", response_model=LessonResponse, dependencies=_ADMIN_ONLY)
@@ -245,7 +254,7 @@ async def update_lesson(
 ) -> LessonResponse:
     lesson, warnings = await _service(db).update(identity, lesson_id, payload)
 
-    return (await _to_responses(db, [lesson], warnings=warnings))[0]
+    return (await _to_responses(db, [lesson], identity, warnings=warnings))[0]
 
 
 @router.delete("/{lesson_id}", dependencies=_ADMIN_ONLY)

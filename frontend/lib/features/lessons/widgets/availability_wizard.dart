@@ -17,7 +17,6 @@ import '../utils/opening_window.dart';
 import 'band_schedule.dart';
 import 'lesson_day_field.dart';
 import 'lessons_form_fields.dart';
-import 'person_avatar.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
@@ -664,13 +663,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       return _buildDayField();
     }
 
-    final teacherOptions = activeCollaborators(widget.teachers)
-        .map((teacher) => SelectionOption<String>(
-              value: teacher.fiscalCode,
-              label: '${teacher.firstName} ${teacher.lastName}',
-              leading: PersonAvatar(person: teacher, size: PersonAvatar.pickerSize),
-            ))
-        .toList();
+    final teacherOptions = personPickerOptions(widget.teachers);
 
     return Column(
       mainAxisSize: MainAxisSize.min,

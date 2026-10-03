@@ -8,12 +8,16 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../people/models/person_item.dart';
+import 'person_avatar.dart';
 
 // Mirrors AppTextField's surface, radius, border and height.
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
 const double _fieldBorderWidth = 2;
 const double _fieldHeight = 50;
+
+const String _notCollaborating = 'Non collaborante';
 
 Widget _fieldLabel(String text, [TextStyle? style])
 {
@@ -109,12 +113,39 @@ class SelectionOption<T>
 
   final Widget? leading;
 
+  // False: listed greyed out, never picked.
+  final bool enabled;
+
   const SelectionOption({
     required this.value,
     required this.label,
     this.subtitle,
     this.leading,
+    this.enabled = true,
   });
+}
+
+// An administrator's picker of students or teachers: the active collaborators, then
+// the enrolled ones no longer collaborating, greyed out. Nobody unenrolled shows.
+List<SelectionOption<String>> personPickerOptions(List<PersonItem> people)
+{
+  SelectionOption<String> optionFor(PersonItem person, {required bool collaborating})
+  {
+    return SelectionOption(
+      value: person.fiscalCode,
+      label: '${person.firstName} ${person.lastName}',
+      subtitle: collaborating ? null : _notCollaborating,
+      leading: PersonAvatar(person: person, size: PersonAvatar.pickerSize),
+      enabled: collaborating,
+    );
+  }
+
+  return [
+    for (final person in activeCollaborators(people)) optionFor(person, collaborating: true),
+    for (final person in people)
+      if (person.isEnrolled && !(person.isActiveCollaborator ?? false))
+        optionFor(person, collaborating: false),
+  ];
 }
 
 class SelectionField<T> extends StatelessWidget
@@ -517,6 +548,18 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
     return widget.options.where((option) => option.label.toLowerCase().contains(query));
   }
 
+  // A greyed-out option arrives only from the keyboard, its label already written in.
+  void _select(SelectionOption<T> option)
+  {
+    if (!option.enabled)
+    {
+      _controller.text = _labelFor(widget.value) ?? '';
+      return;
+    }
+
+    widget.onSelected(option.value);
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -534,7 +577,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
               focusNode: _focusNode,
               displayStringForOption: (option) => option.label,
               optionsBuilder: _optionsFor,
-              onSelected: (option) => widget.onSelected(option.value),
+              onSelected: _select,
               fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted)
               {
                 // Same box AppTextField draws, down to the numbers.
@@ -564,7 +607,14 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
                           controller: textEditingController,
                           focusNode: focusNode,
                           cursorColor: AppTheme.trialTealDeep,
-                          onSubmitted: (_) => onFieldSubmitted(),
+                          // The first match is the one picked: greyed-out ones come last.
+                          onSubmitted: (_)
+                          {
+                            if (_optionsFor(textEditingController.value).any((option) => option.enabled))
+                            {
+                              onFieldSubmitted();
+                            }
+                          },
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 17,
                             fontWeight: hasValue ? FontWeight.w600 : FontWeight.w500,
@@ -601,6 +651,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>>
                 label: (option) => option.label,
                 leading: (option) => option.leading,
                 subtitle: (option) => option.subtitle,
+                enabled: (option) => option.enabled,
                 subtitlePlacement: AutocompleteSubtitlePlacement.below,
                 onSelected: onSelected,
               ),

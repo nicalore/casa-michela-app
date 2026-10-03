@@ -36,7 +36,7 @@ enum _PeopleSort
 }
 
 const int _maxColumns = 4;
-const double _cardGap = 20;
+const double _cardGap = 16;
 
 // Must match RoleLabelMapper's spelling.
 const String _studentRoleLabel = 'Studente';

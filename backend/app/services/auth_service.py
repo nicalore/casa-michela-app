@@ -28,9 +28,11 @@ from app.core.security import (
 from app.models.account import Account, AccountStatusEnum
 from app.models.refresh_token import DeviceTypeEnum, RefreshToken, TokenTypeEnum
 from app.repositories.account_repository import AccountRepository
+from app.repositories.identity_repository import IdentityRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services import email_service
 from app.services.auth_result import AuthResult
+from app.services.role_service import RoleService
 
 _LOCAL_TIMEZONE: Final[ZoneInfo] = ZoneInfo("Europe/Rome")
 
@@ -136,6 +138,20 @@ class AuthService:
     ) -> None:
         self.account_repository = account_repository
         self.refresh_token_repository = refresh_token_repository
+
+    # Off by hand, by a revocation, or because no enrollment stands behind it.
+    async def _usable(self, account: Account) -> bool:
+        if account.status != AccountStatusEnum.ACTIVE:
+            return False
+
+        # The same instance, now with the role graph its standing is read from.
+        repository = IdentityRepository(self.account_repository.session)
+        identity = await repository.get_account_identity(account.tax_code)
+
+        if identity is None:
+            return False
+
+        return RoleService.access_lapse(identity.person) is None
 
     # A lost notice must not fail the sign-in it accompanies.
     def _send_email(
@@ -388,7 +404,7 @@ class AuthService:
 
             raise AuthenticationError(_INVALID_CREDENTIALS_ERROR)
 
-        if account.status != AccountStatusEnum.ACTIVE:
+        if not await self._usable(account):
             raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
 
         account.failed_login_attempts = 0
@@ -426,7 +442,14 @@ class AuthService:
             raise InvalidRefreshTokenError()
 
         account = await self.account_repository.get_by_tax_code(tax_code)
-        if account is None or account.status != AccountStatusEnum.ACTIVE:
+        if account is None:
+            raise InvalidRefreshTokenError()
+
+        # A lapse is first met here: its sessions end, as a suspension's do.
+        if not await self._usable(account):
+            await self.refresh_token_repository.revoke_all_for_account(tax_code)
+            await self.account_repository.commit()
+
             raise InvalidRefreshTokenError()
 
         if self._pending_change_expired(account, stored_token, now):
@@ -587,7 +610,7 @@ class AuthService:
         try:
             account = await self.account_repository.get_by_username(username)
 
-            if account is None or account.status != AccountStatusEnum.ACTIVE:
+            if account is None or not await self._usable(account):
                 return
 
             if account.person is None or not account.person.email:
@@ -607,7 +630,7 @@ class AuthService:
 
     # Sent on an administrator's behalf, so a failed delivery is raised, not swallowed.
     async def send_password_reset(self, account: Account) -> None:
-        if account.status != AccountStatusEnum.ACTIVE:
+        if not await self._usable(account):
             raise AccountDisabledError(_ACCOUNT_DISABLED_ERROR)
 
         if account.person is None or not account.person.email:
@@ -662,7 +685,7 @@ class AuthService:
         if account is None:
             raise AuthenticationError(_ACCOUNT_NOT_FOUND_ERROR)
 
-        if account.status != AccountStatusEnum.ACTIVE:
+        if not await self._usable(account):
             raise AuthenticationError(_ACCOUNT_DISABLED_ERROR)
 
         validate_password(new_password)

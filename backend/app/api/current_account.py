@@ -7,6 +7,7 @@ from app.api.dependencies import DbSession
 from app.core.security import decode_access_token
 from app.models.account import Account, AccountStatusEnum
 from app.repositories.identity_repository import IdentityRepository
+from app.services.role_service import RoleService
 
 bearer_scheme = HTTPBearer()
 
@@ -46,7 +47,10 @@ async def get_current_account(
         )
 
     # A suspension takes effect at once, not when the access token expires.
-    if account.status != AccountStatusEnum.ACTIVE:
+    if (
+        account.status != AccountStatusEnum.ACTIVE
+        or RoleService.access_lapse(account.person) is not None
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_ACCOUNT_DISABLED_ERROR,

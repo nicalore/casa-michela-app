@@ -109,7 +109,7 @@ async def _outside_rows(
     ]
 
 
-async def _lessons_standing_on(
+async def lessons_standing_on(
     session: AsyncSession,
     availability_ids: set[int],
     presence_ids: set[int],
@@ -206,7 +206,7 @@ async def purge_hours_outside_openings(
         {row.date for row in availabilities} | {row.date for row in presences},
     )
 
-    lessons = await _lessons_standing_on(
+    lessons = await lessons_standing_on(
         session,
         {row.id for row in availabilities},
         {row.id for row in presences},

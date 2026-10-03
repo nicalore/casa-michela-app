@@ -20,6 +20,8 @@ const double _twoLineListHeight = 290;
 
 const double _optionsListPadding = 8;
 
+const double _disabledOptionOpacity = 0.45;
+
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
@@ -321,6 +323,9 @@ class AutocompleteOptionsList<T extends Object> extends StatefulWidget
 
   final Widget? Function(T option)? leading;
 
+  // Null: every option can be picked. A disabled one is greyed out and ignores taps.
+  final bool Function(T option)? enabled;
+
   final AutocompleteSubtitlePlacement subtitlePlacement;
   final AutocompleteOnSelected<T> onSelected;
 
@@ -334,6 +339,7 @@ class AutocompleteOptionsList<T extends Object> extends StatefulWidget
     required this.width,
     this.subtitle,
     this.leading,
+    this.enabled,
     this.subtitlePlacement = AutocompleteSubtitlePlacement.trailing,
   });
 
@@ -458,6 +464,7 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
                     label: widget.label(option),
                     subtitle: widget.subtitle?.call(option),
                     leading: widget.leading?.call(option),
+                    enabled: widget.enabled?.call(option) ?? true,
                     placement: widget.subtitlePlacement,
                     height: _itemHeight,
                     isHighlighted: index == highlightedIndex,
@@ -484,6 +491,8 @@ class _AutocompleteItem extends StatefulWidget
 
   final Widget? leading;
 
+  final bool enabled;
+
   final bool isHighlighted;
   final VoidCallback onTap;
 
@@ -491,6 +500,7 @@ class _AutocompleteItem extends StatefulWidget
     required this.label,
     required this.subtitle,
     this.leading,
+    this.enabled = true,
     required this.placement,
     required this.height,
     required this.isHighlighted,
@@ -521,63 +531,66 @@ class _AutocompleteItemState extends State<_AutocompleteItem>
   @override
   Widget build(BuildContext context)
   {
-    final isActive = widget.isHighlighted || _hover;
+    final isActive = widget.enabled && (widget.isHighlighted || _hover);
     final subtitle = widget.subtitle;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.enabled ? widget.onTap : null,
         child: Container(
           width: double.infinity,
           height: widget.height,
           color: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 2,
-                height: isActive ? 16 : 0,
-                decoration: BoxDecoration(
-                  color: AppTheme.trialGold,
-                  borderRadius: BorderRadius.circular(2),
+          child: Opacity(
+            opacity: widget.enabled ? 1 : _disabledOptionOpacity,
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 2,
+                  height: isActive ? 16 : 0,
+                  decoration: BoxDecoration(
+                    color: AppTheme.trialGold,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              if (widget.leading != null) ...[
-                widget.leading!,
                 const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.above)
-                      _buildStackedSubtitle(subtitle, above: true),
-                    OverflowTooltipText(
-                      text: widget.label,
-                      maxLines: 1,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 14,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                if (widget.leading != null) ...[
+                  widget.leading!,
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.above)
+                        _buildStackedSubtitle(subtitle, above: true),
+                      OverflowTooltipText(
+                        text: widget.label,
+                        maxLines: 1,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          color: isActive ? AppTheme.trialTealDeep : AppTheme.trialMutedText,
+                        ),
                       ),
-                    ),
-                    if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.below)
-                      _buildStackedSubtitle(subtitle, above: false),
-                  ],
+                      if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.below)
+                        _buildStackedSubtitle(subtitle, above: false),
+                    ],
+                  ),
                 ),
-              ),
-              if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.trailing) ...[
-                const SizedBox(width: 8),
-                Text(subtitle, style: _subtitleTextStyle()),
+                if (subtitle != null && widget.placement == AutocompleteSubtitlePlacement.trailing) ...[
+                  const SizedBox(width: 8),
+                  Text(subtitle, style: _subtitleTextStyle()),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

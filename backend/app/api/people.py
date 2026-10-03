@@ -70,6 +70,7 @@ from app.schemas.person import (
     EarlyExitScheduleResponse,
     GeneralDataUpdate,
     MembershipResponse,
+    MembershipUpdateItem,
     OwnEducationData,
     ParentInfoResponse,
     ParentUpdatePayload,
@@ -93,6 +94,7 @@ from app.schemas.person import (
 )
 from app.schemas.person_wizard import PersonWizardPayload
 from app.services import email_service
+from app.services.collaboration import drop_hours_ahead
 from app.services.early_exit_form import (
     build_early_exit_form,
     early_exit_form_file_name,
@@ -219,9 +221,6 @@ _PUPIL_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
 _TAX_CODE_IMMUTABLE_ERROR: Final[str] = (
     "La modifica del Codice Fiscale non è consentita per preservare "
     "l'integrità dei dati storici."
-)
-_RATING_IS_ADMIN_ONLY_ERROR: Final[str] = (
-    "La valutazione di un docente può essere modificata solo da un amministratore."
 )
 _PSYCHOLOGIST_SUPPORT_ERROR: Final[str] = (
     "Uno Psicologo non può essere iscritto al servizio di sostegno psicologico."
@@ -789,6 +788,7 @@ def _map_person_to_response(
         created_at=person.created_at,
         profile_image_url=person.profile_image_url,
         has_account=person.account is not None,
+        access_lapsed=RoleService.access_lapse(person) is not None,
         gender=person.gender,
         email=person.email,
         phone=person.phone,
@@ -898,6 +898,7 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         children.joinedload(SchoolStudyProgram.study_program),
         child.joinedload(Person.parent_profile),
         child_member.joinedload(Member.course_participant_profile),
+        child_member.selectinload(Member.memberships),
         child_staff.joinedload(Staff.administrator_profile),
         child_staff.joinedload(Staff.psychologist_profile),
         child_staff.joinedload(Staff.teacher_profile),
@@ -1151,6 +1152,59 @@ async def _create_parental_relationships(
     await db.flush()
 
 
+# Revocations are revoke-membership's alone: a revoked year stands as it was, and
+# an edit writes every other year unrevoked.
+async def _rewrite_memberships(
+    db: AsyncSession,
+    tax_code: str,
+    incoming: Sequence[MembershipUpdateItem],
+) -> None:
+    revoked_years = set(
+        await db.scalars(
+            select(Membership.year).where(
+                Membership.member_tax_code == tax_code,
+                Membership.revocation != MembershipRevocationEnum.NO,
+            ),
+        ),
+    )
+
+    await db.execute(
+        delete(Membership).where(
+            Membership.member_tax_code == tax_code,
+            Membership.revocation == MembershipRevocationEnum.NO,
+        )
+    )
+    await db.flush()
+
+    for membership_data in incoming:
+        if membership_data.year in revoked_years:
+            continue
+
+        db.add(
+            Membership(
+                member_tax_code=tax_code,
+                year=membership_data.year,
+                start_date=membership_data.start_date,
+                end_date=membership_data.end_date,
+                renewal_period_days=membership_data.renewal_period_days,
+            )
+        )
+
+    await db.flush()
+
+
+# A revoked latest membership closes the register for good.
+async def _revoked_for_good(db: AsyncSession, tax_code: str) -> bool:
+    latest = await db.scalar(
+        select(Membership.revocation)
+        .where(Membership.member_tax_code == tax_code)
+        .order_by(Membership.year.desc())
+        .limit(1),
+    )
+
+    return latest is not None and latest != MembershipRevocationEnum.NO
+
+
 async def _update_member_data(
     db: AsyncSession,
     person: Person,
@@ -1165,10 +1219,7 @@ async def _update_member_data(
 
     provided_fields = member_data.model_fields_set
 
-    update_values: dict[str, Any] = {
-        "collaborating_active": member_data.collaborating_active,
-        "updated_at": datetime.now(UTC),
-    }
+    update_values: dict[str, Any] = {"updated_at": datetime.now(UTC)}
 
     if provided_fields & {"payment_method", "payment_method_other"}:
         payment_method = (
@@ -1190,24 +1241,10 @@ async def _update_member_data(
     await db.execute(
         update(Member).where(Member.tax_code == person.tax_code).values(**update_values)
     )
-    await db.execute(
-        delete(Membership).where(Membership.member_tax_code == person.tax_code)
-    )
-    await db.flush()
 
-    for membership_data in member_data.memberships:
-        db.add(
-            Membership(
-                member_tax_code=person.tax_code,
-                year=membership_data.year,
-                start_date=membership_data.start_date,
-                end_date=membership_data.end_date,
-                renewal_period_days=membership_data.renewal_period_days,
-                revocation=MembershipRevocationEnum(membership_data.revocation),
-            )
-        )
-
-    await db.flush()
+    # The form edits a revoked person's personal data alone: the memberships stay.
+    if not await _revoked_for_good(db, person.tax_code):
+        await _rewrite_memberships(db, person.tax_code, member_data.memberships)
 
 
 async def _sync_student_profile(
@@ -1706,6 +1743,15 @@ def _view(full: PersonResponse, fields: frozenset[str]) -> PersonResponse:
     return PersonResponse(**full.model_dump(include=fields))
 
 
+def _with_children(full: PersonResponse, kept: frozenset[str]) -> PersonResponse:
+    children = [child for child in full.children or [] if child.fiscal_code in kept]
+    count = None if full.children_count is None else len(children)
+
+    return full.model_copy(
+        update={"children": children or None, "children_count": count}
+    )
+
+
 # (programme of the latest enrolment, disciplines that programme holds).
 _PupilProgramme = tuple[int | None, frozenset[int]]
 
@@ -1881,12 +1927,12 @@ async def get_person(
 
     full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
 
-    if (
-        identity.is_admin
-        or code == identity.tax_code
-        or code in identity.child_tax_codes
-    ):
+    if identity.is_admin or code in identity.child_tax_codes:
         return full
+
+    # A parent's app lists only the children they follow: the enrolled pupils.
+    if code == identity.tax_code:
+        return _with_children(full, identity.child_tax_codes)
 
     lessons = LessonRepository(db)
 
@@ -1906,11 +1952,14 @@ async def get_person(
     )
 
 
-@router.put("/{tax_code}", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{tax_code}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_role("ADMIN"))],
+)
 async def update_person(
     tax_code: str,
     payload: PersonUpdatePayload,
-    identity: CurrentIdentity,
     db: DbSession,
 ) -> dict[str, str]:
     person = await _get_person_or_404(db, tax_code)
@@ -1919,17 +1968,6 @@ async def update_person(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_TAX_CODE_IMMUTABLE_ERROR,
-        )
-
-    # Rejected rather than silently dropped for non-administrators.
-    if (
-        payload.teacher_data is not None
-        and payload.teacher_data.rating is not None
-        and not identity.is_admin
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_RATING_IS_ADMIN_ONLY_ERROR,
         )
 
     await _update_general_data(db, person, payload.general_data)
@@ -2499,12 +2537,11 @@ async def wizard_create_person(
     "/wizard/enrollment-form",
     status_code=status.HTTP_200_OK,
     response_class=Response,
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 async def wizard_enrollment_form(
     payload: EnrollmentFormRequest,
     db: DbSession,
-    # Unused in the body but required: the response carries a full personal record.
-    identity: CurrentIdentity,
 ) -> Response:
     try:
         pdf = await build_enrollment_form(db, payload)
@@ -2530,11 +2567,10 @@ async def wizard_enrollment_form(
     "/wizard/early-exit-form",
     status_code=status.HTTP_200_OK,
     response_class=Response,
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 async def wizard_early_exit_form(
     payload: EnrollmentFormRequest,
-    # Unused in the body but required: the response carries a full personal record.
-    identity: CurrentIdentity,
 ) -> Response:
     return await _early_exit_form_response(payload)
 
@@ -2571,11 +2607,11 @@ async def _early_exit_form_response(payload: EnrollmentFormRequest) -> Response:
     "/{tax_code}/enrollment-form",
     status_code=status.HTTP_200_OK,
     response_class=Response,
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 async def person_enrollment_form(
     tax_code: str,
     db: DbSession,
-    identity: CurrentIdentity,
 ) -> Response:
     stmt = (
         select(Person)
@@ -2617,11 +2653,11 @@ async def person_enrollment_form(
     "/{tax_code}/early-exit-form",
     status_code=status.HTTP_200_OK,
     response_class=Response,
+    dependencies=[Depends(require_role("ADMIN"))],
 )
 async def person_early_exit_form(
     tax_code: str,
     db: DbSession,
-    identity: CurrentIdentity,
 ) -> Response:
     stmt = (
         select(Person)
@@ -2710,25 +2746,24 @@ async def update_person_memberships(
         _DUPLICATE_MEMBERSHIP_YEAR_ERROR,
     )
 
-    member.collaborating_active = payload.collaborating_active
+    # Nothing follows a revocation, not even a correction of it.
+    if await _revoked_for_good(db, person.tax_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_MEMBERSHIP_ALREADY_REVOKED_ERROR,
+        )
+
+    was_collaborating = member.collaborating_active
+
+    if payload.collaborating_active is not None:
+        member.collaborating_active = payload.collaborating_active
+
     member.updated_at = datetime.now(UTC)
 
-    await db.execute(
-        delete(Membership).where(Membership.member_tax_code == person.tax_code)
-    )
-    await db.flush()
+    await _rewrite_memberships(db, person.tax_code, payload.memberships)
 
-    for membership_data in payload.memberships:
-        db.add(
-            Membership(
-                member_tax_code=person.tax_code,
-                year=membership_data.year,
-                start_date=membership_data.start_date,
-                end_date=membership_data.end_date,
-                renewal_period_days=membership_data.renewal_period_days,
-                revocation=MembershipRevocationEnum(membership_data.revocation),
-            )
-        )
+    if was_collaborating and not member.collaborating_active:
+        await drop_hours_ahead(db, person.tax_code)
 
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 
@@ -2799,6 +2834,8 @@ async def revoke_person_membership(
 
     member.collaborating_active = False
     member.updated_at = datetime.now(UTC)
+
+    await drop_hours_ahead(db, person.tax_code)
 
     account = await db.get(Account, person.tax_code)
 
@@ -2894,8 +2931,12 @@ async def update_not_preferred_teachers(
         selectinload(Person.parental_relationships),
     )
 
-    # A pupil somebody answers for has their parents speak for them.
-    if not (identity.is_admin or a_child) and person.parental_relationships:
+    # A pupil somebody answers for has their parents speak for them, unless let alone.
+    let_alone = themself and identity.autonomous_bookings
+
+    answered_for = bool(person.parental_relationships)
+
+    if answered_for and not (identity.is_admin or a_child or let_alone):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=_FORBIDDEN_NOT_PREFERRED_TEACHERS_ERROR,

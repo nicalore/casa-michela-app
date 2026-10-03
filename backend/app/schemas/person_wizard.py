@@ -73,12 +73,12 @@ class WizardGeneralData(BirthPlaceData):
     phone: str = Field(..., max_length=field_lengths.PHONE)
 
 
+# No revocation: revoke-membership alone writes one.
 class WizardMembershipData(BaseModel):
     year: int
     start_date: date
     end_date: date
     renewal_period_days: int
-    revocation: str
 
 
 class WizardMemberDataBase(BaseModel):

@@ -22,7 +22,6 @@ from app.core.client_device import FORM_FACTOR_HEADER, ClientDevice, describe_cl
 from app.core.password_policy import PasswordPolicyError
 from app.core.storage import PROFILE_IMAGES_DIR, store_profile_image
 from app.models.account import Account
-from app.models.administrator import AdministratorRoleEnum
 from app.models.person import Person
 from app.repositories.account_repository import AccountRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
@@ -44,7 +43,7 @@ from app.services.auth_service import (
     PasswordReuseError,
     SessionNotFoundError,
 )
-from app.services.role_service import RoleService
+from app.services.role_service import BOARD_ROLES, RoleService
 
 router = APIRouter(
     prefix="/auth",
@@ -73,14 +72,6 @@ _UNKNOWN_CURRENT_SESSION_ERROR: Final[str] = (
     "Sessione in uso non riconosciuta: esci e accedi di nuovo"
 )
 
-# Mirrored by frontend/lib/features/auth/models/me_response.dart.
-_BOARD_ROLES: Final[frozenset[AdministratorRoleEnum]] = frozenset(
-    {
-        AdministratorRoleEnum.PRESIDENT,
-        AdministratorRoleEnum.VICE_PRESIDENT,
-        AdministratorRoleEnum.TREASURER,
-    }
-)
 _ROLE_NOT_AVAILABLE_ERROR: Final[str] = "Ruolo non disponibile per questo account"
 _ROLE_WITHOUT_UI_ERROR: Final[str] = (
     "L'area dedicata a questo ruolo non è ancora disponibile"
@@ -276,7 +267,7 @@ def _board_role(person: Person) -> str | None:
     staff = member.staff_profile if member is not None else None
     administrator = staff.administrator_profile if staff is not None else None
 
-    if administrator is None or administrator.role not in _BOARD_ROLES:
+    if administrator is None or administrator.role not in BOARD_ROLES:
         return None
 
     return administrator.role.value

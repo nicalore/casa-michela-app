@@ -17,6 +17,7 @@ from app.models.presence import Presence
 from app.models.student import Student
 from app.repositories.presence_repository import PresenceRepository
 from app.schemas.presence import PresenceCreate, PresenceUpdate
+from app.services.collaboration import assert_admin_may_name, resume_collaboration
 from app.services.lesson_guard import (
     find_presence_lessons,
     find_student_day_lessons,
@@ -252,6 +253,11 @@ class PresenceService:
             identity,
             payload.student_tax_code,
         )
+        await assert_admin_may_name(
+            self.repository.session,
+            identity,
+            student_tax_code,
+        )
 
         assert_within_booking_window(payload.date)
         self._assert_still_theirs(
@@ -292,6 +298,7 @@ class PresenceService:
         )
 
         await self.repository.create(presence)
+        await resume_collaboration(self.repository.session, student_tax_code)
 
         return presence
 
@@ -314,6 +321,11 @@ class PresenceService:
     ) -> Presence:
         presence = await self.get_owned_or_404(identity, presence_id)
         assert_may_book_for(identity, presence.student_tax_code)
+        await assert_admin_may_name(
+            self.repository.session,
+            identity,
+            payload.student_tax_code or presence.student_tax_code,
+        )
 
         assert_not_stale(
             presence,

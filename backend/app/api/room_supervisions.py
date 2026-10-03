@@ -5,9 +5,13 @@ from fastapi import APIRouter, Depends
 
 from app.api.dependencies import DbSession
 from app.api.rbac import CurrentIdentity, require_role
+from app.core.booking_close import bands_of
 from app.models.person import Person
 from app.models.room import Room
 from app.models.room_supervision import RoomSupervision
+from app.repositories.calendar_publication_repository import (
+    CalendarPublicationRepository,
+)
 from app.repositories.person_repository import PersonRepository
 from app.repositories.room_repository import RoomRepository
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
@@ -82,10 +86,23 @@ def _service(db: DbSession) -> RoomSupervisionService:
 @router.get("/", response_model=list[RoomSupervisionResponse])
 async def list_supervisions(
     day: date,
+    identity: CurrentIdentity,
     db: DbSession,
     room_id: int | None = None,
 ) -> list[RoomSupervisionResponse]:
     supervisions = await _service(db).list_for_day(day, room_id=room_id)
+
+    # As with lessons: a teacher sees only the shifts in published bands.
+    if not identity.is_admin:
+        published = await CalendarPublicationRepository(db).find_published_bands(day)
+        supervisions = [
+            supervision
+            for supervision in supervisions
+            if any(
+                band in published
+                for band in bands_of(supervision.start_time, supervision.end_time)
+            )
+        ]
 
     return await _to_responses(db, supervisions)
 
