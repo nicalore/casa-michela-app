@@ -74,12 +74,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     super.initState();
     _currentState = widget.initialState;
 
-    _birthNationController.text  = '';
-    _birthCityController.text    = _currentState.birthCity      ?? '';
-    _cityController.text         = _currentState.city           ?? '';
-    _schoolController.text       = _currentState.schoolName     ?? '';
-    _studyProgramController.text = _currentState.studyProgram   ?? '';
-    _subjectController.text      = '';
     _courseTypeController.text   = _currentState.courseType     ?? '';
   }
 
@@ -133,62 +127,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       {
         _birthNationController.clear();
       }
-    });
-  }
-
-  void _addBirthNation(String nation)
-  {
-    String n = nation.trim();
-    if (n.isEmpty || !widget.availableBirthNations.contains(n) || _currentState.birthNations.contains(n))
-    {
-      return;
-    }
-
-    setState(()
-    {
-      List<String> updated = List.from(_currentState.birthNations)..add(n);
-      _currentState        = _currentState.copyWith(birthNations: updated);
-    });
-  }
-
-  void _removeBirthNation(String nation)
-  {
-    setState(()
-    {
-      List<String> updated = List.from(_currentState.birthNations)..remove(nation);
-
-      _currentState = _currentState.copyWith(
-        birthNations:      updated,
-        clearBirthNations: updated.isEmpty,
-      );
-    });
-  }
-
-  void _addSubject(String subject)
-  {
-    String s = subject.trim();
-    if (s.isEmpty || !widget.availableSubjects.contains(s) || _currentState.taughtSubjects.contains(s))
-    {
-      return;
-    }
-
-    setState(()
-    {
-      List<String> updated = List.from(_currentState.taughtSubjects)..add(s);
-      _currentState        = _currentState.copyWith(taughtSubjects: updated);
-    });
-  }
-
-  void _removeSubject(String subject)
-  {
-    setState(()
-    {
-      List<String> updated = List.from(_currentState.taughtSubjects)..remove(subject);
-
-      _currentState = _currentState.copyWith(
-        taughtSubjects:      updated,
-        clearTaughtSubjects: updated.isEmpty,
-      );
     });
   }
 
@@ -251,6 +189,48 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
           ),
       ],
     );
+  }
+
+  // Each suggestion picked becomes a chip; only listed values are taken.
+  List<Widget> _buildMultiAutocomplete({
+    required TextEditingController controller,
+    required String hint,
+    required List<String> options,
+    required List<String> values,
+    required void Function(List<String> values) onChanged,
+  })
+  {
+    return [
+      _AutocompleteField(
+        controller:  controller,
+        hint:        hint,
+        options:     [for (final option in options) if (!values.contains(option)) option],
+        onChanged:   (_) {},
+        onSubmitted: (picked)
+        {
+          final value = picked.trim();
+
+          if (options.contains(value) && !values.contains(value))
+          {
+            setState(() => onChanged([...values, value]));
+          }
+        },
+      ),
+      if (values.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Wrap(
+          spacing:    8,
+          runSpacing: 8,
+          children: [
+            for (final value in values)
+              AppDeletableChip(
+                label:    value,
+                onDelete: () => setState(() => onChanged([for (final kept in values) if (kept != value) kept])),
+              ),
+          ],
+        ),
+      ],
+    ];
   }
 
   Widget _buildFieldLabel(String text)
@@ -445,55 +425,40 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                         ),
                         if (_currentState.birthPlace == PeopleFilterState.bornAbroad) ...[
                           const SizedBox(height: 12),
-                          _AutocompleteField(
-                            controller:  _birthNationController,
-                            hint:        'Es. Romania',
-                            options:     widget.availableBirthNations,
-                            onChanged:   (_) {},
-                            onSubmitted: _addBirthNation,
-                          ),
-                          if (_currentState.birthNations.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing:    8,
-                              runSpacing: 8,
-                              children:   _currentState.birthNations.map((n)
-                              {
-                                return AppDeletableChip(
-                                  label:    n,
-                                  onDelete: () => _removeBirthNation(n),
-                                );
-                              }).toList(),
+                          ..._buildMultiAutocomplete(
+                            controller: _birthNationController,
+                            hint:       'Es. Romania',
+                            options:    widget.availableBirthNations,
+                            values:     _currentState.birthNations,
+                            onChanged:  (values) => _currentState = _currentState.copyWith(
+                              birthNations:      values,
+                              clearBirthNations: values.isEmpty,
                             ),
-                          ],
+                          ),
                         ],
 
                         _buildFieldLabel('Città di nascita'),
-                        _AutocompleteField(
+                        ..._buildMultiAutocomplete(
                           controller: _birthCityController,
                           hint:       'Es. Thiene',
                           options:    widget.availableBirthCities,
-                          onChanged:  (val) => setState(()
-                          {
-                            _currentState = _currentState.copyWith(
-                              birthCity:      val,
-                              clearBirthCity: val.isEmpty,
-                            );
-                          }),
+                          values:     _currentState.birthCities,
+                          onChanged:  (values) => _currentState = _currentState.copyWith(
+                            birthCities:      values,
+                            clearBirthCities: values.isEmpty,
+                          ),
                         ),
 
                         _buildFieldLabel('Città di residenza'),
-                        _AutocompleteField(
+                        ..._buildMultiAutocomplete(
                           controller: _cityController,
                           hint:       'Es. Thiene',
                           options:    widget.availableCities,
-                          onChanged:  (val) => setState(()
-                          {
-                            _currentState = _currentState.copyWith(
-                              city:      val,
-                              clearCity: val.isEmpty,
-                            );
-                          }),
+                          values:     _currentState.cities,
+                          onChanged:  (values) => _currentState = _currentState.copyWith(
+                            cities:      values,
+                            clearCities: values.isEmpty,
+                          ),
                         ),
 
                         _buildFieldLabel('Fascia di età'),
@@ -599,17 +564,15 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                             }),
                           ),
                           _buildFieldLabel('Scuola frequentata'),
-                          _AutocompleteField(
+                          ..._buildMultiAutocomplete(
                             controller: _schoolController,
-                            hint:       'Es. Liceo Statale Francesco Corradini',
+                            hint:       'Es. Liceo Statale "F. Corradini"',
                             options:    widget.availableSchools,
-                            onChanged:  (val) => setState(()
-                            {
-                              _currentState = _currentState.copyWith(
-                                schoolName:      val,
-                                clearSchoolName: val.isEmpty,
-                              );
-                            }),
+                            values:     _currentState.schoolNames,
+                            onChanged:  (values) => _currentState = _currentState.copyWith(
+                              schoolNames:      values,
+                              clearSchoolNames: values.isEmpty,
+                            ),
                           ),
                           _buildFieldLabel('Classe'),
                           _buildChoiceChips<String>(
@@ -624,17 +587,15 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                             }),
                           ),
                           _buildFieldLabel('Indirizzo di studio'),
-                          _AutocompleteField(
+                          ..._buildMultiAutocomplete(
                             controller: _studyProgramController,
                             hint:       'Es. Amministrazione, finanza e marketing',
                             options:    widget.availableStudyPrograms,
-                            onChanged:  (val) => setState(()
-                            {
-                              _currentState = _currentState.copyWith(
-                                studyProgram:      val,
-                                clearStudyProgram: val.isEmpty,
-                              );
-                            }),
+                            values:     _currentState.studyPrograms,
+                            onChanged:  (values) => _currentState = _currentState.copyWith(
+                              studyPrograms:      values,
+                              clearStudyPrograms: values.isEmpty,
+                            ),
                           ),
                           _buildFieldLabel('Certificazione'),
                           _buildMultiChips(
@@ -688,27 +649,16 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           _buildSectionTitle('Filtri Docente'),
 
                           _buildFieldLabel('Discipline insegnate'),
-                          _AutocompleteField(
-                            controller:  _subjectController,
-                            hint:        'Es. Aritmetica',
-                            options:     widget.availableSubjects,
-                            onChanged:   (_) {},
-                            onSubmitted: _addSubject,
-                          ),
-                          if (_currentState.taughtSubjects.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing:    8,
-                              runSpacing: 8,
-                              children:   _currentState.taughtSubjects.map((s)
-                              {
-                                return AppDeletableChip(
-                                  label:    s,
-                                  onDelete: () => _removeSubject(s),
-                                );
-                              }).toList(),
+                          ..._buildMultiAutocomplete(
+                            controller: _subjectController,
+                            hint:       'Es. Aritmetica',
+                            options:    widget.availableSubjects,
+                            values:     _currentState.taughtSubjects,
+                            onChanged:  (values) => _currentState = _currentState.copyWith(
+                              taughtSubjects:      values,
+                              clearTaughtSubjects: values.isEmpty,
                             ),
-                          ],
+                          ),
 
                           _buildFieldLabel('Numero materie insegnate'),
                           const SizedBox(height: 8),

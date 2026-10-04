@@ -354,10 +354,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
         _matchesSubjects(person) &&
         _matchesCertifications(person) &&
         _filterState.matchesBirthNation(person.birthNation) &&
-        _matchesText(person.birthCity, _filterState.birthCity) &&
-        _matchesText(person.city, _filterState.city) &&
-        _matchesText(person.schoolName, _filterState.schoolName) &&
-        _matchesText(person.studyProgram, _filterState.studyProgram) &&
+        PeopleFilterState.matchesAny(person.birthCity, _filterState.birthCities) &&
+        PeopleFilterState.matchesAny(person.city, _filterState.cities) &&
+        PeopleFilterState.matchesAny(person.schoolName, _filterState.schoolNames) &&
+        PeopleFilterState.matchesAny(person.studyProgram, _filterState.studyPrograms) &&
         _matchesText(person.courseType, _filterState.courseType) &&
         _matchesExactly(person.isActiveCollaborator, _filterState.isActiveCollaborator) &&
         _matchesExactly(person.enrollmentYear, _filterState.enrollmentYear) &&

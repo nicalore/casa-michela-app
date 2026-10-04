@@ -21,15 +21,17 @@ class PeopleFilterState
 
   // Named only when abroad: they narrow it to these nations.
   final List<String> birthNations;
-  final String? birthCity;
-  final String? city;
+
+  // Multi value: a person matches when holding any of them.
+  final List<String> birthCities;
+  final List<String> cities;
   final String? childrenCount;
   final bool? isActiveCollaborator;
   final String? enrollmentYear;
   final String? educationLevel;
-  final String? schoolName;
+  final List<String> schoolNames;
   final String? schoolClass;
-  final String? studyProgram;
+  final List<String> studyPrograms;
   final bool? earlyExit;
   final String? collaborationType;
   final List<String> taughtSubjects;
@@ -45,15 +47,15 @@ class PeopleFilterState
     this.ageRange,
     this.birthPlace,
     this.birthNations = const [],
-    this.birthCity,
-    this.city,
+    this.birthCities = const [],
+    this.cities = const [],
     this.childrenCount,
     this.isActiveCollaborator,
     this.enrollmentYear,
     this.educationLevel,
-    this.schoolName,
+    this.schoolNames = const [],
     this.schoolClass,
-    this.studyProgram,
+    this.studyPrograms = const [],
     this.earlyExit,
     this.collaborationType,
     this.taughtSubjects = const [],
@@ -70,15 +72,15 @@ class PeopleFilterState
     RangeValues? ageRange,
     String? birthPlace,
     List<String>? birthNations,
-    String? birthCity,
-    String? city,
+    List<String>? birthCities,
+    List<String>? cities,
     String? childrenCount,
     bool? isActiveCollaborator,
     String? enrollmentYear,
     String? educationLevel,
-    String? schoolName,
+    List<String>? schoolNames,
     String? schoolClass,
-    String? studyProgram,
+    List<String>? studyPrograms,
     bool? earlyExit,
     String? collaborationType,
     List<String>? taughtSubjects,
@@ -91,15 +93,15 @@ class PeopleFilterState
     bool clearAgeRange = false,
     bool clearBirthPlace = false,
     bool clearBirthNations = false,
-    bool clearBirthCity = false,
-    bool clearCity = false,
+    bool clearBirthCities = false,
+    bool clearCities = false,
     bool clearChildrenCount = false,
     bool clearCollaborator = false,
     bool clearEnrollment = false,
     bool clearEducationLevel = false,
-    bool clearSchoolName = false,
+    bool clearSchoolNames = false,
     bool clearSchoolClass = false,
-    bool clearStudyProgram = false,
+    bool clearStudyPrograms = false,
     bool clearEarlyExit = false,
     bool clearCollaborationType = false,
     bool clearTaughtSubjects = false,
@@ -115,15 +117,15 @@ class PeopleFilterState
       ageRange: clearAgeRange ? null : (ageRange ?? this.ageRange),
       birthPlace: clearBirthPlace ? null : (birthPlace ?? this.birthPlace),
       birthNations: clearBirthNations ? [] : (birthNations ?? this.birthNations),
-      birthCity: clearBirthCity ? null : (birthCity ?? this.birthCity),
-      city: clearCity ? null : (city ?? this.city),
+      birthCities: clearBirthCities ? [] : (birthCities ?? this.birthCities),
+      cities: clearCities ? [] : (cities ?? this.cities),
       childrenCount: clearChildrenCount ? null : (childrenCount ?? this.childrenCount),
       isActiveCollaborator: clearCollaborator ? null : (isActiveCollaborator ?? this.isActiveCollaborator),
       enrollmentYear: clearEnrollment ? null : (enrollmentYear ?? this.enrollmentYear),
       educationLevel: clearEducationLevel ? null : (educationLevel ?? this.educationLevel),
-      schoolName: clearSchoolName ? null : (schoolName ?? this.schoolName),
+      schoolNames: clearSchoolNames ? [] : (schoolNames ?? this.schoolNames),
       schoolClass: clearSchoolClass ? null : (schoolClass ?? this.schoolClass),
-      studyProgram: clearStudyProgram ? null : (studyProgram ?? this.studyProgram),
+      studyPrograms: clearStudyPrograms ? [] : (studyPrograms ?? this.studyPrograms),
       earlyExit: clearEarlyExit ? null : (earlyExit ?? this.earlyExit),
       collaborationType: clearCollaborationType ? null : (collaborationType ?? this.collaborationType),
       taughtSubjects: clearTaughtSubjects ? [] : (taughtSubjects ?? this.taughtSubjects),
@@ -182,6 +184,19 @@ class PeopleFilterState
     return birthNations.any((wanted) => wanted.toLowerCase() == held);
   }
 
+  // Any of [wanted], ignoring case; an empty list matches everyone.
+  static bool matchesAny(String? value, List<String> wanted)
+  {
+    if (wanted.isEmpty)
+    {
+      return true;
+    }
+
+    final String? held = value?.toLowerCase();
+
+    return wanted.any((option) => option.toLowerCase() == held);
+  }
+
   bool get hasActiveFilters => activeFiltersCount > 0;
 
   static bool _hasText(String? value) => value != null && value.trim().isNotEmpty;
@@ -192,15 +207,11 @@ class PeopleFilterState
       selectedCategory != null,
       ageRange != null && ageRange != defaultAgeRange,
       birthPlace != null,
-      _hasText(birthCity),
-      _hasText(city),
       childrenCount != null,
       isActiveCollaborator != null,
       enrollmentYear != null,
       educationLevel != null,
-      _hasText(schoolName),
       schoolClass != null,
-      _hasText(studyProgram),
       earlyExit != null,
       collaborationType != null,
       taughtSubjectsCount != null && taughtSubjectsCount != defaultTaughtSubjectsCount,
@@ -212,6 +223,10 @@ class PeopleFilterState
     return singleValueFilters.where((isActive) => isActive).length +
         selectedRoles.length +
         birthNations.length +
+        birthCities.length +
+        cities.length +
+        schoolNames.length +
+        studyPrograms.length +
         taughtSubjects.length +
         certifications.length;
   }

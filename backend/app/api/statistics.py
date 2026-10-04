@@ -71,6 +71,7 @@ from app.schemas.statistics import (
     TeacherAppreciationStudentsResponse,
     TeacherAvailabilityRankItem,
     TeacherAvailabilityStatisticsResponse,
+    TeacherCompetenceRankItem,
     TeacherPersonalStatisticsResponse,
     TeacherSubjectsStatisticsResponse,
 )
@@ -1181,6 +1182,10 @@ async def get_teacher_subjects_statistics(
     competences_query = (
         select(
             TeachingCompetence.teacher_tax_code,
+            Person.tax_code,
+            Person.first_name,
+            Person.last_name,
+            Person.profile_image_url,
             TeachingCompetence.association_subject_id,
             TeachingCompetence.study_program_id,
             AssociationSubject.name.label("subject_name"),
@@ -1194,6 +1199,7 @@ async def get_teacher_subjects_statistics(
             TeachingCompetence.association_subject_id == AssociationSubject.id,
         )
         .join(StudyProgram, TeachingCompetence.study_program_id == StudyProgram.id)
+        .join(Person, Person.tax_code == TeachingCompetence.teacher_tax_code)
         .where(
             TeachingCompetence.teacher_tax_code.in_(select(active_teachers)),
             TeachingCompetence.valid_to.is_(None),
@@ -1203,6 +1209,8 @@ async def get_teacher_subjects_statistics(
     result = await db.execute(competences_query)
 
     subjects_by_teacher: dict[str, set[int]] = {}
+    groups_by_teacher: dict[str, set[str]] = {}
+    people: dict[str, PersonOption] = {}
     teachers_by_group: dict[str, set[str]] = {}
     subject_name_by_group: dict[str, str] = {}
     program_name_by_group: dict[str, str | None] = {}
@@ -1225,6 +1233,8 @@ async def get_teacher_subjects_statistics(
 
         subject_name_by_group[group_key] = row.subject_name
         teachers_by_group.setdefault(group_key, set()).add(teacher_tax_code)
+        groups_by_teacher.setdefault(teacher_tax_code, set()).add(group_key)
+        people.setdefault(teacher_tax_code, _person_option_of(row))
 
         teachers_by_area.setdefault(_area_label(row.area), set()).add(teacher_tax_code)
 
@@ -1303,6 +1313,18 @@ async def get_teacher_subjects_statistics(
         key=lambda item: (item.count, item.name, item.program_name or ""),
     )[:_TOP_SUBJECTS_LIMIT]
 
+    top_teachers = sorted(
+        (
+            TeacherCompetenceRankItem(teacher=people[tax_code], count=len(groups))
+            for tax_code, groups in groups_by_teacher.items()
+        ),
+        key=lambda item: (
+            -item.count,
+            item.teacher.last_name,
+            item.teacher.first_name,
+        ),
+    )[:_TOP_SUBJECTS_LIMIT]
+
     area_distribution = [
         AreaDistributionItem(
             area=area,
@@ -1319,6 +1341,8 @@ async def get_teacher_subjects_statistics(
     return TeacherSubjectsStatisticsResponse(
         avg_subjects_per_teacher=round(average_subjects_per_teacher, 1),
         avg_teachers_per_subject=round(average_teachers_per_subject, 1),
+        uncovered_subjects=sum(1 for item in subject_counts if item.count == 0),
+        top_10_teachers=top_teachers,
         top_10_subjects=top_subjects,
         bottom_10_subjects=bottom_subjects,
         area_distribution=area_distribution,

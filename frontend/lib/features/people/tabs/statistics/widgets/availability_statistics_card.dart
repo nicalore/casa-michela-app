@@ -67,11 +67,11 @@ class TeacherAvailabilityCard extends StatelessWidget
     return PersonRankingSection(
       title: '10 docenti più disponibili',
       rows: [
-        for (var position = 1; position <= statistics.topTeachers.length; position++)
+        for (final (index, item) in statistics.topTeachers.indexed)
           PersonRankRow(
-            position: position,
-            person: statistics.topTeachers[position - 1].teacher,
-            badgeText: '${statistics.topTeachers[position - 1].availabilityCount} disponibilità',
+            position: index + 1,
+            person: item.teacher,
+            badgeText: '${item.availabilityCount} disponibilità',
             accent: AppTheme.trialSeaGreen,
           ),
       ],
@@ -220,28 +220,11 @@ class _TeacherWarningSectionState extends State<TeacherWarningSection>
   Widget _lowRow(LowAvailabilityTeacherItem item, String trailing)
   {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10, right: 12),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            size: 16,
-            color: AppTheme.modifiedAccent,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '${item.teacher.fullName} — $trailing',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.modifiedAccent,
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.only(right: 12),
+      child: PersonRankRow(
+        person: item.teacher,
+        badgeText: trailing,
+        accent: AppTheme.modifiedAccent,
       ),
     );
   }

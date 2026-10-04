@@ -60,9 +60,17 @@ class AreaDistributionItem(BaseModel):
     percentage: float
 
 
+# Count of disciplines, or of discipline and programme pairs, as ranked.
+class TeacherCompetenceRankItem(BaseModel):
+    teacher: PersonOption
+    count: int
+
+
 class TeacherSubjectsStatisticsResponse(BaseModel):
     avg_subjects_per_teacher: float
     avg_teachers_per_subject: float
+    uncovered_subjects: int
+    top_10_teachers: list[TeacherCompetenceRankItem]
     top_10_subjects: list[SubjectDistributionItem]
     bottom_10_subjects: list[SubjectDistributionItem]
     area_distribution: list[AreaDistributionItem]

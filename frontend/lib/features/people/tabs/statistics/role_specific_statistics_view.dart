@@ -835,6 +835,22 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
+  Widget _buildAreaChartCard()
+  {
+    final areas = _teacherStats?.areaDistribution ?? const <AreaDistributionItem>[];
+
+    return ChartCard(
+      title: 'Distribuzione per area',
+      icon: Icons.category_rounded,
+      isEmpty: areas.isEmpty,
+      chart: PieChart(
+        data: areas
+            .map((item) => ChartDatum(label: subjectAreaLabel(item.area), count: item.count))
+            .toList(),
+      ),
+    );
+  }
+
   Widget _buildCourseChartCard()
   {
     return ChartCard(
@@ -849,7 +865,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     );
   }
 
-  Widget _buildSubjectRow(SubjectDistributionItem subject)
+  Widget _buildSubjectRow(int position, SubjectDistributionItem subject)
   {
     final unit = subject.count == 1 ? 'docente' : 'docenti';
     final programName = subject.programName;
@@ -859,6 +875,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          RankPosition(position: position, color: AppTheme.trialTealDeep),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -920,34 +937,88 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         if (subjects.isEmpty)
           const EmptyChartMessage(fontSize: 14)
         else
-          ...subjects.map(_buildSubjectRow),
+          for (var index = 0; index < subjects.length; index++) _buildSubjectRow(index + 1, subjects[index]),
       ],
     );
   }
 
-  Widget _buildAreaDistributionSection(List<AreaDistributionItem> areas)
+  Widget _buildFigure(String label, String value)
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StatSectionTitle('Distribuzione per area'),
-        const SizedBox(height: 24),
-        // Explicit height: the pie chart's LayoutBuilder cannot be measured intrinsically.
-        SizedBox(
-          height: 320,
-          child: areas.isEmpty
-              ? const EmptyChartMessage(fontSize: 14)
-              : PieChart(
-                  data: areas
-                      .map(
-                        (item) => ChartDatum(
-                          label: subjectAreaLabel(item.area),
-                          count: item.count,
-                        ),
-                      )
-                      .toList(),
-                ),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.trialMutedText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 36,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.trialTealDeep,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTeacherRanking(List<TeacherCompetenceRankItem> teachers)
+  {
+    final byProgram = _teacherRankingMode == 'program';
+
+    return PersonRankingSection(
+      title: byProgram ? '10 docenti con più discipline e percorsi' : '10 docenti con più discipline',
+      rows: [
+        for (final (index, item) in teachers.indexed)
+          PersonRankRow(
+            position: index + 1,
+            person: item.teacher,
+            badgeText: _competenceCountLabel(item.count, byProgram),
+            accent: AppTheme.trialTealDeep,
+          ),
+      ],
+    );
+  }
+
+  String _competenceCountLabel(int count, bool byProgram)
+  {
+    if (byProgram)
+    {
+      return count == 1 ? '1 competenza' : '$count competenze';
+    }
+
+    return count == 1 ? '1 disciplina' : '$count discipline';
+  }
+
+  Widget _buildFigures(TeacherSubjectsStatisticsItem stats)
+  {
+    return Row(
+      // Numbers on one line even when only some labels wrap.
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: _buildFigure(
+            'Media discipline per docente',
+            stats.avgSubjectsPerTeacher.toStringAsFixed(1),
+          ),
+        ),
+        const StatDivider(),
+        Expanded(
+          child: _buildFigure(
+            'Media docenti per disciplina',
+            stats.avgTeachersPerSubject.toStringAsFixed(1),
+          ),
+        ),
+        const StatDivider(),
+        Expanded(
+          child: _buildFigure('Discipline senza docenti', '${stats.uncoveredSubjects}'),
         ),
       ],
     );
@@ -955,6 +1026,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Widget _buildTeacherSubjectsSections(TeacherSubjectsStatisticsItem stats)
   {
+    final teacherRanking = _buildTeacherRanking(stats.top10Teachers);
     final topRanking = _buildSubjectRanking(
       '10 discipline più coperte',
       stats.top10Subjects,
@@ -963,7 +1035,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       '10 discipline meno coperte',
       stats.bottom10Subjects,
     );
-    final areaSection = _buildAreaDistributionSection(stats.areaDistribution);
 
     return LayoutBuilder(
       builder: (context, constraints)
@@ -973,15 +1044,15 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              teacherRanking,
+              const SizedBox(height: 24),
+              const Divider(color: _sectionDivider, thickness: 1),
+              const SizedBox(height: 24),
               topRanking,
               const SizedBox(height: 24),
               const Divider(color: _sectionDivider, thickness: 1),
               const SizedBox(height: 24),
               bottomRanking,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
-              areaSection,
             ],
           );
         }
@@ -990,49 +1061,21 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 4, child: topRanking),
+              Expanded(child: teacherRanking),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
                 child: VerticalDivider(color: _sectionDivider, thickness: 1),
               ),
-              Expanded(flex: 4, child: bottomRanking),
+              Expanded(child: topRanking),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24),
                 child: VerticalDivider(color: _sectionDivider, thickness: 1),
               ),
-              Expanded(flex: 5, child: areaSection),
+              Expanded(child: bottomRanking),
             ],
           ),
         );
       },
-    );
-  }
-
-  Widget _buildAverageBlock(String label, double value)
-  {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value.toStringAsFixed(1),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1064,19 +1107,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _buildAverageBlock(
-                'Media discipline per docente',
-                stats.avgSubjectsPerTeacher,
-              ),
-              const StatDivider(),
-              _buildAverageBlock(
-                'Media docenti per disciplina',
-                stats.avgTeachersPerSubject,
-              ),
-            ],
-          ),
+          _buildFigures(stats),
           const SizedBox(height: 32),
           const Divider(color: _sectionDivider, thickness: 1),
           const SizedBox(height: 32),
@@ -1137,14 +1168,17 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     return _cityData.isNotEmpty ? _buildCityChartCard() : _buildAgeChartCard();
   }
 
+  // City and school bars take a whole row, or their labels get cut.
   List<Widget> _buildRoleSpecificCards()
   {
     switch (widget.roleKey)
     {
       case _studentRole:
         return [
+          _buildCityChartCard(),
+          _buildEducationChartCard(),
           ResponsiveCardPair(
-            first: _buildEducationChartCard(),
+            first: _buildAgeChartCard(),
             second: _buildCertificationChartCard(),
           ),
           if (_studentPresence != null)
@@ -1162,9 +1196,21 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             DisciplineTrendCard(disciplines: _disciplines),
         ];
       case _courseParticipantRole:
-        return [_buildCourseChartCard()];
+        final demographics = _buildDemographicsSection();
+
+        return [
+          ?demographics,
+          _buildCourseChartCard(),
+        ];
       case _teacherRole:
-        return _buildTeacherCards();
+        return [
+          _buildCityChartCard(),
+          ResponsiveCardPair(
+            first: _buildAgeChartCard(),
+            second: _buildAreaChartCard(),
+          ),
+          ..._buildTeacherCards(),
+        ];
       default:
         return const [];
     }
@@ -1172,7 +1218,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
 
   Widget _buildContent()
   {
-    final demographics = _buildDemographicsSection();
     final roleSpecific = _buildRoleSpecificCards();
 
     return SingleChildScrollView(
@@ -1204,10 +1249,6 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             second: _buildCollabRetentionCard,
           ),
           const SizedBox(height: 24),
-          if (demographics != null) ...[
-            demographics,
-            const SizedBox(height: 24),
-          ],
           for (final card in roleSpecific) ...[
             card,
             const SizedBox(height: 24),

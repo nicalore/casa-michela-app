@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
-import '../../../../lessons/widgets/person_avatar.dart';
 import '../../../models/person_face.dart';
 import '../../../models/student_presence_statistics_item.dart';
 import '../../../models/retention_rate_item.dart';
@@ -528,9 +527,38 @@ class ThumbCounts extends StatelessWidget
   }
 }
 
-class PersonRankRow extends StatelessWidget
+class RankPosition extends StatelessWidget
 {
   final int position;
+  final Color color;
+
+  const RankPosition({super.key, required this.position, required this.color});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    // Room for «10°» on one line.
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: SizedBox(
+        width: 32,
+        child: Text(
+          '$position°',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PersonRankRow extends StatelessWidget
+{
+  // Null for lists that are not rankings, such as warnings.
+  final int? position;
   final PersonFace person;
   final String badgeText;
   final Color accent;
@@ -539,10 +567,10 @@ class PersonRankRow extends StatelessWidget
 
   const PersonRankRow({
     super.key,
-    required this.position,
     required this.person,
     required this.badgeText,
     required this.accent,
+    this.position,
     this.subtitle,
   });
 
@@ -553,20 +581,7 @@ class PersonRankRow extends StatelessWidget
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '$position°',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: accent,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          PersonAvatar(person: person),
-          const SizedBox(width: 12),
+          if (position case final position?) RankPosition(position: position, color: accent),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,7 +664,7 @@ class RequestedSubjectsSection extends StatelessWidget
     required this.limit,
   });
 
-  Widget _row(RequestedSubjectItem subject)
+  Widget _row(int position, RequestedSubjectItem subject)
   {
     final unit = subject.requestCount == 1 ? 'richiesta' : 'richieste';
 
@@ -658,6 +673,7 @@ class RequestedSubjectsSection extends StatelessWidget
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          RankPosition(position: position, color: AppTheme.trialTealDeep),
           Expanded(
             child: OverflowTooltipText(
               text: subject.name,
@@ -713,7 +729,7 @@ class RequestedSubjectsSection extends StatelessWidget
         if (subjects.isEmpty)
           const EmptyChartMessage(fontSize: 14)
         else
-          ...subjects.map(_row),
+          for (var index = 0; index < subjects.length; index++) _row(index + 1, subjects[index]),
       ],
     );
   }
