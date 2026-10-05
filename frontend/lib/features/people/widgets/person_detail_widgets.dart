@@ -6,8 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../models/person_item.dart';
 
@@ -27,6 +29,11 @@ const double kPersonFieldButtonInset =
 
 const double kPersonDialogButtonHeight = 52;
 const double kPersonDialogButtonFontSize = 14;
+
+const double _loneButtonHeight = 72;
+const double _loneButtonFontSize = 22;
+const double _loneButtonRadius = 20;
+const double _loneButtonPadding = 48;
 
 // Shared by all wide cards so their value columns align; fits the longest label.
 const double kPersonWideCardLabelWidth = 230;
@@ -564,36 +571,73 @@ class PersonSectionTitle extends StatelessWidget
   }
 }
 
+// The one action of an otherwise empty section: larger than the other buttons.
+class PersonLoneButton extends StatelessWidget
+{
+  final String label;
+  final IconData icon;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  const PersonLoneButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.busy = false,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppGradientButton(
+      label: label,
+      icon: icon,
+      height: _loneButtonHeight,
+      fontSize: _loneButtonFontSize,
+      radius: _loneButtonRadius,
+      horizontalPadding: _loneButtonPadding,
+      busy: busy,
+      onPressed: onPressed,
+    );
+  }
+}
+
 class PersonEmptyState extends StatelessWidget
 {
   final String message;
   final Widget? action;
 
-  const PersonEmptyState({super.key, required this.message, this.action});
+  // Message and action rise with the page; off where a PageTransitionItem already holds it.
+  final bool rises;
+
+  const PersonEmptyState({super.key, required this.message, this.action, this.rises = false});
 
   @override
   Widget build(BuildContext context)
   {
+    final List<Widget> blocks = [
+      Text(
+        message,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.trialMutedText,
+        ),
+      ),
+      if (action != null) ...[
+        const SizedBox(height: 24),
+        action!,
+      ],
+    ];
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.only(top: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.trialMutedText,
-              ),
-            ),
-            if (action != null) ...[
-              const SizedBox(height: 24),
-              action!,
-            ],
-          ],
+          children: rises ? pageTransitionBlocks(blocks) : blocks,
         ),
       ),
     );

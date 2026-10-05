@@ -103,19 +103,14 @@ def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
         return []
 
     parents = [link.parent.person for link in person.parental_relationships]
+    openable = {parent.tax_code for parent in parents if parent.account is None}
     wanted = {code.upper() for code in chosen}
 
-    if any(parent.account is not None for parent in parents):
-        if wanted:
-            raise _bad_request(_INVALID_PARENTS_ERROR)
-
-        return []
-
-    if not wanted:
-        raise _bad_request(_NO_PARENT_ERROR)
-
-    if not wanted <= {parent.tax_code for parent in parents}:
+    if not wanted <= openable:
         raise _bad_request(_INVALID_PARENTS_ERROR)
+
+    if not wanted and len(openable) == len(parents):
+        raise _bad_request(_NO_PARENT_ERROR)
 
     return [parent for parent in parents if parent.tax_code in wanted]
 

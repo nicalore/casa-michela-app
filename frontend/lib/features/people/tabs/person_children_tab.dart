@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../core/utils/phone_number.dart';
 import '../../../core/utils/role_label_mapper.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -110,7 +111,12 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
   {
     return PersonEmptyState(
       message: 'Nessun figlio associato a questa anagrafica genitore.',
-      action: _buildManageButton('AGGIUNGI FIGLI'),
+      action: PersonLoneButton(
+        label: 'AGGIUNGI FIGLI',
+        icon: Icons.family_restroom_rounded,
+        onPressed: _openChildrenEditDialog,
+      ),
+      rises: true,
     );
   }
 
@@ -125,7 +131,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
       );
     }
 
-    final now = DateTime.now();
+    final now = romeNow();
     final date = _dateFormat.format(expiration);
 
     if (expiration.isBefore(DateTime(now.year, now.month, now.day)))

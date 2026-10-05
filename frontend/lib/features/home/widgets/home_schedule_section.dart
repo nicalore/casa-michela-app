@@ -362,7 +362,7 @@ class _LaneLabel extends StatelessWidget
               fontSize: _labelSize,
               fontWeight: FontWeight.w700,
               height: _labelLineHeight,
-              color: accent,
+              color: lane.name.isEmpty ? accent : AppTheme.trialInk,
             ),
           ),
         ),

@@ -255,20 +255,15 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
 
   Widget _buildCreation()
   {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 32, bottom: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: pageTransitionBlocks([
-          Center(
-            child: AppGradientButton(
-              label: 'CREA ACCOUNT',
-              icon: Icons.person_add_alt_1_rounded,
-              busy: _creating,
-              onPressed: _createAccount,
-            ),
-          ),
-        ]),
+    return Center(
+      child: PageTransitionItem(
+        slot: PageTransitionItem.header,
+        child: PersonLoneButton(
+          label: 'CREA ACCOUNT',
+          icon: Icons.person_add_alt_1_rounded,
+          busy: _creating,
+          onPressed: _createAccount,
+        ),
       ),
     );
   }

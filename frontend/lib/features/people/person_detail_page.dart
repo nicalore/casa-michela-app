@@ -9,6 +9,7 @@ import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../services/api_service.dart';
 import '../../shared/export/pdf_tab.dart';
 import '../../shared/widgets/app_page_container.dart';
@@ -37,7 +38,6 @@ import 'tabs/person_subjects_tab.dart';
 import 'tabs/person_teacher_parent_tab.dart';
 import 'widgets/create_account_dialog.dart';
 import 'widgets/person_detail_header.dart';
-import 'widgets/person_detail_widgets.dart';
 
 class PersonDetailPage extends StatefulWidget
 {
@@ -216,7 +216,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     {
       sections.add(PersonSection(
         label: 'Scuola',
-        view: PersonSchoolsTab(person: person, onUpdate: _fetchPersonData),
+        view: PersonSchoolsTab(
+          person: person,
+          onUpdate: _fetchPersonData,
+          showRepeating: true,
+        ),
       ));
     }
 
@@ -325,16 +329,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   {
     final parents = person.parents ?? [];
 
-    if (parents.isEmpty)
-    {
-      return const [
-        PersonSection(
-          label: 'Genitori',
-          view: PersonEmptyState(message: 'Nessun genitore associato a sistema.'),
-        ),
-      ];
-    }
-
     return [
       for (final parent in parents)
         PersonSection(
@@ -362,7 +356,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final PdfTab? earlyExitTab =
         alsoEarlyExit ? openPdfTab(title: 'Modulo uscita anticipata · $name') : null;
 
-    final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final String day = DateFormat('dd-MM-yyyy').format(romeNow());
 
     setState(() => _isGeneratingForm = true);
 

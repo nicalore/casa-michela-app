@@ -422,22 +422,24 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
   Widget _buildResultList(List<PersonItem> people)
   {
+    // Measured outside the scroll view: a SliverLayoutBuilder reruns on every scrolled
+    // pixel, rebuilding every card on screen each frame.
     return Expanded(
-      child: PageTransitionScrollView.slivers(
-        slivers: [
-          SliverLayoutBuilder(
-            builder: (context, constraints)
-            {
-              final available = constraints.crossAxisExtent;
+      child: LayoutBuilder(
+        builder: (context, constraints)
+        {
+          final available = constraints.maxWidth;
 
-              final columns = _columnsFor(available);
-              final width = ((available - _cardGap * (columns - 1)) / columns)
-                  .clamp(PersonCard.minWidth, PersonCard.maxWidth);
+          final columns = _columnsFor(available);
+          final width = ((available - _cardGap * (columns - 1)) / columns)
+              .clamp(PersonCard.minWidth, PersonCard.maxWidth);
 
-              // Rows use the count that actually fits after the width is clamped.
-              final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
+          // Rows use the count that actually fits after the width is clamped.
+          final fitting = ((available + _cardGap) / (width + _cardGap)).floor();
 
-              return CardRows(
+          return PageTransitionScrollView.slivers(
+            slivers: [
+              CardRows(
                 cards: [
                   for (final person in people)
                     PersonCard(
@@ -449,10 +451,10 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
                 cardWidth: width,
                 perRow: fitting < 1 ? 1 : fitting,
                 gap: _cardGap,
-              );
-            },
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }

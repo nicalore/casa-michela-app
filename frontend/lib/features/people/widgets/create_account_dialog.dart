@@ -55,19 +55,6 @@ bool isAnsweredFor(PersonItem person)
       (person.parents?.isNotEmpty ?? false);
 }
 
-// A pupil needs a parent who can book and pay: unless one already can, the parents get an account too.
-List<ParentItem> parentsGettingAnAccount(PersonItem person)
-{
-  final List<ParentItem> parents = person.parents ?? const [];
-
-  if (!isAnsweredFor(person) || parents.any((parent) => parent.hasAccount))
-  {
-    return const [];
-  }
-
-  return parents;
-}
-
 // Everyone but a bare member, unless the membership was revoked or no enrollment stands
 // behind them; a teacher's parents never show up (shownRoles drops their GENITORE).
 bool mayOpenAccount(PersonItem person)
@@ -214,25 +201,43 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
 
   bool _autonomousBookings = false;
 
-  late final List<ParentItem> _parents = parentsGettingAnAccount(widget.person);
+  // The parents an account can still be opened for.
+  late final List<ParentItem> _parents = [
+    for (final parent in widget.person.parents ?? const <ParentItem>[])
+      if (!parent.hasAccount) parent,
+  ];
 
-  // Only asked with two parents: a lone one is always included.
+  late final List<ParentItem> _parentsWithAccount = [
+    for (final parent in widget.person.parents ?? const <ParentItem>[])
+      if (parent.hasAccount) parent,
+  ];
+
+  // A pupil needs a parent who can book and pay: unless one already can, a lone parent comes along.
+  bool get _loneParentIncluded => _parentsWithAccount.isEmpty && _parents.length == 1;
+
   final Set<String> _chosenParents = {};
-
-  List<ParentItem> get _parentsWithAccount => [
-        for (final parent in widget.person.parents ?? const <ParentItem>[])
-          if (parent.hasAccount) parent,
-      ];
 
   List<String> get _parentTaxCodes => [
         for (final parent in _parents)
-          if (_parents.length == 1 || _chosenParents.contains(parent.fiscalCode))
+          if (_loneParentIncluded || _chosenParents.contains(parent.fiscalCode))
             parent.fiscalCode,
       ];
 
+  void _choose(ParentItem parent, bool chosen)
+  {
+    if (chosen)
+    {
+      _chosenParents.add(parent.fiscalCode);
+    }
+    else
+    {
+      _chosenParents.remove(parent.fiscalCode);
+    }
+  }
+
   String? _blockedReason(int step)
   {
-    if (step == 1 && _parents.length > 1 && _chosenParents.isEmpty)
+    if (step == 1 && _parentsWithAccount.isEmpty && _parents.length > 1 && _chosenParents.isEmpty)
     {
       return _noParentChosen;
     }
@@ -273,12 +278,12 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     );
   }
 
-  Widget _buildQuestion(String question, Widget control)
+  Widget _buildQuestion(String question, Widget control, {String? hint})
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PersonEditGuide(question: question),
+        PersonEditGuide(question: question, hint: hint),
         const SizedBox(height: _choiceGap),
         Center(child: control),
       ],
@@ -305,6 +310,22 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
   Widget _buildParents()
   {
     final List<ParentItem> withAccount = _parentsWithAccount;
+
+    // At most two parents: the other one may come along, defaulting to no.
+    if (withAccount.length == 1 && _parents.length == 1)
+    {
+      final ParentItem parent = _parents.single;
+
+      return _buildQuestion(
+        "Vuoi creare l'account anche per il genitore ${_fullName(parent)}?",
+        AppSegmentedSwitch(
+          value: _chosenParents.contains(parent.fiscalCode),
+          hugContent: true,
+          onChanged: (value) => setState(() => _choose(parent, value)),
+        ),
+        hint: 'Il genitore ${_fullName(withAccount.single)} ha già un account.',
+      );
+    }
 
     if (withAccount.length == 1)
     {
@@ -346,17 +367,7 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
             AppSelectableChip(
               label: _fullName(parent),
               selected: _chosenParents.contains(parent.fiscalCode),
-              onSelected: (selected) => setState(()
-              {
-                if (selected)
-                {
-                  _chosenParents.add(parent.fiscalCode);
-                }
-                else
-                {
-                  _chosenParents.remove(parent.fiscalCode);
-                }
-              }),
+              onSelected: (selected) => setState(() => _choose(parent, selected)),
             ),
         ],
       ),

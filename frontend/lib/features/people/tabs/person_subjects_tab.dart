@@ -145,8 +145,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     return _services.where((service) => service.toLowerCase().contains(query)).toList();
   }
 
-  bool get _hasAnything => _subjects.isNotEmpty || _services.isNotEmpty;
-
   Future<void> _save(List<Map<String, dynamic>> competences, List<String> services) async
   {
     if (_isSaving)
@@ -401,15 +399,7 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
     );
   }
 
-  Widget _buildEmptyState()
-  {
-    return PersonEmptyState(
-      message: 'Nessuna disciplina o servizio a sistema.',
-      action: _buildAddButton(),
-    );
-  }
-
-  Widget _buildFilters()
+  Widget _buildFilters(int count)
   {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -447,6 +437,8 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        CompetencesFoundCount(count: count, onlyServices: _showingOnlyServices),
       ],
     );
   }
@@ -454,38 +446,6 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   @override
   Widget build(BuildContext context)
   {
-    if (!_hasAnything)
-    {
-      final Widget? intro = widget.intro;
-      final Widget? footer = widget.footer;
-
-      if (intro == null && footer == null)
-      {
-        return _buildEmptyState();
-      }
-
-      return SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 16, bottom: 32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1520),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (intro != null)
-                  PageTransitionItem(slot: PageTransitionItem.header, child: intro),
-                _buildEmptyState(),
-                if (footer != null) ...[
-                  const SizedBox(height: 48),
-                  footer,
-                ],
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     final cards = _buildCards();
 
     return SingleChildScrollView(
@@ -513,11 +473,11 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (widget.intro != null) widget.intro!,
-                        _buildFilters(),
+                        _buildFilters(cards.length),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   if (cards.isEmpty)
                     PageTransitionItem(
                       slot: PageTransitionItem.list,

@@ -376,7 +376,7 @@ class HomeMonthSection extends StatelessWidget
                 fontSize: _nameSize,
                 fontWeight: FontWeight.w700,
                 height: 1.25,
-                color: AppTheme.trialTealDeep,
+                color: AppTheme.trialInk,
               ),
             ),
             const SizedBox(height: _nameGap),
@@ -500,11 +500,11 @@ class _FigureTile extends StatelessWidget
     final String? warning = figure.warning;
     final bool warned = warning != null;
 
+    // A word value is the tariff, which reads in ink like the names.
     final Color valueColor = switch (figure.tone)
     {
-      HomeFigureTone.plain => AppTheme.trialOcean,
-      HomeFigureTone.pending => AppTheme.trialTealDeep,
       HomeFigureTone.absent => AppTheme.trialMutedText,
+      _ => figure.isWord ? AppTheme.trialInk : AppTheme.trialOcean,
     };
 
     Widget line(Widget text) => Align(

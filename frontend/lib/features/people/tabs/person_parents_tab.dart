@@ -297,18 +297,6 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     return province.isEmpty ? city : '$city ($province)';
   }
 
-  Widget _buildEmptyState()
-  {
-    return PersonEmptyState(
-      message: 'Nessun genitore associato a sistema.',
-      action: AppGradientButton(
-        label: 'AGGIUNGI GENITORI',
-        icon: Icons.add_rounded,
-        onPressed: _openParentSelectionDialog,
-      ),
-    );
-  }
-
   Widget _buildCard(ParentItem parent)
   {
     final age = parent.age;
@@ -332,11 +320,6 @@ class _PersonParentsTabState extends State<PersonParentsTab>
   Widget build(BuildContext context)
   {
     final parents = widget.person.parents ?? [];
-
-    if (parents.isEmpty)
-    {
-      return _buildEmptyState();
-    }
 
     // Only an adult can be released from parental responsibility.
     final isAdult = widget.person.age != null && widget.person.age! >= _adultAge;
