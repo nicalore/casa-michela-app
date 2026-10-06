@@ -22,7 +22,6 @@ class PeopleFilterState
   // Named only when abroad: they narrow it to these nations.
   final List<String> birthNations;
 
-  // Multi value: a person matches when holding any of them.
   final List<String> birthCities;
   final List<String> cities;
   final String? childrenCount;
@@ -40,6 +39,9 @@ class PeopleFilterState
   final bool? isMedicalCertificateValid;
 
   final List<String> certifications;
+
+  // Psychologists only.
+  final bool? hasMethodologicalNotes;
 
   const PeopleFilterState({
     this.selectedCategory,
@@ -63,6 +65,7 @@ class PeopleFilterState
     this.courseType,
     this.isMedicalCertificateValid,
     this.certifications = const [],
+    this.hasMethodologicalNotes,
   });
 
   // Each field has a clear flag: null means "leave unchanged", not "reset".
@@ -88,6 +91,7 @@ class PeopleFilterState
     String? courseType,
     bool? isMedicalCertificateValid,
     List<String>? certifications,
+    bool? hasMethodologicalNotes,
     bool clearCategory = false,
     bool clearRoles = false,
     bool clearAgeRange = false,
@@ -109,6 +113,7 @@ class PeopleFilterState
     bool clearCourseType = false,
     bool clearMedicalCert = false,
     bool clearCertifications = false,
+    bool clearMethodologicalNotes = false,
   })
   {
     return PeopleFilterState(
@@ -133,6 +138,9 @@ class PeopleFilterState
       courseType: clearCourseType ? null : (courseType ?? this.courseType),
       isMedicalCertificateValid: clearMedicalCert ? null : (isMedicalCertificateValid ?? this.isMedicalCertificateValid),
       certifications: clearCertifications ? [] : (certifications ?? this.certifications),
+      hasMethodologicalNotes: clearMethodologicalNotes
+          ? null
+          : (hasMethodologicalNotes ?? this.hasMethodologicalNotes),
     );
   }
 
@@ -184,7 +192,6 @@ class PeopleFilterState
     return birthNations.any((wanted) => wanted.toLowerCase() == held);
   }
 
-  // Any of [wanted], ignoring case; an empty list matches everyone.
   static bool matchesAny(String? value, List<String> wanted)
   {
     if (wanted.isEmpty)
@@ -217,6 +224,7 @@ class PeopleFilterState
       taughtSubjectsCount != null && taughtSubjectsCount != defaultTaughtSubjectsCount,
       _hasText(courseType),
       isMedicalCertificateValid != null,
+      hasMethodologicalNotes != null,
     ];
 
     // Multi value filters count one unit per selected entry.

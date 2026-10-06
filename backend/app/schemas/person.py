@@ -18,6 +18,7 @@ from app.models.person import BORN_ABROAD_PROVINCE
 from app.models.student import CertificationTypeEnum, HomeworkTariffEnum
 from app.models.study_program import EducationLevelEnum, HighSchoolTrackEnum
 from app.models.teacher import RATING_MAXIMUM, RATING_MINIMUM, RATING_STEP
+from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.schemas.validators import (
     OpeningCapitalStr,
     OptionalOpeningCapitalStr,
@@ -321,6 +322,10 @@ class StudentCertificationData(BaseModel):
             raise ValueError(_MISSING_DSA_DETAIL_ERROR)
 
         return self
+
+
+class StudentCertificationsUpdate(StudentCertificationData):
+    certification_types: list[CertificationTypeEnum] = Field(default_factory=list)
 
 
 class EarlyExitScheduleItem(BaseModel):
@@ -627,3 +632,9 @@ class PersonResponse(BaseModel):
 
     # None for non-students; a pupil with nothing to say gets an empty list.
     not_preferred_teachers: list[PersonOption] | None = None
+
+    # None for non-students, newest first.
+    methodological_notes: list[StudentNoteResponse] | None = None
+    technical_notes: list[StudentNoteResponse] | None = None
+    # Administrators only.
+    teacher_notes: list[TeacherNoteResponse] | None = None

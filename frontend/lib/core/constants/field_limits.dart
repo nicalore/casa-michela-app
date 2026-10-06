@@ -8,6 +8,8 @@ abstract final class FieldLimits
 
   static const int notes = 1000;
 
+  static const int studentNote = 2000;
+
   static const int topic = 255;
 
   static const int personName = 100;

@@ -21,6 +21,7 @@ import '../features/people/own_page.dart';
 import '../features/people/people_page.dart';
 import '../features/people/person_detail_page.dart';
 import '../features/people/teacher_subjects_page.dart';
+import '../features/psychologist/psychologist_students_page.dart';
 import '../features/settings/settings_page.dart';
 import '../services/api_service.dart';
 import '../services/auth_state.dart';
@@ -34,15 +35,16 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 const String adminHome = '/dashboard';
 
-// One landing page per role, the administrator's being the shell behind /dashboard. Must mirror RoleService.ROLES_WITH_UI on the server.
+// Must mirror RoleService.ROLES_WITH_UI on the server; the administrator's home is the shell.
 const Map<String, String> homeByRole = <String, String>{
   'ADMIN': adminHome,
   'TEACHER': '/teacher',
   'PARENT': '/parent',
   'STUDENT': '/student',
+  'PSYCHOLOGIST': '/psychologist',
 };
 
-// Psychologists and course participants have no area yet and land here.
+// Course participants have no area yet and land here.
 const String unavailableHome = '/area-non-disponibile';
 
 // Walked through once, right after the forced password change.
@@ -155,6 +157,11 @@ Widget _sectionPage(String role, RoleSection section)
   if (role == 'PARENT' && section.slug == 'children')
   {
     return const ParentChildrenPage();
+  }
+
+  if (role == 'PSYCHOLOGIST' && section.slug == 'students')
+  {
+    return const PsychologistStudentsPage();
   }
 
   if (section.slug == 'calendar')
@@ -282,6 +289,7 @@ final appRouter = GoRouter(
     _roleArea('TEACHER'),
     _roleArea('PARENT'),
     _roleArea('STUDENT'),
+    _roleArea('PSYCHOLOGIST'),
     GoRoute(
       path: onboardingRoute,
       pageBuilder: (context, state) => _buildPage(state, const OnboardingPage()),

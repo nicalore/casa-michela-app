@@ -7,6 +7,8 @@ DESCRIPTION: Final[int] = 1000
 
 NOTES: Final[int] = 1000
 
+STUDENT_NOTE: Final[int] = 2000
+
 TOPIC: Final[int] = 255
 
 PERSON_NAME: Final[int] = 100

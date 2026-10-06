@@ -25,9 +25,12 @@ from app.models.mixins import UpdatedAtMixin
 if TYPE_CHECKING:
     from app.models.early_exit_schedule import EarlyExitSchedule
     from app.models.member import Member
+    from app.models.methodological_note import MethodologicalNote
     from app.models.presence import Presence
     from app.models.school_enrollment import SchoolEnrollment
     from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+    from app.models.teacher_note import TeacherNote
+    from app.models.technical_note import TechnicalNote
 
 
 class CertificationTypeEnum(StrEnum):
@@ -150,6 +153,30 @@ class Student(UpdatedAtMixin, Base):
         back_populates="student",
         cascade="all, delete-orphan",
         order_by="EarlyExitSchedule.ordinal",
+    )
+
+    # Newest first, the order every reader shows them in.
+    methodological_notes: Mapped[list[MethodologicalNote]] = relationship(
+        back_populates="student",
+        cascade="all, delete-orphan",
+        order_by=(
+            "[MethodologicalNote.created_at.desc(), MethodologicalNote.id.desc()]"
+        ),
+    )
+
+    technical_notes: Mapped[list[TechnicalNote]] = relationship(
+        back_populates="student",
+        cascade="all, delete-orphan",
+        order_by="[TechnicalNote.created_at.desc(), TechnicalNote.id.desc()]",
+    )
+
+    teacher_notes: Mapped[list[TeacherNote]] = relationship(
+        back_populates="student",
+        cascade="all, delete-orphan",
+        order_by=(
+            "[TeacherNote.lesson_date.desc(), TeacherNote.created_at.desc(), "
+            "TeacherNote.id.desc()]"
+        ),
     )
 
     presences: Mapped[list[Presence]] = relationship(

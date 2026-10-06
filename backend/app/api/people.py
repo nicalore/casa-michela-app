@@ -36,11 +36,13 @@ from app.core.storage import discard_profile_image, store_profile_image
 from app.models.account import Account, AccountStatusEnum
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.booking import Booking
+from app.models.booking_preferred_teacher import BookingPreferredTeacher
 from app.models.course_participant import CourseParticipant
 from app.models.early_exit_schedule import EarlyExitSchedule
 from app.models.lesson_booking import LessonBooking
 from app.models.member import Member, PaymentMethodEnum
 from app.models.membership import Membership, MembershipRevocationEnum
+from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
@@ -56,8 +58,10 @@ from app.models.student import CertificationTypeEnum, Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.teacher import Teacher
+from app.models.teacher_note import TeacherNote
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.models.technical_note import TechnicalNote
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.contacts import ContactsUpdate
@@ -86,6 +90,7 @@ from app.schemas.person import (
     RevokeMembershipPayload,
     SchoolEnrollmentResponse,
     StaffUpdateData,
+    StudentCertificationsUpdate,
     StudentUpdateData,
     TeacherCompetenceUpdateItem,
     TeacherProgramResponse,
@@ -93,6 +98,7 @@ from app.schemas.person import (
     TeacherUpdateData,
 )
 from app.schemas.person_wizard import PersonWizardPayload
+from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service
 from app.services.collaboration import drop_hours_ahead
 from app.services.early_exit_form import (
@@ -105,11 +111,15 @@ from app.services.enrollment_form import (
     enrollment_form_file_name,
     request_for_person,
 )
+from app.services.methodological_notes import followed_student, is_followed
 from app.services.person_wizard_service import (
     assert_course_exists,
     create_person_from_wizard,
 )
+from app.services.pupil_lock import lock_pupil
 from app.services.role_service import RoleService
+from app.services.student_notes import note_response
+from app.services.teacher_notes import teacher_note_response
 from app.services.teaching_competence import (
     lacks_competence,
     replace_competences,
@@ -199,7 +209,7 @@ _WHO_FIELDS: Final[frozenset[str]] = frozenset(
     },
 )
 
-# A teacher's view of a pupil: identity and schooling, nothing of the household.
+# Teachers see identity, schooling and health notes; nothing of the household.
 _TEACHER_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
     "education_level",
     "school_name",
@@ -209,6 +219,21 @@ _TEACHER_VIEW_FIELDS: Final[frozenset[str]] = _WHO_FIELDS | {
     "certification_types",
     "certification_other_detail",
     "certification_dsa_detail",
+    "allergies_notes",
+    "medications_notes",
+    "methodological_notes",
+    "technical_notes",
+}
+
+_PSYCHOLOGIST_VIEW_FIELDS: Final[frozenset[str]] = _TEACHER_VIEW_FIELDS - {
+    "technical_notes",
+} | {
+    "birth_city",
+    "birth_nation",
+    "city",
+    "is_active_collaborator",
+    "enrollment_year",
+    "student_updated_at",
 }
 
 # What a pupil, or their parent, is told about a teacher who teaches them.
@@ -364,6 +389,15 @@ _ADMIN_UNIQUENESS_ERRORS: Final[dict[str, str]] = {
         "Esiste già un Tesoriere configurato all'interno del sistema."
     ),
 }
+
+
+_OWN_ADMIN_ROLE_ERROR: Final[str] = (
+    "Non puoi toglierti da solo il ruolo di Amministratore: deve farlo un altro "
+    "amministratore."
+)
+_OWN_REVOCATION_ERROR: Final[str] = (
+    "Non puoi revocare la tua stessa iscrizione: deve farlo un altro amministratore."
+)
 
 
 def _admin_role_uniqueness_error_detail(error_message: str) -> str | None:
@@ -568,6 +602,9 @@ def _map_person_to_response(
     teacher_services: list[str] = []
     early_exit_schedules: list[EarlyExitScheduleResponse] = []
     not_preferred_teachers: list[PersonOption] | None = None
+    methodological_notes: list[StudentNoteResponse] | None = None
+    technical_notes: list[StudentNoteResponse] | None = None
+    teacher_notes: list[TeacherNoteResponse] | None = None
 
     is_active_collaborator = None
     enrollment_year = None
@@ -704,6 +741,14 @@ def _map_person_to_response(
                 key=lambda option: (option.last_name, option.first_name),
             )
 
+            methodological_notes = [
+                note_response(note) for note in student.methodological_notes
+            ]
+            technical_notes = [note_response(note) for note in student.technical_notes]
+            teacher_notes = [
+                teacher_note_response(note) for note in student.teacher_notes
+            ]
+
             certification_types = list(student.certification_types)
             certification_other_detail = student.certification_other_detail
             certification_dsa_detail = student.certification_dsa_detail
@@ -825,6 +870,9 @@ def _map_person_to_response(
         teacher_subjects=teacher_subjects or None,
         teacher_services=teacher_services or None,
         not_preferred_teachers=not_preferred_teachers,
+        methodological_notes=methodological_notes,
+        technical_notes=technical_notes,
+        teacher_notes=teacher_notes,
         member_updated_at=member_updated_at,
         student_updated_at=student_updated_at,
         teacher_updated_at=teacher_updated_at,
@@ -915,6 +963,11 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         own_enrollments.joinedload(SchoolStudyProgram.school),
         own_enrollments.joinedload(SchoolStudyProgram.study_program),
         student.selectinload(Student.early_exit_schedules),
+        student.selectinload(Student.methodological_notes).joinedload(
+            MethodologicalNote.author
+        ),
+        student.selectinload(Student.technical_notes).joinedload(TechnicalNote.author),
+        student.selectinload(Student.teacher_notes).joinedload(TeacherNote.author),
         student.selectinload(Student.current_not_preferred_teachers).joinedload(
             StudentNotPreferredTeacher.person
         ),
@@ -1152,8 +1205,7 @@ async def _create_parental_relationships(
     await db.flush()
 
 
-# Revocations are revoke-membership's alone: a revoked year stands as it was, and
-# an edit writes every other year unrevoked.
+# Revoked years stay as they were; only revoke-membership writes a revocation.
 async def _rewrite_memberships(
     db: AsyncSession,
     tax_code: str,
@@ -1242,7 +1294,7 @@ async def _update_member_data(
         update(Member).where(Member.tax_code == person.tax_code).values(**update_values)
     )
 
-    # The form edits a revoked person's personal data alone: the memberships stay.
+    # A revoked person's memberships are frozen.
     if not await _revoked_for_good(db, person.tax_code):
         await _rewrite_memberships(db, person.tax_code, member_data.memberships)
 
@@ -1902,6 +1954,32 @@ async def get_active_teachers(
     return [_catalogue_entry(person, pupils) for person in people]
 
 
+# Declared before /{tax_code}, which would otherwise claim it.
+@router.get(
+    "/students",
+    response_model=list[PersonResponse],
+    dependencies=[Depends(require_role("PSYCHOLOGIST"))],
+)
+async def get_followed_students(db: DbSession) -> list[PersonResponse]:
+    stmt = (
+        select(Person)
+        .join(Member, Member.tax_code == Person.tax_code)
+        .join(Student, Student.tax_code == Member.tax_code)
+        .where(_enrolled())
+        .options(*_person_load_options())
+        .order_by(Person.first_name, Person.last_name)
+    )
+    people = (await db.execute(stmt)).unique().scalars().all()
+
+    return [
+        _view(
+            _map_person_to_response(person, show_teacher_rating=False),
+            _PSYCHOLOGIST_VIEW_FIELDS,
+        )
+        for person in people
+    ]
+
+
 # Own and children's records in full; a published lesson opens its pair, reduced.
 @router.get("/{tax_code}", response_model=PersonResponse)
 async def get_person(
@@ -1927,12 +2005,29 @@ async def get_person(
 
     full = _map_person_to_response(person, show_teacher_rating=identity.is_admin)
 
-    if identity.is_admin or code in identity.child_tax_codes:
+    if identity.is_admin:
         return full
 
-    # A parent's app lists only the children they follow: the enrolled pupils.
+    follows = "PSYCHOLOGIST" in identity.roles and is_followed(person.member_profile)
+
+    # No notes for families; a following psychologist keeps the methodological ones.
+    household = full.model_copy(
+        update={
+            "technical_notes": None,
+            "teacher_notes": None,
+            "methodological_notes": full.methodological_notes if follows else None,
+        }
+    )
+
+    if code in identity.child_tax_codes:
+        return household
+
+    # A parent's record lists only their enrolled children.
     if code == identity.tax_code:
-        return _with_children(full, identity.child_tax_codes)
+        return _with_children(household, identity.child_tax_codes)
+
+    if follows:
+        return _view(full, _PSYCHOLOGIST_VIEW_FIELDS)
 
     lessons = LessonRepository(db)
 
@@ -1961,6 +2056,7 @@ async def update_person(
     tax_code: str,
     payload: PersonUpdatePayload,
     db: DbSession,
+    identity: CurrentIdentity,
 ) -> dict[str, str]:
     person = await _get_person_or_404(db, tax_code)
 
@@ -1970,9 +2066,16 @@ async def update_person(
             detail=_TAX_CODE_IMMUTABLE_ERROR,
         )
 
-    await _update_general_data(db, person, payload.general_data)
-
     roles = [role.upper() for role in payload.roles]
+
+    # Self-demotion refused: only another admin may remove the role.
+    if person.tax_code == identity.tax_code and _ROLE_CODE_ADMIN not in roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_OWN_ADMIN_ROLE_ERROR,
+        )
+
+    await _update_general_data(db, person, payload.general_data)
 
     if _ROLE_CODE_PSYCHOLOGIST in roles and payload.psychological_support_data:
         raise HTTPException(
@@ -2746,7 +2849,7 @@ async def update_person_memberships(
         _DUPLICATE_MEMBERSHIP_YEAR_ERROR,
     )
 
-    # Nothing follows a revocation, not even a correction of it.
+    # A revocation is final, corrections included.
     if await _revoked_for_good(db, person.tax_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2779,7 +2882,15 @@ async def revoke_person_membership(
     tax_code: str,
     payload: RevokeMembershipPayload,
     db: DbSession,
+    identity: CurrentIdentity,
 ) -> dict[str, str]:
+    # Self-revocation would drop one's own account and role for good.
+    if tax_code.upper() == identity.tax_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_OWN_REVOCATION_ERROR,
+        )
+
     person = await _load_person_or_404(
         db,
         tax_code,
@@ -2839,7 +2950,6 @@ async def revoke_person_membership(
 
     account = await db.get(Account, person.tax_code)
 
-    # The account goes with the membership, for good.
     if account is not None:
         account.status = AccountStatusEnum.REVOKED
         await RefreshTokenRepository(db).revoke_all_for_account(person.tax_code)
@@ -2905,6 +3015,35 @@ async def update_teacher_competences(
     return {"message": _COMPETENCES_UPDATED_MESSAGE}
 
 
+# Certifications only: the family's meeting acknowledgement stays theirs.
+@router.put(
+    "/{tax_code}/certifications",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_role("PSYCHOLOGIST"))],
+)
+async def update_certifications(
+    tax_code: str,
+    payload: StudentCertificationsUpdate,
+    db: DbSession,
+) -> Response:
+    student = await followed_student(db, tax_code)
+    kinds = list(payload.certification_types)
+
+    student.certification_types = kinds
+    student.certification_other_detail = (
+        payload.certification_other_detail
+        if CertificationTypeEnum.OTHER in kinds
+        else None
+    )
+    student.certification_dsa_detail = (
+        payload.certification_dsa_detail if CertificationTypeEnum.DSA in kinds else None
+    )
+
+    await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # Whole list as of today; withdrawn rows are closed, not deleted, so past rankings
 # still see them (added and withdrawn the same day leaves nothing).
 @router.put("/{tax_code}/not-preferred-teachers", status_code=status.HTTP_200_OK)
@@ -2931,7 +3070,7 @@ async def update_not_preferred_teachers(
         selectinload(Person.parental_relationships),
     )
 
-    # A pupil somebody answers for has their parents speak for them, unless let alone.
+    # Parents speak for an answered-for pupil unless autonomous bookings are on.
     let_alone = themself and identity.autonomous_bookings
 
     answered_for = bool(person.parental_relationships)
@@ -2956,6 +3095,9 @@ async def update_not_preferred_teachers(
         payload.expected_updated_at,
         entity_label=_NOT_PREFERRED_TEACHERS_LABEL,
     )
+
+    # Bookings may change below, so serialize with the pupil's other writes.
+    await lock_pupil(db, person.tax_code)
 
     wanted = set(payload.teacher_tax_codes)
     existing = set(
@@ -2988,13 +3130,45 @@ async def update_not_preferred_teachers(
         else:
             row.valid_to = today
 
-    for code in wanted - {row.teacher_tax_code for row in open_rows}:
+    newly_avoided = wanted - {row.teacher_tax_code for row in open_rows}
+
+    for code in newly_avoided:
         db.add(
             StudentNotPreferredTeacher(
                 student_tax_code=person.tax_code,
                 teacher_tax_code=code,
                 valid_from=today,
             )
+        )
+
+    # Future bookings stop requesting them, or every write of those days is refused.
+    asking = (
+        list(
+            await db.scalars(
+                select(BookingPreferredTeacher.booking_id)
+                .join(Booking, Booking.id == BookingPreferredTeacher.booking_id)
+                .join(Presence, Presence.id == Booking.presence_id)
+                .where(
+                    BookingPreferredTeacher.teacher_tax_code.in_(newly_avoided),
+                    Presence.student_tax_code == person.tax_code,
+                    Presence.date >= today,
+                ),
+            ),
+        )
+        if newly_avoided
+        else []
+    )
+
+    if asking:
+        await db.execute(
+            delete(BookingPreferredTeacher).where(
+                BookingPreferredTeacher.teacher_tax_code.in_(newly_avoided),
+                BookingPreferredTeacher.booking_id.in_(asking),
+            ),
+        )
+        # Bump versions so a stale write cannot restore them.
+        await db.execute(
+            update(Booking).where(Booking.id.in_(asking)).values(updated_at=func.now()),
         )
 
     student.updated_at = datetime.now(UTC)

@@ -35,6 +35,9 @@ const Map<String, List<RoleSection>> _sectionsByRole = {
     _payments,
     _association,
   ],
+  'PSYCHOLOGIST': [
+    RoleSection('students', 'Studenti', available: true),
+  ],
 };
 
 List<RoleSection> allSectionsOf(String role)

@@ -24,6 +24,13 @@ class PeopleFilterDialog extends StatefulWidget
   final List<String>                      availableSubjects;
   final ValueChanged<PeopleFilterState>   onApply;
 
+  // For a list holding only these roles: no roles filter, their sections always shown.
+  final List<String>?                     fixedRoles;
+
+  final String                            eyebrow;
+  final bool                              earlyExitFilter;
+  final bool                              methodologicalNotesFilter;
+
   const PeopleFilterDialog({
     super.key,
     required this.initialState,
@@ -34,6 +41,10 @@ class PeopleFilterDialog extends StatefulWidget
     required this.availableStudyPrograms,
     required this.availableSubjects,
     required this.onApply,
+    this.fixedRoles,
+    this.eyebrow = 'Persone',
+    this.earlyExitFilter = true,
+    this.methodologicalNotesFilter = false,
   });
 
   @override
@@ -191,7 +202,6 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
     );
   }
 
-  // Each suggestion picked becomes a chip; only listed values are taken.
   List<Widget> _buildMultiAutocomplete({
     required TextEditingController controller,
     required String hint,
@@ -353,7 +363,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
   @override
   Widget build(BuildContext context)
   {
-    final roles = _currentState.selectedRoles;
+    final roles = widget.fixedRoles ?? _currentState.selectedRoles;
 
     final bool showParentFilters    = roles.contains('Genitore');
     final bool showAssociateFilters = roles.isNotEmpty && roles.any((r) => r != 'Genitore');
@@ -369,7 +379,7 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
         (_currentState.taughtSubjectsCount!.start == 1 && _currentState.taughtSubjectsCount!.end == 15);
 
     return AppDialogStack(
-      eyebrow: 'Persone',
+      eyebrow: widget.eyebrow,
       title: 'Filtri di ricerca',
       maxWidth: _cardWidth + 2 * (AppCarouselFrame.arrowSize + AppCarouselFrame.gap),
       footer: ConstrainedBox(
@@ -399,21 +409,23 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
       ),
       children: [_buildCarousel([
                         _buildSectionTitle('Generali'),
-                        _buildFieldLabel('Ruoli'),
-                        Wrap(
-                          spacing:    10,
-                          runSpacing: 10,
-                          children:   _availableRoles.map((role)
-                          {
-                            return AppSelectableChip(
-                              label: role,
-                              selected: _currentState.selectedRoles.contains(role),
-                              onSelected: (val) => _toggleRole(role, val),
-                            );
-                          }).toList(),
-                        ),
+                        if (widget.fixedRoles == null) ...[
+                          _buildFieldLabel('Ruoli'),
+                          Wrap(
+                            spacing:    10,
+                            runSpacing: 10,
+                            children:   _availableRoles.map((role)
+                            {
+                              return AppSelectableChip(
+                                label: role,
+                                selected: _currentState.selectedRoles.contains(role),
+                                onSelected: (val) => _toggleRole(role, val),
+                              );
+                            }).toList(),
+                          ),
 
-                        _buildPillBreak(),
+                          _buildPillBreak(),
+                        ],
                         _buildFieldLabel('Nazione di nascita'),
                         _buildChoiceChips<String>(
                           value: _currentState.birthPlace,
@@ -553,8 +565,8 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                           _buildChoiceChips<String>(
                             value: _currentState.educationLevel,
                             options: const [('Scuola primaria', 'Primaria'),
-                              ('Scuola secondaria di I grado', 'Secondaria di I grado'),
-                              ('Scuola secondaria di II grado', 'Secondaria di II grado')],
+                              ('Scuola secondaria di I grado', 'Secondaria I grado'),
+                              ('Scuola secondaria di II grado', 'Secondaria II grado')],
                             onChanged: (val) => setState(()
                             {
                               _currentState = _currentState.copyWith(
@@ -615,18 +627,34 @@ class _PeopleFilterDialogState extends State<PeopleFilterDialog>
                               );
                             }),
                           ),
-                          _buildFieldLabel('Uscita anticipata'),
-                          _buildChoiceChips<bool>(
-                            value: _currentState.earlyExit,
-                            options: const [(true, 'Sì'), (false, 'No')],
-                            onChanged: (val) => setState(()
-                            {
-                              _currentState = _currentState.copyWith(
-                                earlyExit:      val,
-                                clearEarlyExit: val == null,
-                              );
-                            }),
-                          ),
+                          if (widget.earlyExitFilter) ...[
+                            _buildFieldLabel('Uscita anticipata'),
+                            _buildChoiceChips<bool>(
+                              value: _currentState.earlyExit,
+                              options: const [(true, 'Sì'), (false, 'No')],
+                              onChanged: (val) => setState(()
+                              {
+                                _currentState = _currentState.copyWith(
+                                  earlyExit:      val,
+                                  clearEarlyExit: val == null,
+                                );
+                              }),
+                            ),
+                          ],
+                          if (widget.methodologicalNotesFilter) ...[
+                            _buildFieldLabel('Osservazioni metodologiche'),
+                            _buildChoiceChips<bool>(
+                              value: _currentState.hasMethodologicalNotes,
+                              options: const [(true, 'Presenti'), (false, 'Assenti')],
+                              onChanged: (val) => setState(()
+                              {
+                                _currentState = _currentState.copyWith(
+                                  hasMethodologicalNotes:    val,
+                                  clearMethodologicalNotes:  val == null,
+                                );
+                              }),
+                            ),
+                          ],
                         ],
 
                         if (showStaffFilters) ...[
@@ -947,7 +975,7 @@ class _AutocompleteFieldState extends State<_AutocompleteField>
         if (widget.onSubmitted != null)
         {
           widget.onSubmitted!(selection);
-          // clear() alone leaves the selection at -1, which Flutter draws with no visible cursor, so reset it and restore focus.
+          // clear() leaves the selection at -1 (no visible cursor): reset it and refocus.
           Future.microtask(()
           {
             widget.controller.clear();

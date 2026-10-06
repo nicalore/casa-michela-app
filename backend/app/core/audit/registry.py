@@ -116,6 +116,14 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
         "Lesson request creation",
         body_fields=("date", "student_tax_code"),
     ),
+    ("PUT", "/lesson-requests/"): AuditRule(
+        "Lesson request replacement",
+        body_fields=("date", "student_tax_code"),
+    ),
+    ("PUT", "/lesson-requests/days"): AuditRule(
+        "Lesson request replacement over days",
+        body_fields=("student_tax_code",),
+    ),
     ("POST", "/teacher-room-assignments/"): AuditRule(
         "Teacher room assignment creation",
         body_fields=("date", "teacher_tax_code"),
@@ -232,6 +240,45 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ("PUT", "/people/{tax_code}/not-preferred-teachers"): AuditRule(
         "Not preferred teachers modification",
         path_params=("tax_code",),
+    ),
+    ("PUT", "/people/{tax_code}/certifications"): AuditRule(
+        "Certifications modification",
+        path_params=("tax_code",),
+    ),
+    ("POST", "/people/{tax_code}/methodological-notes/"): AuditRule(
+        "Methodological note creation",
+        path_params=("tax_code",),
+        response_field="id",
+    ),
+    ("PUT", "/people/{tax_code}/methodological-notes/{note_id}"): AuditRule(
+        "Methodological note modification",
+        path_params=("tax_code", "note_id"),
+    ),
+    ("DELETE", "/people/{tax_code}/methodological-notes/{note_id}"): AuditRule(
+        "Methodological note elimination",
+        path_params=("tax_code", "note_id"),
+    ),
+    ("POST", "/people/{tax_code}/technical-notes/"): AuditRule(
+        "Technical note creation",
+        path_params=("tax_code",),
+        response_field="id",
+    ),
+    ("PUT", "/people/{tax_code}/technical-notes/{note_id}"): AuditRule(
+        "Technical note modification",
+        path_params=("tax_code", "note_id"),
+    ),
+    ("DELETE", "/people/{tax_code}/technical-notes/{note_id}"): AuditRule(
+        "Technical note elimination",
+        path_params=("tax_code", "note_id"),
+    ),
+    ("POST", "/lessons/{lesson_id}/teacher-notes/"): AuditRule(
+        "Teacher note creation",
+        path_params=("lesson_id",),
+        response_field="id",
+    ),
+    ("DELETE", "/people/{tax_code}/teacher-notes/{note_id}"): AuditRule(
+        "Teacher note elimination",
+        path_params=("tax_code", "note_id"),
     ),
     ("POST", "/people/{tax_code}/account"): AuditRule(
         "Account creation",

@@ -8,6 +8,7 @@ import 'membership_item.dart';
 import 'parent_item.dart';
 import 'person_face.dart';
 import 'school_enrollment_item.dart';
+import 'student_note_item.dart';
 import 'teacher_subject_item.dart';
 
 class PersonItem implements PersonFace
@@ -31,7 +32,7 @@ class PersonItem implements PersonFace
 
   final bool hasAccount;
 
-  // No enrollment stands behind an account: none can be opened, and an existing one is suspended.
+  // No enrollment behind the person: no account can be opened, an existing one is suspended.
   final bool accessLapsed;
 
   final String? gender;
@@ -122,6 +123,13 @@ class PersonItem implements PersonFace
   // Null for anyone who is not a pupil.
   final List<PersonOptionItem>? notPreferredTeachers;
 
+  // Null for anyone who is not a pupil, or not to be told; newest first.
+  final List<StudentNoteItem>? methodologicalNotes;
+  final List<StudentNoteItem>? technicalNotes;
+
+  // Sent to administrators only.
+  final List<StudentNoteItem>? teacherNotes;
+
   const PersonItem({
     required this.fiscalCode,
     required this.firstName,
@@ -192,6 +200,9 @@ class PersonItem implements PersonFace
     this.teacherSubjects,
     this.teacherServices,
     this.notPreferredTeachers,
+    this.methodologicalNotes,
+    this.technicalNotes,
+    this.teacherNotes,
   });
 
   List<String> get notPreferredTeacherTaxCodes =>
@@ -278,6 +289,9 @@ class PersonItem implements PersonFace
         json['not_preferred_teachers'],
         PersonOptionItem.fromJson,
       ),
+      methodologicalNotes: parseOptionalList(json['methodological_notes'], StudentNoteItem.fromJson),
+      technicalNotes: parseOptionalList(json['technical_notes'], StudentNoteItem.fromJson),
+      teacherNotes: parseOptionalList(json['teacher_notes'], StudentNoteItem.fromJson),
     );
   }
 

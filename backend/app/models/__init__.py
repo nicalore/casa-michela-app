@@ -17,6 +17,7 @@ from app.models.lesson_booking import LessonBooking
 from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
+from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
 from app.models.opening_day import OpeningDay
@@ -40,9 +41,11 @@ from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
+from app.models.teacher_note import TeacherNote
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.models.technical_note import TechnicalNote
 from app.models.weekly_template import WeeklyTemplate
 
 __all__ = [
@@ -65,6 +68,7 @@ __all__ = [
     "LessonDiscipline",
     "Member",
     "Membership",
+    "MethodologicalNote",
     "MinistryAssociationSubject",
     "MinistrySubject",
     "OpeningDay",
@@ -88,8 +92,10 @@ __all__ = [
     "StudyProgramSubject",
     "SubjectRequested",
     "Teacher",
+    "TeacherNote",
     "TeacherRoomAssignment",
     "TeacherService",
     "TeachingCompetence",
+    "TechnicalNote",
     "WeeklyTemplate",
 ]

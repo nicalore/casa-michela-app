@@ -41,6 +41,7 @@ import '../features/people/models/person_account_item.dart';
 import '../features/people/models/person_item.dart';
 import '../features/people/models/retention_rate_item.dart';
 import '../features/people/models/personal_statistics_items.dart';
+import '../features/people/models/student_note_item.dart';
 import '../features/people/models/student_presence_statistics_item.dart';
 import '../features/people/models/teacher_appreciation_item.dart';
 import '../features/people/models/teacher_availability_statistics_item.dart';
@@ -221,6 +222,7 @@ class ApiService
   Future<void>? _refreshing;
 
   static const String _formFactorHeader = 'X-Client-Form-Factor';
+  static const String _activeRoleHeader = 'X-Active-Role';
 
   // Long enough for a phone to settle on its new network after a switch.
   static const Duration _resendPause = Duration(seconds: 1);
@@ -248,6 +250,9 @@ class ApiService
   final _ListMemo<RoomItem> _roomsMemo = _ListMemo();
 
   Future<MeResponse>? _meInFlight;
+
+  DateTime? _identityRecheckedAt;
+  static const Duration _identityRecheckPause = Duration(seconds: 5);
 
   // Band locks are per account: bumped when another tab releases one, so an editing tab retakes it.
   final ValueNotifier<int> calendarLocksReleasedElsewhere = ValueNotifier(0);
@@ -361,6 +366,12 @@ class ApiService
             options.headers['Authorization'] = 'Bearer $_accessToken';
           }
 
+          // The role this app is showing: the server's stored one follows a switch on any device.
+          if (identity.value?.activeRole case final String role)
+          {
+            options.headers[_activeRoleHeader] = role;
+          }
+
           return handler.next(options);
         },
         onError: (error, handler) async
@@ -383,6 +394,11 @@ class ApiService
             {
               return handler.next(resendError);
             }
+          }
+
+          if (error.response?.statusCode == 403 && !request.path.startsWith('/auth/'))
+          {
+            unawaited(_recheckIdentity());
           }
 
           if (error.response?.statusCode != 401 ||
@@ -749,6 +765,29 @@ class ApiService
           return;
         }
       }
+    }
+  }
+
+  // A refusal may mean a role was revoked: the identity is re-read; a burst of refusals asks once.
+  Future<void> _recheckIdentity({bool now = false}) async
+  {
+    final DateTime at = DateTime.now();
+    final DateTime? last = _identityRecheckedAt;
+
+    if (identity.value == null || (!now && last != null && at.difference(last) < _identityRecheckPause))
+    {
+      return;
+    }
+
+    _identityRecheckedAt = at;
+
+    try
+    {
+      await me();
+    }
+    catch (_)
+    {
+      // Session refusals are handled where the request failed.
     }
   }
 
@@ -1301,6 +1340,56 @@ class ApiService
     on DioException catch (e)
     {
       _refused(e, 'Errore durante la creazione della richiesta.');
+    }
+  }
+
+  // The day's hours and subjects in the given modes, as they are to be; done in one go.
+  Future<List<PresenceItem>> replaceLessonRequest({
+    required String studentTaxCode,
+    required DateTime date,
+    required List<Map<String, dynamic>> modes,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/lesson-requests/',
+        data: {
+          'student_tax_code': studentTaxCode,
+          'date': formatDateOnly(date),
+          'modes': modes,
+        },
+      );
+
+      return parseList(response.data, PresenceItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Errore durante l'aggiornamento della richiesta.");
+    }
+  }
+
+  // A move: the days it touches, each as it is to be, in one transaction.
+  Future<List<PresenceItem>> replaceLessonRequestDays({
+    required String studentTaxCode,
+    required List<Map<String, dynamic>> days,
+  }) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/lesson-requests/days',
+        data: {
+          'student_tax_code': studentTaxCode,
+          'days': days,
+        },
+      );
+
+      return parseList(response.data, PresenceItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, "Errore durante l'aggiornamento della richiesta.");
     }
   }
 
@@ -2078,6 +2167,86 @@ class ApiService
     return PersonItem.fromJson(response.data);
   }
 
+  Future<List<PersonItem>> getFollowedStudents() async
+  {
+    final response = await _dio.get('/people/students');
+    return parseList(response.data, PersonItem.fromJson);
+  }
+
+  // [types] are the backend codes: DSA, BES, ADHD, OTHER.
+  Future<void> updateCertifications(
+    String taxCode, {
+    required List<String> types,
+    String? dsaDetail,
+    String? otherDetail,
+  }) async
+  {
+    try
+    {
+      await _dio.put(
+        '/people/$taxCode/certifications',
+        data: {
+          'certification_types': types,
+          'certification_dsa_detail': dsaDetail,
+          'certification_other_detail': otherDetail,
+        },
+      );
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
+  Future<void> createStudentNote(String taxCode, StudentNoteKind kind, String text) async
+  {
+    try
+    {
+      await _dio.post('/people/$taxCode/${kind.path}/', data: {'text': text});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
+  Future<void> updateStudentNote(String taxCode, StudentNoteKind kind, int noteId, String text) async
+  {
+    try
+    {
+      await _dio.put('/people/$taxCode/${kind.path}/$noteId', data: {'text': text});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
+  // Only once the lesson is over; nobody but the administrators reads it afterwards.
+  Future<void> createTeacherNote(int lessonId, int bookingId, String text) async
+  {
+    try
+    {
+      await _dio.post('/lessons/$lessonId/teacher-notes/', data: {'booking_id': bookingId, 'text': text});
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
+  Future<void> deleteStudentNote(String taxCode, StudentNoteKind kind, int noteId) async
+  {
+    try
+    {
+      await _dio.delete('/people/$taxCode/${kind.path}/$noteId');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
   // Also opens the accounts of the parents named; each one gets a welcome email.
   Future<void> createAccount(
     String fiscalCode, {
@@ -2227,6 +2396,12 @@ class ApiService
     {
       final response   = await _dio.put('/people/$fiscalCode', data: payload);
       final newTaxCode = response.data['new_tax_code'] ?? fiscalCode;
+
+      // One's own record may change one's own roles.
+      if (fiscalCode.toUpperCase() == identity.value?.taxCode.toUpperCase())
+      {
+        unawaited(_recheckIdentity(now: true));
+      }
 
       if (imageBytes != null)
       {
@@ -2845,7 +3020,12 @@ class ApiService
     }
   }
 
-  Future<TeacherAvailabilityStatisticsItem> getTeacherAvailabilityStatistics({int? months, int? year, int? month}) async
+  Future<TeacherAvailabilityStatisticsItem> getTeacherAvailabilityStatistics({
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
   {
     try
     {
@@ -2855,6 +3035,7 @@ class ApiService
           'months': ?months,
           'year': ?year,
           'month': ?month,
+          'mode': mode,
         },
       );
       return TeacherAvailabilityStatisticsItem.fromJson(response.data);
@@ -2865,7 +3046,12 @@ class ApiService
     }
   }
 
-  Future<StudentPresenceStatisticsItem> getStudentPresenceStatistics({int? months, int? year, int? month}) async
+  Future<StudentPresenceStatisticsItem> getStudentPresenceStatistics({
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
   {
     try
     {
@@ -2875,6 +3061,7 @@ class ApiService
           'months': ?months,
           'year': ?year,
           'month': ?month,
+          'mode': mode,
         },
       );
       return StudentPresenceStatisticsItem.fromJson(response.data);
@@ -2885,7 +3072,13 @@ class ApiService
     }
   }
 
-  Future<TeacherPersonalStatisticsItem> getTeacherPersonalStatistics(String taxCode, {int? months, int? year, int? month}) async
+  Future<TeacherPersonalStatisticsItem> getTeacherPersonalStatistics(
+    String taxCode, {
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
   {
     try
     {
@@ -2895,6 +3088,7 @@ class ApiService
           'months': ?months,
           'year': ?year,
           'month': ?month,
+          'mode': mode,
         },
       );
       return TeacherPersonalStatisticsItem.fromJson(response.data);
@@ -2945,7 +3139,13 @@ class ApiService
     }
   }
 
-  Future<StudentPersonalStatisticsItem> getStudentPersonalStatistics(String taxCode, {int? months, int? year, int? month}) async
+  Future<StudentPersonalStatisticsItem> getStudentPersonalStatistics(
+    String taxCode, {
+    int? months,
+    int? year,
+    int? month,
+    String mode = 'presence',
+  }) async
   {
     try
     {
@@ -2955,6 +3155,7 @@ class ApiService
           'months': ?months,
           'year': ?year,
           'month': ?month,
+          'mode': mode,
         },
       );
       return StudentPersonalStatisticsItem.fromJson(response.data);
@@ -2966,13 +3167,13 @@ class ApiService
   }
 
   // Separate from the presence statistics: the discipline is chosen after the page has loaded.
-  Future<List<MemberTrendItem>> getDisciplineRequestTrend(int associationSubjectId) async
+  Future<List<MemberTrendItem>> getDisciplineRequestTrend(int associationSubjectId, {String mode = 'presence'}) async
   {
     try
     {
       final response = await _dio.get(
         '/statistics/students/discipline-trend',
-        queryParameters: {'association_subject_id': associationSubjectId},
+        queryParameters: {'association_subject_id': associationSubjectId, 'mode': mode},
       );
       return monthlyTrendPoints(response.data);
     }
@@ -3425,6 +3626,20 @@ class ApiService
   String _publicationPath(DateTime day, TimeBucket band)
   {
     return '/calendar-publications/${formatDateOnly(day)}/${LessonItem.formatBand(band)}';
+  }
+
+  // Bands whose bookings closed with nobody booked: they will never be published.
+  Future<List<(DateTime, TimeBucket)>> getUnbookedBands({required DateTime dateFrom, required DateTime dateTo}) async
+  {
+    final response = await _dio.get(
+      '/calendar-publications/unbooked',
+      queryParameters: {
+        'date_from': formatDateOnly(dateFrom),
+        'date_to': formatDateOnly(dateTo),
+      },
+    );
+
+    return parseList(response.data, (json) => (DateTime.parse(json['date'] as String), LessonItem.parseBand(json['band'])));
   }
 
   Future<List<CalendarPublicationItem>> getCalendarPublications({

@@ -31,6 +31,7 @@ import 'tabs/person_devices_tab.dart';
 import 'tabs/person_info_tab.dart';
 import 'tabs/person_memberships_tab.dart';
 import 'tabs/person_not_preferred_teachers_tab.dart';
+import 'tabs/person_observations_tab.dart';
 import 'tabs/person_parents_tab.dart';
 import 'tabs/person_personal_stats_tab.dart';
 import 'tabs/person_schools_tab.dart';
@@ -62,7 +63,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   PersonItem? _person;
   MeResponse? _currentUser;
 
-  // Shared by Accesso and Dispositivi; a new one comes with each reload of the record.
+  // Shared by Accesso and Dispositivi; recreated on each reload of the record.
   PersonAccountController? _accountController;
 
   late String _currentFiscalCode;
@@ -272,6 +273,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         label: 'Docenti non graditi',
         view: PersonNotPreferredTeachersTab(person: person, onUpdate: _fetchPersonData),
       ));
+      sections.add(PersonSection(
+        label: 'Osservazioni',
+        view: PersonObservationsTab(person: person, onUpdate: _fetchPersonData),
+      ));
     }
 
     if ((roles.contains('DOCENTE') || roles.contains('STUDENTE')) && !isRevoked)
@@ -284,7 +289,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
     final PersonAccountController? account = _accountController;
 
-    // As in the settings: Accesso and Dispositivi under one heading.
     if (account != null)
     {
       sections.addAll([

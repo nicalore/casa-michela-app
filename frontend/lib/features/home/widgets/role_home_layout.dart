@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
@@ -30,9 +32,11 @@ import 'home_schedule_section.dart';
 const String kTeacherRole = 'TEACHER';
 const String kParentRole = 'PARENT';
 
+const String kPsychologistRole = 'PSYCHOLOGIST';
+
 String scheduleTitleFor(String role)
 {
-  return role == kTeacherRole ? 'Orari e disponibilità' : 'Orari e presenze';
+  return role == kTeacherRole ? 'Orari e disponibilità' : 'Orari e prenotazioni';
 }
 
 String emptyBandLabelFor(String role)
@@ -141,6 +145,11 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
 
   Future<void> _loadMonthData() async
   {
+    if (widget.role == kPsychologistRole)
+    {
+      return;
+    }
+
     final int request = ++_monthRequest;
     final String role = widget.role;
 
@@ -202,12 +211,17 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   // Any failed reading leaves _bands null ("unknown"), distinct from an empty day.
   Future<void> _loadTodayData() async
   {
+    if (widget.role == kPsychologistRole)
+    {
+      return;
+    }
+
     final int request = ++_todayRequest;
     final String role = widget.role;
     final bool teacher = role == kTeacherRole;
     final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
 
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
     final DateTime today = DateTime(now.year, now.month, now.day);
 
     final Future<List<OpeningDayItem>?> inBuildingFuture =
@@ -480,20 +494,60 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
                   ),
                   const SizedBox(height: _greetingBottomGap),
                   Expanded(
-                    child: PageTransitionScrollView(
-                      child: Center(
-                        child: SizedBox(
-                          width: contentWidth,
-                          child: _buildHome(contentWidth),
-                        ),
-                      ),
-                    ),
+                    child: widget.role == kPsychologistRole
+                        ? const Center(
+                            child: PageTransitionItem(
+                              slot: PageTransitionItem.header,
+                              child: _ComingSoon(),
+                            ),
+                          )
+                        : PageTransitionScrollView(
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                child: _buildHome(contentWidth),
+                              ),
+                            ),
+                          ),
                   ),
                 ],
               ),
             ),
           ),
           AppTopBar(currentRoute: homeForRole(widget.role)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComingSoon extends StatelessWidget
+{
+  const _ComingSoon();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 26),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.construction_rounded, size: 30, color: AppTheme.trialTealDeep),
+          const SizedBox(width: 16),
+          Text(
+            'In arrivo',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.trialTealDeep,
+            ),
+          ),
         ],
       ),
     );

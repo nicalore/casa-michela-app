@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/role_label_mapper.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -17,6 +16,7 @@ import '../edit/person_edit_dialog.dart';
 import '../edit/person_edit_form.dart' show kBornInItalyNation;
 import '../models/people_filter_state.dart';
 import '../models/person_item.dart';
+import '../utils/people_filter_matching.dart';
 import '../widgets/create_account_dialog.dart';
 import '../widgets/people_filter_dialog.dart';
 import '../widgets/person_card.dart';
@@ -37,20 +37,6 @@ enum _PeopleSort
 
 const int _maxColumns = 4;
 const double _cardGap = 16;
-
-// Must match RoleLabelMapper's spelling.
-const String _studentRoleLabel = 'Studente';
-
-// Only a minor is asked for leave: an adult matches neither yes nor no.
-bool matchesEarlyExit(PersonItem person, bool? expected)
-{
-  if (expected == null)
-  {
-    return true;
-  }
-
-  return !person.isAdult && person.earlyExit == expected;
-}
 
 class PeopleSearchTab extends StatefulWidget
 {
@@ -149,8 +135,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     }
   }
 
-  // As if «Crea account» had been pressed on the new record; a failed read stays silent,
-  // the record's Account section still offers it.
+  // A failed read stays silent: the record's account section still offers creation.
   Future<void> _offerAccount(String fiscalCode) async
   {
     final PersonItem person;
@@ -222,150 +207,11 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     }
   }
 
-  bool _matchesRoles(PersonItem person)
-  {
-    final selectedRoles = _filterState.selectedRoles;
-
-    if (selectedRoles.isEmpty)
-    {
-      return true;
-    }
-
-    final specificRoles = selectedRoles.where((role) => role != RoleLabelMapper.memberLabel);
-
-    if (person.shownRoles.any(specificRoles.contains))
-    {
-      return true;
-    }
-
-    // "Associato" matches plain members only, not teachers or students.
-    return selectedRoles.contains(RoleLabelMapper.memberLabel) &&
-        RoleLabelMapper.hasOnlyMemberRole(person.shownRoles);
-  }
-
-  bool _matchesAgeRange(PersonItem person)
-  {
-    final range = _filterState.ageRange;
-
-    if (range == null)
-    {
-      return true;
-    }
-
-    final age = person.age;
-
-    if (age == null)
-    {
-      return false;
-    }
-
-    if (age >= range.start && age <= range.end)
-    {
-      return true;
-    }
-
-    // The top of the slider means "this age and above".
-    return range.end == PeopleFilterState.defaultAgeRange.end &&
-        age >= PeopleFilterState.defaultAgeRange.end;
-  }
-
-  bool _matchesChildrenCount(PersonItem person)
-  {
-    final expected = _filterState.childrenCount;
-
-    if (expected == null)
-    {
-      return true;
-    }
-
-    final count = person.childrenCount;
-
-    if (count == null)
-    {
-      return false;
-    }
-
-    // The last option is open ended rather than an exact figure.
-    if (expected == _openEndedChildrenCount)
-    {
-      return count >= _openEndedChildrenThreshold;
-    }
-
-    return count.toString() == expected;
-  }
-
-  bool _matchesSubjects(PersonItem person)
-  {
-    // Selecting several subjects means "teaches all of them", not "any of them".
-    if (!_filterState.taughtSubjects.every(person.taughtSubjects.contains))
-    {
-      return false;
-    }
-
-    final range = _filterState.taughtSubjectsCount;
-
-    if (range == null)
-    {
-      return true;
-    }
-
-    final count = person.taughtSubjects.length;
-
-    if (count >= range.start && count <= range.end)
-    {
-      return true;
-    }
-
-    return range.end == PeopleFilterState.defaultTaughtSubjectsCount.end &&
-        count >= PeopleFilterState.defaultTaughtSubjectsCount.end;
-  }
-
-  bool _matchesCertifications(PersonItem person)
-  {
-    return _filterState.matchesCertification(
-      certificationTypes: person.certificationTypes,
-      isStudent: person.roles.contains(_studentRoleLabel),
-    );
-  }
-
-  bool _matchesText(String? value, String? expected)
-  {
-    if (expected == null || expected.isEmpty)
-    {
-      return true;
-    }
-
-    return value?.toLowerCase() == expected.toLowerCase();
-  }
-
-  bool _matchesExactly(Object? value, Object? expected)
-  {
-    return expected == null || value == expected;
-  }
-
   bool _matchesFilters(PersonItem person)
   {
     final fullName = '${person.firstName} ${person.lastName}'.toLowerCase();
 
-    return fullName.contains(_searchText.toLowerCase()) &&
-        _matchesRoles(person) &&
-        _matchesAgeRange(person) &&
-        _matchesChildrenCount(person) &&
-        _matchesSubjects(person) &&
-        _matchesCertifications(person) &&
-        _filterState.matchesBirthNation(person.birthNation) &&
-        PeopleFilterState.matchesAny(person.birthCity, _filterState.birthCities) &&
-        PeopleFilterState.matchesAny(person.city, _filterState.cities) &&
-        PeopleFilterState.matchesAny(person.schoolName, _filterState.schoolNames) &&
-        PeopleFilterState.matchesAny(person.studyProgram, _filterState.studyPrograms) &&
-        _matchesText(person.courseType, _filterState.courseType) &&
-        _matchesExactly(person.isActiveCollaborator, _filterState.isActiveCollaborator) &&
-        _matchesExactly(person.enrollmentYear, _filterState.enrollmentYear) &&
-        _matchesExactly(person.educationLevel, _filterState.educationLevel) &&
-        _matchesExactly(person.schoolClass, _filterState.schoolClass) &&
-        matchesEarlyExit(person, _filterState.earlyExit) &&
-        _matchesExactly(person.collaborationType, _filterState.collaborationType) &&
-        _matchesExactly(person.isMedicalCertificateValid, _filterState.isMedicalCertificateValid);
+    return fullName.contains(_searchText.toLowerCase()) && matchesPeopleFilter(person, _filterState);
   }
 
   int _compare(PersonItem a, PersonItem b)
@@ -422,8 +268,7 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
 
   Widget _buildResultList(List<PersonItem> people)
   {
-    // Measured outside the scroll view: a SliverLayoutBuilder reruns on every scrolled
-    // pixel, rebuilding every card on screen each frame.
+    // Measured outside the scroll view: a SliverLayoutBuilder reruns on every scrolled pixel.
     return Expanded(
       child: LayoutBuilder(
         builder: (context, constraints)
@@ -561,7 +406,3 @@ class _PeopleSearchTabState extends State<PeopleSearchTab> with DestinationRefre
     );
   }
 }
-
-// Open-ended bucket; label and threshold must stay in step with the filter dialog.
-const String _openEndedChildrenCount = '4+';
-const int _openEndedChildrenThreshold = 4;

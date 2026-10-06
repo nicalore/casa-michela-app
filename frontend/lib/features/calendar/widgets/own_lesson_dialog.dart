@@ -4,24 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/birthday.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_field_label.dart';
+import '../../../shared/widgets/app_dialog_footer.dart';
+import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../lessons/models/booking_summary_item.dart';
 import '../../lessons/models/calendar_day.dart';
 import '../../lessons/models/lesson_item.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
-import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, lessonTitle;
+import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, lessonTitle, lessonWhere;
 import '../../lessons/widgets/person_avatar.dart';
 import 'own_lesson_block.dart' show kSharedLessonIcon;
+import 'teacher_note_dialog.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
+import '../../people/models/student_note_item.dart';
+import '../../people/utils/student_notes_strings.dart';
 import '../../people/widgets/person_detail_widgets.dart'
     show kObscuredLetterSpacing, kObscuredValue;
+import '../../people/widgets/student_notes_card.dart' show noteDate;
 
 const double _dialogWidth = 1280;
+
+const double _singleWidth = 680;
+
+// Twice the button's width: "AGGIUNGI OSSERVAZIONE" keeps to one line.
+const double _noteFooterWidth = 680;
 
 const double _cardGap = 20;
 
@@ -36,6 +50,13 @@ const double _voiceGap = 18;
 
 const double _headingGap = 14;
 
+const double _noteGap = 14;
+
+// As tall as the eye, so the two column heads end on one line.
+const double _columnHeadHeight = 24;
+
+const double _stackedColumnsGap = 26;
+
 const String kVoiceEmpty = '—';
 
 const String _empty = kVoiceEmpty;
@@ -43,6 +64,10 @@ const String _empty = kVoiceEmpty;
 const String _otherCertification = 'OTHER';
 
 const String kStudentFailedNote = 'Non è stato possibile leggere i dati dello studente.';
+
+const String _birthdayToday = 'Oggi è il suo compleanno';
+
+const double _voiceIconGap = 6;
 
 const String _sharedWith = 'Questa lezione è in compresenza con un altro studente';
 const String kTeacherFailedNote = 'Non è stato possibile leggere i dati del docente.';
@@ -54,11 +79,38 @@ class LessonVoice
 
   final bool sensitive;
 
+  final IconData? icon;
+
   const LessonVoice({
     required this.label,
     required this.value,
     this.sensitive = false,
+    this.icon,
   });
+}
+
+Widget voiceValueText(String value, TextStyle style, {IconData? icon})
+{
+  if (icon == null)
+  {
+    return Text(value, style: style);
+  }
+
+  return Text.rich(
+    TextSpan(
+      children: [
+        TextSpan(text: value),
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(left: _voiceIconGap),
+            child: Icon(icon, size: (style.fontSize ?? 16) + 2, color: AppTheme.trialGold),
+          ),
+        ),
+      ],
+    ),
+    style: style,
+  );
 }
 
 Future<void> showOwnLessonDialog({
@@ -66,7 +118,8 @@ Future<void> showOwnLessonDialog({
   required LessonItem lesson,
   required List<MinistrySubjectItem> ministrySubjects,
   required CalendarView view,
-  required Future<PersonItem> other,
+  // Null: the lesson's card alone, as for a teacher's day gone by.
+  required Future<PersonItem>? other,
 }) async
 {
   // Read before opening, so the cards come up at their final size.
@@ -91,8 +144,24 @@ Future<void> showOwnLessonDialog({
       ministrySubjects: ministrySubjects,
       view: view,
       other: person,
+      withOther: other != null,
     ),
   );
+}
+
+String sharedLessonSentence(LessonItem lesson)
+{
+  if (!lesson.isPartlyShared)
+  {
+    return _sharedWith;
+  }
+
+  final stretches = [
+    for (final (start, end) in lesson.overlaps)
+      'dalle ${formatTimeOfDayShort(start)} alle ${formatTimeOfDayShort(end)}',
+  ];
+
+  return '$_sharedWith ${stretches.join(' e ')}';
 }
 
 String _joined(Iterable<String> values, {String separator = ', '})
@@ -100,6 +169,17 @@ String _joined(Iterable<String> values, {String separator = ', '})
   final kept = [for (final value in values) if (value.trim().isNotEmpty) value.trim()];
 
   return kept.isEmpty ? _empty : kept.join(separator);
+}
+
+String _notes(List<StudentNoteItem>? notes)
+{
+  return _joined(
+    [
+      for (final note in notes ?? const <StudentNoteItem>[])
+        '${formatDayMonthFull(note.createdAt)} ${note.createdAt.year} – ${note.text}',
+    ],
+    separator: '\n\n',
+  );
 }
 
 String _certifications(PersonItem person)
@@ -129,7 +209,8 @@ SchoolEnrollmentItem? _currentYear(PersonItem person)
   return years.reduce((a, b) => a.startYear >= b.startYear ? a : b);
 }
 
-List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects)
+// [where]: the room, or "Online", for a pupil, who may change room lesson by lesson.
+List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects, {bool where = false})
 {
   String perBooking(String Function(BookingSummaryItem booking) said)
   {
@@ -146,6 +227,7 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
       label: 'Orario',
       value: '${formatTimeRange(lesson.startTime, lesson.endTime)} · ${formatMinutes(lesson.minutes)}',
     ),
+    if (where) LessonVoice(label: 'Stanza', value: lessonWhere(lesson).label),
     LessonVoice(
       label: 'Materia',
       value: perBooking((booking) => bookingTitle(booking, ministrySubjects)),
@@ -160,14 +242,32 @@ List<LessonVoice> lessonVoicesOf(LessonItem lesson, List<MinistrySubjectItem> mi
   ];
 }
 
-List<LessonVoice> studentVoicesOf(PersonItem person)
+LessonVoice _studentAge(PersonItem person)
 {
+  const label = 'Età';
   final age = person.age;
+
+  if (age == null)
+  {
+    return const LessonVoice(label: label, value: _empty);
+  }
+
+  if (!isBirthdayToday(person.birthDate, romeNow()))
+  {
+    return LessonVoice(label: label, value: '$age anni');
+  }
+
+  return LessonVoice(label: label, value: '$age anni – $_birthdayToday', icon: Icons.cake_rounded);
+}
+
+// [notes]: false on desktop, where the notes take a card of their own.
+List<LessonVoice> studentVoicesOf(PersonItem person, {bool notes = true})
+{
   final year = _currentYear(person);
   final repeating = year != null && isRepeatingYear(year, person.schoolEnrollments ?? const []);
 
   return [
-    LessonVoice(label: 'Età', value: age == null ? _empty : '$age anni'),
+    _studentAge(person),
     LessonVoice(
       label: 'Certificazioni',
       value: _certifications(person),
@@ -181,9 +281,19 @@ List<LessonVoice> studentVoicesOf(PersonItem person)
     ),
     LessonVoice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty),
     LessonVoice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No')),
-    // Not stored by the backend yet.
-    LessonVoice(label: 'Osservazioni tecniche', value: _empty),
-    LessonVoice(label: 'Osservazioni metodologiche', value: _empty),
+    if (notes) ...[
+      LessonVoice(label: 'Osservazioni tecniche', value: _notes(person.technicalNotes)),
+      LessonVoice(
+        label: 'Osservazioni metodologiche',
+        value: _notes(person.methodologicalNotes),
+        sensitive: true,
+      ),
+    ],
+    LessonVoice(
+      label: 'Altre informazioni',
+      value: _joined([person.allergiesNotes ?? '', person.medicationsNotes ?? ''], separator: '\n'),
+      sensitive: true,
+    ),
   ];
 }
 
@@ -207,29 +317,25 @@ class _OwnLessonDialog extends StatelessWidget
   // Null when it could not be read.
   final PersonItem? other;
 
+  final bool withOther;
+
   const _OwnLessonDialog({
     required this.lesson,
     required this.ministrySubjects,
     required this.view,
     required this.other,
+    required this.withOther,
   });
 
   bool get _byStudent => view == CalendarView.byStudent;
 
-  // Empty when the hour is shared throughout.
-  String get _sharedSentence
+  // The note goes to the administrators: the lesson's window stays as it was.
+  Future<void> _addNote(BuildContext context) async
   {
-    if (!lesson.isPartlyShared)
+    if (await showTeacherNoteDialog(context, lesson, ministrySubjects) && context.mounted)
     {
-      return _sharedWith;
+      CustomSnackBar.show(context: context, message: kNoteSent);
     }
-
-    final stretches = [
-      for (final (start, end) in lesson.overlaps)
-        'dalle ${formatTimeOfDayShort(start)} alle ${formatTimeOfDayShort(end)}',
-    ];
-
-    return '$_sharedWith ${stretches.join(' e ')}';
   }
 
   Widget _buildSharedLine()
@@ -246,7 +352,7 @@ class _OwnLessonDialog extends StatelessWidget
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _sharedSentence,
+              sharedLessonSentence(lesson),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w600,
@@ -313,7 +419,7 @@ class _OwnLessonDialog extends StatelessWidget
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _VoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects)),
+          _VoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
           if (_byStudent && lesson.isShared) _buildSharedLine(),
         ],
       ),
@@ -328,7 +434,43 @@ class _OwnLessonDialog extends StatelessWidget
       _byStudent ? 'Docente' : 'Studente',
       person == null
           ? _buildNote(_byStudent ? kTeacherFailedNote : kStudentFailedNote)
-          : _VoicesTable(voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person)),
+          : _VoicesTable(
+              voices: _byStudent ? teacherVoicesOf(person) : studentVoicesOf(person, notes: false),
+            ),
+    );
+  }
+
+  Widget _buildNotesSection(PersonItem student, {required bool wide})
+  {
+    final technical = _NotesColumn(label: 'Tecniche', notes: student.technicalNotes ?? const []);
+    final methodological = _NotesColumn(
+      label: 'Metodologiche',
+      notes: student.methodologicalNotes ?? const [],
+      sensitive: true,
+    );
+
+    return _buildSection(
+      'Osservazioni',
+      SelectionArea(
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: technical),
+                  const SizedBox(width: _cardGap + 2 * kDialogPillPadding),
+                  Expanded(child: methodological),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  technical,
+                  const SizedBox(height: _stackedColumnsGap),
+                  methodological,
+                ],
+              ),
+      ),
     );
   }
 
@@ -337,6 +479,7 @@ class _OwnLessonDialog extends StatelessWidget
   {
     final face = _byStudent ? lesson.teacher : lesson.bookings.firstOrNull?.presence.student;
     final wide = MediaQuery.sizeOf(context).width >= _twoColumnsFromWindow;
+    final PersonItem? student = _byStudent ? null : other;
 
     return AppDialogStack(
       eyebrow: 'Lezione',
@@ -351,9 +494,23 @@ class _OwnLessonDialog extends StatelessWidget
           color: AppTheme.trialMutedText,
         ),
       ),
-      maxWidth: _dialogWidth,
+      maxWidth: withOther ? _dialogWidth : _singleWidth,
+      footer: _byStudent || !lessonHasBegun(lesson, romeNow())
+          ? null
+          : AppDialogFooter.single(
+              maxWidth: _noteFooterWidth,
+              AppGradientButton(
+                label: kAddNoteLabel,
+                icon: Icons.add_rounded,
+                height: 52,
+                fontSize: 14,
+                onPressed: () => _addNote(context),
+              ),
+            ),
       children: [
-        if (wide)
+        if (!withOther)
+          _buildLessonSection()
+        else if (wide) ...[
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -368,10 +525,15 @@ class _OwnLessonDialog extends StatelessWidget
                 ),
               ],
             ),
-          )
+          ),
+          // Third after the two cards, as when they stand one under the other.
+          if (student != null)
+            AppDialogPiece(index: 3, named: false, child: _buildNotesSection(student, wide: true)),
+        ]
         else ...[
           _buildLessonSection(),
           _buildOtherSection(),
+          if (student != null) _buildNotesSection(student, wide: false),
         ],
       ],
     );
@@ -382,22 +544,25 @@ class _VoiceValue extends StatelessWidget
 {
   final String value;
 
+  final IconData? icon;
+
   final double letterSpacing;
 
-  const _VoiceValue({required this.value, this.letterSpacing = 0});
+  const _VoiceValue({required this.value, this.icon, this.letterSpacing = 0});
 
   @override
   Widget build(BuildContext context)
   {
-    return Text(
+    return voiceValueText(
       value,
-      style: GoogleFonts.plusJakartaSans(
+      GoogleFonts.plusJakartaSans(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         height: 1.45,
         letterSpacing: letterSpacing,
         color: value == _empty ? AppTheme.trialMutedText : AppTheme.trialInk,
       ),
+      icon: icon,
     );
   }
 }
@@ -429,20 +594,130 @@ class _ObscurableValueState extends State<_ObscurableValue>
           ),
         ),
         const SizedBox(width: 8),
-        IconButton(
-          onPressed: () => setState(() => _isVisible = !_isVisible),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          icon: Icon(
-            _isVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            size: 22,
-            color: AppTheme.trialMutedText,
+        _EyeButton(open: _isVisible, onPressed: () => setState(() => _isVisible = !_isVisible)),
+      ],
+    );
+  }
+}
+
+class _EyeButton extends StatelessWidget
+{
+  final bool open;
+  final VoidCallback onPressed;
+
+  const _EyeButton({required this.open, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return IconButton(
+      onPressed: onPressed,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      // A padded 48 px target hangs the eye below the first line.
+      style: const ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+      icon: Icon(
+        open ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        size: 22,
+        color: AppTheme.trialMutedText,
+      ),
+    );
+  }
+}
+
+// [sensitive] notes stay masked until the eye opens them all.
+class _NotesColumn extends StatefulWidget
+{
+  final String label;
+  final List<StudentNoteItem> notes;
+
+  final bool sensitive;
+
+  const _NotesColumn({required this.label, required this.notes, this.sensitive = false});
+
+  @override
+  State<_NotesColumn> createState() => _NotesColumnState();
+}
+
+class _NotesColumnState extends State<_NotesColumn>
+{
+  bool _isVisible = false;
+
+  bool get _masked => widget.sensitive && widget.notes.isNotEmpty;
+
+  Widget _buildHead()
+  {
+    return DecoratedBox(
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.trialLine))),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: _rowPadding),
+        child: SizedBox(
+          height: _columnHeadHeight,
+          child: Row(
+            children: [
+              Expanded(child: AppFieldLabel(widget.label)),
+              if (_masked)
+                _EyeButton(open: _isVisible, onPressed: () => setState(() => _isVisible = !_isVisible)),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNote(int index, StudentNoteItem note)
+  {
+    final bool last = index == widget.notes.length - 1;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: index == 0 ? null : const Border(top: BorderSide(color: AppTheme.trialLine)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(top: _noteGap, bottom: last ? 0 : _noteGap),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              noteDate(note.createdAt),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.trialOcean,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _VoiceValue(value: note.text),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final List<StudentNoteItem> notes = widget.notes;
+    final bool hidden = _masked && !_isVisible;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHead(),
+        if (notes.isEmpty || hidden)
+          Padding(
+            padding: const EdgeInsets.only(top: _noteGap),
+            child: hidden
+                ? const _VoiceValue(value: kObscuredValue, letterSpacing: kObscuredLetterSpacing)
+                : const _VoiceValue(value: _empty),
+          )
+        else
+          for (final (index, note) in notes.indexed) _buildNote(index, note),
       ],
     );
   }
@@ -481,7 +756,7 @@ class _VoicesTable extends StatelessWidget
   {
     return voice.sensitive && voice.value != _empty
         ? _ObscurableValue(value: voice.value)
-        : _VoiceValue(value: voice.value);
+        : _VoiceValue(value: voice.value, icon: voice.icon);
   }
 
   @override

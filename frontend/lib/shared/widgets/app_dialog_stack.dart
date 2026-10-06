@@ -18,7 +18,7 @@ const double _pieceScale = 0.92;
 const double _shadowRoom = 12;
 
 const double _pillRadius = 28;
-const double _pillPadding = 28;
+const double kDialogPillPadding = 28;
 
 const double _closeSize = 44;
 
@@ -176,7 +176,7 @@ class AppDialogStack extends StatelessWidget
       return [
         Flexible(
           child: _atMost(width, SingleChildScrollView(
-            // The default barrier is opaque and would swallow taps in the gaps, which must reach the barrier.
+            // Default hit-testing is opaque: gap taps must reach the barrier, not stop here.
             hitTestBehavior: HitTestBehavior.deferToChild,
             padding: const EdgeInsets.all(_shadowRoom),
             child: Column(
@@ -235,7 +235,7 @@ class AppDialogStack extends StatelessWidget
               maxWidth: room,
               maxHeight: window.height - keyboard - 2 * _windowMargin,
             ),
-            // Needed twice: text outside a Material wears the yellow underline; a transparent Material, unlike an opaque one, lets taps through.
+            // Gives text a Material (no yellow underline); transparent, so taps pass through.
             child: Material(
               type: MaterialType.transparency,
               child: Column(
@@ -415,7 +415,7 @@ class AppDialogPill extends StatelessWidget
   const AppDialogPill({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(_pillPadding),
+    this.padding = const EdgeInsets.all(kDialogPillPadding),
     this.radius = _pillRadius,
     this.shadow = AppTheme.dialogShadow,
     this.expand = false,

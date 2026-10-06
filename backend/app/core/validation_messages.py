@@ -132,6 +132,7 @@ _FIELD_LABELS: Final[dict[str, str]] = {
     "teacher_data": "Dati docente",
     "teacher_tax_code": "Codice fiscale del docente",
     "teacher_tax_codes": "Docenti",
+    "text": "Osservazione",
     "token": "Codice di reimpostazione",
     "topic": "Argomento",
     "university_education": "Studi universitari",
@@ -147,7 +148,7 @@ _LOCATION_SECTIONS: Final[frozenset[str]] = frozenset(
 
 _GENERIC_ERROR: Final[str] = "I dati inviati non sono validi."
 
-# Pydantic prefixes validator ValueErrors with "Value error, "; only that half is stripped.
+# Pydantic prefixes validator ValueErrors with this; only the prefix is stripped.
 _VALUE_ERROR_PREFIX: Final[str] = "Value error, "
 
 _MOST_SAID: Final[int] = 3

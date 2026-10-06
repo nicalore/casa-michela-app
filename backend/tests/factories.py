@@ -23,6 +23,7 @@ from app.models.person import (
     Person,
 )
 from app.models.presence import Presence
+from app.models.psychologist import Psychologist
 from app.models.room import Room
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
@@ -106,7 +107,6 @@ async def make_person(
     )
 
 
-# Members are enrolled as on the register; tests about enrollment opt out.
 async def _make_member(db: AsyncSession, person: Person, *, enrolled: bool) -> None:
     await _persist(db, Member(tax_code=person.tax_code))
 
@@ -147,6 +147,23 @@ async def make_teacher(
     )
 
     return await _persist(db, Teacher(tax_code=person.tax_code))
+
+
+async def make_psychologist(
+    db: AsyncSession,
+    *,
+    first_name: str = "Elena",
+    last_name: str = "Rinaldi",
+    enrolled: bool = True,
+) -> Psychologist:
+    person = await _make_staff_person(
+        db,
+        first_name=first_name,
+        last_name=last_name,
+        enrolled=enrolled,
+    )
+
+    return await _persist(db, Psychologist(tax_code=person.tax_code))
 
 
 async def make_student(
@@ -200,22 +217,27 @@ async def make_president(db: AsyncSession, *, enrolled: bool = True) -> Administ
     )
 
 
-# Defaults to this year's, which counts through its 31-day renewal window.
+# Fixed-day tests pin the year to theirs.
+def membership_year() -> int:
+    return date.today().year
+
+
 async def make_membership(
     db: AsyncSession,
     member: Person | Student | Teacher | Administrator,
     *,
     year: int | None = None,
+    start_date: date | None = None,
     revocation: MembershipRevocationEnum = MembershipRevocationEnum.NO,
 ) -> Membership:
-    year = date.today().year if year is None else year
+    year = membership_year() if year is None else year
 
     return await _persist(
         db,
         Membership(
             member_tax_code=member.tax_code,
             year=year,
-            start_date=date(year, 1, 1),
+            start_date=date(year, 1, 1) if start_date is None else start_date,
             end_date=date(year, 12, 31),
             renewal_period_days=31 if revocation == MembershipRevocationEnum.NO else 0,
             revocation=revocation,
@@ -277,11 +299,9 @@ async def _make_ministry_subject(db: AsyncSession) -> MinistrySubject:
     )
 
 
-# Held since long before any lesson a test dates, unless told otherwise.
 SINCE_FOREVER = date(2000, 1, 1)
 
 
-# With no study_program a fresh one is made: competent, never mind which.
 async def make_competence(
     db: AsyncSession,
     teacher: Teacher,
@@ -338,7 +358,6 @@ async def make_preference(
     )
 
 
-# Open-ended unless told otherwise: the pupil still feels that way.
 async def make_avoidance(
     db: AsyncSession,
     student: Student,
@@ -408,7 +427,6 @@ async def make_room(
     )
 
 
-# Presence afternoons from Monday to Friday, both ends included.
 async def make_weekday_openings(db: AsyncSession, first: date, last: date) -> None:
     day = first
 
@@ -495,7 +513,6 @@ async def make_booking(
     )
 
 
-# A discipline inside a programme is judged on the (discipline, programme) pair, else alone.
 async def make_discipline_in_programme(
     db: AsyncSession,
     subject: AssociationSubject,
@@ -520,7 +537,6 @@ async def make_discipline_in_programme(
     return ministry
 
 
-# The only booking shape that carries more than one discipline.
 async def make_ministry_request(
     db: AsyncSession,
     presence: Presence,

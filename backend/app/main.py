@@ -24,6 +24,7 @@ from app.api import (
     home,
     lesson_requests,
     lessons,
+    methodological_notes,
     ministry_subjects,
     opening_days,
     people,
@@ -36,7 +37,9 @@ from app.api import (
     statistics,
     study_programs,
     support,
+    teacher_notes,
     teacher_room_assignments,
+    technical_notes,
     weekly_templates,
 )
 from app.core.config import settings
@@ -76,6 +79,8 @@ app = FastAPI(
     title="Casa Michela API",
     version="0.1.0",
     lifespan=lifespan,
+    # None drops /docs and /redoc too: they load their assets from CDNs.
+    openapi_url="/openapi.json" if settings.debug else None,
 )
 
 app.add_exception_handler(ValueError, value_error_exception_handler)
@@ -117,6 +122,9 @@ app.include_router(ministry_subjects.router)
 app.include_router(opening_days.router)
 app.include_router(people.router)
 app.include_router(person_accounts.router)
+app.include_router(methodological_notes.router)
+app.include_router(technical_notes.router)
+app.include_router(teacher_notes.router)
 app.include_router(documents.router)
 app.include_router(support.router)
 app.include_router(statistics.router)

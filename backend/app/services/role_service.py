@@ -36,6 +36,7 @@ class RoleService:
             "TEACHER",
             "PARENT",
             "STUDENT",
+            "PSYCHOLOGIST",
         }
     )
 
@@ -45,8 +46,7 @@ class RoleService:
         AdministratorRoleEnum.TREASURER,
     }
 
-    # The register's rule (people._enrolled): the latest membership, unrevoked and
-    # inside its renewal window.
+    # The register's rule (people._enrolled): latest membership, unrevoked, in window.
     @staticmethod
     def is_enrolled(member: Member | None) -> bool:
         if member is None or not member.memberships:
@@ -103,7 +103,7 @@ class RoleService:
 
         return AccessLapseEnum.CHILDREN
 
-    # Only a pupil is answered for: a staff minor has parents for paperwork alone.
+    # Only pupils are answered for, not staff minors.
     @staticmethod
     def is_answered_for(person: Person) -> bool:
         member = person.member_profile
@@ -172,7 +172,7 @@ class RoleService:
         if usable:
             return RoleService.sorted_by_label(usable)[0]
 
-        # Psychologists and course participants have no home yet, but need a label.
+        # Course participants have no home yet, but need a label.
         if available:
             return RoleService.sorted_by_label(available)[0]
 
