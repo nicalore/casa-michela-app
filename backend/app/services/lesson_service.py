@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped
 from app.api.rbac import IdentityContext
 from app.core.integrity import integrity_guard
 from app.core.optimistic_concurrency import assert_not_stale
-from app.core.time_band import assert_within_single_band
+from app.core.time_band import TimeBandEnum, assert_within_single_band, band_of
 from app.core.time_step import fits_a_window
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
@@ -288,7 +288,12 @@ class LessonService:
                 )
 
             windows = hours.get(
-                (presence.student_tax_code, presence.date, presence.mode),
+                (
+                    presence.student_tax_code,
+                    presence.date,
+                    presence.mode,
+                    band_of(presence.start_time),
+                ),
                 [],
             )
 
@@ -308,11 +313,11 @@ class LessonService:
 
         return mode, students
 
-    # Every stretch the pupils gave that day and mode: a lesson may sit in any of them.
+    # Every stretch of that day, mode and band: a lesson may sit in any of the band's.
     async def _hours_of(
         self,
         bookings: Sequence[Booking],
-    ) -> dict[tuple[str, date, str], list[tuple[time, time]]]:
+    ) -> dict[tuple[str, date, str, TimeBandEnum], list[tuple[time, time]]]:
         rows = await self.session.execute(
             select(
                 Presence.student_tax_code,
@@ -330,12 +335,11 @@ class LessonService:
             .order_by(Presence.start_time),
         )
 
-        hours: dict[tuple[str, date, str], list[tuple[time, time]]] = {}
+        hours: dict[tuple[str, date, str, TimeBandEnum], list[tuple[time, time]]] = {}
 
         for student_tax_code, day, mode, start_time, end_time in rows:
-            hours.setdefault((student_tax_code, day, mode), []).append(
-                (start_time, end_time),
-            )
+            key = (student_tax_code, day, mode, band_of(start_time))
+            hours.setdefault(key, []).append((start_time, end_time))
 
         return hours
 
@@ -551,8 +555,7 @@ class LessonService:
 
         return await self._service_refusal(teacher_tax_code, bookings)
 
-    # A waiver outlives the lesson: moved, or taken off and put back, the hour
-    # needs no new one. Returns the waivers this write adds.
+    # Waivers outlive the lesson, so a moved hour needs none; returns those added.
     async def _competence_waivers(
         self,
         payload: LessonCreate | LessonUpdate,

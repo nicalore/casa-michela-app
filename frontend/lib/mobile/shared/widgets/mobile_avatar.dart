@@ -13,12 +13,15 @@ class MobileAvatar extends StatelessWidget
 
   final double size;
 
+  final bool gold;
+
   const MobileAvatar({
     super.key,
     required this.firstName,
     required this.lastName,
     this.imageUrl,
     this.size = 46,
+    this.gold = true,
   });
 
   @override
@@ -64,8 +67,10 @@ class MobileAvatar extends StatelessWidget
         color: Colors.white.withValues(alpha: 0.9),
         boxShadow: [
           const BoxShadow(color: Color(0x4D000000), offset: Offset(0, 8), blurRadius: 18),
-          BoxShadow(color: AppTheme.trialGold.withValues(alpha: 0.16), spreadRadius: 7),
-          BoxShadow(color: AppTheme.trialGold.withValues(alpha: 0.85), spreadRadius: 2.5),
+          if (gold) ...[
+            BoxShadow(color: AppTheme.trialGold.withValues(alpha: 0.16), spreadRadius: 7),
+            BoxShadow(color: AppTheme.trialGold.withValues(alpha: 0.85), spreadRadius: 2.5),
+          ],
         ],
       ),
       child: ClipOval(
@@ -75,7 +80,6 @@ class MobileAvatar extends StatelessWidget
                 fit: BoxFit.cover,
                 // Twice the width keeps landscape photos up to 2:1 sharp when covering the circle.
                 cacheWidth: (size * MediaQuery.devicePixelRatioOf(context) * 2).round(),
-                // The initials hold the circle until the photo is decoded.
                 frameBuilder: (context, photo, frame, synchronous) =>
                     synchronous || frame != null ? photo : fallback,
                 errorBuilder: (context, error, stackTrace) => fallback,

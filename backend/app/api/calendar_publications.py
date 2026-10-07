@@ -19,6 +19,7 @@ from app.repositories.teacher_room_assignment_repository import (
     TeacherRoomAssignmentRepository,
 )
 from app.schemas.calendar_publication import (
+    CalendarBandRef,
     CalendarDraftClosed,
     CalendarDraftDiscarded,
     CalendarPublicationCreate,
@@ -162,6 +163,18 @@ async def list_publications(
     )
 
 
+# Tells "not yet published" from "never will be": who booked nothing learns no more.
+@router.get("/unbooked", response_model=list[CalendarBandRef])
+async def list_unbooked_bands(
+    db: DbSession,
+    date_from: date,
+    date_to: date,
+) -> list[CalendarBandRef]:
+    bands = await _service(db).unbooked_bands(date_from=date_from, date_to=date_to)
+
+    return [CalendarBandRef(date=day, band=band) for day, band in bands]
+
+
 @router.post("/", response_model=CalendarPublicationResponse, dependencies=_ADMIN_ONLY)
 async def publish_band(
     payload: CalendarPublicationCreate,
@@ -189,7 +202,7 @@ async def reopen_band(
     return (await _to_responses(db, [publication]))[0]
 
 
-# Leaving the bozza restores its opening snapshot; answers how many hours could not.
+# Leaving the draft restores its opening snapshot; answers how many hours could not.
 @router.post(
     "/{publication_date}/{band}/discard",
     response_model=CalendarDraftDiscarded,

@@ -55,8 +55,7 @@ bool isAnsweredFor(PersonItem person)
       (person.parents?.isNotEmpty ?? false);
 }
 
-// Everyone but a bare member, unless the membership was revoked or no enrollment stands
-// behind them; a teacher's parents never show up (shownRoles drops their GENITORE).
+// A teacher's parents never show up: shownRoles drops their GENITORE.
 bool mayOpenAccount(PersonItem person)
 {
   return !person.hasAccount &&
@@ -65,7 +64,6 @@ bool mayOpenAccount(PersonItem person)
       person.shownRoles.any((role) => role.toUpperCase() != 'ASSOCIATO');
 }
 
-// The «Crea account» flow, from the account tab or right after a person is created.
 // True once the account exists.
 Future<bool> runAccountCreation(
   BuildContext context,
@@ -116,7 +114,6 @@ Future<bool> runAccountCreation(
   }
 }
 
-// A pupil the parents answer for goes through a wizard; anybody else only confirms.
 Future<CreateAccountRequest?> showCreateAccountDialog(BuildContext context, PersonItem person)
 {
   return showBlurredDialog<CreateAccountRequest>(
@@ -201,7 +198,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
 
   bool _autonomousBookings = false;
 
-  // The parents an account can still be opened for.
   late final List<ParentItem> _parents = [
     for (final parent in widget.person.parents ?? const <ParentItem>[])
       if (!parent.hasAccount) parent,
@@ -212,7 +208,7 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
       if (parent.hasAccount) parent,
   ];
 
-  // A pupil needs a parent who can book and pay: unless one already can, a lone parent comes along.
+  // A pupil needs a parent who can book and pay; failing that, a lone parent comes along.
   bool get _loneParentIncluded => _parentsWithAccount.isEmpty && _parents.length == 1;
 
   final Set<String> _chosenParents = {};
@@ -254,7 +250,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     });
   }
 
-  // Like the person wizard: an unanswered step refuses and is brought back on screen.
   void _submit()
   {
     for (var step = 0; step < _stepCount; step++)
@@ -374,7 +369,6 @@ class _PupilAccountWizardState extends State<_PupilAccountWizard>
     );
   }
 
-  // Plural as soon as a parent's account comes with the pupil's.
   Widget _buildNotice()
   {
     return Text(

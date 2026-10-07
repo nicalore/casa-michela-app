@@ -3,16 +3,22 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
+import '../../../../features/calendar/widgets/own_lesson_block.dart' show kSharedLessonIcon;
 import '../../../../features/calendar/widgets/own_lesson_dialog.dart';
+import '../../../../features/lessons/models/calendar_day.dart';
 import '../../../../features/lessons/models/activity_item.dart';
 import '../../../../features/lessons/models/lesson_item.dart';
+import '../../../../features/lessons/models/person_option_item.dart';
 import '../../../../features/lessons/widgets/activity_details_dialog.dart';
 import '../../../../features/lessons/widgets/calendar_activity_block.dart' show kActivityWord;
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart' show lessonTitle;
 import '../../../../features/people/models/person_item.dart';
+import '../../../../features/people/models/student_note_item.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
+import '../../../../features/people/widgets/student_notes_card.dart' show noteDate;
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
@@ -26,29 +32,72 @@ const double _faceSize = 72;
 // Assumed page height until measured.
 const double _unmeasured = 320;
 
-List<DetailRowData> _rowsOf(List<LessonVoice> voices)
+// [onNotes]: a voice with notes opens them from its row.
+List<DetailRowData> _rowsOf(List<LessonVoice> voices, {ValueChanged<LessonVoice>? onNotes})
 {
   return [
     for (final voice in voices)
-      DetailRowData(
-        voice.label,
-        voice.value,
-        isSensitive: voice.sensitive && voice.value != kVoiceEmpty,
-        hidesLength: true,
-      ),
+      if (voice.notes case final notes? when notes.isNotEmpty && onNotes != null)
+        DetailRowData.drawn(voice.label, _NotesCount(voice.value), onTap: () => onNotes(voice))
+      else if (voice.icon != null)
+        DetailRowData.drawn(voice.label, voiceValueText(voice.value, mobileFactValueStyle(), icon: voice.icon))
+      else
+        DetailRowData(
+          voice.label,
+          voice.value,
+          isSensitive: voice.sensitive && voice.value != kVoiceEmpty,
+          hidesLength: true,
+        ),
   ];
 }
 
+// [withStudent] false: the lesson's facts alone, as for a day gone by.
 Future<void> showMobileLessonSheet({
   required BuildContext context,
   required LessonItem lesson,
   required List<MinistrySubjectItem> ministrySubjects,
   required PersonItem? student,
+  bool withStudent = true,
 })
 {
   return showMobileSheet<void>(
     context: context,
-    builder: (context) => _LessonSheet(lesson: lesson, ministrySubjects: ministrySubjects, student: student),
+    builder: (context) => _LessonSheet(
+      lesson: lesson,
+      ministrySubjects: ministrySubjects,
+      title: lessonTitle(lesson),
+      subtitle: formatWeekdayColumnLabel(lesson.date),
+      face: lesson.bookings.firstOrNull?.presence.student,
+      otherName: withStudent ? 'Studente' : null,
+      otherVoices: student == null ? null : studentVoicesOf(student),
+      otherFailedNote: kStudentFailedNote,
+    ),
+  );
+}
+
+Future<void> showMobilePupilLessonSheet({
+  required BuildContext context,
+  required LessonItem lesson,
+  required List<MinistrySubjectItem> ministrySubjects,
+  required PersonItem? teacher,
+  String? pupilName,
+})
+{
+  final String day = formatWeekdayColumnLabel(lesson.date);
+
+  return showMobileSheet<void>(
+    context: context,
+    builder: (context) => _LessonSheet(
+      lesson: lesson,
+      ministrySubjects: ministrySubjects,
+      title: lessonTitle(lesson, view: CalendarView.byStudent),
+      subtitle: pupilName == null ? day : '$pupilName · $day',
+      face: lesson.teacher,
+      otherName: 'Docente',
+      otherVoices: teacher == null ? null : teacherVoicesOf(teacher),
+      otherFailedNote: kTeacherFailedNote,
+      forPupil: true,
+    ),
   );
 }
 
@@ -56,12 +105,28 @@ class _LessonSheet extends StatefulWidget
 {
   final LessonItem lesson;
   final List<MinistrySubjectItem> ministrySubjects;
-  final PersonItem? student;
+
+  final String title;
+  final String subtitle;
+  final PersonOptionItem? face;
+
+  // Null: no second page, the lesson's facts alone.
+  final String? otherName;
+  final List<LessonVoice>? otherVoices;
+  final String otherFailedNote;
+
+  final bool forPupil;
 
   const _LessonSheet({
     required this.lesson,
     required this.ministrySubjects,
-    required this.student,
+    required this.title,
+    required this.subtitle,
+    required this.face,
+    required this.otherName,
+    required this.otherVoices,
+    required this.otherFailedNote,
+    this.forPupil = false,
   });
 
   @override
@@ -70,7 +135,7 @@ class _LessonSheet extends StatefulWidget
 
 class _LessonSheetState extends State<_LessonSheet>
 {
-  static const List<String> _pageNames = ['Lezione', 'Studente'];
+  late final List<String> _pageNames = ['Lezione', ?widget.otherName];
 
   final PageController _pages = PageController();
 
@@ -121,7 +186,7 @@ class _LessonSheetState extends State<_LessonSheet>
   // Height interpolates between pages while swiping.
   Widget _buildPager()
   {
-    final PersonItem? student = widget.student;
+    final List<LessonVoice>? other = widget.otherVoices;
 
     return AnimatedBuilder(
       animation: Listenable.merge([_pages, _heights]),
@@ -142,18 +207,69 @@ class _LessonSheetState extends State<_LessonSheet>
         // Keeps the other page laid out, so its height is known before a swipe.
         allowImplicitScrolling: true,
         children: [
-          _buildPage(
-            0,
-            MobileSheetCard(
-              child: MobileDetailRows(rows: _rowsOf(lessonVoicesOf(widget.lesson, widget.ministrySubjects))),
-            ),
-          ),
+          _buildPage(0, _buildLessonCard()),
           _buildPage(
             1,
             MobileSheetCard(
-              child: student == null
-                  ? const _Note(kStudentFailedNote)
-                  : MobileDetailRows(rows: _rowsOf(studentVoicesOf(student))),
+              child: other == null
+                  ? _Note(widget.otherFailedNote)
+                  : MobileDetailRows(rows: _rowsOf(other, onNotes: _openNotes)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLessonCard()
+  {
+    return MobileSheetCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MobileDetailRows(
+            rows: _rowsOf(lessonVoicesOf(widget.lesson, widget.ministrySubjects, where: widget.forPupil)),
+          ),
+          if (widget.forPupil && widget.lesson.isShared) _SharedLine(sharedLessonSentence(widget.lesson)),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildFace()
+  {
+    final PersonOptionItem? face = widget.face;
+
+    return face == null
+        ? null
+        : MobileAvatar(
+            firstName: face.firstName,
+            lastName: face.lastName,
+            imageUrl: face.profileImageUrl,
+            size: _faceSize,
+          );
+  }
+
+  // The sheet turns to the notes, newest first; the × comes back.
+  void _openNotes(LessonVoice voice)
+  {
+    final PersonOptionItem? face = widget.face;
+
+    showMobileSheet<void>(
+      context: context,
+      builder: (context) => MobileSheet(
+        eyebrow: voice.label,
+        title: face == null ? widget.title : '${face.firstName} ${face.lastName}',
+        subtitle: voice.value,
+        leading: _buildFace(),
+        body: [
+          const SizedBox(height: 16),
+          MobileSheetCard(
+            child: MobileDetailRows(
+              rows: [
+                for (final StudentNoteItem note in voice.notes ?? const [])
+                  DetailRowData.drawn(noteDate(note.createdAt), Text(note.text, style: _noteStyle())),
+              ],
             ),
           ),
         ],
@@ -164,21 +280,27 @@ class _LessonSheetState extends State<_LessonSheet>
   @override
   Widget build(BuildContext context)
   {
-    final face = widget.lesson.bookings.firstOrNull?.presence.student;
+    final Widget? leading = _buildFace();
+
+    if (widget.otherName == null)
+    {
+      return MobileSheet(
+        eyebrow: 'Lezione',
+        title: widget.title,
+        subtitle: widget.subtitle,
+        leading: leading,
+        body: [
+          const SizedBox(height: 16),
+          _buildLessonCard(),
+        ],
+      );
+    }
 
     return MobileSheet(
       eyebrow: 'Lezione',
-      title: lessonTitle(widget.lesson),
-      subtitle: formatWeekdayColumnLabel(widget.lesson.date),
-      closable: false,
-      trailing: face == null
-          ? null
-          : MobileAvatar(
-              firstName: face.firstName,
-              lastName: face.lastName,
-              imageUrl: face.profileImageUrl,
-              size: _faceSize,
-            ),
+      title: widget.title,
+      subtitle: widget.subtitle,
+      leading: leading,
       subhead: Padding(
         padding: const EdgeInsets.only(top: 18),
         child: MobilePageStrip(labels: _pageNames, controller: _pages, onLight: true),
@@ -199,7 +321,6 @@ Future<void> showMobileActivitySheet({
       eyebrow: kActivityWord,
       title: activity.name,
       subtitle: formatWeekdayColumnLabel(activity.date),
-      closable: false,
       body: [
         const SizedBox(height: 16),
         MobileSheetCard(
@@ -210,6 +331,35 @@ Future<void> showMobileActivitySheet({
       ],
     ),
   );
+}
+
+// Lighter than a fact: a note runs for lines.
+TextStyle _noteStyle()
+{
+  return GoogleFonts.plusJakartaSans(
+    fontSize: 15.5,
+    fontWeight: FontWeight.w500,
+    height: 1.45,
+    color: AppTheme.trialInk,
+  );
+}
+
+class _NotesCount extends StatelessWidget
+{
+  final String text;
+
+  const _NotesCount(this.text);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Row(
+      children: [
+        Expanded(child: Text(text, style: mobileFactValueStyle())),
+        Icon(Icons.chevron_right_rounded, size: 26, color: AppTheme.trialInk.withValues(alpha: 0.36)),
+      ],
+    );
+  }
 }
 
 class _Note extends StatelessWidget
@@ -232,6 +382,42 @@ class _Note extends StatelessWidget
           height: 1.4,
           color: MobilePalette.mutedText,
         ),
+      ),
+    );
+  }
+}
+
+class _SharedLine extends StatelessWidget
+{
+  final String text;
+
+  const _SharedLine(this.text);
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(kSharedLessonIcon, size: 18, color: AppTheme.trialTealDeep),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: AppTheme.trialInk,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

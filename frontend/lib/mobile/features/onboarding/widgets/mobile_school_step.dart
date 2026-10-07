@@ -8,20 +8,14 @@ import '../../../../features/association/models/school_item.dart';
 import '../../../../features/association/models/study_program_item.dart';
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/models/school_enrollment_item.dart';
-import '../../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../../features/people/widgets/person_row_models.dart';
 import '../../../../features/people/widgets/school_enrollment_edit_row.dart';
 import '../../../../features/people/widgets/school_year_wizard.dart';
 import '../../../../services/api_service.dart';
-import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_confirm_sheet.dart';
 import '../../../shared/widgets/mobile_notice.dart';
-import '../../profile/widgets/mobile_card_grid.dart';
-import '../../profile/widgets/mobile_detail_card.dart';
-import 'mobile_card_deck.dart';
+import '../../profile/widgets/mobile_school_years.dart';
 import 'mobile_school_year_sheet.dart';
-
-const double _cardRadius = 22;
 
 const String _saved = 'Anni scolastici aggiornati con successo!';
 const String _atLeastOne = 'Lo studente deve avere almeno un anno scolastico.';
@@ -35,14 +29,12 @@ class MobileSchoolStep extends StatefulWidget
   // Fetches the person again once the years are saved.
   final Future<void> Function() onChanged;
 
-  final bool tablet;
   final double margin;
 
   const MobileSchoolStep({
     super.key,
     required this.person,
     required this.onChanged,
-    required this.tablet,
     required this.margin,
   });
 
@@ -90,16 +82,10 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
     }
   }
 
-  List<SchoolEnrollmentItem> get _years
-  {
-    return [...?widget.person.schoolEnrollments]..sort((a, b) => b.startYear.compareTo(a.startYear));
-  }
-
-  // As the desktop wizard reads them, most recent first.
   List<SchoolEnrollmentRowData> _rowsOf(List<SchoolItem> schools, List<StudyProgramItem> programs)
   {
     final List<SchoolEnrollmentRowData> rows = [
-      for (final year in _years)
+      for (final year in MobileSchoolYears.yearsOf(widget.person))
         SchoolEnrollmentRowData(
           yearCtrl: TextEditingController(text: year.startYear.toString()),
           school: schools.where((school) => school.id == year.schoolId).firstOrNull,
@@ -113,7 +99,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
     return rows;
   }
 
-  // Called by the page's «Aggiungi anno»; ignored while a save is under way.
+  // Called by the page's "Aggiungi anno"; ignored while a save is under way.
   void add()
   {
     if (!_busy)
@@ -147,6 +133,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
         takenYears: takenSchoolYears(rows, except: index < 0 ? null : index),
         initial: index < 0 ? previousSchoolYearOf(rows) : SchoolYearChoice.ofRow(rows[index]),
         editing: index >= 0,
+        confirmRemoval: (sheet) => _confirmRemoval(sheet, rows, index),
       );
 
       if (outcome == null || !mounted)
@@ -156,7 +143,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
 
       if (outcome.removed)
       {
-        await _remove(rows, index);
+        await _save([...rows]..removeAt(index));
 
         return;
       }
@@ -181,20 +168,20 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
     }
   }
 
-  // The confirmation replaces the sheet, never stacks over it.
-  Future<void> _remove(List<SchoolEnrollmentRowData> rows, int index)
+  // Refused at once for the only year.
+  Future<bool> _confirmRemoval(BuildContext sheet, List<SchoolEnrollmentRowData> rows, int index)
   {
     if (rows.length == 1)
     {
       MobileNotice.show(context, _atLeastOne, error: true);
 
-      return Future<void>.value();
+      return Future<bool>.value(false);
     }
 
     final int start = int.parse(rows[index].yearCtrl.text);
 
     return showMobileConfirmSheet(
-      context: context,
+      context: sheet,
       eyebrow: 'Rimozione',
       title: 'Confermi?',
       message: TextSpan(
@@ -209,13 +196,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
       ),
       confirmLabel: 'Rimuovi',
       confirmIcon: Icons.delete_outline_rounded,
-    ).then((confirmed) async
-    {
-      if (confirmed && mounted)
-      {
-        await _save([...rows]..removeAt(index));
-      }
-    });
+    );
   }
 
   Future<void> _save(List<SchoolEnrollmentRowData> rows) async
@@ -262,83 +243,21 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
     }
   }
 
-  Widget _buildYear(SchoolEnrollmentItem year, List<SchoolEnrollmentItem> all)
-  {
-    final bool current = year.startYear == currentSchoolYearStart();
-    final bool repeating = isRepeatingYear(year, all);
-
-    final Widget card = MobileDetailCard(
-      icon: current ? Icons.school_rounded : Icons.history_rounded,
-      eyebrow: current ? 'Anno scolastico attuale' : 'Anno scolastico passato',
-      title: 'Anno scolastico ${year.startYear}/${year.startYear + 1}',
-      rows: [
-        DetailRowData('Scuola', year.schoolName),
-        DetailRowData('Livello', year.educationLevel),
-        DetailRowData('Percorso', year.studyProgramNameOnly),
-        DetailRowData('Classe', gradeLabel(year.grade)),
-        DetailRowData('Ripetente', repeating ? 'Sì' : 'No'),
-      ],
-      onEdit: ()
-      {
-        if (!_busy)
-        {
-          _open(year: year);
-        }
-      },
-      editLabel: 'Modifica anno scolastico',
-    );
-
-    if (!current)
-    {
-      return card;
-    }
-
-    return DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(_cardRadius),
-        border: Border.all(color: MobilePalette.currentRim, width: MobilePalette.currentRimWidth),
-      ),
-      child: card,
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
-    final List<SchoolEnrollmentItem> years = _years;
-
-    if (years.isEmpty)
-    {
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: widget.margin, vertical: 12),
-        child: Text(
-          'Nessun anno scolastico registrato.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.84),
-          ),
-        ),
-      );
-    }
-
-    final List<Widget> cards = [for (final year in years) _buildYear(year, years)];
-
-    if (widget.tablet)
-    {
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: widget.margin),
-        child: MobileCardGrid(tablet: true, cards: cards),
-      );
-    }
-
-    return MobileCardDeck(
-      // Keyed by count so adding or removing a year restarts the deck.
-      key: ValueKey(years.length),
-      pages: cards,
-      margin: widget.margin,
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: widget.margin),
+      child: MobileSchoolYears(
+        person: widget.person,
+        onEdit: (year)
+        {
+          if (!_busy)
+          {
+            _open(year: year);
+          }
+        },
+      ),
     );
   }
 }

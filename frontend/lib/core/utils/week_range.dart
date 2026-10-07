@@ -155,13 +155,13 @@ String formatTimeOfDayShort(TimeOfDay time)
   return '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
 }
 
-// "09:00–13:00"
+// "09:00-13:00" (en dash).
 String formatTimeRange(TimeOfDay start, TimeOfDay end)
 {
   return '${formatTimeOfDayShort(start)}–${formatTimeOfDayShort(end)}';
 }
 
-// "09:00–13:00", from minutes from midnight.
+// Same, from minutes from midnight.
 String formatMinutesRange(int startMinutes, int endMinutes)
 {
   return formatTimeRange(timeOfDayFromMinutes(startMinutes), timeOfDayFromMinutes(endMinutes));

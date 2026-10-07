@@ -1,11 +1,12 @@
 const String kPickDayLabel = 'Scegli il giorno';
+const String kTodayLabel = 'Oggi';
 
 class DayMarks
 {
   // Shut in both modes.
   final Set<DateTime> closed;
 
-  // With a lesson of the viewer's.
+  // Dotted: a calendar published that day.
   final Set<DateTime> busy;
 
   const DayMarks({this.closed = const {}, this.busy = const {}});

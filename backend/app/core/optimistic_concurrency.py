@@ -12,6 +12,13 @@ _STALE_ENTITY_ERROR: Final[str] = (
 )
 
 
+def stale_conflict(entity_label: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=_STALE_ENTITY_ERROR.format(entity_label=entity_label),
+    )
+
+
 def assert_not_stale(
     entity: UpdatedAtMixin,
     expected_updated_at: datetime | None,
@@ -23,10 +30,10 @@ def assert_not_stale(
     if expected_updated_at is None:
         return
 
-    stored = entity.updated_at.replace(microsecond=0)
+    if _to_millisecond(entity.updated_at) != _to_millisecond(expected_updated_at):
+        raise stale_conflict(entity_label)
 
-    if stored != expected_updated_at.replace(microsecond=0):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=_STALE_ENTITY_ERROR.format(entity_label=entity_label),
-        )
+
+# Web clients keep milliseconds, so sub-second writes still read as two versions.
+def _to_millisecond(moment: datetime) -> datetime:
+    return moment.replace(microsecond=moment.microsecond // 1000 * 1000)

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/field_limits.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_add_row_button.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
@@ -1018,7 +1019,7 @@ class MembershipsCard extends StatelessWidget
                 : years.reduce((a, b) => a < b ? a : b);
 
             rows.add(MembershipRowData.empty(
-              year: (earliest == null ? DateTime.now().year : earliest - 1).toString(),
+              year: (earliest == null ? romeNow().year : earliest - 1).toString(),
             ));
             ctx.onChanged();
           },

@@ -5,11 +5,15 @@ abstract final class MobilePalette
   // AppTheme.trialMutedText reads below 3:1 on the glass over the dark sea.
   static const Color mutedText = Color(0xFF3E5260);
 
+  // Small marks of the current day.
   static const Color currentRim = Color(0xD9E3A83C);
   static const double currentRimWidth = 2;
 
   // The desktop's red, lightened to read on the dark sea and on white.
   static const Color nowLine = Color(0xFFE4674F);
+
+  // Struck labels: the font's own line-through vanishes on a phone.
+  static const double strikeThickness = 2.5;
 
   // The two modes' colours lightened to read on the dark sea.
   static const Color presenceOnSea = Color(0xFF5FD3C4);

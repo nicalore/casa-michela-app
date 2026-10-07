@@ -46,6 +46,7 @@ from app.models.subject_requested import SubjectRequested
 from app.models.teacher import Teacher
 from app.models.teacher_service import TeacherService
 from app.models.teaching_competence import TeachingCompetence
+from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
 from app.schemas.statistics import (
     AgeDistributionItem,
@@ -78,10 +79,15 @@ from app.schemas.statistics import (
 from app.services.availability_weeks import (
     AvailabilityWeek,
     days_given,
+    opening_weeks,
     teacher_weeks,
-    week_frames,
     weekly_average,
     weeks_of,
+)
+from app.services.enrollment_spans import (
+    enrolled_days,
+    enrolled_spans,
+    enrolled_throughout,
 )
 from app.services.teaching_competence import lacks_competence
 
@@ -197,8 +203,7 @@ def _area_label(area: Any) -> str:
     return str(area) if area else _UNKNOWN_AREA_LABEL
 
 
-# The register's rule (people._enrolled) on a given day: the latest membership
-# started by then, inside its renewal window. A revocation ends it that day.
+# The register's rule (people._enrolled) as of a day; a revocation ends it that day.
 def _enrolled_on(day: date) -> ColumnElement[bool]:
     newer = aliased(Membership)
 
@@ -238,7 +243,6 @@ async def _calculate_current_totals_dashboard(
     db: AsyncSession,
 ) -> CurrentTotalsResponse:
     today = today_in_rome()
-    # Deltas compare with the eve of the month and of the year.
     month_eve = today.replace(day=1) - timedelta(days=1)
     year_eve = date(today.year - 1, 12, 31)
 
@@ -531,10 +535,14 @@ def _elapsed_window(window: tuple[date, date]) -> tuple[date, date]:
     return start, min(end, tomorrow)
 
 
-def _weeks_of(window: tuple[date, date]) -> float:
-    start, end = _elapsed_window(window)
+async def _enrolled_weeks_of(
+    db: AsyncSession,
+    tax_code: str,
+    window: tuple[date, date],
+) -> float:
+    spans = await enrolled_spans(db, [tax_code])
 
-    return max((end - start).days, 0) / 7
+    return enrolled_days(spans.get(tax_code, []), *_elapsed_window(window)) / 7
 
 
 def _person_option_of(row: Any) -> PersonOption:
@@ -583,10 +591,10 @@ class TeacherAppreciation:
 # Half-open day interval; an open end is None.
 Span = tuple[date, date | None]
 
-# (pupil, teacher) → the days the pupil would rather not have them.
+# (pupil, teacher) -> the days the pupil would rather not have them.
 AvoidedIntervals = Mapping[tuple[str, str], Sequence[Span]]
 
-# Teacher → all-time (discipline, programme, from, until) and (service, from, until).
+# Teacher -> all-time (discipline, programme, from, until) and (service, from, until).
 CompetenceSpans = Mapping[str, Collection[tuple[int, int, date, date | None]]]
 ServiceSpans = Mapping[str, Collection[tuple[str, date, date | None]]]
 
@@ -599,7 +607,7 @@ def _avoided_on(day: date, intervals: Sequence[Span]) -> bool:
     return any(_within(day, start, end) for start, end in intervals)
 
 
-# Per pupil, at most ±1 per teacher: share of bookings they could teach (service
+# Per pupil, at most +/-1 per teacher: share of bookings they could teach (service
 # offered or lacks_competence) naming them, minus share held while avoided.
 def score_teachers(
     bookings: Iterable[BookingFacts],
@@ -1368,10 +1376,12 @@ async def get_teacher_appreciation_ranking(
 
 # An availability is a day given in presence, however many slots it holds.
 _AVAILABLE_DAYS = func.count(func.distinct(Availability.date))
-_IN_PRESENCE = Availability.mode == "presence"
 
 
-def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
+def _availability_counts_stmt(
+    window: tuple[date, date],
+    mode: str = "presence",
+) -> Select[Any]:
     start, end = _elapsed_window(window)
 
     return (
@@ -1379,12 +1389,16 @@ def _availability_counts_stmt(window: tuple[date, date]) -> Select[Any]:
             Availability.teacher_tax_code,
             _AVAILABLE_DAYS.label("availability_count"),
         )
-        .where(_IN_PRESENCE, Availability.date >= start, Availability.date < end)
+        .where(
+            Availability.mode == mode,
+            Availability.date >= start,
+            Availability.date < end,
+        )
         .group_by(Availability.teacher_tax_code)
     )
 
 
-# Active collaborators, fewest days first; outer-joined so those with none appear.
+# Active collaborators, fewest days first; the outer join keeps those with none.
 async def _collaborators(
     db: AsyncSession,
     window: tuple[date, date],
@@ -1433,15 +1447,17 @@ async def get_teacher_availability_statistics(
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> TeacherAvailabilityStatisticsResponse:
     window = _stats_window(months, year, month)
-    frames = await week_frames(db, *window, today_in_rome())
-    given_by_teacher = await days_given(db, frames)
+    weeks = await opening_weeks(db, *window, today_in_rome(), mode.value)
+    frames = weeks.frames()
+    given_by_teacher = await days_given(db, weeks, mode=mode.value)
 
     # One named month or "the last month": both are a single calendar month.
     is_single_month = months == 1 or (year is not None and month is not None)
 
-    counts = _availability_counts_stmt(window).subquery()
+    counts = _availability_counts_stmt(window, mode.value).subquery()
 
     # sum() comes back from Postgres as a Decimal.
     total_availabilities = int(
@@ -1472,25 +1488,51 @@ async def get_teacher_availability_statistics(
         .limit(_TOP_PEOPLE_LIMIT)
     )
     top_result = await db.execute(top_query)
+    top_teachers = [
+        TeacherAvailabilityRankItem(
+            teacher=_person_option_of(row),
+            availability_count=row.availability_count,
+        )
+        for row in top_result.all()
+    ]
+    weekly = round(given_in_weeks / len(frames), 1) if frames else 0.0
+
+    # Who falls short matters only in presence.
+    if mode is not OpeningModeEnum.PRESENCE:
+        return TeacherAvailabilityStatisticsResponse(
+            weekly_average=weekly,
+            total_availabilities=total_availabilities,
+            top_teachers=top_teachers,
+            low_availability_teachers=[],
+            is_single_month=is_single_month,
+            low_monthly_teachers=[],
+        )
+
+    rows = await _collaborators(db, window)
+    spans = await enrolled_spans(db, [row.tax_code for row in rows])
 
     collaborators = [
         _low_availability_item(
             row,
-            weeks_of(frames, given_by_teacher.get(row.tax_code, {})),
+            weeks_of(
+                weeks.frames(spans.get(row.tax_code, [])),
+                given_by_teacher.get(row.tax_code, {}),
+            ),
         )
-        for row in await _collaborators(db, window)
+        for row in rows
     ]
 
+    # The monthly bar applies only to those enrolled all month so far.
+    enrolled_all_month = {
+        row.tax_code
+        for row in rows
+        if enrolled_throughout(spans.get(row.tax_code, []), *_elapsed_window(window))
+    }
+
     return TeacherAvailabilityStatisticsResponse(
-        weekly_average=round(given_in_weeks / len(frames), 1) if frames else 0.0,
+        weekly_average=weekly,
         total_availabilities=total_availabilities,
-        top_teachers=[
-            TeacherAvailabilityRankItem(
-                teacher=_person_option_of(row),
-                availability_count=row.availability_count,
-            )
-            for row in top_result.all()
-        ],
+        top_teachers=top_teachers,
         low_availability_teachers=sorted(
             (item for item in collaborators if item.short_week_count > 0),
             key=lambda item: -item.short_week_count,
@@ -1501,6 +1543,7 @@ async def get_teacher_availability_statistics(
                 item
                 for item in collaborators
                 if item.availability_count < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+                and item.teacher.tax_code in enrolled_all_month
             ]
             if is_single_month
             else []
@@ -1529,6 +1572,7 @@ async def get_teacher_personal_statistics(
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> TeacherPersonalStatisticsResponse:
     is_own = tax_code.upper() == identity.tax_code and "TEACHER" in identity.roles
 
@@ -1546,14 +1590,24 @@ async def get_teacher_personal_statistics(
         await db.scalar(
             select(_AVAILABLE_DAYS).where(
                 Availability.teacher_tax_code == tax_code,
-                _IN_PRESENCE,
+                Availability.mode == mode.value,
                 Availability.date >= start,
                 Availability.date < end,
             ),
         )
         or 0
     )
-    weeks = await teacher_weeks(db, tax_code, *window, today_in_rome())
+    spans = (await enrolled_spans(db, [tax_code])).get(tax_code, [])
+    weeks = await teacher_weeks(
+        db,
+        tax_code,
+        spans,
+        *window,
+        today_in_rome(),
+        mode.value,
+    )
+
+    judged = mode is OpeningModeEnum.PRESENCE
 
     # The chart is always the last twelve months, whatever period was requested.
     trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
@@ -1567,7 +1621,7 @@ async def get_teacher_personal_statistics(
             )
             .where(
                 Availability.teacher_tax_code == tax_code,
-                _IN_PRESENCE,
+                Availability.mode == mode.value,
                 Availability.date >= trend_start,
                 Availability.date < trend_end,
             )
@@ -1589,12 +1643,19 @@ async def get_teacher_personal_statistics(
         total_availabilities=total,
         monthly_trend=monthly_trend,
         is_below_weekly_threshold=(
-            weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
+            judged
+            and bool(weeks)
+            and weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
         ),
-        short_week_count=sum(1 for week in weeks if week.is_short),
+        short_week_count=(
+            sum(1 for week in weeks if week.is_short) if judged else 0
+        ),
         is_single_month=is_single_month,
         is_below_monthly_threshold=(
-            is_single_month and total < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+            judged
+            and is_single_month
+            and total < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+            and enrolled_throughout(spans, start, end)
         ),
     )
 
@@ -1675,12 +1736,12 @@ async def get_teacher_appreciation_students(
 
 
 # One row per (student, day): two presences on the same day count once.
-def _presence_days_stmt(window: tuple[date, date]) -> Select[Any]:
+def _presence_days_stmt(window: tuple[date, date], mode: str) -> Select[Any]:
     start, end = _elapsed_window(window)
 
     return (
         select(Presence.student_tax_code, Presence.date)
-        .where(Presence.date >= start, Presence.date < end)
+        .where(Presence.mode == mode, Presence.date >= start, Presence.date < end)
         .distinct()
     )
 
@@ -1731,12 +1792,14 @@ async def _requested_subjects(
     window: tuple[date, date],
     *,
     student_tax_code: str | None = None,
+    mode: str,
     limit: int,
 ) -> RequestedSubjectRankings:
     start, end = window
 
     def bookings_in_window(stmt: Select[Any]) -> Select[Any]:
         stmt = stmt.join(Presence, Presence.id == Booking.presence_id).where(
+            Presence.mode == mode,
             Presence.date >= start,
             Presence.date < end,
         )
@@ -1820,9 +1883,10 @@ async def get_student_presence_statistics(
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> StudentPresenceStatisticsResponse:
     window = _stats_window(months, year, month)
-    days = _presence_days_stmt(window).subquery()
+    days = _presence_days_stmt(window, mode.value).subquery()
 
     totals_row = (
         await db.execute(
@@ -1870,7 +1934,12 @@ async def get_student_presence_statistics(
             )
             for row in top_result.all()
         ],
-        requested=await _requested_subjects(db, window, limit=_TOP_SUBJECTS_LIMIT),
+        requested=await _requested_subjects(
+            db,
+            window,
+            mode=mode.value,
+            limit=_TOP_SUBJECTS_LIMIT,
+        ),
     )
 
 
@@ -1881,6 +1950,7 @@ async def get_student_presence_statistics(
 async def get_discipline_request_trend(
     db: DbSession,
     association_subject_id: Annotated[int, Query()],
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> list[MonthlyCountItem]:
     if (
         await db.scalar(
@@ -1911,6 +1981,7 @@ async def get_discipline_request_trend(
             )
             .join(Presence, Presence.id == Booking.presence_id)
             .where(
+                Presence.mode == mode.value,
                 Presence.date >= start,
                 Presence.date < end,
                 Booking.id.in_(asked_directly.union(asked_within)),
@@ -1938,6 +2009,7 @@ async def get_student_personal_statistics(
     months: Annotated[int | None, Query(ge=1, le=12)] = None,
     year: Annotated[int | None, Query()] = None,
     month: Annotated[int | None, Query(ge=1, le=12)] = None,
+    mode: OpeningModeEnum = OpeningModeEnum.PRESENCE,
 ) -> StudentPersonalStatisticsResponse:
     if not (identity.is_admin or tax_code.upper() in identity.own_student_tax_codes):
         raise HTTPException(status_code=403, detail=_PUPIL_FORBIDDEN_ERROR)
@@ -1952,13 +2024,14 @@ async def get_student_personal_statistics(
         await db.scalar(
             select(func.count(func.distinct(Presence.date))).where(
                 Presence.student_tax_code == tax_code,
+                Presence.mode == mode.value,
                 Presence.date >= start,
                 Presence.date < end,
             ),
         )
         or 0
     )
-    weeks = _weeks_of(window)
+    weeks = await _enrolled_weeks_of(db, tax_code, window)
 
     trend_start, trend_end = _elapsed_window(_stats_window(None, None, None))
     trend_rows = (
@@ -1970,6 +2043,7 @@ async def get_student_personal_statistics(
             )
             .where(
                 Presence.student_tax_code == tax_code,
+                Presence.mode == mode.value,
                 Presence.date >= trend_start,
                 Presence.date < trend_end,
             )
@@ -1993,6 +2067,7 @@ async def get_student_personal_statistics(
             db,
             window,
             student_tax_code=tax_code,
+            mode=mode.value,
             limit=_TOP_SUBJECTS_LIMIT,
         ),
     )

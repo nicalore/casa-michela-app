@@ -3,7 +3,7 @@ export '../../../core/utils/week_range.dart' show isSameDate;
 // Weekly unlock window for availabilities and presences: every Friday at
 // 20:00 the entire following week (Monday-Sunday) opens up, on top of
 // whatever remains of the already unlocked current week. Mirrors
-// backend/app/core/booking_window.py — keep both in sync if the rule changes.
+// backend/app/core/booking_window.py - keep both in sync if the rule changes.
 //
 // Every day-stepping computation here goes through the DateTime constructor
 // (year, month, day + n) rather than Duration-based add()/subtract(): Duration

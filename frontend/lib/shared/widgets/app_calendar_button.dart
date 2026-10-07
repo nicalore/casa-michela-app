@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/week_range.dart';
 import '../utils/day_marks.dart';
 import 'carousel_arrow_button.dart';
@@ -195,7 +196,7 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
                       selectedEnd: widget.selectedEnd ?? widget.selected,
                       first: widget.first,
                       last: widget.last,
-                      today: _dateOnly(widget.today ?? DateTime.now()),
+                      today: _dateOnly(widget.today ?? romeNow()),
                       marks: _marks,
                       onMonth: _read,
                       onPicked: _pick,
@@ -300,6 +301,8 @@ class _MonthPopoverState extends State<_MonthPopover>
 
   bool get _hasNext => !DateTime(_month.year, _month.month + 1).isAfter(widget.last);
 
+  bool get _hasToday => !widget.today.isBefore(_dateOnly(widget.first)) && !widget.today.isAfter(_dateOnly(widget.last));
+
 
   void _turn(int months)
   {
@@ -351,6 +354,11 @@ class _MonthPopoverState extends State<_MonthPopover>
                   ),
                 ),
               ),
+              _TodayButton(
+                enabled: _hasToday,
+                onTap: () => widget.onPicked(widget.today),
+              ),
+              const SizedBox(width: 8),
               CarouselArrowButton(
                 icon: Icons.chevron_left_rounded,
                 size: _monthArrowSize,
@@ -417,6 +425,61 @@ class _MonthPopoverState extends State<_MonthPopover>
 }
 
 DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+
+class _TodayButton extends StatefulWidget
+{
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _TodayButton({required this.enabled, required this.onTap});
+
+  @override
+  State<_TodayButton> createState() => _TodayButtonState();
+}
+
+class _TodayButtonState extends State<_TodayButton>
+{
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool lit = _isHovered && widget.enabled;
+
+    return MouseRegion(
+      cursor: widget.enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: _monthArrowSize,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: !widget.enabled
+                ? AppTheme.arrowDisabledSurface
+                : (lit ? AppTheme.trialTealDeep : Colors.white),
+            borderRadius: BorderRadius.circular(_monthArrowSize / 2),
+            boxShadow: widget.enabled ? AppTheme.cardShadow : null,
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: !widget.enabled
+                  ? AppTheme.trialMutedText.withValues(alpha: 0.5)
+                  : (lit ? Colors.white : AppTheme.trialTealDeep),
+            ),
+            child: const Text(kTodayLabel, maxLines: 1),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 List<List<DateTime?>> _weeks(List<DateTime?> days)
 {

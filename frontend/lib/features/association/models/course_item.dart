@@ -4,7 +4,7 @@ class CourseItem
   final String name;
   final String? description;
 
-  // Free text, not a number: it carries the period too ("45€ al mese").
+  // Free text, not a number: it carries the period too ("45 euro al mese").
   final String? cost;
 
   final DateTime createdAt;

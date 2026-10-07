@@ -25,7 +25,7 @@ final ui.ImageFilter _liveBlur = ui.ImageFilter.blur(
 final GlobalKey dialogBackdropKey = GlobalKey(debugLabel: 'dialogBackdrop');
 
 // True from a dialog's push until it is gone, closing animation included.
-bool get isBlurredDialogOpen => _BlurredDialogRoute._open > 0;
+bool get isBlurredDialogOpen => _BlurredDialogRoute._open.isNotEmpty;
 
 Future<T?> showBlurredDialog<T>({
   required BuildContext context,
@@ -56,7 +56,11 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
 
   bool _covers = false;
 
-  static int _open = 0;
+  bool _leaving = false;
+
+  _BlurredDialogRoute<dynamic>? _below;
+
+  static final List<_BlurredDialogRoute<dynamic>> _open = [];
 
   _BlurredDialogRoute({
     required this.builder,
@@ -69,15 +73,26 @@ class _BlurredDialogRoute<T> extends PopupRoute<T>
   void install()
   {
     super.install();
-    _open++;
+    _below = _open.lastOrNull;
+    _open.add(this);
+  }
+
+  @override
+  bool didPop(T? result)
+  {
+    _leaving = true;
+
+    return super.didPop(result);
   }
 
   @override
   void dispose()
   {
-    _open--;
+    _open.remove(this);
     super.dispose();
   }
+
+  bool get _belowLeaving => _below?._leaving ?? false;
 
   // The tint is painted with the backdrop, over the snapshot rather than under it.
   @override
@@ -215,8 +230,8 @@ class _DialogBackdropState extends State<_DialogBackdrop>
   // Quick: the capture beats the opener's hover fade, so that button stays lit under the blur.
   static const double _fadeInShare = 0.2;
 
-  // A button's hover duration, so the button frozen lit fades out as it would on its own.
-  static const double _fadeOutShare = 0.32;
+  // Eased both ways and alongside the pieces: held until late, the blur gave way with a jolt.
+  static const double _fadeOutShare = 0.5;
 
   _Backdrop? _backdrop;
 
@@ -254,7 +269,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     return CurvedAnimation(
       parent: animation,
       curve: const Interval(0, _fadeInShare, curve: Curves.easeOut),
-      reverseCurve: const Interval(0, _fadeOutShare, curve: Curves.easeIn),
+      reverseCurve: const Interval(0, _fadeOutShare, curve: Curves.easeInOut),
     );
   }
 
@@ -289,9 +304,8 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     final double progress = widget.animation.value;
     final double fade = _fade.value;
 
-    // Closing over another dialog: the snapshot would freeze the one leaving below, so blur live.
-    final bool liveClose =
-        widget.animation.status == AnimationStatus.reverse && _BlurredDialogRoute._open > 1;
+    // Live blur only when the dialog below closes too (a snapshot would freeze it); swapping jolts.
+    final bool liveClose = widget.animation.status == AnimationStatus.reverse && widget.route._belowLeaving;
 
     // The barrier's own easing, painted here so the tint sits on the snapshot.
     final double tint = _dialogTintOpacity * Curves.ease.transform(progress);

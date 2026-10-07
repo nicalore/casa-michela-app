@@ -117,7 +117,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
     return sectors;
   }
 
-  void _showWizard({StudyProgramItem? program, VoidCallback? onCancelEdit})
+  void _showWizard({StudyProgramItem? program, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
@@ -126,7 +126,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
         existingProgram: program,
         availableMinistrySubjects: widget.ministrySubjects,
         knownSectors: _knownSectors,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, sector, level, highSchoolTrack, minYear, maxYear, description, subjectIds, onError) async
         {
           if (program == null)
@@ -258,7 +258,7 @@ class _StudyProgramsTabState extends State<StudyProgramsTab>
           return StudyProgramCard(
             program: program,
             availableMinistrySubjects: widget.ministrySubjects,
-            onEditRequested: (onCancel) => _showWizard(program: program, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(program: program, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(program),
           );
         }).toList(),
@@ -273,14 +273,14 @@ class _StudyProgramWizardDialog extends StatefulWidget
   final List<MinistrySubjectItem> availableMinistrySubjects;
 
   final List<String> knownSectors;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String name, String? sector, String level, String? highSchoolTrack, int? minYear, int? maxYear, String description, List<int> subjectIds, Function(String) onError) onSave;
 
   const _StudyProgramWizardDialog({
     this.existingProgram,
     required this.availableMinistrySubjects,
     required this.knownSectors,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -314,7 +314,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
   bool get isEditing => widget.existingProgram != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   int get _maxYearForSelectedLevel => _maxYearForLevel(_selectedLevel);
 

@@ -74,7 +74,7 @@ def username_stem(person: Person) -> str:
     return stem[:_USERNAME_STEM_LENGTH].rstrip(".")
 
 
-# nome.cognome, then nome.cognome.1, .2 and so on for namesakes.
+# name.surname, then name.surname.1, .2 and so on for namesakes.
 async def free_username(session: AsyncSession, person: Person) -> str:
     stem = username_stem(person)
 

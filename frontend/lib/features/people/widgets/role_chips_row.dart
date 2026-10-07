@@ -268,7 +268,6 @@ class RoleChipsRow extends StatelessWidget
 
     return Tooltip(
       waitDuration: const Duration(milliseconds: 600),
-      // Same heading as the booking notes' tooltip.
       richMessage: TextSpan(
         children: [
           TextSpan(

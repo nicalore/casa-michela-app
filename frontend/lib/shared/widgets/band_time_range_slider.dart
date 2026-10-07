@@ -19,9 +19,6 @@ class BandTimeRangeSlider extends StatelessWidget
   final int? windowStartMinutes;
   final int? windowEndMinutes;
 
-  final int? dragMinMinutes;
-  final int? dragMaxMinutes;
-
   final int minimumMinutes;
 
   final int? maximumMinutes;
@@ -49,8 +46,6 @@ class BandTimeRangeSlider extends StatelessWidget
     this.maximumMinutes,
     this.windowStartMinutes,
     this.windowEndMinutes,
-    this.dragMinMinutes,
-    this.dragMaxMinutes,
     this.enabled = true,
     this.disabledLabel = 'Chiuso',
     this.offLabel = 'Chiuso',
@@ -65,10 +60,6 @@ class BandTimeRangeSlider extends StatelessWidget
   double get _bandStart => (windowStartMinutes ?? bandStartMinutes(bucket)).toDouble();
 
   double get _bandEnd => (windowEndMinutes ?? bandEndMinutes(bucket)).toDouble();
-
-  double get _dragStart => (dragMinMinutes?.toDouble() ?? _bandStart).clamp(_bandStart, _bandEnd);
-
-  double get _dragEnd => (dragMaxMinutes?.toDouble() ?? _bandEnd).clamp(_dragStart, _bandEnd);
 
   void _toggle(bool open)
   {
@@ -93,14 +84,18 @@ class BandTimeRangeSlider extends StatelessWidget
 
   Widget _buildName()
   {
+    final bool struck = !enabled && !_isOpen;
+
     return Text(
       nameOverride ?? bandLabel(bucket),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.plusJakartaSans(
-        color: AppTheme.trialOcean,
+        color: struck ? AppTheme.trialMutedText : AppTheme.trialOcean,
         fontWeight: FontWeight.w700,
         fontSize: 16,
+        decoration: struck ? TextDecoration.lineThrough : null,
+        decorationColor: struck ? AppTheme.trialMutedText : null,
       ),
     );
   }
@@ -213,8 +208,8 @@ class BandTimeRangeSlider extends StatelessWidget
   // RangeSlider lets the thumbs meet; a zero-length opening is not an opening.
   void _report(RangeValues values, double previousStart)
   {
-    var startMinutes = values.start.round().clamp(_dragStart.round(), _dragEnd.round());
-    var endMinutes = values.end.round().clamp(_dragStart.round(), _dragEnd.round());
+    var startMinutes = values.start.round();
+    var endMinutes = values.end.round();
 
     if (endMinutes - startMinutes < minimumMinutes)
     {

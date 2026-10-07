@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/band_time_range_slider.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/booking_window.dart';
 import '../../lessons/utils/opening_window.dart';
@@ -75,8 +76,15 @@ class MoveDay
   bool get viable => refusal == null && options.any((option) => option.refusal == null);
 }
 
+const String kMoveDayLabel = 'Giorno';
+const String kMoveTargetLabel = 'Sposta in';
+const String kMoveAddHours = 'Aggiungi gli orari.';
+const String kMoveStretchHours = 'La presenza non copre tutte le lezioni: allunga gli orari.';
+
+String moveNothingChosen(int count) => 'Scegli dove spostare ${count == 1 ? 'la lezione' : 'le lezioni'}.';
+
 // The row's own hours where it has them, stretched to [needed] and clamped inside [window].
-(TimeOfDay, TimeOfDay) _hoursFor(OpeningWindow window, int needed, {PresenceItem? row})
+(TimeOfDay, TimeOfDay) moveHoursFor(OpeningWindow window, int needed, {PresenceItem? row})
 {
   int start = row == null ? window.startMinutes : minutesOfTimeOfDay(row.startTime);
   int end = row == null ? start + needed : minutesOfTimeOfDay(row.endTime);
@@ -93,7 +101,7 @@ class MoveDay
   return (timeOfDayFromMinutes(start), timeOfDayFromMinutes(end));
 }
 
-String _tooShort(int needed) => 'Le ore devono coprire le lezioni (${formatMinutes(needed)}).';
+String moveTooShort(int needed) => 'Le ore devono coprire le lezioni (${formatMinutes(needed)}).';
 
 Widget _hint(String text)
 {
@@ -138,7 +146,7 @@ int _minutesBetween(TimeOfDay? start, TimeOfDay? end)
   return minutesOfTimeOfDay(end) - minutesOfTimeOfDay(start);
 }
 
-Widget _footer({required String? blockedReason, required VoidCallback onMove})
+Widget _footer({required VoidCallback onMove})
 {
   return AppDialogFooter.single(
     AppGradientButton(
@@ -146,7 +154,6 @@ Widget _footer({required String? blockedReason, required VoidCallback onMove})
       icon: Icons.swap_horiz_rounded,
       height: _buttonHeight,
       fontSize: _buttonFontSize,
-      disabledReason: blockedReason,
       onPressed: onMove,
     ),
   );
@@ -234,15 +241,13 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
 
       if (option != null && option.asksHours && window != null)
       {
-        final (start, end) = _hoursFor(window, option.needed, row: option.slot);
+        final (start, end) = moveHoursFor(window, option.needed, row: option.slot);
 
         _start = start;
         _end = end;
       }
     });
   }
-
-  String get _what => widget.count == 1 ? 'la lezione' : 'le lezioni';
 
   String? get _blockedReason
   {
@@ -252,12 +257,12 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
 
     if (day == null || chosen == null)
     {
-      return 'Scegli dove spostare $_what.';
+      return moveNothingChosen(widget.count);
     }
 
     if (chosen.asksHours && _minutesBetween(_start, _end) < chosen.needed)
     {
-      return _tooShort(chosen.needed);
+      return moveTooShort(chosen.needed);
     }
 
     return null;
@@ -269,7 +274,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
     final OpeningWindow? window = chosen?.window;
 
     return [
-      const AppFieldLabel('Sposta in'),
+      const AppFieldLabel(kMoveTargetLabel),
       const SizedBox(height: 12),
       Wrap(
         spacing: 12,
@@ -287,9 +292,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
       ),
       if (chosen != null && chosen.asksHours && window != null) ...[
         const SizedBox(height: 20),
-        _hint(chosen.isNew
-            ? 'Aggiungi gli orari.'
-            : 'La presenza non copre tutte le lezioni: allunga gli orari.'),
+        _hint(chosen.isNew ? kMoveAddHours : kMoveStretchHours),
         const SizedBox(height: 12),
         _slider(
           band: chosen.band,
@@ -318,9 +321,17 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
       shrinkTitle: true,
       maxWidth: _width,
       footer: _footer(
-        blockedReason: _blockedReason,
         onMove: ()
         {
+          final String? reason = _blockedReason;
+
+          if (reason != null)
+          {
+            CustomSnackBar.show(context: context, message: reason, isError: true);
+
+            return;
+          }
+
           if (day != null && chosen != null)
           {
             widget.onMove(day, chosen, _start, _end);
@@ -334,7 +345,7 @@ class _MoveLessonDialogState extends State<MoveLessonDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppFieldLabel('Giorno'),
+              const AppFieldLabel(kMoveDayLabel),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 10,

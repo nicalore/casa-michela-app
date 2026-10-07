@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_dialog_footer.dart';
@@ -61,8 +62,8 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
   void initState()
   {
     super.initState();
-    _weekStart = startOfWeek(DateTime.now());
-    _variationsWindowEnd = addDays(DateTime.now(), kVariationsWindowDays);
+    _weekStart = startOfWeek(romeNow());
+    _variationsWindowEnd = addDays(romeNow(), kVariationsWindowDays);
     _loadWeek();
     _loadUpcomingVariations();
   }
@@ -101,7 +102,7 @@ class _CombinedHoursViewState extends State<CombinedHoursView>
 
   Future<void> _loadUpcomingVariations() async
   {
-    final today = DateTime.now();
+    final today = romeNow();
     final requestId = ++_variationsRequestId;
 
     try

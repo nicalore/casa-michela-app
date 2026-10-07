@@ -5,8 +5,10 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/api_service.dart';
 import '../../../../../shared/widgets/app_card.dart';
 import '../../../../association/models/association_subject_item.dart';
+import '../../../../lessons/utils/opening_window.dart' show kPresenceMode;
 import '../../../../lessons/widgets/lessons_form_fields.dart';
 import '../../../models/member_trend_item.dart';
+import 'stat_filters.dart';
 import 'stat_widgets.dart';
 import 'trend_line_chart.dart';
 
@@ -29,6 +31,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
   final ApiService _apiService = ApiService();
 
   int? _selectedId;
+  String _mode = kPresenceMode;
   List<MemberTrendItem> _trend = [];
   bool _isLoading = false;
 
@@ -46,7 +49,7 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
 
     try
     {
-      final data = await _apiService.getDisciplineRequestTrend(associationSubjectId);
+      final data = await _apiService.getDisciplineRequestTrend(associationSubjectId, mode: _mode);
 
       if (mounted && _pendingId == associationSubjectId)
       {
@@ -60,6 +63,18 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
       {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _chooseMode(String mode)
+  {
+    setState(() => _mode = mode);
+
+    final selected = _selectedId;
+
+    if (selected != null)
+    {
+      _load(selected);
     }
   }
 
@@ -118,6 +133,8 @@ class _DisciplineTrendCardState extends State<DisciplineTrendCard>
       title: 'Andamento richieste per disciplina',
       selectable: false,
       leading: const AppCardBadge(icon: Icons.query_stats_rounded),
+      trailingFit: AppCardTrailing.wrapping,
+      trailing: statsModePill(value: _mode, onChanged: _chooseMode),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

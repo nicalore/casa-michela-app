@@ -1,3 +1,4 @@
+import '../../../../../core/utils/rome_clock.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
 import '../../../models/member_trend_item.dart';
 import 'stats_constants.dart';
@@ -42,7 +43,7 @@ List<MemberTrendItem> padTrendData(
     return padded;
   }
 
-  final now = DateTime.now();
+  final now = romeNow();
 
   for (var year = startYear; year <= endYear; year++)
   {
@@ -69,7 +70,7 @@ List<FilterOption<String>> resolutionOptions()
 
 List<FilterOption<int>> yearOptions()
 {
-  final currentYear = DateTime.now().year;
+  final currentYear = romeNow().year;
 
   return List.generate(currentYear - dataStartYear + 1, (index) => currentYear - index)
       .map((year) => FilterOption(value: year, label: year.toString()))
@@ -109,7 +110,7 @@ String statsPeriodLabel(String value)
 
 List<FilterOption<String>> statsPeriodOptions()
 {
-  final now = DateTime.now();
+  final now = romeNow();
 
   final options = <FilterOption<String>>[
     const FilterOption(value: 'last-1', label: 'Ultimo mese'),

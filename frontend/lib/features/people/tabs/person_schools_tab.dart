@@ -29,6 +29,7 @@ Widget schoolEnrollmentCard(
   SchoolEnrollmentItem item,
   List<SchoolEnrollmentItem> all, {
   required bool isCurrent,
+  bool showRepeating = false,
 })
 {
   final bool repeating = isRepeatingYear(item, all);
@@ -45,7 +46,8 @@ Widget schoolEnrollmentCard(
         PersonFact('Scuola', item.schoolName, flex: 5),
         PersonFact('Percorso', item.studyProgramNameOnly, flex: 5),
         PersonFact('Classe', gradeLabel(item.grade)),
-        PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
+        if (showRepeating)
+          PersonFact('Ripetente', repeating ? 'Sì' : 'No', highlight: repeating),
       ],
     ),
   );
@@ -74,11 +76,15 @@ class PersonSchoolsTab extends StatelessWidget
   // Rendered under the edit button, inside the scroll.
   final Widget? footer;
 
+  // Kept from pupils and parents.
+  final bool showRepeating;
+
   const PersonSchoolsTab({
     super.key,
     required this.person,
     this.onUpdate,
     this.footer,
+    this.showRepeating = false,
   });
 
   @override
@@ -103,7 +109,12 @@ class PersonSchoolsTab extends StatelessWidget
               if (current != null) ...[
                 const PersonSectionTitle('Anno scolastico attuale'),
                 const SizedBox(height: kPersonTitleGap),
-                schoolEnrollmentCard(current, enrollments, isCurrent: true),
+                schoolEnrollmentCard(
+                  current,
+                  enrollments,
+                  isCurrent: true,
+                  showRepeating: showRepeating,
+                ),
                 const SizedBox(height: kPersonSectionGap),
               ],
               if (past.isNotEmpty) ...[
@@ -111,7 +122,12 @@ class PersonSchoolsTab extends StatelessWidget
                 const SizedBox(height: kPersonTitleGap),
                 for (var i = 0; i < past.length; i++) ...[
                   if (i > 0) const SizedBox(height: kPersonCardGap),
-                  schoolEnrollmentCard(past[i], enrollments, isCurrent: false),
+                  schoolEnrollmentCard(
+                    past[i],
+                    enrollments,
+                    isCurrent: false,
+                    showRepeating: showRepeating,
+                  ),
                 ],
               ],
               if (current == null && past.isEmpty)

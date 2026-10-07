@@ -10,6 +10,10 @@ _ACROSS_BANDS_ERROR: Final[str] = (
     "Una lezione non può essere separata in fasce orarie diverse."
 )
 
+_PRESENCE_ACROSS_BANDS_ERROR: Final[str] = (
+    "Un orario di presenza non può stare a cavallo di due fasce orarie."
+)
+
 
 # Mirrors frontend/lib/core/utils/time_bucket.dart, which draws these bands:
 # the two files have to be changed together.
@@ -19,9 +23,7 @@ class TimeBandEnum(StrEnum):
     EVENING = "EVENING"
 
 
-# Half-open: a band owns its start and hands its end to the next one, so
-# 13:00 is the first minute of the afternoon rather than the last of the
-# morning.
+# Half-open: 13:00 is the first minute of the afternoon, not the last of the morning.
 DAY_START: Final[time] = time(6)
 AFTERNOON_START: Final[time] = time(13)
 EVENING_START: Final[time] = time(19)
@@ -51,11 +53,25 @@ def band_bounds(band: TimeBandEnum) -> tuple[time, time]:
     return _BAND_BOUNDS[band]
 
 
-def assert_within_single_band(start_time: time, end_time: time) -> TimeBandEnum:
+def assert_within_single_band(
+    start_time: time,
+    end_time: time,
+    *,
+    error: str = _ACROSS_BANDS_ERROR,
+) -> TimeBandEnum:
     band = band_of(start_time)
     _, band_end = band_bounds(band)
 
     if end_time > band_end:
-        raise ValueError(_ACROSS_BANDS_ERROR)
+        raise ValueError(error)
 
     return band
+
+
+# A pupil's stretch, and the subjects booked under it, belong to one band.
+def presence_band(start_time: time, end_time: time) -> TimeBandEnum:
+    return assert_within_single_band(
+        start_time,
+        end_time,
+        error=_PRESENCE_ACROSS_BANDS_ERROR,
+    )

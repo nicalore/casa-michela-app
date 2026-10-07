@@ -248,7 +248,7 @@ class DashboardTodaySection extends StatelessWidget
   {
     return DashboardSectionCard(
       eyebrow: 'Oggi',
-      title: 'Orari e presenze',
+      title: 'Orari e prenotazioni',
       minHeight: minHeight,
       fill: fill,
       child: _buildBody(),

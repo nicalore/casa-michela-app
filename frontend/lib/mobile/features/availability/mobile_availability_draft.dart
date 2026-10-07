@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/availability/utils/availability_strings.dart';
+import '../../../features/lessons/utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../../features/lessons/models/availability_group.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/utils/booking_window.dart';
@@ -280,6 +281,17 @@ class MobileAvailabilityDraft
 
     for (final group in groups)
     {
+      for (final mode in kAvailabilityModes)
+      {
+        if (bandsOf(group)[mode]!.overlapping case final TimeBucket band)
+        {
+          return hoursOverlap(mode, band);
+        }
+      }
+    }
+
+    for (final group in groups)
+    {
       for (final day in group.days)
       {
         for (final mode in kAvailabilityModes)
@@ -302,12 +314,11 @@ class MobileAvailabilityDraft
     required Future<void> Function(AvailabilityItem existing, DateTime day, String mode, TimeOfDay start, TimeOfDay end) update,
   }) async
   {
-    for (final schedule in _schedules)
-    {
-      schedule.fuse();
-    }
+    // Written fused, while the rows shown stay as they were.
+    final Map<BandSchedule<AvailabilityItem>, BandSchedule<AvailabilityItem>> sent = Map.identity()
+      ..addEntries([for (final schedule in _schedules) MapEntry(schedule, schedule.fused())]);
 
-    for (final item in _schedules.expand((schedule) => schedule.dropped).toList())
+    for (final item in sent.values.expand((schedule) => schedule.dropped).toList())
     {
       if (_saved.contains(item))
       {
@@ -324,9 +335,9 @@ class MobileAvailabilityDraft
       {
         for (final mode in kAvailabilityModes)
         {
-          for (final draft in bandsOf(group)[mode]!.all.toList())
+          for (final draft in sent[bandsOf(group)[mode]!]!.all.toList())
           {
-            final key = (day, mode, draft);
+            final key = (day, mode, draft.existing, draft.startMinutes, draft.endMinutes);
 
             if (_saved.contains(key))
             {

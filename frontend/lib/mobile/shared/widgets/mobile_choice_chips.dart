@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../mobile_palette.dart';
 
 const double _height = 32;
 const double _gap = 8;
@@ -25,12 +26,16 @@ class MobileChoiceChips extends StatefulWidget
   // The page margin, so the row can bleed past it on both sides.
   final double margin;
 
+  // Inside a card or a sheet rather than on the sea.
+  final bool onLight;
+
   const MobileChoiceChips({
     super.key,
     required this.choices,
     required this.value,
     required this.onChanged,
     required this.margin,
+    this.onLight = false,
   });
 
   @override
@@ -106,6 +111,7 @@ class _MobileChoiceChipsState extends State<MobileChoiceChips>
           return _Chip(
             label: choice.label,
             selected: choice.value == widget.value,
+            onLight: widget.onLight,
             onTap: () => widget.onChanged(choice.value),
           );
         },
@@ -118,9 +124,10 @@ class _Chip extends StatelessWidget
 {
   final String label;
   final bool selected;
+  final bool onLight;
   final VoidCallback onTap;
 
-  const _Chip({required this.label, required this.selected, required this.onTap});
+  const _Chip({required this.label, required this.selected, required this.onLight, required this.onTap});
 
   static TextStyle _style(Color color)
   {
@@ -147,6 +154,16 @@ class _Chip extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
+    final Color fill = onLight
+        ? (selected ? AppTheme.trialDeepWater : AppTheme.trialOcean.withValues(alpha: 0.06))
+        : Colors.white.withValues(alpha: selected ? 0.92 : 0.12);
+    final Color edge = onLight
+        ? AppTheme.trialOcean.withValues(alpha: 0.14)
+        : Colors.white.withValues(alpha: 0.22);
+    final Color ink = onLight
+        ? (selected ? Colors.white : MobilePalette.mutedText)
+        : (selected ? AppTheme.trialDeepWater : Colors.white.withValues(alpha: 0.78));
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -154,16 +171,11 @@ class _Chip extends StatelessWidget
         padding: const EdgeInsets.symmetric(horizontal: _chipPadding),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: selected ? 0.92 : 0.12),
+          color: fill,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? Colors.transparent : Colors.white.withValues(alpha: 0.22),
-          ),
+          border: Border.all(color: selected ? Colors.transparent : edge),
         ),
-        child: Text(
-          label.toUpperCase(),
-          style: _style(selected ? AppTheme.trialDeepWater : Colors.white.withValues(alpha: 0.78)),
-        ),
+        child: Text(label.toUpperCase(), style: _style(ink)),
       ),
     );
   }

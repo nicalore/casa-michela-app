@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../models/opening_day_item.dart';
@@ -97,7 +98,7 @@ class CombinedWeekCard extends StatelessWidget
     return HoursGridDay(
       title: weekdayFullName(day.date.weekday),
       subtitle: formatDayMonthFull(day.date),
-      isToday: isSameDate(day.date, DateTime.now()),
+      isToday: isSameDate(day.date, romeNow()),
       modes: {for (final mode in kHoursModes) mode: _modeHours(day.of(mode))},
       onTap: onDayTap == null ? null : () => onDayTap(day.date),
     );

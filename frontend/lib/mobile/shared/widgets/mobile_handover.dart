@@ -32,7 +32,6 @@ class MobileHandover extends InheritedWidget
 
   final bool moving;
 
-  // Signed in, the area loading out of sight before anything moves.
   final bool waiting;
 
 

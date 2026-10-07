@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.api.rbac import IdentityContext
 from app.core.booking_window import now_in_rome
 from app.models.availability import Availability
+from app.models.booking import mark_swept
 from app.models.lesson import Lesson
 from app.models.member import Member
 from app.models.presence import Presence
@@ -18,6 +19,7 @@ from app.repositories.calendar_activity_repository import (
     CalendarActivityRepository,
 )
 from app.services.availability_cleanup import lessons_standing_on
+from app.services.pupil_lock import lock_pupil
 from app.services.role_service import RoleService
 from app.services.schedule_cascade import unassign, unschedule
 
@@ -33,8 +35,7 @@ def is_collaborating(member: Member | None) -> bool:
     )
 
 
-# Only an administrator acting for somebody else is held to it: the people
-# themselves, and parents for their children, book whatever their standing.
+# Binds only admins acting for others; people and parents book regardless.
 async def assert_admin_may_name(
     session: AsyncSession,
     identity: IdentityContext,
@@ -62,9 +63,7 @@ async def _member(session: AsyncSession, tax_code: str) -> Member | None:
     )
 
 
-# Booking, or giving hours, is collaborating again; an administrator acting for
-# somebody else never gets here with a non-collaborator. Enrolled only, as the
-# memberships form demands; the caller commits.
+# Booking or giving hours resumes collaboration, enrolled only; the caller commits.
 async def resume_collaboration(session: AsyncSession, tax_code: str) -> None:
     member = await _member(session, tax_code)
 
@@ -91,8 +90,7 @@ def _ahead(
     )
 
 
-# Their room on a day left without a lesson in the building goes, and its
-# supervisions cascade with it.
+# Rooms on days left without in-person lessons go; supervisions cascade.
 async def _drop_idle_rooms(
     session: AsyncSession,
     teacher_tax_code: str,
@@ -125,9 +123,10 @@ async def _drop_idle_rooms(
     await session.flush()
 
 
-# Once somebody stops collaborating, their presences and availabilities ahead go
-# with the lessons standing on them; the caller commits.
+# Drops presences and availabilities ahead, with their lessons; the caller commits.
 async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
+    await lock_pupil(session, tax_code)
+
     now = now_in_rome()
     today, clock = now.date(), now.time()
 
@@ -168,6 +167,7 @@ async def drop_hours_ahead(session: AsyncSession, tax_code: str) -> None:
 
     # Bookings cascade with their presence.
     for presence in presences:
+        mark_swept(session.sync_session, presence)
         await session.delete(presence)
 
     await session.flush()

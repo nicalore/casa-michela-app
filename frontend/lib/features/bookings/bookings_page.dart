@@ -8,6 +8,7 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
@@ -28,6 +29,7 @@ import '../association/models/ministry_subject_item.dart';
 import '../association/models/opening_day_item.dart';
 import '../association/models/service_item.dart';
 import '../association/models/study_program_item.dart';
+import '../lessons/models/band_offer.dart';
 import '../lessons/models/booking_summary_item.dart';
 import '../lessons/models/presence_group.dart';
 import '../lessons/models/presence_item.dart';
@@ -35,11 +37,13 @@ import '../lessons/models/subject_request.dart';
 import '../lessons/utils/booking_window.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/study_program_lookup.dart';
-import '../lessons/widgets/booking_fields_section.dart' show maxDailyMinutesPerDiscipline;
 import '../lessons/widgets/presence_wizard.dart';
 import '../lessons/widgets/subject_request_tile.dart';
 import '../lessons/widgets/subject_request_wizard.dart';
 import '../people/models/person_item.dart';
+import 'utils/booking_moves.dart';
+import 'utils/booking_replacement.dart';
+import 'utils/booking_strings.dart';
 import 'widgets/booking_day_row.dart';
 import 'widgets/move_lesson_dialog.dart';
 
@@ -73,7 +77,7 @@ class _BookingsPageState extends State<BookingsPage>
 {
   final ApiService _apiService = ApiService();
 
-  DateTime _now = DateTime.now();
+  DateTime _now = romeNow();
 
   Timer? _clock;
 
@@ -152,7 +156,7 @@ class _BookingsPageState extends State<BookingsPage>
 
     setState(()
     {
-      _now = DateTime.now();
+      _now = romeNow();
 
       if (!_isNextWeekUnlocked)
       {
@@ -289,74 +293,35 @@ class _BookingsPageState extends State<BookingsPage>
     );
   }
 
-  Future<PresenceItem?> _executeCreatePresence(String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) async
-  {
-    PresenceItem? created;
-
-    await write(
-      call: () => _apiService.createPresence(
-        studentTaxCode: studentTaxCode,
-        date: date,
-        mode: mode,
-        startTime: startTime,
-        endTime: endTime,
-      ),
-      apply: (row)
-      {
-        created = row;
-        _presences = [..._presences, row];
-      },
-      onError: onError,
-    );
-
-    return created;
-  }
-
-  Future<bool> _executeEditPresence(PresenceItem existing, String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError)
+  Future<bool> _executeReplaceLessonRequest(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError)
   {
     return write(
-      call: () => _apiService.updatePresence(
-        id: existing.id,
+      call: () => _apiService.replaceLessonRequest(
         studentTaxCode: studentTaxCode,
         date: date,
-        mode: mode,
-        startTime: startTime,
-        endTime: endTime,
-        expectedUpdatedAt: existing.updatedAt,
+        modes: modes,
       ),
-      apply: (updated) => _presences = _presences.map((p) => p.id == existing.id ? updated : p).toList(),
-      onError: onError,
+      apply: (day) => _presences = [
+        for (final presence in _presences)
+          if (presence.studentTaxCode != studentTaxCode || !isSameDate(presence.date, date)) presence,
+        ...day,
+      ],
+      onError: _readAgainAfter(onError),
     );
   }
 
-  Future<bool> _executeDeletePresenceQuietly(PresenceItem item, Function(String) onError)
+  // A refused write may mean the day changed elsewhere.
+  Function(String) _readAgainAfter(Function(String) onError)
   {
-    return erase(
-      call: () => _apiService.deletePresence(item.id),
-      apply: () => _presences = _presences.where((p) => p.id != item.id).toList(),
-      onError: onError,
-    );
+    return (message)
+    {
+      onError(message);
+      _loadData(quiet: true);
+    };
   }
 
-  Future<bool> _executeCreateBooking(int presenceId, Map<String, dynamic> subject, Function(String) onError) async
-  {
-    try
-    {
-      await _apiService.createBooking(presenceId: presenceId, subject: subject);
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-
-      return false;
-    }
-
-    await _refreshPresence(presenceId);
-
-    return true;
-  }
-
-  Future<bool> _executeEditBooking(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) async
+  // [onto] is the row the lesson moves to, read again with the one it leaves.
+  Future<bool> _executeEditBooking(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError, {int? onto}) async
   {
     try
     {
@@ -374,6 +339,11 @@ class _BookingsPageState extends State<BookingsPage>
     }
 
     await _refreshPresence(presenceId);
+
+    if (onto != null && onto != presenceId)
+    {
+      await _refreshPresence(onto);
+    }
 
     return true;
   }
@@ -404,7 +374,15 @@ class _BookingsPageState extends State<BookingsPage>
     }
   }
 
-  void _showWizard(DateTime day, BookingLane lane, String mode, {bool openOnSubjects = false, bool hoursOnly = false})
+  void _showWizard(
+    DateTime day,
+    BookingLane lane,
+    String mode, {
+    bool openOnSubjects = false,
+    bool hoursOnly = false,
+    TimeBucket? band,
+    bool onlyFreeBands = false,
+  })
   {
     showBlurredDialog(
       context: context,
@@ -424,35 +402,22 @@ class _BookingsPageState extends State<BookingsPage>
         associationSubjects: _associationSubjects,
         services: _services,
         studyPrograms: _studyPrograms,
-        availableDays: computeAvailableDays(DateTime.now()),
+        availableDays: computeAvailableDays(romeNow()),
         defaultDate: day,
         openingDays: _openingDays,
+        band: band,
+        onlyFreeBands: onlyFreeBands,
         onCreateLessonRequest: _executeCreateLessonRequest,
-        onCreatePresence: _executeCreatePresence,
-        onEditPresence: _executeEditPresence,
-        onDeletePresenceQuietly: _executeDeletePresenceQuietly,
-        onCreateBooking: _executeCreateBooking,
-        onEditBooking: _executeEditBooking,
-        onDeleteBooking: _executeDeleteBookingQuietly,
+        onReplaceLessonRequest: _executeReplaceLessonRequest,
       ),
     );
   }
 
-  // Read from current page state: a stale updated_at would get a 409.
+  BookingMovePlanner get _planner => BookingMovePlanner(openingDays: _openingDays, presences: _presences, now: _now);
+
   ({PresenceItem slot, BookingSummaryItem booking})? _whereItHangs(BookingSummaryItem booking)
   {
-    for (final slot in _presences)
-    {
-      for (final row in slot.bookings)
-      {
-        if (row.id == booking.id)
-        {
-          return (slot: slot, booking: row);
-        }
-      }
-    }
-
-    return null;
+    return _planner.whereItHangs(booking);
   }
 
   List<MinistrySubjectItem> _offeredSubjectsFor(PersonItem pupil)
@@ -462,11 +427,12 @@ class _BookingsPageState extends State<BookingsPage>
     return _ministrySubjects.where((subject) => allowed.contains(subject.id)).toList();
   }
 
-  SubjectRequestDraft _draftOf(BookingSummaryItem booking)
+  SubjectRequestDraft _draftOf(BookingSummaryItem booking, {TimeBucket? band})
   {
     return SubjectRequestDraft.fromBooking(
       booking,
       ministrySubjectName: ministrySubjectName(_ministrySubjects, booking.ministrySubjectId, fallback: ''),
+      band: band,
     );
   }
 
@@ -499,7 +465,7 @@ class _BookingsPageState extends State<BookingsPage>
       barrierLabel: 'SubjectRequestWizard',
       builder: (context) => SubjectRequestWizard(
         mode: slot.mode,
-        draft: _draftOf(existing)..preferredTeacherTaxCodes.retainWhere(offered.contains),
+        draft: _draftOf(existing, band: bucketFor(slot.startTime))..preferredTeacherTaxCodes.retainWhere(offered.contains),
         ministrySubjects: _offeredSubjectsFor(lane.pupil),
         teachers: teachers,
         studentStudyProgramId: currentStudyProgramId(lane.pupil),
@@ -507,288 +473,42 @@ class _BookingsPageState extends State<BookingsPage>
         isSelf: !_isParent,
         studentGender: lane.pupil.gender,
         isEditing: true,
-        // The wizard counts the edited booking's own duration itself.
-        minutesAvailable: group.minutesOfferedIn(slot.mode),
-        minutesTakenByOthers: group.minutesAskedFor(slot.mode) - existing.duration,
-        minutesByDisciplineTakenByOthers: group.minutesByDiscipline(slot.mode, skip: existing),
-        onSave: (draft) => _writeLesson(slot, existing, draft),
+        // The wizard counts [existing] itself; a booked lesson changes band only by moving.
+        bands: [
+          for (final offer in groupBandOffers(group, slot.mode, skip: existing, isOpen: (band) => !haveBookingsClosed(group.date, band, _now)))
+            if (offer.band == bucketFor(slot.startTime)) offer,
+        ],
+        minutesByDisciplineTakenByOthers: group.minutesByDiscipline(slot.mode, band: bucketFor(slot.startTime), skip: existing),
+        onSave: (draft) => _writeLesson(group, slot, existing, draft),
       ),
     );
   }
 
-  Future<bool> _writeLesson(PresenceItem slot, BookingSummaryItem existing, SubjectRequestDraft draft) async
+  Future<bool> _writeLesson(PresenceGroup group, PresenceItem slot, BookingSummaryItem existing, SubjectRequestDraft draft) async
   {
     if (!draft.isComplete)
     {
-      _showError('Servono la materia, almeno una disciplina e la durata.');
+      _showError(kLessonIncomplete);
 
       return false;
     }
 
-    final success = await _executeEditBooking(existing, slot.id, draft.toJson(), _showError);
+    final TimeBucket? band = bucketFor(slot.startTime);
+    final PresenceItem? onto = draft.band == band ? null : group.slotsFor(slot.mode, band: draft.band).firstOrNull;
+
+    final success = await _executeEditBooking(existing, slot.id, {...draft.toJson(), 'presence_id': ?onto?.id}, _showError, onto: onto?.id);
 
     if (success && mounted)
     {
-      CustomSnackBar.show(context: context, message: 'Materia modificata con successo!', isError: false);
+      CustomSnackBar.show(context: context, message: kLessonEdited, isError: false);
     }
 
     return success;
   }
 
-  static String _ofBand(TimeBucket band)
-  {
-    return '${band == TimeBucket.afternoon ? 'del' : 'della'} ${bandLabel(band).toLowerCase()}';
-  }
-
-  static String _tooLong(String mode, TimeBucket band, int needed, int free)
-  {
-    return 'Le lezioni (${formatMinutes(needed)}) supererebbero le ore libere '
-        '${modeLabel(mode).toLowerCase()} ${_ofBand(band)} (${formatMinutes(free)}).';
-  }
-
-  // [keep] is the row being grown, so its own hours do not obstruct; [gone] rows about to leave the day.
-  OpeningWindow? _freeWindow(
-    DateTime day,
-    PresenceGroup? group,
-    String mode,
-    TimeBucket band, {
-    PresenceItem? keep,
-    Set<int> gone = const {},
-  })
-  {
-    final OpeningWindow? window = openingWindowFor(_openingDays, day, mode, band);
-
-    if (window == null)
-    {
-      return null;
-    }
-
-    List<(int, int)> pieces = [(window.startMinutes, window.endMinutes)];
-
-    for (final row in group?.slots ?? const <PresenceItem>[])
-    {
-      if (row.id == keep?.id || gone.contains(row.id))
-      {
-        continue;
-      }
-
-      final int rowStart = minutesOfTimeOfDay(row.startTime);
-      final int rowEnd = minutesOfTimeOfDay(row.endTime);
-
-      pieces = [
-        for (final (start, end) in pieces) ...[
-          if (start < rowStart) (start, end < rowStart ? end : rowStart),
-          if (end > rowEnd) (start > rowEnd ? start : rowEnd, end),
-        ],
-      ];
-    }
-
-    (int, int)? chosen;
-
-    for (final piece in pieces)
-    {
-      if (piece.$2 <= piece.$1)
-      {
-        continue;
-      }
-
-      final bool holdsKept = keep != null &&
-          piece.$1 <= minutesOfTimeOfDay(keep.startTime) &&
-          minutesOfTimeOfDay(keep.endTime) <= piece.$2;
-
-      if (holdsKept)
-      {
-        chosen = piece;
-
-        break;
-      }
-
-      if (chosen == null || piece.$2 - piece.$1 > chosen.$2 - chosen.$1)
-      {
-        chosen = piece;
-      }
-    }
-
-    if (chosen == null)
-    {
-      return null;
-    }
-
-    return OpeningWindow(startMinutes: chosen.$1, endMinutes: chosen.$2);
-  }
-
-  // A lesson alone on its row takes the row; the last lesson of a mode takes all the mode's rows.
-  static _Move _oneMove(PresenceGroup group, PresenceItem from, BookingSummaryItem booking)
-  {
-    return _Move(
-      fromMode: from.mode,
-      bookings: [booking],
-      leaving: group.requestsFor(from.mode).length == 1
-          ? group.slotsFor(from.mode)
-          : [if (from.bookings.length == 1) from],
-    );
-  }
-
-  static _Move _allMove(PresenceGroup group, String mode)
-  {
-    return _Move(fromMode: mode, bookings: group.requestsFor(mode), leaving: group.slotsFor(mode));
-  }
-
-  // [group] is null when the pupil has nothing on the day yet.
-  List<MoveOption> _moveOptions(DateTime day, PresenceGroup? group, _Move move, {required bool sameDay})
-  {
-    final List<MoveOption> options = [];
-    final Set<int> gone = move.leavingIds;
-
-    for (final mode in const [kPresenceMode, kOnlineMode])
-    {
-      for (final band in TimeBucket.values)
-      {
-        if (openingWindowFor(_openingDays, day, mode, band) == null || haveBookingsClosed(day, band, _now))
-        {
-          continue;
-        }
-
-        final List<PresenceItem> inBand = [
-          for (final slot in group?.slotsFor(mode) ?? const <PresenceItem>[])
-            if (bucketFor(slot.startTime) == band) slot,
-        ];
-
-        final List<PresenceItem> rows = [
-          for (final slot in inBand)
-            if (!move.holdsAll(slot)) slot,
-        ];
-
-        if (rows.isEmpty)
-        {
-          // The band the lessons already sit in.
-          if (mode == move.fromMode && inBand.isNotEmpty)
-          {
-            continue;
-          }
-
-          final OpeningWindow? free = _freeWindow(day, group, mode, band, gone: gone);
-          final int needed = move.minutes;
-
-          options.add(MoveOption(
-            mode: mode,
-            band: band,
-            slot: null,
-            window: free,
-            needed: needed,
-            refusal: free == null || free.minutes < needed
-                ? _tooLong(mode, band, needed, free?.minutes ?? 0)
-                : _ceilingRefusal(group, move, mode, sameDay: sameDay),
-          ));
-
-          continue;
-        }
-
-        for (final row in rows)
-        {
-          final OpeningWindow? free = _freeWindow(day, group, mode, band, keep: row, gone: gone);
-          final int needed = move.minutesStayingOn(row) + move.minutes;
-
-          options.add(MoveOption(
-            mode: mode,
-            band: band,
-            slot: row,
-            window: free,
-            needed: needed,
-            refusal: free == null || free.minutes < needed
-                ? _tooLong(mode, band, needed, free?.minutes ?? 0)
-                : _ceilingRefusal(group, move, mode, sameDay: sameDay),
-          ));
-        }
-      }
-    }
-
-    return options;
-  }
-
-  String? _ceilingRefusal(PresenceGroup? group, _Move move, String mode, {required bool sameDay})
-  {
-    if (sameDay && mode == move.fromMode)
-    {
-      return null;
-    }
-
-    final Map<int, int> taken = {...?group?.minutesByDiscipline(mode)};
-
-    for (final booking in move.bookings)
-    {
-      for (final discipline in booking.disciplineIds)
-      {
-        final int total = (taken[discipline] ?? 0) + booking.duration;
-
-        if (total > maxDailyMinutesPerDiscipline)
-        {
-          return 'Supererebbe le ${formatMinutes(maxDailyMinutesPerDiscipline)} al giorno per disciplina';
-        }
-
-        taken[discipline] = total;
-      }
-    }
-
-    return null;
-  }
-
-  String _shutReason(DateTime day, {required bool own})
-  {
-    if (own)
-    {
-      return _anyBandShut(day) ? 'Le prenotazioni per le altre fasce orarie sono chiuse' : 'Non ci sono altre fasce orarie';
-    }
-
-    return _anyBandShut(day) ? 'Prenotazioni chiuse' : 'Associazione chiusa';
-  }
-
-  bool _anyBandShut(DateTime day)
-  {
-    for (final mode in const [kPresenceMode, kOnlineMode])
-    {
-      for (final band in TimeBucket.values)
-      {
-        if (openingWindowFor(_openingDays, day, mode, band) != null && haveBookingsClosed(day, band, _now))
-        {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  MoveDay _moveDay(DateTime from, DateTime day, BookingLane lane, _Move move)
-  {
-    final bool sameDay = isSameDate(day, from);
-    final List<MoveOption> options = _moveOptions(day, _groupOn(day, lane.pupil), move, sameDay: sameDay);
-
-    return MoveDay(
-      day: day,
-      options: options,
-      refusal: options.isEmpty ? _shutReason(day, own: sameDay) : null,
-    );
-  }
-
-  List<MoveDay> _moveDays(DateTime from, BookingLane lane, _Move move)
-  {
-    return [
-      for (final day in computeAvailableDays(DateTime.now())) _moveDay(from, day, lane, move),
-    ];
-  }
-
   bool _canMoveLesson(DateTime day, BookingLane lane, BookingSummaryItem booking)
   {
-    final PresenceGroup? group = lane.group;
-    final held = _whereItHangs(booking);
-
-    if (group == null || held == null)
-    {
-      return false;
-    }
-
-    return _moveDays(day, lane, _oneMove(group, held.slot, held.booking)).any((day) => day.viable);
+    return _planner.canMoveLesson(day, lane.group, booking);
   }
 
   void _showMoveLesson(DateTime day, BookingLane lane, BookingSummaryItem booking)
@@ -801,7 +521,7 @@ class _BookingsPageState extends State<BookingsPage>
       return;
     }
 
-    final _Move move = _oneMove(group, held.slot, held.booking);
+    final BookingMove move = BookingMove.one(group, held.slot, held.booking);
 
     _showMove(
       day,
@@ -809,42 +529,16 @@ class _BookingsPageState extends State<BookingsPage>
       group,
       move,
       title: bookingTitle(held.booking, _ministrySubjects),
-      days: _moveDays(day, lane, move),
+      days: _planner.moveDays(day, lane.pupil.fiscalCode, move),
     );
   }
 
-  String? _blockMoveRefusal(DateTime day, BookingLane lane, String mode)
+  String? _blockMoveRefusal(DateTime day, BookingLane lane, String mode, TimeBucket band)
   {
-    final PresenceGroup? group = lane.group;
-
-    if (group == null)
-    {
-      return null;
-    }
-
-    for (final row in group.slotsFor(mode))
-    {
-      final TimeBucket? band = bucketFor(row.startTime);
-
-      if (row.bookings.isNotEmpty && band != null && haveBookingsClosed(day, band, _now))
-      {
-        return 'Prenotazioni chiuse';
-      }
-    }
-
-    final List<MoveDay> days = _moveDays(day, lane, _allMove(group, mode));
-
-    if (days.any((option) => option.viable))
-    {
-      return null;
-    }
-
-    return days.every((option) => option.options.isEmpty && _anyBandShut(option.day))
-        ? 'Le prenotazioni per le altre fasce orarie sono chiuse'
-        : "Nessun'altra fascia oraria o giornata può contenere tutte le lezioni inserite";
+    return _planner.blockMoveRefusal(day, lane.group, mode, band);
   }
 
-  void _showMoveBlock(DateTime day, BookingLane lane, String mode)
+  void _showMoveBlock(DateTime day, BookingLane lane, String mode, TimeBucket band)
   {
     final PresenceGroup? group = lane.group;
 
@@ -853,15 +547,15 @@ class _BookingsPageState extends State<BookingsPage>
       return;
     }
 
-    final _Move move = _allMove(group, mode);
+    final BookingMove move = BookingMove.all(group, mode, band);
 
     _showMove(
       day,
       lane,
       group,
       move,
-      title: 'Tutte le lezioni ${mode == kOnlineMode ? kOnScreen : kInBuilding}',
-      days: _moveDays(day, lane, move),
+      title: allLessonsTitle(mode, band: band),
+      days: _planner.moveDays(day, lane.pupil.fiscalCode, move),
     );
   }
 
@@ -869,7 +563,7 @@ class _BookingsPageState extends State<BookingsPage>
     DateTime day,
     BookingLane lane,
     PresenceGroup group,
-    _Move move, {
+    BookingMove move, {
     required String title,
     required List<MoveDay> days,
   })
@@ -897,7 +591,7 @@ class _BookingsPageState extends State<BookingsPage>
     {
       CustomSnackBar.show(
         context: context,
-        message: count == 1 ? 'Materia spostata con successo!' : 'Lezioni spostate con successo!',
+        message: lessonsMoved(count),
         isError: false,
       );
     }
@@ -908,118 +602,31 @@ class _BookingsPageState extends State<BookingsPage>
     DateTime day,
     BookingLane lane,
     PresenceGroup group,
-    _Move move,
+    BookingMove move,
     MoveOption option,
     TimeOfDay? start,
     TimeOfDay? end,
   ) async
   {
-    final String taxCode = lane.pupil.fiscalCode;
+    final bool moved = await write(
+      call: () => _apiService.replaceLessonRequestDays(
+        studentTaxCode: lane.pupil.fiscalCode,
+        days: _planner.moveRequest(from: group, move: move, day: day, option: option, start: start, end: end),
+      ),
+      apply: (written) => _presences = [
+        for (final presence in _presences)
+          if (presence.studentTaxCode != lane.pupil.fiscalCode ||
+              !(isSameDate(presence.date, day) || isSameDate(presence.date, group.date)))
+            presence,
+        ...written,
+      ],
+      onError: _readAgainAfter(_showError),
+    );
 
-    Future<bool> gather(PresenceItem on) async
+    if (moved)
     {
-      for (final booking in move.bookings)
-      {
-        if (on.bookings.any((held) => held.id == booking.id))
-        {
-          continue;
-        }
-
-        try
-        {
-          await _apiService.updateBooking(
-            id: booking.id,
-            subject: {
-              ...SubjectRequestDraft.fromBooking(booking).toJson(),
-              'presence_id': on.id,
-            },
-            expectedUpdatedAt: booking.updatedAt,
-          );
-        }
-        catch (e)
-        {
-          _showError(readableApiError(e));
-
-          return false;
-        }
-      }
-
-      return true;
+      _moved(move.bookings.length);
     }
-
-    Future<bool> dropLeaving({required PresenceItem but}) async
-    {
-      for (final row in move.leaving)
-      {
-        if (row.id != but.id && !await _executeDeletePresenceQuietly(row, _showError))
-        {
-          return false;
-        }
-      }
-
-      return true;
-    }
-
-    PresenceItem? to = option.slot;
-
-    if (to == null)
-    {
-      if (start == null || end == null)
-      {
-        return;
-      }
-
-      final PresenceItem? turned = move.turned;
-
-      if (turned != null)
-      {
-        if (!await gather(turned) || !await dropLeaving(but: turned))
-        {
-          return;
-        }
-
-        if (await _executeEditPresence(turned, taxCode, day, option.mode, start, end, _showError))
-        {
-          _moved(move.bookings.length);
-        }
-
-        return;
-      }
-
-      to = await _executeCreatePresence(taxCode, day, option.mode, start, end, _showError);
-
-      if (to == null)
-      {
-        return;
-      }
-    }
-
-    if (!await gather(to) || !await dropLeaving(but: to))
-    {
-      return;
-    }
-
-    for (final row in group.slots)
-    {
-      if (row.id != to.id && !move.leavingIds.contains(row.id) && row.bookings.any(move.carries))
-      {
-        await _refreshPresence(row.id);
-      }
-    }
-
-    if (option.slot != null && start != null && end != null)
-    {
-      if (!await _executeEditPresence(to, taxCode, day, to.mode, start, end, _showError))
-      {
-        return;
-      }
-    }
-    else
-    {
-      await _refreshPresence(to.id);
-    }
-
-    _moved(move.bookings.length);
   }
 
   void _confirm(DateTime day, String warning, {required VoidCallback onConfirmed})
@@ -1074,37 +681,37 @@ class _BookingsPageState extends State<BookingsPage>
     );
   }
 
-  String _whose(BookingLane lane, {String what = ''})
+  String? _named(BookingLane lane) => _isParent ? lane.pupil.firstName : null;
+
+  // A null [band] clears every band of [modes]; one write either way.
+  Future<void> _clear(PresenceGroup group, Iterable<String> modes, {TimeBucket? band, required String done}) async
   {
-    final String part = what.isEmpty ? '' : ' $what';
-
-    return _isParent
-        ? 'La prenotazione$part di ${lane.pupil.firstName}'
-        : 'La tua prenotazione$part';
-  }
-
-  Future<void> _deleteSlots(List<PresenceItem> slots, {required String done})
-  {
-    final removed = slots.map((slot) => slot.id).toSet();
-
-    return erase(
-      call: () async
-      {
-        for (final slot in slots)
-        {
-          await _apiService.deletePresence(slot.id);
-        }
-      },
-      apply: () => _presences = _presences.where((p) => !removed.contains(p.id)).toList(),
-      done: done,
+    final bool cleared = await _executeReplaceLessonRequest(
+      group.studentTaxCode,
+      group.date,
+      [
+        for (final mode in modes)
+          modeReplacement(
+            group,
+            mode,
+            dropping: band == null ? TimeBucket.values.toSet() : {band},
+            closed: (other) => haveBookingsClosed(group.date, other, _now),
+          ),
+      ],
+      _showError,
     );
+
+    if (cleared && mounted)
+    {
+      CustomSnackBar.show(context: context, message: done, isError: false);
+    }
   }
 
   Future<void> _deleteLesson(PresenceItem slot, BookingSummaryItem booking) async
   {
     if (await _executeDeleteBookingQuietly(booking, slot.id, _showError) && mounted)
     {
-      CustomSnackBar.show(context: context, message: 'Materia eliminata con successo!', isError: false);
+      CustomSnackBar.show(context: context, message: kLessonDeleted, isError: false);
     }
   }
 
@@ -1119,12 +726,12 @@ class _BookingsPageState extends State<BookingsPage>
 
     _confirm(
       day,
-      '${_whose(lane)} di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.',
-      onConfirmed: () => _deleteSlots(group.slots, done: 'Prenotazione eliminata con successo!'),
+      bookingDeletionWarning(day, pupil: _named(lane)),
+      onConfirmed: () => _clear(group, const [kPresenceMode, kOnlineMode], done: kBookingDeleted),
     );
   }
 
-  void _confirmDeleteMode(DateTime day, BookingLane lane, String mode)
+  void _confirmDeleteBand(DateTime day, BookingLane lane, String mode, TimeBucket band)
   {
     final PresenceGroup? group = lane.group;
 
@@ -1133,12 +740,10 @@ class _BookingsPageState extends State<BookingsPage>
       return;
     }
 
-    final String what = mode == kOnlineMode ? kOnScreen : kInBuilding;
-
     _confirm(
       day,
-      '${_whose(lane, what: what)} di ${formatAvailableDayLabel(day).toLowerCase()} verrà eliminata definitivamente.',
-      onConfirmed: () => _deleteSlots(group.slotsFor(mode), done: 'Prenotazione eliminata con successo!'),
+      bookingDeletionWarning(day, pupil: _named(lane), mode: mode, band: band),
+      onConfirmed: () => _clear(group, [mode], band: band, done: kBookingDeleted),
     );
   }
 
@@ -1153,39 +758,23 @@ class _BookingsPageState extends State<BookingsPage>
     }
 
     final PresenceItem slot = held.slot;
+    final TimeBucket? band = bucketFor(slot.startTime);
 
-    // The last lesson of a mode takes the mode's hours with it.
-    final bool last = group.requestsFor(slot.mode).length == 1;
-    final String where = slot.mode == kOnlineMode ? kOnScreen : kInBuilding;
-
-    final String label = bookingTitle(held.booking, _ministrySubjects);
-
-    final String warning = last
-        ? 'La materia $label verrà tolta dalla prenotazione. Era l\'unica lezione $where, '
-            'quindi verrà eliminata anche la presenza $where.'
-        : 'La materia $label verrà tolta dalla prenotazione.';
+    // The last lesson of a band takes the band's hours with it.
+    final bool last = group.requestsFor(slot.mode, band: band).length == 1;
 
     _confirm(
       day,
-      warning,
+      lessonDeletionWarning(bookingTitle(held.booking, _ministrySubjects), slot.mode, last: last, band: band),
       onConfirmed: () => last
-          ? _deleteSlots(group.slotsFor(slot.mode), done: 'Prenotazione $where eliminata con successo!')
+          ? _clear(group, [slot.mode], band: band, done: modeBookingDeleted(slot.mode, band: band))
           : _deleteLesson(slot, held.booking),
     );
   }
 
   PresenceGroup? _groupOn(DateTime day, PersonItem pupil)
   {
-    final onTheDay = _presences
-        .where((presence) => presence.studentTaxCode == pupil.fiscalCode && isSameDate(presence.date, day))
-        .toList();
-
-    if (onTheDay.isEmpty)
-    {
-      return null;
-    }
-
-    return groupPresences(onTheDay).single;
+    return _planner.groupOn(day, pupil.fiscalCode);
   }
 
   List<BookingLane> _lanesOn(DateTime day)
@@ -1202,41 +791,26 @@ class _BookingsPageState extends State<BookingsPage>
 
   String get _summary
   {
-    final String week = _weekIndex == 0 ? 'questa settimana' : 'la settimana prossima';
-
-    String days(int count) => '$count ${count == 1 ? 'giorno' : 'giorni'}';
+    final bool thisWeek = _weekIndex == 0;
 
     if (_isReadOnly)
     {
-      final int booked = _bookedDays(_pupils.single);
-
-      return switch (booked)
-      {
-        0 => 'Non è stato prenotato nessun giorno $week.',
-        1 => 'È stato prenotato 1 giorno $week.',
-        _ => 'Sono stati prenotati ${days(booked)} $week.',
-      };
+      return bookedForYouDays(_bookedDays(_pupils.single), thisWeek: thisWeek);
     }
 
     if (!_isParent)
     {
-      final int booked = _bookedDays(_pupils.single);
-
-      return booked == 0
-          ? 'Non hai ancora prenotato $week.'
-          : 'Hai prenotato ${days(booked)} $week.';
+      return ownBookedDays(_bookedDays(_pupils.single), thisWeek: thisWeek);
     }
 
     if (_pupils.length == 1)
     {
       final PersonItem pupil = _pupils.single;
-      final int booked = _bookedDays(pupil);
 
-      return booked == 0
-          ? '${pupil.firstName} non ha ancora prenotazioni $week.'
-          : '${pupil.firstName} ha ${days(booked)} ${booked == 1 ? 'prenotato' : 'prenotati'} $week.';
+      return pupilBookedDays(pupil.firstName, _bookedDays(pupil), thisWeek: thisWeek);
     }
 
+    final String week = thisWeek ? 'questa settimana' : 'la settimana prossima';
     final String counts = _pupils.map((pupil) => '${pupil.firstName} ${_bookedDays(pupil)}').join(', ');
 
     return 'Giorni prenotati $week: $counts';
@@ -1291,10 +865,7 @@ class _BookingsPageState extends State<BookingsPage>
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Per le lezioni del mattino, è possibile prenotare o modificare '
-                  'le prenotazioni fino alle 20:00 del giorno precedente; '
-                  'per quelle del pomeriggio, fino alle 11:00 dello stesso '
-                  'giorno; per quelle della sera, fino alle 18:00 dello stesso giorno.',
+                  kBookingDeadlines,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
@@ -1403,12 +974,12 @@ class _BookingsPageState extends State<BookingsPage>
 
     if (_failed)
     {
-      return _buildNotice('Non è stato possibile caricare le prenotazioni.');
+      return _buildNotice(kBookingsLoadFailed);
     }
 
     if (_pupils.isEmpty)
     {
-      return _buildNotice('Nessuno studente a tuo carico.');
+      return _buildNotice(kNoPupils);
     }
 
     final DateTime today = _today;
@@ -1428,16 +999,16 @@ class _BookingsPageState extends State<BookingsPage>
             ministrySubjects: _ministrySubjects,
             teachers: _teachers,
             readOnly: _isReadOnly,
-            onAdd: (lane, mode) => _showWizard(day, lane, mode),
-            onEditHours: (lane, mode) => _showWizard(day, lane, mode, hoursOnly: true),
-            onAddLesson: (lane, mode) => _showWizard(day, lane, mode, openOnSubjects: true),
+            onAdd: (lane, mode) => _showWizard(day, lane, mode, onlyFreeBands: true),
+            onEditHours: (lane, mode, band) => _showWizard(day, lane, mode, hoursOnly: true, band: band),
+            onAddLesson: (lane, mode, band) => _showWizard(day, lane, mode, openOnSubjects: true, band: band),
             onEditLesson: _editLesson,
             canMoveLesson: (lane, booking) => _canMoveLesson(day, lane, booking),
             onMoveLesson: (lane, booking) => _showMoveLesson(day, lane, booking),
-            blockMoveRefusal: (lane, mode) => _blockMoveRefusal(day, lane, mode),
-            onMoveBlock: (lane, mode) => _showMoveBlock(day, lane, mode),
+            blockMoveRefusal: (lane, mode, band) => _blockMoveRefusal(day, lane, mode, band),
+            onMoveBlock: (lane, mode, band) => _showMoveBlock(day, lane, mode, band),
             onDeleteLesson: (lane, booking) => _confirmDeleteLesson(day, lane, booking),
-            onDeleteMode: (lane, mode) => _confirmDeleteMode(day, lane, mode),
+            onDeleteBand: (lane, mode, band) => _confirmDeleteBand(day, lane, mode, band),
             onDeleteDay: (lane) => _confirmDeleteDay(day, lane),
           ),
         ],
@@ -1512,62 +1083,5 @@ class _BookingsPageState extends State<BookingsPage>
         },
       ),
     );
-  }
-}
-
-class _Move
-{
-  final String fromMode;
-
-  final List<BookingSummaryItem> bookings;
-  final List<PresenceItem> leaving;
-
-  const _Move({required this.fromMode, required this.bookings, required this.leaving});
-
-  Set<int> get leavingIds => {for (final row in leaving) row.id};
-
-  int get minutes
-  {
-    var total = 0;
-
-    for (final booking in bookings)
-    {
-      total += booking.duration;
-    }
-
-    return total;
-  }
-
-  bool carries(BookingSummaryItem booking) => bookings.any((moving) => moving.id == booking.id);
-
-  bool holdsAll(PresenceItem row) => bookings.every((moving) => row.bookings.any((held) => held.id == moving.id));
-
-  int minutesStayingOn(PresenceItem row)
-  {
-    var total = 0;
-
-    for (final held in row.bookings)
-    {
-      if (!carries(held))
-      {
-        total += held.duration;
-      }
-    }
-
-    return total;
-  }
-
-  // The leaving row reused for the new hours instead of creating one.
-  PresenceItem? get turned
-  {
-    for (final row in leaving)
-    {
-      if (row.bookings.isNotEmpty)
-      {
-        return row;
-      }
-    }
-
-    return null;
   }
 }

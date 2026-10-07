@@ -36,10 +36,15 @@ String _ofBand(TimeBucket band)
   };
 }
 
-// One slot, or with [band] every slot the teacher holds in it.
-String availabilityDeletionWarning(DateTime day, List<AvailabilityItem> slots, {TimeBucket? band})
+// [band]: every slot the teacher holds in it; [wholeDay]: every slot of the day.
+String availabilityDeletionWarning(DateTime day, List<AvailabilityItem> slots, {TimeBucket? band, bool wholeDay = false})
 {
   final String when = formatAvailableDayLabel(day).toLowerCase();
+
+  if (wholeDay)
+  {
+    return 'La tua disponibilità di $when verrà eliminata definitivamente.';
+  }
 
   if (band != null)
   {

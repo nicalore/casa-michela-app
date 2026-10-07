@@ -1,29 +1,26 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../features/availability/utils/availability_strings.dart';
+import '../../../../features/lessons/models/availability_item.dart';
 import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../services/api_service.dart';
-import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
+import '../../../shared/widgets/mobile_band_editor.dart';
+import '../../../shared/widgets/mobile_day_picker.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
 import '../mobile_availability_draft.dart';
-import 'mobile_band_editor.dart';
-import 'mobile_day_picker.dart';
 
 const Duration _turn = Duration(milliseconds: 340);
 const Curve _turnCurve = Curves.easeInOutCubic;
 
-const double _tagRadius = 14;
 const double _blockGap = 12;
 
 // Assumed page height until measured.
@@ -37,7 +34,7 @@ Future<bool> showMobileAvailabilityWizard({
 {
   final bool? saved = await showMobileSheet<bool>(
     context: context,
-    dismissible: false,
+    draggable: false,
     builder: (context) => _Wizard(draft: draft),
   );
 
@@ -74,8 +71,6 @@ class _WizardState extends State<_Wizard>
   int _step = 0;
 
   bool _busy = false;
-
-  DateTime? _refused;
 
   MobileAvailabilityDraft get _draft => widget.draft;
 
@@ -208,7 +203,7 @@ class _WizardState extends State<_Wizard>
     }
 
     MobileNotice.show(context, done);
-    Navigator.of(context).pop(true);
+    finishMobileSheet(context, true);
   }
 
   AvailabilityGuide _guideFor(String? mode)
@@ -224,16 +219,16 @@ class _WizardState extends State<_Wizard>
   List<Widget> _buildDays()
   {
     return [
-      _Guide(guide: _guideFor(null)),
+      MobileWizardGuide(question: _guideFor(null).question, hint: _guideFor(null).hint),
       MobileDayPicker(
-        draft: _draft,
-        refused: _refused,
-        onToggle: (day) => setState(()
-        {
-          _refused = null;
-          _draft.toggle(day);
-        }),
-        onRefused: (day) => setState(() => _refused = day),
+        days: _draft.availableDays,
+        isOffered: _draft.isOffered,
+        isPicked: _draft.isPicked,
+        refusalFor: _draft.refusalFor,
+        summary: _draft.days.length > 1
+            ? availabilityDaysSummary(_draft.days.length, split: _draft.groups.length > 1)
+            : null,
+        onToggle: (day) => setState(() => _draft.toggle(day)),
       ),
     ];
   }
@@ -241,17 +236,20 @@ class _WizardState extends State<_Wizard>
   List<Widget> _buildMode(MobileWizardStep step)
   {
     return [
-      _Guide(guide: _guideFor(step.mode)),
+      MobileWizardGuide(question: _guideFor(step.mode).question, hint: _guideFor(step.mode).hint),
       // Days with different openings get separate steps, each naming its days.
-      if (_draft.groups.length > 1) _Days(days: step.group.days),
+      if (_draft.groups.length > 1) MobileDaysTag(days: step.group.days),
       const SizedBox(height: 6),
       for (final bucket in TimeBucket.values) ...[
         const SizedBox(height: _blockGap),
-        MobileBandEditor(
-          draft: _draft,
-          group: step.group,
+        MobileBandEditor<AvailabilityItem>(
+          schedule: _draft.bandsOf(step.group)[step.mode]!,
           mode: step.mode,
           bucket: bucket,
+          window: _draft.windowFor(step.group, step.mode, bucket),
+          shutLabel: _draft.shutLabelFor(step.group, step.mode, bucket),
+          held: _draft.isEditing ? _draft.frozen[step.mode]![bucket]! : const [],
+          offLabel: kNotAvailable,
           onChanged: () => setState(() {}),
         ),
       ],
@@ -315,21 +313,13 @@ class _WizardState extends State<_Wizard>
     final bool last = _isLast(count);
     final String label = last ? (_draft.isEditing ? 'Salva' : 'Crea') : 'Avanti';
 
+    final VoidCallback? back = _step > 0 ? () => _turnTo(_step - 1) : null;
+
     return Padding(
       padding: const EdgeInsets.only(top: 18),
       child: Row(
         children: [
-          AnimatedSize(
-            duration: _turn,
-            curve: _turnCurve,
-            alignment: Alignment.centerLeft,
-            child: _step > 0
-                ? Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: MobileWizardBackButton(onTap: _busy ? null : () => _turnTo(_step - 1)),
-                  )
-                : const SizedBox(height: MobileWizardBackButton.size),
-          ),
+          MobileWizardBackSlot(onBack: back, busy: _busy),
           Expanded(
             child: MobileGoldButton(
               label: label,
@@ -360,81 +350,3 @@ class _WizardState extends State<_Wizard>
   }
 }
 
-class _Guide extends StatelessWidget
-{
-  final AvailabilityGuide guide;
-
-  const _Guide({required this.guide});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          guide.question,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-            height: 1.2,
-            color: AppTheme.trialInk,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          guide.hint,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            height: 1.45,
-            color: MobilePalette.mutedText,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Days extends StatelessWidget
-{
-  final List<DateTime> days;
-
-  const _Days({required this.days});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      margin: const EdgeInsets.only(top: 14),
-      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-      decoration: BoxDecoration(
-        color: AppTheme.todaySurface,
-        borderRadius: BorderRadius.circular(_tagRadius),
-      ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '${(days.length == 1 ? 'Giornata' : 'Giornate').toUpperCase()}  ',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
-                color: AppTheme.trialTealDeep,
-              ),
-            ),
-            TextSpan(text: days.map(formatAvailableDayLabel).join(', ')),
-          ],
-        ),
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 13.5,
-          fontWeight: FontWeight.w700,
-          height: 1.45,
-          color: AppTheme.trialInk,
-        ),
-      ),
-    );
-  }
-}

@@ -26,7 +26,7 @@ class MobileVariationCard extends StatelessWidget
     return MobileModeLabel.widthOf(context, fontSize: _labelSize(tablet), iconSize: _iconSize(tablet));
   }
 
-  static double _labelSize(bool tablet) => tablet ? 14 : 13;
+  static double _labelSize(bool tablet) => tablet ? 12 : 11;
 
   static double _iconSize(bool tablet) => tablet ? 17 : 16;
 

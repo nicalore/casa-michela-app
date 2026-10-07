@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../services/api_service.dart';
@@ -58,7 +59,7 @@ class _StandardHoursWizardState extends State<StandardHoursWizard>
 {
   final ApiService _apiService = ApiService();
 
-  final TextEditingController _effectiveFromCtrl = TextEditingController(text: formatDateString(DateTime.now()));
+  final TextEditingController _effectiveFromCtrl = TextEditingController(text: formatDateString(romeNow()));
 
   final Set<int> _weekdays = {};
 

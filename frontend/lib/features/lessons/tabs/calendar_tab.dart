@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
@@ -97,7 +98,7 @@ const String kLockedBandNotice =
     'Puoi seguire il lavoro mentre procede, ma non modificarlo. Quando avrà '
     'finito, il calendario torna disponibile.';
 
-// Shown when hours could not be restored on discard (availability withdrawn or request cancelled meanwhile).
+// Shown when discard cannot restore hours: availability withdrawn or request cancelled meanwhile.
 const String _kDraftRestoreFailed = 'Errore durante il ripristino del calendario.';
 
 const double _actionButtonHeight = 48;
@@ -387,7 +388,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     if (wanted)
     {
-      _now = DateTime.now();
+      _now = romeNow();
     }
   }
 
@@ -398,7 +399,7 @@ class _CalendarTabState extends State<CalendarTab>
       return;
     }
 
-    setState(() => _now = DateTime.now());
+    setState(() => _now = romeNow());
   }
 
   @override
@@ -460,16 +461,16 @@ class _CalendarTabState extends State<CalendarTab>
 
   DateTime _initialDay()
   {
-    final now = widget.today ?? DateTime.now();
+    final now = widget.today ?? romeNow();
     final today = DateTime(now.year, now.month, now.day);
 
     return widget.availableDays.any((day) => isSameDate(day, today)) ? today : widget.availableDays.first;
   }
 
-  // Published band the clock is in, else the day's last published band, else the clock's (afternoon at night).
+  // Clock's band if published, else the last published one, else the clock's (afternoon at night).
   TimeBucket _initialBand()
   {
-    final now = widget.today ?? DateTime.now();
+    final now = widget.today ?? romeNow();
     final current = bucketFor(TimeOfDay.fromDateTime(now));
 
     final published = [
@@ -505,7 +506,7 @@ class _CalendarTabState extends State<CalendarTab>
 
   bool get _hasRoomPlan => _roomPlanDay == _keyOf(_day);
 
-  late DateTime _now = widget.today ?? DateTime.now();
+  late DateTime _now = widget.today ?? romeNow();
 
   Timer? _clock;
 
@@ -1387,7 +1388,7 @@ class _CalendarTabState extends State<CalendarTab>
 
   Widget _buildCalendarButton()
   {
-    final now = widget.today ?? DateTime.now();
+    final now = widget.today ?? romeNow();
 
     return AppCalendarButton(
       selected: _day,
@@ -2050,7 +2051,7 @@ class _CalendarTabState extends State<CalendarTab>
     });
   }
 
-  // Excluding returns the teacher's hours as unplanned requests and unassigns their activities, unconfirmed.
+  // Excluding: the teacher's hours become unplanned requests, activities unassigned; unconfirmed.
   Future<void> _setExcluded(CalendarLane lane, {required bool excluded}) async
   {
     final day = _day;

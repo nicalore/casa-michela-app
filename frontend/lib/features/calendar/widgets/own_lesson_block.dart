@@ -19,6 +19,8 @@ const double kOwnBlockHeight = 104;
 const double _hoverBorder = 2;
 const double _restBorder = 1.4;
 
+const String _currentLabel = 'In corso';
+
 const double _narrowFrom = 110;
 
 const double _barInset = 8;
@@ -68,6 +70,7 @@ class _BlockFrame extends StatefulWidget
   final String hours;
   final String? details;
   final bool isPast;
+  final bool isCurrent;
 
   final bool isShared;
 
@@ -82,6 +85,7 @@ class _BlockFrame extends StatefulWidget
     required this.hours,
     required this.details,
     required this.isPast,
+    this.isCurrent = false,
     this.isShared = false,
     required this.onTap,
     required this.body,
@@ -101,6 +105,8 @@ class _BlockFrameState extends State<_BlockFrame>
     final accent = widget.accent;
     final details = widget.details;
 
+    final bool hovering = _isHovering && widget.onTap != null;
+
     final Widget block = MouseRegion(
         cursor: widget.onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovering = true),
@@ -115,8 +121,8 @@ class _BlockFrameState extends State<_BlockFrame>
               color: widget.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: _isHovering && widget.onTap != null ? AppTheme.trialGold : accent.withValues(alpha: 0.45),
-                width: _isHovering && widget.onTap != null ? _hoverBorder : _restBorder,
+                color: hovering ? AppTheme.trialGold : accent.withValues(alpha: 0.45),
+                width: hovering ? _hoverBorder : _restBorder,
               ),
               boxShadow: AppTheme.cardShadow,
             ),
@@ -166,6 +172,10 @@ class _BlockFrameState extends State<_BlockFrame>
                                       style: _hoursStyle(accent),
                                     ),
                                   ),
+                                  if (!narrow && widget.isCurrent) ...[
+                                    const SizedBox(width: 6),
+                                    const _CurrentBadge(),
+                                  ],
                                   if (!narrow && widget.isShared) ...[
                                     const SizedBox(width: 4),
                                     const Tooltip(
@@ -218,6 +228,9 @@ class OwnLessonBlock extends StatelessWidget
 
   final bool isPast;
 
+  // Under way, in the list: a badge instead of the now line across it.
+  final bool isCurrent;
+
   final bool onTimeline;
 
   final VoidCallback? onTap;
@@ -228,6 +241,7 @@ class OwnLessonBlock extends StatelessWidget
     required this.ministrySubjects,
     required this.view,
     required this.isPast,
+    this.isCurrent = false,
     this.onTimeline = true,
     this.onTap,
   });
@@ -242,10 +256,7 @@ class OwnLessonBlock extends StatelessWidget
 
   ({IconData icon, String label}) get _where => lessonWhere(lesson);
 
-  Color get _whereAccent
-  {
-    return _where.icon == Icons.meeting_room_outlined ? AppTheme.trialTealDeep : lessonAccent(lesson.mode);
-  }
+  Color get _whereAccent => lessonWhereAccent(lesson);
 
   String get _hours
   {
@@ -336,6 +347,7 @@ class OwnLessonBlock extends StatelessWidget
       hours: _hours,
       details: _hasTooltip ? _details(about) : null,
       isPast: isPast,
+      isCurrent: isCurrent,
       isShared: _byStudent && lesson.isShared,
       onTap: onTap,
       body: (narrow) => _buildBody(about, narrow: narrow),
@@ -349,6 +361,8 @@ class OwnActivityBlock extends StatelessWidget
 
   final bool isPast;
 
+  final bool isCurrent;
+
   final bool onTimeline;
 
   final VoidCallback? onTap;
@@ -357,6 +371,7 @@ class OwnActivityBlock extends StatelessWidget
     super.key,
     required this.activity,
     required this.isPast,
+    this.isCurrent = false,
     this.onTimeline = true,
     this.onTap,
   });
@@ -379,12 +394,43 @@ class OwnActivityBlock extends StatelessWidget
       hours: _hours,
       details: _hasTooltip ? activityDetails(activity) : null,
       isPast: isPast,
+      isCurrent: isCurrent,
       onTap: onTap,
       body: (_) => Text(
         activity.name,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: _nameStyle,
+      ),
+    );
+  }
+}
+
+class _CurrentBadge extends StatelessWidget
+{
+  const _CurrentBadge();
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.trialGoldSurface,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.55)),
+      ),
+      child: Text(
+        _currentLabel.toUpperCase(),
+        maxLines: 1,
+        softWrap: false,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
+          letterSpacing: 1.1,
+          color: AppTheme.modifiedAccent,
+        ),
       ),
     );
   }

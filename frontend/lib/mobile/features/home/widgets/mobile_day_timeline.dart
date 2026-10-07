@@ -5,16 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/time_bucket.dart';
 import '../../../../core/utils/week_range.dart';
-import '../../../../features/calendar/utils/calendar_strings.dart';
-import '../../../../features/calendar/utils/teacher_band_call.dart';
-import '../../../../features/home/widgets/home_schedule_data.dart';
-import '../../../../features/home/widgets/role_home_layout.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_pill.dart';
-import '../mobile_teacher_day.dart';
+import '../mobile_home_day.dart';
 
 const double _timeWidth = 44;
 const double _railWidth = 18;
@@ -32,13 +30,9 @@ const double _bodyBottom = 28;
 
 const double _endStopHeight = _stopRadius * 2 + _stopStroke;
 
-const Color _convenedText = Color(0xFFF3C766);
-const Color _availableText = Color(0xFF7FE3D6);
-
 class MobileDayTimeline extends StatefulWidget
 {
-  final MobileTeacherDay day;
-  final bool feminine;
+  final MobileHomeDay day;
 
   // Bands are not to scale; each block is at least this tall.
   final double minBandHeight;
@@ -49,7 +43,6 @@ class MobileDayTimeline extends StatefulWidget
   const MobileDayTimeline({
     super.key,
     required this.day,
-    required this.feminine,
     this.minBandHeight = 150,
     this.fill = false,
   });
@@ -94,7 +87,7 @@ class _MobileDayTimelineState extends State<MobileDayTimeline>
   // Wakes on the minute, not every 60 s from whenever the page opened.
   void _tick()
   {
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     _nowMinutes.value = isSameDate(now, widget.day.day) ? now.hour * 60 + now.minute : null;
 
@@ -108,7 +101,7 @@ class _MobileDayTimelineState extends State<MobileDayTimeline>
   @override
   Widget build(BuildContext context)
   {
-    final List<MobileDayBand> bands = widget.day.bands;
+    final List<MobileLineBand> bands = widget.day.bands;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,11 +120,10 @@ class _MobileDayTimelineState extends State<MobileDayTimeline>
     );
   }
 
-  Widget _buildBand(MobileDayBand band)
+  Widget _buildBand(MobileLineBand band)
   {
     return _BandBlock(
       band: band,
-      feminine: widget.feminine,
       minHeight: widget.minBandHeight,
       nowMinutes: _nowMinutes,
     );
@@ -140,14 +132,12 @@ class _MobileDayTimelineState extends State<MobileDayTimeline>
 
 class _BandBlock extends StatelessWidget
 {
-  final MobileDayBand band;
-  final bool feminine;
+  final MobileLineBand band;
   final double minHeight;
   final ValueListenable<int?> nowMinutes;
 
   const _BandBlock({
     required this.band,
-    required this.feminine,
     required this.minHeight,
     required this.nowMinutes,
   });
@@ -171,7 +161,7 @@ class _BandBlock extends StatelessWidget
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: _bodyBottom),
-                child: _BandBody(band: band, feminine: feminine),
+                child: _BandBody(band: band),
               ),
             ),
           ],
@@ -336,52 +326,9 @@ class _RailPainter extends CustomPainter
 
 class _BandBody extends StatelessWidget
 {
-  final MobileDayBand band;
-  final bool feminine;
+  final MobileLineBand band;
 
-  const _BandBody({required this.band, required this.feminine});
-
-  String _range(int startMinutes, int endMinutes)
-  {
-    return 'dalle ${formatTimeOfDayShort(timeOfDayFromMinutes(startMinutes))} '
-        'alle ${formatTimeOfDayShort(timeOfDayFromMinutes(endMinutes))}';
-  }
-
-  // Title and detail, as the calendar's convocation card words them.
-  (String, String) _convened(TeacherBandCall call)
-  {
-    final String detail = [
-      for (final span in call.byMode) modeLabel(span.mode),
-      convocationSummary(call),
-    ].join(' · ');
-
-    return (convocationTitle(call, feminine: feminine), detail);
-  }
-
-  List<Widget> _buildState()
-  {
-    switch (band.state)
-    {
-      case MobileBandState.convened:
-        final (title, detail) = _convened(band.call!);
-
-        return [_StateLine(title, color: _convenedText), _Detail(detail)];
-
-      case MobileBandState.notConvened:
-        return [_StateLine(unconvenedLabelFor(kTeacherRole, feminine: feminine)!, muted: true)];
-
-      case MobileBandState.available:
-        return [
-          for (final span in band.availabilities) ...[
-            _StateLine('$kAvailableLead ${_range(span.startMinutes, span.endMinutes)}', color: _availableText),
-            _Detail(modeLabel(span.mode)),
-          ],
-        ];
-
-      case MobileBandState.none:
-        return [_StateLine(emptyBandLabelFor(kTeacherRole), muted: true)];
-    }
-  }
+  const _BandBody({required this.band});
 
   @override
   Widget build(BuildContext context)
@@ -407,7 +354,10 @@ class _BandBody extends StatelessWidget
           ],
         ),
         const SizedBox(height: 4),
-        ..._buildState(),
+        for (final entry in band.entries) ...[
+          _StateLine(entry),
+          if (entry.detail case final String detail) _Detail(detail),
+        ],
         const SizedBox(height: 8),
         _Openings(openings: band.openings),
       ],
@@ -417,22 +367,28 @@ class _BandBody extends StatelessWidget
 
 class _StateLine extends StatelessWidget
 {
-  final String text;
-  final Color color;
-  final bool muted;
+  final MobileLineEntry entry;
 
-  const _StateLine(this.text, {this.color = Colors.white, this.muted = false});
+  const _StateLine(this.entry);
 
   @override
   Widget build(BuildContext context)
   {
+    final String? mode = entry.mode;
+    final bool muted = mode == null;
+
     return Text(
-      text,
+      entry.text,
       style: GoogleFonts.plusJakartaSans(
         fontSize: muted ? 15 : 15.5,
         fontWeight: muted ? FontWeight.w600 : FontWeight.w800,
         height: 1.25,
-        color: muted ? Colors.white.withValues(alpha: 0.6) : color,
+        color: switch (mode)
+        {
+          null => Colors.white.withValues(alpha: 0.6),
+          kOnlineMode => MobilePalette.onlineOnSea,
+          _ => MobilePalette.presenceOnSea,
+        },
       ),
     );
   }

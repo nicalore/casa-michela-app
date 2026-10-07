@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/birthday.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../features/auth/models/me_response.dart';
 import 'confetti_shower.dart';
 import 'page_transition.dart';
@@ -25,7 +26,7 @@ class BirthdayConfetti extends StatefulWidget
 
   static void _startFor(MeResponse user)
   {
-    if (!isBirthdayToday(user.birthDate, DateTime.now()) || _celebrated == user.taxCode)
+    if (!isBirthdayToday(user.birthDate, romeNow()) || _celebrated == user.taxCode)
     {
       return;
     }

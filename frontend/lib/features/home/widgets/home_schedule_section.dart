@@ -34,8 +34,6 @@ const double _labelLineHeight = 1.3;
 // Lines the bar up with the label's first line.
 const double _barTopInset = (_labelSize * _labelLineHeight - _trackHeight) / 2;
 
-String _subjectsLabel(int count) => count == 1 ? '1 materia' : '$count materie';
-
 class HomeScheduleSection extends StatelessWidget
 {
   // Null when the day could not be read, distinct from a day with no openings.
@@ -334,7 +332,7 @@ class _LaneLabel extends StatelessWidget
   Widget build(BuildContext context)
   {
     final Color accent = lessonAccent(lane.mode);
-    final String? subjects = lane.subjects > 0 ? _subjectsLabel(lane.subjects) : null;
+    final String? subjects = lane.subjects > 0 ? homeSubjectsLabel(lane.subjects) : null;
 
     final TextStyle muted = GoogleFonts.plusJakartaSans(
       fontSize: 11,

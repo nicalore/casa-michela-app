@@ -1,29 +1,19 @@
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/association/models/opening_day_item.dart';
+import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
 import '../../../features/home/widgets/home_schedule_data.dart';
+import '../../../features/home/widgets/role_home_layout.dart';
 import '../../../features/lessons/models/activity_item.dart';
 import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
+import '../../../features/lessons/utils/opening_window.dart';
+import 'mobile_home_day.dart';
 
 // What the day line says about a band, in the order the web home decides it.
 enum MobileBandState { none, available, convened, notConvened }
-
-// Minutes from midnight, one mode.
-class MobileModeSpan
-{
-  final String mode;
-  final int startMinutes;
-  final int endMinutes;
-
-  const MobileModeSpan({
-    required this.mode,
-    required this.startMinutes,
-    required this.endMinutes,
-  });
-}
 
 class MobileDayBand
 {
@@ -162,6 +152,64 @@ MobileDayBand _bandFrom(
           mode: lane.mode,
           startMinutes: lane.opening.startMinutes,
           endMinutes: lane.opening.endMinutes,
+        ),
+    ],
+  );
+}
+
+// Worded as the calendar's convocation card.
+MobileLineEntry _convenedEntry(TeacherBandCall call, {required bool feminine})
+{
+  final String detail = [
+    for (final span in call.byMode) modeLabel(span.mode),
+    convocationSummary(call),
+  ].join(' · ');
+
+  return MobileLineEntry(
+    convocationTitle(call, feminine: feminine),
+    mode: inBuildingSpan(call) == null ? kOnlineMode : kPresenceMode,
+    detail: detail,
+  );
+}
+
+List<MobileLineEntry> _teacherEntries(MobileDayBand band, {required bool feminine})
+{
+  switch (band.state)
+  {
+    case MobileBandState.convened:
+      return [_convenedEntry(band.call!, feminine: feminine)];
+
+    case MobileBandState.notConvened:
+      return [
+        MobileLineEntry(unconvenedLabelFor(kTeacherRole, feminine: feminine)!),
+      ];
+
+    case MobileBandState.available:
+      return [
+        for (final span in band.availabilities)
+          MobileLineEntry(
+            '$kAvailableLead ${homeLineRange(span.startMinutes, span.endMinutes)}',
+            mode: span.mode,
+            detail: modeLabel(span.mode),
+          ),
+      ];
+
+    case MobileBandState.none:
+      return [MobileLineEntry(emptyBandLabelFor(kTeacherRole))];
+  }
+}
+
+MobileHomeDay teacherHomeDay(MobileTeacherDay day, {required bool feminine})
+{
+  return MobileHomeDay(
+    day: day.day,
+    bands: [
+      for (final band in day.bands)
+        MobileLineBand(
+          band: band.band,
+          isPublished: band.isPublished,
+          entries: _teacherEntries(band, feminine: feminine),
+          openings: band.openings,
         ),
     ],
   );

@@ -93,6 +93,7 @@ class MobileOwnFace extends StatelessWidget
 Future<MobilePhotoAction?> showMobilePhotoSheet({
   required BuildContext context,
   required MeResponse user,
+  required Future<bool> Function(BuildContext sheet) confirmRemoval,
 })
 {
   final bool hasImage = (user.profileImageUrl?.trim() ?? '').isNotEmpty;
@@ -116,13 +117,13 @@ Future<MobilePhotoAction?> showMobilePhotoSheet({
         _ActionRow(
           icon: Icons.photo_library_rounded,
           label: 'Scegli dalla galleria',
-          onTap: () => Navigator.of(context).pop(MobilePhotoAction.gallery),
+          onTap: () => finishMobileSheet(context, MobilePhotoAction.gallery),
         ),
         const SizedBox(height: 10),
         _ActionRow(
           icon: Icons.photo_camera_rounded,
           label: 'Scatta una foto',
-          onTap: () => Navigator.of(context).pop(MobilePhotoAction.camera),
+          onTap: () => finishMobileSheet(context, MobilePhotoAction.camera),
         ),
         if (hasImage) ...[
           const SizedBox(height: 10),
@@ -130,7 +131,13 @@ Future<MobilePhotoAction?> showMobilePhotoSheet({
             icon: Icons.delete_outline_rounded,
             label: 'Rimuovi la foto',
             danger: true,
-            onTap: () => Navigator.of(context).pop(MobilePhotoAction.remove),
+            onTap: () async
+            {
+              if (await confirmRemoval(context) && context.mounted)
+              {
+                finishMobileSheet(context, MobilePhotoAction.remove);
+              }
+            },
           ),
         ],
         const SizedBox(height: 4),

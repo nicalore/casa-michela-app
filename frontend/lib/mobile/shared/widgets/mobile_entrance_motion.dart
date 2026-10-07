@@ -35,7 +35,6 @@ class MobileEntranceMotion extends InheritedWidget
 
   final bool moving;
 
-  // The arriving page loading out of sight before anything moves.
   final bool waiting;
 
   const MobileEntranceMotion({

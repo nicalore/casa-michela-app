@@ -139,12 +139,11 @@ class AuthService:
         self.account_repository = account_repository
         self.refresh_token_repository = refresh_token_repository
 
-    # Off by hand, by a revocation, or because no enrollment stands behind it.
+    # False when suspended, revoked, or with no enrollment behind it.
     async def _usable(self, account: Account) -> bool:
         if account.status != AccountStatusEnum.ACTIVE:
             return False
 
-        # The same instance, now with the role graph its standing is read from.
         repository = IdentityRepository(self.account_repository.session)
         identity = await repository.get_account_identity(account.tax_code)
 
@@ -640,7 +639,6 @@ class AuthService:
 
         email_service.send_email(**self._password_reset_email(account, reset_link))
 
-    # Sessions end too: a live one would only meet refusals until it expired.
     async def force_password_change(self, account: Account) -> None:
         account.password_reset_required = True
 
@@ -648,7 +646,6 @@ class AuthService:
         await self.refresh_token_repository.revoke_all_for_account(account.tax_code)
         await self.account_repository.commit()
 
-    # A suspension ends every session; signing in is refused until it is lifted.
     async def suspend(self, account: Account, status: AccountStatusEnum) -> None:
         account.status = status
 

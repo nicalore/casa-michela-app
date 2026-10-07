@@ -16,7 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 # The client beats every 30s: three beats fit the window, two lost survive.
-# Expired rows are never swept — age is read with the row, so a dead holder's
+# Expired rows are never swept - age is read with the row, so a dead holder's
 # lock is already free to the next reader.
 LOCK_TTL_SECONDS: Final[int] = 90
 

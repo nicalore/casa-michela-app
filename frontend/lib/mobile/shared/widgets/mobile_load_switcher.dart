@@ -14,8 +14,7 @@ bool mobileUnseen(BuildContext context)
       MobileHoldScope.waitingOf(context);
 }
 
-// At once when nobody sees it, but never zero: AnimatedSize would re-dirty
-// itself while laying out.
+// Never zero: AnimatedSize would re-dirty itself while laying out.
 Duration mobileRiseDurationOf(BuildContext context)
 {
   return mobileUnseen(context) ? const Duration(milliseconds: 1) : kMobileRiseDuration;
@@ -106,19 +105,15 @@ class MobileLoadSwitcher extends StatelessWidget
   }
 }
 
-// Around pages that may come in: a page loading what it shows asks every
-// transition bringing it in to wait until the release is called, so it comes
-// in complete rather than with its wheel.
+// A loading page holds every transition bringing it in until released, so it arrives complete.
 class MobileHoldScope extends InheritedWidget
 {
   final ValueNotifier<int> holds;
 
-  // The pages under it are loading out of sight.
   final bool waiting;
 
   const MobileHoldScope({super.key, required this.holds, this.waiting = false, required super.child});
 
-  // Whether the nearest scope keeps its pages out of sight.
   static bool waitingOf(BuildContext context)
   {
     return context.dependOnInheritedWidgetOfExactType<MobileHoldScope>()?.waiting ?? false;
@@ -148,8 +143,7 @@ class MobileHoldScope extends InheritedWidget
 
     bool released = false;
 
-    // After the frame that builds what was loaded: that frame still sees the
-    // wait, so the content switches in place instead of rising.
+    // Released after the next frame, which still sees the wait, so content switches in place.
     return ()
     {
       if (released)
@@ -208,7 +202,6 @@ class _MobileRiseInState extends State<MobileRiseIn> with SingleTickerProviderSt
 
     _started = true;
 
-    // Built out of sight, it is already in place when its page comes in.
     if (mobileUnseen(context))
     {
       _rise.value = 1;

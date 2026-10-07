@@ -62,7 +62,7 @@ class MobileAvailabilityDay
 
   bool get isEditable => bands.any((band) => band.isOpen && !band.hasClosed);
 
-  bool get canDelete => bands.any((band) => band.canDelete);
+  bool get canDelete => hasSlots && bands.every((band) => band.slots.isEmpty || band.canDelete);
 }
 
 List<MobileAvailabilityDay> availabilityWeek({

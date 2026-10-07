@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 
-// True when its one button (take the service on, or give it up) was pressed.
+// True when the service was taken on; null when dismissed.
 Future<bool?> showMobileServiceSheet({
   required BuildContext context,
   required String name,
   required String? description,
-  required bool held,
+  required Future<void> Function(BuildContext sheet)? onRemove,
 })
 {
   return showMobileSheet<bool>(
@@ -24,21 +23,13 @@ Future<bool?> showMobileServiceSheet({
           MobileSheetText(description),
         ],
       ],
-      footer: held
-          ? GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(true),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Text(
-                  'Rimuovi servizio',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.trialDanger,
-                  ),
-                ),
+      footer: onRemove != null
+          ? Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: MobileDangerButton(
+                label: 'Rimuovi servizio',
+                icon: Icons.delete_outline_rounded,
+                onPressed: () => onRemove(context),
               ),
             )
           : Padding(
@@ -46,7 +37,7 @@ Future<bool?> showMobileServiceSheet({
               child: MobileGoldButton(
                 label: 'Conferma',
                 icon: Icons.check_rounded,
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => finishMobileSheet(context, true),
               ),
             ),
     ),

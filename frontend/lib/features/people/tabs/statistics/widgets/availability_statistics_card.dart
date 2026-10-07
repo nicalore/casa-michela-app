@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
+import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/teacher_availability_statistics_item.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
@@ -24,6 +25,11 @@ class TeacherAvailabilityCard extends StatelessWidget
   final TeacherAvailabilityStatisticsItem statistics;
   final String period;
   final ValueChanged<String> onPeriodChanged;
+
+  // Shortfalls matter only in presence: online names no one falling short.
+  final String mode;
+  final ValueChanged<String> onModeChanged;
+
   final bool isLoading;
 
   const TeacherAvailabilityCard({
@@ -31,6 +37,8 @@ class TeacherAvailabilityCard extends StatelessWidget
     required this.statistics,
     required this.period,
     required this.onPeriodChanged,
+    required this.mode,
+    required this.onModeChanged,
     this.isLoading = false,
   });
 
@@ -62,17 +70,49 @@ class TeacherAvailabilityCard extends StatelessWidget
     );
   }
 
-  Widget _topRanking()
+  static const String _topTitle = '10 docenti più disponibili';
+
+  List<PersonRankRow> _topRows()
   {
-    return PersonRankingSection(
-      title: '10 docenti più disponibili',
-      rows: [
-        for (final (index, item) in statistics.topTeachers.indexed)
-          PersonRankRow(
-            position: index + 1,
-            person: item.teacher,
-            badgeText: '${item.availabilityCount} disponibilità',
-            accent: AppTheme.trialSeaGreen,
+    return [
+      for (final (index, item) in statistics.topTeachers.indexed)
+        PersonRankRow(
+          position: index + 1,
+          person: item.teacher,
+          badgeText: '${item.availabilityCount} disponibilità',
+          accent: AppTheme.trialSeaGreen,
+        ),
+    ];
+  }
+
+  Widget _topRanking() => PersonRankingSection(title: _topTitle, rows: _topRows());
+
+  Widget _splitRanking()
+  {
+    final rows = _topRows();
+    final half = (rows.length + 1) ~/ 2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const StatSectionTitle(_topTitle),
+        const SizedBox(height: 24),
+        if (rows.isEmpty)
+          const EmptyChartMessage(fontSize: 14)
+        else
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: Column(children: rows.sublist(0, half))),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: VerticalDivider(color: _sectionDivider, thickness: 1),
+                ),
+                Expanded(child: Column(children: rows.sublist(half))),
+              ],
+            ),
           ),
       ],
     );
@@ -112,6 +152,14 @@ class TeacherAvailabilityCard extends StatelessWidget
   Widget _sections()
   {
     final ranking = _topRanking();
+
+    if (mode == kOnlineMode)
+    {
+      return LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < _stackBelow ? ranking : _splitRanking(),
+      );
+    }
+
     final warnings = _warnings();
 
     return LayoutBuilder(
@@ -156,7 +204,12 @@ class TeacherAvailabilityCard extends StatelessWidget
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_available_rounded),
       trailingFit: AppCardTrailing.wrapping,
-      trailing: statsPeriodPill(value: period, onChanged: onPeriodChanged),
+      trailing: StatFilterRow(
+        children: [
+          statsModePill(value: mode, onChanged: onModeChanged),
+          statsPeriodPill(value: period, onChanged: onPeriodChanged),
+        ],
+      ),
       child: AnimatedOpacity(
         opacity: isLoading ? 0.4 : 1,
         duration: _fetchFade,

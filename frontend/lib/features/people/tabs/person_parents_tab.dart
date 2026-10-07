@@ -304,6 +304,7 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     return RelativeCard(
       person: parent,
       roles: parent.roles,
+      feminine: parent.gender == 'F',
       facts: [
         RelativeFact(Icons.cake_rounded, age == null ? missingValue : ageLabel(age)),
         RelativeFact(Icons.call_rounded, orDash(formatPhoneNumber(parent.phoneNumber))),

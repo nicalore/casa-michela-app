@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Collection, Sequence
-from datetime import date
+from datetime import date, time
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -32,6 +32,7 @@ class PresenceRepository(WritableRepository[Presence]):
         booker_tax_code: str | None,
         date_from: date | None,
         date_to: date | None,
+        fresh: bool = False,
     ) -> Sequence[Presence]:
         stmt = (
             select(Presence)
@@ -41,6 +42,10 @@ class PresenceRepository(WritableRepository[Presence]):
                 Presence.start_time,
             )
         )
+
+        # Loaded collections are kept as they were otherwise, deleted subjects too.
+        if fresh:
+            stmt = stmt.execution_options(populate_existing=True)
 
         if student_tax_code is not None:
             stmt = stmt.where(Presence.student_tax_code == student_tax_code)
@@ -58,6 +63,20 @@ class PresenceRepository(WritableRepository[Presence]):
             stmt = stmt.where(Presence.date <= date_to)
 
         return (await self.session.execute(stmt)).scalars().all()
+
+    # Dates and starts only: a presence lies in one band, its start places it.
+    async def list_starts(
+        self,
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> list[tuple[date, time]]:
+        stmt = select(Presence.date, Presence.start_time).where(
+            Presence.date >= date_from,
+            Presence.date <= date_to,
+        )
+
+        return [(row.date, row.start_time) for row in await self.session.execute(stmt)]
 
     # Scoped by student, not booker: a presence belongs to the student and both parents.
     async def get_by_id(

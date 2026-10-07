@@ -32,7 +32,8 @@ class AvailabilityCard extends StatefulWidget
 
   final AvailabilityGroup group;
 
-  final void Function(VoidCallback onCancel) onEditRequested;
+  // Opens the wizard over the details; [onSaved] closes them once the edit is saved.
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   const AvailabilityCard({
@@ -57,11 +58,8 @@ class _AvailabilityCardState extends State<AvailabilityCard>
       barrierLabel: 'AvailabilityDetails',
       builder: (dialogContext) => _AvailabilityDetailsDialogContent(
         group: widget.group,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          widget.onEditRequested(_showDetailsDialog);
-        },
+        // Over the details, which stay put: closing and reopening them replayed their entrance.
+        onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: widget.onDelete,
       ),
     );

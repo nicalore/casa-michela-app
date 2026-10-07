@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -8,6 +9,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../availability/utils/availability_strings.dart';
+import '../utils/booking_wizard_strings.dart' show hoursOverlap;
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
 import '../models/availability_group.dart';
@@ -76,7 +78,7 @@ class AvailabilityWizardDialog extends StatefulWidget
 
   final List<OpeningDayItem> openingDays;
 
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final AvailabilityCreate onCreate;
   final AvailabilityEdit onEdit;
   final AvailabilitySlotDelete onDeleteSlot;
@@ -90,7 +92,7 @@ class AvailabilityWizardDialog extends StatefulWidget
     required this.defaultDate,
     required this.availabilities,
     required this.openingDays,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onCreate,
     required this.onEdit,
     required this.onDeleteSlot,
@@ -115,7 +117,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
   };
 
   // Read once: the dialog is short-lived, and the server enforces the rule.
-  final DateTime _now = DateTime.now();
+  final DateTime _now = romeNow();
 
   bool _isSaving = false;
 
@@ -452,11 +454,6 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
   void _closeDialog()
   {
     Navigator.of(context).pop();
-
-    if (_isEditing)
-    {
-      widget.onCancelEdit?.call();
-    }
   }
 
   Iterable<BandSchedule<AvailabilityItem>> get _schedules =>
@@ -505,6 +502,19 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
 
     for (final group in groups)
     {
+      for (final mode in _modes)
+      {
+        if (_bandsOf(group)[mode]!.overlapping case final TimeBucket band)
+        {
+          CustomSnackBar.show(context: context, message: hoursOverlap(mode, band), isError: true);
+
+          return;
+        }
+      }
+    }
+
+    for (final group in groups)
+    {
       for (final day in group.days)
       {
         for (final mode in _modes)
@@ -529,15 +539,11 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       }
     }
 
-    setState(()
-    {
-      _isSaving = true;
+    setState(() => _isSaving = true);
 
-      for (final schedule in _schedules)
-      {
-        schedule.fuse();
-      }
-    });
+    // Written fused, while the rows shown stay as they were.
+    final Map<BandSchedule<AvailabilityItem>, BandSchedule<AvailabilityItem>> sent = Map.identity()
+      ..addEntries([for (final schedule in _schedules) MapEntry(schedule, schedule.fused())]);
 
     void showError(String message)
     {
@@ -547,7 +553,7 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       }
     }
 
-    for (final item in _schedules.expand((schedule) => schedule.dropped))
+    for (final item in sent.values.expand((schedule) => schedule.dropped))
     {
       if (_saved.contains(item))
       {
@@ -579,9 +585,9 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
       {
         for (final mode in _modes)
         {
-          for (final draft in _bandsOf(group)[mode]!.all)
+          for (final draft in sent[_bandsOf(group)[mode]!]!.all)
           {
-            final key = (day, mode, draft);
+            final key = (day, mode, draft.existing, draft.startMinutes, draft.endMinutes);
 
             if (_saved.contains(key))
             {
@@ -623,6 +629,11 @@ class _AvailabilityWizardDialogState extends State<AvailabilityWizardDialog>
     if (_isEditing || _isOwn)
     {
       Navigator.of(context).pop();
+
+      if (_isEditing)
+      {
+        widget.onEditSaved?.call();
+      }
     }
     else
     {

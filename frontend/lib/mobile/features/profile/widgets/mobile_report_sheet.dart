@@ -8,10 +8,9 @@ import '../../../../features/people/models/person_item.dart';
 import '../../../../services/api_service.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_notice.dart';
+import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_text_field.dart';
-
-const Duration _chipFade = Duration(milliseconds: 160);
 
 // The eyebrow says whose facts they are: a parent reports a child's too.
 Future<void> showMobileReportSheet({
@@ -103,7 +102,7 @@ class _ReportSheetState extends State<_ReportSheet>
       if (mounted)
       {
         MobileNotice.show(context, 'Segnalazione inviata con successo!');
-        Navigator.of(context).pop();
+        finishMobileSheet(context);
       }
     }
     catch (e)
@@ -139,13 +138,13 @@ class _ReportSheetState extends State<_ReportSheet>
           ),
           const SizedBox(height: 14),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: kMobileChipGap,
+            runSpacing: kMobileChipGap,
             children: [
               for (final field in widget.fields)
-                _FieldChip(
+                MobileSelectChip(
                   label: field,
-                  chosen: _chosen.contains(field),
+                  selected: _chosen.contains(field),
                   onTap: () => _toggle(field),
                 ),
             ],
@@ -169,59 +168,6 @@ class _ReportSheetState extends State<_ReportSheet>
             icon: Icons.send_rounded,
             busy: _busy,
             onPressed: _send,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldChip extends StatelessWidget
-{
-  final String label;
-  final bool chosen;
-  final VoidCallback onTap;
-
-  const _FieldChip({required this.label, required this.chosen, required this.onTap});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final Color text = chosen ? AppTheme.modifiedAccent : AppTheme.trialInk;
-
-    return Semantics(
-      button: true,
-      selected: chosen,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: _chipFade,
-          height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: chosen ? AppTheme.trialGoldSurface : Colors.white.withValues(alpha: 0.75),
-            borderRadius: BorderRadius.circular(19),
-            border: Border.all(
-              color: chosen ? AppTheme.trialGold : AppTheme.trialOcean.withValues(alpha: 0.16),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (chosen) ...[
-                Icon(Icons.check_rounded, size: 17, color: text),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: text,
-                ),
-              ),
-            ],
           ),
         ),
       ),

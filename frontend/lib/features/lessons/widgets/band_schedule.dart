@@ -43,20 +43,69 @@ class BandSchedule<T>
 
   bool get isNotEmpty => !isEmpty;
 
-  int get totalMinutes
+  // Overlaps counted once: rows may overlap while edited, a save refuses them.
+  int minutesIn(TimeBucket bucket)
   {
     var minutes = 0;
+    var cursor = 0;
 
-    for (final bucket in TimeBucket.values)
+    for (final stretch in _inTimeOrder(bucket))
     {
-      for (final stretch in of(bucket))
+      final start = stretch.startMinutes > cursor ? stretch.startMinutes : cursor;
+
+      if (stretch.endMinutes > start)
       {
-        minutes += stretch.minutes;
+        minutes += stretch.endMinutes - start;
+        cursor = stretch.endMinutes;
       }
     }
 
     return minutes;
   }
+
+  // The first band where two rows share time; rows touching end to start do not.
+  TimeBucket? get overlapping
+  {
+    for (final bucket in TimeBucket.values)
+    {
+      var end = -1;
+
+      for (final stretch in _inTimeOrder(bucket))
+      {
+        if (stretch.startMinutes < end)
+        {
+          return bucket;
+        }
+
+        if (stretch.endMinutes > end)
+        {
+          end = stretch.endMinutes;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // What a save writes, the rows shown left as they are: touching rows go as one.
+  BandSchedule<T> fused()
+  {
+    final BandSchedule<T> copy = BandSchedule<T>()..dropped.addAll(dropped);
+
+    for (final bucket in TimeBucket.values)
+    {
+      copy.of(bucket).addAll([
+        for (final stretch in of(bucket))
+          BandStretch<T>(startTime: stretch.startTime, endTime: stretch.endTime, existing: stretch.existing),
+      ]);
+    }
+
+    return copy..fuse();
+  }
+
+  int get totalMinutes => TimeBucket.values.fold(0, (total, bucket) => total + minutesIn(bucket));
+
+  List<TimeBucket> get bands => [for (final bucket in TimeBucket.values) if (of(bucket).isNotEmpty) bucket];
 
   Iterable<BandStretch<T>> get all sync*
   {
@@ -141,37 +190,6 @@ class BandSchedule<T>
   void removeAt(TimeBucket bucket, int index)
   {
     _drop(of(bucket).removeAt(index));
-  }
-
-  // Drag bounds; neighbours are read off the clock, not the list order.
-  (int, int) boundsAt(TimeBucket bucket, OpeningWindow window, int index)
-  {
-    final stretches = of(bucket);
-    final self = stretches[index];
-
-    var start = window.startMinutes;
-    var end = window.endMinutes;
-
-    for (var other = 0; other < stretches.length; other++)
-    {
-      if (other == index)
-      {
-        continue;
-      }
-
-      final neighbour = stretches[other];
-
-      if (neighbour.endMinutes <= self.startMinutes)
-      {
-        start = neighbour.endMinutes > start ? neighbour.endMinutes : start;
-      }
-      else if (neighbour.startMinutes >= self.endMinutes)
-      {
-        end = neighbour.startMinutes < end ? neighbour.startMinutes : end;
-      }
-    }
-
-    return (start, end);
   }
 
   // First free gap of at least a quarter hour, or null when the window is full.
@@ -322,6 +340,9 @@ class BandScheduleField<T> extends StatelessWidget
 
   final int minimumMinutes;
 
+  // null: every band.
+  final List<TimeBucket>? bands;
+
   const BandScheduleField({
     super.key,
     required this.schedule,
@@ -333,6 +354,7 @@ class BandScheduleField<T> extends StatelessWidget
     this.disabledLabelFor,
     this.frozen = const {},
     this.addLabel = 'AGGIUNGI ORARIO',
+    this.bands,
   });
 
   void _report(void Function() change)
@@ -348,10 +370,9 @@ class BandScheduleField<T> extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final bucket in TimeBucket.values) ...[
+        for (final (index, bucket) in (bands ?? TimeBucket.values).indexed) ...[
+          if (index > 0) const Divider(height: 26, thickness: 1, color: AppTheme.trialLine),
           _buildBand(bucket),
-          if (bucket != TimeBucket.values.last)
-            const Divider(height: 26, thickness: 1, color: AppTheme.trialLine),
         ],
       ],
     );
@@ -373,7 +394,7 @@ class BandScheduleField<T> extends StatelessWidget
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // First child, so answering the band does not rebuild the switch (its pill would appear, not slide).
+        // First child: answering the band must not rebuild the switch (pill would jump, not slide).
         _buildStretch(bucket, window, 0),
         for (var index = 1; index < stretches.length; index++) ...[
           const SizedBox(height: 14),
@@ -446,8 +467,6 @@ class BandScheduleField<T> extends StatelessWidget
       );
     }
 
-    final bounds = schedule.boundsAt(bucket, window, index);
-
     return BandTimeRangeSlider(
       minimumMinutes: minimumMinutes,
       bucket: bucket,
@@ -457,8 +476,6 @@ class BandScheduleField<T> extends StatelessWidget
       endTime: stretches[index].endTime,
       windowStartMinutes: window.startMinutes,
       windowEndMinutes: window.endMinutes,
-      dragMinMinutes: bounds.$1,
-      dragMaxMinutes: bounds.$2,
       trueLabel: 'Sì',
       falseLabel: 'No',
       trailing: stretches.length == 1

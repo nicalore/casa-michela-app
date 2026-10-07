@@ -63,7 +63,7 @@ class _ReportSheetState extends State<_ReportSheet>
       if (mounted)
       {
         MobileNotice.show(context, kReportSent);
-        Navigator.of(context).pop();
+        finishMobileSheet(context);
       }
     }
     catch (e)

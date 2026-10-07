@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.booking import Booking
 from app.models.calendar_publication import CalendarPublication
 from app.models.lesson import Lesson
 from app.models.opening_day import OpeningDay
@@ -79,7 +80,6 @@ async def _afternoon_with_a_room(db: AsyncSession):
     return built
 
 
-# A closed day deletes everything on it, published included, via calendar_hours_sync.
 async def test_closing_a_published_day_clears_it_too(db: AsyncSession) -> None:
     await _afternoon_with_a_room(db)
 
@@ -132,7 +132,7 @@ async def test_a_teacher_cannot_withdraw_hours_once_the_bookings_close(
     teacher = identity_of(built.teacher.tax_code, "TEACHER")
 
     with freeze(datetime(2026, 9, 15, 11, tzinfo=_ROME)):
-        with pytest.raises(ValueError, match="solo un amministratore"):
+        with pytest.raises(ValueError, match="si sono chiuse il"):
             await service.delete(teacher, built.availability.id)
 
 
@@ -169,7 +169,7 @@ async def test_a_family_cannot_withdraw_a_request_once_the_bookings_close(
     student = identity_of(built.student.tax_code, "STUDENT")
 
     with freeze(datetime(2026, 9, 15, 11, tzinfo=_ROME)):
-        with pytest.raises(ValueError, match="solo un amministratore"):
+        with pytest.raises(ValueError, match="si sono chiuse il"):
             await _bookings(db).delete(student, built.booking.id)
 
 
@@ -300,28 +300,32 @@ async def _lesson_starts(db: AsyncSession) -> list[time]:
     return sorted(lesson.start_time for lesson in remaining)
 
 
-# Typed under the first stretch; the second hour sits in the other and goes with it.
 async def test_dropping_a_stretch_takes_only_the_hours_inside_it(
     db: AsyncSession,
 ) -> None:
-    _, later = await _two_stretches(db)
+    built, later = await _two_stretches(db)
+
+    # Long enough alone for the two hours, or the band could not lose the other.
+    built.presence.end_time = time(16)
+    await db.flush()
 
     await PresenceService(PresenceRepository(db)).delete(ADMIN_IDENTITY, later.id)
 
     assert await _lesson_starts(db) == [time(14)]
 
 
-async def test_dropping_the_stretch_of_the_booking_takes_every_hour(
+async def test_dropping_the_stretch_of_the_booking_moves_it_to_the_band(
     db: AsyncSession,
 ) -> None:
-    built, _ = await _two_stretches(db)
+    built, later = await _two_stretches(db)
 
     await PresenceService(PresenceRepository(db)).delete(
         ADMIN_IDENTITY,
         built.presence.id,
     )
 
-    assert await _count(db, Lesson) == 0
+    assert await _lesson_starts(db) == [time(17)]
+    assert (await db.get(Booking, built.booking.id)).presence_id == later.id
 
 
 async def test_narrowing_a_stretch_drops_what_falls_outside_it(

@@ -1,5 +1,6 @@
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/text_case.dart';
 import '../models/person_item.dart';
 import '../widgets/person_row_models.dart';
@@ -337,7 +338,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
       {
         collector.add('enrollmentYear_$i', 'Anno non valido', PersonEditCardId.memberships);
       }
-      else if (int.parse(year) > DateTime.now().year)
+      else if (int.parse(year) > romeNow().year)
       {
         collector.add('enrollmentYear_$i', 'Anno non futuro', PersonEditCardId.memberships);
       }

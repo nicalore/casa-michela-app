@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/json_parsing.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
@@ -21,12 +21,15 @@ import '../../association/models/opening_day_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
+import '../../bookings/utils/booking_replacement.dart' show withLeftOut;
 import '../../people/edit/widgets/person_edit_guide.dart';
 import '../../people/models/person_item.dart';
+import '../models/band_offer.dart';
 import '../models/booking_summary_item.dart';
 import '../models/presence_item.dart';
 import '../models/subject_request.dart';
 import '../utils/booking_window.dart';
+import '../utils/booking_wizard_strings.dart';
 import '../utils/opening_window.dart';
 import '../utils/study_program_lookup.dart';
 import 'band_schedule.dart';
@@ -75,7 +78,7 @@ class _Answers
 
 enum _Step { who, modes, hours, subjects }
 
-typedef _Card = ({_Step step, _DayGroup? group, String? mode});
+typedef _Card = ({_Step step, _DayGroup? group, String? mode, TimeBucket? band});
 
 class PresenceWizardDialog extends StatefulWidget
 {
@@ -107,14 +110,13 @@ class PresenceWizardDialog extends StatefulWidget
 
   final List<OpeningDayItem> openingDays;
 
-  final VoidCallback? onCancelEdit;
+  final TimeBucket? band;
+  final bool onlyFreeBands;
+
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onCreateLessonRequest;
-  final Future<PresenceItem?> Function(String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) onCreatePresence;
-  final Future<bool> Function(PresenceItem existing, String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) onEditPresence;
-  final Future<bool> Function(PresenceItem presence, Function(String) onError) onDeletePresenceQuietly;
-  final Future<bool> Function(int presenceId, Map<String, dynamic> subject, Function(String) onError) onCreateBooking;
-  final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditBooking;
-  final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteBooking;
+
+  final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onReplaceLessonRequest;
 
   const PresenceWizardDialog({
     super.key,
@@ -135,14 +137,11 @@ class PresenceWizardDialog extends StatefulWidget
     required this.availableDays,
     required this.defaultDate,
     required this.openingDays,
-    this.onCancelEdit,
+    this.band,
+    this.onlyFreeBands = false,
+    this.onEditSaved,
     required this.onCreateLessonRequest,
-    required this.onCreatePresence,
-    required this.onEditPresence,
-    required this.onDeletePresenceQuietly,
-    required this.onCreateBooking,
-    required this.onEditBooking,
-    required this.onDeleteBooking,
+    required this.onReplaceLessonRequest,
   });
 
   @override
@@ -157,7 +156,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   final Map<String, _Answers> _answersByGroup = {};
 
-  static const List<String> _subjectCategoryLabels = ['Materie', 'Discipline', 'Servizi'];
+  static const List<String> _subjectCategoryLabels = kSubjectCategoryLabels;
 
   static const int _ministryCategory = 0;
   static const int _disciplineCategory = 1;
@@ -178,11 +177,8 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       mode: List.filled(_subjectCategoryLabels.length, ''),
   };
 
-  final Map<String, ScrollController> _subjectScrollControllers = {
-    for (final mode in _modes) mode: ScrollController(),
-  };
-
-  final List<(String, BookingSummaryItem)> _droppedBookings = [];
+  // One per subjects card: two cards of a mode can be on screen while the carousel turns.
+  final Map<String, ScrollController> _subjectScrollControllers = {};
 
   // Rows and lessons in closed bands, which the server refuses to change: shown, never edited.
   final Map<String, Map<TimeBucket, List<BandStretch<PresenceItem>>>> _frozen = {
@@ -195,21 +191,47 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   };
 
   // Read once: the dialog is short-lived, and the server enforces the rule.
-  final DateTime _now = DateTime.now();
+  final DateTime _now = romeNow();
 
   int _cardIndex = 0;
   bool _movingForward = true;
 
   bool _isSaving = false;
 
-  final Set<Object> _saved = {};
-
-  final Map<Object, int> _createdIds = {};
+  // Skipped when a failed save is retried.
+  final Set<DateTime> _saved = {};
 
   final Map<SubjectRequestDraft, TextEditingController> _topicControllers = {};
   final Map<SubjectRequestDraft, TextEditingController> _notesControllers = {};
 
   bool get _isEditing => widget.existingPresence != null;
+
+  // Snapshot at open: the wizard shows and writes against these even if the page reloads.
+  late final List<PresenceItem> _seenRows = [...widget.presences];
+
+  // null: every band. Rows outside it go back unchanged so the server keeps them.
+  late final Set<TimeBucket>? _scope;
+  final List<PresenceItem> _held = [];
+
+  bool _inScope(TimeBucket band) => _scope?.contains(band) ?? true;
+
+  List<TimeBucket> get _scopeBands => [for (final band in TimeBucket.values) if (_inScope(band)) band];
+
+  Set<TimeBucket> _freeBandsOn(DateTime day, String mode)
+  {
+    return {
+      for (final band in TimeBucket.values)
+        if (!_isClosed(day, band) &&
+            openingWindowFor(widget.openingDays, day, mode, band) != null &&
+            !_seenRows.any((presence) =>
+                presence.studentTaxCode == _selectedStudentTaxCode &&
+                isSameDate(presence.date, day) &&
+                bucketFor(presence.startTime) == band))
+          band,
+    };
+  }
+
+  final List<({String student, DateTime day, String mode})> _created = [];
 
   bool get _isOwn => widget.isOwn;
 
@@ -254,8 +276,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return null;
   }
 
-  String get _who => _selectedStudent?.firstName ?? 'lo studente';
-
   String get _whose
   {
     return switch (_selectedStudent)
@@ -263,11 +283,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       final student? => 'di ${student.firstName}',
       null => 'dello studente',
     };
-  }
-
-  String _agreed(String masculine, String feminine)
-  {
-    return _selectedStudent?.gender == 'F' ? feminine : masculine;
   }
 
   List<MinistrySubjectItem> get _filteredMinistrySubjects
@@ -291,18 +306,37 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return days;
   }
 
-  // Grouping key: open window per mode and band, '-' where shut or closed to own.
+  // Empty when editing a whole day: the other mode's rows are in the answers then.
+  Set<TimeBucket> _takenOn(DateTime day, String mode)
+  {
+    if (_isEditing && widget.onlyMode == null)
+    {
+      return const {};
+    }
+
+    final String other = _otherMode(mode);
+
+    return {
+      for (final presence in _seenRows)
+        if (presence.mode == other && presence.studentTaxCode == _selectedStudentTaxCode && isSameDate(presence.date, day))
+          ?bucketFor(presence.startTime),
+    };
+  }
+
+  // Grouping key per mode and band: open window, '-' shut or closed, 'x' taken the other way.
   String _signatureOf(DateTime day)
   {
     final parts = <String>[];
 
     for (final mode in _modes)
     {
+      final Set<TimeBucket> taken = _takenOn(day, mode);
+
       for (final bucket in TimeBucket.values)
       {
         final window = _isClosed(day, bucket) ? null : openingWindowFor(widget.openingDays, day, mode, bucket);
 
-        parts.add(window == null ? '-' : '${window.startMinutes}-${window.endMinutes}');
+        parts.add(window == null ? '-' : (taken.contains(bucket) ? 'x' : '${window.startMinutes}-${window.endMinutes}'));
       }
     }
 
@@ -348,6 +382,11 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   OpeningWindow? _windowFor(_DayGroup group, String mode, TimeBucket bucket)
   {
+    if (!_inScope(bucket))
+    {
+      return null;
+    }
+
     if (_takenElsewhere(group, mode).contains(bucket))
     {
       return null;
@@ -373,7 +412,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     if (storedUnread)
     {
-      for (final presence in widget.presences)
+      for (final presence in _seenRows)
       {
         if (presence.mode != other ||
             presence.studentTaxCode != _selectedStudentTaxCode ||
@@ -398,17 +437,19 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   {
     if (_takenElsewhere(group, mode).contains(bucket))
     {
-      return 'Già prenotata ${_otherMode(mode) == kOnlineMode ? kOnScreen : kInBuilding}';
+      return takenByOtherMode(_otherMode(mode));
     }
 
-    return _sharedWindow(group, mode, bucket) == null ? 'Associazione chiusa' : 'Prenotazioni chiuse';
+    return _sharedWindow(group, mode, bucket) == null ? kAssociationShutBand : kBookingsShutBand;
   }
 
   List<String> _openModesOn(DateTime day)
   {
     return _modes
+        .where((mode) => widget.onlyMode == null || mode == widget.onlyMode)
         .where((mode) => TimeBucket.values.any((bucket) =>
             !_isClosed(day, bucket) &&
+            !_takenOn(day, mode).contains(bucket) &&
             openingWindowFor(widget.openingDays, day, mode, bucket) != null))
         .toList();
   }
@@ -439,18 +480,77 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return _answersOf(group).modes.where(open.contains).toSet();
   }
 
-  bool _isDayOffered(DateTime day) => _openModesOn(day).isNotEmpty;
+  // Booked days are edited from their row, never created again; null when free.
+  String? _bookedRefusal(DateTime day)
+  {
+    if (_isEditing)
+    {
+      return null;
+    }
+
+    for (final presence in _seenRows)
+    {
+      if (presence.studentTaxCode == _selectedStudentTaxCode &&
+          isSameDate(presence.date, day) &&
+          (widget.onlyMode == null || presence.mode == widget.onlyMode))
+      {
+        return takenByOtherMode(presence.mode);
+      }
+    }
+
+    for (final made in _created)
+    {
+      if (made.student == _selectedStudentTaxCode &&
+          isSameDate(made.day, day) &&
+          (widget.onlyMode == null || made.mode == widget.onlyMode))
+      {
+        return takenByOtherMode(made.mode);
+      }
+    }
+
+    return null;
+  }
+
+  bool _isDayOffered(DateTime day) => _openModesOn(day).isNotEmpty && _bookedRefusal(day) == null;
 
   String _dayTooltip(DateTime day)
   {
-    final when = formatAvailableDayLabel(day).toLowerCase();
+    final bool open = _modes.any((mode) => isOpenOn(widget.openingDays, day, mode));
 
-    if (!_modes.any((mode) => isOpenOn(widget.openingDays, day, mode)))
+    if (_bookedRefusal(day) case final String booked)
     {
-      return "L'Associazione è chiusa $when.";
+      return booked;
     }
 
-    return 'Le prenotazioni di $when sono chiuse.';
+    if (widget.onlyMode case final String only when open && !isOpenOn(widget.openingDays, day, only))
+    {
+      return modeShutAllDay(only);
+    }
+
+    for (final mode in _modes)
+    {
+      final bool takenAway = TimeBucket.values.any((bucket) =>
+          !_isClosed(day, bucket) &&
+          _takenOn(day, mode).contains(bucket) &&
+          openingWindowFor(widget.openingDays, day, mode, bucket) != null);
+
+      if ((widget.onlyMode == null || widget.onlyMode == mode) && takenAway)
+      {
+        return takenByOtherMode(_otherMode(mode));
+      }
+    }
+
+    return bookingDayRefusal(day, shut: !open);
+  }
+
+  void _keepOfferedDays()
+  {
+    _days = _days.where(_isDayOffered).toSet();
+
+    if (_days.isEmpty && _isDayOffered(_firstOfferedDay()))
+    {
+      _days = {_firstOfferedDay()};
+    }
   }
 
   DateTime _firstOfferedDay()
@@ -496,6 +596,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     if (existing == null)
     {
+      _scope = widget.band == null ? null : {widget.band!};
       _selectedStudentTaxCode = _defaultStudentTaxCode;
       _days = {_firstOfferedDay()};
 
@@ -504,10 +605,16 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     _selectedStudentTaxCode = existing.studentTaxCode;
     _days = {existing.date};
+    _scope = switch ((widget.band, widget.onlyMode))
+    {
+      (final TimeBucket band, _) => {band},
+      (null, final String mode) when widget.onlyFreeBands => _freeBandsOn(existing.date, mode),
+      _ => null,
+    };
 
     final _Answers answers = _answersOf(_editedGroup);
 
-    for (final presence in widget.presences)
+    for (final presence in _seenRows)
     {
       if (presence.studentTaxCode != existing.studentTaxCode ||
           !isSameDate(presence.date, existing.date) ||
@@ -519,6 +626,13 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       final bucket = bucketFor(presence.startTime);
 
       final frozen = bucket != null && _isClosed(existing.date, bucket);
+
+      if (!frozen && bucket != null && !_inScope(bucket))
+      {
+        _held.add(presence);
+
+        continue;
+      }
 
       if (bucket != null)
       {
@@ -551,6 +665,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
             booking.ministrySubjectId,
             fallback: '',
           ),
+          band: bucket,
         ));
       }
     }
@@ -619,7 +734,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
         if (_days.isEmpty)
         {
-          return 'Scegli almeno un giorno per andare avanti.';
+          return kPickDayToGoOn;
         }
 
       case _Step.modes:
@@ -629,16 +744,23 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         }
 
       case _Step.hours:
-        if (_answersOf(card.group!).hours[card.mode]!.isEmpty)
+        final BandSchedule<PresenceItem> hours = _answersOf(card.group!).hours[card.mode]!;
+
+        if (hours.isEmpty)
         {
-          return 'Indica almeno un orario '
-              '${modeLabel(card.mode!).toLowerCase()} per andare avanti.';
+          return hoursToGoOn(card.mode!);
+        }
+
+        if (hours.overlapping case final TimeBucket band)
+        {
+          return hoursOverlap(card.mode!, band);
         }
 
       case _Step.subjects:
-        if (card.mode == kOnlineMode && _answersOf(card.group!).requests[kOnlineMode]!.isEmpty)
+        if (card.mode == kOnlineMode &&
+            !_answersOf(card.group!).requests[kOnlineMode]!.any((request) => request.band == card.band))
         {
-          return 'Scegli almeno una materia per andare avanti.';
+          return kPickSubjectToGoOn;
         }
     }
 
@@ -648,32 +770,49 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   void _closeDialog()
   {
     Navigator.of(context).pop();
-
-    if (_isEditing)
-    {
-      widget.onCancelEdit?.call();
-    }
   }
 
-  int _minutesAsked(_DayGroup group, String mode)
+  int _minutesAsked(_DayGroup group, String mode, {TimeBucket? band, SubjectRequestDraft? skip})
   {
     var minutes = 0;
 
     for (final request in _answersOf(group).requests[mode]!)
     {
-      minutes += request.duration ?? 0;
+      if (!identical(request, skip) && (band == null || request.band == band))
+      {
+        minutes += request.duration ?? 0;
+      }
     }
 
     return minutes;
   }
 
-  Map<int, int> _minutesByDiscipline(_DayGroup group, String mode, {SubjectRequestDraft? skip})
+  List<BandOffer> _bandOffers(_DayGroup group, String mode, {SubjectRequestDraft? skip})
+  {
+    final BandSchedule<PresenceItem> hours = _answersOf(group).hours[mode]!;
+
+    return [
+      for (final band in hours.bands)
+          BandOffer(
+            band: band,
+            hours: [
+              for (final stretch in [...hours.of(band)]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes)))
+                formatTimeRange(stretch.startTime, stretch.endTime),
+            ].join(' · '),
+            minutes: hours.minutesIn(band),
+            takenByOthers: _minutesAsked(group, mode, band: band, skip: skip),
+          ),
+    ];
+  }
+
+  // Per band, as the server caps it; a null [band] sums the whole mode.
+  Map<int, int> _minutesByDiscipline(_DayGroup group, String mode, {TimeBucket? band, SubjectRequestDraft? skip})
   {
     final minutes = <int, int>{};
 
-    for (final request in _answersOf(group).requests[mode]!)
+    for (final request in [..._answersOf(group).requests[mode]!, ..._frozenRequests[mode]!])
     {
-      if (identical(request, skip))
+      if (identical(request, skip) || (band != null && request.band != band))
       {
         continue;
       }
@@ -708,7 +847,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         _subjectQueries[mode]!.fillRange(0, _subjectQueries[mode]!.length, '');
       }
 
-      _droppedBookings.clear();
       _saved.clear();
       _cardIndex = 0;
       _movingForward = false;
@@ -734,7 +872,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     if (_days.isEmpty)
     {
-      return 'Seleziona almeno una giornata.';
+      return kPickADayToSave;
+    }
+
+    for (final day in _days)
+    {
+      if (_bookedRefusal(day) case final String booked)
+      {
+        return booked;
+      }
     }
 
     final groups = _groups;
@@ -743,7 +889,12 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         !_hasAnyFrozen &&
         !_isClearing)
     {
-      return 'Indica almeno un orario.';
+      return kGiveAnHour;
+    }
+
+    if (!_isEditing && groups.any((group) => _modePayloads(group).isEmpty))
+    {
+      return kGiveAnHour;
     }
 
     for (final group in groups)
@@ -751,11 +902,19 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       final _Answers answers = _answersOf(group);
       final String days = _daysLabel(group);
 
+      for (final mode in _effectiveModes(group))
+      {
+        if (answers.hours[mode]!.overlapping case final TimeBucket band)
+        {
+          return hoursOverlap(mode, band, days);
+        }
+      }
+
       if (_effectiveModes(group).contains(kOnlineMode) &&
           answers.hours[kOnlineMode]!.isNotEmpty &&
           answers.requests[kOnlineMode]!.isEmpty)
       {
-        return 'Scegli almeno una materia online$days.';
+        return onlineSubjectMissing(days);
       }
 
       for (final mode in _modes)
@@ -770,44 +929,50 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
         if (answers.hours[mode]!.isEmpty)
         {
-          return 'Hai chiesto delle materie $label senza indicare gli orari.';
+          return subjectsWithoutHours(label);
         }
 
         for (final request in requests)
         {
           if (!request.isComplete)
           {
-            return 'Indica la durata di ${request.displayName} ($label).';
+            return durationMissing(request.displayName, label);
           }
 
           if (request.asksForTopicAndTag && request.tags.isEmpty)
           {
-            return 'Indica il tipo di lezione di ${request.displayName} ($label).';
+            return lessonKindMissing(request.displayName, label);
           }
         }
 
-        final byDiscipline = _minutesByDiscipline(group, mode);
+        final BandSchedule<PresenceItem> hours = answers.hours[mode]!;
 
-        for (final entry in byDiscipline.entries)
+        for (final band in hours.bands)
         {
-          if (entry.value > maxDailyMinutesPerDiscipline)
+          for (final entry in _minutesByDiscipline(group, mode, band: band).entries)
           {
-            return '${_disciplineName(entry.key)} ($label): ${formatMinutes(entry.value)} in un '
-                'giorno. Non si possono richiedere più di '
-                '${formatMinutes(maxDailyMinutesPerDiscipline)} minuti al giorno per una disciplina.';
+            if (entry.value > maxDailyMinutesPerDiscipline)
+            {
+              return disciplineOverBand(
+                _disciplineName(entry.key),
+                entry.value,
+                maxDailyMinutesPerDiscipline,
+                '${modeLabel(mode).toLowerCase()} ${ofBandLabel(band)}$days',
+              );
+            }
           }
         }
 
-        final asked = _minutesAsked(group, mode);
-        final given = answers.hours[mode]!.totalMinutes;
-
-        if (asked > given)
+        for (final band in TimeBucket.values)
         {
-          return _isSelf
-              ? 'Il totale delle ore di lezione richieste$days supera il tuo tempo di '
-                  'permanenza in Associazione.'
-              : 'Il totale delle ore di lezione richieste$days supera il tempo di permanenza '
-                  '$_whose in Associazione.';
+          if (_minutesAsked(group, mode, band: band) <= hours.minutesIn(band))
+          {
+            continue;
+          }
+
+          return hours.bands.length > 1
+              ? bandStayExceeded(band, days, isSelf: _isSelf, whose: _whose)
+              : stayExceeded(days, isSelf: _isSelf, whose: _whose);
         }
       }
     }
@@ -845,14 +1010,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
   bool get _isUntouched
   {
-    if (!_isOwn || !_isEditing || !_hasAnyFrozen || _droppedBookings.isNotEmpty)
+    if (!_isOwn || !_isEditing || !_hasAnyFrozen)
     {
       return false;
     }
 
     final _Answers answers = _answersOf(_editedGroup);
 
-    return _modes.every((mode) => answers.hours[mode]!.isEmpty && answers.hours[mode]!.dropped.isEmpty);
+    return _modes.every((mode) =>
+        answers.hours[mode]!.isEmpty && answers.hours[mode]!.dropped.isEmpty && answers.requests[mode]!.isEmpty);
   }
 
   Future<void> _save() async
@@ -876,18 +1042,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     final studentTaxCode = _selectedStudentTaxCode!;
 
-    setState(()
-    {
-      _isSaving = true;
-
-      for (final answers in _allAnswers)
-      {
-        for (final schedule in answers.hours.values)
-        {
-          schedule.fuse();
-        }
-      }
-    });
+    setState(() => _isSaving = true);
 
     void showError(String message)
     {
@@ -895,23 +1050,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       {
         CustomSnackBar.show(context: context, message: message, isError: true);
       }
-    }
-
-    Future<bool> once(Object key, Future<bool> Function() write) async
-    {
-      if (_saved.contains(key))
-      {
-        return true;
-      }
-
-      final success = await write();
-
-      if (success)
-      {
-        _saved.add(key);
-      }
-
-      return success;
     }
 
     void stop()
@@ -922,156 +1060,44 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       }
     }
 
-    if (!_isEditing)
+    for (final group in _groups)
     {
-      for (final group in _groups)
+      for (final day in group.days)
       {
-        for (final day in group.days)
+        if (_saved.contains(day))
         {
-          if (_saved.contains(day))
-          {
-            continue;
-          }
-
-          final written = await widget.onCreateLessonRequest(
-            studentTaxCode,
-            day,
-            _modePayloads(group),
-            showError,
-          );
-
-          if (!written)
-          {
-            stop();
-
-            return;
-          }
-
-          _saved.add(day);
+          continue;
         }
-      }
 
-      _finishSave();
+        final bool written = _isEditing
+            ? await widget.onReplaceLessonRequest(
+                studentTaxCode,
+                day,
+                withLeftOut(
+                  _replacementOf(group),
+                  _seenRows.where((presence) => presence.studentTaxCode == studentTaxCode && isSameDate(presence.date, day)),
+                  closed: (band) => _isClosed(day, band),
+                ),
+                showError,
+              )
+            : await widget.onCreateLessonRequest(studentTaxCode, day, _modePayloads(group), showError);
 
-      return;
-    }
-
-    final _DayGroup group = _editedGroup;
-    final _Answers answers = _answersOf(group);
-
-    for (final (mode, booking) in _droppedBookings)
-    {
-      final presence = _presenceOf(booking, mode);
-
-      if (presence == null)
-      {
-        continue;
-      }
-
-      if (!await once(booking, () => widget.onDeleteBooking(booking, presence.id, showError)))
-      {
-        stop();
-
-        return;
-      }
-    }
-
-    for (final mode in _modes)
-    {
-      for (final presence in answers.hours[mode]!.dropped)
-      {
-        if (!await once(presence, () => widget.onDeletePresenceQuietly(presence, showError)))
+        if (!written)
         {
           stop();
 
           return;
         }
-      }
-    }
 
-    for (final day in group.days)
-    {
-      for (final mode in _modes)
-      {
-        int? firstPresenceId;
-
-        for (final stretch in answers.hours[mode]!.all)
+        if (!_isEditing)
         {
-          final existing = stretch.existing;
-          final isMove = existing != null && isSameDate(day, existing.date);
-          final key = (day, mode, stretch);
-
-          if (isMove)
+          for (final block in _modePayloads(group))
           {
-            firstPresenceId ??= existing.id;
-
-            if (!await once(key, () => widget.onEditPresence(existing, studentTaxCode, day, mode, stretch.startTime, stretch.endTime, showError)))
-            {
-              stop();
-
-              return;
-            }
-
-            continue;
+            _created.add((student: studentTaxCode, day: day, mode: block['mode'] as String));
           }
-
-          if (_saved.contains(key))
-          {
-            firstPresenceId ??= _createdIds[key];
-
-            continue;
-          }
-
-          final created = await widget.onCreatePresence(
-            studentTaxCode,
-            day,
-            mode,
-            stretch.startTime,
-            stretch.endTime,
-            showError,
-          );
-
-          if (created == null)
-          {
-            stop();
-
-            return;
-          }
-
-          _saved.add(key);
-          _createdIds[key] = created.id;
-          firstPresenceId ??= created.id;
         }
 
-        if (firstPresenceId == null)
-        {
-          continue;
-        }
-
-        for (final request in answers.requests[mode]!)
-        {
-          final existing = request.existing;
-          final key = (day, mode, request);
-
-          if (existing != null && isSameDate(day, widget.existingPresence!.date))
-          {
-            if (!await once(key, () => widget.onEditBooking(existing, firstPresenceId!, request.toJson(), showError)))
-            {
-              stop();
-
-              return;
-            }
-
-            continue;
-          }
-
-          if (!await once(key, () => widget.onCreateBooking(firstPresenceId!, request.toJson(), showError)))
-          {
-            stop();
-
-            return;
-          }
-        }
+        _saved.add(day);
       }
     }
 
@@ -1090,21 +1116,20 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     setState(() => _isSaving = false);
 
-    final String what = _isOwn ? 'Prenotazione' : 'Richiesta';
-
     CustomSnackBar.show(
       context: context,
-      message: _isEditing
-          ? (cleared ? '$what eliminata con successo!' : '$what modificata con successo!')
-          : (_days.length == 1
-              ? '$what creata con successo!'
-              : '${_days.length} ${_isOwn ? 'prenotazioni' : 'richieste'} create con successo!'),
+      message: presenceSaved(own: _isOwn, editing: _isEditing, cleared: cleared, days: _days.length),
       isError: false,
     );
 
     if (_isEditing || _isOwn)
     {
       Navigator.of(context).pop();
+
+      if (_isEditing)
+      {
+        widget.onEditSaved?.call();
+      }
     }
     else
     {
@@ -1123,30 +1148,60 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           {
             'mode': mode,
             'slots': [
-              for (final stretch in answers.hours[mode]!.all)
+              for (final stretch in answers.hours[mode]!.fused().all)
                 {
                   'start_time': formatTimeOfDay(stretch.startTime),
                   'end_time': formatTimeOfDay(stretch.endTime),
                 },
             ],
             'subjects': [
-              for (final request in answers.requests[mode]!) request.toJson(),
+              for (final request in answers.requests[mode]!) request.toRequestJson(),
             ],
           },
     ];
   }
 
-  PresenceItem? _presenceOf(BookingSummaryItem booking, String mode)
+  // An unchosen mode clears; closed-band rows are left out and the server keeps them.
+  List<Map<String, dynamic>> _replacementOf(_DayGroup group)
   {
-    for (final presence in widget.presences)
-    {
-      if (presence.bookings.any((row) => row.id == booking.id))
-      {
-        return presence;
-      }
-    }
+    final _Answers answers = _answersOf(group);
+    final Set<String> chosen = _effectiveModes(group);
 
-    return null;
+    return [
+      for (final mode in _modes)
+        if (widget.onlyMode == null || widget.onlyMode == mode)
+          {
+            'mode': mode,
+            'slots': [
+              if (chosen.contains(mode))
+                for (final stretch in answers.hours[mode]!.fused().all)
+                  {
+                    'start_time': formatTimeOfDay(stretch.startTime),
+                    'end_time': formatTimeOfDay(stretch.endTime),
+                    if (stretch.existing case final PresenceItem stored) ...{
+                      'presence_id': stored.id,
+                      'expected_updated_at': stored.updatedAt.toIso8601String(),
+                    },
+                  },
+              for (final row in _held)
+                if (row.mode == mode)
+                  {
+                    'start_time': formatTimeOfDay(row.startTime),
+                    'end_time': formatTimeOfDay(row.endTime),
+                    'presence_id': row.id,
+                    'expected_updated_at': row.updatedAt.toIso8601String(),
+                  },
+            ],
+            'subjects': [
+              if (chosen.contains(mode))
+                for (final request in answers.requests[mode]!) request.toRequestJson(),
+              for (final row in _held)
+                if (row.mode == mode)
+                  for (final booking in row.bookings)
+                    SubjectRequestDraft.fromBooking(booking, band: bucketFor(row.startTime)).toRequestJson(),
+            ],
+          },
+    ];
   }
 
   Widget _buildDayField()
@@ -1155,9 +1210,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       days: widget.availableDays,
       values: _days,
       onChanged: _selectDays,
-      summary: (count) => _groups.length > 1
-          ? 'Le giornate scelte hanno orari di apertura diversi: orari e materie verranno chiesti separatamente.'
-          : 'La prenotazione verrà replicata su tutte le $count giornate selezionate.',
+      summary: (count) => bookingDaysSummary(count, split: _groups.length > 1),
       isEnabled: _isDayOffered,
       disabledTooltip: _dayTooltip,
     );
@@ -1177,7 +1230,11 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           icon: null,
           options: studentOptions,
           value: _selectedStudentTaxCode,
-          onSelected: (value) => setState(() => _selectedStudentTaxCode = value),
+          onSelected: (value) => setState(()
+          {
+            _selectedStudentTaxCode = value;
+            _keepOfferedDays();
+          }),
           onCleared: () => setState(() => _selectedStudentTaxCode = null),
         ),
         const SizedBox(height: 20),
@@ -1245,12 +1302,13 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!open)
-          _buildHint("L'Associazione non apre ${modeLabel(mode).toLowerCase()} in questa giornata.")
+          _buildHint(modeShutAllDay(mode))
         else ...[
           BandScheduleField<PresenceItem>(
             schedule: _answersOf(group).hours[mode]!,
+            bands: _scopeBands,
             windowFor: (bucket) => _windowFor(group, mode, bucket),
-            offLabel: 'Non presente',
+            offLabel: kNotPresent,
             minimumMinutes: kMinimumBandMinutes,
             disabledLabelFor: (bucket) => _shutLabelFor(group, mode, bucket),
             frozen: _isEditing ? _frozen[mode]! : const {},
@@ -1286,7 +1344,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         .toList();
   }
 
-  Widget _buildSubjectsCard(_DayGroup group, String mode)
+  Widget _buildSubjectsCard(_DayGroup group, String mode, TimeBucket band)
   {
     if (_selectedStudentTaxCode == null)
     {
@@ -1294,14 +1352,31 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     }
 
     final category = _subjectCategory[mode] ?? _ministryCategory;
+    final ScrollController scroll = _subjectScrollControllers.putIfAbsent('$mode/${band.name}', ScrollController.new);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_frozenRequests[mode]!.isNotEmpty) ...[
-          _buildFrozenRequests(mode),
-          const SizedBox(height: 20),
+        if (_bandOffers(group, mode).where((offer) => offer.band == band).firstOrNull case final BandOffer offer) ...[
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: '${bandLabel(band)} · ${offer.hours} · '),
+                TextSpan(
+                  text: minutesLeftLabel(offer.left),
+                  style: offer.left <= 0 ? const TextStyle(color: AppTheme.trialDanger) : null,
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+          const SizedBox(height: 14),
         ],
         AppSegmentedTabs(
           labels: _subjectCategoryLabels,
@@ -1311,16 +1386,16 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: _subjectListMaxHeight),
           child: Scrollbar(
-            controller: _subjectScrollControllers[mode],
+            controller: scroll,
             thumbVisibility: true,
             child: SingleChildScrollView(
-              controller: _subjectScrollControllers[mode],
+              controller: scroll,
               padding: const EdgeInsets.only(right: 12),
               child: switch (category)
               {
-                _ministryCategory => _buildMinistryList(group, mode),
-                _disciplineCategory => _buildDisciplineList(group, mode),
-                _ => _buildServiceList(group, mode),
+                _ministryCategory => _buildMinistryList(group, mode, band),
+                _disciplineCategory => _buildDisciplineList(group, mode, band),
+                _ => _buildServiceList(group, mode, band),
               },
             ),
           ),
@@ -1329,43 +1404,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     );
   }
 
-  Widget _buildFrozenRequests(String mode)
-  {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const AppFieldLabel('Lezioni già prenotate'),
-        const SizedBox(height: 4),
-        _buildHint('Le prenotazioni della loro fascia sono chiuse: non si possono più modificare.'),
-        const SizedBox(height: 10),
-        for (final request in _frozenRequests[mode]!)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                const Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    [request.displayName, if (_summaryOf(request).isNotEmpty) _summaryOf(request)].join(' · '),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.trialInk,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  String _summaryOf(SubjectRequestDraft request)
+  String _summaryOf(SubjectRequestDraft request, {bool withBand = false})
   {
     final parts = <String>[];
+    final TimeBucket? band = request.band;
+
+    if (withBand && band != null)
+    {
+      parts.add(bandLabel(band));
+    }
 
     if (request.asksForDisciplines && _hasSeveralDisciplines(request))
     {
@@ -1432,19 +1479,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     return false;
   }
 
-  SubjectRequestDraft? _chosen(_DayGroup group, String mode, bool Function(SubjectRequestDraft) matches)
-  {
-    for (final request in _answersOf(group).requests[mode]!)
-    {
-      if (matches(request))
-      {
-        return request;
-      }
-    }
-
-    return null;
-  }
-
   Widget _buildEmptyCategory(String message) => Padding(
         padding: const EdgeInsets.only(top: 12),
         child: _buildHint(message),
@@ -1470,57 +1504,106 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   Widget _buildPickRow({
     required _DayGroup group,
     required String mode,
+    required TimeBucket band,
     required String name,
-    required SubjectRequestDraft? chosen,
+    required bool Function(SubjectRequestDraft request) matches,
     required SubjectRequestDraft Function() onPick,
-    required VoidCallback onDrop,
     String? description,
   })
   {
+    final SubjectRequestDraft? chosen = _chosen(group, mode, band, matches);
+
+    // A subject already chosen opens to be changed or removed, never dropped by a stray click.
     return SubjectPickRow(
       name: name,
       subtitle: _sayBoth(chosen == null ? null : _summaryOf(chosen), description),
       selected: chosen != null,
-      hasChoice: chosen != null,
-      onSelected: (selected) => selected
-          ? _openRequestWizard(group, mode, onPick())
-          : onDrop(),
-      onEditDisciplines: () => chosen == null
-          ? null
-          : _openRequestWizard(group, mode, chosen, editing: true),
+      hasChoice: false,
+      onSelected: (_)
+      {
+        if (chosen != null)
+        {
+          _editRequest(group, mode, band, chosen);
+
+          return;
+        }
+
+        if (_bandOffers(group, mode).where((offer) => offer.band == band).firstOrNull case final offer?
+            when offer.left <= 0)
+        {
+          CustomSnackBar.show(context: context, message: bandTimeAllTaken(mode, band), isError: true);
+
+          return;
+        }
+
+        _openRequestWizard(group, mode, band, onPick());
+      },
+      onEditDisciplines: () {},
     );
   }
 
-  Widget _buildMinistryList(_DayGroup group, String mode)
+  // The card's band only: the same subject may be booked in another band too.
+  SubjectRequestDraft? _chosen(_DayGroup group, String mode, TimeBucket band, bool Function(SubjectRequestDraft request) matches)
+  {
+    return _answersOf(group).requests[mode]!.where((request) => request.band == band && matches(request)).firstOrNull;
+  }
+
+  void _editRequest(_DayGroup group, String mode, TimeBucket band, SubjectRequestDraft request)
+  {
+    _openRequestWizard(
+      group,
+      mode,
+      band,
+      request,
+      editing: true,
+      onRemove: () => setState(()
+      {
+        final int at = _answersOf(group).requests[mode]!.indexOf(request);
+
+        if (at >= 0)
+        {
+          _dropRequest(group, mode, at);
+        }
+      }),
+    );
+  }
+
+  // Booked subjects are edited from their own row, so adding to a band lists only new ones.
+  bool _listed(_DayGroup group, String mode, TimeBucket band, bool Function(SubjectRequestDraft request) matches)
+  {
+    return !widget.openOnSubjects || _chosen(group, mode, band, matches)?.existing == null;
+  }
+
+  Widget _buildMinistryList(_DayGroup group, String mode, TimeBucket band)
   {
     final all = _filteredMinistrySubjects;
 
     if (all.isEmpty)
     {
       return _buildEmptyCategory(
-        _isSelf
-            ? 'Il tuo percorso di studi non ha materie collegate.'
-            : 'Il percorso di studi $_whose non ha materie collegate.',
+        noProgrammeSubjects(isSelf: _isSelf, whose: _whose),
       );
     }
 
     final subjects = all
         .where((subject) => _matchesQuery(subject.name, mode, _ministryCategory))
+        .where((subject) => _listed(group, mode, band, (request) => request.ministrySubjectId == subject.id))
         .toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildCategorySearch(mode, _ministryCategory, 'Cerca materia...'),
+        _buildCategorySearch(mode, _ministryCategory, kSubjectSearchHints[_ministryCategory]),
         if (subjects.isEmpty)
-          _buildEmptyCategory('Nessuna materia trovata per questa ricerca.'),
+          _buildEmptyCategory(kSubjectNoMatch[_ministryCategory]),
         for (final subject in subjects)
           _buildPickRow(
             group: group,
             mode: mode,
+            band: band,
             name: subject.name,
-            chosen: _requestFor(group, mode, subject.id),
+            matches: (request) => request.ministrySubjectId == subject.id,
             onPick: () => SubjectRequestDraft(
               kind: BookingRequestKind.ministrySubject,
               ministrySubjectId: subject.id,
@@ -1529,99 +1612,82 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
                   subject.associationSubjects.single.id,
               },
             )..ministrySubjectName = subject.name,
-            onDrop: () => _dropSubject(group, mode, subject.id),
           ),
       ],
     );
   }
 
-  Widget _buildDisciplineList(_DayGroup group, String mode)
+  Widget _buildDisciplineList(_DayGroup group, String mode, TimeBucket band)
   {
     final all = _standaloneDisciplines;
 
     if (all.isEmpty)
     {
       return _buildEmptyCategory(
-        _isSelf
-            ? 'Tutte le discipline sono già sotto le tue materie.'
-            : 'Tutte le discipline sono già sotto le materie $_whose.',
+        allDisciplinesCovered(isSelf: _isSelf, whose: _whose),
       );
     }
 
     final disciplines = all
         .where((discipline) => _matchesQuery(discipline.name, mode, _disciplineCategory))
+        .where((discipline) => _listed(group, mode, band, (request) => request.associationSubjectId == discipline.id))
         .toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildCategorySearch(mode, _disciplineCategory, 'Cerca disciplina...'),
+        _buildCategorySearch(mode, _disciplineCategory, kSubjectSearchHints[_disciplineCategory]),
         if (disciplines.isEmpty)
-          _buildEmptyCategory('Nessuna disciplina trovata per questa ricerca.'),
+          _buildEmptyCategory(kSubjectNoMatch[_disciplineCategory]),
         for (final discipline in disciplines)
           _buildPickRow(
             group: group,
             mode: mode,
+            band: band,
             name: discipline.name,
             description: discipline.description,
-            chosen: _chosen(
-              group,
-              mode,
-              (request) => request.associationSubjectId == discipline.id,
-            ),
+            matches: (request) => request.associationSubjectId == discipline.id,
             onPick: () => SubjectRequestDraft(
               kind: BookingRequestKind.associationSubject,
               associationSubjectId: discipline.id,
               associationSubjectName: discipline.name,
-            ),
-            onDrop: () => _dropWhere(
-              group,
-              mode,
-              (request) => request.associationSubjectId == discipline.id,
             ),
           ),
       ],
     );
   }
 
-  Widget _buildServiceList(_DayGroup group, String mode)
+  Widget _buildServiceList(_DayGroup group, String mode, TimeBucket band)
   {
     if (widget.services.isEmpty)
     {
-      return _buildEmptyCategory('Nessun servizio disponibile.');
+      return _buildEmptyCategory(kNoServices);
     }
 
     final services = widget.services
         .where((service) => _matchesQuery(service.name, mode, _serviceCategory))
+        .where((service) => _listed(group, mode, band, (request) => request.serviceName == service.name))
         .toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildCategorySearch(mode, _serviceCategory, 'Cerca servizio...'),
+        _buildCategorySearch(mode, _serviceCategory, kSubjectSearchHints[_serviceCategory]),
         if (services.isEmpty)
-          _buildEmptyCategory('Nessun servizio trovato per questa ricerca.'),
+          _buildEmptyCategory(kSubjectNoMatch[_serviceCategory]),
         for (final service in services)
           _buildPickRow(
             group: group,
             mode: mode,
+            band: band,
             name: service.name,
             description: service.description,
-            chosen: _chosen(
-              group,
-              mode,
-              (request) => request.serviceName == service.name,
-            ),
+            matches: (request) => request.serviceName == service.name,
             onPick: () => SubjectRequestDraft(
               kind: BookingRequestKind.service,
               serviceName: service.name,
-            ),
-            onDrop: () => _dropWhere(
-              group,
-              mode,
-              (request) => request.serviceName == service.name,
             ),
           ),
       ],
@@ -1643,8 +1709,10 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
   void _openRequestWizard(
     _DayGroup group,
     String mode,
+    TimeBucket band,
     SubjectRequestDraft draft, {
     bool editing = false,
+    VoidCallback? onRemove,
   })
   {
     // The pupils' catalogue comes already vetted by the server, without the memberships to vet it here.
@@ -1675,12 +1743,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
         isSelf: _isSelf,
         studentGender: _selectedStudent?.gender,
         isEditing: editing,
-        minutesAvailable: answers.hours[mode]!.totalMinutes,
-        minutesTakenByOthers: _minutesAsked(group, mode) -
-            (editing ? (draft.duration ?? 0) : 0),
+        onRemove: onRemove,
+        bands: [
+          for (final offer in _bandOffers(group, mode, skip: editing ? draft : null))
+            if (offer.band == band) offer,
+        ],
         minutesByDisciplineTakenByOthers: _minutesByDiscipline(
           group,
           mode,
+          band: band,
           skip: editing ? draft : null,
         ),
         onSave: (saved) async
@@ -1710,44 +1781,6 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     );
   }
 
-  void _dropWhere(_DayGroup group, String mode, bool Function(SubjectRequestDraft) matches)
-  {
-    final at = _answersOf(group).requests[mode]!.indexWhere(matches);
-
-    if (at >= 0)
-    {
-      _dropRequest(group, mode, at);
-    }
-  }
-
-  void _dropSubject(_DayGroup group, String mode, int ministrySubjectId)
-  {
-    final requests = _answersOf(group).requests[mode]!;
-
-    for (var index = 0; index < requests.length; index++)
-    {
-      if (requests[index].ministrySubjectId == ministrySubjectId)
-      {
-        setState(() => _dropRequest(group, mode, index));
-
-        return;
-      }
-    }
-  }
-
-  SubjectRequestDraft? _requestFor(_DayGroup group, String mode, int ministrySubjectId)
-  {
-    for (final request in _answersOf(group).requests[mode]!)
-    {
-      if (request.ministrySubjectId == ministrySubjectId)
-      {
-        return request;
-      }
-    }
-
-    return null;
-  }
-
   void _dropSubjectsWithoutHours()
   {
     for (final group in _groups)
@@ -1756,14 +1789,15 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
       for (final mode in _modes)
       {
-        if (answers.hours[mode]!.isNotEmpty)
-        {
-          continue;
-        }
+        final List<TimeBucket> bands = answers.hours[mode]!.bands;
+        final List<SubjectRequestDraft> requests = answers.requests[mode]!;
 
-        for (var index = answers.requests[mode]!.length - 1; index >= 0; index--)
+        for (var index = requests.length - 1; index >= 0; index--)
         {
-          _dropRequest(group, mode, index);
+          if (!bands.contains(requests[index].band))
+          {
+            _dropRequest(group, mode, index);
+          }
         }
       }
     }
@@ -1775,30 +1809,25 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
 
     _topicControllers.remove(request)?.dispose();
     _notesControllers.remove(request)?.dispose();
-
-    final existing = request.existing;
-
-    if (existing != null)
-    {
-      _droppedBookings.add((mode, existing));
-    }
   }
 
   List<_Card> get _cards
   {
     final List<_Card> asked = [
       for (final group in _groups) ...[
-        if (_asksForMode(group)) (step: _Step.modes, group: group, mode: null),
+        if (_asksForMode(group)) (step: _Step.modes, group: group, mode: null, band: null),
         for (final mode in _modes)
           if (_effectiveModes(group).contains(mode)) ...[
-            (step: _Step.hours, group: group, mode: mode),
-            if (!widget.hoursOnly) (step: _Step.subjects, group: group, mode: mode),
+            if (!widget.openOnSubjects) (step: _Step.hours, group: group, mode: mode, band: null),
+            if (!widget.hoursOnly)
+              for (final band in _answersOf(group).hours[mode]!.bands)
+                (step: _Step.subjects, group: group, mode: mode, band: band),
           ],
       ],
     ];
 
     return [
-      if (!_isEditing || asked.isEmpty) (step: _Step.who, group: null, mode: null),
+      if (!_isEditing || asked.isEmpty) (step: _Step.who, group: null, mode: null, band: null),
       ...asked,
     ];
   }
@@ -1854,95 +1883,24 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
     });
   }
 
-  ({String question, String hint}) _guideOf(_Card card, {required bool named})
+  WizardGuide _guideOf(_Card card, {required bool named})
   {
-    final String who = named ? ' $_who' : '';
+    final String? name = _selectedStudent?.firstName;
+    final bool female = _selectedStudent?.gender == 'F';
 
-    if (_isSelf)
+    return switch (card.step)
     {
-      return _selfGuideOf(card);
-    }
-
-    switch (card.step)
-    {
-      case _Step.who:
-        return _isOwn
-            ? (
-                question: 'Quando?',
-                hint: 'Indica i giorni da prenotare. Puoi indicare anche più giornate.',
-              )
-            : (
-                question: 'Per chi e quando?',
-                hint: 'Indica lo studente per cui stai effettuando la prenotazione e i giorni '
-                    'da prenotare. Puoi indicare anche più giornate.',
-              );
-
-      case _Step.modes:
-        return (
-          question: 'Con quale modalità vuole fare lezione$who?',
-          hint: 'In presenza, online, o entrambe.',
-        );
-
-      case _Step.hours:
-        return card.mode == kPresenceMode
-            ? (
-                question: 'Quando è in Associazione$who?',
-                hint: 'Indica gli orari in cui $_who sarà presente in Associazione.',
-              )
-            : (
-                question: 'Quando può essere presente online$who?',
-                hint: 'Indica gli orari in cui $_who è disponibile per essere '
-                    '${_agreed('seguito', 'seguita')} a distanza.',
-              );
-
-      case _Step.subjects:
-        return (
-          question: card.mode == kPresenceMode
-              ? 'Che lezioni vuole fare in Associazione$who?'
-              : 'Che lezioni vuole fare online$who?',
-          hint: 'Puoi selezionare una materia del suo indirizzo di studi, una qualsiasi '
-              'disciplina offerta dall\'Associazione, oppure un servizio.',
-        );
-    }
-  }
-
-  ({String question, String hint}) _selfGuideOf(_Card card)
-  {
-    switch (card.step)
-    {
-      case _Step.who:
-        return (
-          question: 'Quando?',
-          hint: 'Indica i giorni da prenotare. Puoi indicare anche più giornate.',
-        );
-
-      case _Step.modes:
-        return (
-          question: 'Con quale modalità vuoi fare lezione?',
-          hint: 'In presenza, online, o entrambe.',
-        );
-
-      case _Step.hours:
-        return card.mode == kPresenceMode
-            ? (
-                question: 'Quando sei in Associazione?',
-                hint: 'Indica gli orari in cui sarai presente in Associazione.',
-              )
-            : (
-                question: 'Quando puoi essere presente online?',
-                hint: 'Indica gli orari in cui sei disponibile per essere '
-                    '${_agreed('seguito', 'seguita')} a distanza.',
-              );
-
-      case _Step.subjects:
-        return (
-          question: card.mode == kPresenceMode
-              ? 'Che lezioni vuoi fare in Associazione?'
-              : 'Che lezioni vuoi fare online?',
-          hint: 'Puoi selezionare una materia del tuo indirizzo di studi, una qualsiasi '
-              'disciplina offerta dall\'Associazione, oppure un servizio.',
-        );
-    }
+      _Step.who => _isOwn || _isSelf
+          ? kOwnBookingDaysGuide
+          : (
+              question: 'Per chi e quando?',
+              hint: 'Indica lo studente per cui stai effettuando la prenotazione e i giorni '
+                  'da prenotare. Puoi indicare anche più giornate.',
+            ),
+      _Step.modes => presenceModesGuide(isSelf: _isSelf, name: name, named: named),
+      _Step.hours => presenceHoursGuide(card.mode!, isSelf: _isSelf, name: name, named: named, female: female),
+      _Step.subjects => presenceSubjectsGuide(card.mode!, isSelf: _isSelf, name: name, named: named),
+    };
   }
 
   double _widthOf(_Card card)
@@ -1964,7 +1922,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           : (_isOwn ? _buildOwnWho() : _buildWho()),
       _Step.modes => _buildModesCard(card.group!),
       _Step.hours => _buildHours(card.group!, card.mode!),
-      _Step.subjects => _buildSubjectsCard(card.group!, card.mode!),
+      _Step.subjects => _buildSubjectsCard(card.group!, card.mode!, card.band!),
     };
   }
 
@@ -1986,7 +1944,7 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           ? 'Passo ${_cardIndex + 1} di ${cards.length}'
           : (_isEditing ? formatAvailableDayLabel(widget.defaultDate) : ''),
       title: _isOwn
-          ? (_isEditing ? 'Modifica prenotazione' : 'Nuova prenotazione')
+          ? (_isEditing ? kEditBookingTitle : kNewBookingTitle)
           : (_isEditing ? 'Modifica richiesta' : 'Nuova richiesta'),
       onClose: _closeDialog,
       maxWidth: _stackMaxWidth,

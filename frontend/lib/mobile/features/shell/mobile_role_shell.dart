@@ -10,11 +10,15 @@ import '../../shared/widgets/mobile_birthday_confetti.dart';
 import '../../shared/widgets/mobile_handover.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
-import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_role_sheet.dart';
+import '../../shared/widgets/mobile_notice.dart';
 import '../association/mobile_association_page.dart';
 import '../availability/mobile_availability_page.dart';
+import '../bookings/mobile_bookings_page.dart';
 import '../calendar/mobile_calendar_page.dart';
+import '../calendar/mobile_pupil_calendar_page.dart';
+import '../children/mobile_children_page.dart';
+import '../home/mobile_pupil_home_page.dart';
 import '../home/mobile_teacher_home_page.dart';
 import '../profile/mobile_own_page.dart';
 import '../settings/mobile_settings_page.dart';
@@ -22,10 +26,14 @@ import '../subjects/mobile_subjects_page.dart';
 import 'mobile_placeholder_page.dart';
 
 const String _teacherRole = 'TEACHER';
+const String _parentRole = 'PARENT';
+const Set<String> _pupilRoles = {_parentRole, 'STUDENT'};
 const String _subjectsSlug = 'subjects';
 const String _availabilitySlug = 'availability';
 const String _calendarSlug = 'calendar';
 const String _associationSlug = 'association';
+const String _childrenSlug = 'children';
+const String _bookingsSlug = 'bookings';
 
 // How far a section chosen from the open menu sinks with it as it closes.
 const double _curtainDrop = 20;
@@ -33,7 +41,6 @@ const double _curtainDrop = 20;
 // Past this the section comes in with its wheel rather than keep the menu waiting.
 const Duration _holdCap = Duration(seconds: 3);
 
-// Switching role, the old area leaves upwards and the new one rises after it.
 const Duration _roleTurnDuration = Duration(milliseconds: 800);
 
 class MobileRoleShell extends StatefulWidget
@@ -48,18 +55,17 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
 {
   final ApiService _apiService = ApiService();
 
-  // The role and section on screen; while switching, the identity already has the new role.
+  // While switching, the identity already has the new role.
   String? _role;
   String _destination = kMobileHomeSlug;
 
-  // Built out of sight until it has its data: a section chosen from the menu, or a new role's home.
+  // Built out of sight until it has its data.
   String? _arrivingRole;
   String? _arrivingSlug;
   Completer<void>? _arrival;
   Timer? _cap;
   final ValueNotifier<int> _holds = ValueNotifier<int>(0);
 
-  // From the role request until its home is in.
   String? _switchingTo;
 
   late final AnimationController _turn = AnimationController(vsync: this, duration: _roleTurnDuration)
@@ -98,7 +104,6 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
     }
   }
 
-  // Completes once the section has its data.
   Future<void> _prepare(String role, String slug)
   {
     final Completer<void> arrival = Completer<void>();
@@ -156,7 +161,6 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
     _arrival = null;
   }
 
-  // Completes once the section is in, swapped under the still open menu.
   Future<void> _onDestination(String slug) async
   {
     final String? role = _role;
@@ -205,11 +209,11 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
       context: context,
       activeRole: user.activeRole,
       availableRoles: user.availableRoles,
+      feminine: user.gender == 'F',
       onChoose: _switchRole,
     );
   }
 
-  // Completes once the new role's home is in: the sheet then closes as the areas turn.
   Future<void> _switchRole(String role) async
   {
     _switchingTo = role;
@@ -295,8 +299,13 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
   {
     if (slug == kMobileHomeSlug)
     {
-      return role == _teacherRole
-          ? const MobileTeacherHomePage()
+      if (role == _teacherRole)
+      {
+        return MobileTeacherHomePage(user: user);
+      }
+
+      return _pupilRoles.contains(role)
+          ? MobilePupilHomePage(role: role, user: user)
           : const MobilePlaceholderPage(title: 'Home');
     }
 
@@ -324,12 +333,27 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
 
     if (current.slug == _calendarSlug && role == _teacherRole)
     {
-      return const MobileCalendarPage();
+      return MobileCalendarPage(user: user);
     }
 
-    if (current.slug == _associationSlug && role == _teacherRole)
+    if (current.slug == _calendarSlug && _pupilRoles.contains(role))
     {
-      return const MobileAssociationPage();
+      return MobilePupilCalendarPage(user: user, role: role);
+    }
+
+    if (current.slug == _associationSlug && (role == _teacherRole || _pupilRoles.contains(role)))
+    {
+      return MobileAssociationPage(role: role);
+    }
+
+    if (current.slug == _childrenSlug && role == _parentRole)
+    {
+      return MobileChildrenPage(user: user);
+    }
+
+    if (current.slug == _bookingsSlug && _pupilRoles.contains(role))
+    {
+      return MobileBookingsPage(user: user, role: role);
     }
 
     return MobilePlaceholderPage(title: current.label);
@@ -374,8 +398,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
 
         final double height = MediaQuery.sizeOf(context).height;
 
-        // Each section under its own scope, so the one loading out of sight
-        // keeps its element when it comes in.
+        // Own scope per section, so the one loading out of sight keeps its element when shown.
         Widget section(String sectionRole, String slug, {bool arriving = false})
         {
           return KeyedSubtree(

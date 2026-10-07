@@ -14,6 +14,7 @@ import '../../lessons/models/presence_group.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
+import '../utils/booking_strings.dart' show deleteBand, moveBandLessons;
 
 const double _radius = 24;
 const EdgeInsets _padding = EdgeInsets.fromLTRB(26, 24, 26, 24);
@@ -36,7 +37,7 @@ const double _buttonHeight = 40;
 const double _buttonFontSize = 12.5;
 const double _buttonGap = 10;
 
-const double _subjectWidth = 250;
+const double _subjectWidth = 320;
 const double _durationWidth = 66;
 const double _gridGap = 14;
 const double _rowGap = 8;
@@ -102,8 +103,8 @@ class BookingDayRow extends StatefulWidget
   final bool readOnly;
 
   final void Function(BookingLane lane, String mode) onAdd;
-  final void Function(BookingLane lane, String mode) onEditHours;
-  final void Function(BookingLane lane, String mode) onAddLesson;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onEditHours;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onAddLesson;
 
   final void Function(BookingLane lane, BookingSummaryItem booking) onEditLesson;
 
@@ -113,10 +114,10 @@ class BookingDayRow extends StatefulWidget
   final void Function(BookingLane lane, BookingSummaryItem booking) onDeleteLesson;
 
   // Null when the block can move; otherwise the reason shown on the disabled button.
-  final String? Function(BookingLane lane, String mode) blockMoveRefusal;
-  final void Function(BookingLane lane, String mode) onMoveBlock;
+  final String? Function(BookingLane lane, String mode, TimeBucket band) blockMoveRefusal;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onMoveBlock;
 
-  final void Function(BookingLane lane, String mode) onDeleteMode;
+  final void Function(BookingLane lane, String mode, TimeBucket band) onDeleteBand;
   final ValueChanged<BookingLane> onDeleteDay;
 
   const BookingDayRow({
@@ -139,7 +140,7 @@ class BookingDayRow extends StatefulWidget
     required this.onDeleteLesson,
     required this.blockMoveRefusal,
     required this.onMoveBlock,
-    required this.onDeleteMode,
+    required this.onDeleteBand,
     required this.onDeleteDay,
   });
 
@@ -161,18 +162,18 @@ class _BookingDayRowState extends State<BookingDayRow>
 
   bool get _isShut => !TimeBucket.values.any(_isOpenIn);
 
-  bool _isOpenFor(String mode)
-  {
-    return !widget.readOnly &&
-        TimeBucket.values.any((bucket) =>
-            !_hasClosed(bucket) && openingWindowFor(widget.openingDays, widget.day, mode, bucket) != null);
-  }
-
   List<String> _addableModes(BookingLane lane)
   {
+    final PresenceGroup? group = lane.group;
+
+    bool free(String mode, TimeBucket bucket) =>
+        !_hasClosed(bucket) &&
+        openingWindowFor(widget.openingDays, widget.day, mode, bucket) != null &&
+        (group == null || _modes.every((either) => group.slotsFor(either, band: bucket).isEmpty));
+
     return [
       for (final mode in _modes)
-        if (_isOpenFor(mode) && (lane.group?.slotsFor(mode).isEmpty ?? true)) mode,
+        if (!widget.readOnly && TimeBucket.values.any((bucket) => free(mode, bucket))) mode,
     ];
   }
 
@@ -270,18 +271,18 @@ class _BookingDayRowState extends State<BookingDayRow>
       readOnly: widget.readOnly,
       addButtons: _buildAddButtons(lane),
       slotClosed: _slotClosed,
-      modeOpen: _isOpenFor,
+      bandClosed: (band) => widget.readOnly || _hasClosed(band),
       canDeleteDay: _canDeleteDay(lane),
       onDeleteDay: () => widget.onDeleteDay(lane),
-      onEditHours: (mode) => widget.onEditHours(lane, mode),
-      onAddLesson: (mode) => widget.onAddLesson(lane, mode),
-      onDeleteMode: (mode) => widget.onDeleteMode(lane, mode),
+      onEditHours: (mode, band) => widget.onEditHours(lane, mode, band),
+      onAddLesson: (mode, band) => widget.onAddLesson(lane, mode, band),
+      onDeleteBand: (mode, band) => widget.onDeleteBand(lane, mode, band),
       onEditLesson: (booking) => widget.onEditLesson(lane, booking),
       canMoveLesson: (booking) => widget.canMoveLesson(lane, booking),
       onMoveLesson: (booking) => widget.onMoveLesson(lane, booking),
       onDeleteLesson: (booking) => widget.onDeleteLesson(lane, booking),
-      blockMoveRefusal: (mode) => widget.blockMoveRefusal(lane, mode),
-      onMoveBlock: (mode) => widget.onMoveBlock(lane, mode),
+      blockMoveRefusal: (mode, band) => widget.blockMoveRefusal(lane, mode, band),
+      onMoveBlock: (mode, band) => widget.onMoveBlock(lane, mode, band),
     );
   }
 
@@ -457,20 +458,22 @@ class _LaneView extends StatefulWidget
   final List<Widget> addButtons;
 
   final bool Function(PresenceItem slot) slotClosed;
-  final bool Function(String mode) modeOpen;
+
+  // Closed to the reader: no action on the band's block.
+  final bool Function(TimeBucket band) bandClosed;
 
   final bool canDeleteDay;
 
   final VoidCallback onDeleteDay;
-  final ValueChanged<String> onEditHours;
-  final ValueChanged<String> onAddLesson;
-  final ValueChanged<String> onDeleteMode;
+  final void Function(String mode, TimeBucket band) onEditHours;
+  final void Function(String mode, TimeBucket band) onAddLesson;
+  final void Function(String mode, TimeBucket band) onDeleteBand;
   final ValueChanged<BookingSummaryItem> onEditLesson;
   final bool Function(BookingSummaryItem booking) canMoveLesson;
   final ValueChanged<BookingSummaryItem> onMoveLesson;
   final ValueChanged<BookingSummaryItem> onDeleteLesson;
-  final String? Function(String mode) blockMoveRefusal;
-  final ValueChanged<String> onMoveBlock;
+  final String? Function(String mode, TimeBucket band) blockMoveRefusal;
+  final void Function(String mode, TimeBucket band) onMoveBlock;
 
   const _LaneView({
     required this.lane,
@@ -481,12 +484,12 @@ class _LaneView extends StatefulWidget
     required this.readOnly,
     required this.addButtons,
     required this.slotClosed,
-    required this.modeOpen,
+    required this.bandClosed,
     required this.canDeleteDay,
     required this.onDeleteDay,
     required this.onEditHours,
     required this.onAddLesson,
-    required this.onDeleteMode,
+    required this.onDeleteBand,
     required this.onEditLesson,
     required this.canMoveLesson,
     required this.onMoveLesson,
@@ -557,10 +560,11 @@ class _LaneViewState extends State<_LaneView>
   {
     final PresenceGroup? group = widget.lane.group;
 
-    final List<String> booked = [
+    // One block per mode and band: each band has its own hours, subjects and deadline.
+    final List<(String, TimeBucket)> blocks = [
       if (group != null)
         for (final mode in _modes)
-          if (group.slotsFor(mode).isNotEmpty) mode,
+          for (final band in group.bandsFor(mode)) (mode, band),
     ];
 
     final bool headed = widget.named || widget.addButtons.isNotEmpty;
@@ -578,26 +582,27 @@ class _LaneViewState extends State<_LaneView>
           if (group == null)
             (headed && !widget.named ? const SizedBox.shrink() : const _Muted('Nessuna prenotazione'))
           else
-            for (final mode in booked) ...[
-              if (mode != booked.first) const SizedBox(height: _modeGap),
+            for (final (i, (mode, band)) in blocks.indexed) ...[
+              if (i > 0) const SizedBox(height: _modeGap),
               _ModeBlock(
                 mode: mode,
+                band: band,
                 group: group,
                 folded: widget.folded,
                 ministrySubjects: widget.ministrySubjects,
                 teachers: widget.teachers,
                 readOnly: widget.readOnly,
                 slotClosed: widget.slotClosed,
-                canChange: widget.modeOpen(mode),
-                onEditHours: () => widget.onEditHours(mode),
-                onAddLesson: () => widget.onAddLesson(mode),
-                onDelete: () => widget.onDeleteMode(mode),
+                canChange: !widget.bandClosed(band),
+                onEditHours: () => widget.onEditHours(mode, band),
+                onAddLesson: () => widget.onAddLesson(mode, band),
+                onDelete: () => widget.onDeleteBand(mode, band),
                 onEditLesson: widget.onEditLesson,
                 canMoveLesson: widget.canMoveLesson,
                 onMoveLesson: widget.onMoveLesson,
                 onDeleteLesson: widget.onDeleteLesson,
-                blockMoveRefusal: widget.blockMoveRefusal(mode),
-                onMoveBlock: () => widget.onMoveBlock(mode),
+                blockMoveRefusal: widget.blockMoveRefusal(mode, band),
+                onMoveBlock: () => widget.onMoveBlock(mode, band),
               ),
             ],
         ],
@@ -609,6 +614,7 @@ class _LaneViewState extends State<_LaneView>
 class _ModeBlock extends StatefulWidget
 {
   final String mode;
+  final TimeBucket band;
   final PresenceGroup group;
 
   final bool folded;
@@ -635,6 +641,7 @@ class _ModeBlock extends StatefulWidget
 
   const _ModeBlock({
     required this.mode,
+    required this.band,
     required this.group,
     required this.folded,
     required this.ministrySubjects,
@@ -665,7 +672,9 @@ class _ModeBlockState extends State<_ModeBlock>
 
   bool get _online => _mode == kOnlineMode;
 
-  List<PresenceItem> get _slots => widget.group.slotsFor(_mode);
+  List<PresenceItem> get _slots => widget.group.slotsFor(_mode, band: widget.band);
+
+  List<BookingSummaryItem> get _lessons => widget.group.requestsFor(_mode, band: widget.band);
 
   bool get _hasClosed => _slots.any(widget.slotClosed);
 
@@ -710,7 +719,7 @@ class _ModeBlockState extends State<_ModeBlock>
         ),
         const SizedBox(width: 5),
         Text(
-          modeLabel(_mode).toUpperCase(),
+          '${modeLabel(_mode)} · ${bandLabel(widget.band)}'.toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -749,13 +758,13 @@ class _ModeBlockState extends State<_ModeBlock>
           tooltip: 'Aggiungi una lezione',
           onTap: widget.onAddLesson,
         ),
-        if (widget.group.requestsFor(_mode).isNotEmpty) ...[
+        if (_lessons.isNotEmpty) ...[
           const SizedBox(width: 2),
           _HoverAction(
             visible: _hover,
             icon: Icons.swap_horiz_rounded,
             color: AppTheme.trialTealDeep,
-            tooltip: 'Sposta tutte le lezioni',
+            tooltip: moveBandLessons(widget.band),
             disabledReason: widget.blockMoveRefusal,
             onTap: widget.onMoveBlock,
           ),
@@ -767,7 +776,7 @@ class _ModeBlockState extends State<_ModeBlock>
           visible: _hover,
           icon: Icons.delete_outline_rounded,
           color: AppTheme.trialDanger,
-          tooltip: 'Elimina la prenotazione ${_online ? kOnScreen : kInBuilding}',
+          tooltip: deleteBand(widget.band),
           onTap: widget.onDelete,
         ),
       ],
@@ -804,7 +813,7 @@ class _ModeBlockState extends State<_ModeBlock>
 
   List<Widget> _buildRows()
   {
-    final List<BookingSummaryItem> lessons = widget.group.requestsFor(_mode);
+    final List<BookingSummaryItem> lessons = _lessons;
 
     return [
       for (final booking in lessons) ...[
@@ -966,8 +975,6 @@ class _LessonRowState extends State<_LessonRow>
       children: [
         Text(
           _title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.plusJakartaSans(
             fontSize: 17,
             fontWeight: FontWeight.w700,

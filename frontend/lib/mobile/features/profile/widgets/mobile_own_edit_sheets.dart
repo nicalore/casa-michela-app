@@ -124,7 +124,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
 
     if (!draft.differsFrom(widget.person))
     {
-      Navigator.of(context).pop(false);
+      finishMobileSheet(context, false);
 
       return;
     }
@@ -142,7 +142,7 @@ class _ContactsSheetState extends State<_ContactsSheet>
       if (mounted)
       {
         MobileNotice.show(context, 'Contatti aggiornati con successo!');
-        Navigator.of(context).pop(true);
+        finishMobileSheet(context, true);
       }
     }
     catch (e)
@@ -243,7 +243,7 @@ class _StudiesSheetState extends State<_StudiesSheet>
       if (mounted)
       {
         MobileNotice.show(context, 'Studi aggiornati con successo!');
-        Navigator.of(context).pop(true);
+        finishMobileSheet(context, true);
       }
     }
     catch (e)

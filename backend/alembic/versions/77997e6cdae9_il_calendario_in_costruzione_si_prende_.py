@@ -71,7 +71,7 @@ def upgrade() -> None:
     op.create_index(op.f(_HOLDER_INDEX), _LOCKS, [_HOLDER], unique=False)
 
     # Drafts already open at migration time keep a NULL author and can still be
-    # exited — same convention as a missing expected_updated_at.
+    # exited - same convention as a missing expected_updated_at.
     op.add_column(
         _PUBLICATIONS,
         sa.Column(_DRAFT_OPENED_BY, sa.String(length=_TAX_CODE_LENGTH), nullable=True),

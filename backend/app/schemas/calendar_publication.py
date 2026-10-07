@@ -11,6 +11,12 @@ class CalendarPublicationCreate(BaseModel):
     band: TimeBandEnum
 
 
+# A band whose bookings closed with nobody booked: it will never be published.
+class CalendarBandRef(BaseModel):
+    date: date
+    band: TimeBandEnum
+
+
 class CalendarDraftClosed(BaseModel):
     publication: "CalendarPublicationResponse"
 
@@ -37,7 +43,7 @@ class CalendarPublicationResponse(BaseModel):
 
     is_draft: bool = False
 
-    # Whose bozza it is: only they may leave it without publishing.
+    # Whose draft it is: only they may leave it without publishing.
     draft_opened_by: str | None = None
     draft_opener: PersonOption | None = None
 

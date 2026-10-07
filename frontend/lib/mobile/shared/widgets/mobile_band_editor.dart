@@ -1,17 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/time_bucket.dart';
-import '../../../../core/utils/week_range.dart';
-import '../../../../features/availability/utils/availability_strings.dart';
-import '../../../../features/lessons/models/availability_item.dart';
-import '../../../../features/lessons/utils/opening_window.dart';
-import '../../../../features/lessons/widgets/band_schedule.dart';
-import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
-import '../../../shared/mobile_palette.dart';
-import '../mobile_availability_draft.dart';
-import '../../../shared/widgets/mobile_slot_button.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/time_bucket.dart';
+import '../../../core/utils/week_range.dart';
+import '../../../features/lessons/utils/opening_window.dart';
+import '../../../features/lessons/widgets/band_schedule.dart';
+import '../../../features/lessons/widgets/calendar_lesson_block.dart';
+import '../mobile_palette.dart';
+import 'mobile_card_delete_buttons.dart';
+import 'mobile_slot_button.dart';
 import 'mobile_time_field.dart';
 
 const double _radius = 20;
@@ -19,46 +19,57 @@ const double _rowGap = 12;
 
 const Duration _move = Duration(milliseconds: 220);
 
+// "Aggiungi orario" once the opening has no quarter hour left.
+const double _spentAlpha = 0.32;
+
 const List<BoxShadow> _cardShadow = [
   BoxShadow(color: Color(0x14122438), offset: Offset(0, 6), blurRadius: 18),
 ];
 
-// A closed band shows what it held, read-only.
-class MobileBandEditor extends StatefulWidget
+class MobileBandEditor<T> extends StatefulWidget
 {
-  final MobileAvailabilityDraft draft;
-  final MobileDayGroup group;
+  final BandSchedule<T> schedule;
   final String mode;
   final TimeBucket bucket;
+
+  // Null where the band cannot be given; [shutLabel] says why.
+  final OpeningWindow? window;
+  final String shutLabel;
+
+  // Stored hours in a band closed by its deadline.
+  final List<BandStretch<T>> held;
+
+  final String offLabel;
 
   final VoidCallback onChanged;
 
   const MobileBandEditor({
     super.key,
-    required this.draft,
-    required this.group,
+    required this.schedule,
     required this.mode,
     required this.bucket,
+    required this.window,
+    required this.shutLabel,
+    this.held = const [],
+    required this.offLabel,
     required this.onChanged,
   });
 
   @override
-  State<MobileBandEditor> createState() => _MobileBandEditorState();
+  State<MobileBandEditor<T>> createState() => _MobileBandEditorState<T>();
 }
 
-class _MobileBandEditorState extends State<MobileBandEditor>
+class _MobileBandEditorState<T> extends State<MobileBandEditor<T>>
 {
-  // Stretches already shown; later ones animate open.
-  final Set<BandStretch<AvailabilityItem>> _shown = Set.identity();
+  final Set<BandStretch<T>> _shown = Set.identity();
 
-  // Stretches folding away before they leave the schedule.
-  final Set<BandStretch<AvailabilityItem>> _leaving = Set.identity();
+  final Set<BandStretch<T>> _leaving = Set.identity();
 
   bool _wasGiven = false;
 
   TimeBucket get _bucket => widget.bucket;
 
-  BandSchedule<AvailabilityItem> get _schedule => widget.draft.bandsOf(widget.group)[widget.mode]!;
+  BandSchedule<T> get _schedule => widget.schedule;
 
   void _change(void Function() change)
   {
@@ -66,12 +77,12 @@ class _MobileBandEditorState extends State<MobileBandEditor>
     widget.onChanged();
   }
 
-  void _remove(BandStretch<AvailabilityItem> stretch)
+  void _remove(BandStretch<T> stretch)
   {
     setState(() => _leaving.add(stretch));
   }
 
-  void _removed(BandStretch<AvailabilityItem> stretch)
+  void _removed(BandStretch<T> stretch)
   {
     _leaving.remove(stretch);
     _shown.remove(stretch);
@@ -84,7 +95,7 @@ class _MobileBandEditorState extends State<MobileBandEditor>
     }
   }
 
-  Widget _buildHead({Widget? trailing, bool locked = false})
+  Widget _buildHead({Widget? trailing, bool locked = false, bool struck = false})
   {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 36),
@@ -101,6 +112,9 @@ class _MobileBandEditorState extends State<MobileBandEditor>
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1,
                       color: MobilePalette.mutedText,
+                      decoration: struck ? TextDecoration.lineThrough : null,
+                      decorationThickness: MobilePalette.strikeThickness,
+                      decorationColor: MobilePalette.mutedText,
                     ),
                   ),
                 ),
@@ -119,18 +133,17 @@ class _MobileBandEditorState extends State<MobileBandEditor>
 
   Widget _buildShut()
   {
-    final List<BandStretch<AvailabilityItem>> held =
-        widget.draft.isEditing ? widget.draft.frozen[widget.mode]![_bucket]! : const [];
+    final List<BandStretch<T>> held = widget.held;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildHead(locked: held.isNotEmpty),
-        for (final stretch in held) _Held(mode: widget.mode, stretch: stretch),
+        _buildHead(locked: held.isNotEmpty, struck: held.isEmpty),
+        for (final stretch in held) _Held(mode: widget.mode, start: stretch.startTime, end: stretch.endTime),
         Padding(
           padding: EdgeInsets.only(top: held.isEmpty ? 2 : 8),
           child: Text(
-            widget.draft.shutLabelFor(widget.group, widget.mode, _bucket),
+            widget.shutLabel,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13.5,
               fontStyle: FontStyle.italic,
@@ -172,11 +185,12 @@ class _MobileBandEditorState extends State<MobileBandEditor>
     );
   }
 
-  Widget _buildStretch(OpeningWindow window, BandStretch<AvailabilityItem> stretch)
+  Widget _buildStretch(OpeningWindow window, BandStretch<T> stretch)
   {
-    final List<BandStretch<AvailabilityItem>> stretches = _schedule.of(_bucket);
-    final int index = stretches.indexOf(stretch);
-    final (int low, int high) = _schedule.boundsAt(_bucket, window, index);
+    final List<BandStretch<T>> stretches = _schedule.of(_bucket);
+
+    final int first = window.startMinutes;
+    final int last = window.endMinutes;
 
     final bool leaving = _leaving.contains(stretch);
 
@@ -184,13 +198,28 @@ class _MobileBandEditorState extends State<MobileBandEditor>
     {
       final int at = _schedule.of(_bucket).indexOf(stretch);
 
-      // Still folding after «No» emptied the band.
+      // Still folding after "No" emptied the band.
       if (at < 0)
       {
         return;
       }
 
       _change(() => _schedule.move(_bucket, at, timeOfDayFromMinutes(start), timeOfDayFromMinutes(end)));
+    }
+
+    // Going past the other end carries it along at the same length.
+    void moveStart(int start)
+    {
+      final bool past = start > stretch.endMinutes - kMinimumBandMinutes;
+
+      move(start, past ? math.min(start + stretch.minutes, last) : stretch.endMinutes);
+    }
+
+    void moveEnd(int end)
+    {
+      final bool past = end < stretch.startMinutes + kMinimumBandMinutes;
+
+      move(past ? math.max(end - stretch.minutes, first) : stretch.startMinutes, end);
     }
 
     final Widget row = Container(
@@ -206,9 +235,9 @@ class _MobileBandEditorState extends State<MobileBandEditor>
             child: MobileTimeField(
               label: 'Dalle',
               minutes: stretch.startMinutes,
-              min: low,
-              max: stretch.endMinutes - kMinimumBandMinutes,
-              onChanged: (start) => move(start, stretch.endMinutes),
+              min: first,
+              max: last - kMinimumBandMinutes,
+              onChanged: moveStart,
             ),
           ),
           const SizedBox(width: 10),
@@ -216,30 +245,16 @@ class _MobileBandEditorState extends State<MobileBandEditor>
             child: MobileTimeField(
               label: 'Alle',
               minutes: stretch.endMinutes,
-              min: stretch.startMinutes + kMinimumBandMinutes,
-              max: high,
-              onChanged: (end) => move(stretch.startMinutes, end),
+              min: first + kMinimumBandMinutes,
+              max: last,
+              onChanged: moveEnd,
             ),
           ),
-          // A lone stretch is cleared with «No»; the bin shows from the second.
-          if (stretches.length > 1)
-            Semantics(
-              button: true,
-              label: 'Elimina',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: leaving ? null : () => _remove(stretch),
-                child: SizedBox(
-                  width: 40,
-                  height: 44,
-                  child: Icon(
-                    Icons.delete_outline_rounded,
-                    size: 20,
-                    color: AppTheme.trialDanger.withValues(alpha: 0.82),
-                  ),
-                ),
-              ),
-            ),
+          // A lone stretch is cleared with "No"; the bin shows from the second.
+          if (stretches.length > 1) ...[
+            const SizedBox(width: 6),
+            MobileCardBinButton(onPressed: leaving ? null : () => _remove(stretch)),
+          ],
         ],
       ),
     );
@@ -256,10 +271,10 @@ class _MobileBandEditorState extends State<MobileBandEditor>
 
   Widget _buildOpen(OpeningWindow window)
   {
-    final List<BandStretch<AvailabilityItem>> stretches = [..._schedule.of(_bucket)];
+    final List<BandStretch<T>> stretches = [..._schedule.of(_bucket)];
     final bool given = stretches.isNotEmpty;
 
-    // On «Sì» the stretches open with the whole block, not one by one.
+    // On "Sì" the stretches open with the whole block, not one by one.
     if (given && !_wasGiven)
     {
       _shown
@@ -305,6 +320,7 @@ class _MobileBandEditorState extends State<MobileBandEditor>
         ),
         _Foot(
           given: given,
+          offLabel: widget.offLabel,
           onAdd: !given || _schedule.firstGap(_bucket, window) == null
               ? null
               : () => _change(() => _schedule.addStretch(_bucket, window)),
@@ -316,7 +332,7 @@ class _MobileBandEditorState extends State<MobileBandEditor>
   @override
   Widget build(BuildContext context)
   {
-    final OpeningWindow? window = widget.draft.windowFor(widget.group, widget.mode, _bucket);
+    final OpeningWindow? window = widget.window;
 
     final bool shut = window == null;
 
@@ -414,9 +430,10 @@ class _UnfoldState extends State<_Unfold> with SingleTickerProviderStateMixin
 class _Held extends StatelessWidget
 {
   final String mode;
-  final BandStretch<AvailabilityItem> stretch;
+  final TimeOfDay start;
+  final TimeOfDay end;
 
-  const _Held({required this.mode, required this.stretch});
+  const _Held({required this.mode, required this.start, required this.end});
 
   @override
   Widget build(BuildContext context)
@@ -440,7 +457,7 @@ class _Held extends StatelessWidget
             ),
           ),
           Text(
-            formatTimeRange(stretch.startTime, stretch.endTime),
+            formatTimeRange(start, end),
             style: GoogleFonts.plusJakartaSans(
               fontSize: 15.5,
               fontWeight: FontWeight.w800,
@@ -555,11 +572,12 @@ class _FadeIn extends StatelessWidget
 class _Foot extends StatelessWidget
 {
   final bool given;
+  final String offLabel;
 
   // Null while the opening has no quarter hour left.
   final VoidCallback? onAdd;
 
-  const _Foot({required this.given, required this.onAdd});
+  const _Foot({required this.given, required this.offLabel, required this.onAdd});
 
   @override
   Widget build(BuildContext context)
@@ -575,7 +593,7 @@ class _Foot extends StatelessWidget
         builder: (alpha) => Padding(
           padding: const EdgeInsets.only(top: 8, bottom: 2),
           child: Text(
-            kNotAvailable,
+            offLabel,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13.5,
               fontStyle: FontStyle.italic,
@@ -586,11 +604,15 @@ class _Foot extends StatelessWidget
         ),
       );
     }
-    else if (onAdd != null)
+    else
     {
-      line = _FadeIn(
-        key: const ValueKey('add'),
-        builder: (alpha) => Padding(
+      // Room kept while given so minus/plus never move under the thumb; dims with no gap left.
+      line = TweenAnimationBuilder<double>(
+        key: const ValueKey('given'),
+        tween: Tween(begin: 0, end: onAdd == null ? _spentAlpha : 1),
+        duration: _move,
+        curve: Curves.easeOut,
+        builder: (context, alpha, _) => Padding(
           padding: const EdgeInsets.only(top: 14),
           child: MobileSlotButton(
             label: 'Aggiungi orario',
@@ -601,10 +623,6 @@ class _Foot extends StatelessWidget
           ),
         ),
       );
-    }
-    else
-    {
-      line = const SizedBox(key: ValueKey('full'), width: double.infinity);
     }
 
     return AnimatedSize(

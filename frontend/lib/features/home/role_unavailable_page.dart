@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils/role_label_mapper.dart';
 import '../../services/api_service.dart';
+import '../auth/models/me_response.dart';
 import 'section_placeholder_page.dart';
 
 // Landing page for roles whose area is not built yet.
@@ -12,12 +13,13 @@ class RoleUnavailablePage extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final String? role = ApiService().lastKnownIdentity?.activeRole;
+    final MeResponse? user = ApiService().lastKnownIdentity;
+    final String? role = user?.activeRole;
 
     return SectionPlaceholderPage(
       currentRoute: '',
       eyebrow: 'Area personale',
-      title: role != null ? RoleLabelMapper.toLabel(role) : 'Il tuo ruolo',
+      title: role != null ? RoleLabelMapper.toLabel(role, feminine: user?.gender == 'F') : 'Il tuo ruolo',
       description: "L'area dedicata al tuo ruolo non è ancora disponibile.",
       showNavigation: false,
     );

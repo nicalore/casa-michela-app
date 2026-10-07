@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_page_container.dart';
@@ -32,6 +33,8 @@ const double _dayNavMin = 470;
 
 const double kCalendarCardGap = 52;
 
+const double _introGap = 24;
+
 // Below this the page lists lessons instead of a timeline, matching the admin's kCalendarTimelineMin.
 const double kCalendarListBelow = 900;
 
@@ -56,6 +59,8 @@ class CalendarPageShell extends StatelessWidget
 
   final List<Widget> Function(bool isNarrow) tools;
 
+  final String? intro;
+
   final Widget Function(bool isNarrow) body;
 
   const CalendarPageShell({
@@ -72,6 +77,7 @@ class CalendarPageShell extends StatelessWidget
     this.closureNote,
     this.loadMarks,
     this.tools = _noTools,
+    this.intro,
     required this.body,
   });
 
@@ -124,14 +130,14 @@ class CalendarPageShell extends StatelessWidget
 
   Widget _buildCalendarButton()
   {
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     return AppCalendarButton(
       selected: day,
       first: oldestKeptDay(now),
       last: DateTime(now.year, now.month, now.day),
       onPicked: onDay,
-      loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to),
+      loadMarks: loadMarks ?? (from, to) => loadDayMarks(from, to, published: true),
     );
   }
 
@@ -207,6 +213,33 @@ class CalendarPageShell extends StatelessWidget
     );
   }
 
+  Widget _buildIntroduced(Widget content)
+  {
+    final String? intro = this.intro;
+
+    if (intro == null)
+    {
+      return content;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          intro,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            height: 1.45,
+            color: AppTheme.trialInk,
+          ),
+        ),
+        const SizedBox(height: _introGap),
+        content,
+      ],
+    );
+  }
+
   Widget _buildPage(double contentWidth)
   {
     final navFits = contentWidth >= _dayNavMin;
@@ -239,7 +272,7 @@ class CalendarPageShell extends StatelessWidget
           child: PageTransitionScrollView(
             child: PageTransitionItem(
               slot: PageTransitionItem.list,
-              child: body(isNarrow),
+              child: _buildIntroduced(body(isNarrow)),
             ),
           ),
         ),
@@ -302,18 +335,20 @@ class CalendarEmptyBand extends StatelessWidget
 {
   final IconData icon;
   final String title;
-  final String message;
+  final String? message;
 
   const CalendarEmptyBand({
     super.key,
     required this.icon,
     required this.title,
-    required this.message,
+    this.message,
   });
 
   @override
   Widget build(BuildContext context)
   {
+    final String? message = this.message;
+
     return Padding(
       padding: const EdgeInsets.only(top: 56, bottom: 8),
       child: Column(
@@ -330,23 +365,36 @@ class CalendarEmptyBand extends StatelessWidget
               color: AppTheme.trialOcean,
             ),
           ),
-          const SizedBox(height: 16),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Text(
-              message,
+          if (message != null) ...[
+            const SizedBox(height: 16),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Text(
+                message,
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 height: 1.4,
-                color: AppTheme.trialMutedText,
+                  color: AppTheme.trialMutedText,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
+  }
+}
+
+class CalendarClosedBand extends StatelessWidget
+{
+  const CalendarClosedBand({super.key});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return const CalendarEmptyBand(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
   }
 }
 

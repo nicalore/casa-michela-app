@@ -1,4 +1,6 @@
+import '../../../core/utils/time_bucket.dart';
 import 'booking_summary_item.dart';
+import 'lesson_item.dart';
 
 class SubjectRequestDraft
 {
@@ -33,6 +35,9 @@ class SubjectRequestDraft
   // The stored row this is, where it is one already.
   BookingSummaryItem? existing;
 
+  // A subject belongs to the band it was booked in.
+  TimeBucket? band;
+
   SubjectRequestDraft({
     this.kind = BookingRequestKind.ministrySubject,
     this.ministrySubjectId,
@@ -46,6 +51,7 @@ class SubjectRequestDraft
     this.topic = '',
     this.notes = '',
     this.existing,
+    this.band,
   })  : tags = tags ?? <String>[],
         associationSubjectIds = associationSubjectIds ?? <int>{},
         preferredTeacherTaxCodes = preferredTeacherTaxCodes ?? <String>[];
@@ -55,6 +61,7 @@ class SubjectRequestDraft
   factory SubjectRequestDraft.fromBooking(
     BookingSummaryItem booking, {
     String? ministrySubjectName,
+    TimeBucket? band,
   })
   {
     return SubjectRequestDraft(
@@ -71,6 +78,7 @@ class SubjectRequestDraft
       topic: booking.topic ?? '',
       notes: booking.notes ?? '',
       existing: booking,
+      band: band,
     )..ministrySubjectName = ministrySubjectName;
   }
 
@@ -130,6 +138,7 @@ class SubjectRequestDraft
       topic: topic,
       notes: notes,
       existing: existing,
+      band: band,
     )..ministrySubjectName = ministrySubjectName;
   }
 
@@ -150,6 +159,21 @@ class SubjectRequestDraft
       },
       if (notes.isNotEmpty) 'notes': notes,
       'preferred_teacher_tax_codes': preferredTeacherTaxCodes,
+    };
+  }
+
+  Map<String, dynamic> toRequestJson()
+  {
+    final BookingSummaryItem? stored = existing;
+    final TimeBucket? band = this.band;
+
+    return {
+      ...toJson(),
+      'band': ?(band == null ? null : LessonItem.formatBand(band)),
+      if (stored != null) ...{
+        'booking_id': stored.id,
+        'expected_updated_at': stored.updatedAt.toIso8601String(),
+      },
     };
   }
 }

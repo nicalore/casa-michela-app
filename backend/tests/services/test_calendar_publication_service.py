@@ -100,7 +100,6 @@ async def admin(db: AsyncSession):
     return identity_of(administrator.tax_code, "ADMIN")
 
 
-# Ages the lock heartbeat past its TTL: the band is free, the draft stays open.
 async def _abandon_the_band(db: AsyncSession) -> None:
     await db.execute(
         update(CalendarBandLock).values(
@@ -300,7 +299,6 @@ async def test_a_gap_in_the_cover_stops_publication(db: AsyncSession) -> None:
     assert room.name in error.value.detail
 
 
-# A supervisor's own teaching hours count as covered without a separate shift.
 async def test_an_hour_given_to_a_supervisor_needs_no_new_shift(
     db: AsyncSession,
 ) -> None:
@@ -531,7 +529,7 @@ def test_a_family_is_shut_out_at_the_hour_and_an_administrator_is_not() -> None:
     afternoon = [TimeBandEnum.AFTERNOON]
     past_it = datetime(2026, 9, 15, 11, tzinfo=_ROME)
 
-    with pytest.raises(ValueError, match="solo un amministratore"):
+    with pytest.raises(ValueError, match="si sono chiuse il"):
         assert_still_open(day, afternoon, is_admin=False, now=past_it)
 
     assert_still_open(day, afternoon, is_admin=True, now=past_it)
@@ -889,7 +887,6 @@ async def test_leaving_a_bozza_is_only_the_openers(db: AsyncSession) -> None:
     await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
     await publications(db).reopen(ADMIN_IDENTITY, DAY, "AFTERNOON")
 
-    # The lock has expired, but the bozza still belongs to its opener.
     await _abandon_the_band(db)
 
     other = await admin(db)
@@ -955,3 +952,25 @@ async def test_leaving_a_bozza_lets_the_band_go(db: AsyncSession) -> None:
     await publications(db).discard(ADMIN_IDENTITY, DAY, "AFTERNOON")
 
     assert await _held_by(db) is None
+
+
+async def test_a_band_closed_with_nobody_booked_is_unbooked(db: AsyncSession) -> None:
+    student = await make_student(db)
+    await make_presence(db, student, day=DAY, start_time=time(15), end_time=time(17))
+    noon = datetime(2026, 9, 15, 12, tzinfo=ZoneInfo("Europe/Rome"))
+
+    bands = await publications(db, now=noon).unbooked_bands(
+        date_from=DAY,
+        date_to=DAY,
+    )
+
+    assert bands == [(DAY, TimeBandEnum.MORNING)]
+
+
+async def test_a_published_band_is_never_unbooked(db: AsyncSession) -> None:
+    await publications(db).publish(ADMIN_IDENTITY, AFTERNOON)
+
+    bands = await publications(db).unbooked_bands(date_from=DAY, date_to=DAY)
+
+    assert bands == [(DAY, TimeBandEnum.MORNING), (DAY, TimeBandEnum.EVENING)]
+

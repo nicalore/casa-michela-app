@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -21,9 +23,11 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import '../../shared/widgets/mobile_search_field.dart';
 import 'widgets/mobile_programs_sheet.dart';
+import 'widgets/mobile_reflow_slot.dart';
 import 'widgets/mobile_removable_row.dart';
 import 'widgets/mobile_service_sheet.dart';
 import 'widgets/mobile_subject_card.dart';
@@ -124,7 +128,6 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   bool _failed = false;
   bool _saving = false;
 
-  // Its introduction waits until the page is on screen.
   bool _introduced = false;
 
   String? _taxCode;
@@ -141,6 +144,11 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
 
+  final Set<Key> _leaving = {};
+
+  // Bumped per removal: only then do the tablet's cards glide to their new places.
+  int _removals = 0;
+
   @override
   void initState()
   {
@@ -153,7 +161,6 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
   {
     super.didChangeDependencies();
 
-    // Once on screen, not while it loads out of sight.
     if (!_introduced && widget.heading == null && !MobileHoldScope.waitingOf(context))
     {
       _introduced = true;
@@ -361,25 +368,16 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     return showMobileProgramsSheet(
       context: context,
       subjectName: entry.name,
+      description: _describeSubject(subjectId),
       programs: programs,
       initialSelected:
           current?.studyProgramIds.toSet() ?? {for (final program in programs) program.id},
-      removable: held,
+      onRemove: held ? (sheet) => _removeFrom(sheet, entry) : null,
     ).then((chosen) async
     {
-      if (chosen == null || !mounted)
+      // Empty cancels a new discipline; a held one is given up from the sheet.
+      if (chosen == null || chosen.isEmpty || !mounted)
       {
-        return;
-      }
-
-      // Empty selection removes a held discipline and cancels for a new one.
-      if (chosen.isEmpty)
-      {
-        if (held && await _confirmRemoval(entry))
-        {
-          _remove(entry);
-        }
-
         return;
       }
 
@@ -390,7 +388,15 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     });
   }
 
-  String? _describe(String service)
+  String? _describeSubject(int subjectId)
+  {
+    final AssociationSubjectItem? known =
+        _subjects.where((item) => item.id == subjectId).firstOrNull;
+
+    return descriptionOrNull(known?.description);
+  }
+
+  String? _describeService(String service)
   {
     final ServiceItem? known =
         _services.where((item) => item.name == service).firstOrNull;
@@ -400,29 +406,63 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
   Future<void> _openService(_Entry entry, {required bool held}) async
   {
-    final bool? acted = await showMobileServiceSheet(
+    final bool? taken = await showMobileServiceSheet(
       context: context,
       name: entry.name,
-      description: _describe(entry.name),
-      held: held,
+      description: _describeService(entry.name),
+      onRemove: held ? (sheet) => _removeFrom(sheet, entry) : null,
     );
 
-    if (acted != true || !mounted)
-    {
-      return;
-    }
-
-    if (!held)
+    if (taken == true && mounted)
     {
       await _addService(entry.name);
+    }
+  }
 
+  Future<void> _removeFrom(BuildContext sheet, _Entry entry) async
+  {
+    if (!await _confirmRemoval(sheet, entry) || !mounted)
+    {
       return;
     }
 
-    if (await _confirmRemoval(entry))
+    if (sheet.mounted)
     {
-      _remove(entry);
+      final Future<void> gone = _sheetGone(ModalRoute.of(sheet)?.animation);
+
+      closeMobileSheet(sheet);
+
+      await gone;
     }
+
+    if (mounted)
+    {
+      setState(() => _leaving.add(entry.key));
+    }
+  }
+
+  // Bounded, should the route go without ever settling.
+  Future<void> _sheetGone(Animation<double>? animation)
+  {
+    if (animation == null || animation.isDismissed)
+    {
+      return Future<void>.value();
+    }
+
+    final Completer<void> gone = Completer<void>();
+
+    void listen(AnimationStatus status)
+    {
+      if (status.isDismissed && !gone.isCompleted)
+      {
+        animation.removeStatusListener(listen);
+        gone.complete();
+      }
+    }
+
+    animation.addStatusListener(listen);
+
+    return gone.future.timeout(const Duration(seconds: 1), onTimeout: () {});
   }
 
   Future<void> _takeOnEverything(_Entry entry)
@@ -456,10 +496,10 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     );
   }
 
-  Future<bool> _confirmRemoval(_Entry entry)
+  Future<bool> _confirmRemoval(BuildContext from, _Entry entry)
   {
     return showMobileConfirmSheet(
-      context: context,
+      context: from,
       eyebrow: 'Rimozione',
       title: 'Confermi?',
       message: entry.isService
@@ -488,12 +528,14 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
     {
       _held = _held.where((subject) => subject.subjectId != entry.subjectId).toList();
       _heldServices = services;
+      _leaving.remove(entry.key);
+      _removals += 1;
     });
 
     _saveCompetences(programs, services);
   }
 
-  Widget _buildCard(_Entry entry, {required bool held})
+  Widget _buildCard(_Entry entry, {required bool held, double gap = 0})
   {
     final MobileSubjectCard card = MobileSubjectCard(
       name: entry.name,
@@ -509,13 +551,15 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
 
     if (!held)
     {
-      return card;
+      return Padding(padding: EdgeInsets.only(bottom: gap), child: card);
     }
 
     return MobileRemovableRow(
       key: entry.key,
-      onConfirm: () => _confirmRemoval(entry),
+      onConfirm: () => _confirmRemoval(context, entry),
       onRemoved: () => _remove(entry),
+      gap: gap,
+      leaving: _leaving.contains(entry.key),
       child: card,
     );
   }
@@ -560,39 +604,48 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
             : 'Nessuna disciplina o servizio da aggiungere.');
       }
 
-      return _buildStatus('Nessun elemento trovato per questa ricerca.');
+      return _buildStatus(kMobileNoSearchMatch);
     }
 
+    if (columns > 1)
+    {
+      return _buildGrid(shown, held: held, columns: columns);
+    }
+
+    // Each row owns the gap below it, so a removed row closes it up as it goes.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < shown.length; i += columns) ...[
-          if (i > 0) const SizedBox(height: _rowGap),
-          _buildRow(shown.skip(i).take(columns).toList(), held: held, columns: columns),
-        ],
+        for (final (i, entry) in shown.indexed)
+          _buildCard(entry, held: held, gap: i < shown.length - 1 ? _rowGap : 0),
       ],
     );
   }
 
-  Widget _buildRow(List<_Entry> entries, {required bool held, required int columns})
+  // One Wrap rather than a Row per line, so a card keeps its element as it moves up a line.
+  Widget _buildGrid(List<_Entry> shown, {required bool held, required int columns})
   {
-    if (columns == 1)
-    {
-      return _buildCard(entries.first, held: held);
-    }
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        // A hair under the share, or rounding pushes a line's last card onto the next.
+        final double width = (constraints.maxWidth - _columnGap * (columns - 1)) / columns - 0.01;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < columns; i++) ...[
-          if (i > 0) const SizedBox(width: _columnGap),
-          Expanded(
-            child: i < entries.length
-                ? _buildCard(entries[i], held: held)
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ],
+        return Wrap(
+          spacing: _columnGap,
+          runSpacing: _rowGap,
+          children: [
+            for (final entry in shown)
+              MobileReflowSlot(
+                key: entry.key,
+                // Only the list removals happen in; the other gains cards out of sight.
+                generation: held ? _removals : 0,
+                spacing: _columnGap,
+                child: SizedBox(width: width, child: _buildCard(entry, held: held)),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -620,7 +673,7 @@ class _MobileSubjectsPageState extends State<MobileSubjectsPage>
       choices: _areaChoices,
       value: _filters.area,
       margin: margin,
-      // Pressing the filter already on does nothing: only «Tutte le aree» clears.
+      // Pressing the filter already on does nothing: only "Tutte le aree" clears.
       onChanged: (value) => setState(() => _filters.area = value),
     );
   }

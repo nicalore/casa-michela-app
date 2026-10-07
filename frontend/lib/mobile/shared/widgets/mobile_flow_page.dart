@@ -15,7 +15,6 @@ const double _footerClearance = 20;
 
 const double _capsuleHeight = 36;
 
-// A step of the way in turning, and the aside sliding along with it.
 const Duration kMobileFlowTurn = Duration(milliseconds: 340);
 const Curve kMobileFlowTurnCurve = Curves.easeInOutCubic;
 
@@ -99,7 +98,6 @@ class MobileFlowScaffold extends StatelessWidget
   }
 }
 
-// Slides in from the left edge as the page narrows beside it, and back out.
 class _Aside extends StatefulWidget
 {
   final double width;

@@ -27,10 +27,13 @@ const Map<String, IconData> _roleIcons = <String, IconData>{
 
 IconData roleIconFor(String role) => _roleIcons[role] ?? Icons.badge_outlined;
 
+String signedInAsLabel({required bool feminine}) => feminine ? 'Sei autenticata come' : 'Sei autenticato come';
+
 Future<void> showRoleSwitchDialog({
   required BuildContext context,
   required String activeRole,
   required List<String> availableRoles,
+  required bool feminine,
   required ValueChanged<String> onSelected,
 })
 {
@@ -40,6 +43,7 @@ Future<void> showRoleSwitchDialog({
     builder: (context) => _RoleSwitchDialog(
       activeRole: activeRole,
       availableRoles: availableRoles,
+      feminine: feminine,
       onSelected: onSelected,
     ),
   );
@@ -49,11 +53,13 @@ class _RoleSwitchDialog extends StatelessWidget
 {
   final String activeRole;
   final List<String> availableRoles;
+  final bool feminine;
   final ValueChanged<String> onSelected;
 
   const _RoleSwitchDialog({
     required this.activeRole,
     required this.availableRoles,
+    required this.feminine,
     required this.onSelected,
   });
 
@@ -63,8 +69,8 @@ class _RoleSwitchDialog extends StatelessWidget
     final roles = availableRoles.where((role) => role != activeRole).toList();
 
     return AppDialogStack(
-      eyebrow: 'Sei autenticato come',
-      title: RoleLabelMapper.toLabel(activeRole),
+      eyebrow: signedInAsLabel(feminine: feminine),
+      title: RoleLabelMapper.toLabel(activeRole, feminine: feminine),
       maxWidth: _stackMaxWidth,
       children: [
         AppDialogPill(
@@ -77,6 +83,7 @@ class _RoleSwitchDialog extends StatelessWidget
                 if (i > 0) const SizedBox(height: _rowGap),
                 _RoleRow(
                   role: roles[i],
+                  feminine: feminine,
                   onTap: () => _select(context, roles[i]),
                 ),
               ],
@@ -97,10 +104,12 @@ class _RoleSwitchDialog extends StatelessWidget
 class _RoleRow extends StatefulWidget
 {
   final String role;
+  final bool feminine;
   final VoidCallback onTap;
 
   const _RoleRow({
     required this.role,
+    required this.feminine,
     required this.onTap,
   });
 
@@ -165,7 +174,7 @@ class _RoleRowState extends State<_RoleRow>
           const SizedBox(width: 14),
           Expanded(
             child: Text(
-              RoleLabelMapper.toLabel(widget.role),
+              RoleLabelMapper.toLabel(widget.role, feminine: widget.feminine),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(

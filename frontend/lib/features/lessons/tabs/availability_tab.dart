@@ -244,7 +244,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
     );
   }
 
-  void _showWizard({AvailabilityGroup? group, VoidCallback? onCancelEdit})
+  void _showWizard({AvailabilityGroup? group, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
@@ -256,7 +256,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
         defaultDate: widget.selectedDay,
         availabilities: widget.availabilities,
         openingDays: widget.openingDays,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onCreate: widget.onCreate,
         onEdit: widget.onEdit,
         onDeleteSlot: widget.onDeleteSlot,
@@ -277,7 +277,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
           for (final group in _dayGroups)
             AvailabilityCard(
               group: group,
-              onEditRequested: (onCancel) => _showWizard(group: group, onCancelEdit: onCancel),
+              onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
               onDelete: () => widget.onDeleteGroup(group.slots),
             ),
         ],
@@ -325,7 +325,7 @@ class _AvailabilityTabState extends State<AvailabilityTab>
                 for (final group in groups)
                   AvailabilityCard(
                     group: group,
-                    onEditRequested: (onCancel) => _showWizard(group: group, onCancelEdit: onCancel),
+                    onEditRequested: (onSaved) => _showWizard(group: group, onEditSaved: onSaved),
                     onDelete: () => widget.onDeleteGroup(group.slots),
                   ),
               ],

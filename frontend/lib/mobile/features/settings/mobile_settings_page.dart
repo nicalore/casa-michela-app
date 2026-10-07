@@ -12,12 +12,14 @@ import '../../../services/api_service.dart';
 import '../../layout/mobile_breakpoints.dart';
 import '../../shared/device_files.dart';
 import '../../shared/widgets/mobile_confirm_sheet.dart';
+import '../../shared/widgets/mobile_danger_button.dart';
 import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import '../profile/widgets/mobile_detail_card.dart';
 import 'widgets/mobile_about.dart';
@@ -38,7 +40,6 @@ const double _topRoom = 16;
 const double _handleClearance = 16;
 
 const double _buttonGap = 22;
-const double _revokeGap = 18;
 const double _reportGap = 20;
 const double _creditsGap = 34;
 
@@ -143,16 +144,15 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     ];
   }
 
-  // The confirmation replaces the session sheet, never stacks over it.
-  Future<void> _openSession(SessionItem session) async
+  Future<void> _openSession(SessionItem session)
   {
-    if (!await showMobileSessionSheet(context: context, session: session) || !mounted)
-    {
-      return;
-    }
+    return showMobileSessionSheet(context: context, session: session, onRevoke: (sheet) => _revoke(sheet, session));
+  }
 
+  Future<void> _revoke(BuildContext sheet, SessionItem session) async
+  {
     final bool confirmed = await showMobileConfirmSheet(
-      context: context,
+      context: sheet,
       eyebrow: kSessionEyebrow,
       title: _confirmTitle,
       message: revokeSessionWarning(
@@ -166,6 +166,11 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     if (!confirmed || !mounted)
     {
       return;
+    }
+
+    if (sheet.mounted)
+    {
+      closeMobileSheet(sheet);
     }
 
     try
@@ -196,19 +201,10 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
     }
   }
 
-  // Refuses on tap when this is the only session.
   Future<void> _revokeOthers() async
   {
-    final List<SessionItem>? sessions = _sessions;
-
-    if (sessions == null || _revokingOthers)
+    if (_revokingOthers)
     {
-      return;
-    }
-
-    if (!sessions.any((session) => !session.isCurrent))
-    {
-      MobileNotice.show(context, kNoOtherSessions, error: true);
       return;
     }
 
@@ -404,8 +400,17 @@ class _MobileSettingsPageState extends State<MobileSettingsPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   MobileSessionList(sessions: _ordered(sessions), onOpen: _openSession),
-                  const SizedBox(height: _revokeGap),
-                  _ButtonWidth(tablet: tablet, child: MobileRevokeOthersButton(onTap: _revokeOthers)),
+                  if (sessions.any((session) => !session.isCurrent)) ...[
+                    const SizedBox(height: _buttonGap),
+                    _ButtonWidth(
+                      tablet: tablet,
+                      child: MobileDangerButton(
+                        label: kRevokeOthersLabel,
+                        icon: Icons.logout_rounded,
+                        onPressed: _revokeOthers,
+                      ),
+                    ),
+                  ],
                 ],
               ),
       ),

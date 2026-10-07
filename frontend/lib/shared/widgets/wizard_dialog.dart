@@ -14,6 +14,9 @@ const double kWizardButtonFontSize = 14;
 
 const double kWizardDialogWidth = 540;
 
+const String kDescriptionFieldLabel = 'Descrizione (opzionale)';
+const String kDescriptionFieldHint = 'Aggiungi una descrizione...';
+
 class DescriptionField extends StatelessWidget
 {
   final TextEditingController controller;
@@ -25,8 +28,8 @@ class DescriptionField extends StatelessWidget
   {
     return AppTextField(
       controller: controller,
-      label: 'Descrizione (opzionale)',
-      hintText: 'Aggiungi una descrizione...',
+      label: kDescriptionFieldLabel,
+      hintText: kDescriptionFieldHint,
       maxLength: FieldLimits.description,
       textCapitalization: TextCapitalization.sentences,
       minLines: 1,
@@ -59,7 +62,8 @@ mixin WizardDialogState<T extends StatefulWidget> on State<T>
 
   bool get isEditing;
 
-  VoidCallback? get onCancelEdit;
+  // The edit is saved and the wizard gone: the details it was opened over go too.
+  VoidCallback? get onEditSaved;
 
   void resetForm();
 
@@ -74,11 +78,6 @@ mixin WizardDialogState<T extends StatefulWidget> on State<T>
   void closeDialog()
   {
     Navigator.of(context).pop();
-
-    if (isEditing)
-    {
-      onCancelEdit?.call();
-    }
   }
 
   Future<void> runSave(
@@ -104,6 +103,7 @@ mixin WizardDialogState<T extends StatefulWidget> on State<T>
     if (isEditing)
     {
       Navigator.of(context).pop();
+      onEditSaved?.call();
     }
     else
     {
@@ -171,7 +171,7 @@ mixin TwoStepWizardState<T extends StatefulWidget> on WizardDialogState<T>
     });
   }
 
-  // Called from inside the caller's own setState — hence no setState here.
+  // Called from inside the caller's own setState - hence no setState here.
   void rewindSteps()
   {
     _step = 0;

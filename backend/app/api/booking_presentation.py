@@ -16,7 +16,7 @@ from app.schemas.association_subject import AssociationSubjectOption
 from app.schemas.booking import BookingSummaryResponse
 from app.schemas.person import PersonOption
 
-# Student tax code → teachers the pupil would rather not have, as of today.
+# Student tax code -> teachers the pupil would rather not have, as of today.
 AvoidedTeachers = dict[str, list[str]]
 
 
@@ -78,7 +78,7 @@ async def booking_people(
     return people, avoided
 
 
-# Booking id → teachers let take it without the competence; empty for non-admins.
+# Booking id -> teachers let take it without the competence; empty for non-admins.
 async def competence_waivers(
     db: AsyncSession,
     identity: IdentityContext,

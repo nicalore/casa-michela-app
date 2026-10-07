@@ -1,7 +1,9 @@
 from datetime import date, datetime
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.time_band import presence_band
 from app.schemas.booking import BookingSummaryResponse
 from app.schemas.opening_day import OpeningModeEnum
 from app.schemas.person import PersonOption
@@ -13,6 +15,12 @@ class PresenceBase(TimeBandMixin):
 
     # A pupil can give both modes for the same day.
     mode: OpeningModeEnum
+
+    @model_validator(mode="after")
+    def _within_one_band(self) -> Self:
+        presence_band(self.start_time, self.end_time)
+
+        return self
 
 
 class PresenceCreate(PresenceBase):

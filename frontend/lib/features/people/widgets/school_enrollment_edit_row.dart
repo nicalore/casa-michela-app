@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
 import 'person_detail_widgets.dart';
@@ -31,7 +32,7 @@ final Map<String, int> kGradeNumbers = {
 // The school year turns over on 1 September; the date is injectable for tests.
 int currentSchoolYearStart([DateTime? today])
 {
-  final now = today ?? DateTime.now();
+  final now = today ?? romeNow();
 
   return now.month < _schoolYearStartMonth ? now.year - 1 : now.year;
 }

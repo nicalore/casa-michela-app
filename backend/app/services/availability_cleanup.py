@@ -8,12 +8,13 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.availability import Availability
-from app.models.booking import Booking
+from app.models.booking import Booking, mark_swept
 from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.opening_day import OpeningDay
 from app.models.presence import Presence
 from app.models.teacher_room_assignment import TeacherRoomAssignment
+from app.services.pupil_lock import lock_pupil
 
 # Availabilities/presences left outside the new openings are deleted whole,
 # never clipped, together with the lessons, bookings, and rooms built on them.
@@ -190,6 +191,16 @@ async def purge_hours_outside_openings(
 
     openings = await _openings_by_day(session, unique_dates, mode)
 
+    # In tax-code order, so two sweeps never wait on each other.
+    for student_tax_code in sorted(
+        await session.scalars(
+            select(Presence.student_tax_code)
+            .where(Presence.date.in_(unique_dates), Presence.mode == mode)
+            .distinct(),
+        ),
+    ):
+        await lock_pupil(session, student_tax_code)
+
     availabilities = await _outside_rows(
         session,
         Availability,
@@ -222,6 +233,7 @@ async def purge_hours_outside_openings(
 
     # Bookings cascade with their presence.
     for presence in presences:
+        mark_swept(session.sync_session, presence)
         await session.delete(presence)
 
     await session.flush()

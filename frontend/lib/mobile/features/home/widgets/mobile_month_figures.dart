@@ -9,7 +9,6 @@ import '../../../../features/home/widgets/home_month_section.dart';
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 
-// The thresholds the two gauges fill towards.
 const int _monthlyThreshold = 9;
 const int _weeklyThreshold = 2;
 
@@ -57,24 +56,77 @@ class MobileMonthFigures extends StatelessWidget
   {
     final List<HomeFigure> figures = teacherFigures(month);
 
+    return _Rows([
+      for (var i = 0; i < figures.length; i++) _FigureRow(lead: _leadFor(i, figures[i]), figure: figures[i]),
+    ]);
+  }
+}
+
+// Presenze, Prenotazioni, Lezioni and Modalità, in pupilFigures order.
+const List<IconData> _pupilIcons = [
+  Icons.how_to_reg_rounded,
+  Icons.bookmark_added_rounded,
+  Icons.school_rounded,
+  Icons.sell_rounded,
+];
+
+class MobilePupilMonthFigures extends StatelessWidget
+{
+  final List<HomeFigure> figures;
+
+  const MobilePupilMonthFigures({super.key, required this.figures});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return _Rows([
+      for (final (i, figure) in figures.indexed)
+        _FigureRow(lead: _LeadIcon(_pupilIcons[i % _pupilIcons.length]), figure: figure),
+    ]);
+  }
+}
+
+class _Rows extends StatelessWidget
+{
+  final List<Widget> rows;
+
+  const _Rows(this.rows);
+
+  @override
+  Widget build(BuildContext context)
+  {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < figures.length; i++) ...[
+        for (var i = 0; i < rows.length; i++) ...[
           if (i > 0) const SizedBox(height: _rowGap),
-          MobileGlassPanel(
-            padding: _rowPadding,
-            borderRadius: _rowRadius,
-            child: Row(
-              children: [
-                SizedBox(width: _leadSize, height: _leadSize, child: _leadFor(i, figures[i])),
-                const SizedBox(width: 16),
-                Expanded(child: _FigureText(figure: figures[i])),
-              ],
-            ),
-          ),
+          rows[i],
         ],
       ],
+    );
+  }
+}
+
+class _FigureRow extends StatelessWidget
+{
+  final Widget lead;
+  final HomeFigure figure;
+
+  const _FigureRow({required this.lead, required this.figure});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MobileGlassPanel(
+      padding: _rowPadding,
+      borderRadius: _rowRadius,
+      child: Row(
+        children: [
+          SizedBox(width: _leadSize, height: _leadSize, child: lead),
+          const SizedBox(width: 16),
+          Expanded(child: _FigureText(figure: figure)),
+        ],
+      ),
     );
   }
 }
@@ -136,11 +188,16 @@ class _FigureText extends StatelessWidget
             ],
           ),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 30,
+            fontSize: figure.isWord ? 24 : 30,
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
+            letterSpacing: figure.isWord ? -0.3 : -0.6,
             height: 1.05,
-            color: AppTheme.trialInk,
+            color: switch (figure.tone)
+            {
+              HomeFigureTone.plain => AppTheme.trialInk,
+              HomeFigureTone.pending => AppTheme.trialTealDeep,
+              HomeFigureTone.absent => MobilePalette.mutedText,
+            },
           ),
         ),
         const SizedBox(height: 3),

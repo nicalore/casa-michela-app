@@ -25,7 +25,7 @@ class OwnLessonList extends StatelessWidget
 
   const OwnLessonList({super.key, required this.entries, required this.nowMinutes});
 
-  // Overlap chains: 15–16, 15:30–16:30 and 16–17 make one row of three.
+  // Overlap chains: 15-16, 15:30-16:30 and 16-17 make one row of three.
   List<_Cluster> get _clusters
   {
     final ordered = [...entries]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
@@ -62,7 +62,7 @@ class OwnLessonList extends StatelessWidget
 
   static double _heightOf(_Cluster row) => (row.endMinutes - row.startMinutes) * _scaleOf(row);
 
-  // Inside a row the row draws the line itself.
+  // Only between rows: a lesson under way is framed, not crossed.
   double? _gapLineTop(List<_Cluster> rows)
   {
     final now = nowMinutes;
@@ -109,9 +109,6 @@ class OwnLessonList extends StatelessWidget
     final scale = _scaleOf(row);
     final lanes = assignSubLanes([for (final entry in row.entries) (entry.startMinutes, entry.endMinutes)]);
 
-    final now = nowMinutes;
-    final clockInRow = now != null && now >= row.startMinutes && now < row.endMinutes;
-
     return SizedBox(
       height: _heightOf(row),
       child: LayoutBuilder(
@@ -119,43 +116,16 @@ class OwnLessonList extends StatelessWidget
         {
           final width = (constraints.maxWidth - (lanes.laneCount - 1) * _columnGap) / lanes.laneCount;
 
-          double leftOf(int index) => lanes.laneOf[index] * (width + _columnGap);
-
-          var lineLeft = double.infinity;
-          var lineRight = double.negativeInfinity;
-
-          if (clockInRow)
-          {
-            for (var index = 0; index < row.entries.length; index++)
-            {
-              final entry = row.entries[index];
-
-              if (now >= entry.startMinutes && now < entry.endMinutes)
-              {
-                lineLeft = math.min(lineLeft, leftOf(index));
-                lineRight = math.max(lineRight, leftOf(index) + width);
-              }
-            }
-          }
-
           return Stack(
             clipBehavior: Clip.none,
             children: [
               for (var index = 0; index < row.entries.length; index++)
                 Positioned(
-                  left: leftOf(index),
+                  left: lanes.laneOf[index] * (width + _columnGap),
                   width: width,
                   top: (row.entries[index].startMinutes - row.startMinutes) * scale,
                   height: (row.entries[index].endMinutes - row.entries[index].startMinutes) * scale,
                   child: row.entries[index].block,
-                ),
-              if (clockInRow && lineLeft < lineRight)
-                Positioned(
-                  left: lineLeft - _nowLineBleed,
-                  width: lineRight - lineLeft + 2 * _nowLineBleed,
-                  top: (now - row.startMinutes) * scale - _nowLineHeight / 2,
-                  height: _nowLineHeight,
-                  child: _buildNowLine(),
                 ),
             ],
           );

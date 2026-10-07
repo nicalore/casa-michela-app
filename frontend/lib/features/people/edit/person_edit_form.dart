@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/money.dart';
 import '../../../core/utils/phone_number.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/course_item.dart';
@@ -138,7 +139,7 @@ const Map<String, int> kGradeNumbers = {
 // Duplicated in school_enrollment_edit_row.dart: the year turns over on 1 September.
 int currentSchoolYearStart([DateTime? today])
 {
-  final DateTime now = today ?? DateTime.now();
+  final DateTime now = today ?? romeNow();
 
   return now.month < 9 ? now.year - 1 : now.year;
 }
@@ -197,7 +198,7 @@ class PersonEditForm
   bool get asksSpecialCategoryDataConsent =>
       !(person?.specialCategoryDataConsent ?? false);
 
-  // No longer enrolled: only personal and contact details show, and nothing else may be required or the form is unsaveable.
+  // No longer enrolled: only personal/contact details show; requiring more blocks saving.
   bool get isPersonalDataOnly
   {
     final PersonItem? person = this.person;
@@ -212,7 +213,7 @@ class PersonEditForm
   // Payment is asked only of someone actually enrolled, and what is not asked cannot be required.
   bool get asksPayment => !isOnlyParentNotMember && !isPersonalDataOnly;
 
-  // Enrolled by the typed rows: newest one, not revoked, still inside its renewal window — the register's own rule.
+  // Same rule as the register, on the typed rows: newest unrevoked one inside its renewal window.
   bool get isEnrolledByRows
   {
     MembershipRowData? latest;
@@ -258,7 +259,7 @@ class PersonEditForm
         person?.homeworkTariff;
   }
 
-  // Level the Aiuto Compiti rate hangs on: the year under way when recorded, else the most recent earlier one.
+  // Sets the Aiuto Compiti rate: current year's level if recorded, else the latest earlier year's.
   String? get currentSchoolLevel
   {
     final int current = currentSchoolYearStart();
@@ -429,7 +430,7 @@ class PersonEditForm
   })
   {
     final PersonEditForm form = PersonEditForm._(null);
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     form.involvementType = involvement;
     form.selectedRoles.addAll(roles);
@@ -501,7 +502,7 @@ class PersonEditForm
 
     if (membershipRows.isEmpty)
     {
-      final DateTime now = DateTime.now();
+      final DateTime now = romeNow();
       membershipRows.add(MembershipRowData.empty(
         year: now.year.toString(),
         date: DateFormat('dd/MM').format(now),
@@ -755,7 +756,7 @@ class PersonEditForm
     final List<String> parts = birthDateCtrl.text.split('/');
     final DateTime birth =
         DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     int age = now.year - birth.year;
 
@@ -1247,7 +1248,7 @@ class PersonEditForm
         'video_surveillance_acknowledged': videoSurveillanceAcknowledged,
         'special_category_data_consent': specialCategoryDataConsentValue,
         'newsletter_consent': newsletterConsentValue,
-        'consents_signed_at': DateTime.now().toIso8601String().split('T').first,
+        'consents_signed_at': romeNow().toIso8601String().split('T').first,
         'emergency_contact_name': emergencyContactNameCtrl.text.isNotEmpty
             ? emergencyContactNameCtrl.text.trim()
             : null,

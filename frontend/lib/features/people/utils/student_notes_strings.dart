@@ -2,6 +2,8 @@ const String kMethodologicalNotesTitle = 'Osservazioni metodologiche';
 const String kTechnicalNotesTitle = 'Osservazioni tecniche';
 const String kTeacherNotesTitle = 'Osservazioni dei docenti';
 
+String notesCountLabel(int count) => count == 1 ? '1 osservazione' : '$count osservazioni';
+
 const String kNewNoteEyebrow = 'Nuova osservazione';
 const String kEditNoteEyebrow = 'Modifica osservazione';
 const String kNewTechnicalNoteEyebrow = 'Nuova osservazione tecnica';

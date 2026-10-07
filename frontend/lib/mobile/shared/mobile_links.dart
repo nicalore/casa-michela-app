@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-// From the https://<site>/reset-password?token=… app link; held until its page is left.
+// From the https://<site>/reset-password?token=... app link; held until its page is left.
 abstract final class MobileResetLink
 {
   static final ValueNotifier<String?> token = ValueNotifier(null);

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart' show formatDayMonthShort;
 import '../../people/models/person_item.dart';
 import 'dashboard_section_card.dart';
@@ -21,7 +22,7 @@ class DashboardBirthday
 
   bool get isToday
   {
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     return date.day == now.day && date.month == now.month;
   }
@@ -52,7 +53,7 @@ List<DashboardBirthday> upcomingBirthdays(
   int limit = 2,
   DateTime? from,
 }) {
-  final DateTime now = from ?? DateTime.now();
+  final DateTime now = from ?? romeNow();
   final DateTime today = DateTime(now.year, now.month, now.day);
 
   final List<DashboardBirthday> found = [];

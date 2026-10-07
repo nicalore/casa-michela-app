@@ -15,17 +15,31 @@ import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
+import '../association_strings.dart';
 import '../models/association_subject_item.dart';
 import '../models/subject_taxonomy.dart';
 import '../widgets/association_subject_card.dart';
 
-const String _intro =
+const String kSubjectsCatalogueIntro =
     'Di seguito trovi tutte le discipline che vengono insegnate in Associazione. '
     'Se manca una disciplina che ti interessa, faccelo sapere!';
 
-const String _introWithButton =
+const String kSubjectsCatalogueIntroWithReport =
     'Di seguito trovi tutte le discipline che vengono insegnate in Associazione. '
     'Se manca una disciplina che ti interessa, faccelo sapere tramite il bottone qui sotto!';
+
+const String kSubjectsSearchHint = 'Cerca disciplina...';
+
+const String kMissingSubjectAction = 'SEGNALA DISCIPLINA';
+const String kMissingSubjectEyebrow = 'Disciplina mancante';
+const String kMissingSubjectTitle = 'Segnala disciplina';
+const String kMissingSubjectNameLabel = 'Nome';
+const String kMissingSubjectNameHint = 'Es. Grammatica latina';
+const String kMissingSubjectNameEmpty = 'Il nome non può essere vuoto.';
+const String kMissingSubjectSend = 'INVIA SEGNALAZIONE';
+const String kMissingSubjectSent = 'Segnalazione inviata con successo!';
+
+String subjectsFoundLabel(int count) => count == 1 ? '1 disciplina trovata' : '$count discipline trovate';
 
 // Keeps 'INVIA SEGNALAZIONE' on one line.
 const double _footerWidth = 576;
@@ -93,7 +107,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
       }
 
       setState(() => _isLoading = false);
-      CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
+      CustomSnackBar.show(context: context, message: kAssociationLoadFailed, isError: true);
     }
   }
 
@@ -133,7 +147,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
       child: Text(
-        widget.canReport ? _introWithButton : _intro,
+        widget.canReport ? kSubjectsCatalogueIntroWithReport : kSubjectsCatalogueIntro,
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w500,
@@ -160,8 +174,8 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
         ...entityTabHeader(
           searchController: _searchController,
           onSearchChanged: (value) => setState(() => _searchText = value),
-          searchHint: 'Cerca disciplina...',
-          actionLabel: widget.canReport ? 'SEGNALA DISCIPLINA' : null,
+          searchHint: kSubjectsSearchHint,
+          actionLabel: widget.canReport ? kMissingSubjectAction : null,
           actionIcon: Icons.flag_rounded,
           actionGradient: AppTheme.dismissGradient,
           actionAccent: AppTheme.trialViolet,
@@ -169,9 +183,7 @@ class _PupilSubjectsTabState extends State<PupilSubjectsTab>
           sort: _sortBy,
           onSortChanged: (value) => setState(() => _sortBy = value),
           sortCriteria: const [SortCriterion.nameAsc, SortCriterion.nameDesc],
-          countLabel: subjects.length == 1
-              ? '1 disciplina trovata'
-              : '${subjects.length} discipline trovate',
+          countLabel: subjectsFoundLabel(subjects.length),
           filters: [
             const FilterGroupDivider(),
             AppFilterPill<String>.filter(
@@ -232,7 +244,7 @@ class _MissingSubjectDialogState extends State<_MissingSubjectDialog>
 
     if (name.isEmpty)
     {
-      CustomSnackBar.show(context: context, message: 'Il nome non può essere vuoto.', isError: true);
+      CustomSnackBar.show(context: context, message: kMissingSubjectNameEmpty, isError: true);
 
       return;
     }
@@ -250,7 +262,7 @@ class _MissingSubjectDialogState extends State<_MissingSubjectDialog>
         return;
       }
 
-      CustomSnackBar.show(context: context, message: 'Segnalazione inviata con successo!', isError: false);
+      CustomSnackBar.show(context: context, message: kMissingSubjectSent, isError: false);
       Navigator.of(context).pop();
     }
     catch (e)
@@ -273,12 +285,12 @@ class _MissingSubjectDialogState extends State<_MissingSubjectDialog>
   Widget build(BuildContext context)
   {
     return AppDialogStack(
-      eyebrow: 'Disciplina mancante',
-      title: 'Segnala disciplina',
+      eyebrow: kMissingSubjectEyebrow,
+      title: kMissingSubjectTitle,
       maxWidth: kWizardDialogWidth,
       footer: AppDialogFooter.single(
         AppGradientButton(
-          label: 'INVIA SEGNALAZIONE',
+          label: kMissingSubjectSend,
           icon: Icons.send_rounded,
           busy: _isSending,
           height: kWizardButtonHeight,
@@ -295,8 +307,8 @@ class _MissingSubjectDialogState extends State<_MissingSubjectDialog>
             children: [
               AppTextField(
                 controller: _nameController,
-                label: 'Nome',
-                hintText: 'Es. Grammatica latina',
+                label: kMissingSubjectNameLabel,
+                hintText: kMissingSubjectNameHint,
                 maxLength: FieldLimits.name,
                 textCapitalization: TextCapitalization.sentences,
                 nothingAbove: true,

@@ -15,6 +15,7 @@ _FORBIDDEN_PUPIL_ERROR: Final[str] = (
 _PARENTS_BOOK_ERROR: Final[str] = "Le tue prenotazioni sono gestite dai tuoi genitori"
 
 _ADMIN_ROLE: Final[str] = "ADMIN"
+_ACTIVE_ROLE_HEADER: Final[str] = "X-Active-Role"
 
 
 @dataclass(frozen=True)
@@ -30,14 +31,18 @@ class IdentityContext:
     # Which hat the user is wearing. Presentation only: RBAC reads roles.
     active_role: str | None = None
 
-    # A pupil whose parents answer for them acts alone only when allowed to: booking,
-    # reporting a missing discipline, naming teachers they got on less well with.
+    # An answered-for pupil books, reports and names teachers only if autonomous.
     answered_for: bool = False
     autonomous_bookings: bool = False
 
     @property
     def is_admin(self) -> bool:
         return _ADMIN_ROLE in self.roles
+
+    # Only an admin wearing the admin hat bypasses closed bands.
+    @property
+    def overrides_closures(self) -> bool:
+        return self.is_admin and self.active_role in (None, _ADMIN_ROLE)
 
     # Pupils whose bookings are theirs: self as pupil, children as parent; never admins.
     @property
@@ -58,7 +63,6 @@ class IdentityContext:
             not self.answered_for or self.autonomous_bookings
         )
 
-    # The subset this user may book, change or cancel for.
     @property
     def bookable_student_tax_codes(self) -> frozenset[str]:
         own: set[str] = set()
@@ -79,6 +83,9 @@ async def get_current_identity(
     account = current_account
     roles = frozenset(RoleService.get_available_roles(account.person))
 
+    # The header's role, not the stored one, which follows the last switch anywhere.
+    worn = request.headers.get(_ACTIVE_ROLE_HEADER)
+
     identity = IdentityContext(
         tax_code=account.tax_code,
         roles=roles,
@@ -86,7 +93,7 @@ async def get_current_identity(
         onboarding_completed=account.onboarding_completed_at is not None,
         active_role=RoleService.resolve_active_role(
             roles,
-            account.last_active_role,
+            worn if worn in roles else account.last_active_role,
         ),
         answered_for=RoleService.is_answered_for(account.person),
         autonomous_bookings=account.autonomous_bookings,

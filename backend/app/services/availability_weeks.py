@@ -10,6 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.availability_thresholds import LOW_AVAILABILITY_WEEKLY_THRESHOLD
 from app.models.availability import Availability
 from app.models.opening_day import OpeningDay
+from app.services.enrollment_spans import (
+    EnrolledSpan,
+    enrollment_within,
+    is_enrolled_on,
+)
 
 _WEEK: Final[timedelta] = timedelta(days=7)
 
@@ -18,7 +23,7 @@ def _monday_of(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
-# A Monday-to-Sunday week the association opens at least once in presence.
+# A Monday-to-Sunday week the association opens at least once in the mode.
 @dataclass(frozen=True, slots=True)
 class WeekFrame:
     monday: date
@@ -26,7 +31,7 @@ class WeekFrame:
     # Fewer than the threshold only when the association opens fewer days.
     required: int
 
-    # Openings left from today on: days can still be given, so it is not judged.
+    # Openings remain from today on, so the week is not judged yet.
     is_open: bool
 
 
@@ -42,18 +47,54 @@ class AvailabilityWeek:
         return not self.is_open and self.given < self.required
 
 
-# Weeks begun by today that open inside [start, end), each read whole: a week across
-# two months belongs to both, unless it opens in only one of them.
-async def week_frames(
+# One mode's openings by Monday, whole weeks begun by today opening in [start, end).
+@dataclass(frozen=True, slots=True)
+class OpeningWeeks:
+    start: date
+    end: date
+    today: date
+    openings: Mapping[date, tuple[date, ...]]
+
+    # A week across two months belongs to both, unless it opens in only one of them.
+    # Given spans, only openings while enrolled count.
+    def frames(self, spans: Sequence[EnrolledSpan] | None = None) -> list[WeekFrame]:
+        frames = []
+
+        for monday, days in self.openings.items():
+            if spans is not None:
+                days = tuple(day for day in days if is_enrolled_on(day, spans))
+                joined = enrollment_within(spans, monday, monday + _WEEK)
+
+                # The week one enrolls in needs two openings left after that day.
+                if joined is not None and (
+                    sum(1 for day in days if day > joined)
+                    < LOW_AVAILABILITY_WEEKLY_THRESHOLD
+                ):
+                    continue
+
+            if any(self.start <= day < self.end for day in days):
+                frames.append(
+                    WeekFrame(
+                        monday=monday,
+                        required=min(LOW_AVAILABILITY_WEEKLY_THRESHOLD, len(days)),
+                        is_open=max(days) >= self.today,
+                    ),
+                )
+
+        return frames
+
+
+async def opening_weeks(
     db: AsyncSession,
     start: date,
     end: date,
     today: date,
-) -> list[WeekFrame]:
+    mode: str = "presence",
+) -> OpeningWeeks:
     until = min(end, today + timedelta(days=1))
 
     if until <= start:
-        return []
+        return OpeningWeeks(start=start, end=end, today=today, openings={})
 
     first = _monday_of(start)
     last = _monday_of(until - timedelta(days=1))
@@ -62,7 +103,7 @@ async def week_frames(
         select(OpeningDay.date)
         .distinct()
         .where(
-            OpeningDay.mode == "presence",
+            OpeningDay.mode == mode,
             OpeningDay.start_time.is_not(None),
             OpeningDay.date >= first,
             OpeningDay.date < last + _WEEK,
@@ -74,46 +115,49 @@ async def week_frames(
     for day in open_days:
         by_week[_monday_of(day)].append(day)
 
-    return [
-        WeekFrame(
-            monday=monday,
-            required=min(LOW_AVAILABILITY_WEEKLY_THRESHOLD, len(days)),
-            is_open=max(days) >= today,
-        )
-        for monday, days in sorted(by_week.items())
-        if any(start <= day < end for day in days)
-    ]
+    return OpeningWeeks(
+        start=start,
+        end=end,
+        today=today,
+        openings={
+            monday: tuple(sorted(days))
+            for monday, days in sorted(by_week.items())
+            if any(start <= day < end for day in days)
+        },
+    )
 
 
-# Days given in presence per teacher and week, days ahead of today included.
+# Days given per teacher and week, future days included.
 async def days_given(
     db: AsyncSession,
-    frames: Sequence[WeekFrame],
+    weeks: OpeningWeeks,
     tax_code: str | None = None,
+    mode: str = "presence",
 ) -> dict[str, dict[date, int]]:
-    if not frames:
+    if not weeks.openings:
         return {}
+
+    mondays = list(weeks.openings)
 
     stmt = (
         select(Availability.teacher_tax_code, Availability.date)
         .distinct()
         .where(
-            Availability.mode == "presence",
-            Availability.date >= frames[0].monday,
-            Availability.date < frames[-1].monday + _WEEK,
+            Availability.mode == mode,
+            Availability.date >= mondays[0],
+            Availability.date < mondays[-1] + _WEEK,
         )
     )
 
     if tax_code is not None:
         stmt = stmt.where(Availability.teacher_tax_code == tax_code)
 
-    counted = {frame.monday for frame in frames}
     given: dict[str, dict[date, int]] = defaultdict(lambda: defaultdict(int))
 
     for teacher, day in await db.execute(stmt):
         monday = _monday_of(day)
 
-        if monday in counted:
+        if monday in weeks.openings:
             given[teacher][monday] += 1
 
     return given
@@ -134,17 +178,20 @@ def weeks_of(
     ]
 
 
+# Only the weeks the teacher was enrolled in, each asking for its enrolled openings.
 async def teacher_weeks(
     db: AsyncSession,
     tax_code: str,
+    spans: Sequence[EnrolledSpan],
     start: date,
     end: date,
     today: date,
+    mode: str = "presence",
 ) -> list[AvailabilityWeek]:
-    frames = await week_frames(db, start, end, today)
-    given = await days_given(db, frames, tax_code)
+    weeks = await opening_weeks(db, start, end, today, mode)
+    given = await days_given(db, weeks, tax_code, mode)
 
-    return weeks_of(frames, given.get(tax_code, {}))
+    return weeks_of(weeks.frames(spans), given.get(tax_code, {}))
 
 
 def weekly_average(weeks: Sequence[AvailabilityWeek]) -> float:

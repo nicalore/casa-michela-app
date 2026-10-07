@@ -219,7 +219,6 @@ async def test_competence_is_read_against_the_pupils_programme(
     await make_competence(db, teacher, subject, taught_programme)
     await make_enrollment(db, student, other_programme)
 
-    # The (discipline, programme) pair applies only inside the pupil's programme.
     await make_discipline_in_programme(db, subject, other_programme)
 
     availability, booking = await _hour_for(db, teacher, student, subject)
@@ -275,7 +274,6 @@ async def test_a_discipline_outside_the_programme_ignores_it(
     taught_programme = await make_study_program(db)
     enrolled_programme = await make_study_program(db)
 
-    # The discipline belongs to neither programme, so the pair check is skipped.
     await make_competence(db, teacher, subject, taught_programme)
     await make_enrollment(db, student, enrolled_programme)
 
@@ -356,7 +354,6 @@ async def test_a_lesson_must_fit_the_pupils_hours(db: AsyncSession) -> None:
     assert "ore di" in error.value.detail
 
 
-# The booking is typed under one stretch, but the pupil is around for both.
 async def test_a_lesson_may_sit_in_any_stretch_of_the_pupils_day(
     db: AsyncSession,
 ) -> None:
@@ -583,7 +580,6 @@ async def test_a_teacher_at_home_cannot_take_a_pupil_in_the_building(
     assert "da casa" in error.value.detail
 
 
-# The same pupil, booked both in the building and from home the same day.
 async def test_a_lesson_must_stay_in_one_mode(db: AsyncSession) -> None:
     built = await scene(db)
     at_home = await make_presence(
@@ -757,7 +753,6 @@ async def test_a_withdrawn_opinion_no_longer_warns(db: AsyncSession) -> None:
     assert warnings == []
 
 
-# The opinion is the pupil's, not the booking's: said once per lesson.
 async def test_one_warning_per_pupil_however_many_bookings(
     db: AsyncSession,
 ) -> None:

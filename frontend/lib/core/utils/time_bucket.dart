@@ -79,6 +79,12 @@ String bandLabel(TimeBucket bucket)
   }
 }
 
+// "il pomeriggio", for "Elimina il pomeriggio".
+String theBandLabel(TimeBucket bucket) => '${bucket == TimeBucket.afternoon ? 'il' : 'la'} ${bandLabel(bucket).toLowerCase()}';
+
+// "del pomeriggio", for "le lezioni del pomeriggio".
+String ofBandLabel(TimeBucket bucket) => '${bucket == TimeBucket.afternoon ? 'del' : 'della'} ${bandLabel(bucket).toLowerCase()}';
+
 int bandStartMinutes(TimeBucket bucket) => _bandStartHour(bucket) * 60;
 
 int bandEndMinutes(TimeBucket bucket) => _bandEndHour(bucket) * 60;

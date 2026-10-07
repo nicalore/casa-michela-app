@@ -4,7 +4,6 @@ import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../routing/app_router.dart';
-import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
@@ -15,6 +14,7 @@ import 'association_strings.dart';
 import 'tabs/opening_hours/combined_hours_view.dart';
 import 'tabs/pupil_subjects_tab.dart';
 import 'tabs/pupil_teachers_tab.dart';
+import 'teacher_opinions.dart';
 
 const String _teacherRole = 'TEACHER';
 const String _parentRole = 'PARENT';
@@ -24,7 +24,7 @@ const int _subjectsIndex = 1;
 const int _teachersIndex = 2;
 
 const String _hours = kAssociationHoursLabel;
-const String _meetings = 'Colloqui';
+const String _meetings = kAssociationMeetingsLabel;
 const String _notices = kAssociationNoticesLabel;
 
 // Order matches the PageSections below; the constants above index both.
@@ -35,18 +35,16 @@ List<RailGroup> _sectionsFor(String role)
       const RailGroup(entries: [_hours, _notices], unavailable: {_notices})
     else
       RailGroup(
-        entries: [_hours, 'Discipline', 'Docenti', if (role == _parentRole) _meetings, _notices],
+        entries: [
+          _hours,
+          kAssociationSubjectsLabel,
+          kAssociationTeachersLabel,
+          if (role == _parentRole) _meetings,
+          _notices,
+        ],
         unavailable: const {_meetings, _notices},
       ),
   ];
-}
-
-// A parent always; a pupil only when no parent answers for them.
-bool _canSpeak(String role)
-{
-  final bool answeredFor = ApiService().lastKnownIdentity?.hasParentalResponsibility ?? false;
-
-  return role == _parentRole || !answeredFor;
 }
 
 class RoleAssociationPage extends StatefulWidget
@@ -86,10 +84,10 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
         visitedSections.contains(_hoursIndex) ? const CombinedHoursView() : const SizedBox.shrink(),
         if (widget.role != _teacherRole) ...[
           visitedSections.contains(_subjectsIndex)
-              ? PupilSubjectsTab(canReport: _canSpeak(widget.role))
+              ? PupilSubjectsTab(canReport: canSpeakFor(widget.role))
               : const SizedBox.shrink(),
           visitedSections.contains(_teachersIndex)
-              ? PupilTeachersTab(role: widget.role, canReport: _canSpeak(widget.role))
+              ? PupilTeachersTab(role: widget.role, canReport: canSpeakFor(widget.role))
               : const SizedBox.shrink(),
         ],
         // Not built yet: named on the rail, never opened.

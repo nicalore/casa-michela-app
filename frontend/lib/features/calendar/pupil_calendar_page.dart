@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
@@ -19,7 +20,8 @@ import '../lessons/models/lesson_item.dart';
 import '../lessons/models/presence_item.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
-import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast;
+import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLessonRunning;
+import '../people/models/person_face.dart';
 import 'utils/calendar_strings.dart';
 import 'utils/pupil_band_presence.dart';
 import 'widgets/band_summary_card.dart';
@@ -34,11 +36,15 @@ const Duration _tick = Duration(minutes: 1);
 
 const String _parentRole = 'PARENT';
 
+const String _pupilRole = 'Studente';
+
 const double _cardGap = 16;
 
 const double _stackGap = 36;
 
 const double _listMaxWidth = 640;
+
+const double _listNameGap = 10;
 
 const double _layoutMenuWidth = 210;
 
@@ -59,7 +65,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 {
   final ApiService _apiService = ApiService();
 
-  DateTime _now = DateTime.now();
+  DateTime _now = romeNow();
 
   Timer? _clock;
 
@@ -79,6 +85,9 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
   List<OpeningDayItem> _openingDays = [];
   List<CalendarPublicationItem> _publications = [];
+
+  // Closed with nobody booked: never to be published.
+  List<(DateTime, TimeBucket)> _unbooked = [];
   List<LessonItem> _lessons = [];
   List<PresenceItem> _presences = [];
 
@@ -104,7 +113,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       // Offstage the tick is skipped; onDestinationShown realigns the clock.
       if (destinationShown)
       {
-        setState(() => _now = DateTime.now());
+        setState(() => _now = romeNow());
       }
     });
 
@@ -121,7 +130,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
   @override
   void onDestinationShown()
   {
-    setState(() => _now = DateTime.now());
+    setState(() => _now = romeNow());
 
     _loadDay(quiet: true);
   }
@@ -137,8 +146,12 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
 
     final reader = await _apiService.getPerson(me.taxCode);
 
+    final children = await Future.wait([
+      for (final child in reader.children ?? const []) _apiService.getPerson(child.fiscalCode),
+    ]);
+
     return [
-      for (final child in reader.children ?? const [])
+      for (final child in children.where((child) => child.roles.contains(_pupilRole)).toList()..sort(compareByName))
         (taxCode: child.fiscalCode, firstName: child.firstName),
     ];
   }
@@ -156,6 +169,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         _apiService.getCalendarPublications(dateFrom: day, dateTo: day),
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getPresences(dateFrom: day, dateTo: day),
+        _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -175,10 +189,11 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         _publications = results[2] as List<CalendarPublicationItem>;
         _lessons = results[3] as List<LessonItem>;
         _presences = results[4] as List<PresenceItem>;
+        _unbooked = results[5] as List<(DateTime, TimeBucket)>;
 
-        if (results.length > 5)
+        if (results.length > 6)
         {
-          _ministrySubjects = results[5] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[6] as List<MinistrySubjectItem>;
         }
 
         _pupils = pupils;
@@ -257,13 +272,16 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     return _publications.any((row) => isSameDate(row.date, _day) && row.band == _band);
   }
 
+  bool get _isSettled
+  {
+    return _isPublished || _unbooked.any((row) => isSameDate(row.$1, _day) && row.$2 == _band);
+  }
+
   int? get _nowMinutes => _isToday ? minutesOfTimeOfDay(TimeOfDay.fromDateTime(_now)) : null;
 
   String get _nothingTitle
   {
-    final inBuilding = openingWindowFor(_openingDays, _day, kPresenceMode, _band) != null;
-
-    return inBuilding ? 'Nessuna presenza' : 'Nessuna lezione';
+    return pupilNothingTitle(inBuilding: openingWindowFor(_openingDays, _day, kPresenceMode, _band) != null);
   }
 
   PupilBandPresence _presenceOf(_Pupil pupil)
@@ -319,18 +337,6 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     }
   }
 
-  String get _whom
-  {
-    final pupils = _pupils ?? const [];
-
-    if (!_isParent)
-    {
-      return 'te';
-    }
-
-    return pupils.length == 1 ? pupils.single.firstName : 'i tuoi figli';
-  }
-
   List<TimelineEntry> _entriesOf(PupilBandPresence presence, {required bool onTimeline})
   {
     return [
@@ -344,6 +350,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
             ministrySubjects: _ministrySubjects,
             view: CalendarView.byStudent,
             isPast: isLessonPast(lesson, _now),
+            isCurrent: !onTimeline && isLessonRunning(lesson, _now),
             onTimeline: onTimeline,
             onTap: () => _openLesson(lesson),
           ),
@@ -398,11 +405,21 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
         for (var index = 0; index < pupils.length; index++) ...[
           if (index > 0) const SizedBox(width: _cardGap),
           Expanded(
-            child: presences[index].isEmpty
-                ? const SizedBox.shrink()
-                : OwnLessonList(entries: _entriesOf(presences[index], onTimeline: false), nowMinutes: _nowMinutes),
+            child: presences[index].isEmpty ? const SizedBox.shrink() : _buildNamedList(pupils[index], presences[index]),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildNamedList(_Pupil pupil, PupilBandPresence presence)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TimelineLaneName(name: pupil.firstName),
+        const SizedBox(height: _listNameGap),
+        OwnLessonList(entries: _entriesOf(presence, onTimeline: false), nowMinutes: _nowMinutes),
       ],
     );
   }
@@ -429,7 +446,12 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       return const CalendarNote(kCalendarLoadFailed);
     }
 
-    if (!_isPublished)
+    if (unionOpeningWindow(_openingDays, _day, _band) == null)
+    {
+      return const CalendarClosedBand();
+    }
+
+    if (!_isSettled)
     {
       return CalendarUnpublishedBand(band: _band);
     }
@@ -442,8 +464,8 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
     {
       return CalendarEmptyBand(
         icon: Icons.free_cancellation_rounded,
-        title: _nothingTitle,
-        message: 'Nel calendario ${ofBand(_band)} non ci sono lezioni per $_whom.',
+        title: kCalendarUnavailableTitle,
+        message: kNoLessonsRequested,
       );
     }
 
@@ -459,7 +481,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
             _buildCard(pupils[index], presences[index], named: true),
             if (!presences[index].isEmpty) ...[
               const SizedBox(height: _cardGap),
-              OwnLessonList(entries: _entriesOf(presences[index], onTimeline: false), nowMinutes: _nowMinutes),
+              _buildNamedList(pupils[index], presences[index]),
             ],
           ],
         ],
@@ -514,6 +536,7 @@ class _PupilCalendarPageState extends State<PupilCalendarPage> with DestinationR
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
       tools: (isNarrow) => isNarrow ? const [] : [_buildLayoutPicker()],
+      intro: lessonDetailsHint(verb: 'clicca'),
       body: _buildBody,
     );
   }

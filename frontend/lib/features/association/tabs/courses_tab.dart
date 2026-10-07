@@ -75,14 +75,14 @@ class _CoursesTabState extends State<CoursesTab>
     return result;
   }
 
-  void _showWizard({CourseItem? course, VoidCallback? onCancelEdit})
+  void _showWizard({CourseItem? course, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'CourseWizard',
       builder: (context) => _CourseWizardDialog(
         existingCourse: course,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, cost, description, onError) async
         {
           if (course == null)
@@ -119,7 +119,7 @@ class _CoursesTabState extends State<CoursesTab>
         {
           return CourseCard(
             course: course,
-            onEditRequested: (onCancel) => _showWizard(course: course, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(course: course, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(course),
           );
         }).toList(),
@@ -131,12 +131,12 @@ class _CoursesTabState extends State<CoursesTab>
 class _CourseWizardDialog extends StatefulWidget
 {
   final CourseItem? existingCourse;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String name, String cost, String description, Function(String) onError) onSave;
 
   const _CourseWizardDialog({
     this.existingCourse,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -155,7 +155,7 @@ class _CourseWizardDialogState extends State<_CourseWizardDialog>
   bool get isEditing => widget.existingCourse != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()

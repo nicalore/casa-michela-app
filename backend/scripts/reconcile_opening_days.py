@@ -5,7 +5,7 @@
 # stayed in the calendar with no template declaring them.
 #
 # It rewrites the generated rows of every day from the templates, from the chosen
-# date on. Overrides — holidays, closures and extraordinary openings — stay where
+# date on. Overrides - holidays, closures and extraordinary openings - stay where
 # they are: they do not come from the templates and take precedence. Teachers'
 # availabilities on days that come out closed are removed, as on any closure.
 #

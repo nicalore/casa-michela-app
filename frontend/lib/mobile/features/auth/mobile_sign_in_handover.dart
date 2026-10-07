@@ -35,7 +35,6 @@ class _MobileSignInHandoverState extends State<MobileSignInHandover> with Single
 
   final ValueNotifier<int> _holds = ValueNotifier<int>(0);
 
-  // Signed in, the area built out of sight until its pages have their data.
   bool _waiting = false;
   Timer? _cap;
 

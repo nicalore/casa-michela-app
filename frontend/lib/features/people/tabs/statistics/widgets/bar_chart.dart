@@ -16,8 +16,7 @@ const LinearGradient _barGradient = LinearGradient(
 
 const Color _hoveredBarColor = AppTheme.trialGold;
 
-// Gold rises inside the bar instead of blending into the teal, whose midway
-// mix is a dull olive.
+// Gold rises inside the bar: a teal-to-gold colour lerp passes through a dull olive.
 const Duration _hoverFill = Duration(milliseconds: 200);
 
 // The Y axis is painted outside the scrollable area so labels stay visible.
@@ -32,7 +31,6 @@ const double _minBarSlotWidth = 95.0;
 const double _barWidthRatio = 0.6;
 const double _labelFontSize = 13;
 
-// Keeps neighbouring labels from running into each other.
 const double _labelGap = 10;
 
 class BarChart extends StatefulWidget
@@ -137,8 +135,7 @@ class _BarChartState extends State<BarChart> with SingleTickerProviderStateMixin
     ];
   }
 
-  // The whole column answers, label included: short bars are easy to reach and
-  // moving across bars never drops the popup in between.
+  // The whole column hit-tests, label included, so moving across bars never drops the popup.
   void _hoverAt(Offset position, double innerWidth)
   {
     final slot = (position.dx / (innerWidth / widget.data.length)).floor();
@@ -288,8 +285,7 @@ class _YAxisPainter extends CustomPainter
   bool shouldRepaint(covariant _YAxisPainter oldDelegate) => oldDelegate.maxValue != maxValue;
 }
 
-// Gold level of each bar, 0 to 1. Each moves on its own, so a quick sweep
-// across bars never makes a half-filled one jump.
+// Gold level per bar, 0 to 1; each moves on its own, so a quick sweep never makes one jump.
 class _FillLevels extends ChangeNotifier
 {
   List<double> levels = const [];

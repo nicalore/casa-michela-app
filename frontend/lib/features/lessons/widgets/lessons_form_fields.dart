@@ -125,8 +125,6 @@ class SelectionOption<T>
   });
 }
 
-// An administrator's picker of students or teachers: the active collaborators, then
-// the enrolled ones no longer collaborating, greyed out. Nobody unenrolled shows.
 List<SelectionOption<String>> personPickerOptions(List<PersonItem> people)
 {
   SelectionOption<String> optionFor(PersonItem person, {required bool collaborating})

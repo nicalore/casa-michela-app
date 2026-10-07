@@ -48,12 +48,9 @@ class BookingsTab extends StatefulWidget
   final ValueChanged<LessonsDayView> onViewSelected;
 
   final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onCreateLessonRequest;
-  final Future<PresenceItem?> Function(String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) onCreatePresence;
-  final Future<bool> Function(PresenceItem existing, String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) onEditPresence;
-  final Future<bool> Function(PresenceItem presence, Function(String) onError) onDeletePresenceQuietly;
+  final Future<bool> Function(String studentTaxCode, DateTime date, List<Map<String, dynamic>> modes, Function(String) onError) onReplaceLessonRequest;
   final Future<bool> Function(BookingSummaryItem booking, int presenceId, Function(String) onError) onDeleteBookingQuietly;
   final void Function(List<PresenceItem> slots) onDeleteGroup;
-  final Future<bool> Function(int presenceId, Map<String, dynamic> subject, Function(String) onError) onCreateBooking;
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditBooking;
 
   const BookingsTab({
@@ -71,12 +68,9 @@ class BookingsTab extends StatefulWidget
     required this.view,
     required this.onViewSelected,
     required this.onCreateLessonRequest,
-    required this.onCreatePresence,
-    required this.onEditPresence,
-    required this.onDeletePresenceQuietly,
+    required this.onReplaceLessonRequest,
     required this.onDeleteBookingQuietly,
     required this.onDeleteGroup,
-    required this.onCreateBooking,
     required this.onEditBooking,
   });
 
@@ -282,7 +276,7 @@ class _BookingsTabState extends State<BookingsTab>
     );
   }
 
-  void _showPresenceWizard({PresenceItem? presence, VoidCallback? onCancelEdit})
+  void _showPresenceWizard({PresenceItem? presence, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
@@ -299,14 +293,9 @@ class _BookingsTabState extends State<BookingsTab>
         studyPrograms: widget.studyPrograms,
         availableDays: widget.availableDays,
         defaultDate: widget.selectedDay,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onCreateLessonRequest: widget.onCreateLessonRequest,
-        onCreatePresence: widget.onCreatePresence,
-        onEditPresence: widget.onEditPresence,
-        onDeletePresenceQuietly: widget.onDeletePresenceQuietly,
-        onCreateBooking: widget.onCreateBooking,
-        onEditBooking: widget.onEditBooking,
-        onDeleteBooking: widget.onDeleteBookingQuietly,
+        onReplaceLessonRequest: widget.onReplaceLessonRequest,
       ),
     );
   }
@@ -374,7 +363,7 @@ class _BookingsTabState extends State<BookingsTab>
       students: widget.students,
       studyPrograms: widget.studyPrograms,
       teachers: widget.teachers,
-      onEditRequested: (onCancel) => _showPresenceWizard(presence: group.first, onCancelEdit: onCancel),
+      onEditRequested: (onSaved) => _showPresenceWizard(presence: group.first, onEditSaved: onSaved),
       onDelete: () => widget.onDeleteGroup(group.slots),
       onEditSubject: widget.onEditBooking,
       onDeleteSubject: widget.onDeleteBookingQuietly,

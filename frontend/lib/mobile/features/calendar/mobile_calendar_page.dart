@@ -6,15 +6,18 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/association/models/ministry_subject_item.dart';
 import '../../../features/association/models/opening_day_item.dart';
 import '../../../features/association/tabs/opening_hours/calendar_bounds.dart';
+import '../../../features/auth/models/me_response.dart';
 import '../../../features/calendar/utils/calendar_strings.dart';
 import '../../../features/calendar/utils/day_marks_loader.dart';
 import '../../../features/calendar/utils/teacher_band_call.dart';
 import '../../../features/lessons/models/activity_item.dart';
+import '../../../features/lessons/models/availability_item.dart';
 import '../../../features/lessons/models/calendar_publication_item.dart';
 import '../../../features/lessons/models/lesson_item.dart';
 import '../../../features/lessons/models/room_supervision_item.dart';
@@ -26,6 +29,8 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_date_capsule.dart';
+import '../../shared/widgets/mobile_info_button.dart';
+import '../../shared/widgets/mobile_info_sheet.dart';
 import '../../shared/widgets/mobile_month_picker.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import 'mobile_calendar_day.dart';
@@ -36,6 +41,9 @@ import 'widgets/mobile_lesson_card.dart';
 import 'widgets/mobile_lesson_sheet.dart';
 
 const String _title = 'Calendario';
+
+// Same "seen" flag for every role: the sentence is the same.
+const String _slug = 'calendar';
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -56,10 +64,13 @@ const double _nowAlignment = 0.4;
 // Never past today: only published days are shown.
 class MobileCalendarPage extends StatefulWidget
 {
+  // Kept past sign-out: the shell clears the identity before the page leaves.
+  final MeResponse user;
+
   // The time now; a probe fixes it.
   final DateTime Function() clock;
 
-  const MobileCalendarPage({super.key, this.clock = DateTime.now});
+  const MobileCalendarPage({super.key, required this.user, this.clock = romeNow});
 
   @override
   State<MobileCalendarPage> createState() => _MobileCalendarPageState();
@@ -88,6 +99,10 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
   // Bumped on every fetch so a stale response is dropped.
   int _request = 0;
 
+  bool _revealed = false;
+
+  bool _introduced = false;
+
   // Drops taps while a lesson's student is being fetched.
   bool _opening = false;
 
@@ -107,7 +122,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   bool get _isFirstDay => !_day.isAfter(oldestKeptDay(_today));
 
-  bool get _feminine => _apiService.lastKnownIdentity?.gender == 'F';
+  bool get _feminine => widget.user.gender == 'F';
 
   @override
   void initState()
@@ -116,6 +131,13 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     _tick();
     _load().whenComplete(MobileHoldScope.hold(context));
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+    _introduce();
   }
 
   @override
@@ -159,6 +181,8 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
         _apiService.getLessons(dateFrom: day, dateTo: day),
         _apiService.getCalendarActivities(dateFrom: day, dateTo: day),
         _apiService.getRoomSupervisions(day),
+        _apiService.getAvailabilities(dateFrom: day, dateTo: day),
+        _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -169,9 +193,9 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
       setState(()
       {
-        if (results.length > 6)
+        if (results.length > 8)
         {
-          _ministrySubjects = results[6] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[8] as List<MinistrySubjectItem>;
         }
 
         _data = calendarDayFrom(
@@ -184,15 +208,18 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
           lessons: results[3] as List<LessonItem>,
           activities: results[4] as List<ActivityItem>,
           supervisions: results[5] as List<RoomSupervisionItem>,
-          teacherTaxCode: _apiService.lastKnownIdentity?.taxCode,
+          availabilities: results[6] as List<AvailabilityItem>,
+          unbooked: results[7] as List<(DateTime, TimeBucket)>,
+          teacherTaxCode: widget.user.taxCode,
         );
 
         _loading = false;
         _failed = false;
       });
 
-      if (!quiet)
+      if (!_revealed)
       {
+        _revealed = true;
         WidgetsBinding.instance.addPostFrameCallback((_) => _revealNow());
       }
     }
@@ -290,6 +317,9 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       return;
     }
 
+    // Past lessons show alone: the student is not fetched.
+    final bool past = lesson.date.isBefore(_today);
+
     _opening = true;
 
     // Read before the sheet opens, so it rises at its full height.
@@ -297,7 +327,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
     try
     {
-      person = await _apiService.getPerson(student.taxCode);
+      person = past ? null : await _apiService.getPerson(student.taxCode);
     }
     catch (_) {}
 
@@ -313,6 +343,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       lesson: lesson,
       ministrySubjects: _ministrySubjects,
       student: person,
+      withStudent: !past,
     );
   }
 
@@ -338,16 +369,52 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
   Widget _buildTitle({required bool tablet})
   {
-    return Text(
-      _title,
-      style: GoogleFonts.plusJakartaSans(
-        fontSize: tablet ? 36 : 30,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.5,
-        height: 1.05,
-        color: Colors.white,
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            _title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: tablet ? 36 : 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              height: 1.05,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 14),
+        MobileInfoButton(
+          onTap: () => showMobileInfoSheet(context: context, title: _title, paragraphs: [_hint]),
+        ),
+      ],
     );
+  }
+
+  String get _hint => lessonDetailsHint(verb: 'tocca');
+
+  void _introduce()
+  {
+    if (_introduced || MobileHoldScope.waitingOf(context))
+    {
+      return;
+    }
+
+    _introduced = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        showMobileInfoSheetOnce(
+          context: context,
+          taxCode: widget.user.taxCode,
+          slug: _slug,
+          title: _title,
+          paragraphs: [_hint],
+        );
+      }
+    });
   }
 
   Future<void> _pickDay() async
@@ -358,12 +425,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
       today: _today,
       first: oldestKeptDay(_today),
       last: _today,
-      loadMarks: (from, to) => loadDayMarks(
-        from,
-        to,
-        lessons: true,
-        teacherTaxCode: _apiService.lastKnownIdentity?.taxCode,
-      ),
+      loadMarks: (from, to) => loadDayMarks(from, to, published: true),
     );
 
     if (picked != null && mounted)
@@ -398,6 +460,11 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     final MobileCalendarBand shown = data.bandOf(band);
     final (int, int)? window = shown.window;
 
+    if (shown.state == MobileCalendarBandState.closed)
+    {
+      return const MobileCalendarNotice(icon: Icons.event_busy_rounded, title: kAssociationClosedTitle);
+    }
+
     if (shown.state == MobileCalendarBandState.unpublished)
     {
       return MobileCalendarNotice(
@@ -411,8 +478,8 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
     {
       return MobileCalendarNotice(
         icon: Icons.free_cancellation_rounded,
-        title: shown.inBuilding ? notConvenedTitle(feminine: _feminine) : kNoLessonsTitle,
-        message: noOwnLessonsMessage(band),
+        title: kCalendarUnavailableTitle,
+        message: shown.offered ? notConvenedSentence(feminine: _feminine) : kNoAvailabilityGiven,
       );
     }
 
@@ -438,7 +505,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
             {
               return MobileCalendarTrack(
                 window: window,
-                entries: entries,
+                lanes: [MobileCalendarColumn(entries: entries)],
                 nowMinutes: nowMinutes,
                 pastDay: pastDay,
                 nowKey: nowKey,
@@ -447,7 +514,7 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
 
             return MobileCalendarTimeline(
               window: window,
-              entries: entries,
+              columns: [MobileCalendarColumn(entries: entries)],
               nowMinutes: nowMinutes,
               pastDay: pastDay,
               tablet: tablet,
@@ -543,19 +610,17 @@ class _MobileCalendarPageState extends State<MobileCalendarPage>
             clipBehavior: Clip.none,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(side, _topRoom, side, bottom),
-            child: MobileLoadSwitcher(
-              waiting: child is MobileWaiting,
-              child: centred
-                  ? ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: math.max(0, constraints.maxHeight - _topRoom - bottom),
-                      ),
-                      child: Center(
-                        child: SizedBox(width: MobileNavSheet.tabletWidth, child: child),
-                      ),
-                    )
-                  : child,
-            ),
+            // No rise when a day comes in: the calendar is simply there.
+            child: centred
+                ? ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: math.max(0, constraints.maxHeight - _topRoom - bottom),
+                    ),
+                    child: Center(
+                      child: SizedBox(width: MobileNavSheet.tabletWidth, child: child),
+                    ),
+                  )
+                : child,
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/app_filter_pill.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../../association/models/association_subject_item.dart';
 import '../../../association/models/subject_taxonomy.dart';
+import '../../../lessons/utils/opening_window.dart' show kPresenceMode;
 import '../../models/age_distribution_item.dart';
 import '../../models/certification_distribution_item.dart';
 import '../../models/city_distribution_item.dart';
@@ -105,28 +107,33 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   TeacherAvailabilityStatisticsItem? _teacherAvailability;
   bool _isAvailabilityLoading = false;
   StudentPresenceStatisticsItem? _studentPresence;
+
+  // The mode _studentPresence was fetched in; the pill may already show the next one.
+  String _studentPresenceMode = kPresenceMode;
   bool _isPresenceLoading = false;
   List<AssociationSubjectItem> _disciplines = [];
   List<CertificationDistributionItem> _certificationData = [];
 
   String _trendResolution = 'year';
   int _startTrendYear = dataStartYear;
-  int _endTrendYear = DateTime.now().year;
+  int _endTrendYear = romeNow().year;
 
   String _collabTrendResolution = 'year';
   int _startCollabTrendYear = dataStartYear;
-  int _endCollabTrendYear = DateTime.now().year;
+  int _endCollabTrendYear = romeNow().year;
 
-  int _selectedRetentionYear = DateTime.now().year;
+  int _selectedRetentionYear = romeNow().year;
   String _collabRetentionType = 'month';
-  int _selectedCollabYear = DateTime.now().year;
-  int _selectedCollabMonth = DateTime.now().month;
+  int _selectedCollabYear = romeNow().year;
+  int _selectedCollabMonth = romeNow().month;
 
   String _educationDistributionType = 'school';
   String _teacherRankingMode = 'absolute';
   String _appreciationPeriod = defaultStatsPeriod;
   String _availabilityPeriod = defaultStatsPeriod;
+  String _availabilityMode = kPresenceMode;
   String _presencePeriod = defaultStatsPeriod;
+  String _presenceMode = kPresenceMode;
 
   bool get _hasDemographics => _rolesWithDemographics.contains(widget.roleKey);
 
@@ -230,6 +237,7 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         months: period.months,
         year: period.year,
         month: period.month,
+        mode: _availabilityMode,
       );
 
       if (mounted)
@@ -298,15 +306,21 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
     {
       final period = statsPeriodParts(_presencePeriod);
 
+      final mode = _presenceMode;
       final data = await _apiService.getStudentPresenceStatistics(
         months: period.months,
         year: period.year,
         month: period.month,
+        mode: mode,
       );
 
       if (mounted)
       {
-        setState(() => _studentPresence = data);
+        setState(()
+        {
+          _studentPresence = data;
+          _studentPresenceMode = mode;
+        });
       }
     }
     catch (_) {}
@@ -1129,10 +1143,16 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
         TeacherAvailabilityCard(
           statistics: availability,
           period: _availabilityPeriod,
+          mode: _availabilityMode,
           isLoading: _isAvailabilityLoading,
           onPeriodChanged: (value)
           {
             setState(() => _availabilityPeriod = value);
+            _loadTeacherAvailabilityData();
+          },
+          onModeChanged: (value)
+          {
+            setState(() => _availabilityMode = value);
             _loadTeacherAvailabilityData();
           },
         ),
@@ -1185,10 +1205,17 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
             StudentPresenceCard(
               statistics: _studentPresence!,
               period: _presencePeriod,
+              mode: _presenceMode,
+              shownMode: _studentPresenceMode,
               isLoading: _isPresenceLoading,
               onPeriodChanged: (value)
               {
                 setState(() => _presencePeriod = value);
+                _loadStudentPresenceData();
+              },
+              onModeChanged: (value)
+              {
+                setState(() => _presenceMode = value);
                 _loadStudentPresenceData();
               },
             ),

@@ -15,7 +15,7 @@ branch_labels = None
 depends_on = None
 
 
-# people → role tables cascaded on delete only; the leaf tables already cascade both.
+# people -> role tables cascaded on delete only; the leaf tables already cascade both.
 _FOREIGN_KEYS: tuple[tuple[str, str, str], ...] = (
     ("accounts", "tax_code", "people"),
     ("members", "tax_code", "people"),

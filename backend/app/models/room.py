@@ -13,7 +13,7 @@ from app.models.mixins import CreatedAtMixin
 
 
 # Rooms are shared between teachers: the constraint is capacity, not
-# exclusivity. capacity NULL means unmeasured — the calendar then only warns.
+# exclusivity. capacity NULL means unmeasured - the calendar then only warns.
 class Room(CreatedAtMixin, Base):
     __tablename__ = "rooms"
 

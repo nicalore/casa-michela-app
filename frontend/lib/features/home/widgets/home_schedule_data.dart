@@ -90,6 +90,8 @@ class HomeBandStatus
   bool get isEmpty => lanes.every((lane) => lane.spans.isEmpty);
 }
 
+String homeSubjectsLabel(int count) => count == 1 ? '1 materia' : '$count materie';
+
 const String kAvailableLead = 'Disponibile';
 const String kBookedLead = 'Prenotato';
 const String kConvenedLead = 'Convocato';

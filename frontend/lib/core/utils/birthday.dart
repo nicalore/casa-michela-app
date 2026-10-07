@@ -1,3 +1,5 @@
+import 'rome_clock.dart';
+
 bool isLeapYear(int year) => year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 
 // Feb 29 falls on the 28th in non-leap years; DateTime would roll it to 1 March.
@@ -27,10 +29,11 @@ int? ageToday(DateTime? birth)
     return null;
   }
 
-  final DateTime today = DateTime.now();
+  final DateTime now = romeNow();
+  final DateTime today = DateTime(now.year, now.month, now.day);
   var years = today.year - birth.year;
 
-  if (today.month < birth.month || (today.month == birth.month && today.day < birth.day))
+  if (today.isBefore(birthdayIn(today.year, birth)))
   {
     years--;
   }

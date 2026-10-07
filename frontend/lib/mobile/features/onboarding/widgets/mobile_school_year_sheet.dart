@@ -11,6 +11,7 @@ import '../../../../features/association/models/subject_taxonomy.dart';
 import '../../../../features/people/widgets/school_enrollment_edit_row.dart';
 import '../../../../features/people/widgets/school_year_wizard.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
 import '../../../shared/widgets/mobile_notice.dart';
@@ -54,17 +55,19 @@ Future<MobileSchoolYearOutcome?> showMobileSchoolYearSheet({
   required Set<int> takenYears,
   SchoolYearChoice? initial,
   bool editing = false,
+  Future<bool> Function(BuildContext sheet)? confirmRemoval,
 })
 {
   return showMobileSheet<MobileSchoolYearOutcome>(
     context: context,
-    dismissible: false,
+    draggable: false,
     builder: (context) => _YearSheet(
       schools: schools,
       programs: programs,
       takenYears: takenYears,
       initial: initial,
       editing: editing,
+      confirmRemoval: confirmRemoval,
     ),
   );
 }
@@ -76,6 +79,7 @@ class _YearSheet extends StatefulWidget
   final Set<int> takenYears;
   final SchoolYearChoice? initial;
   final bool editing;
+  final Future<bool> Function(BuildContext sheet)? confirmRemoval;
 
   const _YearSheet({
     required this.schools,
@@ -83,6 +87,7 @@ class _YearSheet extends StatefulWidget
     required this.takenYears,
     required this.initial,
     required this.editing,
+    required this.confirmRemoval,
   });
 
   @override
@@ -193,7 +198,7 @@ class _YearSheetState extends State<_YearSheet>
     }
 
     _choice.startYear = _startYear;
-    Navigator.of(context).pop(MobileSchoolYearOutcome.chosen(_choice));
+    finishMobileSheet(context, MobileSchoolYearOutcome.chosen(_choice));
   }
 
   // Changing the level clears the answers that depend on it.
@@ -443,10 +448,7 @@ class _YearSheetState extends State<_YearSheet>
         children: [
           Row(
             children: [
-              if (_step > 0) ...[
-                MobileWizardBackButton(onTap: () => _turnTo(_step - 1)),
-                const SizedBox(width: 12),
-              ],
+              MobileWizardBackSlot(onBack: _step > 0 ? () => _turnTo(_step - 1) : null),
               Expanded(
                 child: MobileGoldButton(
                   label: label,
@@ -456,23 +458,20 @@ class _YearSheetState extends State<_YearSheet>
               ),
             ],
           ),
-          if (widget.editing)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(const MobileSchoolYearOutcome.removed()),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Text(
-                  _removeLabel,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.trialDanger,
-                  ),
-                ),
-              ),
+          if (widget.editing && widget.confirmRemoval != null) ...[
+            const SizedBox(height: 12),
+            MobileDangerButton(
+              label: _removeLabel,
+              icon: Icons.delete_outline_rounded,
+              onPressed: () async
+              {
+                if (await widget.confirmRemoval!(context) && mounted)
+                {
+                  finishMobileSheet(context, const MobileSchoolYearOutcome.removed());
+                }
+              },
             ),
+          ],
         ],
       ),
     );

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
 import '../models/person_item.dart';
 import '../models/personal_statistics_items.dart';
 import '../models/student_presence_statistics_item.dart';
@@ -21,7 +22,7 @@ const Duration _fetchFade = Duration(milliseconds: 150);
 const double _chartHeight = 280;
 
 // Ranking size; must match the backend limit.
-const int _requestsLimit = 10;
+const int kRequestedSubjectsLimit = 10;
 
 class PersonPersonalStatsTab extends StatefulWidget
 {
@@ -53,6 +54,9 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   TeacherAppreciationStatisticsItem? _appreciationStats;
   StudentPersonalStatisticsItem? _studentStats;
 
+  // The mode _studentStats was fetched in; the pill may already show the next one.
+  String _studentStatsMode = kPresenceMode;
+
   bool _isTeacherLoading = false;
   bool _isAppreciationLoading = false;
   bool _isStudentLoading = false;
@@ -60,6 +64,9 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
   String _teacherPeriod = defaultStatsPeriod;
   String _appreciationPeriod = defaultStatsPeriod;
   String _studentPeriod = defaultStatsPeriod;
+
+  String _teacherMode = kPresenceMode;
+  String _studentMode = kPresenceMode;
 
   bool get _isTeacher => widget.person.roles
       .map((role) => role.toUpperCase())
@@ -105,6 +112,7 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         months: period.months,
         year: period.year,
         month: period.month,
+        mode: _teacherMode,
       );
 
       if (mounted)
@@ -160,16 +168,22 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
     {
       final period = statsPeriodParts(_studentPeriod);
 
+      final mode = _studentMode;
       final data = await _apiService.getStudentPersonalStatistics(
         widget.person.fiscalCode,
         months: period.months,
         year: period.year,
         month: period.month,
+        mode: mode,
       );
 
       if (mounted)
       {
-        setState(() => _studentStats = data);
+        setState(()
+        {
+          _studentStats = data;
+          _studentStatsMode = mode;
+        });
       }
     }
     catch (_) {}
@@ -201,11 +215,17 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         PersonalAvailabilityCard(
           statistics: teacherStats,
           period: _teacherPeriod,
+          mode: _teacherMode,
           isLoading: _isTeacherLoading,
           forOwner: widget.forOwner,
           onPeriodChanged: (value)
           {
             setState(() => _teacherPeriod = value);
+            _loadTeacherStats();
+          },
+          onModeChanged: (value)
+          {
+            setState(() => _teacherMode = value);
             _loadTeacherStats();
           },
         ),
@@ -225,10 +245,17 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
         PersonalPresenceCard(
           statistics: studentStats,
           period: _studentPeriod,
+          mode: _studentMode,
+          shownMode: _studentStatsMode,
           isLoading: _isStudentLoading,
           onPeriodChanged: (value)
           {
             setState(() => _studentPeriod = value);
+            _loadStudentStats();
+          },
+          onModeChanged: (value)
+          {
+            setState(() => _studentMode = value);
             _loadStudentStats();
           },
         ),
@@ -303,6 +330,16 @@ class _Figure extends StatelessWidget
   }
 }
 
+String presenceDaysPerWeekLabel({required bool online})
+{
+  return online ? 'Giorni di presenza online a settimana' : 'Giorni di presenza a settimana';
+}
+
+String presenceTrendTitle({required bool online})
+{
+  return online ? 'Presenze online per mese, ultimi 12 mesi' : 'Presenze per mese, ultimi 12 mesi';
+}
+
 List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {required bool forOwner})
 {
   return [
@@ -319,6 +356,11 @@ class PersonalAvailabilityCard extends StatelessWidget
   final TeacherPersonalStatisticsItem statistics;
   final String period;
   final ValueChanged<String> onPeriodChanged;
+
+  // Online is never flagged: the backend answers it with no shortfall.
+  final String mode;
+  final ValueChanged<String> onModeChanged;
+
   final bool isLoading;
   final bool forOwner;
 
@@ -327,6 +369,8 @@ class PersonalAvailabilityCard extends StatelessWidget
     required this.statistics,
     required this.period,
     required this.onPeriodChanged,
+    required this.mode,
+    required this.onModeChanged,
     this.isLoading = false,
     this.forOwner = false,
   });
@@ -375,7 +419,12 @@ class PersonalAvailabilityCard extends StatelessWidget
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_available_rounded),
       trailingFit: AppCardTrailing.wrapping,
-      trailing: statsPeriodPill(value: period, onChanged: onPeriodChanged),
+      trailing: StatFilterRow(
+        children: [
+          statsModePill(value: mode, onChanged: onModeChanged),
+          statsPeriodPill(value: period, onChanged: onPeriodChanged),
+        ],
+      ),
       child: AnimatedOpacity(
         opacity: isLoading ? 0.4 : 1,
         duration: _fetchFade,
@@ -512,6 +561,12 @@ class PersonalPresenceCard extends StatefulWidget
   final StudentPersonalStatisticsItem statistics;
   final String period;
   final ValueChanged<String> onPeriodChanged;
+  final String mode;
+  final ValueChanged<String> onModeChanged;
+
+  // The mode of [statistics], which words the labels.
+  final String shownMode;
+
   final bool isLoading;
 
   const PersonalPresenceCard({
@@ -519,6 +574,9 @@ class PersonalPresenceCard extends StatefulWidget
     required this.statistics,
     required this.period,
     required this.onPeriodChanged,
+    required this.mode,
+    required this.onModeChanged,
+    required this.shownMode,
     this.isLoading = false,
   });
 
@@ -533,6 +591,8 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
   @override
   Widget build(BuildContext context)
   {
+    final online = widget.shownMode == kOnlineMode;
+
     return AppCard(
       title: 'Presenze e richieste',
       selectable: false,
@@ -544,6 +604,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             value: _kind,
             onChanged: (value) => setState(() => _kind = value),
           ),
+          statsModePill(value: widget.mode, onChanged: widget.onModeChanged),
           statsPeriodPill(value: widget.period, onChanged: widget.onPeriodChanged),
         ],
       ),
@@ -556,7 +617,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             Row(
               children: [
                 _Figure(
-                  label: 'Giorni di presenza a settimana',
+                  label: presenceDaysPerWeekLabel(online: online),
                   value: widget.statistics.weeklyPresenceDays.toStringAsFixed(1),
                 ),
                 const StatDivider(),
@@ -569,7 +630,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             const SizedBox(height: 32),
             const Divider(color: _sectionDivider, thickness: 1),
             const SizedBox(height: 32),
-            const StatSectionTitle('Presenze per mese, ultimi 12 mesi'),
+            StatSectionTitle(presenceTrendTitle(online: online)),
             const SizedBox(height: 24),
             SizedBox(
               height: _chartHeight,
@@ -583,7 +644,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             RequestedSubjectsSection(
               rankings: widget.statistics.requested,
               kind: _kind,
-              limit: _requestsLimit,
+              limit: kRequestedSubjectsLimit,
             ),
           ],
         ),

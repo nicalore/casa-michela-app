@@ -68,7 +68,6 @@ class _SessionCardState extends State<SessionCard>
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      // One height for every card, so rows line up and the content sits centred.
       child: Container(
         width: widget.width,
         height: _cardHeight,
@@ -153,7 +152,6 @@ class _DeviceBadge extends StatelessWidget
   }
 }
 
-// Keeps its size while hidden so nothing shifts on hover.
 class _RevokeIcon extends StatefulWidget
 {
   final bool visible;

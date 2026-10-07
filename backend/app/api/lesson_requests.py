@@ -5,7 +5,11 @@ from app.api.presences import to_responses
 from app.api.rbac import CurrentIdentity, require_role
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.presence_repository import PresenceRepository
-from app.schemas.lesson_request import LessonRequestCreate
+from app.schemas.lesson_request import (
+    LessonRequestCreate,
+    LessonRequestReplace,
+    LessonRequestReplaceDays,
+)
 from app.schemas.presence import PresenceResponse
 from app.services.booking_service import BookingService
 from app.services.lesson_request_service import LessonRequestService
@@ -41,5 +45,29 @@ async def create_lesson_request(
     db: DbSession,
 ) -> list[PresenceResponse]:
     presences = await _service(db).create(identity, payload)
+
+    return await to_responses(db, identity, presences)
+
+
+@router.put("/", response_model=list[PresenceResponse])
+# The wizard's edits of a day in one transaction, checked on the result.
+async def replace_lesson_request(
+    payload: LessonRequestReplace,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> list[PresenceResponse]:
+    presences = await _service(db).replace(identity, payload)
+
+    return await to_responses(db, identity, presences)
+
+
+@router.put("/days", response_model=list[PresenceResponse])
+# A move between days or modes in one transaction, checked on the result.
+async def replace_lesson_request_days(
+    payload: LessonRequestReplaceDays,
+    identity: CurrentIdentity,
+    db: DbSession,
+) -> list[PresenceResponse]:
+    presences = await _service(db).replace_days(identity, payload.per_day())
 
     return await to_responses(db, identity, presences)

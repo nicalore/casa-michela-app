@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Final
 
 from fastapi import HTTPException, status
@@ -21,6 +21,13 @@ from app.services.lesson_guard import (
     find_booking_lessons,
     find_scheduled_booking_ids,
 )
+from app.services.pupil_lock import (
+    lock_pupil_of_booking,
+    lock_pupil_of_presence,
+    lock_pupils,
+    pupil_of_booking,
+    pupil_of_presence,
+)
 from app.services.schedule_cascade import unschedule
 
 _ENTITY_LABEL: Final[str] = "la prenotazione"
@@ -39,6 +46,17 @@ _UNKNOWN_ASSOCIATION_SUBJECT_ERROR: Final[str] = "La disciplina indicata non esi
 _UNKNOWN_SERVICE_ERROR: Final[str] = 'Il servizio "{name}" non esiste.'
 _CREATE_ERROR: Final[str] = "Errore durante la creazione della prenotazione."
 _UPDATE_ERROR: Final[str] = "Errore durante l'aggiornamento."
+
+
+# Child rows that version the booking too.
+def _children_of(booking: Booking) -> tuple[frozenset, frozenset]:
+    return (
+        frozenset(
+            (row.ministry_subject_id, row.association_subject_id)
+            for row in booking.subjects_requested
+        ),
+        frozenset(row.teacher_tax_code for row in booking.preferred_teachers),
+    )
 
 
 class BookingService:
@@ -171,6 +189,29 @@ class BookingService:
             ),
         )
 
+    async def fill(self, booking: Booking, payload: BookingBase) -> None:
+        children = _children_of(booking)
+        booking.association_subject = await self._resolve_request_target(payload)
+
+        booking.duration = payload.duration
+        booking.tags = payload.tags
+        booking.topic = payload.topic
+        booking.notes = payload.notes
+        booking.association_subject_id = payload.association_subject_id
+        booking.service_name = payload.service_name
+        booking.subjects_requested = await self.resolve_subjects(
+            payload.ministry_subject_id,
+            payload.association_subject_ids,
+        )
+        booking.preferred_teachers = await self.resolve_preferred_teachers(
+            payload.preferred_teacher_tax_codes,
+            student_tax_code=booking.presence.student_tax_code,
+        )
+
+        # Child rows issue no UPDATE on the booking, so its version is bumped by hand.
+        if booking.id is not None and _children_of(booking) != children:
+            booking.updated_at = datetime.now(UTC)
+
     async def _resolve_request_target(
         self,
         payload: BookingBase,
@@ -244,7 +285,7 @@ class BookingService:
         assert_still_open(
             presence.date,
             bands_of(presence.start_time, presence.end_time),
-            is_admin=identity.is_admin,
+            is_admin=identity.overrides_closures,
         )
 
     async def create(
@@ -252,6 +293,7 @@ class BookingService:
         identity: IdentityContext,
         payload: BookingCreate,
     ) -> Booking:
+        await lock_pupil_of_presence(self.repository.session, payload.presence_id)
         presence = await self._get_authorized_presence(identity, payload.presence_id)
         await assert_admin_may_name(
             self.repository.session,
@@ -324,6 +366,17 @@ class BookingService:
         booking_id: int,
         payload: BookingUpdate,
     ) -> Booking:
+        session = self.repository.session
+        # Moving onto another pupil's stretch locks both pupils.
+        await lock_pupils(
+            session,
+            [
+                await pupil_of_booking(session, booking_id),
+                await pupil_of_presence(session, payload.presence_id)
+                if payload.presence_id is not None
+                else None,
+            ],
+        )
         booking = await self.get_owned_or_404(identity, booking_id)
         assert_may_book_for(identity, booking.presence.student_tax_code)
         await assert_admin_may_name(
@@ -360,22 +413,7 @@ class BookingService:
 
             booking.presence = new_presence
 
-        booking.association_subject = await self._resolve_request_target(payload)
-
-        booking.duration = payload.duration
-        booking.tags = payload.tags
-        booking.topic = payload.topic
-        booking.notes = payload.notes
-        booking.association_subject_id = payload.association_subject_id
-        booking.service_name = payload.service_name
-        booking.subjects_requested = await self.resolve_subjects(
-            payload.ministry_subject_id,
-            payload.association_subject_ids,
-        )
-        booking.preferred_teachers = await self.resolve_preferred_teachers(
-            payload.preferred_teacher_tax_codes,
-            student_tax_code=booking.presence.student_tax_code,
-        )
+        await self.fill(booking, payload)
 
         async with integrity_guard(self.repository.session, _UPDATE_ERROR):
             await self.repository.commit()
@@ -384,6 +422,7 @@ class BookingService:
         return booking
 
     async def delete(self, identity: IdentityContext, booking_id: int) -> None:
+        await lock_pupil_of_booking(self.repository.session, booking_id)
         booking = await self.get_owned_or_404(identity, booking_id)
         assert_may_book_for(identity, booking.presence.student_tax_code)
 

@@ -6,7 +6,6 @@ import '../../../../features/people/widgets/person_detail_widgets.dart';
 import '../../../../features/settings/models/session_item.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
 import '../../../shared/widgets/mobile_danger_button.dart';
-import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
@@ -15,9 +14,6 @@ import 'mobile_glass_list.dart';
 const double _iconSize = 24;
 const double _rowLeft = 18;
 const double _rowGap = 15;
-
-const double _revokeHeight = 50;
-const double _revokeRadius = 18;
 
 const double _badgeSize = 58;
 
@@ -61,61 +57,18 @@ class MobileSessionList extends StatelessWidget
   }
 }
 
-class MobileRevokeOthersButton extends StatelessWidget
+Future<void> showMobileSessionSheet({
+  required BuildContext context,
+  required SessionItem session,
+  required Future<void> Function(BuildContext sheet) onRevoke,
+})
 {
-  final VoidCallback onTap;
-
-  const MobileRevokeOthersButton({super.key, required this.onTap});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: MobileGlassPanel(
-          padding: EdgeInsets.zero,
-          borderRadius: const BorderRadius.all(Radius.circular(_revokeRadius)),
-          shadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 12), blurRadius: 28)],
-          child: SizedBox(
-            height: _revokeHeight,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.logout_rounded, size: 19, color: AppTheme.trialDanger),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    kRevokeOthersLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.trialDanger,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// True when the user asks to end the session; the caller confirms.
-Future<bool> showMobileSessionSheet({required BuildContext context, required SessionItem session}) async
-{
-  final bool? revoke = await showMobileSheet<bool>(
+  return showMobileSheet<void>(
     context: context,
     builder: (context) => MobileSheet(
       eyebrow: kSessionEyebrow,
       title: sessionDeviceName(session),
-      trailing: _DeviceBadge(session.deviceType),
+      leading: _DeviceBadge(session.deviceType),
       body: [
         const SizedBox(height: 18),
         if (session.isCurrent) ...[
@@ -141,13 +94,11 @@ Future<bool> showMobileSessionSheet({required BuildContext context, required Ses
               child: MobileDangerButton(
                 label: kRevokeSessionLabel,
                 icon: Icons.logout_rounded,
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => onRevoke(context),
               ),
             ),
     ),
   );
-
-  return revoke ?? false;
 }
 
 class _DeviceBadge extends StatelessWidget

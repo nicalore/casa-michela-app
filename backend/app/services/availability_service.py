@@ -219,7 +219,7 @@ class AvailabilityService:
         assert_still_open(
             day,
             bands_of(start_time, end_time),
-            is_admin=identity.is_admin,
+            is_admin=identity.overrides_closures,
         )
 
     async def create(

@@ -61,14 +61,14 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
     return result;
   }
 
-  void _showWizard({AssociationSubjectItem? subject, VoidCallback? onCancelEdit})
+  void _showWizard({AssociationSubjectItem? subject, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'SubjectWizard',
       builder: (context) => _AssociationSubjectWizardDialog(
         existingSubject: subject,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, area, description, onError) async
         {
           if (subject == null)
@@ -120,7 +120,7 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
         {
           return AssociationSubjectCard(
             subject: subject,
-            onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(subject: subject, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(subject),
           );
         }).toList(),
@@ -132,12 +132,12 @@ class _AssociationSubjectsTabState extends State<AssociationSubjectsTab>
 class _AssociationSubjectWizardDialog extends StatefulWidget
 {
   final AssociationSubjectItem? existingSubject;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String name, String area, String description, Function(String) onError) onSave;
 
   const _AssociationSubjectWizardDialog({
     this.existingSubject,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -157,7 +157,7 @@ class _AssociationSubjectWizardDialogState extends State<_AssociationSubjectWiza
   bool get isEditing => widget.existingSubject != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()

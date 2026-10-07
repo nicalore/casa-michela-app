@@ -81,11 +81,15 @@ class LessonVoice
 
   final IconData? icon;
 
+  // Counted in [value]; mobile opens them from the row.
+  final List<StudentNoteItem>? notes;
+
   const LessonVoice({
     required this.label,
     required this.value,
     this.sensitive = false,
     this.icon,
+    this.notes,
   });
 }
 
@@ -171,15 +175,11 @@ String _joined(Iterable<String> values, {String separator = ', '})
   return kept.isEmpty ? _empty : kept.join(separator);
 }
 
-String _notes(List<StudentNoteItem>? notes)
+LessonVoice _notesVoice(String label, List<StudentNoteItem>? notes)
 {
-  return _joined(
-    [
-      for (final note in notes ?? const <StudentNoteItem>[])
-        '${formatDayMonthFull(note.createdAt)} ${note.createdAt.year} – ${note.text}',
-    ],
-    separator: '\n\n',
-  );
+  final List<StudentNoteItem> all = notes ?? const [];
+
+  return LessonVoice(label: label, value: all.isEmpty ? _empty : notesCountLabel(all.length), notes: all);
 }
 
 String _certifications(PersonItem person)
@@ -282,12 +282,8 @@ List<LessonVoice> studentVoicesOf(PersonItem person, {bool notes = true})
     LessonVoice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty),
     LessonVoice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No')),
     if (notes) ...[
-      LessonVoice(label: 'Osservazioni tecniche', value: _notes(person.technicalNotes)),
-      LessonVoice(
-        label: 'Osservazioni metodologiche',
-        value: _notes(person.methodologicalNotes),
-        sensitive: true,
-      ),
+      _notesVoice(kTechnicalNotesTitle, person.technicalNotes),
+      _notesVoice(kMethodologicalNotesTitle, person.methodologicalNotes),
     ],
     LessonVoice(
       label: 'Altre informazioni',

@@ -190,6 +190,20 @@ class MobileDetailRows extends StatelessWidget
 
   const MobileDetailRows({super.key, required this.rows});
 
+  // Padding included, so the whole row answers.
+  static Widget _tappable(VoidCallback? onTap, Widget row)
+  {
+    if (onTap == null)
+    {
+      return row;
+    }
+
+    return Semantics(
+      button: true,
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: row),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -197,15 +211,18 @@ class MobileDetailRows extends StatelessWidget
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < rows.length; i++)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              border: i == 0
-                  ? null
-                  : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 2 : _rowPadding, bottom: _rowPadding),
-              child: _Row(data: rows[i]),
+          _tappable(
+            rows[i].onTap,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: i == 0
+                    ? null
+                    : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 2 : _rowPadding, bottom: _rowPadding),
+                child: _Row(data: rows[i]),
+              ),
             ),
           ),
       ],

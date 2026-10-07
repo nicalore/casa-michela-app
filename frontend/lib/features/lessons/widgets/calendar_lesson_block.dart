@@ -163,6 +163,11 @@ String lessonAboutLine(
   return (icon: Icons.meeting_room_outlined, label: room);
 }
 
+Color lessonWhereAccent(LessonItem lesson)
+{
+  return lessonWhere(lesson).icon == Icons.meeting_room_outlined ? AppTheme.trialTealDeep : lessonAccent(lesson.mode);
+}
+
 bool isLessonPast(LessonItem lesson, DateTime now)
 {
   if (!isSameDate(lesson.date, now))
@@ -171,6 +176,13 @@ bool isLessonPast(LessonItem lesson, DateTime now)
   }
 
   return lesson.endMinutes <= minutesOfTimeOfDay(TimeOfDay.fromDateTime(now));
+}
+
+bool isLessonRunning(LessonItem lesson, DateTime now)
+{
+  final minutes = minutesOfTimeOfDay(TimeOfDay.fromDateTime(now));
+
+  return isSameDate(lesson.date, now) && lesson.startMinutes <= minutes && minutes < lesson.endMinutes;
 }
 
 class CalendarGhostBlock extends StatelessWidget
@@ -848,7 +860,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                               style: _hoursStyle.copyWith(color: accent),
                             ),
                           ),
-                          // Too narrow for the marks: they would push past the edge; the tooltip tells anyway.
+                          // Too narrow for the marks: they would push past the edge.
                           if (!_isNarrow) ...[
                             if (widget.isPreferred)
                               const Icon(Icons.star_rounded, size: 12, color: kPreferredTeacherColor),

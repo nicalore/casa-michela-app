@@ -1,3 +1,4 @@
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 
 // The founding date; nothing in the calendar predates it.
@@ -6,7 +7,7 @@ final DateTime kAssociationFoundedOn = DateTime(2023, 1, 9);
 // Older days are deleted, so no calendar reaches back further than a year.
 DateTime oldestKeptDay([DateTime? now])
 {
-  final today = now ?? DateTime.now();
+  final today = now ?? romeNow();
   final yearBack = DateTime(today.year - 1, today.month, today.day);
 
   return yearBack.isBefore(kAssociationFoundedOn) ? kAssociationFoundedOn : yearBack;
@@ -19,7 +20,7 @@ const int _generationMonth = DateTime.december;
 // opens up, when the generation script materialises it.
 DateTime calendarHorizon([DateTime? now])
 {
-  final today = now ?? DateTime.now();
+  final today = now ?? romeNow();
   final year = today.month >= _generationMonth ? today.year + 1 : today.year;
 
   return DateTime(year, 12, 31);

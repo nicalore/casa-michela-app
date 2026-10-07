@@ -27,7 +27,7 @@ String? roomCapacityLabel(int? capacity)
 class RoomCard extends StatelessWidget
 {
   final RoomItem room;
-  final void Function(VoidCallback onCancel) onEditRequested;
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   const RoomCard({
@@ -44,12 +44,8 @@ class RoomCard extends StatelessWidget
       barrierLabel: 'RoomDetails',
       builder: (dialogContext) => _RoomDetailsDialogContent(
         room: room,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Carries the card's context, not the closing dialog's.
-          onEditRequested(() => _showDetailsDialog(context));
-        },
+        // Wizard stacks over the details: closing and reopening them replayed their entrance.
+        onEditRequested: () => onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: onDelete,
       ),
     );

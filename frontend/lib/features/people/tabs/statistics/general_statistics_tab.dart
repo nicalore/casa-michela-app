@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/page_transition.dart';
 import '../../models/current_totals_item.dart';
@@ -38,16 +39,16 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   String _trendResolution = 'year';
   int _startTrendYear = dataStartYear;
-  int _endTrendYear = DateTime.now().year;
+  int _endTrendYear = romeNow().year;
 
   String _collabTrendResolution = 'year';
   int _startCollabTrendYear = dataStartYear;
-  int _endCollabTrendYear = DateTime.now().year;
+  int _endCollabTrendYear = romeNow().year;
 
-  int _selectedRetentionYear = DateTime.now().year;
+  int _selectedRetentionYear = romeNow().year;
   String _collabRetentionType = 'month';
-  int _selectedCollabYear = DateTime.now().year;
-  int _selectedCollabMonth = DateTime.now().month;
+  int _selectedCollabYear = romeNow().year;
+  int _selectedCollabMonth = romeNow().month;
 
   @override
   void initState()

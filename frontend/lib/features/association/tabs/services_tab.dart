@@ -53,14 +53,14 @@ class _ServicesTabState extends State<ServicesTab>
     return result;
   }
 
-  void _showWizard({ServiceItem? service, VoidCallback? onCancelEdit})
+  void _showWizard({ServiceItem? service, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'ServiceWizard',
       builder: (context) => _ServiceWizardDialog(
         existingService: service,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, description, onError) async
         {
           if (service == null)
@@ -97,7 +97,7 @@ class _ServicesTabState extends State<ServicesTab>
         {
           return ServiceCard(
             service: service,
-            onEditRequested: (onCancel) => _showWizard(service: service, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(service: service, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(service),
           );
         }).toList(),
@@ -109,12 +109,12 @@ class _ServicesTabState extends State<ServicesTab>
 class _ServiceWizardDialog extends StatefulWidget
 {
   final ServiceItem? existingService;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String name, String description, Function(String) onError) onSave;
 
   const _ServiceWizardDialog({
     this.existingService,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -132,7 +132,7 @@ class _ServiceWizardDialogState extends State<_ServiceWizardDialog>
   bool get isEditing => widget.existingService != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()

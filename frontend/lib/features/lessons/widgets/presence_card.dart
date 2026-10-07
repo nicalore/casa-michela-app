@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/rome_clock.dart';
+import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
@@ -16,6 +20,7 @@ import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../people/models/person_item.dart';
 import '../utils/study_program_lookup.dart';
+import '../models/band_offer.dart';
 import '../models/booking_summary_item.dart';
 import '../models/presence_group.dart';
 import '../models/presence_item.dart';
@@ -52,7 +57,8 @@ class PresenceCard extends StatefulWidget
 
   final List<PersonItem> teachers;
 
-  final void Function(VoidCallback onCancel) onEditRequested;
+  // Opens the wizard over the details; [onSaved] closes them once the edit is saved.
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   final Future<bool> Function(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) onEditSubject;
@@ -113,22 +119,14 @@ class _PresenceCardState extends State<PresenceCard>
         group: _group,
         ministrySubjects: widget.ministrySubjects,
         offeredSubjects: offeredSubjects,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Reuses the card state, not the dialog context about to become invalid.
-          widget.onEditRequested(_showDetailsDialog);
-        },
+        // Over the details, which stay put: closing and reopening them replayed their entrance.
+        onEditRequested: () => widget.onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: widget.onDelete,
         teachers: widget.teachers,
         studentStudyProgramId: _studentStudyProgramId,
         studentGender: _student?.gender,
         onSaveSubject: _writeSubject,
-        onDeleteSubject: (mode, booking)
-        {
-          Navigator.of(dialogContext).pop();
-          _showSubjectDeletion(mode: mode, booking: booking);
-        },
+        onDeleteSubject: (mode, booking) => _showSubjectDeletion(dialogContext, booking: booking),
       ),
     );
   }
@@ -235,7 +233,7 @@ class _PresenceCardState extends State<PresenceCard>
     return success;
   }
 
-  void _showSubjectDeletion({required String mode, required BookingSummaryItem booking})
+  void _showSubjectDeletion(BuildContext dialogContext, {required BookingSummaryItem booking})
   {
     final presenceId = _whereItHangs(booking)?.presenceId;
 
@@ -245,7 +243,7 @@ class _PresenceCardState extends State<PresenceCard>
     }
 
     showBlurredDialog<void>(
-      context: context,
+      context: dialogContext,
       barrierLabel: 'ConfirmSubjectDeletion',
       builder: (confirmContext) => _ConfirmSubjectDeletion(
         label: bookingTitle(booking, widget.ministrySubjects),
@@ -256,7 +254,6 @@ class _PresenceCardState extends State<PresenceCard>
             CustomSnackBar.show(context: context, message: message, isError: true);
           }
         }),
-        onClosed: _showDetailsDialog,
       ),
     );
   }
@@ -309,26 +306,34 @@ class _PresenceCardState extends State<PresenceCard>
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: Center(
-                  child: bothWays
-                      ? IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(child: _ModeColumn(mode: kPresenceMode, group: group)),
-                              Container(
-                                width: 1,
-                                margin: const EdgeInsets.symmetric(horizontal: 14),
-                                color: AppTheme.trialLine,
+                child: LayoutBuilder(
+                  builder: (context, constraints)
+                  {
+                    final double room = constraints.maxHeight;
+
+                    return Center(
+                      child: bothWays
+                          ? IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(child: _ModeColumn(mode: kPresenceMode, group: group, room: room)),
+                                  Container(
+                                    width: 1,
+                                    margin: const EdgeInsets.symmetric(horizontal: 14),
+                                    color: AppTheme.trialLine,
+                                  ),
+                                  Expanded(child: _ModeColumn(mode: kOnlineMode, group: group, room: room)),
+                                ],
                               ),
-                              Expanded(child: _ModeColumn(mode: kOnlineMode, group: group)),
-                            ],
-                          ),
-                        )
-                      : _ModeColumn(
-                          mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
-                          group: group,
-                        ),
+                            )
+                          : _ModeColumn(
+                              mode: presence.isNotEmpty ? kPresenceMode : kOnlineMode,
+                              group: group,
+                              room: room,
+                            ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -341,25 +346,89 @@ class _PresenceCardState extends State<PresenceCard>
 
 class _ModeColumn extends StatelessWidget
 {
-  static const int maxLines = 3;
+  static const double _labelGap = 7;
+  // The text's own line height spaces the hours: a wider gap fitted only two.
+  static const double _lineGap = 1;
+  static const double _totalGap = 5;
 
   final String mode;
   final PresenceGroup group;
 
-  const _ModeColumn({required this.mode, required this.group});
+  final double room;
+
+  const _ModeColumn({required this.mode, required this.group, required this.room});
+
+  TextStyle get _labelStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.2,
+        color: AppTheme.trialMutedText,
+      );
+
+  TextStyle get _hoursStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: mode == kOnlineMode ? AppTheme.modifiedAccent : AppTheme.trialTealDeep,
+      );
+
+  TextStyle get _moreStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.trialMutedText,
+      );
+
+  TextStyle get _totalStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.trialMutedText,
+      );
+
+  // As Text lays it out: with the ambient style and the reader's text size.
+  static double _lineHeight(BuildContext context, TextStyle style)
+  {
+    final painter = TextPainter(
+      text: TextSpan(text: '00:00–00:00', style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final double height = painter.height;
+    painter.dispose();
+
+    return height;
+  }
+
+  // All hours, or one line fewer than fit so the last says how many are left.
+  int _shownCount(BuildContext context, int count)
+  {
+    final double header = math.max(15, _lineHeight(context, _labelStyle));
+    final double fixed = header + _labelGap + _totalGap + _lineHeight(context, _totalStyle);
+    final double line = _lineHeight(context, _hoursStyle) + _lineGap;
+    final double more = _lineHeight(context, _moreStyle) + _lineGap;
+
+    // A hair of slack for rounding, so a column that just fits is not cut short.
+    final double free = room - fixed + 0.5;
+
+    if (count * line <= free)
+    {
+      return count;
+    }
+
+    return ((free - more) / line).floor().clamp(0, count - 1);
+  }
 
   @override
   Widget build(BuildContext context)
   {
     final online = mode == kOnlineMode;
-    final accent = online ? AppTheme.modifiedAccent : AppTheme.trialTealDeep;
 
     final slots = group.slotsFor(mode);
     final requests = group.requestsFor(mode);
 
-    final fits = slots.length <= maxLines;
-    final shown = fits ? slots : slots.take(maxLines - 1).toList();
-    final hidden = fits ? const <PresenceItem>[] : slots.sublist(maxLines - 1);
+    final int shownCount = _shownCount(context, slots.length);
+    final shown = slots.take(shownCount).toList();
+    final hidden = slots.skip(shownCount).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -379,53 +448,36 @@ class _ModeColumn extends StatelessWidget
                 modeLabel(mode).toUpperCase(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                  color: AppTheme.trialMutedText,
-                ),
+                style: _labelStyle,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: _labelGap),
         for (final slot in shown)
           Padding(
-            padding: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.only(bottom: _lineGap),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                _timeRangeLabel(slot),
-                maxLines: 1,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: accent,
-                ),
-              ),
+              child: Text(_timeRangeLabel(slot), maxLines: 1, style: _hoursStyle),
             ),
           ),
         if (hidden.isNotEmpty)
           Tooltip(
             message: hidden.map(_timeRangeLabel).join('\n'),
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 3),
+              padding: const EdgeInsets.only(bottom: _lineGap),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   hidden.length == 1 ? '+1 orario' : '+${hidden.length} orari',
                   maxLines: 1,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.trialMutedText,
-                  ),
+                  style: _moreStyle,
                 ),
               ),
             ),
           ),
-        const SizedBox(height: 5),
+        const SizedBox(height: _totalGap),
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
@@ -435,11 +487,7 @@ class _ModeColumn extends StatelessWidget
                     ? '1 materia · ${formatMinutes(group.minutesAskedFor(mode))}'
                     : '${requests.length} materie · ${formatMinutes(group.minutesAskedFor(mode))}'),
             maxLines: 1,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
+            style: _totalStyle,
           ),
         ),
       ],
@@ -520,6 +568,19 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
 
   PresenceGroup get group => widget.group.value;
 
+  TimeBucket? _bandOf(BookingSummaryItem booking)
+  {
+    for (final slot in group.slots)
+    {
+      if (slot.bookings.any((held) => held.id == booking.id))
+      {
+        return bucketFor(slot.startTime);
+      }
+    }
+
+    return null;
+  }
+
   SubjectRequestDraft _draftOf(BookingSummaryItem booking)
   {
     final held = _drafts[booking.id];
@@ -537,6 +598,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         booking.ministrySubjectId,
         fallback: '',
       ),
+      band: _bandOf(booking),
     );
 
     _drafts[booking.id] = (updatedAt: booking.updatedAt, draft: draft);
@@ -676,19 +738,69 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         studentGender: widget.studentGender,
         isEditing: true,
         // The edited booking's own duration is excluded: the wizard counts it itself.
-        minutesAvailable: group.minutesOfferedIn(mode),
-        minutesTakenByOthers: group.minutesAskedFor(mode) - existing.duration,
+        // Its own band only: an administrator never moves a booked subject.
+        bands: [
+          for (final offer in groupBandOffers(group, mode, skip: existing))
+            if (offer.band == _bandOf(existing)) offer,
+        ],
         minutesByDisciplineTakenByOthers:
-            group.minutesByDiscipline(mode, skip: existing),
+            group.minutesByDiscipline(mode, band: _bandOf(existing), skip: existing),
         onSave: (draft) => widget.onSaveSubject(existing, draft),
       ),
     );
   }
 
+  List<Widget> _buildBand(String mode, TimeBucket band, {required bool first})
+  {
+    final slots = group.slotsFor(mode, band: band);
+    final stored = group.requestsFor(mode, band: band);
+
+    return [
+      if (!first)
+        Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 18), color: AppTheme.trialLine),
+      Row(
+        children: [
+          Text(
+            bandLabel(band).toUpperCase(),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+              color: AppTheme.trialMutedText,
+            ),
+          ),
+          if (haveBookingsClosed(group.date, band, romeNow())) ...[
+            const SizedBox(width: 6),
+            const Tooltip(
+              message: 'Prenotazioni chiuse',
+              child: Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.trialMutedText),
+            ),
+          ],
+        ],
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final slot in slots)
+            _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
+        ],
+      ),
+      _buildFieldLabel('Materie richieste'),
+      SubjectRequestList(
+        requests: [for (final booking in stored) _draftOf(booking)],
+        ministrySubjects: widget.ministrySubjects,
+        teachers: widget.teachers,
+        onEdit: (index) => _showSubjectWizard(context, mode, existing: stored[index]),
+        onRemove: (index) => widget.onDeleteSubject(mode, stored[index]),
+      ),
+    ];
+  }
+
   Widget _buildMode(String mode)
   {
-    final slots = group.slotsFor(mode);
-    final stored = group.requestsFor(mode);
+    final bands = group.bandsFor(mode);
 
     return AppDialogPill(
       expand: true,
@@ -697,29 +809,10 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildModeLabel(modeLabel(mode), first: true),
-          if (slots.isEmpty)
+          if (bands.isEmpty)
             _buildEmpty('Non richiesto.')
-          else ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final slot in slots)
-                    _TimeSlotLabel(label: _timeRangeLabel(slot), online: mode == kOnlineMode),
-                ],
-              ),
-            ),
-            _buildFieldLabel('Materie richieste'),
-            SubjectRequestList(
-              requests: [for (final booking in stored) _draftOf(booking)],
-              ministrySubjects: widget.ministrySubjects,
-              teachers: widget.teachers,
-              onEdit: (index) => _showSubjectWizard(context, mode, existing: stored[index]),
-              onRemove: (index) => widget.onDeleteSubject(mode, stored[index]),
-            ),
-          ],
+          else
+            for (final (i, band) in bands.indexed) ..._buildBand(mode, band, first: i == 0),
         ],
       ),
     );
@@ -812,12 +905,10 @@ class _ConfirmSubjectDeletion extends StatelessWidget
 {
   final String label;
   final Future<bool> Function() onConfirmed;
-  final VoidCallback onClosed;
 
   const _ConfirmSubjectDeletion({
     required this.label,
     required this.onConfirmed,
-    required this.onClosed,
   });
 
   @override
@@ -836,11 +927,7 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           accent: AppTheme.trialViolet,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          onPressed: ()
-          {
-            Navigator.pop(context);
-            onClosed();
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         primary: AppGradientButton(
           label: 'ELIMINA',
@@ -849,11 +936,10 @@ class _ConfirmSubjectDeletion extends StatelessWidget
           accent: AppTheme.trialDanger,
           height: _dialogButtonHeight,
           fontSize: _dialogButtonFontSize,
-          onPressed: () async
+          onPressed: ()
           {
             Navigator.pop(context);
-            await onConfirmed();
-            onClosed();
+            onConfirmed();
           },
         ),
       ),

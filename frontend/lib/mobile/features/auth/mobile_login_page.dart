@@ -58,7 +58,7 @@ class _MobileLoginPageState extends State<MobileLoginPage>
 
   double _shift(MobileEntrancePart part) => _entrance?.shift(part) ?? 0;
 
-  // Signed in, it spins while the next page loads out of sight, never on the way out.
+  // Spins only on the way in, while the next page loads out of sight.
   bool get _spinning
   {
     final MobileEntranceMotion? entrance = _entrance;

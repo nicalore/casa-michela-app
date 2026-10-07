@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../shared/widgets/app_filter_pill.dart';
 import '../../../../../shared/widgets/filter_menu.dart';
+import '../../../../lessons/utils/opening_window.dart';
 import '../../../models/student_presence_statistics_item.dart';
 import 'stats_data.dart';
 
@@ -121,6 +122,26 @@ AppFilterPill<String> statsPeriodPill({
     options: statsPeriodOptions(),
     onChanged: onChanged,
     menuWidth: 200,
+  );
+}
+
+
+AppFilterPill<String> statsModePill({
+  required String value,
+  required ValueChanged<String> onChanged,
+})
+{
+  return AppFilterPill<String>.setting(
+    prefix: 'Modalità',
+    hint: 'Modalità',
+    icon: Icons.devices_outlined,
+    value: value,
+    options: [
+      for (final mode in const [kPresenceMode, kOnlineMode])
+        FilterOption(value: mode, label: modeLabel(mode)),
+    ],
+    onChanged: onChanged,
+    menuWidth: 190,
   );
 }
 

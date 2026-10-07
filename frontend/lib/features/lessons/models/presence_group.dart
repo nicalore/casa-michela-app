@@ -1,6 +1,7 @@
 import 'booking_summary_item.dart';
 import 'person_option_item.dart';
 import 'presence_item.dart';
+import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 
 // One pupil's request for one day. The backend keeps a row per stretch and
@@ -30,23 +31,31 @@ class PresenceGroup
 
   int get startMinutes => first.startTime.hour * 60 + first.startTime.minute;
 
-  List<PresenceItem> slotsFor(String mode)
+  List<PresenceItem> slotsFor(String mode, {TimeBucket? band})
   {
-    return slots.where((slot) => slot.mode == mode).toList();
+    return slots.where((slot) => slot.mode == mode && (band == null || bucketFor(slot.startTime) == band)).toList();
   }
 
-  List<BookingSummaryItem> requestsFor(String mode)
+  List<TimeBucket> bandsFor(String mode)
   {
     return [
-      for (final slot in slotsFor(mode)) ...slot.bookings,
+      for (final band in TimeBucket.values)
+        if (slotsFor(mode, band: band).isNotEmpty) band,
     ];
   }
 
-  int minutesAskedFor(String mode)
+  List<BookingSummaryItem> requestsFor(String mode, {TimeBucket? band})
+  {
+    return [
+      for (final slot in slotsFor(mode, band: band)) ...slot.bookings,
+    ];
+  }
+
+  int minutesAskedFor(String mode, {TimeBucket? band})
   {
     var minutes = 0;
 
-    for (final request in requestsFor(mode))
+    for (final request in requestsFor(mode, band: band))
     {
       minutes += request.duration;
     }
@@ -55,12 +64,12 @@ class PresenceGroup
   }
 
   // An hour covering three disciplines counts as a full hour of each.
-  // [skip] leaves out the row being rewritten by the caller.
-  Map<int, int> minutesByDiscipline(String mode, {BookingSummaryItem? skip})
+  // [skip]: the booking being rewritten; [band]: one band, the cap's reach.
+  Map<int, int> minutesByDiscipline(String mode, {TimeBucket? band, BookingSummaryItem? skip})
   {
     final minutes = <int, int>{};
 
-    for (final request in requestsFor(mode))
+    for (final request in requestsFor(mode, band: band))
     {
       if (skip != null && request.id == skip.id)
       {
@@ -76,11 +85,11 @@ class PresenceGroup
     return minutes;
   }
 
-  int minutesOfferedIn(String mode)
+  int minutesOfferedIn(String mode, {TimeBucket? band})
   {
     var minutes = 0;
 
-    for (final slot in slotsFor(mode))
+    for (final slot in slotsFor(mode, band: band))
     {
       minutes += minutesOfTimeOfDay(slot.endTime) - minutesOfTimeOfDay(slot.startTime);
     }

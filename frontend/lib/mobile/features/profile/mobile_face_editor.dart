@@ -24,7 +24,7 @@ Future<bool> editMobileFace({
   required ValueChanged<bool> onBusy,
 }) async
 {
-  final MobilePhotoAction? action = await showMobilePhotoSheet(context: context, user: user);
+  final MobilePhotoAction? action = await showMobilePhotoSheet(context: context, user: user, confirmRemoval: _confirmRemoval);
 
   if (!context.mounted || action == null)
   {
@@ -90,11 +90,10 @@ Future<bool> _pickFace(BuildContext context, ImageSource source, ValueChanged<bo
   }
 }
 
-// The confirmation replaces the photo sheet, never stacks over it.
-Future<bool> _removeFace(BuildContext context, ValueChanged<bool> onBusy) async
+Future<bool> _confirmRemoval(BuildContext sheet)
 {
-  final bool confirmed = await showMobileConfirmSheet(
-    context: context,
+  return showMobileConfirmSheet(
+    context: sheet,
     eyebrow: 'Foto profilo',
     title: 'Confermi?',
     message: const TextSpan(
@@ -104,12 +103,10 @@ Future<bool> _removeFace(BuildContext context, ValueChanged<bool> onBusy) async
     confirmLabel: 'Rimuovi',
     confirmIcon: Icons.delete_outline_rounded,
   );
+}
 
-  if (!confirmed || !context.mounted)
-  {
-    return false;
-  }
-
+Future<bool> _removeFace(BuildContext context, ValueChanged<bool> onBusy) async
+{
   onBusy(true);
 
   try

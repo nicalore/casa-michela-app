@@ -56,7 +56,7 @@ const double _titleGap = 10;
 
 const List<String> _modes = [kPresenceMode, kOnlineMode];
 
-class AvailabilityDayRow extends StatelessWidget
+class AvailabilityDayRow extends StatefulWidget
 {
   final DateTime day;
 
@@ -73,6 +73,7 @@ class AvailabilityDayRow extends StatelessWidget
 
   final ValueChanged<AvailabilityItem> onDeleteSlot;
   final void Function(TimeBucket band, List<AvailabilityItem> slots) onDeleteBand;
+  final VoidCallback onDeleteDay;
 
   const AvailabilityDayRow({
     super.key,
@@ -85,16 +86,25 @@ class AvailabilityDayRow extends StatelessWidget
     required this.onOpen,
     required this.onDeleteSlot,
     required this.onDeleteBand,
+    required this.onDeleteDay,
   });
 
-  bool _isOpenIn(TimeBucket bucket) => unionOpeningWindow(openingDays, day, bucket) != null;
+  @override
+  State<AvailabilityDayRow> createState() => _AvailabilityDayRowState();
+}
+
+class _AvailabilityDayRowState extends State<AvailabilityDayRow>
+{
+  bool _hover = false;
+
+  bool _isOpenIn(TimeBucket bucket) => unionOpeningWindow(widget.openingDays, widget.day, bucket) != null;
 
   bool _isOpenFor(TimeBucket bucket, String mode)
   {
-    return openingWindowFor(openingDays, day, mode, bucket) != null;
+    return openingWindowFor(widget.openingDays, widget.day, mode, bucket) != null;
   }
 
-  bool _hasClosed(TimeBucket bucket) => haveBookingsClosed(day, bucket, now);
+  bool _hasClosed(TimeBucket bucket) => haveBookingsClosed(widget.day, bucket, widget.now);
 
   bool get _isShut => !TimeBucket.values.any(_isOpenIn);
 
@@ -102,7 +112,19 @@ class AvailabilityDayRow extends StatelessWidget
 
   List<AvailabilityItem> _slotsIn(TimeBucket bucket)
   {
-    return slots.where((slot) => bucketFor(slot.startTime) == bucket).toList();
+    return widget.slots.where((slot) => bucketFor(slot.startTime) == bucket).toList();
+  }
+
+  // As in the bookings, the whole day goes only when nothing on it is locked.
+  bool get _canDeleteDay
+  {
+    return widget.slots.isNotEmpty &&
+        widget.slots.every((slot)
+        {
+          final TimeBucket? bucket = bucketFor(slot.startTime);
+
+          return bucket != null && _isOpenIn(bucket) && !_hasClosed(bucket);
+        });
   }
 
   Widget _buildDate()
@@ -114,24 +136,39 @@ class AvailabilityDayRow extends StatelessWidget
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppEyebrow(weekdayFullName(day.weekday)),
-            if (isToday) ...[
+            AppEyebrow(weekdayFullName(widget.day.weekday)),
+            if (widget.isToday) ...[
               const SizedBox(width: 8),
               const _TodayPill(),
             ],
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          formatDayMonthFull(day),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            height: 1.15,
-            color: isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                formatDayMonthFull(widget.day),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1.15,
+                  color: widget.isPast || _isShut ? AppTheme.trialMutedText : AppTheme.trialOcean,
+                ),
+              ),
+            ),
+            if (_canDeleteDay) ...[
+              const SizedBox(width: _binGap),
+              _Bin(
+                visible: _hover,
+                tooltip: 'Elimina la giornata',
+                onTap: widget.onDeleteDay,
+              ),
+            ],
+          ],
         ),
       ],
     );
@@ -141,7 +178,7 @@ class AvailabilityDayRow extends StatelessWidget
   {
     if (_isEditable)
     {
-      final bool empty = slots.isEmpty;
+      final bool empty = widget.slots.isEmpty;
 
       return AppGradientButton(
         label: empty ? 'AGGIUNGI' : 'MODIFICA',
@@ -150,11 +187,11 @@ class AvailabilityDayRow extends StatelessWidget
         fontSize: _buttonFontSize,
         radius: _buttonHeight / 2,
         horizontalPadding: 18,
-        onPressed: onOpen,
+        onPressed: widget.onOpen,
       );
     }
 
-    if (_isShut && slots.isEmpty)
+    if (_isShut && widget.slots.isEmpty)
     {
       return const SizedBox.shrink();
     }
@@ -172,7 +209,7 @@ class AvailabilityDayRow extends StatelessWidget
 
   List<Widget> _buildMiddle()
   {
-    if (_isShut && slots.isEmpty)
+    if (_isShut && widget.slots.isEmpty)
     {
       return [Expanded(child: _buildShutNotice())];
     }
@@ -189,16 +226,16 @@ class AvailabilityDayRow extends StatelessWidget
   {
     return _BandCell(
       bucket: bucket,
-      day: day,
+      day: widget.day,
       slots: _slotsIn(bucket),
       openModes: {for (final mode in _modes) if (_isOpenFor(bucket, mode)) mode},
       hasClosed: _hasClosed(bucket),
-      onDeleteSlot: onDeleteSlot,
-      onDeleteBand: onDeleteBand,
+      onDeleteSlot: widget.onDeleteSlot,
+      onDeleteBand: widget.onDeleteBand,
     );
   }
 
-  Color get _lineColor => _isShut && slots.isEmpty ? AppTheme.closedLine : AppTheme.trialLine;
+  Color get _lineColor => _isShut && widget.slots.isEmpty ? AppTheme.closedLine : AppTheme.trialLine;
 
   Widget _buildOneLine()
   {
@@ -244,7 +281,7 @@ class AvailabilityDayRow extends StatelessWidget
 
   Widget _buildStacked({required bool columns})
   {
-    if (_isShut && slots.isEmpty)
+    if (_isShut && widget.slots.isEmpty)
     {
       if (columns)
       {
@@ -291,7 +328,7 @@ class AvailabilityDayRow extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final bool shut = _isShut && slots.isEmpty;
+    final bool shut = _isShut && widget.slots.isEmpty;
 
     Widget content = LayoutBuilder(
       builder: (context, constraints)
@@ -307,7 +344,7 @@ class AvailabilityDayRow extends StatelessWidget
       },
     );
 
-    if (isPast)
+    if (widget.isPast)
     {
       content = Opacity(opacity: _pastOpacity, child: content);
     }
@@ -321,14 +358,18 @@ class AvailabilityDayRow extends StatelessWidget
       child: content,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(_rimWidth),
-      decoration: BoxDecoration(
-        gradient: isToday ? AppTheme.greetingGradient : null,
-        borderRadius: BorderRadius.circular(_radius),
-        boxShadow: shut ? null : AppTheme.cardShadow,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Container(
+        padding: const EdgeInsets.all(_rimWidth),
+        decoration: BoxDecoration(
+          gradient: widget.isToday ? AppTheme.greetingGradient : null,
+          borderRadius: BorderRadius.circular(_radius),
+          boxShadow: shut ? null : AppTheme.cardShadow,
+        ),
+        child: card,
       ),
-      child: card,
     );
   }
 }
@@ -639,9 +680,10 @@ class _BinBadgeState extends State<_BinBadge>
 class _Bin extends StatefulWidget
 {
   final bool visible;
+  final String? tooltip;
   final VoidCallback onTap;
 
-  const _Bin({required this.visible, required this.onTap});
+  const _Bin({required this.visible, this.tooltip, required this.onTap});
 
   @override
   State<_Bin> createState() => _BinState();
@@ -654,29 +696,33 @@ class _BinState extends State<_Bin>
   @override
   Widget build(BuildContext context)
   {
+    final Widget face = MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: _binFade,
+          width: _binSize,
+          height: _binSize,
+          decoration: BoxDecoration(
+            color: _hover ? AppTheme.trialGoldSurface : AppTheme.trialGoldSurface.withValues(alpha: 0),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.trialDanger),
+        ),
+      ),
+    );
+
+    final String? tooltip = widget.tooltip;
+
     return IgnorePointer(
       ignoring: !widget.visible,
       child: AnimatedOpacity(
         opacity: widget.visible ? 1 : 0,
         duration: _binFade,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedContainer(
-              duration: _binFade,
-              width: _binSize,
-              height: _binSize,
-              decoration: BoxDecoration(
-                color: _hover ? AppTheme.trialGoldSurface : AppTheme.trialGoldSurface.withValues(alpha: 0),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.delete_outline_rounded, size: 18, color: AppTheme.trialDanger),
-            ),
-          ),
-        ),
+        child: tooltip == null ? face : Tooltip(message: tooltip, child: face),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
@@ -22,6 +23,7 @@ import '../association/models/opening_day_item.dart';
 import '../association/models/room_item.dart';
 import '../association/models/service_item.dart';
 import '../association/models/study_program_item.dart';
+import '../bookings/utils/booking_replacement.dart' show withLeftOut;
 import '../calendar/utils/day_marks_loader.dart';
 import '../people/models/person_item.dart';
 import 'models/activity_item.dart';
@@ -76,7 +78,7 @@ class _LessonsPageState extends State<LessonsPage>
 {
   final ApiService _apiService = ApiService();
 
-  late final List<DateTime> _availableDays = computeAvailableDays(DateTime.now());
+  late final List<DateTime> _availableDays = computeAvailableDays(romeNow());
 
   late final List<RailGroup> _sections = _buildSections(_availableDays);
 
@@ -422,60 +424,42 @@ class _LessonsPageState extends State<LessonsPage>
     }
   }
 
-  Future<PresenceItem?> _executeCreatePresence(String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError) async
+  Future<bool> _executeReplaceLessonRequest(
+    String studentTaxCode,
+    DateTime date,
+    List<Map<String, dynamic>> modes,
+    Function(String) onError,
+  ) async
   {
     try
     {
-      final created = await _apiService.createPresence(
+      final List<PresenceItem> day = await _apiService.replaceLessonRequest(
         studentTaxCode: studentTaxCode,
         date: date,
-        mode: mode,
-        startTime: startTime,
-        endTime: endTime,
+        modes: modes,
       );
 
-      if (!mounted)
+      if (mounted)
       {
-        return created;
+        setState(() => _presences = [
+              for (final presence in _presences)
+                if (presence.studentTaxCode != studentTaxCode || !isSameDate(presence.date, date)) presence,
+              ...day,
+            ]);
       }
-
-      setState(() => _presences = [..._presences, created]);
-
-      return created;
     }
     catch (e)
     {
       onError(readableApiError(e));
-      return null;
+      // A refused write may mean the day changed elsewhere.
+      await _refreshDay(date);
+
+      return false;
     }
-  }
 
-  Future<bool> _executeEditPresence(PresenceItem existing, String studentTaxCode, DateTime date, String mode, TimeOfDay startTime, TimeOfDay endTime, Function(String) onError)
-  {
-    return write(
-      call: () => _apiService.updatePresence(
-        id: existing.id,
-        studentTaxCode: studentTaxCode,
-        date: date,
-        mode: mode,
-        startTime: startTime,
-        endTime: endTime,
-        expectedUpdatedAt: existing.updatedAt,
-      ),
-      apply: (updated) => _presences = _presences.map((p) => p.id == existing.id ? updated : p).toList(),
-      cascade: () => _refreshDay(date),
-      onError: onError,
-    );
-  }
+    await _refreshDay(date);
 
-  Future<bool> _executeDeletePresenceQuietly(PresenceItem item, Function(String) onError)
-  {
-    return erase(
-      call: () => _apiService.deletePresence(item.id),
-      apply: () => _presences = _presences.where((p) => p.id != item.id).toList(),
-      onError: onError,
-      cascade: () => _refreshDay(item.date),
-    );
+    return true;
   }
 
   Future<bool> _executeDeleteBookingQuietly(BookingSummaryItem booking, int presenceId, Function(String) onError) async
@@ -508,20 +492,21 @@ class _LessonsPageState extends State<LessonsPage>
 
   Future<void> _executeDeleteRequestGroup(List<PresenceItem> slots) async
   {
-    final removed = slots.map((slot) => slot.id).toSet();
+    final PresenceItem first = slots.first;
 
-    await erase(
-      call: () async
-      {
-        for (final slot in slots)
-        {
-          await _apiService.deletePresence(slot.id);
-        }
-      },
-      apply: () => _presences = _presences.where((p) => !removed.contains(p.id)).toList(),
-      done: 'Richiesta eliminata con successo!',
-      cascade: () => _refreshDay(slots.first.date),
+    final bool deleted = await _executeReplaceLessonRequest(
+      first.studentTaxCode,
+      first.date,
+      withLeftOut([
+        for (final mode in const [kPresenceMode, kOnlineMode]) {'mode': mode, 'slots': const [], 'subjects': const []},
+      ], slots),
+      (message) => CustomSnackBar.show(context: context, message: message, isError: true),
     );
+
+    if (deleted && mounted)
+    {
+      CustomSnackBar.show(context: context, message: 'Richiesta eliminata con successo!', isError: false);
+    }
   }
 
   Future<void> _refreshPresence(int presenceId) async
@@ -539,23 +524,6 @@ class _LessonsPageState extends State<LessonsPage>
     {
       reportCaughtError(e, stackTrace, during: 'la rilettura di una giornata');
     }
-  }
-
-  Future<bool> _executeCreateBooking(int presenceId, Map<String, dynamic> subject, Function(String) onError) async
-  {
-    try
-    {
-      await _apiService.createBooking(presenceId: presenceId, subject: subject);
-    }
-    catch (e)
-    {
-      onError(readableApiError(e));
-      return false;
-    }
-
-    await _refreshPresence(presenceId);
-
-    return true;
   }
 
   Future<bool> _executeEditBooking(BookingSummaryItem existing, int presenceId, Map<String, dynamic> subject, Function(String) onError) async
@@ -870,7 +838,7 @@ class _LessonsPageState extends State<LessonsPage>
     return shown != null && isSameDate(shown, day) && _shownBand == band;
   }
 
-  // Applied locally, full reload only on a disagreeing count: a read-back cleared the row before its hours.
+  // Applied locally, reloaded only if counts differ: a read-back cleared the row before its hours.
   // Publications are always re-fetched: excluding can turn the band into a draft with changes.
   Future<HandedBack?> _executeExcludeTeacher({
     required DateTime day,
@@ -1918,12 +1886,9 @@ class _LessonsPageState extends State<LessonsPage>
           openingDays: _openingDays,
           onViewSelected: _selectView,
           onCreateLessonRequest: _executeCreateLessonRequest,
-          onCreatePresence: _executeCreatePresence,
-          onEditPresence: _executeEditPresence,
-          onDeletePresenceQuietly: _executeDeletePresenceQuietly,
+          onReplaceLessonRequest: _executeReplaceLessonRequest,
           onDeleteBookingQuietly: _executeDeleteBookingQuietly,
           onDeleteGroup: _executeDeleteRequestGroup,
-          onCreateBooking: _executeCreateBooking,
           onEditBooking: _executeEditBooking,
         ),
       ],

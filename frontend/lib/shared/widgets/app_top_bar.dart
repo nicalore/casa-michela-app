@@ -125,7 +125,7 @@ class _AppTopBarState extends State<AppTopBar>
 
   String get _activeRoleLabel
   {
-    return RoleLabelMapper.toLabel(_role);
+    return RoleLabelMapper.toLabel(_role, feminine: _user?.gender == 'F');
   }
 
   void _toggleMenu()
@@ -176,6 +176,7 @@ class _AppTopBarState extends State<AppTopBar>
       context: context,
       activeRole: _user!.activeRole,
       availableRoles: _user!.availableRoles,
+      feminine: _user!.gender == 'F',
       onSelected: _switchRole,
     );
   }
@@ -396,7 +397,7 @@ class _AppTopBarState extends State<AppTopBar>
         shape: BoxShape.circle,
         border: Border.all(color: AppTheme.trialTurquoise, width: 2),
       ),
-      // Keying on the URL forces a rebuild when the picture changes, which a backgroundImage swap would not.
+      // Keyed on the URL: a backgroundImage swap alone would not rebuild on a new picture.
       child: CircleAvatar(
         key: ValueKey(imageUrl),
         backgroundColor: Colors.white,
@@ -666,7 +667,7 @@ class _AppTopBarState extends State<AppTopBar>
 
           return Stack(
             children: [
-              // Always present, merely deaf: a child appearing at the head re-pairs the stack by position and rebuilds the bar.
+              // Always present, only deaf: a new first child would rebuild the whole bar.
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !(_isMenuOpen || _isDrawerOpen),

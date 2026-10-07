@@ -21,10 +21,7 @@ _TOO_EARLY_ERROR: Final[str] = (
     "chiudono le prenotazioni."
 )
 
-_CLOSED_ERROR: Final[str] = (
-    "Le prenotazioni di {band} del {day} si sono chiuse il {closed}: da qui in "
-    "avanti solo un amministratore può modificarle."
-)
+_CLOSED_ERROR: Final[str] = "Le prenotazioni si sono chiuse il {closed}."
 
 
 def _format(moment: datetime) -> str:
@@ -89,9 +86,5 @@ def assert_still_open(
     for band in sorted(bands, key=lambda row: closes_at(day, row)):
         if has_closed(day, band, moment):
             raise ValueError(
-                _CLOSED_ERROR.format(
-                    band=time_band_label(str(band)).lower(),
-                    day=_day_label(day),
-                    closed=_format(closes_at(day, band)),
-                ),
+                _CLOSED_ERROR.format(closed=_format(closes_at(day, band))),
             )

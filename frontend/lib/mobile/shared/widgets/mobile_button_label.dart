@@ -3,8 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'mobile_baseline_hang.dart';
 
-const double _fontSize = 15;
-const double _gap = 10;
+// Spacing in font sizes: 1.35 and 10 at the buttons' 15.
+const double _tracking = 0.09;
+const double _gap = 2 / 3;
 
 const double _sideRoom = 16;
 
@@ -15,6 +16,7 @@ class MobileButtonLabel extends StatelessWidget
   final IconData icon;
   final Color color;
   final double iconSize;
+  final double fontSize;
 
   // Takes the icon's place and size.
   final Widget? replacement;
@@ -25,13 +27,14 @@ class MobileButtonLabel extends StatelessWidget
     required this.icon,
     required this.color,
     this.iconSize = 20,
+    this.fontSize = 15,
     this.replacement,
   });
 
   @override
   Widget build(BuildContext context)
   {
-    final double scale = MediaQuery.textScalerOf(context).scale(_fontSize) / _fontSize;
+    final double scale = MediaQuery.textScalerOf(context).scale(fontSize) / fontSize;
     // Glyphs snap to a whole-pixel baseline, so a fractional size drifts off-centre.
     final double size = (iconSize * scale).roundToDouble();
 
@@ -54,15 +57,15 @@ class MobileButtonLabel extends StatelessWidget
         Text(
           label.toUpperCase(),
           style: GoogleFonts.plusJakartaSans(
-            fontSize: _fontSize,
+            fontSize: fontSize,
             fontWeight: FontWeight.w800,
-            letterSpacing: 1.35,
+            letterSpacing: _tracking * fontSize,
             color: color,
           ),
         ),
-        const SizedBox(width: _gap),
+        SizedBox(width: _gap * fontSize),
         MobileBaselineHang(
-          above: kCapitalsMiddle * _fontSize * scale,
+          above: kCapitalsMiddle * fontSize * scale,
           child: SizedBox.square(
             dimension: size,
             child: replacement ?? Icon(icon, size: size, color: color),

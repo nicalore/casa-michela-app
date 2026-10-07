@@ -67,7 +67,7 @@ class TeacherRoomAssignmentService:
             )
 
     # A room row spans the whole day, so it belongs to every band the teacher
-    # teaches in — the lock included: two band builders sharing a teacher
+    # teaches in - the lock included: two band builders sharing a teacher
     # cannot move the room independently.
     async def _bands_of(self, day: date, teacher_tax_code: str) -> set[str]:
         lessons = await self.lessons.list_for_day(day)

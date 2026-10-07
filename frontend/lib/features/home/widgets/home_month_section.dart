@@ -266,7 +266,7 @@ class _TileScale
 
 class HomeMonthSection extends StatelessWidget
 {
-  // Four quad-scale tiles need 125 each for "€ 187,50" unshrunk; half a page gives 553.
+  // 4 quad-scale tiles need 125 each for an unshrunk 187,50 euro amount; half a page gives 553.
   static const double _fourInARowFrom = 530;
   static const double _threeInARowFrom = 380;
 
@@ -500,7 +500,6 @@ class _FigureTile extends StatelessWidget
     final String? warning = figure.warning;
     final bool warned = warning != null;
 
-    // A word value is the tariff, which reads in ink like the names.
     final Color valueColor = switch (figure.tone)
     {
       HomeFigureTone.absent => AppTheme.trialMutedText,
@@ -570,8 +569,7 @@ class _FigureTile extends StatelessWidget
             delta.text,
           );
 
-    // A warning wraps, never shrinks or cuts; the icon sits in the text so later lines
-    // take the full width. Its row grows with it.
+    // Wraps, never shrinks: the icon sits in the text so later lines take the full width.
     final Widget asideLine = warned
         ? Text.rich(
             TextSpan(

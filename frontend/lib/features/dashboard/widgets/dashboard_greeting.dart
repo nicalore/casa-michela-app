@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/birthday.dart';
+import '../../../core/utils/rome_clock.dart';
 
 const int _morningStart = 6;
 const int _afternoonStart = 13;
@@ -60,7 +61,7 @@ class DashboardGreeting extends StatelessWidget
 
   String _greeting()
   {
-    return greetingLineFor(firstName: firstName, birthDate: birthDate, now: DateTime.now());
+    return greetingLineFor(firstName: firstName, birthDate: birthDate, now: romeNow());
   }
 
   @override

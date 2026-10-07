@@ -377,7 +377,7 @@ List<(int, int)> intersectWindows(List<(int, int)> first, List<(int, int)> secon
   ];
 }
 
-// Where the carried hours may land: the pupil's stretches for a booking, the common ones for a multi-pupil lesson.
+// Drop windows: the pupil's stretches for a booking, the common ones for a multi-pupil lesson.
 List<(int, int)> dragWindows(CalendarDayIndex index, CalendarDragPayload payload)
 {
   switch (payload)

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
@@ -20,9 +21,8 @@ import '../lessons/models/room_supervision_item.dart';
 import '../lessons/utils/opening_window.dart';
 import '../lessons/utils/timeline_geometry.dart';
 import '../lessons/widgets/activity_details_dialog.dart';
-import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast;
+import '../lessons/widgets/calendar_lesson_block.dart' show isLessonPast, isLessonRunning;
 import 'utils/calendar_strings.dart';
-import 'utils/day_marks_loader.dart';
 import 'utils/teacher_band_call.dart';
 import 'widgets/calendar_page_shell.dart';
 import 'widgets/convocation_card.dart';
@@ -50,7 +50,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 {
   final ApiService _apiService = ApiService();
 
-  DateTime _now = DateTime.now();
+  DateTime _now = romeNow();
 
   Timer? _clock;
 
@@ -69,6 +69,9 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
   List<OpeningDayItem> _openingDays = [];
   List<CalendarPublicationItem> _publications = [];
+
+  // Closed with nobody booked: never to be published.
+  List<(DateTime, TimeBucket)> _unbooked = [];
   List<LessonItem> _lessons = [];
   List<ActivityItem> _activities = [];
   List<RoomSupervisionItem> _supervisions = [];
@@ -98,7 +101,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       // Offstage the tick is skipped; onDestinationShown realigns the clock.
       if (destinationShown)
       {
-        setState(() => _now = DateTime.now());
+        setState(() => _now = romeNow());
       }
     });
 
@@ -115,7 +118,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
   @override
   void onDestinationShown()
   {
-    setState(() => _now = DateTime.now());
+    setState(() => _now = romeNow());
 
     _loadDay(quiet: true);
   }
@@ -135,6 +138,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _apiService.getCalendarActivities(dateFrom: day, dateTo: day),
         _apiService.getRoomSupervisions(day),
         _apiService.getAvailabilities(dateFrom: day, dateTo: day),
+        _apiService.getUnbookedBands(dateFrom: day, dateTo: day),
         if (_ministrySubjects.isEmpty) _apiService.getMinistrySubjects(),
       ]);
 
@@ -154,10 +158,11 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         _activities = results[4] as List<ActivityItem>;
         _supervisions = results[5] as List<RoomSupervisionItem>;
         _availabilities = results[6] as List<AvailabilityItem>;
+        _unbooked = results[7] as List<(DateTime, TimeBucket)>;
 
-        if (results.length > 7)
+        if (results.length > 8)
         {
-          _ministrySubjects = results[7] as List<MinistrySubjectItem>;
+          _ministrySubjects = results[8] as List<MinistrySubjectItem>;
         }
 
         _isLoading = false;
@@ -234,6 +239,11 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return _publications.any((row) => isSameDate(row.date, _day) && row.band == _band);
   }
 
+  bool get _isSettled
+  {
+    return _isPublished || _unbooked.any((row) => isSameDate(row.$1, _day) && row.$2 == _band);
+  }
+
   TeacherBandCall get _call
   {
     return teacherBandCall(
@@ -280,6 +290,13 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
     return _isPastDay || (clock != null && endMinutes <= clock);
   }
 
+  bool _isRunning(int startMinutes, int endMinutes)
+  {
+    final clock = _nowMinutes;
+
+    return clock != null && startMinutes <= clock && clock < endMinutes;
+  }
+
   Future<void> _openLesson(LessonItem lesson) async
   {
     final student = lesson.bookings.firstOrNull?.presence.student;
@@ -303,7 +320,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
         lesson: lesson,
         ministrySubjects: _ministrySubjects,
         view: CalendarView.byTeacher,
-        other: _apiService.getPerson(student.taxCode),
+        other: lesson.date.isBefore(_today) ? null : _apiService.getPerson(student.taxCode),
       );
     }
     finally
@@ -330,6 +347,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
             ministrySubjects: _ministrySubjects,
             view: CalendarView.byTeacher,
             isPast: isLessonPast(lesson, _now),
+            isCurrent: !onTimeline && isLessonRunning(lesson, _now),
             onTimeline: onTimeline,
             onTap: () => _openLesson(lesson),
           ),
@@ -342,6 +360,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
             key: ValueKey('activity-${activity.id}'),
             activity: activity,
             isPast: _isOver(activity.endMinutes),
+            isCurrent: !onTimeline && _isRunning(activity.startMinutes, activity.endMinutes),
             onTimeline: onTimeline,
             onTap: () => _openActivity(activity.activity),
           ),
@@ -361,7 +380,12 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       return const CalendarNote(kCalendarLoadFailed);
     }
 
-    if (!_isPublished)
+    if (unionOpeningWindow(_openingDays, _day, _band) == null)
+    {
+      return const CalendarClosedBand();
+    }
+
+    if (!_isSettled)
     {
       return CalendarUnpublishedBand(band: _band);
     }
@@ -372,12 +396,10 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
 
     if (call.isEmpty || window == null)
     {
-      final inBuilding = openingWindowFor(_openingDays, _day, kPresenceMode, _band) != null;
-
       return CalendarEmptyBand(
         icon: Icons.free_cancellation_rounded,
-        title: inBuilding ? notConvenedTitle(feminine: _isFeminine) : kNoLessonsTitle,
-        message: noOwnLessonsMessage(_band),
+        title: kCalendarUnavailableTitle,
+        message: offered.isEmpty ? kNoAvailabilityGiven : notConvenedSentence(feminine: _isFeminine),
       );
     }
 
@@ -430,7 +452,7 @@ class _TeacherCalendarPageState extends State<TeacherCalendarPage> with Destinat
       onDay: _goToDay,
       isClosed: !_isLoading && !_failed && _isDayClosed,
       closureNote: _closureNote,
-      loadMarks: (from, to) => loadDayMarks(from, to, lessons: true, teacherTaxCode: _meTaxCode),
+      intro: lessonDetailsHint(verb: 'clicca'),
       body: _buildBody,
     );
   }

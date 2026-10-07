@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'mobile_gold_button.dart';
 import 'mobile_sheet.dart';
 
 const String _seenPrefix = 'mobile_section_intro';
@@ -19,22 +18,13 @@ Future<void> showMobileInfoSheet({
     builder: (context) => MobileSheet(
       eyebrow: 'Informazioni',
       title: title,
-      // Its button, a drag or a tap outside close it.
-      closable: false,
       body: [
         for (var i = 0; i < paragraphs.length; i++) ...[
           SizedBox(height: i == 0 ? 12 : _paragraphGap),
           MobileSheetText(paragraphs[i]),
         ],
+        const SizedBox(height: 8),
       ],
-      footer: Padding(
-        padding: const EdgeInsets.only(top: 24),
-        child: MobileGoldButton(
-          label: 'Ho capito',
-          icon: Icons.check_rounded,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
     ),
   );
 }

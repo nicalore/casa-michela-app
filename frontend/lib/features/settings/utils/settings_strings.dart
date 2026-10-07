@@ -169,7 +169,7 @@ const String kPrivacyTitle = 'Privacy policy';
 
 const String kRegulationOpenFailed = 'Non è stato possibile aprire il regolamento.';
 
-const String kAppVersion = '0.3.2 - Alpha';
+const String kAppVersion = '0.4.0 - Alpha';
 
 const String kDevelopmentWarning =
     'ATTENZIONE: Applicazione attualmente in sviluppo. '

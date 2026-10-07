@@ -16,7 +16,7 @@ class AssociationSubjectCard extends StatelessWidget
   final AssociationSubjectItem subject;
 
   // Both null for a reader: the details then open with nothing to press.
-  final void Function(VoidCallback onCancel)? onEditRequested;
+  final void Function(VoidCallback onSaved)? onEditRequested;
   final VoidCallback? onDelete;
 
   const AssociationSubjectCard({
@@ -36,14 +36,8 @@ class AssociationSubjectCard extends StatelessWidget
       builder: (dialogContext) => _AssociationSubjectDetailsDialogContent(
         subject: subject,
         areaLabel: subjectAreaLabel(subject.area),
-        onEditRequested: edit == null
-            ? null
-            : ()
-              {
-                Navigator.of(dialogContext).pop();
-                // Reopen with the card's context, not the closing dialog's.
-                edit(() => _showDetailsDialog(context));
-              },
+        // Wizard stacks over the details: closing and reopening them replayed their entrance.
+        onEditRequested: edit == null ? null : () => edit(() => Navigator.of(dialogContext).pop()),
         onDelete: onDelete,
       ),
     );

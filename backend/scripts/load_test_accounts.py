@@ -47,7 +47,7 @@ _ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 def _compute_check_char(code_15: str) -> str:
-    """Calcola il 16° carattere (check character) di un codice fiscale."""
+    """Compute the 16th (check) character of a tax code."""
     total = 0
     for position, char in enumerate(code_15, start=1):
         total += _ODD_VALUES[char] if position % 2 == 1 else _EVEN_VALUES[char]

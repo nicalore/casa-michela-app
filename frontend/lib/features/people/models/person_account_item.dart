@@ -15,7 +15,6 @@ class PersonAccountItem
   final bool answeredFor;
   final bool autonomousBookings;
 
-  // All in the local clock.
   final DateTime? lastLogin;
 
   final bool passwordChangeRequired;

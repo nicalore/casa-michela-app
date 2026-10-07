@@ -146,7 +146,6 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
     });
   }
 
-  // A chosen page loading: the sheet stays open, its row spinning, until it is in.
   String? _arriving;
 
   bool get _locked => _arriving != null;
@@ -333,7 +332,7 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    RoleLabelMapper.toLabel(user.activeRole).toUpperCase(),
+                    RoleLabelMapper.toLabel(user.activeRole, feminine: user.gender == 'F').toUpperCase(),
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,

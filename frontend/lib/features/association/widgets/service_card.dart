@@ -14,7 +14,7 @@ import '../models/subject_taxonomy.dart';
 class ServiceCard extends StatelessWidget
 {
   final ServiceItem service;
-  final void Function(VoidCallback onCancel) onEditRequested;
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   const ServiceCard({
@@ -31,12 +31,8 @@ class ServiceCard extends StatelessWidget
       barrierLabel: 'ServiceDetails',
       builder: (dialogContext) => _ServiceDetailsDialogContent(
         service: service,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Reopen with the card's context, not the closing dialog's.
-          onEditRequested(() => _showDetailsDialog(context));
-        },
+        // Wizard stacks over the details: closing and reopening them replayed their entrance.
+        onEditRequested: () => onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: onDelete,
       ),
     );

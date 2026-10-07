@@ -331,7 +331,7 @@ _CHECKS: Final[tuple[tuple[str, str, str], ...]] = (
 
 
 # Counts rows a constraint would reject, before trying. NOT (condition) is NULL
-# where the condition is NULL, so those rows don't count — exactly a CHECK's rule.
+# where the condition is NULL, so those rows don't count - exactly a CHECK's rule.
 _GUARD: Final[str] = """
     DO $$
     DECLARE
@@ -400,7 +400,7 @@ def downgrade() -> None:
 
 # Deliberately omitted: ck_people_profile_image_url_format demands http(s) URLs
 # while app/core/storage.py writes relative paths, so every upload would violate
-# it — resolve that model/code conflict before adding it here.
+# it - resolve that model/code conflict before adding it here.
 #
 # paid_staff_requires_iban was removed from the model together with this
 # migration: being paid and having an IBAN on file are separate things.

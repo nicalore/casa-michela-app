@@ -3,12 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'mobile_danger_button.dart';
-import 'mobile_dismiss_button.dart';
 import 'mobile_sheet.dart';
 
 const double _pillRadius = 20;
 
-// Resolves to false when dismissed.
+// Once confirmed, the caller closes the sheet; resolves to false when left or dismissed.
 Future<bool> showMobileConfirmSheet({
   required BuildContext context,
   required String eyebrow,
@@ -23,7 +22,6 @@ Future<bool> showMobileConfirmSheet({
     builder: (context) => MobileSheet(
       eyebrow: eyebrow,
       title: title,
-      closable: false,
       body: [
         const SizedBox(height: 16),
         Container(
@@ -46,24 +44,10 @@ Future<bool> showMobileConfirmSheet({
       ],
       footer: Padding(
         padding: const EdgeInsets.only(top: 22),
-        child: Row(
-          children: [
-            Expanded(
-              child: MobileDismissButton(
-                label: 'Annulla',
-                icon: Icons.close_rounded,
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: MobileDangerButton(
-                label: confirmLabel,
-                icon: confirmIcon,
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ),
-          ],
+        child: MobileDangerButton(
+          label: confirmLabel,
+          icon: confirmIcon,
+          onPressed: () => finishMobileSheet(context, true),
         ),
       ),
     ),

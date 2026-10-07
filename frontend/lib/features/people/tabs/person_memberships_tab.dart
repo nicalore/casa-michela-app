@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -234,7 +235,7 @@ class PersonMembershipsTab extends StatelessWidget
       onPressed: () => _showEditDialog(context),
     );
 
-    // Only a running membership can be revoked; a lapsed one has nothing left to end.
+    // Only a running membership can be revoked.
     if (isOwnProfile || !person.isEnrolled)
     {
       return edit;
@@ -598,7 +599,7 @@ class _EditMembershipsDialogState extends State<_EditMembershipsDialog>
     setState(()
     {
       // New rows go back in time: the year before the oldest already written.
-      final int year = earliestYear == null ? DateTime.now().year : earliestYear - 1;
+      final int year = earliestYear == null ? romeNow().year : earliestYear - 1;
 
       _rows.add(_MembershipRowData(
         yearController: TextEditingController(text: year.toString()),

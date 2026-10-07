@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/week_range.dart';
-import '../../../shared/mobile_palette.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
+import '../mobile_palette.dart';
 
 const double _height = 44;
 const double _radius = 14;
@@ -57,8 +57,7 @@ int? parseTypedTime(String text)
   return hour * 60 + minute;
 }
 
-// Adds the colon, pads hours 3–9, refuses impossible keystrokes; deleting the
-// colon also deletes the hour's last digit.
+// Adds the colon, pads hours 3-9, refuses bad keys; deleting the colon drops the last hour digit.
 class TimeTypingFormatter extends TextInputFormatter
 {
   const TimeTypingFormatter();
@@ -104,7 +103,6 @@ class TimeTypingFormatter extends TextInputFormatter
   }
 }
 
-// The nearest quarter hour, kept within [min, max].
 int snapTypedTime(int minutes, {required int min, required int max})
 {
   final int snapped = (minutes / kQuarterHour).round() * kQuarterHour;
@@ -142,6 +140,9 @@ class _MobileTimeFieldState extends State<MobileTimeField>
 
   bool _typing = false;
 
+  // Text when typing began; leaving it unchanged changes nothing.
+  String _initial = '';
+
   Timer? _repeat;
 
   @override
@@ -149,6 +150,18 @@ class _MobileTimeFieldState extends State<MobileTimeField>
   {
     super.initState();
     _focus.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(MobileTimeField oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    // Carried by the other end while untouched, e.g. as focus came here from it.
+    if (_typing && _controller.text == _initial && widget.minutes != oldWidget.minutes)
+    {
+      _selectShown();
+    }
   }
 
   @override
@@ -194,11 +207,17 @@ class _MobileTimeFieldState extends State<MobileTimeField>
     _repeat = null;
   }
 
+  void _selectShown()
+  {
+    _initial = _shown;
+    _controller
+      ..text = _initial
+      ..selection = TextSelection(baseOffset: 0, extentOffset: _initial.length);
+  }
+
   void _startTyping()
   {
-    _controller
-      ..text = _shown
-      ..selection = TextSelection(baseOffset: 0, extentOffset: _shown.length);
+    _selectShown();
 
     setState(() => _typing = true);
     _focus.requestFocus();
@@ -212,7 +231,7 @@ class _MobileTimeFieldState extends State<MobileTimeField>
       return;
     }
 
-    final int? typed = parseTypedTime(_controller.text);
+    final int? typed = _controller.text == _initial ? null : parseTypedTime(_controller.text);
 
     setState(() => _typing = false);
 
@@ -255,14 +274,17 @@ class _MobileTimeFieldState extends State<MobileTimeField>
       );
     }
 
-    return Semantics(
-      button: true,
-      label: '${widget.label} $_shown',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _startTyping,
-        child: Center(
-          child: FittedBox(fit: BoxFit.scaleDown, child: Text(_shown, style: _valueStyle)),
+    // Shared tap region: moving between times keeps the keyboard up instead of bouncing the sheet.
+    return TextFieldTapRegion(
+      child: Semantics(
+        button: true,
+        label: '${widget.label} $_shown',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _startTyping,
+          child: Center(
+            child: FittedBox(fit: BoxFit.scaleDown, child: Text(_shown, style: _valueStyle)),
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import '../../core/constants/app_dimensions.dart';
 import '../../core/layout/app_breakpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/role_label_mapper.dart';
+import '../../services/api_service.dart';
 import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
@@ -61,7 +62,7 @@ class RoleSectionPage extends StatelessWidget
   {
     return SectionPlaceholderPage(
       currentRoute: '${homeForRole(role)}/${section.slug}',
-      eyebrow: RoleLabelMapper.toLabel(role),
+      eyebrow: RoleLabelMapper.toLabel(role, feminine: ApiService().lastKnownIdentity?.gender == 'F'),
       title: section.label,
       description: 'Questa sezione non è ancora disponibile.',
     );

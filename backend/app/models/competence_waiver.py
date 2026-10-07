@@ -7,8 +7,7 @@ from app.db.base import Base
 from app.models.mixins import CreatedAtMixin
 
 
-# The admin let this teacher take this booking without the competence, which the
-# teacher still lacks. Outlives the lesson; a booking is one day's, so is the waiver.
+# Lets a teacher take one booking without the competence; outlives the lesson.
 class CompetenceWaiver(CreatedAtMixin, Base):
     __tablename__ = "competence_waivers"
 

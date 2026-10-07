@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,21 +10,18 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
-import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
+import '../widgets/session_card.dart';
 
 const double _dialogButtonHeight = 52;
 const double _dialogButtonFontSize = 14;
 
 const double _confirmWidth = 480;
 
-const double _rowButtonHeight = 44;
-const double _rowButtonFontSize = 13;
-const double _rowButtonPadding = 18;
 
 class DevicesTab extends StatefulWidget
 {
@@ -259,173 +258,56 @@ class _DevicesTabState extends State<DevicesTab>
           right: AppBreakpoints.of(context).isCompact ? 0 : 32,
           bottom: 32,
         ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints)
+          {
+            final double cardWidth = math.min(kSessionCardWidth, constraints.maxWidth);
+            final int columns =
+                sessionGridColumns(constraints.maxWidth, cardWidth, sessions.length);
+
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: pageTransitionBlocks([
-                AppCard(
-                  title: kActiveSessionsTitle,
-                  compact: true,
-                  selectable: false,
-                  leading: const AppCardBadge(
-                    icon: Icons.devices_rounded,
-                    compact: true,
-                  ),
-                  // The page scrolls, never the card: one bar, not two.
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (int i = 0; i < sessions.length; i++) ...[
-                        if (i > 0)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 14),
-                            child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
-                          ),
-                        _SessionRow(
-                          session: sessions[i],
-                          busy: _revoking.contains(sessions[i].sessionId),
-                          onRevoke: () => _confirmRevoke(sessions[i]),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
+              children: [
+                // Centred as a block, so a short last row still starts on the left.
                 Center(
-                  child: AppGradientButton(
-                    label: kRevokeOthersLabel.toUpperCase(),
-                    icon: Icons.logout_rounded,
-                    gradient: AppTheme.dangerGradient,
-                    accent: AppTheme.trialDanger,
-                    busy: _revokingOthers,
-                    disabledReason: sessions.any((s) => !s.isCurrent)
-                        ? null
-                        : kNoOtherSessions,
-                    onPressed: _confirmRevokeOthers,
+                  child: SizedBox(
+                    width: columns * cardWidth + (columns - 1) * kSessionCardGap,
+                    child: Wrap(
+                      spacing: kSessionCardGap,
+                      runSpacing: kSessionCardGap,
+                      children: [
+                        for (final session in sessions)
+                          PageTransitionItem.wave(
+                            child: SessionCard(
+                              session: session,
+                              width: cardWidth,
+                              busy: _revoking.contains(session.sessionId),
+                              onRevoke: () => _confirmRevoke(session),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SessionRow extends StatelessWidget
-{
-  final SessionItem session;
-
-  final bool busy;
-
-  final VoidCallback onRevoke;
-
-  const _SessionRow({
-    required this.session,
-    required this.busy,
-    required this.onRevoke,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    final TextStyle detailStyle = GoogleFonts.plusJakartaSans(
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      color: AppTheme.trialMutedText,
-    );
-
-    final Widget details = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          sessionDeviceName(session),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.trialInk,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text('$kSessionLoginLabel: ${formatSessionTime(session.loggedInAt)}', style: detailStyle),
-        Text('$kSessionLastUsedLabel: ${formatSessionTime(session.lastUsedAt)}', style: detailStyle),
-      ],
-    );
-
-    final Widget action = session.isCurrent
-        ? const _CurrentSessionChip()
-        : AppGradientButton(
-            label: kRevokeSessionLabel.toUpperCase(),
-            icon: Icons.logout_rounded,
-            gradient: AppTheme.dangerGradient,
-            accent: AppTheme.trialDanger,
-            height: _rowButtonHeight,
-            fontSize: _rowButtonFontSize,
-            horizontalPadding: _rowButtonPadding,
-            busy: busy,
-            onPressed: onRevoke,
-          );
-
-    final Widget icon = Icon(sessionDeviceIcon(session.deviceType), size: 28, color: AppTheme.trialTealDeep);
-
-    if (AppBreakpoints.of(context).isCompact)
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              icon,
-              const SizedBox(width: 14),
-              Expanded(child: details),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(alignment: Alignment.centerRight, child: action),
-        ],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        icon,
-        const SizedBox(width: 16),
-        Expanded(child: details),
-        const SizedBox(width: 16),
-        action,
-      ],
-    );
-  }
-}
-
-class _CurrentSessionChip extends StatelessWidget
-{
-  const _CurrentSessionChip();
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.todaySurface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.trialTurquoise, width: 1.5),
-      ),
-      child: Text(
-        kCurrentSessionLabel,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.trialTealDeep,
+                if (sessions.any((s) => !s.isCurrent)) ...[
+                  const SizedBox(height: 40),
+                  PageTransitionItem(
+                    slot: PageTransitionItem.list + (sessions.length - 1) ~/ columns + columns,
+                    child: Center(
+                      child: AppGradientButton(
+                        label: kRevokeOthersLabel.toUpperCase(),
+                        icon: Icons.logout_rounded,
+                        gradient: AppTheme.dangerGradient,
+                        accent: AppTheme.trialDanger,
+                        busy: _revokingOthers,
+                        onPressed: _confirmRevokeOthers,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

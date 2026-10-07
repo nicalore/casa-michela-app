@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../features/association/models/opening_day_item.dart';
@@ -21,6 +22,7 @@ import '../../shared/widgets/mobile_info_sheet.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import 'mobile_availability_draft.dart';
@@ -60,7 +62,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   final ApiService _apiService = ApiService();
   final PageController _pageController = PageController();
 
-  DateTime _now = DateTime.now();
+  DateTime _now = romeNow();
 
   Timer? _clock;
 
@@ -68,7 +70,6 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   bool _failed = false;
   bool _deleting = false;
 
-  // Its introduction waits until the page is on screen.
   bool _introduced = false;
 
   String? _taxCode;
@@ -94,7 +95,6 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   {
     super.didChangeDependencies();
 
-    // Once on screen, not while it loads out of sight.
     if (!_introduced && !MobileHoldScope.waitingOf(context))
     {
       _introduced = true;
@@ -114,7 +114,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
   // Wakes on the minute so bands lock at their deadline; Monday means a new week's data.
   void _tick()
   {
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
 
     _clock = Timer(Duration(seconds: 60 - now.second, milliseconds: -now.millisecond), ()
     {
@@ -125,7 +125,7 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
 
       final DateTime before = _monday;
 
-      setState(() => _now = DateTime.now());
+      setState(() => _now = romeNow());
 
       if (!isSameDate(before, _monday))
       {
@@ -218,12 +218,8 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
     );
   }
 
-  MobileAvailabilityDay? _dayOf(DateTime date)
-  {
-    return [..._week(0), ..._week(1)].where((day) => isSameDate(day.date, date)).firstOrNull;
-  }
-
-  Future<void> _openWizard(MobileAvailabilityDraft Function(String taxCode) draftFor) async
+  // With [from], the wizard turns that sheet, which closes once saved.
+  Future<void> _openWizard(MobileAvailabilityDraft Function(String taxCode) draftFor, {BuildContext? from}) async
   {
     final String? taxCode = _taxCode;
 
@@ -232,8 +228,13 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
       return;
     }
 
-    if (await showMobileAvailabilityWizard(context: context, draft: draftFor(taxCode)))
+    if (await showMobileAvailabilityWizard(context: from ?? context, draft: draftFor(taxCode)))
     {
+      if (from != null && from.mounted)
+      {
+        closeMobileSheet(from);
+      }
+
       await _load(quiet: true);
     }
   }
@@ -244,78 +245,63 @@ class _MobileAvailabilityPageState extends State<MobileAvailabilityPage>
           taxCode: taxCode,
           availabilities: _availabilities,
           openingDays: _openingDays,
-          now: DateTime.now(),
+          now: romeNow(),
           day: day,
         ));
   }
 
-  Future<void> _edit(DateTime day)
+  Future<void> _edit(DateTime day, {required BuildContext from})
   {
-    return _openWizard((taxCode) => MobileAvailabilityDraft.edit(
+    return _openWizard(from: from, (taxCode) => MobileAvailabilityDraft.edit(
           taxCode: taxCode,
           availabilities: _availabilities,
           openingDays: _openingDays,
-          now: DateTime.now(),
+          now: romeNow(),
           day: day,
         ));
   }
 
-  Future<void> _openDay(MobileAvailabilityDay day) async
+  Future<void> _openDay(MobileAvailabilityDay day)
   {
-    final MobileDaySheetAction? action = await showMobileAvailabilityDaySheet(
+    return showMobileAvailabilityDaySheet(
       context: context,
       day: day,
       editable: day.isEditable,
+      onAction: (sheet, action) => switch (action)
+      {
+        MobileDeleteSlot(:final slot) => _confirmDeletion(sheet, day, [slot]),
+        MobileDeleteBand(:final band) => _confirmDeletion(sheet, day, band.slots, band: band.band),
+        MobileDeleteDay() => _confirmDeletion(sheet, day, [for (final band in day.bands) ...band.slots], wholeDay: true),
+        MobileEditDay() => _edit(day.date, from: sheet),
+      },
     );
-
-    if (!mounted)
-    {
-      return;
-    }
-
-    switch (action)
-    {
-      case MobileDeleteSlot(:final slot):
-        await _confirmDeletion(day, [slot]);
-
-      case MobileDeleteBand(:final band):
-        await _confirmDeletion(day, band.slots, band: band.band);
-
-      case MobileEditDay():
-        await _edit(day.date);
-
-      case null:
-        break;
-    }
   }
 
-  // The confirmation replaces the day sheet; cancelling brings it back.
-  Future<void> _confirmDeletion(MobileAvailabilityDay day, List<AvailabilityItem> slots, {TimeBucket? band}) async
+  Future<void> _confirmDeletion(
+    BuildContext sheet,
+    MobileAvailabilityDay day,
+    List<AvailabilityItem> slots, {
+    TimeBucket? band,
+    bool wholeDay = false,
+  }) async
   {
     final bool confirmed = await showMobileConfirmSheet(
-      context: context,
+      context: sheet,
       eyebrow: formatAvailableDayLabel(day.date),
       title: 'Confermi?',
-      message: TextSpan(text: availabilityDeletionWarning(day.date, slots, band: band)),
+      message: TextSpan(text: availabilityDeletionWarning(day.date, slots, band: band, wholeDay: wholeDay)),
       confirmLabel: 'Elimina',
       confirmIcon: Icons.delete_outline_rounded,
     );
 
-    if (!mounted)
+    if (!confirmed || !mounted)
     {
       return;
     }
 
-    if (!confirmed)
+    if (sheet.mounted)
     {
-      final MobileAvailabilityDay? current = _dayOf(day.date);
-
-      if (current != null && current.hasSlots)
-      {
-        await _openDay(current);
-      }
-
-      return;
+      closeMobileSheet(sheet);
     }
 
     await _delete(slots);

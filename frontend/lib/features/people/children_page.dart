@@ -51,15 +51,22 @@ const int _schoolIndex = 2;
 const int _otherIndex = 3;
 
 // Payments are not on the page, so not reportable.
-List<String> _otherReportableFields(PersonItem child)
+List<String> childReportableFields(PersonItem child)
 {
   final bool isPupil = child.roles.map((role) => role.toUpperCase()).contains('STUDENTE');
 
   return [
+    ...kPersonalReportableFields,
+    ...kSchoolReportableFields,
     if (isPupil) 'Certificazioni',
     if (isPupil && !child.isAdult) 'Uscita anticipata',
     if (!child.isAdult) ...['Contatto di emergenza', 'Allergie e farmaci'],
   ];
+}
+
+String childReportEyebrow(PersonItem child)
+{
+  return 'Dati di ${child.firstName}';
 }
 
 class ParentChildrenPage extends StatefulWidget
@@ -184,12 +191,8 @@ class _ParentChildrenPageState extends State<ParentChildrenPage>
     showAnagraphicErrorReportDialog(
       context,
       child,
-      fields: [
-        ...kPersonalReportableFields,
-        ...kSchoolReportableFields,
-        ..._otherReportableFields(child),
-      ],
-      eyebrow: 'Dati di ${child.firstName}',
+      fields: childReportableFields(child),
+      eyebrow: childReportEyebrow(child),
     );
   }
 

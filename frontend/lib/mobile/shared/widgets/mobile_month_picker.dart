@@ -136,12 +136,41 @@ class _MonthPickerState extends State<_MonthPicker>
       );
     }
 
-    // Level with the title under the eyebrow.
+    final bool hasToday = !widget.today.isBefore(widget.first) && !widget.today.isAfter(widget.last);
+
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 12),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          Semantics(
+            button: true,
+            enabled: hasToday,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasToday ? () => finishMobileSheet(context, widget.today) : null,
+              child: Container(
+                height: _arrowSize,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_arrowSize / 2),
+                  color: AppTheme.trialInk.withValues(alpha: 0.06),
+                ),
+                child: Text(
+                  kTodayLabel.toUpperCase(),
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                    color: hasToday ? AppTheme.trialTealDeep : AppTheme.trialInk.withValues(alpha: 0.22),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           arrow(Icons.chevron_left_rounded, _index > 0, -1),
           const SizedBox(width: 8),
           arrow(Icons.chevron_right_rounded, _index < _count - 1, 1),
@@ -173,7 +202,7 @@ class _MonthPickerState extends State<_MonthPicker>
                             today: isSameDate(day, widget.today),
                             closed: marks.closed.contains(day),
                             busy: marks.busy.contains(day),
-                            onTap: () => Navigator.of(context).pop(day),
+                            onTap: () => finishMobileSheet(context, day),
                           ),
                   ),
               ],
@@ -196,8 +225,7 @@ class _MonthPickerState extends State<_MonthPicker>
     return MobileSheet(
       eyebrow: kPickDayLabel,
       title: formatMonthYear(_monthAt(_index)),
-      closable: false,
-      trailing: _buildArrows(),
+      subhead: _buildArrows(),
       content: Padding(
         padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding - 4, 14, MobileSheet.sidePadding - 4, 0),
         child: Column(

@@ -104,7 +104,7 @@ class _SchoolsTabState extends State<SchoolsTab>
     return result;
   }
 
-  void _showWizard({SchoolItem? school, VoidCallback? onCancelEdit})
+  void _showWizard({SchoolItem? school, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
@@ -113,7 +113,7 @@ class _SchoolsTabState extends State<SchoolsTab>
         existingSchool: school,
         availableStudyPrograms: widget.studyPrograms,
         citySuggestions: _citySuggestions,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (code, name, city, provinceCode, programIds, onError) async
         {
           if (school == null)
@@ -198,7 +198,7 @@ class _SchoolsTabState extends State<SchoolsTab>
             school: school,
             availableStudyPrograms: widget.studyPrograms,
             availableMinistrySubjects: widget.ministrySubjects,
-            onEditRequested: (onCancel) => _showWizard(school: school, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(school: school, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(school),
           );
         }).toList(),
@@ -212,14 +212,14 @@ class _SchoolWizardDialog extends StatefulWidget
   final SchoolItem? existingSchool;
   final List<StudyProgramItem> availableStudyPrograms;
   final List<_CityProvinceOption> citySuggestions;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String? code, String name, String city, String provinceCode, List<int> programIds, Function(String) onError) onSave;
 
   const _SchoolWizardDialog({
     this.existingSchool,
     required this.availableStudyPrograms,
     required this.citySuggestions,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -253,7 +253,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
   bool get isEditing => widget.existingSchool != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()
@@ -456,7 +456,7 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
             AppTextField(
               controller: _nameController,
               label: 'Nome',
-              hintText: 'Es. Liceo Statale F. Corradini',
+              hintText: 'Es. Liceo Statale "F. Corradini"',
               maxLength: FieldLimits.name,
               textCapitalization: TextCapitalization.words,
             ),

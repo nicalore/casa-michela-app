@@ -34,6 +34,7 @@ class RelativeCard extends StatefulWidget
 
   final PersonFace person;
   final List<String> roles;
+  final bool feminine;
   final List<RelativeFact> facts;
 
   // Null hides the pickup band: it only concerns minors.
@@ -46,6 +47,7 @@ class RelativeCard extends StatefulWidget
     super.key,
     required this.person,
     required this.roles,
+    required this.feminine,
     required this.facts,
     required this.onTap,
     this.authorizedPickup,
@@ -74,7 +76,7 @@ class _RelativeCardState extends State<RelativeCard>
       spacing: 8,
       runSpacing: 6,
       children: [
-        for (final role in RoleLabelMapper.processRoles(widget.roles))
+        for (final role in RoleLabelMapper.processRoles(widget.roles, feminine: widget.feminine))
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(

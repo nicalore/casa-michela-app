@@ -1,15 +1,20 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
+import '../../../../features/calendar/widgets/own_lesson_block.dart' show kSharedLessonIcon;
 import '../../../../features/lessons/models/activity_item.dart';
+import '../../../../features/lessons/models/calendar_day.dart';
 import '../../../../features/lessons/models/lesson_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_activity_block.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_current_card.dart';
 
 const double _radius = 14;
 
@@ -23,8 +28,18 @@ const double _iconGap = 5;
 const double _checkGap = 4;
 const double _nameGap = 4;
 const double _lineGap = 3;
+const double _whereIconGap = 4;
 
 const Color _pastAccent = Color(0xFF93A3AD);
+
+const double kMobilePhoneCardScale = 1.1;
+const double kMobileTabletCardScale = 1.15;
+
+// Under this inner width a card drops its icons, as on the desktop.
+const double _narrowWidth = 81;
+
+// How far a word may shrink so a card never splits it across two lines.
+const double _minWordFit = 0.75;
 
 const Color _elapsedTint = Color(0x1CE4674F);
 
@@ -33,6 +48,10 @@ const List<BoxShadow> _shadow = [
 ];
 
 enum MobileEntryTime { upcoming, running, past }
+
+const Decoration _runningRim = MobileCurrentCard(BorderRadius.all(Radius.circular(_radius)));
+
+typedef MobileLessonWhere = ({IconData icon, String label, Color accent});
 
 class MobileCalendarEntry
 {
@@ -49,6 +68,12 @@ class MobileCalendarEntry
 
   final String? modeWord;
 
+  final MobileLessonWhere? where;
+
+  final bool shared;
+
+  final bool brief;
+
   final VoidCallback onTap;
 
   const MobileCalendarEntry({
@@ -61,6 +86,9 @@ class MobileCalendarEntry
     this.subject,
     this.disciplines,
     this.modeWord,
+    this.where,
+    this.shared = false,
+    this.brief = false,
     required this.onTap,
   });
 
@@ -82,6 +110,34 @@ class MobileCalendarEntry
       subject: about.subject,
       disciplines: about.disciplines,
       modeWord: lesson.mode == kOnlineMode ? modeLabel(kOnlineMode) : null,
+      onTap: onTap,
+    );
+  }
+
+  factory MobileCalendarEntry.pupilLesson(
+    LessonItem lesson,
+    List<MinistrySubjectItem> ministrySubjects, {
+    required VoidCallback onTap,
+  })
+  {
+    final about = lessonAbout(lesson, ministrySubjects);
+
+    return MobileCalendarEntry(
+      startMinutes: lesson.startMinutes,
+      endMinutes: lesson.endMinutes,
+      accent: lessonAccent(lesson.mode),
+      surface: Colors.white,
+      icon: lessonModeIcon(lesson.mode),
+      title: lessonTitle(lesson, view: CalendarView.byStudent),
+      subject: about.subject,
+      disciplines: about.disciplines,
+      where: (
+        icon: lessonWhere(lesson).icon,
+        label: lessonWhere(lesson).label,
+        accent: lessonWhereAccent(lesson),
+      ),
+      shared: lesson.isShared,
+      brief: lesson.minutes <= kMinimumBandMinutes,
       onTap: onTap,
     );
   }
@@ -163,17 +219,12 @@ class MobileLessonCard extends StatelessWidget
         behavior: HitTestBehavior.opaque,
         onTap: entry.onTap,
         child: Container(
-          decoration: BoxDecoration(color: entry.surface, borderRadius: radius, boxShadow: _shadow),
-          foregroundDecoration: running
-              ? BoxDecoration(
-                  borderRadius: radius,
-                  border: Border.all(
-                    color: MobilePalette.currentRim,
-                    width: MobilePalette.currentRimWidth,
-                    strokeAlign: BorderSide.strokeAlignOutside,
-                  ),
-                )
-              : null,
+          decoration: BoxDecoration(
+            color: entry.surface,
+            borderRadius: radius,
+            boxShadow: _shadow,
+          ),
+          foregroundDecoration: running ? _runningRim : null,
           child: CustomPaint(
             painter: _CardPainter(
               accent: past ? _pastAccent : entry.accent,
@@ -299,13 +350,20 @@ class _CardBody extends StatelessWidget
         color: MobilePalette.mutedText,
       );
 
+  TextStyle _whereStyle(Color accent) => GoogleFonts.plusJakartaSans(
+        fontSize: 12 * scale,
+        fontWeight: FontWeight.w700,
+        height: 1.25,
+        color: past ? _pastAccent : accent,
+      );
+
   // Longest first; the last always fits somewhere.
   List<String> get _hourForms
   {
     final String range = formatMinutesRange(entry.startMinutes, entry.endMinutes);
 
     return [
-      if (!inColumn) [range, formatMinutes(entry.minutes), ?entry.modeWord].join(' · '),
+      if (!inColumn && !entry.brief) [range, formatMinutes(entry.minutes), ?entry.modeWord].join(' · '),
       range,
       formatTimeOfDayShort(timeOfDayFromMinutes(entry.startMinutes)),
     ];
@@ -372,14 +430,14 @@ class _CardBody extends StatelessWidget
     return (count, height);
   }
 
-  (String, bool) _pickHours(double width, TextScaler scaler)
+  (String, bool) _pickHours(double width, TextScaler scaler, {required bool narrow})
   {
     final List<String> forms = _hourForms;
     // Icons keep their size whatever the text scale.
-    final double check = past ? 17 * scale + _checkGap : 0;
+    final double check = narrow ? 0 : (past ? 17 * scale + _checkGap : 0) + (entry.shared ? 16 * scale + _checkGap : 0);
     final double icon = 15 * scale + _iconGap;
 
-    if (!inColumn)
+    if (!inColumn && !narrow)
     {
       for (final form in forms)
       {
@@ -401,6 +459,19 @@ class _CardBody extends StatelessWidget
     return (forms.last, false);
   }
 
+  static TextStyle _wholeWords(String text, TextStyle style, TextScaler scaler, double width)
+  {
+    final double widest = text.split(' ').fold(0.0, (widest, word) => math.max(widest, _width(word, style, scaler)));
+
+    if (widest <= width || widest == 0)
+    {
+      return style;
+    }
+
+    // A hair under the exact ratio, so rounding never wraps the word after all.
+    return style.copyWith(fontSize: style.fontSize! * math.max(_minWordFit, width / widest * 0.98));
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -411,20 +482,25 @@ class _CardBody extends StatelessWidget
       {
         final double width = constraints.maxWidth;
         final double room = constraints.maxHeight;
+        final bool narrow = width < _narrowWidth;
 
-        final (String hours, bool withIcon) = _pickHours(width, scaler);
+        final (String hours, bool withIcon) = _pickHours(width, scaler, narrow: narrow);
+
+        final String headline = entry.brief ? entry.subject ?? entry.title : entry.title;
+        final TextStyle nameStyle = _wholeWords(headline, _nameStyle, scaler, width);
 
         double used = _height(hours, _hoursStyle, scaler, width: width) + _nameGap;
 
         final int nameLines =
-            used + _height(entry.title, _nameStyle, scaler, maxLines: 2, width: width) <= room ? 2 : 1;
+            used + _height(headline, nameStyle, scaler, maxLines: 2, width: width) <= room ? 2 : 1;
 
-        used += _height(entry.title, _nameStyle, scaler, maxLines: nameLines, width: width);
+        used += _height(headline, nameStyle, scaler, maxLines: nameLines, width: width);
 
-        final String? subject = entry.subject;
+        final String? subject = entry.brief ? null : entry.subject;
+        final TextStyle subjectStyle = subject == null ? _subjectStyle : _wholeWords(subject, _subjectStyle, scaler, width);
         final (int subjectLines, double subjectHeight) = subject == null
             ? (0, 0.0)
-            : _fit(subject, _subjectStyle, scaler, width: width, room: room - used - _lineGap);
+            : _fit(subject, subjectStyle, scaler, width: width, room: room - used - _lineGap);
         final bool showsSubject = subjectLines > 0;
 
         if (showsSubject)
@@ -432,11 +508,36 @@ class _CardBody extends StatelessWidget
           used += _lineGap + subjectHeight;
         }
 
-        final String? disciplines = entry.disciplines;
-        final (int disciplineLines, double _) = disciplines == null || !showsSubject || inColumn
+        final String? disciplines = entry.brief ? null : entry.disciplines;
+        final (int fitting, double fittingHeight) = disciplines == null || !showsSubject || inColumn
             ? (0, 0.0)
             : _fit(disciplines, _disciplinesStyle, scaler, width: width, room: room - used - _lineGap);
+        // Narrow, a single line cut short: the words are too long to stack.
+        final int disciplineLines = narrow ? math.min(1, fitting) : fitting;
+        final double disciplineHeight = narrow && fitting > 1
+            ? _height(disciplines!, _disciplinesStyle, scaler, width: width)
+            : fittingHeight;
         final bool showsDisciplines = disciplineLines > 0;
+
+        if (showsDisciplines)
+        {
+          used += _lineGap + disciplineHeight;
+        }
+
+        // Last, as on the desktop, so it goes first; a narrow card keeps it on one line.
+        final MobileLessonWhere? where = entry.brief ? null : entry.where;
+        final double whereIcon = inColumn || narrow ? 0 : 14 * scale;
+        final (int whereFitting, double _) = where == null
+            ? (0, 0.0)
+            : _fit(
+                where.label,
+                _whereStyle(where.accent),
+                scaler,
+                width: width - whereIcon - (whereIcon == 0 ? 0 : _whereIconGap),
+                room: room - used - _lineGap,
+              );
+        final int whereLines = narrow ? math.min(1, whereFitting) : whereFitting;
+        final bool showsWhere = where != null && whereLines > 0 && used + _lineGap + whereIcon <= room;
 
         // Hours and name stay even when too tall, cut by the clip. No ambient
         // style (theme letter spacing), so the lines match those measured above.
@@ -460,7 +561,11 @@ class _CardBody extends StatelessWidget
                       Expanded(
                         child: Text(hours, maxLines: 1, overflow: TextOverflow.ellipsis, style: _hoursStyle),
                       ),
-                      if (past) ...[
+                      if (entry.shared && !narrow) ...[
+                        const SizedBox(width: _checkGap),
+                        Icon(kSharedLessonIcon, size: 16 * scale, color: MobilePalette.mutedText),
+                      ],
+                      if (past && !narrow) ...[
                         const SizedBox(width: _checkGap),
                         Icon(Icons.check_rounded, size: 17 * scale, color: MobilePalette.mutedText),
                       ],
@@ -468,14 +573,14 @@ class _CardBody extends StatelessWidget
                   ),
                   const SizedBox(height: _nameGap),
                   Text(
-                    entry.title,
+                    headline,
                     maxLines: nameLines,
                     overflow: TextOverflow.ellipsis,
-                    style: _nameStyle,
+                    style: nameStyle,
                   ),
                   if (showsSubject && subject != null) ...[
                     const SizedBox(height: _lineGap),
-                    Text(subject, maxLines: subjectLines, overflow: TextOverflow.ellipsis, style: _subjectStyle),
+                    Text(subject, maxLines: subjectLines, overflow: TextOverflow.ellipsis, style: subjectStyle),
                   ],
                   if (showsDisciplines && disciplines != null) ...[
                     const SizedBox(height: _lineGap),
@@ -486,12 +591,195 @@ class _CardBody extends StatelessWidget
                       style: _disciplinesStyle,
                     ),
                   ],
+                  if (showsWhere) ...[
+                    const SizedBox(height: _lineGap),
+                    _WhereLine(
+                      where: where,
+                      style: _whereStyle(where.accent),
+                      iconSize: whereIcon,
+                      past: past,
+                      maxLines: whereLines,
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+// The "Per lezioni" card: never cut, as tall as its lines.
+class MobileLessonListCard extends StatelessWidget
+{
+  final MobileCalendarEntry entry;
+  final MobileEntryTime time;
+
+  final double scale;
+
+  const MobileLessonListCard({
+    super.key,
+    required this.entry,
+    required this.time,
+    this.scale = 1,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    final bool past = time == MobileEntryTime.past;
+    final Color accent = past ? _pastAccent : entry.accent;
+
+    const BorderRadius radius = BorderRadius.all(Radius.circular(_radius));
+
+    final String head = [
+      formatMinutesRange(entry.startMinutes, entry.endMinutes),
+      formatMinutes(entry.minutes),
+      ?entry.modeWord,
+    ].join(' · ');
+    final String? subject = entry.subject;
+    final String? disciplines = entry.disciplines;
+    final MobileLessonWhere? where = entry.where;
+
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: entry.onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: entry.surface,
+            borderRadius: radius,
+            boxShadow: _shadow,
+          ),
+          foregroundDecoration: time == MobileEntryTime.running ? _runningRim : null,
+          child: CustomPaint(
+            painter: _CardPainter(accent: accent, elapsed: null, horizontal: false, timeInset: 0),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 11 * scale, 12, 12 * scale),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(entry.icon, size: 15 * scale, color: accent),
+                      const SizedBox(width: _iconGap),
+                      Expanded(
+                        child: Text(
+                          head,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.5 * scale,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                            height: 1.25,
+                            color: accent,
+                          ),
+                        ),
+                      ),
+                      if (entry.shared) ...[
+                        const SizedBox(width: _checkGap),
+                        Icon(kSharedLessonIcon, size: 16 * scale, color: MobilePalette.mutedText),
+                      ],
+                      if (past) ...[
+                        const SizedBox(width: _checkGap),
+                        Icon(Icons.check_rounded, size: 17 * scale, color: MobilePalette.mutedText),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: _nameGap),
+                  Text(
+                    entry.title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15.5 * scale,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                      color: past ? MobilePalette.mutedText : AppTheme.trialOcean,
+                    ),
+                  ),
+                  if (subject != null) ...[
+                    const SizedBox(height: _lineGap),
+                    Text(
+                      subject,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13 * scale,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        color: past ? MobilePalette.mutedText : AppTheme.trialInk,
+                      ),
+                    ),
+                  ],
+                  if (disciplines != null) ...[
+                    const SizedBox(height: _lineGap),
+                    Text(
+                      disciplines,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12 * scale,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                        color: MobilePalette.mutedText,
+                      ),
+                    ),
+                  ],
+                  if (where != null) ...[
+                    const SizedBox(height: _lineGap),
+                    _WhereLine(
+                      where: where,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12 * scale,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                        color: past ? _pastAccent : where.accent,
+                      ),
+                      iconSize: 14 * scale,
+                      past: past,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WhereLine extends StatelessWidget
+{
+  final MobileLessonWhere where;
+  final TextStyle style;
+
+  // Zero drops the icon.
+  final double iconSize;
+
+  final bool past;
+
+  final int? maxLines;
+
+  const _WhereLine({
+    required this.where,
+    required this.style,
+    required this.iconSize,
+    required this.past,
+    this.maxLines,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (iconSize > 0) ...[
+          Icon(where.icon, size: iconSize, color: past ? _pastAccent : where.accent),
+          const SizedBox(width: _whereIconGap),
+        ],
+        Expanded(child: Text(where.label, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style)),
+      ],
     );
   }
 }

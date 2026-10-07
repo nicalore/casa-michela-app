@@ -9,6 +9,8 @@ import '../../../../features/lessons/utils/booking_window.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_card_delete_buttons.dart';
+import '../../../shared/widgets/mobile_danger_button.dart';
 import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../mobile_availability_week.dart';
@@ -20,7 +22,7 @@ const double _rowHeight = 42;
 
 // Locked slots fade through their colours: an Opacity trips Impeller's check.
 const double _lockedFade = 0.5;
-const double _actionSize = 36;
+const double _actionSize = 40;
 
 // Returned by the day sheet; the page confirms and carries it out.
 sealed class MobileDaySheetAction
@@ -42,6 +44,11 @@ class MobileDeleteBand extends MobileDaySheetAction
   const MobileDeleteBand(this.band);
 }
 
+class MobileDeleteDay extends MobileDaySheetAction
+{
+  const MobileDeleteDay();
+}
+
 class MobileEditDay extends MobileDaySheetAction
 {
   const MobileEditDay();
@@ -57,13 +64,17 @@ String _deleteAllLabel(TimeBucket band)
   };
 }
 
-Future<MobileDaySheetAction?> showMobileAvailabilityDaySheet({
+Future<void> showMobileAvailabilityDaySheet({
   required BuildContext context,
   required MobileAvailabilityDay day,
   required bool editable,
+  required Future<void> Function(BuildContext sheet, MobileDaySheetAction action) onAction,
 })
 {
-  return showMobileSheet<MobileDaySheetAction>(
+  // With one band holding slots, its own deletion already empties the day.
+  final bool wholeDay = day.canDelete && day.bands.where((band) => band.slots.isNotEmpty).length > 1;
+
+  return showMobileSheet<void>(
     context: context,
     builder: (context) => MobileSheet(
       eyebrow: 'Disponibilità',
@@ -72,16 +83,28 @@ Future<MobileDaySheetAction?> showMobileAvailabilityDaySheet({
         const SizedBox(height: 14),
         for (final (i, band) in day.shownBands.indexed) ...[
           if (i > 0) const SizedBox(height: _blockGap),
-          _BandBlock(band: band, onAction: (action) => Navigator.of(context).pop(action)),
+          _BandBlock(band: band, onAction: (action) => onAction(context, action)),
         ],
       ],
       footer: editable
           ? Padding(
               padding: const EdgeInsets.only(top: 18),
-              child: MobileGoldButton(
-                label: 'Modifica',
-                icon: Icons.edit_outlined,
-                onPressed: () => Navigator.of(context).pop(const MobileEditDay()),
+              child: Column(
+                children: [
+                  MobileGoldButton(
+                    label: 'Modifica',
+                    icon: Icons.edit_outlined,
+                    onPressed: () => onAction(context, const MobileEditDay()),
+                  ),
+                  if (wholeDay) ...[
+                    const SizedBox(height: 12),
+                    MobileDangerButton(
+                      label: 'Elimina la giornata',
+                      icon: Icons.delete_outline_rounded,
+                      onPressed: () => onAction(context, const MobileDeleteDay()),
+                    ),
+                  ],
+                ],
               ),
             )
           : null,
@@ -188,9 +211,13 @@ class _BandBlock extends StatelessWidget
           // With one slot its own bin already empties the band.
           if (band.canDelete && band.slots.length > 1)
             _Divided(
-              child: _DeleteAll(
-                label: _deleteAllLabel(band.band),
-                onTap: () => onAction(MobileDeleteBand(band)),
+              child: Padding(
+                // Square with the block's left padding.
+                padding: const EdgeInsets.fromLTRB(0, 10, 6, 6),
+                child: MobileCardDeleteButton(
+                  label: _deleteAllLabel(band.band),
+                  onPressed: () => onAction(MobileDeleteBand(band)),
+                ),
               ),
             ),
         ],
@@ -273,23 +300,7 @@ class _SlotRow extends StatelessWidget
         if (onDelete == null)
           const SizedBox(width: _actionSize)
         else
-          Semantics(
-            button: true,
-            label: 'Elimina',
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onDelete,
-              child: SizedBox(
-                width: _actionSize,
-                height: _actionSize,
-                child: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 20,
-                  color: AppTheme.trialDanger.withValues(alpha: 0.82),
-                ),
-              ),
-            ),
-          ),
+          MobileCardBinButton(onPressed: onDelete, extent: _actionSize),
       ],
     );
   }
@@ -312,39 +323,6 @@ class _Empty extends StatelessWidget
           fontWeight: FontWeight.w600,
           color: MobilePalette.mutedText,
         ),
-      ),
-    );
-  }
-}
-
-class _DeleteAll extends StatelessWidget
-{
-  final String label;
-  final VoidCallback onTap;
-
-  const _DeleteAll({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Row(
-        children: [
-          const Icon(Icons.delete_outline_rounded, size: 17, color: AppTheme.trialDanger),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.trialDanger,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

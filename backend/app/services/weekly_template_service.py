@@ -113,7 +113,7 @@ class WeeklyTemplateService:
             if template.mode == mode
         ]
 
-        # Published calendars on these dates must revert to bozza or be dropped.
+        # Published calendars on these dates must revert to draft or be dropped.
         watch = await CalendarHoursWatch.taken(
             self.opening_day_repository.session,
             dates,

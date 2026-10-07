@@ -120,6 +120,7 @@ def _validate_presence_booker(
     _flush_context: object,
     _instances: object,
 ) -> None:
+    from app.models.account import Account
     from app.models.administrator import Administrator
     from app.models.parental_responsibility import ParentalResponsibility
 
@@ -136,9 +137,14 @@ def _validate_presence_booker(
         if presence.booker_tax_code in parent_tax_codes:
             continue
 
-        if (
+        if presence.booker_tax_code == presence.student_tax_code and (
             not parent_tax_codes
-            and presence.booker_tax_code == presence.student_tax_code
+            # Allowed by the admins to book alone although the parents answer.
+            or session.scalar(
+                select(Account.autonomous_bookings).where(
+                    Account.tax_code == presence.student_tax_code,
+                ),
+            )
         ):
             continue
 

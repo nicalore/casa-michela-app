@@ -71,7 +71,7 @@ class _PasswordSheetState extends State<_PasswordSheet>
         // Only a password that took is offered to the password manager.
         TextInput.finishAutofillContext();
         MobileNotice.show(context, kPasswordChanged);
-        Navigator.of(context).pop();
+        finishMobileSheet(context);
       }
     }
     catch (e)

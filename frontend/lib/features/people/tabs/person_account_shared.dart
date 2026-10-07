@@ -16,7 +16,6 @@ import '../widgets/person_detail_widgets.dart';
 
 const double _confirmWidth = 480;
 
-// One account read shared by the Accesso and Dispositivi tabs: what one changes, the other shows.
 class PersonAccountController extends ChangeNotifier
 {
   final String fiscalCode;
@@ -46,7 +45,6 @@ class PersonAccountController extends ChangeNotifier
     _notify();
   }
 
-  // After an action; a failure is the caller's to report, and what is on screen stays.
   Future<void> reload() async
   {
     account = await ApiService().getPersonAccount(fiscalCode);
@@ -81,7 +79,7 @@ enum PersonAccountAction
   suspension,
 }
 
-// Loading and error states, or null once the account is there.
+// Null once the account is there.
 Widget? accountPlaceholder(PersonAccountController controller)
 {
   if (controller.failed)
@@ -115,7 +113,6 @@ mixin PersonAccountActions<T extends StatefulWidget> on State<T>
     }
   }
 
-  // One action at a time; the account is read again before the outcome is told.
   Future<void> runAccountAction(
     PersonAccountAction action,
     Future<void> Function() call,

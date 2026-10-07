@@ -66,7 +66,7 @@ def upgrade() -> None:
     #
     # No existing span maps faithfully: the standard high school covers 1-5,
     # which is none of the three. QUADRIENNALE is the fallback because it is
-    # the arm that strands the fewest enrolments — only year 5, where TRIENNIO
+    # the arm that strands the fewest enrolments - only year 5, where TRIENNIO
     # would strand years 1 and 2.
     op.execute(
         f"""
@@ -102,7 +102,7 @@ def upgrade() -> None:
     op.execute(f"DROP INDEX IF EXISTS {_OLD_INDEX}")
 
     # The cycle used to be written into the name by hand. Now that it is a
-    # column, strip that suffix — but only where a name survives it, so a row
+    # column, strip that suffix - but only where a name survives it, so a row
     # called just "(triennio)" is left alone.
     op.execute(
         f"""

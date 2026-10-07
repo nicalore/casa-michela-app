@@ -193,6 +193,7 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
     return RelativeCard(
       person: child,
       roles: child.roles,
+      feminine: child.gender == 'F',
       facts: [
         if (age != null) RelativeFact(Icons.cake_rounded, ageLabel(age)),
         ...roleFacts,

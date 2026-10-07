@@ -10,6 +10,8 @@ import '../../../../features/lessons/models/availability_item.dart';
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_action_circle.dart';
+import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 import '../mobile_availability_week.dart';
@@ -24,8 +26,6 @@ const double _closedAlpha = 0.43;
 const double _minTileWidth = 38;
 const double _wideMinTileWidth = 56;
 
-const double _trailingWidth = 32;
-const double _buttonSize = 32;
 
 const double _labelGap = 6;
 const double _lockGap = 4;
@@ -50,6 +50,8 @@ class _Sizes
   EdgeInsets get padding => wide
       ? const EdgeInsets.fromLTRB(14, 15, 16, 15)
       : const EdgeInsets.fromLTRB(12, 13, 10, 13);
+
+  double get button => wide ? 40 : 36;
 
   double get tileGap => wide ? 14 : 10;
   double get rowsGap => wide ? 14 : 12;
@@ -338,30 +340,16 @@ class MobileAvailabilityDayCard extends StatelessWidget
         _textWidth(_hours(slot), sizes.chipStyle(AppTheme.trialInk), scaler);
   }
 
-  Widget _buildButton(IconData icon, double size)
-  {
-    return Container(
-      width: _buttonSize,
-      height: _buttonSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppTheme.trialGoldSurface,
-        border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.6), width: 1.5),
-      ),
-      child: Icon(icon, size: size, color: AppTheme.modifiedAccent),
-    );
-  }
-
-  Widget _buildTrailing()
+  Widget _buildTrailing(_Sizes sizes)
   {
     if (_opens)
     {
-      return _buildButton(Icons.open_in_full_rounded, 16);
+      return MobileActionCircle(icon: Icons.edit_calendar_rounded, size: sizes.button, iconSize: wide ? 21 : 19);
     }
 
     if (_adds)
     {
-      return _buildButton(Icons.add_rounded, 19);
+      return MobileActionCircle(icon: Icons.add_rounded, size: sizes.button, iconSize: wide ? 25 : 23);
     }
 
     return const SizedBox.shrink();
@@ -391,7 +379,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
             1 -
             sizes.rowsGap -
             sizes.tileGap -
-            _trailingWidth;
+            sizes.button;
 
         return MobileGlassPanel(
           padding: padding,
@@ -412,7 +400,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
                   ),
                 ),
                 SizedBox(width: sizes.tileGap),
-                SizedBox(width: _trailingWidth, child: Center(child: _buildTrailing())),
+                SizedBox(width: sizes.button, child: Center(child: _buildTrailing(sizes))),
               ],
             ),
           ),
@@ -424,10 +412,7 @@ class MobileAvailabilityDayCard extends StatelessWidget
     {
       card = DecoratedBox(
         position: DecorationPosition.foreground,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(_radius),
-          border: Border.all(color: MobilePalette.currentRim, width: MobilePalette.currentRimWidth),
-        ),
+        decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))),
         child: card,
       );
     }

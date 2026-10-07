@@ -27,8 +27,7 @@ class LessonBase(TimeBandMixin):
 
     association_subject_ids: list[int] = Field(default_factory=list)
 
-    # Records a CompetenceWaiver instead of refusing; the teacher's competences
-    # stay untouched.
+    # Records a CompetenceWaiver instead of refusing; competences stay untouched.
     waive_competence: bool = False
 
     @field_validator("booking_ids", "association_subject_ids")

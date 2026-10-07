@@ -5,23 +5,19 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/role_label_mapper.dart';
 import '../../../routing/app_router.dart';
 import '../../../shared/widgets/role_switch_dialog.dart';
-import 'mobile_glass_panel.dart';
 import 'mobile_pill.dart';
 import 'mobile_sheet.dart';
-
-const double _grabberWidth = 38;
-const double _grabberHeight = 5;
 
 const double _rowHeight = 58;
 const double _rowRadius = 16;
 const double _rowGap = 10;
 
-// Stays open, the chosen row spinning, until onChoose completes: the new
-// role's area is then ready to come in as the sheet closes.
+// Stays open, the chosen row spinning, until onChoose completes, so the new area is ready.
 Future<void> showMobileRoleSheet({
   required BuildContext context,
   required String activeRole,
   required List<String> availableRoles,
+  required bool feminine,
   required Future<void> Function(String role) onChoose,
 })
 {
@@ -30,6 +26,7 @@ Future<void> showMobileRoleSheet({
     builder: (context) => _RoleSheet(
       activeRole: activeRole,
       availableRoles: availableRoles,
+      feminine: feminine,
       onChoose: onChoose,
     ),
   );
@@ -39,9 +36,15 @@ class _RoleSheet extends StatefulWidget
 {
   final String activeRole;
   final List<String> availableRoles;
+  final bool feminine;
   final Future<void> Function(String role) onChoose;
 
-  const _RoleSheet({required this.activeRole, required this.availableRoles, required this.onChoose});
+  const _RoleSheet({
+    required this.activeRole,
+    required this.availableRoles,
+    required this.feminine,
+    required this.onChoose,
+  });
 
   @override
   State<_RoleSheet> createState() => _RoleSheetState();
@@ -63,7 +66,7 @@ class _RoleSheetState extends State<_RoleSheet>
 
     if (mounted)
     {
-      Navigator.of(context).pop();
+      finishMobileSheet(context);
     }
   }
 
@@ -72,55 +75,22 @@ class _RoleSheetState extends State<_RoleSheet>
   {
     final String activeRole = widget.activeRole;
     final List<String> roles = widget.availableRoles.where((role) => role != activeRole).toList();
-    final double bottom = MediaQuery.paddingOf(context).bottom + 24;
 
-    return MobileGlassPanel.sheet(
-      padding: EdgeInsets.fromLTRB(24, 14, 24, bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: _grabberWidth,
-              height: _grabberHeight,
-              decoration: BoxDecoration(
-                color: AppTheme.trialOcean.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(_grabberHeight / 2),
-              ),
-            ),
+    return MobileSheet(
+      eyebrow: signedInAsLabel(feminine: widget.feminine),
+      title: RoleLabelMapper.toLabel(activeRole, feminine: widget.feminine),
+      body: [
+        const SizedBox(height: 20),
+        for (var i = 0; i < roles.length; i++) ...[
+          if (i > 0) const SizedBox(height: _rowGap),
+          _RoleRow(
+            role: roles[i],
+            feminine: widget.feminine,
+            choosing: roles[i] == _choosing,
+            onTap: _choosing == null ? () => _choose(roles[i]) : null,
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Sei autenticato come'.toUpperCase(),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.9,
-              color: AppTheme.trialTealDeep,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            RoleLabelMapper.toLabel(activeRole),
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.25,
-              color: AppTheme.trialInk,
-            ),
-          ),
-          const SizedBox(height: 20),
-          for (var i = 0; i < roles.length; i++) ...[
-            if (i > 0) const SizedBox(height: _rowGap),
-            _RoleRow(
-              role: roles[i],
-              choosing: roles[i] == _choosing,
-              onTap: _choosing == null ? () => _choose(roles[i]) : null,
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }
@@ -128,10 +98,11 @@ class _RoleSheetState extends State<_RoleSheet>
 class _RoleRow extends StatelessWidget
 {
   final String role;
+  final bool feminine;
   final bool choosing;
   final VoidCallback? onTap;
 
-  const _RoleRow({required this.role, required this.choosing, required this.onTap});
+  const _RoleRow({required this.role, required this.feminine, required this.choosing, required this.onTap});
 
   @override
   Widget build(BuildContext context)
@@ -161,7 +132,7 @@ class _RoleRow extends StatelessWidget
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                RoleLabelMapper.toLabel(role),
+                RoleLabelMapper.toLabel(role, feminine: feminine),
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,

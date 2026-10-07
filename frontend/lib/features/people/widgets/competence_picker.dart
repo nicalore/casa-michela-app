@@ -14,6 +14,7 @@ import '../../association/models/association_subject_item.dart';
 import '../../association/models/service_item.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
+import '../../association/tabs/pupil_subjects_tab.dart' show subjectsFoundLabel;
 import 'person_detail_widgets.dart';
 import 'program_scope_dialog.dart';
 
@@ -41,11 +42,11 @@ class CompetenceRow extends StatefulWidget
 
   final String? subtitle;
 
-  // Services have no programmes to narrow down.
   final bool hasPrograms;
 
-  final ValueChanged<bool> onSelected;
-  final VoidCallback onEditScope;
+  // Null leaves the body inert; only the trailing icon reacts.
+  final VoidCallback? onTap;
+  final VoidCallback onAdd;
   final VoidCallback onRemove;
 
   const CompetenceRow({
@@ -56,8 +57,8 @@ class CompetenceRow extends StatefulWidget
     this.hasPrograms = true,
     required this.selected,
     required this.scope,
-    required this.onSelected,
-    required this.onEditScope,
+    required this.onTap,
+    required this.onAdd,
     required this.onRemove,
   });
 
@@ -68,6 +69,27 @@ class CompetenceRow extends StatefulWidget
 class _CompetenceRowState extends State<CompetenceRow>
 {
   bool _hover = false;
+
+  Widget _buildAdd()
+  {
+    final Widget button = FadeHoverIconButton(
+      icon: Icons.add_rounded,
+      color: AppTheme.trialTealDeep,
+      hoverColor: AppTheme.trialGoldSurface,
+      onTap: widget.onAdd,
+    );
+
+    if (!widget.hasPrograms)
+    {
+      return button;
+    }
+
+    return Tooltip(
+      message: 'Aggiungi con tutti i percorsi',
+      waitDuration: const Duration(milliseconds: 400),
+      child: button,
+    );
+  }
 
   Widget _buildTrailing()
   {
@@ -80,8 +102,8 @@ class _CompetenceRowState extends State<CompetenceRow>
         key: ValueKey(widget.selected),
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildScope(),
-          if (widget.selected)
+          if (widget.selected) ...[
+            _buildScope(),
             Padding(
               padding: const EdgeInsets.only(left: 6),
               child: FadeHoverIconButton(
@@ -91,6 +113,12 @@ class _CompetenceRowState extends State<CompetenceRow>
                 onTap: widget.onRemove,
               ),
             ),
+          ]
+          else
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildAdd(),
+            ),
         ],
       ),
     );
@@ -98,31 +126,21 @@ class _CompetenceRowState extends State<CompetenceRow>
 
   Widget _buildScope()
   {
-    if (!widget.hasPrograms)
+    final CompetenceScope? scope = widget.scope;
+
+    if (scope == null)
     {
       return const SizedBox.shrink();
     }
 
-    final CompetenceScope? scope = widget.scope;
-
-    if (widget.selected && scope != null)
-    {
-      return Padding(
-        padding: const EdgeInsets.only(left: 12),
-        child: _ScopeButton(label: scope.label, onTap: widget.onEditScope),
-      );
-    }
-
     return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: Tooltip(
-        message: 'Scegli i percorsi',
-        waitDuration: const Duration(milliseconds: 400),
-        child: FadeHoverIconButton(
-          icon: Icons.tune_rounded,
-          color: AppTheme.trialMutedText,
-          hoverColor: AppTheme.trialGoldSurface,
-          onTap: widget.onEditScope,
+      padding: const EdgeInsets.only(left: 12),
+      child: Text(
+        scope.label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.trialTealDeep,
         ),
       ),
     );
@@ -131,12 +149,14 @@ class _CompetenceRowState extends State<CompetenceRow>
   @override
   Widget build(BuildContext context)
   {
+    final bool tappable = widget.onTap != null;
+
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
+      cursor: tappable ? SystemMouseCursors.click : MouseCursor.defer,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
-        onTap: () => widget.onSelected(!widget.selected),
+        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: _selectFade,
           curve: Curves.easeOut,
@@ -150,7 +170,7 @@ class _CompetenceRowState extends State<CompetenceRow>
             borderRadius: BorderRadius.circular(16),
             // Always present so hover does not shift the contents.
             border: Border.all(
-              color: _hover
+              color: _hover && tappable
                   ? AppTheme.trialGold
                   : AppTheme.trialGold.withValues(alpha: 0),
               width: 2,
@@ -196,68 +216,39 @@ class _CompetenceRowState extends State<CompetenceRow>
   }
 }
 
-class _ScopeButton extends StatefulWidget
+// Area-filter sentinel; cannot collide with real area values.
+const String kServicesFilterValue = '__SERVICES__';
+
+String competencesFoundLabel(int count, {required bool onlyServices})
 {
-  final String label;
-  final VoidCallback onTap;
+  if (onlyServices)
+  {
+    return count == 1 ? '1 servizio trovato' : '$count servizi trovati';
+  }
 
-  const _ScopeButton({required this.label, required this.onTap});
-
-  @override
-  State<_ScopeButton> createState() => _ScopeButtonState();
+  return subjectsFoundLabel(count);
 }
 
-class _ScopeButtonState extends State<_ScopeButton>
+class CompetencesFoundCount extends StatelessWidget
 {
-  bool _hover = false;
+  final int count;
+  final bool onlyServices;
+
+  const CompetencesFoundCount({super.key, required this.count, required this.onlyServices});
 
   @override
   Widget build(BuildContext context)
   {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        // Keeps the tap from reaching the row, which would untick the discipline.
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _hover ? AppTheme.trialGold : AppTheme.trialLine,
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.trialTealDeep,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.tune_rounded, size: 15, color: AppTheme.trialTealDeep),
-            ],
-          ),
-        ),
+    return Text(
+      competencesFoundLabel(count, onlyServices: onlyServices),
+      style: GoogleFonts.plusJakartaSans(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.trialMutedText,
       ),
     );
   }
 }
-
-
-// Area-filter sentinel; cannot collide with real area values.
-const String kServicesFilterValue = '__SERVICES__';
 
 sealed class CompetenceEntry
 {
@@ -434,7 +425,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
     return result;
   }
 
-  // Ticking assigns the discipline to every programme that teaches it.
+  // The + assigns the discipline to every programme that teaches it.
   void _select(AssociationSubjectItem subject)
   {
     widget.isSelected[subject.id] = true;
@@ -556,6 +547,15 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        // Hidden, not removed, while loading: the list would jump when it appears.
+        Opacity(
+          opacity: widget.isLoading ? 0 : 1,
+          child: CompetencesFoundCount(
+            count: _filteredEntries.length,
+            onlyServices: _showingOnlyServices,
+          ),
+        ),
       ],
     );
   }
@@ -604,9 +604,8 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
                   scope: (widget.isSelected[subject.id] ?? false)
                       ? _scopeOf(subject)
                       : null,
-                  onSelected: (value) =>
-                      value ? _select(subject) : _deselect(subject.id),
-                  onEditScope: () => _openPrograms(subject),
+                  onTap: () => _openPrograms(subject),
+                  onAdd: () => _select(subject),
                   onRemove: () => _deselect(subject.id),
                 ),
               ServiceEntry(:final service) => CompetenceRow(
@@ -616,8 +615,10 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
                   hasPrograms: false,
                   selected: widget.selectedServices.contains(service.name),
                   scope: null,
-                  onSelected: (value) => _toggleService(service, value),
-                  onEditScope: () {},
+                  onTap: widget.selectedServices.contains(service.name)
+                      ? null
+                      : () => _toggleService(service, true),
+                  onAdd: () => _toggleService(service, true),
                   onRemove: () => _toggleService(service, false),
                 ),
             },

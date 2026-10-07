@@ -52,8 +52,8 @@ class CalendarPublication(Base):
         index=True,
     )
 
-    # Who opened the bozza: only they may discard it, and the 90-second band
-    # lock cannot answer that for a bozza that stays open longer.
+    # Who opened the draft: only they may discard it, and the 90-second band
+    # lock cannot answer that for a draft that stays open longer.
     draft_opened_by: Mapped[str | None] = mapped_column(
         String(16),
         ForeignKey(

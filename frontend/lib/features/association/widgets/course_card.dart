@@ -16,7 +16,7 @@ const Color _costTextColor = AppTheme.trialTealDeep;
 class CourseCard extends StatelessWidget
 {
   final CourseItem course;
-  final void Function(VoidCallback onCancel) onEditRequested;
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   const CourseCard({
@@ -33,12 +33,8 @@ class CourseCard extends StatelessWidget
       barrierLabel: 'CourseDetails',
       builder: (dialogContext) => _CourseDetailsDialogContent(
         course: course,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Reopen with the card's context, not the closing dialog's.
-          onEditRequested(() => _showDetailsDialog(context));
-        },
+        // Wizard stacks over the details: closing and reopening them replayed their entrance.
+        onEditRequested: () => onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: onDelete,
       ),
     );

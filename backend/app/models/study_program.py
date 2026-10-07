@@ -37,7 +37,7 @@ class HighSchoolTrackEnum(StrEnum):
     QUADRIENNALE = "QUADRIENNALE"
 
 
-# Source of truth for track → years; the schema and the SQL check below mirror it.
+# Source of truth for track -> years; the schema and the SQL check below mirror it.
 YEARS_BY_TRACK: Final[dict[HighSchoolTrackEnum, tuple[int, int]]] = {
     HighSchoolTrackEnum.BIENNIO: (1, 2),
     HighSchoolTrackEnum.TRIENNIO: (3, 5),

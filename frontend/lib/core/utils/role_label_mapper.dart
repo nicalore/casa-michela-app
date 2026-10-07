@@ -22,16 +22,27 @@ abstract final class RoleLabelMapper
     'Corsista',
   };
 
-  // Unknown values pass through unchanged, keeping the conversion idempotent.
-  static String toLabel(String role) => _labelsByRoleCode[role] ?? role;
+  static const Map<String, String> _feminineLabels = <String, String>{
+    'Amministratore': 'Amministratrice',
+    'Psicologo': 'Psicologa',
+    'Studente': 'Studentessa',
+  };
 
-  // A plain member only — not everyone who also happens to be a member.
+  // Unknown values pass through unchanged, keeping the conversion idempotent.
+  static String toLabel(String role, {bool feminine = false})
+  {
+    final String label = _labelsByRoleCode[role] ?? role;
+
+    return feminine ? _feminineLabels[label] ?? label : label;
+  }
+
+  // A plain member only - not everyone who also happens to be a member.
   static bool hasOnlyMemberRole(List<String> labels)
   {
     return labels.contains(memberLabel) && !labels.any(_memberSubclassLabels.contains);
   }
 
-  static List<String> processRoles(List<String> rawRoles)
+  static List<String> processRoles(List<String> rawRoles, {bool feminine = false})
   {
     final roles = rawRoles.map(toLabel).toList();
 
@@ -41,6 +52,6 @@ abstract final class RoleLabelMapper
       roles.remove(memberLabel);
     }
 
-    return roles;
+    return feminine ? roles.map((label) => _feminineLabels[label] ?? label).toList() : roles;
   }
 }

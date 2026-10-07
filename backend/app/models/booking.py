@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from datetime import date
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Final
@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     event,
+    inspect,
     select,
 )
 from sqlalchemy import Enum as SqlEnum
@@ -42,8 +43,8 @@ if TYPE_CHECKING:
     from app.models.subject_requested import SubjectRequested
 
 _BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR: Final[str] = (
-    "La somma delle durate delle prenotazioni supera la presenza dello studente per "
-    "quel giorno in quella modalità"
+    "La somma delle durate delle prenotazioni supera la presenza dello studente in "
+    "quella fascia oraria e in quella modalità"
 )
 
 _SUBJECTS_ON_WRONG_KIND_ERROR: Final[str] = (
@@ -55,12 +56,15 @@ _MINISTRY_REQUEST_WITHOUT_SUBJECTS_ERROR: Final[str] = (
     "disciplina singola o un servizio"
 )
 
-# Max minutes per student per discipline per day, per mode.
-_MAX_DISCIPLINE_MINUTES_PER_DAY: Final[int] = 120
+# Session info key: stretches the association's own sweeps take away.
+_SWEPT_KEY: Final[str] = "swept_presence_ids"
 
-_DISCIPLINE_OVER_DAILY_LIMIT_ERROR: Final[str] = (
-    "Nello stesso giorno e nella stessa modalità uno studente non può "
-    "superare le due ore complessive sulla stessa disciplina"
+# Max minutes per student per discipline in one band of a day, per mode.
+_MAX_DISCIPLINE_MINUTES_PER_BAND: Final[int] = 120
+
+_DISCIPLINE_OVER_BAND_LIMIT_ERROR: Final[str] = (
+    "Nella stessa fascia oraria uno studente non può superare le due ore "
+    "complessive sulla stessa disciplina"
 )
 
 
@@ -158,6 +162,11 @@ class Booking(CreatedAtMixin, UpdatedAtMixin, Base):
     )
 
 
+# Swept stretches (openings changed, pupil left) go even if their band falls short.
+def mark_swept(session: Session, presence: Presence) -> None:
+    session.info.setdefault(_SWEPT_KEY, set()).add(presence.id)
+
+
 # New bookings only: on a stored one a replacement's discarded rows are not in
 # session.deleted yet, and edits go through the services anyway.
 @event.listens_for(Session, "before_flush")
@@ -214,14 +223,28 @@ def _deleted_ids_of(session: Session, model: type[Any]) -> set[Any]:
     return {instance.id for instance in deleted_instances(session, model)}
 
 
+# A stretch moved to another day, mode or band leaves its old day short too.
+def _days_of(presence: Any) -> set[tuple[str, date, str]]:
+    state = inspect(presence)
+
+    def before(name: str) -> Any:
+        deleted = state.attrs[name].history.deleted
+
+        return deleted[0] if deleted else getattr(presence, name)
+
+    return {
+        (presence.student_tax_code, presence.date, presence.mode),
+        (before("student_tax_code"), before("date"), before("mode")),
+    }
+
+
 def _affected_days(
     session: Session,
     pending_presences: Sequence[Any],
     pending_bookings: Sequence[Booking],
 ) -> set[tuple[str, date, str]]:
     affected = {
-        (presence.student_tax_code, presence.date, presence.mode)
-        for presence in pending_presences
+        day for presence in pending_presences for day in _days_of(presence)
     }
 
     for booking in pending_bookings:
@@ -237,26 +260,12 @@ def _pending_ids(entities: Sequence[Any]) -> set[Any]:
     return {entity.id for entity in entities if entity.id is not None}
 
 
-# Pending rows shadow stored ones; unflushed rows are keyed by identity so two
-# never collapse into one.
-def _total_minutes(
-    persisted_minutes: dict[Any, int],
-    pending: Sequence[Any],
-    deleted_ids: set[Any],
-    minutes_of: Callable[[Any], int],
-) -> int:
-    pending_ids = _pending_ids(pending)
-    minutes = {
-        entity_id: value
-        for entity_id, value in persisted_minutes.items()
-        if entity_id not in pending_ids and entity_id not in deleted_ids
-    }
+def _entity_key(entity: Any) -> Any:
+    return entity.id if entity.id is not None else id(entity)
 
-    for entity in pending:
-        key = entity.id if entity.id is not None else id(entity)
-        minutes[key] = minutes_of(entity)
 
-    return sum(minutes.values())
+def _day_of(presence: Any) -> tuple[str, date, str]:
+    return (presence.student_tax_code, presence.date, presence.mode)
 
 
 @event.listens_for(Session, "before_flush")
@@ -265,24 +274,38 @@ def _validate_booking_duration_within_presence(
     _flush_context: object,
     _instances: object,
 ) -> None:
+    from app.core.time_band import band_of
     from app.models.presence import Presence
 
-    # Counted per mode: the online and in-presence budgets never lend to each
-    # other. Deletions alone can never invalidate a day.
+    # Per mode and band: neither lends minutes to another.
+    # Pending rows shadow stored ones; unflushed rows are keyed by identity.
     pending_presences = pending_instances(session, Presence)
     pending_bookings = pending_instances(session, Booking)
 
-    affected = _affected_days(session, pending_presences, pending_bookings)
+    # Any stretch going away may leave its band short; sweeps are exempt.
+    swept = session.info.get(_SWEPT_KEY, set())
+    affected = _affected_days(session, pending_presences, pending_bookings) | {
+        day
+        for presence in deleted_instances(session, Presence)
+        if presence.id not in swept
+        for day in _days_of(presence)
+    }
 
     if not affected:
         return
 
-    deleted_presence_ids = _deleted_ids_of(session, Presence)
-    deleted_booking_ids = _deleted_ids_of(session, Booking)
+    shadowed_presence_ids = _deleted_ids_of(session, Presence) | _pending_ids(
+        pending_presences,
+    )
+    shadowed_booking_ids = _deleted_ids_of(session, Booking) | _pending_ids(
+        pending_bookings,
+    )
 
-    for student_tax_code, day, mode in affected:
+    for affected_day in affected:
+        student_tax_code, day, mode = affected_day
+
         # Queried explicitly: the result must not depend on the identity map's cache.
-        persisted_presence_rows = session.execute(
+        stored_presences = session.execute(
             select(Presence.id, Presence.start_time, Presence.end_time).where(
                 Presence.student_tax_code == student_tax_code,
                 Presence.date == day,
@@ -290,58 +313,69 @@ def _validate_booking_duration_within_presence(
             ),
         ).all()
 
-        day_presences = [
-            presence
+        minutes_of: dict[Any, int] = {}
+        band_by_presence: dict[Any, Any] = {}
+
+        for presence_id, start_time, end_time in stored_presences:
+            if presence_id in shadowed_presence_ids:
+                continue
+
+            minutes_of[presence_id] = minutes_between(start_time, end_time)
+            band_by_presence[presence_id] = band_of(start_time)
+
+        for presence in pending_presences:
+            if _day_of(presence) == affected_day:
+                key = _entity_key(presence)
+                minutes_of[key] = minutes_between(
+                    presence.start_time,
+                    presence.end_time,
+                )
+                band_by_presence[key] = band_of(presence.start_time)
+
+        # A stretch moved onto this day keeps its stored bookings.
+        stored_ids = {presence_id for presence_id, _, _ in stored_presences} | {
+            presence.id
             for presence in pending_presences
-            if presence.student_tax_code == student_tax_code
-            and presence.date == day
-            and presence.mode == mode
-        ]
-
-        total_presence_minutes = _total_minutes(
-            {
-                presence_id: minutes_between(start, end)
-                for presence_id, start, end in persisted_presence_rows
-            },
-            day_presences,
-            deleted_presence_ids,
-            lambda presence: minutes_between(presence.start_time, presence.end_time),
-        )
-
-        presence_ids = {
-            presence_id for presence_id, _, _ in persisted_presence_rows
-        } | _pending_ids(day_presences)
-
-        persisted_booking_rows = (
+            if presence.id is not None and _day_of(presence) == affected_day
+        }
+        stored_bookings = (
             session.execute(
-                select(Booking.id, Booking.duration).where(
-                    Booking.presence_id.in_(presence_ids)
+                select(Booking.id, Booking.duration, Booking.presence_id).where(
+                    Booking.presence_id.in_(stored_ids),
                 ),
             ).all()
-            if presence_ids
+            if stored_ids
             else []
         )
 
-        day_bookings = [
-            booking
-            for booking in pending_bookings
-            if (presence := _resolve_presence(session, booking)) is not None
-            and presence.student_tax_code == student_tax_code
-            and presence.date == day
-            and presence.mode == mode
-        ]
+        asked: dict[Any, int] = {}
+        offered: dict[Any, int] = {}
 
-        total_booking_minutes = _total_minutes(
-            {
-                booking_id: duration
-                for booking_id, duration in persisted_booking_rows
-            },
-            day_bookings,
-            deleted_booking_ids,
-            lambda booking: booking.duration,
-        )
+        for key, minutes in minutes_of.items():
+            band = band_by_presence[key]
+            offered[band] = offered.get(band, 0) + minutes
 
-        if total_booking_minutes > total_presence_minutes:
+        for booking_id, duration, presence_id in stored_bookings:
+            if booking_id in shadowed_booking_ids:
+                continue
+
+            band = band_by_presence.get(presence_id)
+
+            if band is not None:
+                asked[band] = asked.get(band, 0) + duration
+
+        for booking in pending_bookings:
+            presence = _resolve_presence(session, booking)
+
+            if presence is None or _day_of(presence) != affected_day:
+                continue
+
+            band = band_by_presence.get(_entity_key(presence))
+
+            if band is not None:
+                asked[band] = asked.get(band, 0) + booking.duration
+
+        if any(minutes > offered.get(band, 0) for band, minutes in asked.items()):
             raise ValueError(_BOOKING_DURATION_EXCEEDS_PRESENCE_ERROR)
 
 
@@ -361,6 +395,7 @@ def _validate_discipline_minutes_within_day(
     _flush_context: object,
     _instances: object,
 ) -> None:
+    from app.core.time_band import band_of
     from app.models.booking_disciplines import disciplines_of, stored_disciplines
     from app.models.presence import Presence
 
@@ -373,17 +408,34 @@ def _validate_discipline_minutes_within_day(
         return
 
     deleted_booking_ids = _deleted_ids_of(session, Booking)
+    deleted_presence_ids = _deleted_ids_of(session, Presence)
+    # Every pending booking counts where it sits now, not where it is stored.
+    pending_booking_ids = _pending_ids(pending_bookings)
+    # Moved stretches count on their new day, with their bookings.
+    moved_to = {
+        presence.id: _day_of(presence)
+        for presence in pending_presences
+        if presence.id is not None
+    }
 
-    for student_tax_code, day, mode in affected:
-        persisted_presence_ids = set(
-            session.scalars(
+    for affected_day in affected:
+        student_tax_code, day, mode = affected_day
+        persisted_presence_ids = {
+            presence_id
+            for presence_id in session.scalars(
                 select(Presence.id).where(
                     Presence.student_tax_code == student_tax_code,
                     Presence.date == day,
                     Presence.mode == mode,
                 ),
             ).all()
-        )
+            if presence_id not in deleted_presence_ids
+            and moved_to.get(presence_id, affected_day) == affected_day
+        } | {
+            presence_id
+            for presence_id, target in moved_to.items()
+            if target == affected_day
+        }
 
         day_bookings = [
             booking
@@ -394,11 +446,9 @@ def _validate_discipline_minutes_within_day(
             and presence.mode == mode
         ]
 
-        pending_ids = _pending_ids(day_bookings)
-
         persisted_rows = (
             session.execute(
-                select(Booking.id, Booking.duration).where(
+                select(Booking.id, Booking.duration, Booking.presence_id).where(
                     Booking.presence_id.in_(persisted_presence_ids),
                 ),
             ).all()
@@ -406,36 +456,58 @@ def _validate_discipline_minutes_within_day(
             else []
         )
 
+        # A moved stretch counts in its new band.
+        band_by_presence = {
+            presence_id: band_of(start_time)
+            for presence_id, start_time in (
+                session.execute(
+                    select(Presence.id, Presence.start_time).where(
+                        Presence.id.in_(persisted_presence_ids),
+                    ),
+                ).all()
+                if persisted_presence_ids
+                else []
+            )
+        }
+
+        for presence in pending_presences:
+            if presence.id in band_by_presence:
+                band_by_presence[presence.id] = band_of(presence.start_time)
+
         counted = [
-            (booking_id, duration)
-            for booking_id, duration in persisted_rows
-            if booking_id not in pending_ids and booking_id not in deleted_booking_ids
+            (booking_id, duration, band_by_presence.get(presence_id))
+            for booking_id, duration, presence_id in persisted_rows
+            if booking_id not in pending_booking_ids
+            and booking_id not in deleted_booking_ids
         ]
 
         stored = stored_disciplines(
             session,
-            [booking_id for booking_id, _ in counted],
+            [booking_id for booking_id, _, _ in counted],
         )
 
-        minutes_by_discipline: dict[int, int] = {}
+        minutes_by_band: dict[Any, dict[int, int]] = {}
 
-        for booking_id, duration in counted:
+        for booking_id, duration, band in counted:
             _add_minutes(
-                minutes_by_discipline,
+                minutes_by_band.setdefault(band, {}),
                 stored.get(booking_id, set()),
                 duration,
             )
 
         for booking in day_bookings:
+            presence = _resolve_presence(session, booking)
+
             # A booking silent about its subjects still covers its stored ones.
             _add_minutes(
-                minutes_by_discipline,
+                minutes_by_band.setdefault(band_of(presence.start_time), {}),
                 disciplines_of(session, booking, stored=stored),
                 booking.duration,
             )
 
         if any(
-            minutes > _MAX_DISCIPLINE_MINUTES_PER_DAY
-            for minutes in minutes_by_discipline.values()
+            minutes > _MAX_DISCIPLINE_MINUTES_PER_BAND
+            for totals in minutes_by_band.values()
+            for minutes in totals.values()
         ):
-            raise ValueError(_DISCIPLINE_OVER_DAILY_LIMIT_ERROR)
+            raise ValueError(_DISCIPLINE_OVER_BAND_LIMIT_ERROR)

@@ -43,6 +43,12 @@ from app.services.availability_weeks import (
     teacher_weeks,
     weekly_average,
 )
+from app.services.enrollment_spans import (
+    EnrolledSpan,
+    enrolled_days,
+    enrolled_spans,
+    enrolled_throughout,
+)
 
 # A person's own month; desk-wide figures live in app/api/statistics.py.
 router = APIRouter(prefix="/home", tags=["home"])
@@ -93,10 +99,6 @@ class _Month:
     @property
     def end(self) -> date:
         return (self.start + timedelta(days=32)).replace(day=1)
-
-    @property
-    def weeks(self) -> float:
-        return (self.until - self.start).days / 7
 
     # A stretch counts once it is over, not once it is scheduled.
     def is_over(self, day: date, end_time: time) -> bool:
@@ -242,6 +244,12 @@ async def _pupil_figures(
         }
 
     presences = await presence_days(month.start, month.until)
+    spans = await enrolled_spans(db, list(tariffs))
+
+    def weekly(tax_code: str) -> float:
+        days = enrolled_days(spans.get(tax_code, []), month.start, month.until)
+
+        return round(presences.get(tax_code, 0) / (days / 7), 1) if days else 0.0
 
     # Still to come: from tomorrow to the end of the month.
     booked = await presence_days(month.until, month.end)
@@ -285,7 +293,7 @@ async def _pupil_figures(
         tax_code: PupilMonthFigures(
             student=PersonOption.model_validate(people[tax_code]),
             total_presences=presences.get(tax_code, 0),
-            weekly_presences=round(presences.get(tax_code, 0) / month.weeks, 1),
+            weekly_presences=weekly(tax_code),
             booked_presences=booked.get(tax_code, 0),
             lesson_minutes=minutes.get(tax_code, 0),
             homework_tariff=tariff,
@@ -297,9 +305,17 @@ async def _pupil_figures(
 async def _teacher_weeks(
     db: AsyncSession,
     tax_code: str,
+    spans: Sequence[EnrolledSpan],
     month: _Month,
 ) -> list[AvailabilityWeek]:
-    return await teacher_weeks(db, tax_code, month.start, month.end, month.today)
+    return await teacher_weeks(
+        db,
+        tax_code,
+        spans,
+        month.start,
+        month.end,
+        month.today,
+    )
 
 
 async def _teacher_figures(
@@ -355,7 +371,8 @@ async def get_teacher_month(
         select(Staff.gross_compensation).where(Staff.tax_code == identity.tax_code),
     )
 
-    weeks = await _teacher_weeks(db, identity.tax_code, month)
+    spans = (await enrolled_spans(db, [identity.tax_code])).get(identity.tax_code, [])
+    weeks = await _teacher_weeks(db, identity.tax_code, spans, month)
     figures = await _teacher_figures(db, identity.tax_code, month, rate, weeks)
     short = sum(1 for week in weeks if week.is_short)
     current = next((week for week in weeks if week.is_open), None)
@@ -364,9 +381,10 @@ async def get_teacher_month(
         **figures.model_dump(),
         is_below_monthly_threshold=(
             figures.total_availabilities < LOW_AVAILABILITY_MONTHLY_THRESHOLD
+            and enrolled_throughout(spans, month.start, month.until)
         ),
         is_below_weekly_threshold=(
-            weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
+            bool(weeks) and weekly_average(weeks) < LOW_AVAILABILITY_WEEKLY_THRESHOLD
         ),
         short_week_count=short,
         current_week=(
@@ -379,7 +397,7 @@ async def get_teacher_month(
             identity.tax_code,
             month.previous,
             rate,
-            await _teacher_weeks(db, identity.tax_code, month.previous),
+            await _teacher_weeks(db, identity.tax_code, spans, month.previous),
         ),
     )
 

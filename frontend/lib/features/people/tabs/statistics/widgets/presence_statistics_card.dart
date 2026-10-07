@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
+import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/student_presence_statistics_item.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
@@ -22,6 +23,12 @@ class StudentPresenceCard extends StatefulWidget
   final StudentPresenceStatisticsItem statistics;
   final String period;
   final ValueChanged<String> onPeriodChanged;
+  final String mode;
+  final ValueChanged<String> onModeChanged;
+
+  // The mode of [statistics], which words the labels.
+  final String shownMode;
+
   final bool isLoading;
 
   const StudentPresenceCard({
@@ -29,8 +36,13 @@ class StudentPresenceCard extends StatefulWidget
     required this.statistics,
     required this.period,
     required this.onPeriodChanged,
+    required this.mode,
+    required this.onModeChanged,
+    required this.shownMode,
     this.isLoading = false,
   });
+
+  bool get _online => shownMode == kOnlineMode;
 
   @override
   State<StudentPresenceCard> createState() => _StudentPresenceCardState();
@@ -71,7 +83,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
   Widget _topStudents()
   {
     return PersonRankingSection(
-      title: '10 studenti più presenti',
+      title: widget._online ? '10 studenti più presenti online' : '10 studenti più presenti',
       rows: [
         for (var position = 1; position <= widget.statistics.topStudents.length; position++)
           PersonRankRow(
@@ -148,6 +160,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
             value: _kind,
             onChanged: (value) => setState(() => _kind = value),
           ),
+          statsModePill(value: widget.mode, onChanged: widget.onModeChanged),
           statsPeriodPill(value: widget.period, onChanged: widget.onPeriodChanged),
         ],
       ),
@@ -165,7 +178,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
                 ),
                 const StatDivider(),
                 _figure(
-                  'Giorni di presenza nel periodo',
+                  widget._online ? 'Giorni di presenza online nel periodo' : 'Giorni di presenza nel periodo',
                   '${widget.statistics.totalPresenceDays}',
                 ),
               ],

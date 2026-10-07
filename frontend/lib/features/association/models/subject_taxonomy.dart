@@ -16,6 +16,23 @@ const List<SubjectArea> subjectAreas = <SubjectArea>[
   SubjectArea('SCIENCES', 'Area Scientifica', 'Scientifica'),
 ];
 
+List<({String title, List<T> items})> groupByArea<T>(Iterable<T> items, String Function(T item) areaOf)
+{
+  final Map<String, List<T>> byArea = {};
+
+  for (final item in items)
+  {
+    byArea.putIfAbsent(areaOf(item), () => []).add(item);
+  }
+
+  return [
+    for (final area in subjectAreas)
+      if (byArea.containsKey(area.value)) (title: area.label, items: byArea[area.value]!),
+    for (final entry in byArea.entries)
+      if (!subjectAreas.any((area) => area.value == entry.key)) (title: entry.key, items: entry.value),
+  ];
+}
+
 String subjectAreaLabel(String value)
 {
   for (final area in subjectAreas)

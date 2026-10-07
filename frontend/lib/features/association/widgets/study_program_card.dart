@@ -17,7 +17,7 @@ class StudyProgramCard extends StatelessWidget
 {
   final StudyProgramItem program;
   final List<MinistrySubjectItem> availableMinistrySubjects;
-  final void Function(VoidCallback onCancel) onEditRequested;
+  final void Function(VoidCallback onSaved) onEditRequested;
   final VoidCallback onDelete;
 
   const StudyProgramCard({
@@ -36,12 +36,8 @@ class StudyProgramCard extends StatelessWidget
       builder: (dialogContext) => _StudyProgramDetailsDialogContent(
         program: program,
         availableMinistrySubjects: availableMinistrySubjects,
-        onEditRequested: ()
-        {
-          Navigator.of(dialogContext).pop();
-          // Reopen with the card's context, not the closing dialog's.
-          onEditRequested(() => _showDetailsDialog(context));
-        },
+        // Wizard stacks over the details: closing and reopening them replayed their entrance.
+        onEditRequested: () => onEditRequested(() => Navigator.of(dialogContext).pop()),
         onDelete: onDelete,
       ),
     );

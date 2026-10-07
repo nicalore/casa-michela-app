@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/week_range.dart';
-import '../../../../features/availability/utils/availability_strings.dart';
-import '../../../shared/mobile_palette.dart';
-import '../mobile_availability_draft.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart';
+import '../mobile_palette.dart';
+import 'mobile_notice.dart';
+import 'mobile_select_parts.dart';
 
 const double _gap = 6;
 const double _radius = 14;
@@ -13,30 +13,34 @@ const double _border = 1.5;
 
 const Duration _move = Duration(milliseconds: 200);
 
-// Today up to the last unlocked Sunday; an unpickable day says why when touched.
 class MobileDayPicker extends StatelessWidget
 {
-  final MobileAvailabilityDraft draft;
+  // Today up to the last unlocked Sunday.
+  final List<DateTime> days;
 
-  // The unpickable day last touched, whose reason shows under the rows.
-  final DateTime? refused;
+  final bool Function(DateTime day) isOffered;
+  final bool Function(DateTime day) isPicked;
+  final String Function(DateTime day) refusalFor;
+
+  final String? summary;
 
   final ValueChanged<DateTime> onToggle;
-  final ValueChanged<DateTime> onRefused;
 
   const MobileDayPicker({
     super.key,
-    required this.draft,
-    required this.refused,
+    required this.days,
+    required this.isOffered,
+    required this.isPicked,
+    required this.refusalFor,
+    this.summary,
     required this.onToggle,
-    required this.onRefused,
   });
 
   List<DateTime> get _mondays
   {
     final List<DateTime> mondays = [];
 
-    for (final day in draft.availableDays)
+    for (final day in days)
     {
       final DateTime monday = startOfWeek(day);
 
@@ -49,7 +53,7 @@ class MobileDayPicker extends StatelessWidget
     return mondays;
   }
 
-  Widget _buildWeek(DateTime monday)
+  Widget _buildWeek(BuildContext context, DateTime monday)
   {
     final List<DateTime> week = daysOfWeek(monday);
 
@@ -74,7 +78,7 @@ class MobileDayPicker extends StatelessWidget
             children: [
               for (final (i, day) in week.indexed) ...[
                 if (i > 0) const SizedBox(width: _gap),
-                Expanded(child: _buildTile(day)),
+                Expanded(child: _buildTile(context, day)),
               ],
             ],
           ),
@@ -83,21 +87,16 @@ class MobileDayPicker extends StatelessWidget
     );
   }
 
-  Widget _buildTile(DateTime day)
+  Widget _buildTile(BuildContext context, DateTime day)
   {
-    final bool listed = draft.availableDays.any((available) => isSameDate(available, day));
-    final bool offered = listed && draft.isOffered(day);
-    final bool picked = offered && draft.isPicked(day);
-    final bool touched = refused != null && isSameDate(refused!, day);
+    final bool listed = days.any((available) => isSameDate(available, day));
+    final bool offered = listed && isOffered(day);
+    final bool picked = offered && isPicked(day);
 
-    final Color fill = picked
-        ? AppTheme.trialTealDeep
-        : (offered ? Colors.white : AppTheme.trialInk.withValues(alpha: 0.04));
+    final Color rest = offered ? Colors.white : AppTheme.trialInk.withValues(alpha: 0.04);
     final Color edge = picked
-        ? AppTheme.trialTealDeep
-        : (touched
-            ? AppTheme.trialGold
-            : (offered ? AppTheme.trialInk.withValues(alpha: 0.12) : AppTheme.trialInk.withValues(alpha: 0)));
+        ? AppTheme.trialTealDeep.withValues(alpha: 0)
+        : (offered ? AppTheme.trialInk.withValues(alpha: 0.12) : AppTheme.trialInk.withValues(alpha: 0));
     final Color weekday = picked
         ? Colors.white.withValues(alpha: 0.8)
         : (offered ? MobilePalette.mutedText : AppTheme.trialInk.withValues(alpha: 0.3));
@@ -110,7 +109,7 @@ class MobileDayPicker extends StatelessWidget
       curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(vertical: 9),
       decoration: BoxDecoration(
-        color: fill,
+        gradient: mobileSelectFill(rest, picked ? 1 : 0),
         borderRadius: BorderRadius.circular(_radius),
         // One width for every state: a thicker edge would push the day down.
         border: Border.all(color: edge, width: _border),
@@ -125,6 +124,9 @@ class MobileDayPicker extends StatelessWidget
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
               color: weekday,
+              decoration: offered ? null : TextDecoration.lineThrough,
+              decorationThickness: MobilePalette.strikeThickness,
+              decorationColor: weekday,
             ),
             child: Text(weekdayShortName(day.weekday).toUpperCase(), maxLines: 1),
           ),
@@ -138,6 +140,9 @@ class MobileDayPicker extends StatelessWidget
                 height: 1.15,
                 color: number,
                 fontFeatures: const [FontFeature.tabularFigures()],
+                decoration: offered ? null : TextDecoration.lineThrough,
+                decorationThickness: MobilePalette.strikeThickness,
+                decorationColor: number,
               ),
               child: Text('${day.day}'),
             ),
@@ -158,7 +163,7 @@ class MobileDayPicker extends StatelessWidget
       enabled: offered,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => offered ? onToggle(day) : onRefused(day),
+        onTap: () => offered ? onToggle(day) : MobileNotice.show(context, refusalFor(day), error: true),
         child: tile,
       ),
     );
@@ -167,13 +172,12 @@ class MobileDayPicker extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final DateTime? refused = this.refused;
-    final int count = draft.days.length;
+    final String? summary = this.summary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final monday in _mondays) _buildWeek(monday),
+        for (final monday in _mondays) _buildWeek(context, monday),
         AnimatedSize(
           duration: _move,
           curve: Curves.easeOutCubic,
@@ -181,13 +185,12 @@ class MobileDayPicker extends StatelessWidget
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (refused != null) _Rise(child: _Refusal(text: draft.refusalFor(refused))),
-              if (count > 1)
+              if (summary != null)
                 _Rise(
                   child: Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
-                      availabilityDaysSummary(count, split: draft.groups.length > 1),
+                      summary,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontStyle: FontStyle.italic,
@@ -202,48 +205,6 @@ class MobileDayPicker extends StatelessWidget
           ),
         ),
       ],
-    );
-  }
-}
-
-class _Refusal extends StatelessWidget
-{
-  final String text;
-
-  const _Refusal({required this.text});
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: AppTheme.trialGoldSurface,
-        borderRadius: BorderRadius.circular(_radius),
-        border: Border.all(color: AppTheme.trialGold.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: Icon(Icons.info_outline_rounded, size: 17, color: AppTheme.modifiedAccent),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-                color: AppTheme.modifiedAccent,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

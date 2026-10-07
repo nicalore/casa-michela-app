@@ -11,6 +11,7 @@ from app.core.booking_window import assert_within_booking_window
 from app.core.integrity import integrity_guard
 from app.core.labels import opening_mode_label
 from app.core.optimistic_concurrency import assert_not_stale
+from app.core.time_band import band_of
 from app.core.time_step import fits_a_window
 from app.models.lesson import Lesson
 from app.models.presence import Presence
@@ -23,6 +24,12 @@ from app.services.lesson_guard import (
     find_student_day_lessons,
 )
 from app.services.opening_window import assert_within_opening
+from app.services.pupil_lock import (
+    lock_pupil,
+    lock_pupil_of_presence,
+    lock_pupils,
+    pupil_of_presence,
+)
 from app.services.schedule_cascade import unschedule
 
 _ENTITY_LABEL: Final[str] = "la presenza"
@@ -39,12 +46,49 @@ _OUTSIDE_OPENING_ERROR: Final[str] = (
     "La presenza deve stare dentro l'apertura {mode}: {windows}."
 )
 _OVERLAP_ERROR: Final[str] = (
-    "Lo studente ha già una presenza {mode} che si sovrappone a questo orario."
+    "Lo studente ha già una prenotazione {mode} che si sovrappone a questo orario."
 )
 _CROSS_MODE_OVERLAP_ERROR: Final[str] = (
     "Lo studente è già {mode} in quelle ore: non può essere in due posti "
     "nello stesso momento."
 )
+_MODE_TAKEN_IN_BAND_ERROR: Final[str] = (
+    "Lo studente ha già una prenotazione {mode} in questa fascia."
+)
+
+
+# No overlaps, and one mode per band: never in person and online in the same band.
+def _assert_apart(
+    mode: str,
+    start_time: time,
+    end_time: time,
+    others: Sequence[tuple[str, time, time]],
+) -> None:
+    for other_mode, other_start, other_end in others:
+        if other_start >= end_time or other_end <= start_time:
+            continue
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                _OVERLAP_ERROR.format(mode=opening_mode_label(mode))
+                if other_mode == mode
+                else _CROSS_MODE_OVERLAP_ERROR.format(
+                    mode=opening_mode_label(other_mode)
+                )
+            ),
+        )
+
+    band = band_of(start_time)
+
+    for other_mode, other_start, _ in others:
+        if other_mode != mode and band_of(other_start) == band:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_MODE_TAKEN_IN_BAND_ERROR.format(
+                    mode=opening_mode_label(other_mode),
+                ),
+            )
 
 
 class PresenceService:
@@ -77,31 +121,31 @@ class PresenceService:
         *,
         exclude_id: int | None,
     ) -> None:
-        stmt = select(Presence).where(
+        stmt = select(Presence.mode, Presence.start_time, Presence.end_time).where(
             Presence.student_tax_code == student_tax_code,
             Presence.date == target_date,
-            Presence.start_time < end_time,
-            Presence.end_time > start_time,
         )
 
         if exclude_id is not None:
             stmt = stmt.where(Presence.id != exclude_id)
 
-        clash = (await self.repository.session.execute(stmt)).scalars().first()
+        others = (await self.repository.session.execute(stmt)).tuples().all()
 
-        if clash is None:
-            return
+        _assert_apart(mode, start_time, end_time, others)
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                _OVERLAP_ERROR.format(mode=opening_mode_label(mode))
-                if clash.mode == mode
-                else _CROSS_MODE_OVERLAP_ERROR.format(
-                    mode=opening_mode_label(clash.mode)
-                )
-            ),
-        )
+    # `others` are the day's other stretches as they will be after the write.
+    async def assert_fits(
+        self,
+        target_date: date,
+        mode: str,
+        start_time: time,
+        end_time: time,
+        *,
+        others: Sequence[tuple[str, time, time]],
+    ) -> None:
+        await self._assert_within_opening(target_date, mode, start_time, end_time)
+
+        _assert_apart(mode, start_time, end_time, others)
 
     async def _assert_student_exists(self, student_tax_code: str) -> None:
         student = await self.repository.session.scalar(
@@ -123,7 +167,7 @@ class PresenceService:
 
         return requested
 
-    def _resolve_booker_tax_code_for_create(
+    def resolve_booker(
         self,
         identity: IdentityContext,
         payload_value: str | None,
@@ -194,16 +238,16 @@ class PresenceService:
         assert_still_open(
             day,
             bands_of(start_time, end_time),
-            is_admin=identity.is_admin,
+            is_admin=identity.overrides_closures,
         )
 
-    # Lessons left outside the pupil's day: those in no remaining stretch, plus this
-    # presence's own bookings' when it moves day or mode, or goes.
+    # Lessons in no remaining stretch, plus this one's when it moves or goes.
     async def _lessons_left_outside(
         self,
         presence: Presence,
         *,
         becomes: PresenceUpdate | None,
+        keeps_bookings: bool = False,
     ) -> list[Lesson]:
         session = self.repository.session
 
@@ -211,6 +255,7 @@ class PresenceService:
             becomes is not None
             and becomes.date == presence.date
             and becomes.mode.value == presence.mode
+            and band_of(becomes.start_time) == band_of(presence.start_time)
         )
 
         rows = await session.execute(
@@ -237,18 +282,41 @@ class PresenceService:
             if not fits_a_window(lesson.start_time, lesson.end_time, windows)
         }
 
-        if not stays:
+        if not stays and not keeps_bookings:
             for lesson in await find_presence_lessons(session, presence.id):
                 outside.setdefault(lesson.id, lesson)
 
         return list(outside.values())
+
+    async def _band_sibling(self, presence: Presence) -> Presence | None:
+        rows = await self.repository.session.execute(
+            select(Presence.id, Presence.start_time)
+            .where(
+                Presence.student_tax_code == presence.student_tax_code,
+                Presence.date == presence.date,
+                Presence.mode == presence.mode,
+                Presence.id != presence.id,
+            )
+            .order_by(Presence.start_time),
+        )
+
+        band = band_of(presence.start_time)
+
+        for sibling_id, start_time in rows.all():
+            if band_of(start_time) == band:
+                return await self.repository.get_by_id(
+                    sibling_id,
+                    student_tax_codes=None,
+                )
+
+        return None
 
     async def prepare_create(
         self,
         identity: IdentityContext,
         payload: PresenceCreate,
     ) -> Presence:
-        # Who may book comes before when: a refusal is not hidden by a closed day.
+        # Permission before closure, so a refusal is not masked by a closed day.
         student_tax_code = self._resolve_student_tax_code_for_create(
             identity,
             payload.student_tax_code,
@@ -258,6 +326,7 @@ class PresenceService:
             identity,
             student_tax_code,
         )
+        await lock_pupil(self.repository.session, student_tax_code)
 
         assert_within_booking_window(payload.date)
         self._assert_still_theirs(
@@ -267,7 +336,7 @@ class PresenceService:
             payload.end_time,
         )
 
-        booker_tax_code = self._resolve_booker_tax_code_for_create(
+        booker_tax_code = self.resolve_booker(
             identity,
             payload.booker_tax_code,
         )
@@ -319,6 +388,14 @@ class PresenceService:
         presence_id: int,
         payload: PresenceUpdate,
     ) -> Presence:
+        # Reassigning to another pupil (admins only) locks both.
+        await lock_pupils(
+            self.repository.session,
+            [
+                await pupil_of_presence(self.repository.session, presence_id),
+                payload.student_tax_code,
+            ],
+        )
         presence = await self.get_owned_or_404(identity, presence_id)
         assert_may_book_for(identity, presence.student_tax_code)
         await assert_admin_may_name(
@@ -412,6 +489,7 @@ class PresenceService:
         return presence
 
     async def delete(self, identity: IdentityContext, presence_id: int) -> None:
+        await lock_pupil_of_presence(self.repository.session, presence_id)
         presence = await self.get_owned_or_404(identity, presence_id)
         assert_may_book_for(identity, presence.student_tax_code)
 
@@ -422,10 +500,22 @@ class PresenceService:
             presence.end_time,
         )
 
+        # Subjects move to a band sibling; they go only with the band's last stretch.
+        sibling = await self._band_sibling(presence)
+
         await unschedule(
             self.repository.session,
-            await self._lessons_left_outside(presence, becomes=None),
+            await self._lessons_left_outside(
+                presence,
+                becomes=None,
+                keeps_bookings=sibling is not None,
+            ),
         )
+
+        # Same flush as the deletion, so band minutes are checked without this one.
+        if sibling is not None:
+            for booking in list(presence.bookings):
+                booking.presence = sibling
 
         await self.repository.delete(presence)
         await self.repository.commit()

@@ -30,7 +30,6 @@ class PersonDevicesTab extends StatefulWidget
 
   final PersonAccountController controller;
 
-  // Hides what an administrator must not do to their own account.
   final bool isOwnProfile;
 
   const PersonDevicesTab({
@@ -152,7 +151,7 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
       return const PersonEmptyState(message: _noSessions);
     }
 
-    // As in the settings: centred as a block, so a short last row still starts on the left.
+    // Centred as a block, so a short last row still starts on the left.
     return LayoutBuilder(
       builder: (context, constraints)
       {

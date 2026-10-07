@@ -16,8 +16,9 @@ import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
-import '../../people/models/teacher_subject_item.dart';
+import '../association_strings.dart';
 import '../models/subject_taxonomy.dart';
+import '../teacher_opinions.dart';
 import '../widgets/teacher_card.dart';
 
 const String _parentRole = 'PARENT';
@@ -35,60 +36,6 @@ const double _subjectsMaxHeight = 280;
 const Color _tagSurface = Color(0xFFE8F7F5);
 
 const String _empty = '—';
-
-const String _intro =
-    'Di seguito trovi tutti i docenti che collaborano con l\'Associazione. '
-    'Cliccando su ciascuno di essi puoi visualizzarne alcune informazioni';
-
-const String _opinionNote =
-    'Questa informazione verrà tenuta in considerazione nella stesura del '
-    'calendario delle lezioni, non sarà visibile ai docenti e rimarrà valida '
-    'fino a quando non deciderai di rimuoverla.';
-
-enum _TeacherSort
-{
-  nameAsc('Nome (A-Z)'),
-  nameDesc('Nome (Z-A)'),
-  surnameAsc('Cognome (A-Z)'),
-  surnameDesc('Cognome (Z-A)');
-
-  final String label;
-
-  const _TeacherSort(this.label);
-}
-
-class _Pupil
-{
-  final String taxCode;
-  final String firstName;
-  final String? gender;
-
-  final Set<String> disliked;
-
-  // Sent with each write; the server refuses writes against a stale stamp.
-  final DateTime? updatedAt;
-
-  _Pupil.of(PersonItem person)
-      : taxCode = person.fiscalCode,
-        firstName = person.firstName,
-        gender = person.gender,
-        disliked = person.notPreferredTeacherTaxCodes.toSet(),
-        updatedAt = person.studentUpdatedAt;
-
-  bool dislikes(PersonItem teacher) => disliked.contains(teacher.fiscalCode);
-}
-
-String _pronounFor(String? gender)
-{
-  return switch (gender)
-  {
-    'F' => 'lei',
-    'M' => 'lui',
-    _ => 'lui/lei',
-  };
-}
-
-String _gotOn(String? gender) => gender == 'F' ? 'trovata' : 'trovato';
 
 class PupilTeachersTab extends StatefulWidget
 {
@@ -111,10 +58,10 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 
   bool _isLoading = true;
   List<PersonItem> _teachers = [];
-  List<_Pupil> _pupils = [];
+  List<OpinionPupil> _pupils = [];
 
   String _searchText = '';
-  _TeacherSort _sort = _TeacherSort.nameAsc;
+  TeacherSort _sort = TeacherSort.nameAsc;
   bool _onlyDisliked = false;
   Set<int> _selectedSubjectIds = {};
 
@@ -134,29 +81,12 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
     super.dispose();
   }
 
-  Future<List<_Pupil>> _readPupils() async
-  {
-    final me = _apiService.lastKnownIdentity ?? await _apiService.me();
-    final reader = await _apiService.getPerson(me.taxCode);
-
-    if (!_isParent)
-    {
-      return [_Pupil.of(reader)];
-    }
-
-    final children = await Future.wait([
-      for (final child in reader.children ?? const []) _apiService.getPerson(child.fiscalCode),
-    ]);
-
-    return [for (final child in children) _Pupil.of(child)];
-  }
-
   Future<void> _load() async
   {
     try
     {
       final teachers = await _apiService.getTeachers();
-      final pupils = widget.canReport ? await _readPupils() : const <_Pupil>[];
+      final pupils = widget.canReport ? await readOpinionPupils(parent: _isParent) : const <OpinionPupil>[];
 
       if (!mounted)
       {
@@ -178,42 +108,22 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
       }
 
       setState(() => _isLoading = false);
-      CustomSnackBar.show(context: context, message: 'Impossibile caricare i dati dal server.', isError: true);
+      CustomSnackBar.show(context: context, message: kAssociationLoadFailed, isError: true);
     }
   }
 
   bool _isDisliked(PersonItem teacher) => _pupils.any((pupil) => pupil.dislikes(teacher));
 
-  // Agrees with whoever the reader answers for; mixed children take the masculine.
-  String get _whoGotOn
-  {
-    if (!_isParent)
-    {
-      return 'non ti sei ${_gotOn(_pupils.single.gender)}';
-    }
-
-    if (_pupils.length == 1)
-    {
-      final child = _pupils.single;
-
-      return '${child.firstName} non si è ${_gotOn(child.gender)}';
-    }
-
-    final allDaughters = _pupils.every((child) => child.gender == 'F');
-
-    return allDaughters
-        ? 'le tue figlie non si sono trovate'
-        : 'i tuoi figli non si sono trovati';
-  }
-
   String get _introText
   {
     if (!widget.canReport || _pupils.isEmpty)
     {
-      return '$_intro.';
+      return teachersIntro(verb: 'Cliccando');
     }
 
-    return '$_intro e, se lo desideri, indicare quelli con cui $_whoGotOn bene. $_opinionNote';
+    final String intro = teachersIntro(verb: 'Cliccando', whoGotOn: whoGotOn(_pupils, parent: _isParent));
+
+    return '$intro $kTeachersOpinionNote';
   }
 
   Widget _buildIntro()
@@ -234,25 +144,14 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 
   List<MultiSelectFilterOption<int>> get _subjectOptions
   {
-    final names = <int, String>{
-      for (final teacher in _teachers)
-        for (final subject in teacher.teacherSubjects ?? const <TeacherSubjectItem>[])
-          subject.subjectId: subject.subjectName,
-    };
-
     final options = [
-      for (final entry in names.entries) MultiSelectFilterOption(value: entry.key, label: entry.value),
+      for (final subject in taughtSubjectsOf(_teachers).values)
+        MultiSelectFilterOption(value: subject.subjectId, label: subject.subjectName),
     ];
 
     options.sort((a, b) => a.label.compareTo(b.label));
 
     return options;
-  }
-
-  bool _teachesOneOf(PersonItem teacher, Set<int> subjectIds)
-  {
-    return (teacher.teacherSubjects ?? const <TeacherSubjectItem>[])
-        .any((subject) => subjectIds.contains(subject.subjectId));
   }
 
   List<PersonItem> get _filteredTeachers
@@ -265,37 +164,17 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 
       return name.contains(query) &&
           (!_onlyDisliked || _isDisliked(teacher)) &&
-          (_selectedSubjectIds.isEmpty || _teachesOneOf(teacher, _selectedSubjectIds));
+          (_selectedSubjectIds.isEmpty || teachesOneOf(teacher, _selectedSubjectIds));
     }).toList();
 
-    result.sort((a, b) => switch (_sort)
-    {
-      _TeacherSort.nameAsc => a.firstName.compareTo(b.firstName),
-      _TeacherSort.nameDesc => b.firstName.compareTo(a.firstName),
-      _TeacherSort.surnameAsc => a.lastName.compareTo(b.lastName),
-      _TeacherSort.surnameDesc => b.lastName.compareTo(a.lastName),
-    });
+    result.sort(_sort.compare);
 
     return result;
   }
 
-  // Refetched after the write for the stamp the next write must carry.
-  Future<_Pupil> _setOpinion(_Pupil pupil, PersonItem teacher, bool disliked) async
+  Future<OpinionPupil> _setOpinion(OpinionPupil pupil, PersonItem teacher, bool disliked) async
   {
-    final codes = {...pupil.disliked};
-
-    if (disliked)
-    {
-      codes.add(teacher.fiscalCode);
-    }
-    else
-    {
-      codes.remove(teacher.fiscalCode);
-    }
-
-    await _apiService.updateNotPreferredTeachers(pupil.taxCode, codes.toList(), pupil.updatedAt);
-
-    final fresh = _Pupil.of(await _apiService.getPerson(pupil.taxCode));
+    final fresh = await saveTeacherOpinion(pupil, teacher, disliked);
 
     if (mounted)
     {
@@ -328,8 +207,8 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
       context: context,
       barrierLabel: 'SubjectFilterDialog',
       builder: (context) => MultiSelectFilterDialog<int>(
-        title: 'Filtra per disciplina',
-        hint: 'Es. Algebra',
+        title: kSubjectsFilterTitle,
+        hint: kSubjectsFilterHint,
         options: _subjectOptions,
         initialSelected: _selectedSubjectIds,
         onApply: (ids) => setState(() => _selectedSubjectIds = ids),
@@ -339,14 +218,14 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 
   Widget _buildSortPill()
   {
-    return AppFilterPill<_TeacherSort>.setting(
+    return AppFilterPill<TeacherSort>.setting(
       prefix: 'Ordina',
-      hint: 'Ordina per',
+      hint: kTeachersSortHint,
       icon: Icons.swap_vert_rounded,
       value: _sort,
       menuWidth: 220,
       onChanged: (value) => setState(() => _sort = value),
-      options: _TeacherSort.values
+      options: TeacherSort.values
           .map((sort) => FilterOption(value: sort, label: sort.label))
           .toList(),
     );
@@ -355,7 +234,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
   Widget _buildDislikedPill()
   {
     return AppTogglePill(
-      label: 'Solo non graditi',
+      label: kOnlyDislikedLabel,
       icon: Icons.thumb_down_outlined,
       active: _onlyDisliked,
       onChanged: (active) => setState(() => _onlyDisliked = active),
@@ -370,7 +249,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
         search: AppSearchField(
           controller: _searchController,
           onChanged: (value) => setState(() => _searchText = value),
-          hintText: 'Cerca docente...',
+          hintText: kTeachersSearchHint,
         ),
       ),
       const SizedBox(height: 28),
@@ -383,7 +262,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
           const FilterGroupDivider(),
           AppCountFilterPill(
             icon: Icons.auto_stories_outlined,
-            label: 'Discipline',
+            label: kSubjectsFilterLabel,
             count: _selectedSubjectIds.length,
             onOpen: _showSubjectFilterDialog,
             onClear: () => setState(() => _selectedSubjectIds = {}),
@@ -393,7 +272,7 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
       ),
       const SizedBox(height: 20),
       Text(
-        count == 1 ? '1 docente trovato' : '$count docenti trovati',
+        teachersFoundLabel(count),
         style: GoogleFonts.plusJakartaSans(
           fontSize: 17,
           fontWeight: FontWeight.w600,
@@ -434,11 +313,11 @@ class _PupilTeachersTabState extends State<PupilTeachersTab>
 class _TeacherDialog extends StatefulWidget
 {
   final PersonItem teacher;
-  final List<_Pupil> pupils;
+  final List<OpinionPupil> pupils;
 
   final bool speaksForSelf;
 
-  final Future<_Pupil> Function(_Pupil pupil, bool disliked) onOpinion;
+  final Future<OpinionPupil> Function(OpinionPupil pupil, bool disliked) onOpinion;
 
   const _TeacherDialog({
     required this.teacher,
@@ -453,13 +332,11 @@ class _TeacherDialog extends StatefulWidget
 
 class _TeacherDialogState extends State<_TeacherDialog>
 {
-  late List<_Pupil> _pupils = widget.pupils;
+  late List<OpinionPupil> _pupils = widget.pupils;
 
   bool _isSaving = false;
 
-  String get _pronoun => _pronounFor(widget.teacher.gender);
-
-  Future<void> _toggle(_Pupil pupil, bool disliked) async
+  Future<void> _toggle(OpinionPupil pupil, bool disliked) async
   {
     if (_isSaving)
     {
@@ -594,25 +471,11 @@ class _TeacherDialogState extends State<_TeacherDialog>
 
   Widget _buildSubjects()
   {
-    final subjects = widget.teacher.teacherSubjects ?? const <TeacherSubjectItem>[];
-
-    final byArea = <String, List<String>>{};
-
-    for (final subject in subjects)
-    {
-      byArea.putIfAbsent(subject.subjectArea, () => []).add(subject.subjectName);
-    }
-
-    for (final names in byArea.values)
-    {
-      names.sort();
-    }
+    final subjects = subjectsOf(widget.teacher);
 
     final areas = [
-      for (final area in subjectAreas)
-        if (byArea.containsKey(area.value)) (title: area.label, names: byArea[area.value]!),
-      for (final entry in byArea.entries)
-        if (!subjectAreas.any((area) => area.value == entry.key)) (title: entry.key, names: entry.value),
+      for (final group in groupByArea(subjects, (subject) => subject.subjectArea))
+        (title: group.title, names: [for (final subject in group.items) subject.subjectName]..sort()),
     ];
 
     return AppDialogPill(
@@ -624,12 +487,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
           Padding(
             padding: EdgeInsets.only(bottom: subjects.isEmpty ? 0 : _areaGap),
             child: Text(
-              switch (subjects.length)
-              {
-                0 => 'Nessuna disciplina insegnata.',
-                1 => '1 disciplina insegnata',
-                final count => '$count discipline insegnate',
-              },
+              taughtSubjectsLabel(subjects.length),
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -658,7 +516,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
     );
   }
 
-  Widget _buildThumb(_Pupil pupil, String label)
+  Widget _buildThumb(OpinionPupil pupil, String label)
   {
     return AppSelectableChip(
       icon: Icons.thumb_down_rounded,
@@ -673,10 +531,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
     if (_pupils.length == 1)
     {
       final pupil = _pupils.single;
-
-      final sentence = widget.speaksForSelf
-          ? 'Non mi sono ${_gotOn(pupil.gender)} bene con $_pronoun'
-          : '${pupil.firstName} non si è ${_gotOn(pupil.gender)} bene con $_pronoun';
+      final sentence = opinionSentence(pupil, widget.teacher, forSelf: widget.speaksForSelf);
 
       return Align(alignment: Alignment.centerLeft, child: _buildThumb(pupil, sentence));
     }
@@ -686,7 +541,7 @@ class _TeacherDialogState extends State<_TeacherDialog>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Chi non si è trovato bene con $_pronoun?',
+          opinionQuestion(widget.teacher),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 15,
             fontWeight: FontWeight.w600,

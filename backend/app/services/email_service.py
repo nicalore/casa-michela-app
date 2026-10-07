@@ -1,3 +1,4 @@
+import base64
 from typing import Final
 
 import resend
@@ -5,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.storage import EMAIL_LOGO
 from app.models.administrator import Administrator, AdministratorRoleEnum
 from app.models.person import Person
 
@@ -21,10 +23,15 @@ DEVELOPER_GREETING: Final[str] = "Ciao Nicolò,"
 
 GREETING: Final[str] = "Ciao,"
 
-LOGO_URL: Final[str] = (
-    "https://primary.jwwb.nl/public/y/k/w/temp-mfffkbfpkmjgalfrjfhx/"
-    "logo-casamichela-1-high-bl0vca.png?enable-io=true&width=100"
-)
+LOGO_CONTENT_ID: Final[str] = "logo"
+
+# Inline, not linked: opening an email sends the reader's IP to no server.
+LOGO_ATTACHMENT: Final[resend.Attachment] = {
+    "content": base64.b64encode(EMAIL_LOGO.read_bytes()).decode(),
+    "filename": "logo.png",
+    "content_type": "image/png",
+    "content_id": LOGO_CONTENT_ID,
+}
 
 # App theme colours hand-copied: an email cannot read the theme.
 INK: Final[str] = "#123A5E"
@@ -42,7 +49,7 @@ _TEMPLATE: Final[str] = """
                 border-radius: 28px; border: 1px solid {line};
                 padding: 40px 40px 32px 40px; color: {body}; line-height: 1.6;">
         <div style="text-align: center; margin-bottom: 28px;">
-            <img src="{logo_url}" alt="Associazione Casa Michela" style="width: 96px; height: auto;" />
+            <img src="cid:{logo_content_id}" alt="Associazione Casa Michela" style="width: 96px; height: auto;" />
             <p style="margin: 14px 0 0 0; color: {muted}; font-size: 11px;
                       font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;">
                 Associazione Casa Michela
@@ -90,7 +97,7 @@ def send_email(
             "reply_to": reply_to,
             "subject": subject,
             "html": _TEMPLATE.format(
-                logo_url=LOGO_URL,
+                logo_content_id=LOGO_CONTENT_ID,
                 heading=heading,
                 greeting=greeting,
                 body_html=body,
@@ -100,5 +107,6 @@ def send_email(
                 muted=MUTED,
                 body=BODY,
             ),
+            "attachments": [LOGO_ATTACHMENT],
         }
     )

@@ -434,7 +434,6 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
           key: _schoolKeys.putIfAbsent(_index, GlobalKey<MobileSchoolStepState>.new),
           person: subject,
           onChanged: () => _reload(subject.fiscalCode),
-          tablet: tablet,
           margin: margin,
         ),
     };

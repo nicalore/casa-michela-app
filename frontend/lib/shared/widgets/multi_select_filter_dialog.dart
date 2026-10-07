@@ -323,7 +323,7 @@ class AutocompleteOptionsList<T extends Object> extends StatefulWidget
 
   final Widget? Function(T option)? leading;
 
-  // Null: every option can be picked. A disabled one is greyed out and ignores taps.
+  // Null: every option can be picked.
   final bool Function(T option)? enabled;
 
   final AutocompleteSubtitlePlacement subtitlePlacement;

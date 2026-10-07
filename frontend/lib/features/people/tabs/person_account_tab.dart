@@ -61,10 +61,8 @@ class PersonAccountTab extends StatefulWidget
   // Null while the person has no account: the tab then offers only its creation.
   final PersonAccountController? controller;
 
-  // Hides what an administrator must not do to their own account.
   final bool isOwnProfile;
 
-  // Reloads the record, which then carries the new account.
   final VoidCallback onAccountCreated;
 
   const PersonAccountTab({
@@ -211,7 +209,6 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     }
   }
 
-  // Gives access back and takes nothing away, so it asks no confirmation.
   Future<void> _reactivate()
   {
     return runAccountAction(
@@ -221,7 +218,6 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     );
   }
 
-  // Takes nothing away, so it asks no confirmation.
   Future<void> _unlock()
   {
     return runAccountAction(
@@ -231,7 +227,6 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     );
   }
 
-  // Reversible with another tap, so it asks no confirmation.
   Future<void> _setAutonomousBookings(bool enabled) async
   {
     if (busyAction != null)
@@ -445,7 +440,7 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     ];
   }
 
-  // Apart from the rest: they take access away or give it back. Only a manual suspension is lifted here.
+  // Only a manual suspension is lifted here.
   List<Widget> _buildSuspension(PersonAccountItem account)
   {
     return [

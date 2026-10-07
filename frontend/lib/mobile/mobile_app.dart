@@ -156,7 +156,6 @@ class _EntranceSwitcherState extends State<_EntranceSwitcher> with SingleTickerP
 
   final ValueNotifier<int> _holds = ValueNotifier<int>(0);
 
-  // The arriving page built out of sight until it has its data.
   bool _waiting = false;
   Timer? _cap;
 

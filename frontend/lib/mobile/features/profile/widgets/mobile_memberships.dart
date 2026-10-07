@@ -9,17 +9,20 @@ import '../../../../features/people/tabs/person_memberships_tab.dart'
     show kNoMembershipsMessage, membershipStatusLabel, revokedMembershipLabel;
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import 'mobile_detail_card.dart';
 
 final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
 
-// The year column, wide enough for «Anno» and a year.
+// The year column, wide enough for "Anno" and a year.
 const double _yearWidth = 54;
 const double _columnGap = 10;
 
-// The running year's ring bleeds this far past its text, which keeps the card's left edge.
+// Ring bleed past the text, which keeps the card's left edge; the rim is drawn outside it.
 const double _ringBleed = 8;
+const double _ringInset = _ringBleed - MobileCurrentCard.rimWidth;
+const double _ringTop = MobileCurrentCard.rimWidth;
 
 // Newest first; only the most recent membership can be the running one.
 ({List<MembershipItem> years, MembershipItem? current}) _membershipsOf(PersonItem person)
@@ -213,15 +216,12 @@ class _YearsTable extends StatelessWidget
       clipBehavior: Clip.none,
       children: [
         Positioned(
-          left: -_ringBleed,
-          right: -_ringBleed,
-          top: 0,
-          bottom: 0,
+          left: -_ringInset,
+          right: -_ringInset,
+          top: _ringTop,
+          bottom: _ringTop,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: MobilePalette.currentRim, width: MobilePalette.currentRimWidth),
-            ),
+            decoration: const MobileCurrentCard(BorderRadius.all(Radius.circular(12 - MobileCurrentCard.rimWidth))),
           ),
         ),
         content,

@@ -76,14 +76,14 @@ class _RoomsTabState extends State<RoomsTab>
     return result;
   }
 
-  void _showWizard({RoomItem? room, VoidCallback? onCancelEdit})
+  void _showWizard({RoomItem? room, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
       barrierLabel: 'RoomWizard',
       builder: (context) => _RoomWizardDialog(
         existingRoom: room,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, capacity, description, onError) async
         {
           if (room == null)
@@ -120,7 +120,7 @@ class _RoomsTabState extends State<RoomsTab>
         {
           return RoomCard(
             room: room,
-            onEditRequested: (onCancel) => _showWizard(room: room, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(room: room, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(room),
           );
         }).toList(),
@@ -132,12 +132,12 @@ class _RoomsTabState extends State<RoomsTab>
 class _RoomWizardDialog extends StatefulWidget
 {
   final RoomItem? existingRoom;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final RoomWriter onSave;
 
   const _RoomWizardDialog({
     this.existingRoom,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -156,7 +156,7 @@ class _RoomWizardDialogState extends State<_RoomWizardDialog>
   bool get isEditing => widget.existingRoom != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()

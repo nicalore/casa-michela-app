@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/export/pdf_tab.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
@@ -342,11 +343,11 @@ class _PersonEditDialogState extends State<PersonEditDialog>
   bool get _printsEnrollmentForms =>
       widget.purpose == PersonEditPurpose.create && needsEnrollmentForms(_form);
 
-  // Runs before any save; printed=false stops the creation, blockedNote reports tabs turned into downloads.
+  // Runs before saving; printed=false stops creation, blockedNote names tabs turned into downloads.
   Future<({bool printed, String? blockedNote})> _printEnrollmentForms() async
   {
     final List<EnrollmentForm> forms = buildEnrollmentForms(_form);
-    final String day = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    final String day = DateFormat('dd-MM-yyyy').format(romeNow());
 
     // Tabs must open before the first await, or the browser blocks them as popups.
     final List<PdfTab?> tabs = [
@@ -504,7 +505,6 @@ class _PersonEditDialogState extends State<PersonEditDialog>
               : 'Persona creata con successo! $blockedNote',
           isError: false,
         );
-        // The opener offers the account next.
         Navigator.of(context).pop(createdTaxCode);
 
         return;

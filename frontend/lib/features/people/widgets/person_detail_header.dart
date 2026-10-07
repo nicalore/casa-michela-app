@@ -107,7 +107,7 @@ class PersonDetailHeader extends StatelessWidget
 
   Widget _buildIdentityCard(BuildContext context, PersonItem person, bool compact)
   {
-    final List<String> roles = RoleLabelMapper.processRoles(person.shownRoles);
+    final List<String> roles = RoleLabelMapper.processRoles(person.shownRoles, feminine: person.gender == 'F');
 
     final Widget nameAndRoles = Column(
       mainAxisSize: MainAxisSize.min,

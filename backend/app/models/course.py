@@ -32,7 +32,7 @@ class Course(CreatedAtMixin, Base):
 
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
-    # Free text, not a number: it carries the period too ("45€ al mese").
+    # Free text, not a number: it carries the period too ("45 euro al mese").
     cost: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     participants: Mapped[list[CourseParticipant]] = relationship(

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/layout/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
@@ -143,7 +144,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     final int request = ++_todayRequest;
 
-    final DateTime now = DateTime.now();
+    final DateTime now = romeNow();
     final DateTime today = DateTime(now.year, now.month, now.day);
 
     final results = await Future.wait([

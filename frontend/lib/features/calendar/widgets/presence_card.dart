@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/week_range.dart';
 import '../../lessons/utils/opening_window.dart';
-import '../../lessons/widgets/calendar_lesson_block.dart';
+import '../utils/calendar_strings.dart';
 import '../utils/pupil_band_presence.dart';
 import 'band_summary_card.dart';
 
@@ -22,32 +22,11 @@ class PresenceCard extends StatelessWidget
 
     if (inBuilding == null)
     {
-      return 'Lezioni online';
+      return kOnlineLessonsTitle;
     }
 
-    return 'Presente dalle ${formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.startMinutes))} '
+    return '$kPresentWord dalle ${formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.startMinutes))} '
         'alle ${formatTimeOfDayShort(timeOfDayFromMinutes(inBuilding.endMinutes))}';
-  }
-
-  String get _summary
-  {
-    return [
-      countOf(presence.lessons.length, 'lezione', 'lezioni'),
-      '${formatMinutes(presence.lessonMinutes)} di lezione',
-    ].join(' · ');
-  }
-
-  List<Widget> _buildChips()
-  {
-    return [
-      for (final span in presence.byMode)
-        BandChip(
-          icon: lessonModeIcon(span.mode),
-          label: modeLabel(span.mode),
-          accent: lessonAccent(span.mode),
-          surface: lessonSurface(span.mode),
-        ),
-    ];
   }
 
   @override
@@ -56,8 +35,7 @@ class PresenceCard extends StatelessWidget
     return BandSummaryCard(
       eyebrow: pupilName,
       title: _title,
-      summary: _summary,
-      chips: _buildChips(),
+      summary: presenceSummary(presence),
       compact: compact,
     );
   }

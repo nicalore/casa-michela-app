@@ -1,3 +1,5 @@
+import '../../../core/utils/rome_clock.dart';
+
 class MembershipItem
 {
   // Revocation codes as the server writes them; they travel unchanged in the update payload.
@@ -21,11 +23,11 @@ class MembershipItem
 
   bool get isRevoked => revocation != revocationNone;
 
-  // A membership ends on 31 December and still counts for 31 more days, so renewal is open until 31 January.
+  // Memberships end 31 December and count 31 more days: renewal stays open until 31 January.
   static const int defaultRenewalPeriodDays = 31;
 
   static bool isWithinRenewalWindow(DateTime endDate, int renewalPeriodDays) =>
-      DateTime.now().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
+      romeNow().isBefore(endDate.add(Duration(days: renewalPeriodDays)));
 
   factory MembershipItem.fromJson(Map<String, dynamic> json)
   {

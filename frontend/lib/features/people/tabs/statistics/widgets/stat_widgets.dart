@@ -397,7 +397,7 @@ class RetentionCard extends StatelessWidget
 }
 
 
-// Signed: +250 · −34 · 0.
+// Signed: +250, -34 (typographic minus), 0.
 String formatAppreciationScore(int score)
 {
   if (score == 0)
@@ -537,7 +537,7 @@ class RankPosition extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    // Room for «10°» on one line.
+    // Room for "10" plus the ordinal sign on one line.
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: SizedBox(

@@ -16,7 +16,7 @@ from app.models.room_supervision import RoomSupervision
 from app.models.teacher import Teacher
 from app.models.teacher_room_assignment import TeacherRoomAssignment
 
-# Full row snapshot (not a hash) so closing a bozza without publishing can
+# Full row snapshot (not a hash) so closing a draft without publishing can
 # recreate the band; rows carry no ids because they are recreated, not resurrected.
 
 _LESSONS: Final[str] = "lessons"

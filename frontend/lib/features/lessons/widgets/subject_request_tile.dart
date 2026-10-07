@@ -16,6 +16,7 @@ import '../../association/models/ministry_subject_item.dart';
 import '../../people/models/person_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/subject_request.dart';
+import '../utils/booking_wizard_strings.dart';
 import 'booking_fields_section.dart';
 import 'person_avatar.dart';
 import 'subject_pick_row.dart';
@@ -453,7 +454,7 @@ class TeacherPicker extends StatefulWidget
     required this.offered,
     required this.onChanged,
     this.max,
-    this.hint = 'Cerca docente...',
+    this.hint = kSearchTeacher,
   });
 
   @override
@@ -543,7 +544,7 @@ class _TeacherPickerState extends State<TeacherPicker>
           ),
         if (widget.offered.isEmpty)
           Text(
-            'Nessun docente presente nell\'anagrafica.',
+            kNoTeachers,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -554,17 +555,13 @@ class _TeacherPickerState extends State<TeacherPicker>
         else ...[
           AppSearchField(
             controller: _controller,
-            hintText: _full
-                ? 'Tre è il massimo: rimuovine uno per cambiarli'
-                : widget.hint,
+            hintText: _full ? kTeachersFull : widget.hint,
             onChanged: (value) => setState(() => _query = value),
           ),
           const SizedBox(height: 10),
           if (_available.isEmpty)
             Text(
-              _full
-                  ? 'Ne hai già scelti tre.'
-                  : 'Nessun docente trovato.',
+              _full ? kTeachersFullNoMatch : kNoTeacherMatch,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,

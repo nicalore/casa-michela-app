@@ -66,7 +66,7 @@ def _auth_service(db: AsyncSession) -> AuthService:
     return AuthService(AccountRepository(db), RefreshTokenRepository(db))
 
 
-# With the role graph: whether parents answer for the pupil is read off it.
+# Loads the role graph, which tells whether parents answer for the pupil.
 async def _account_or_404(service: AuthService, tax_code: str) -> Account:
     repository = IdentityRepository(service.account_repository.session)
     account = await repository.get_account_identity(tax_code.upper())
@@ -80,7 +80,6 @@ async def _account_or_404(service: AuthService, tax_code: str) -> Account:
     return account
 
 
-# Only on one's own record can a session be the one the request came from.
 def _own_session(
     account: Account,
     identity: IdentityContext,
@@ -93,8 +92,7 @@ def _bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
-# A pupil the parents answer for needs one who can book and pay: unless a parent
-# already has an account, at least one of them gets one now.
+# An answered-for pupil needs a parent with an account; one is opened if none has.
 def _parents_to_open(person: Person, chosen: list[str]) -> list[Person]:
     if not RoleService.is_answered_for(person):
         if chosen:

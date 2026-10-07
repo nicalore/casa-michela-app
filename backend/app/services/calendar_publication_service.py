@@ -1,16 +1,16 @@
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Final
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
 
 from app.api.rbac import IdentityContext
-from app.core.booking_close import assert_ready_to_publish, now_in_rome
+from app.core.booking_close import assert_ready_to_publish, has_closed, now_in_rome
 from app.core.integrity import integrity_guard
 from app.core.labels import time_band_label
-from app.core.time_band import TimeBandEnum, band_bounds
+from app.core.time_band import TimeBandEnum, band_bounds, band_of
 from app.core.time_step import minutes_between
 from app.models.booking_disciplines import loaded_disciplines
 from app.models.calendar_publication import CalendarPublication
@@ -30,6 +30,7 @@ from app.repositories.calendar_teacher_exclusion_repository import (
 )
 from app.repositories.lesson_repository import LessonRepository
 from app.repositories.person_repository import PersonRepository
+from app.repositories.presence_repository import PresenceRepository
 from app.repositories.room_repository import RoomRepository
 from app.repositories.room_supervision_repository import RoomSupervisionRepository
 from app.repositories.teacher_room_assignment_repository import (
@@ -89,6 +90,9 @@ _NOT_YOURS_TO_DISCARD_ERROR: Final[str] = (
 )
 
 _MAX_NAMED: Final[int] = 5
+
+# A calendar asks for one day; this bounds what a single request may scan.
+_MAX_UNBOOKED_DAYS: Final[int] = 62
 
 
 def _person_label(person: object) -> str:
@@ -228,6 +232,44 @@ class CalendarPublicationService:
         date_to: date | None,
     ) -> Sequence[CalendarPublication]:
         return await self.repository.list(date_from=date_from, date_to=date_to)
+
+    # Bookings closed and nobody booked: nothing will ever be published there.
+    async def unbooked_bands(
+        self,
+        *,
+        date_from: date,
+        date_to: date,
+    ) -> list[tuple[date, TimeBandEnum]]:
+        date_to = min(date_to, date_from + timedelta(days=_MAX_UNBOOKED_DAYS))
+
+        published = {
+            (row.date, TimeBandEnum(row.band))
+            for row in await self.repository.list(date_from=date_from, date_to=date_to)
+        }
+        booked = {
+            (day, band_of(start))
+            for day, start in await PresenceRepository(self.session).list_starts(
+                date_from=date_from,
+                date_to=date_to,
+            )
+        }
+
+        now = self.now()
+        settled: list[tuple[date, TimeBandEnum]] = []
+        day = date_from
+
+        while day <= date_to:
+            for band in TimeBandEnum:
+                if (
+                    has_closed(day, band, now)
+                    and (day, band) not in booked
+                    and (day, band) not in published
+                ):
+                    settled.append((day, band))
+
+            day += timedelta(days=1)
+
+        return settled
 
     # Full snapshot of the band, so leaving the draft can restore it.
     async def picture_of(self, day: date, band: str) -> dict:

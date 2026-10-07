@@ -15,24 +15,26 @@ class ConvocationCard extends StatelessWidget
 
   const ConvocationCard({super.key, required this.call, required this.isFeminine});
 
+  // In the building the room speaks for the mode; "In presenza" only while no room is set.
   List<Widget> _buildChips()
   {
     final room = call.room;
+    final modes = {for (final span in call.byMode) span.mode};
 
     return [
-      for (final span in call.byMode)
-        BandChip(
-          icon: lessonModeIcon(span.mode),
-          label: modeLabel(span.mode),
-          accent: lessonAccent(span.mode),
-          surface: lessonSurface(span.mode),
-        ),
       if (room != null)
         BandChip(
           icon: Icons.meeting_room_outlined,
           label: room.name,
           accent: AppTheme.trialTealDeep,
           surface: AppTheme.todaySurface,
+        )
+      else if (modes.contains(kPresenceMode))
+        BandChip(
+          icon: lessonModeIcon(kPresenceMode),
+          label: modeLabel(kPresenceMode),
+          accent: lessonAccent(kPresenceMode),
+          surface: lessonSurface(kPresenceMode),
         ),
       if (call.supervisions.isNotEmpty)
         const BandChip(
@@ -40,6 +42,13 @@ class ConvocationCard extends StatelessWidget
           label: kSupervisorLabel,
           accent: kSupervisorColor,
           filled: true,
+        ),
+      if (modes.contains(kOnlineMode))
+        BandChip(
+          icon: lessonModeIcon(kOnlineMode),
+          label: modeLabel(kOnlineMode),
+          accent: lessonAccent(kOnlineMode),
+          surface: lessonSurface(kOnlineMode),
         ),
     ];
   }

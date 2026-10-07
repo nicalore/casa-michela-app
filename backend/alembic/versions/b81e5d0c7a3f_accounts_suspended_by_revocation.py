@@ -12,7 +12,6 @@ down_revision = "a6d2f9c41e07"
 branch_labels = None
 depends_on = None
 
-# Whose latest membership is revoked.
 _REVOKED_MEMBERS = """
     SELECT latest.member_tax_code
     FROM memberships latest

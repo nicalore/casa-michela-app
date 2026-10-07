@@ -72,3 +72,6 @@ ENROLLMENT_FORM_FONT: Final[Path] = DOCUMENTS_DIR / "PlusJakartaSans-Regular.ttf
 
 # Served as it is, under its own name: a new school year brings a new file.
 REGULATION_DOCUMENT: Final[Path] = DOCUMENTS_DIR / "Regolamento 26-27.pdf"
+
+# The app logo at twice the size emails draw it, reduced to a palette.
+EMAIL_LOGO: Final[Path] = DOCUMENTS_DIR / "email_logo.png"

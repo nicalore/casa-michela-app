@@ -32,9 +32,16 @@ class MobileModeLabel extends StatelessWidget
     this.past = false,
   });
 
+  static String _text(String mode) => modeLabel(mode).toUpperCase();
+
   static TextStyle _style(double fontSize, Color color)
   {
-    return GoogleFonts.plusJakartaSans(fontSize: fontSize, fontWeight: FontWeight.w700, color: color);
+    return GoogleFonts.plusJakartaSans(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w800,
+      letterSpacing: fontSize * 0.07,
+      color: color,
+    );
   }
 
   static double _gap(double iconSize) => (iconSize * 0.35).roundToDouble();
@@ -48,7 +55,7 @@ class MobileModeLabel extends StatelessWidget
     return kHoursModes.map((mode)
     {
       final painter = TextPainter(
-        text: TextSpan(text: modeLabel(mode), style: ambient.merge(_style(fontSize, Colors.black))),
+        text: TextSpan(text: _text(mode), style: ambient.merge(_style(fontSize, Colors.black))),
         textDirection: TextDirection.ltr,
         textScaler: scaler,
         maxLines: 1,
@@ -73,7 +80,7 @@ class MobileModeLabel extends StatelessWidget
         SizedBox(width: _gap(iconSize)),
         Flexible(
           child: Text(
-            modeLabel(mode),
+            _text(mode),
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.ellipsis,

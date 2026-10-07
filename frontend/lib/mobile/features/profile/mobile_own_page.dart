@@ -24,8 +24,9 @@ import 'widgets/mobile_detail_card.dart';
 import 'widgets/mobile_memberships.dart';
 import 'widgets/mobile_own_edit_sheets.dart';
 import 'widgets/mobile_own_face.dart';
-import 'widgets/mobile_own_stats.dart';
+import 'widgets/mobile_personal_stats.dart';
 import 'widgets/mobile_report_sheet.dart';
+import 'widgets/mobile_school_years.dart';
 
 const double _phoneMargin = 20;
 const double _tabletMargin = 44;
@@ -34,6 +35,8 @@ const double _phoneFace = 60;
 const double _tabletFace = 76;
 
 const double _stripGap = 18;
+
+const double _statsGap = 24;
 
 // The report button stands this far above the navigation bar.
 const double _reportLift = 12;
@@ -46,6 +49,7 @@ const double _shadowRoom = 16;
 const double _handleClearance = 16;
 
 const String _teacherRole = 'DOCENTE';
+const String _pupilRole = 'STUDENTE';
 
 class MobileOwnPage extends StatefulWidget
 {
@@ -68,8 +72,9 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   bool _failed = false;
   int _request = 0;
 
-  // Created on first show; outlives the pages that display it.
-  MobileOwnStatsController? _stats;
+  // They outlive the pages that display them.
+  MobileTeacherStatsController? _teacherStats;
+  MobilePupilStatsController? _pupilStats;
 
   bool _faceBusy = false;
 
@@ -77,14 +82,15 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   void initState()
   {
     super.initState();
-    _load().whenComplete(MobileHoldScope.hold(context));
+    _load().then((_) => _loadStats()).whenComplete(MobileHoldScope.hold(context));
   }
 
   @override
   void dispose()
   {
     _pages.dispose();
-    _stats?.dispose();
+    _teacherStats?.dispose();
+    _pupilStats?.dispose();
     super.dispose();
   }
 
@@ -128,14 +134,50 @@ class _MobileOwnPageState extends State<MobileOwnPage>
 
   Future<void> _refresh()
   {
-    _stats?.load();
+    _teacherStats?.load();
+    _pupilStats?.load();
 
     return _load(quiet: true);
   }
 
-  MobileOwnStatsController _statsOf(PersonItem person)
+  Future<void> _loadStats()
   {
-    return _stats ??= MobileOwnStatsController(person.fiscalCode)..load();
+    final PersonItem? person = _person;
+
+    if (person == null)
+    {
+      return Future<void>.value();
+    }
+
+    final List<Future<void>> loads = [];
+
+    if (_isTeacher(person) && _teacherStats == null)
+    {
+      final MobileTeacherStatsController stats = MobileTeacherStatsController(person.fiscalCode);
+
+      _teacherStats = stats;
+      loads.add(stats.load());
+    }
+
+    if (_isPupil(person) && _pupilStats == null)
+    {
+      final MobilePupilStatsController stats = MobilePupilStatsController(person.fiscalCode);
+
+      _pupilStats = stats;
+      loads.add(stats.load());
+    }
+
+    return Future.wait(loads);
+  }
+
+  MobileTeacherStatsController _teacherStatsOf(PersonItem person)
+  {
+    return _teacherStats ??= MobileTeacherStatsController(person.fiscalCode)..load();
+  }
+
+  MobilePupilStatsController _pupilStatsOf(PersonItem person)
+  {
+    return _pupilStats ??= MobilePupilStatsController(person.fiscalCode)..load();
   }
 
   Future<void> _editFace() async
@@ -276,7 +318,7 @@ class _MobileOwnPageState extends State<MobileOwnPage>
   Widget _buildTitle(PersonItem? person, {required bool tablet})
   {
     final List<String> roles =
-        person == null ? const [] : RoleLabelMapper.processRoles(person.shownRoles);
+        person == null ? const [] : RoleLabelMapper.processRoles(person.shownRoles, feminine: person.gender == 'F');
 
     return Row(
       children: [
@@ -401,22 +443,31 @@ class _MobileOwnPageState extends State<MobileOwnPage>
           )),
         ];
 
+      // As on the desktop, a teacher who is also a pupil sees both.
       case OwnPageSection.stats:
         return [
           if (_isTeacher(person))
-            MobileOwnStats(controller: _statsOf(person), margin: margin)
-          else
-            inset(const _Status('In arrivo')),
+            MobileTeacherStats(controller: _teacherStatsOf(person), margin: margin),
+          if (_isTeacher(person) && _isPupil(person))
+            const SizedBox(height: _statsGap),
+          if (_isPupil(person))
+            MobilePupilStats(controller: _pupilStatsOf(person), margin: margin),
         ];
 
+      // Read-only, as on the desktop.
       case OwnPageSection.school:
-        return [inset(const _Status('In arrivo'))];
+        return [inset(MobileSchoolYears(person: person))];
     }
   }
 
   bool _isTeacher(PersonItem person)
   {
     return person.roles.any((role) => role.toUpperCase() == _teacherRole);
+  }
+
+  bool _isPupil(PersonItem person)
+  {
+    return person.roles.any((role) => role.toUpperCase() == _pupilRole);
   }
 
   // Teacher studies are the only card the owner can edit here.

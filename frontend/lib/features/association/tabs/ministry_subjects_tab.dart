@@ -80,7 +80,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
     return result;
   }
 
-  void _showWizard({MinistrySubjectItem? subject, VoidCallback? onCancelEdit})
+  void _showWizard({MinistrySubjectItem? subject, VoidCallback? onEditSaved})
   {
     showBlurredDialog(
       context: context,
@@ -88,7 +88,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
       builder: (context) => _MinistrySubjectWizardDialog(
         existingSubject: subject,
         availableAssociationSubjects: widget.associationSubjects,
-        onCancelEdit: onCancelEdit,
+        onEditSaved: onEditSaved,
         onSave: (name, level, areas, description, associationIds, onError) async
         {
           if (subject == null)
@@ -176,7 +176,7 @@ class _MinistrySubjectsTabState extends State<MinistrySubjectsTab>
         {
           return MinistrySubjectCard(
             subject: subject,
-            onEditRequested: (onCancel) => _showWizard(subject: subject, onCancelEdit: onCancel),
+            onEditRequested: (onSaved) => _showWizard(subject: subject, onEditSaved: onSaved),
             onDelete: () => widget.onDelete(subject),
           );
         }).toList(),
@@ -189,13 +189,13 @@ class _MinistrySubjectWizardDialog extends StatefulWidget
 {
   final MinistrySubjectItem? existingSubject;
   final List<AssociationSubjectItem> availableAssociationSubjects;
-  final VoidCallback? onCancelEdit;
+  final VoidCallback? onEditSaved;
   final Future<bool> Function(String name, String level, List<String> areas, String description, List<int> associationIds, Function(String) onError) onSave;
 
   const _MinistrySubjectWizardDialog({
     this.existingSubject,
     required this.availableAssociationSubjects,
-    this.onCancelEdit,
+    this.onEditSaved,
     required this.onSave,
   });
 
@@ -223,7 +223,7 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
   bool get isEditing => widget.existingSubject != null;
 
   @override
-  VoidCallback? get onCancelEdit => widget.onCancelEdit;
+  VoidCallback? get onEditSaved => widget.onEditSaved;
 
   @override
   void initState()

@@ -8,6 +8,7 @@ import '../../core/layout/app_breakpoints.dart';
 import '../../core/state/entity_writes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
+import '../../core/utils/rome_clock.dart';
 import '../../core/utils/time_bucket.dart';
 import '../../core/utils/week_range.dart';
 import '../../routing/app_router.dart';
@@ -58,7 +59,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 {
   final ApiService _apiService = ApiService();
 
-  DateTime _now = DateTime.now();
+  DateTime _now = romeNow();
 
   Timer? _clock;
 
@@ -119,7 +120,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
 
     setState(()
     {
-      _now = DateTime.now();
+      _now = romeNow();
 
       if (!_isNextWeekUnlocked)
       {
@@ -272,7 +273,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
       builder: (context) => AvailabilityWizardDialog(
         existingGroup: group,
         ownTaxCode: taxCode,
-        availableDays: computeAvailableDays(DateTime.now()),
+        availableDays: computeAvailableDays(romeNow()),
         defaultDate: day,
         availabilities: _availabilities,
         openingDays: _openingDays,
@@ -283,9 +284,9 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
     );
   }
 
-  void _confirmDelete(DateTime day, List<AvailabilityItem> slots, {TimeBucket? band})
+  void _confirmDelete(DateTime day, List<AvailabilityItem> slots, {TimeBucket? band, bool wholeDay = false})
   {
-    final String warning = availabilityDeletionWarning(day, slots, band: band);
+    final String warning = availabilityDeletionWarning(day, slots, band: band, wholeDay: wholeDay);
 
     showBlurredDialog<void>(
       context: context,
@@ -541,6 +542,7 @@ class _TeacherAvailabilityPageState extends State<TeacherAvailabilityPage>
                 onOpen: () => _openDay(day, slots),
                 onDeleteSlot: (slot) => _confirmDelete(day, [slot]),
                 onDeleteBand: (band, held) => _confirmDelete(day, held, band: band),
+                onDeleteDay: () => _confirmDelete(day, slots, wholeDay: true),
               );
             },
           ),

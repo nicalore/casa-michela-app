@@ -64,14 +64,18 @@ class DetailRowData
 
   final Widget? valueWidget;
 
+  // Mobile only: the whole row opens what it sums up.
+  final VoidCallback? onTap;
+
   const DetailRowData(
     this.label,
     this.value, {
     this.isSensitive = false,
     this.hidesLength = false,
-  }) : valueWidget = null;
+  }) : valueWidget = null,
+       onTap = null;
 
-  const DetailRowData.drawn(this.label, this.valueWidget)
+  const DetailRowData.drawn(this.label, this.valueWidget, {this.onTap})
       : value = '',
         isSensitive = false,
         hidesLength = false;
@@ -86,7 +90,6 @@ class PersonDetailCardPair extends StatelessWidget
   final Widget first;
   final Widget second;
 
-  // Below this width the cards stack.
   final double breakpoint;
 
   const PersonDetailCardPair({
@@ -571,7 +574,6 @@ class PersonSectionTitle extends StatelessWidget
   }
 }
 
-// The one action of an otherwise empty section: larger than the other buttons.
 class PersonLoneButton extends StatelessWidget
 {
   final String label;
@@ -608,7 +610,7 @@ class PersonEmptyState extends StatelessWidget
   final String message;
   final Widget? action;
 
-  // Message and action rise with the page; off where a PageTransitionItem already holds it.
+  // Off where a PageTransitionItem already holds it.
   final bool rises;
 
   const PersonEmptyState({super.key, required this.message, this.action, this.rises = false});

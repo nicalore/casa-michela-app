@@ -23,7 +23,7 @@ class CalendarTeacherExclusionResponse(BaseModel):
     teacher_tax_code: str
     teacher: PersonOption | None = None
 
-    # What went back to the panel at write time; zero on reads — the count
+    # What went back to the panel at write time; zero on reads - the count
     # belongs to the moment, not to the exclusion.
     unplanned_lessons: int = 0
 

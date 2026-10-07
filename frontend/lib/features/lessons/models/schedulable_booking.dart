@@ -140,13 +140,20 @@ class SchedulableBooking
   }
 }
 
-// "14:00–15:45, 17:00–19:00"
+// "14:00-15:45, 17:00-19:00"
 String formatWindows(Iterable<(int, int)> windows)
 {
   return [for (final window in windows) formatMinutesRange(window.$1, window.$2)].join(', ');
 }
 
 // One pupil, one mode: their stretches that day and every booking typed under them.
+bool _startsIn(PresenceItem stretch, int bandStart, int bandEnd)
+{
+  final int start = minutesOfTimeOfDay(stretch.startTime);
+
+  return start >= bandStart && start < bandEnd;
+}
+
 class PresenceBookingGroup
 {
   final List<PresenceItem> presences;
@@ -172,7 +179,7 @@ class PresenceBookingGroup
         ));
   }
 
-  // The stretches the bookings can be planned in within a band.
+  // A subject belongs to the band it was booked in.
   PresenceBookingGroup within(int bandStart, int bandEnd)
   {
     final inBand = [
@@ -190,12 +197,13 @@ class PresenceBookingGroup
       presences: inBand,
       bookings: [
         for (final entry in bookings)
-          SchedulableBooking(
-            booking: entry.booking,
-            presence: entry.presence,
-            presences: inBand,
-            parts: entry.parts,
-          ),
+          if (_startsIn(entry.presence, bandStart, bandEnd))
+            SchedulableBooking(
+              booking: entry.booking,
+              presence: entry.presence,
+              presences: inBand,
+              parts: entry.parts,
+            ),
       ],
     );
   }

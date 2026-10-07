@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../features/settings/utils/settings_strings.dart';
 import '../../../shared/mobile_palette.dart';
+import '../../../shared/widgets/mobile_current_card.dart';
 import '../../../shared/widgets/mobile_glass_panel.dart';
 import '../../../shared/widgets/mobile_pill.dart';
 
@@ -37,13 +38,17 @@ BoxDecoration _tileDecoration({required bool chosen})
     color: chosen ? Colors.white : Colors.white.withValues(alpha: 0.6),
     borderRadius: BorderRadius.circular(_radius),
     border: Border.all(
-      color: chosen ? MobilePalette.currentRim : AppTheme.trialOcean.withValues(alpha: 0.1),
-      width: chosen ? MobilePalette.currentRimWidth : _restBorder,
+      color: chosen ? Colors.white : AppTheme.trialOcean.withValues(alpha: 0.1),
+      width: _restBorder,
     ),
   );
 }
 
-double _borderOf({required bool chosen}) => chosen ? MobilePalette.currentRimWidth : _restBorder;
+// Drawn outside the tile, so the content keeps its place.
+Decoration? _chosenRim({required bool chosen})
+{
+  return chosen ? const MobileCurrentCard(BorderRadius.all(Radius.circular(_radius))) : null;
+}
 
 TextStyle _labelStyle({required bool available, double fontSize = 16})
 {
@@ -87,7 +92,6 @@ class MobileChoiceTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final double inset = _sidePadding + _restBorder - _borderOf(chosen: chosen);
     final Widget? leading = this.leading;
 
     return Semantics(
@@ -95,8 +99,9 @@ class MobileChoiceTile extends StatelessWidget
       enabled: available,
       child: Container(
         constraints: const BoxConstraints(minHeight: _minHeight),
-        padding: EdgeInsets.symmetric(horizontal: inset),
+        padding: const EdgeInsets.symmetric(horizontal: _sidePadding),
         decoration: _tileDecoration(chosen: chosen),
+        foregroundDecoration: _chosenRim(chosen: chosen),
         child: Row(
           children: [
             if (leading != null) ...[
@@ -207,15 +212,14 @@ class MobileThemeTile extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    final double inset = 8 + _restBorder - _borderOf(chosen: chosen);
-
     return Semantics(
       selected: chosen,
       enabled: available,
       label: label,
       child: Container(
-        padding: EdgeInsets.fromLTRB(inset, inset, inset, 0),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
         decoration: _tileDecoration(chosen: chosen),
+        foregroundDecoration: _chosenRim(chosen: chosen),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

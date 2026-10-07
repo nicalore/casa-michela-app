@@ -6,3 +6,10 @@ abstract interface class PersonFace
   String get lastName;
   String? get profileImageUrl;
 }
+
+int compareByName(PersonFace a, PersonFace b)
+{
+  String key(PersonFace face) => '${face.firstName} ${face.lastName}'.toLowerCase();
+
+  return key(a).compareTo(key(b));
+}

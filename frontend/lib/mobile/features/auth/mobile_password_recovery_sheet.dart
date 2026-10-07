@@ -4,10 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
-import '../../shared/widgets/mobile_dismiss_button.dart';
 import '../../shared/widgets/mobile_glass_panel.dart';
 import '../../shared/widgets/mobile_gold_button.dart';
 import '../../shared/widgets/mobile_notice.dart';
+import '../../shared/widgets/mobile_sheet.dart';
 import '../../shared/widgets/mobile_text_field.dart';
 
 const double _maxWidth = 560;
@@ -151,24 +151,38 @@ class _RecoverySheetState extends State<_RecoverySheet>
                   ),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  'Accesso'.toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.9,
-                    color: AppTheme.trialTealDeep,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Recupero password',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.25,
-                    color: AppTheme.trialInk,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Accesso'.toUpperCase(),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.9,
+                              color: AppTheme.trialTealDeep,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Recupero password',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 25,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.25,
+                              color: AppTheme.trialInk,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    MobileSheetCloseButton(onTap: () => Navigator.of(context).pop()),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 _buildBody(
@@ -187,25 +201,11 @@ class _RecoverySheetState extends State<_RecoverySheet>
                   onSubmitted: (_) => _handleSend(),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: MobileDismissButton(
-                        label: 'Annulla',
-                        icon: Icons.close_rounded,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: MobileGoldButton(
-                        label: 'Invia link',
-                        icon: Icons.send_rounded,
-                        busy: _isSending,
-                        onPressed: _handleSend,
-                      ),
-                    ),
-                  ],
+                MobileGoldButton(
+                  label: 'Invia link',
+                  icon: Icons.send_rounded,
+                  busy: _isSending,
+                  onPressed: _handleSend,
                 ),
               ],
             ),

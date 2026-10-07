@@ -79,8 +79,7 @@ class ChartValuePopup extends StatelessWidget
   }
 }
 
-// The arrow stays on the point; the balloon slides sideways to stay inside the
-// chart, which would otherwise clip it at either end.
+// The arrow stays on the point; the balloon slides sideways to stay inside the chart.
 class _PopupLayout extends MultiChildLayoutDelegate
 {
   final Offset tip;

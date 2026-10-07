@@ -99,7 +99,10 @@ class _PersonCardState extends State<PersonCard>
   @override
   Widget build(BuildContext context)
   {
-    final List<String> processedRoles = RoleLabelMapper.processRoles(widget.person.shownRoles);
+    final List<String> processedRoles = RoleLabelMapper.processRoles(
+      widget.person.shownRoles,
+      feminine: widget.person.gender == 'F',
+    );
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -133,8 +136,7 @@ class _PersonCardState extends State<PersonCard>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Line count computed from the room left: a scaled-up text
-                    // must lose a line rather than be sliced through the middle.
+                    // Lines fit the room left: scaled-up text drops a line instead of being sliced.
                     Flexible(
                       child: LayoutBuilder(
                         builder: (context, constraints)

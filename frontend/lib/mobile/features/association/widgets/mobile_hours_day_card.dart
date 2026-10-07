@@ -18,14 +18,11 @@ class MobileHoursDayCard extends StatelessWidget
   final DateTime today;
   final bool tablet;
 
-  final bool sideBySide;
-
   const MobileHoursDayCard({
     super.key,
     required this.day,
     required this.today,
     required this.tablet,
-    this.sideBySide = false,
   });
 
   bool get _past => day.date.isBefore(today);
@@ -37,7 +34,7 @@ class MobileHoursDayCard extends StatelessWidget
     return day.date.year == today.year ? label : '$label ${day.date.year}';
   }
 
-  // A day shut in both modes shows one «Chiuso», so both reasons go under it.
+  // A day shut in both modes shows one "Chiuso", so both reasons go under it.
   String? get _allDayNote
   {
     final notes = <String>[];
@@ -100,7 +97,7 @@ class MobileHoursDayCard extends StatelessWidget
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MobileModeLabel(mode: mode, fontSize: tablet ? 15 : 14, iconSize: tablet ? 20 : 18, past: _past),
+        MobileModeLabel(mode: mode, fontSize: tablet ? 13 : 12, iconSize: tablet ? 20 : 18, past: _past),
         const SizedBox(height: 8),
         if (hours.isClosed)
           _buildClosed(decided: hours.isOverrideClosure)
@@ -138,7 +135,7 @@ class MobileHoursDayCard extends StatelessWidget
 
   Widget _buildModes()
   {
-    // Both modes shut for the same reason: one «Chiuso», like the desktop's merged cell.
+    // Both modes shut for the same reason: one "Chiuso", like the desktop's merged cell.
     if (day.isClosedAllDay)
     {
       final String? note = _allDayNote;
@@ -154,19 +151,6 @@ class MobileHoursDayCard extends StatelessWidget
             ],
           ),
           if (note != null) _buildNote(note),
-        ],
-      );
-    }
-
-    if (sideBySide)
-    {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final (i, mode) in kHoursModes.indexed) ...[
-            if (i > 0) const SizedBox(width: 24),
-            Expanded(child: _buildMode(mode)),
-          ],
         ],
       );
     }

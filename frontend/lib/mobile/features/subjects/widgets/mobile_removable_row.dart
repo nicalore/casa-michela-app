@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import 'mobile_subject_card.dart';
 
 const Duration _settleDuration = Duration(milliseconds: 220);
+const Duration _collapseDuration = Duration(milliseconds: 260);
 
 // Share of the width that commits the swipe, capped in pixels for tablets.
 const double _threshold = 0.4;
@@ -82,11 +83,18 @@ class MobileRemovableRow extends StatefulWidget
 
   final VoidCallback onRemoved;
 
+  final double gap;
+
+  // Removal confirmed elsewhere: the row leaves as after a slide.
+  final bool leaving;
+
   const MobileRemovableRow({
     super.key,
     required this.child,
     required this.onConfirm,
     required this.onRemoved,
+    this.gap = 0,
+    this.leaving = false,
   });
 
   @override
@@ -103,6 +111,11 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
   double _width = 1;
 
   bool _asking = false;
+  bool _leaving = false;
+
+  // Null until the card has slid away.
+  double? _height;
+  double _standing = 1;
 
   @override
   void initState()
@@ -112,41 +125,101 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
   }
 
   @override
+  void didUpdateWidget(MobileRemovableRow oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.leaving && !oldWidget.leaving && !_asking)
+    {
+      _leave();
+    }
+  }
+
+  @override
   void dispose()
   {
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _animateTo(double target)
+  Future<void> _run(Duration duration, Curve curve, ValueChanged<double> apply)
   {
-    final Animation<double> travel = Tween<double>(begin: _offset, end: target)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    final Animation<double> progress = CurvedAnimation(parent: _controller, curve: curve);
 
     void follow()
     {
-      setState(() => _offset = travel.value);
+      setState(() => apply(progress.value));
     }
 
     _controller
+      ..duration = duration
       ..reset()
       ..addListener(follow);
 
     return _controller.forward().whenComplete(() => _controller.removeListener(follow));
   }
 
+  Future<void> _animateTo(double target)
+  {
+    final double from = _offset;
+
+    return _run(_settleDuration, Curves.easeOutCubic, (t) => _offset = from + (target - from) * t);
+  }
+
+  Future<void> _collapse()
+  {
+    _height = context.size?.height ?? 0;
+
+    return _run(_collapseDuration, Curves.easeInOutCubic, (t) => _standing = 1 - t);
+  }
+
+  Future<void> _leave() async
+  {
+    if (_leaving)
+    {
+      return;
+    }
+
+    _leaving = true;
+
+    await _animateTo(_width);
+
+    if (!mounted)
+    {
+      return;
+    }
+
+    await _collapse();
+
+    if (mounted)
+    {
+      widget.onRemoved();
+    }
+  }
+
   void _onStart(DragStartDetails details)
   {
-    _controller.stop();
+    if (!_leaving)
+    {
+      _controller.stop();
+    }
   }
 
   void _onUpdate(DragUpdateDetails details)
   {
-    setState(() => _offset = (_offset + details.delta.dx).clamp(0.0, _width));
+    if (!_leaving)
+    {
+      setState(() => _offset = (_offset + details.delta.dx).clamp(0.0, _width));
+    }
   }
 
   Future<void> _onEnd(DragEndDetails details) async
   {
+    if (_leaving)
+    {
+      return;
+    }
+
     final double velocity = details.primaryVelocity ?? 0;
     final double enough = math.min(_width * _threshold, _thresholdCap);
     final bool asked = _offset >= enough || velocity > _flickVelocity;
@@ -176,12 +249,7 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
       return;
     }
 
-    await _animateTo(_width);
-
-    if (mounted)
-    {
-      widget.onRemoved();
-    }
+    await _leave();
   }
 
   // Clip only while sliding: never cross a neighbour, keep the whole shadow at rest.
@@ -195,9 +263,48 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
     return ClipRect(clipper: const _CellClipper(), child: child);
   }
 
+  Widget _red({required double height, double iconOpacity = 1})
+  {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(math.min(MobileSubjectCard.radius, height / 2)),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppTheme.dangerGradient),
+        child: Center(
+          child: Opacity(
+            opacity: iconOpacity,
+            child: const Icon(Icons.delete_outline_rounded, size: 24, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _closing(double height)
+  {
+    final double red = (height - widget.gap) * _standing;
+
+    return SizedBox(
+      height: height * _standing,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: double.infinity,
+          height: red,
+          // Gone before the red is too thin to hold it.
+          child: _red(height: red, iconOpacity: ((_standing - 0.5) * 2).clamp(0.0, 1.0)),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
+    if (_height case final double height)
+    {
+      return _closing(height);
+    }
+
     return LayoutBuilder(
       builder: (context, constraints)
       {
@@ -215,29 +322,24 @@ class _MobileRemovableRowState extends State<MobileRemovableRow>
                 ..onEnd = _onEnd,
             ),
           },
-          child: _clipped(Stack(
-            children: [
-              Positioned.fill(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    width: _offset,
-                    height: double.infinity,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(MobileSubjectCard.radius),
-                      child: const DecoratedBox(
-                        decoration: BoxDecoration(gradient: AppTheme.dangerGradient),
-                        child: Center(
-                          child: Icon(Icons.delete_outline_rounded, size: 24, color: Colors.white),
-                        ),
-                      ),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: widget.gap),
+            child: _clipped(Stack(
+              children: [
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: _offset,
+                      height: double.infinity,
+                      child: _red(height: double.infinity),
                     ),
                   ),
                 ),
-              ),
-              Transform.translate(offset: Offset(_offset, 0), child: widget.child),
-            ],
-          )),
+                Transform.translate(offset: Offset(_offset, 0), child: widget.child),
+              ],
+            )),
+          ),
         );
       },
     );

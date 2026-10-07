@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/birthday.dart';
+import '../../../core/utils/rome_clock.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../services/api_service.dart';
 import '../../../services/auth_state.dart';
@@ -59,7 +60,7 @@ class _MobileBirthdayConfettiState extends State<MobileBirthdayConfetti>
 
     if (_apiService.authState.value != AuthState.authenticated ||
         user == null ||
-        !isBirthdayToday(user.birthDate, DateTime.now()) ||
+        !isBirthdayToday(user.birthDate, romeNow()) ||
         MobileBirthdayConfetti._celebrated == user.taxCode)
     {
       return;
