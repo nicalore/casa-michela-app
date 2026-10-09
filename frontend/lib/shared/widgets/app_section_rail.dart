@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 const Duration _markFade = Duration(milliseconds: 150);
 
@@ -127,11 +128,13 @@ class AppSectionRail extends StatelessWidget
         children: [
           _buildTitle(),
           Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: children,
+            child: ScrollEdgeFade(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
               ),
             ),
           ),

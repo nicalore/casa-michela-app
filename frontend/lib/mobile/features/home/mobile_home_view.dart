@@ -10,7 +10,9 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_home_day.dart';
+import 'mobile_home_tour.dart';
 import 'widgets/mobile_day_timeline.dart';
 import 'widgets/mobile_notices_list.dart';
 
@@ -142,12 +144,14 @@ class MobileHomeFrame extends StatelessWidget
       );
     }
 
+    final List<Widget> built = pages();
+
     final Widget head = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildHeader(tablet: false),
         const SizedBox(height: _headerGap),
-        MobilePageStrip(labels: pageNames, controller: pageController),
+        MobilePageStrip(labels: pageNames, controller: pageController, tourTargets: kHomeTourTabs),
       ],
     );
 
@@ -165,7 +169,17 @@ class MobileHomeFrame extends StatelessWidget
         body: PageView(
           controller: pageController,
           children: [
-            for (final page in pages()) _scrollable(page, side: margin, bottom: bottom),
+            for (var i = 0; i < built.length; i++)
+              _scrollable(
+                MobileTourTarget(
+                  id: kHomeTourPages[i],
+                  inflate: kHomeTourSectionInflate,
+                  radius: kHomeTourSectionRadius,
+                  child: built[i],
+                ),
+                side: margin,
+                bottom: bottom,
+              ),
           ],
         ),
       ),
@@ -211,6 +225,8 @@ class MobileHomeView extends StatelessWidget
   final Future<void> Function() onRefresh;
   final PageController pageController;
 
+  final MobileHomeNotices notices;
+
   const MobileHomeView({
     super.key,
     required this.firstName,
@@ -221,6 +237,7 @@ class MobileHomeView extends StatelessWidget
     required this.month,
     required this.onRefresh,
     required this.pageController,
+    this.notices = const MobileHomeNotices(),
   });
 
   Widget _buildToday({required bool wide, bool fill = false})
@@ -272,7 +289,7 @@ class MobileHomeView extends StatelessWidget
       pages: () => [
         MobileLoadSwitcher(child: _buildToday(wide: false)),
         MobileLoadSwitcher(child: _buildMonth()),
-        const MobileNoticesList(),
+        MobileNoticesList(notices: notices),
       ],
       tabletBody: (wide) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -283,25 +300,40 @@ class MobileHomeView extends StatelessWidget
               children: [
                 Expanded(
                   flex: wide ? 11 : 10,
-                  child: MobileHomeSection(
-                    title: names[0],
-                    fill: true,
-                    child: MobileLoadSwitcher(child: _buildToday(wide: wide, fill: true)),
+                  child: MobileTourTarget(
+                    id: kHomeTourToday,
+                    inflate: kHomeTourSectionInflate,
+                    radius: kHomeTourSectionRadius,
+                    child: MobileHomeSection(
+                      title: names[0],
+                      fill: true,
+                      child: MobileLoadSwitcher(child: _buildToday(wide: wide, fill: true)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: MobileHomeFrame.columnGap),
                 Expanded(
                   flex: 10,
-                  child: MobileHomeSection(
-                    title: names[1],
-                    child: MobileLoadSwitcher(child: _buildMonth()),
+                  child: MobileTourTarget(
+                    id: kHomeTourMonth,
+                    inflate: kHomeTourSectionInflate,
+                    radius: kHomeTourSectionRadius,
+                    child: MobileHomeSection(
+                      title: names[1],
+                      child: MobileLoadSwitcher(child: _buildMonth()),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: MobileHomeFrame.sectionGap),
-          MobileHomeSection(title: names[2], child: const MobileNoticesList()),
+          MobileTourTarget(
+            id: kHomeTourNotices,
+            inflate: kHomeTourSectionInflate,
+            radius: kHomeTourSectionRadius,
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices, beside: true)),
+          ),
         ],
       ),
     );

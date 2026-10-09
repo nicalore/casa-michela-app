@@ -7,6 +7,7 @@ import 'app_dialog_stack.dart';
 import 'app_gradient_button.dart';
 import 'app_text_field.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 // Used as both ListView itemExtent and tile height: the two must match exactly
 // or the scroll math lands on the wrong row.
@@ -450,27 +451,29 @@ class _AutocompleteOptionsListState<T extends Object> extends State<Autocomplete
               thickness: 6,
               radius: const Radius.circular(10),
               thumbColor: AppTheme.trialLine,
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(vertical: _optionsListPadding),
-                shrinkWrap: true,
-                itemExtent: _itemHeight,
-                itemCount: widget.options.length,
-                itemBuilder: (context, index)
-                {
-                  final option = widget.options.elementAt(index);
+              child: ScrollEdgeFade(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: _optionsListPadding),
+                  shrinkWrap: true,
+                  itemExtent: _itemHeight,
+                  itemCount: widget.options.length,
+                  itemBuilder: (context, index)
+                  {
+                    final option = widget.options.elementAt(index);
 
-                  return _AutocompleteItem(
-                    label: widget.label(option),
-                    subtitle: widget.subtitle?.call(option),
-                    leading: widget.leading?.call(option),
-                    enabled: widget.enabled?.call(option) ?? true,
-                    placement: widget.subtitlePlacement,
-                    height: _itemHeight,
-                    isHighlighted: index == highlightedIndex,
-                    onTap: () => widget.onSelected(option),
-                  );
-                },
+                    return _AutocompleteItem(
+                      label: widget.label(option),
+                      subtitle: widget.subtitle?.call(option),
+                      leading: widget.leading?.call(option),
+                      enabled: widget.enabled?.call(option) ?? true,
+                      placement: widget.subtitlePlacement,
+                      height: _itemHeight,
+                      isHighlighted: index == highlightedIndex,
+                      onTap: () => widget.onSelected(option),
+                    );
+                  },
+                ),
               ),
             ),
           ),

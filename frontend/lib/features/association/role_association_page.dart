@@ -11,6 +11,7 @@ import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
 import 'association_strings.dart';
+import 'notices/notices_tab.dart';
 import 'tabs/opening_hours/combined_hours_view.dart';
 import 'tabs/pupil_subjects_tab.dart';
 import 'tabs/pupil_teachers_tab.dart';
@@ -23,6 +24,14 @@ const int _hoursIndex = 0;
 const int _subjectsIndex = 1;
 const int _teachersIndex = 2;
 
+// Last on every rail: after the hours alone for teachers, after the meetings for parents.
+int _noticesIndexFor(String role) => switch (role)
+{
+  _teacherRole => 1,
+  _parentRole => 4,
+  _ => 3,
+};
+
 const String _hours = kAssociationHoursLabel;
 const String _meetings = kAssociationMeetingsLabel;
 const String _notices = kAssociationNoticesLabel;
@@ -32,7 +41,7 @@ List<RailGroup> _sectionsFor(String role)
 {
   return [
     if (role == _teacherRole)
-      const RailGroup(entries: [_hours, _notices], unavailable: {_notices})
+      const RailGroup(entries: [_hours, _notices])
     else
       RailGroup(
         entries: [
@@ -42,7 +51,7 @@ List<RailGroup> _sectionsFor(String role)
           if (role == _parentRole) _meetings,
           _notices,
         ],
-        unavailable: const {_meetings, _notices},
+        unavailable: const {_meetings},
       ),
   ];
 }
@@ -92,7 +101,9 @@ class _RoleAssociationPageState extends State<RoleAssociationPage> with SectionV
         ],
         // Not built yet: named on the rail, never opened.
         if (widget.role == _parentRole) const SizedBox.shrink(),
-        const SizedBox.shrink(),
+        visitedSections.contains(_noticesIndexFor(widget.role))
+            ? NoticesTab(readerRole: widget.role)
+            : const SizedBox.shrink(),
       ],
     );
   }

@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../people/models/person_item.dart';
 import 'person_avatar.dart';
 
@@ -302,20 +303,22 @@ class _SelectionListDialogState<T> extends State<_SelectionListDialog<T>>
                           ),
                         ),
                       )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: options.length,
-                        itemBuilder: (context, index)
-                        {
-                          final option = options[index];
+                    : ScrollEdgeFade(
+                      child: ListView.builder(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          itemCount: options.length,
+                          itemBuilder: (context, index)
+                          {
+                            final option = options[index];
 
-                          return _SelectionListItem(
-                            option: option,
-                            onTap: () => _select(option.value),
-                          );
-                        },
-                      ),
+                            return _SelectionListItem(
+                              option: option,
+                              onTap: () => _select(option.value),
+                            );
+                          },
+                        ),
+                    ),
               ),
             ],
           ),

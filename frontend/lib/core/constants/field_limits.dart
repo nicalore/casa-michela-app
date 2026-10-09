@@ -10,6 +10,9 @@ abstract final class FieldLimits
 
   static const int studentNote = 2000;
 
+  static const int noticeTitle = 150;
+  static const int noticeMessage = 20000;
+
   static const int topic = 255;
 
   static const int personName = 100;

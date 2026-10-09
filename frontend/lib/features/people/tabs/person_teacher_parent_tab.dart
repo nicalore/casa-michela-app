@@ -7,6 +7,7 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../edit/person_edit_dialog.dart';
 import '../edit/person_edit_form.dart' show kBornAbroadProvince;
@@ -142,25 +143,27 @@ class _PersonTeacherParentTabState extends State<PersonTeacherParentTab>
   @override
   Widget build(BuildContext context)
   {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: pageTransitionBlocks([
-              ..._buildDetailCards(widget.parent),
-              const SizedBox(height: 48),
-              Center(
-                child: AppGradientButton(
-                  label: 'MODIFICA GENITORE',
-                  icon: Icons.edit_rounded,
-                  busy: _isOpening,
-                  onPressed: _openEditDialog,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: pageTransitionBlocks([
+                ..._buildDetailCards(widget.parent),
+                const SizedBox(height: 48),
+                Center(
+                  child: AppGradientButton(
+                    label: 'MODIFICA GENITORE',
+                    icon: Icons.edit_rounded,
+                    busy: _isOpening,
+                    onPressed: _openEditDialog,
+                  ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),

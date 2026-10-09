@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../models/month_summary_items.dart';
 
@@ -472,10 +473,12 @@ class _PeopleScrollState extends State<_PeopleScroll>
     return Scrollbar(
       controller: _controller,
       thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _controller,
-        padding: const EdgeInsets.only(right: 14),
-        child: widget.child,
+      child: ScrollEdgeFade(
+        child: SingleChildScrollView(
+          controller: _controller,
+          padding: const EdgeInsets.only(right: 14),
+          child: widget.child,
+        ),
       ),
     );
   }

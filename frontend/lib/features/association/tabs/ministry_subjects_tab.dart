@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
@@ -356,50 +357,52 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
 
   Widget _buildStep1()
   {
-    return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppTextField(
-              controller: _nameController,
-              label: 'Nome',
-              hintText: 'Es. Lingua e cultura latina',
-              maxLength: FieldLimits.name,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const WizardFieldLabel('Livello scolastico'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: schoolLevels.map((level)
-              {
-                return AppSelectableChip(
-                  label: level.compactLabel,
-                  selected: _selectedLevel == level.value,
-                  onSelected: (selected) => setState(()
-                  {
-                    _selectedLevel = selected ? level.value : null;
-                  }),
-                );
-              }).toList(),
-            ),
-            const WizardFieldLabel('Aree (massimo $_maxAreas)'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: subjectAreas.map((area)
-              {
-                return AppSelectableChip(
-                  label: area.compactLabel,
-                  selected: _selectedAreas.contains(area.value),
-                  onSelected: (selected) => _onAreaChanged(area.value, selected),
-                );
-              }).toList(),
-            ),
-            DescriptionField(_descController),
-          ],
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: _nameController,
+                label: 'Nome',
+                hintText: 'Es. Lingua e cultura latina',
+                maxLength: FieldLimits.name,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const WizardFieldLabel('Livello scolastico'),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: schoolLevels.map((level)
+                {
+                  return AppSelectableChip(
+                    label: level.compactLabel,
+                    selected: _selectedLevel == level.value,
+                    onSelected: (selected) => setState(()
+                    {
+                      _selectedLevel = selected ? level.value : null;
+                    }),
+                  );
+                }).toList(),
+              ),
+              const WizardFieldLabel('Aree (massimo $_maxAreas)'),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: subjectAreas.map((area)
+                {
+                  return AppSelectableChip(
+                    label: area.compactLabel,
+                    selected: _selectedAreas.contains(area.value),
+                    onSelected: (selected) => _onAreaChanged(area.value, selected),
+                  );
+                }).toList(),
+              ),
+              DescriptionField(_descController),
+            ],
+          ),
         ),
-      );
+    );
   }
 
   Widget _buildStep2()
@@ -442,30 +445,32 @@ class _MinistrySubjectWizardDialogState extends State<_MinistrySubjectWizardDial
                     ),
                   ),
                 )
-              : SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: availableSubjects.map((subject)
-                    {
-                      return AppSelectableChip(
-                        label: subject.name,
-                        selected: _selectedAssociations.contains(subject.id),
-                        onSelected: (selected) => setState(()
-                        {
-                          if (selected)
+              : ScrollEdgeFade(
+                child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: availableSubjects.map((subject)
+                      {
+                        return AppSelectableChip(
+                          label: subject.name,
+                          selected: _selectedAssociations.contains(subject.id),
+                          onSelected: (selected) => setState(()
                           {
-                            _selectedAssociations.add(subject.id);
-                          }
-                          else
-                          {
-                            _selectedAssociations.remove(subject.id);
-                          }
-                        }),
-                      );
-                    }).toList(),
+                            if (selected)
+                            {
+                              _selectedAssociations.add(subject.id);
+                            }
+                            else
+                            {
+                              _selectedAssociations.remove(subject.id);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
+              ),
         ),
       ],
     );

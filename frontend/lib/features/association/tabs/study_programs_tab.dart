@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
 import '../models/association_subject_item.dart';
@@ -702,43 +703,45 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   Widget _buildStep1()
   {
-    return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectorAutocompleteField(
-              controller: _sectorController,
-              label: 'Settore (opzionale)',
-              hint: 'Es. Istituto tecnico economico',
-              options: widget.knownSectors,
-              onChanged: () => setState(() {}),
-            ),
-            AppTextField(
-              controller: _nameController,
-              label: 'Nome',
-              hintText: 'Es. Amministrazione, finanza e marketing',
-              maxLength: FieldLimits.name,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const WizardFieldLabel('Livello scolastico'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: schoolLevels.map((level)
-              {
-                return AppSelectableChip(
-                  label: level.compactLabel,
-                  selected: _selectedLevel == level.value,
-                  onSelected: (selected) => _onLevelChanged(level.value, selected),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            if (_isHighSchool) _buildTrackField() else _buildYearRangeFields(),
-            DescriptionField(_descController),
-          ],
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectorAutocompleteField(
+                controller: _sectorController,
+                label: 'Settore (opzionale)',
+                hint: 'Es. Istituto tecnico economico',
+                options: widget.knownSectors,
+                onChanged: () => setState(() {}),
+              ),
+              AppTextField(
+                controller: _nameController,
+                label: 'Nome',
+                hintText: 'Es. Amministrazione, finanza e marketing',
+                maxLength: FieldLimits.name,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const WizardFieldLabel('Livello scolastico'),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: schoolLevels.map((level)
+                {
+                  return AppSelectableChip(
+                    label: level.compactLabel,
+                    selected: _selectedLevel == level.value,
+                    onSelected: (selected) => _onLevelChanged(level.value, selected),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              if (_isHighSchool) _buildTrackField() else _buildYearRangeFields(),
+              DescriptionField(_descController),
+            ],
+          ),
         ),
-      );
+    );
   }
 
   Widget _buildStep2()
@@ -781,30 +784,32 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                     ),
                   ),
                 )
-              : SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: availableSubjects.map((subject)
-                    {
-                      return AppSelectableChip(
-                        label: subject.name,
-                        selected: _selectedSubjects.contains(subject.id),
-                        onSelected: (selected) => setState(()
-                        {
-                          if (selected)
+              : ScrollEdgeFade(
+                child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: availableSubjects.map((subject)
+                      {
+                        return AppSelectableChip(
+                          label: subject.name,
+                          selected: _selectedSubjects.contains(subject.id),
+                          onSelected: (selected) => setState(()
                           {
-                            _selectedSubjects.add(subject.id);
-                          }
-                          else
-                          {
-                            _selectedSubjects.remove(subject.id);
-                          }
-                        }),
-                      );
-                    }).toList(),
+                            if (selected)
+                            {
+                              _selectedSubjects.add(subject.id);
+                            }
+                            else
+                            {
+                              _selectedSubjects.remove(subject.id);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                ),
+              ),
         ),
       ],
     );

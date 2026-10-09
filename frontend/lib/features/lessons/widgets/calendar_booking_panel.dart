@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/presence_item.dart';
@@ -479,13 +480,15 @@ class CalendarBookingPanel extends StatelessWidget
         ],
         Expanded(
           child: rows.isEmpty
-              ? SingleChildScrollView(child: _buildEmpty())
-              : ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: rows.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 14),
-                  itemBuilder: (context, index) => rows[index],
-                ),
+              ? ScrollEdgeFade(child: SingleChildScrollView(child: _buildEmpty()))
+              : ScrollEdgeFade(
+                child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: rows.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) => rows[index],
+                  ),
+              ),
         ),
         if (add != null) ...[
           const SizedBox(height: 16),
@@ -530,7 +533,7 @@ class CalendarBookingPanel extends StatelessWidget
               separatorBuilder: (context, index) => const SizedBox(width: 14),
               itemBuilder: (context, index) => SizedBox(
                 width: kBookingBlockWidth,
-                child: SingleChildScrollView(child: rows[index]),
+                child: ScrollEdgeFade(child: SingleChildScrollView(child: rows[index])),
               ),
             ),
           ),

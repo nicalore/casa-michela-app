@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../features/people/models/person_face.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
+import '../../shared/widgets/mobile_tour.dart';
+import 'mobile_home_tour.dart';
 import 'mobile_home_view.dart';
 import 'mobile_pupil_day.dart';
 import 'widgets/mobile_child_cards.dart';
@@ -35,6 +37,8 @@ class MobileParentHomeView extends StatelessWidget
   final Future<void> Function() onRefresh;
   final PageController pageController;
 
+  final MobileHomeNotices notices;
+
   const MobileParentHomeView({
     super.key,
     required this.firstName,
@@ -45,6 +49,7 @@ class MobileParentHomeView extends StatelessWidget
     required this.month,
     required this.onRefresh,
     required this.pageController,
+    this.notices = const MobileHomeNotices(),
   });
 
   bool get _loading => loadingDay || loadingMonth;
@@ -170,6 +175,7 @@ class MobileParentHomeView extends StatelessWidget
             dayNote: dayNote,
             month: monthsOf[taxCode],
             monthNote: monthNote,
+            tourTargets: (kHomeTourToday, kHomeTourMonth),
           ),
         ],
       ],
@@ -189,7 +195,7 @@ class MobileParentHomeView extends StatelessWidget
       pages: () => [
         MobileLoadSwitcher(child: _buildToday()),
         MobileLoadSwitcher(child: _buildMonth()),
-        const MobileNoticesList(),
+        MobileNoticesList(notices: notices),
       ],
       tabletBody: (_) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,7 +205,12 @@ class MobileParentHomeView extends StatelessWidget
             child: _loading ? const MobileWaiting() : _buildRows(),
           ),
           const SizedBox(height: MobileHomeFrame.sectionGap),
-          MobileHomeSection(title: names[2], child: const MobileNoticesList()),
+          MobileTourTarget(
+            id: kHomeTourNotices,
+            inflate: kHomeTourSectionInflate,
+            radius: kHomeTourSectionRadius,
+            child: MobileHomeSection(title: names[2], child: MobileNoticesList(notices: notices, beside: true)),
+          ),
         ],
       ),
     );

@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../lessons/widgets/person_avatar.dart';
@@ -498,16 +499,18 @@ class _TeacherDialogState extends State<_TeacherDialog>
           ),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: _subjectsMaxHeight),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var index = 0; index < areas.length; index++) ...[
-                    if (index > 0) const SizedBox(height: _areaGap),
-                    _buildArea(areas[index].title, areas[index].names),
+            child: ScrollEdgeFade(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < areas.length; index++) ...[
+                      if (index > 0) const SizedBox(height: _areaGap),
+                      _buildArea(areas[index].title, areas[index].names),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

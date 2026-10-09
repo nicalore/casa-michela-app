@@ -13,9 +13,13 @@ import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../association/notices/notice_item.dart';
+import '../../association/notices/notice_reading.dart';
 import '../../auth/models/me_response.dart';
+import '../../home/widgets/home_notices_section.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/models/calendar_publication_item.dart';
 import '../../lessons/models/lesson_item.dart';
@@ -82,9 +86,13 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   bool _loadingToday = true;
   List<DashboardBandStatus>? _bands;
 
+  bool _loadingNotices = true;
+  List<NoticeHeadlineItem>? _notices;
+
   // Bumped per fetch so a stale response cannot overwrite fresher data.
   int _homeRequest = 0;
   int _todayRequest = 0;
+  int _noticesRequest = 0;
 
   @override
   void initState()
@@ -98,6 +106,7 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadCurrentUser();
     _loadHomeData();
     _loadTodayData();
+    _loadNotices();
   }
 
   // Refreshes without clearing: the loaders only ever switch the spinner off.
@@ -107,6 +116,34 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
     _loadCurrentUser();
     _loadHomeData();
     _loadTodayData();
+    _loadNotices();
+  }
+
+  // Only those sent to the administrators.
+  Future<void> _loadNotices() async
+  {
+    final int request = ++_noticesRequest;
+    List<NoticeHeadlineItem>? notices;
+
+    try
+    {
+      notices = await _apiService.getHomeNotices('ADMIN');
+    }
+    catch (_)
+    {
+      notices = null;
+    }
+
+    if (!mounted || request != _noticesRequest)
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _notices = notices;
+      _loadingNotices = false;
+    });
   }
 
   // Restricted endpoints: a failure renders as missing data, not an error page.
@@ -300,9 +337,11 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
       ),
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: _buildHome(constraints.maxWidth - 32),
+          builder: (context, constraints) => ScrollEdgeFade(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _buildHome(constraints.maxWidth - 32),
+            ),
           ),
         ),
       ),
@@ -353,15 +392,12 @@ class _DashboardLayoutState extends State<DashboardLayout> with DestinationRefre
   {
     return _staggered(
       slot: 4,
-      card: DashboardSectionCard(
-        eyebrow: 'Messaggi',
-        title: 'Comunicazioni e avvisi',
+      card: HomeNoticesSection(
+        notices: _notices,
+        isLoading: _loadingNotices,
+        onOpen: (notice) => openNoticeReading(context, notice.id),
         minHeight: tall ? _listHeight : 0,
         fill: fill,
-        child: const DashboardComingSoon(
-          icon: Icons.campaign_rounded,
-          description: '',
-        ),
       ),
     );
   }

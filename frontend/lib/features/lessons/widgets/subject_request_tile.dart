@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../people/models/person_item.dart';
@@ -575,26 +576,28 @@ class _TeacherPickerState extends State<TeacherPicker>
               child: Scrollbar(
                 controller: _scrollController,
                 thumbVisibility: true,
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final teacher in _available)
-                        SubjectPickRow(
-                          key: ValueKey(teacher.fiscalCode),
-                          name: '${teacher.firstName} ${teacher.lastName}',
-                          leading: PersonAvatar(person: teacher, size: PersonAvatar.pickerSize),
-                          selected: widget.chosen.contains(teacher.fiscalCode),
-                          hasChoice: false,
-                          onSelected: (selected) => selected
-                              ? _add(teacher)
-                              : setState(() => _remove(teacher.fiscalCode)),
-                          onEditDisciplines: () {},
-                        ),
-                    ],
+                child: ScrollEdgeFade(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final teacher in _available)
+                          SubjectPickRow(
+                            key: ValueKey(teacher.fiscalCode),
+                            name: '${teacher.firstName} ${teacher.lastName}',
+                            leading: PersonAvatar(person: teacher, size: PersonAvatar.pickerSize),
+                            selected: widget.chosen.contains(teacher.fiscalCode),
+                            hasChoice: false,
+                            onSelected: (selected) => selected
+                                ? _add(teacher)
+                                : setState(() => _remove(teacher.fiscalCode)),
+                            onEditDisciplines: () {},
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

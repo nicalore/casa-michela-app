@@ -28,11 +28,13 @@ import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_page_strip.dart';
 import '../../shared/widgets/mobile_swipe_page.dart';
 import 'mobile_catalogue.dart';
+import 'mobile_notices_board.dart';
 import 'mobile_teachers_directory.dart';
 import 'widgets/mobile_association_status.dart';
 import 'widgets/mobile_catalogue_tab.dart';
 import 'widgets/mobile_hours_day_card.dart';
 import 'widgets/mobile_hours_week_tables.dart';
+import 'widgets/mobile_notices_tab.dart';
 import 'widgets/mobile_standard_hours_card.dart';
 import 'widgets/mobile_teachers_tab.dart';
 import 'widgets/mobile_variation_card.dart';
@@ -62,7 +64,8 @@ enum _Tab
 {
   hours(kAssociationHoursLabel, null),
   subjects(kAssociationSubjectsLabel, 'association-subjects'),
-  teachers(kAssociationTeachersLabel, 'association-teachers');
+  teachers(kAssociationTeachersLabel, 'association-teachers'),
+  notices(kAssociationNoticesLabel, null);
 
   final String label;
 
@@ -92,17 +95,17 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
   final PageController _pages = PageController();
 
   late final List<_Tab> _tabs =
-      widget.role == _teacherRole ? const [_Tab.hours] : _Tab.values;
+      widget.role == _teacherRole ? const [_Tab.hours, _Tab.notices] : _Tab.values;
 
   late final List<String> _comingSoon = [
     if (widget.role == _parentRole) kAssociationMeetingsLabel,
-    kAssociationNoticesLabel,
   ];
 
   late final bool _canReport = widget.role != _teacherRole && canSpeakFor(widget.role);
 
   MobileCatalogue? _catalogue;
   MobileTeachersDirectory? _directory;
+  MobileNoticesBoard? _board;
 
   // Offered on this visit; the stored flag decides whether they rise.
   final Set<_Tab> _introduced = {};
@@ -146,6 +149,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
       _loadOutlook(),
       if (_tabs.contains(_Tab.subjects)) _catalogueOf.ensureLoaded(),
       if (_tabs.contains(_Tab.teachers)) _directoryOf.ensureLoaded(),
+      _boardOf.ensureLoaded(),
     ]).whenComplete(MobileHoldScope.hold(context));
 
     _pages.addListener(_introduceOnce);
@@ -157,11 +161,14 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     _pages.dispose();
     _catalogue?.dispose();
     _directory?.dispose();
+    _board?.dispose();
 
     super.dispose();
   }
 
   MobileCatalogue get _catalogueOf => _catalogue ??= MobileCatalogue();
+
+  MobileNoticesBoard get _boardOf => _board ??= MobileNoticesBoard(role: widget.role);
 
   MobileTeachersDirectory get _directoryOf
   {
@@ -177,7 +184,7 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
     {
       _Tab.subjects => _canReport ? kSubjectsCatalogueIntroWithReport : kSubjectsCatalogueIntro,
       _Tab.teachers => _directoryOf.intro,
-      _Tab.hours => '',
+      _Tab.hours || _Tab.notices => '',
     };
   }
 
@@ -668,6 +675,12 @@ class _MobileAssociationPageState extends State<MobileAssociationPage>
                 directory: _directoryOf,
                 margin: margin,
                 tablet: tablet,
+              ),
+            _Tab.notices => MobileNoticesTab(
+                board: _boardOf,
+                margin: margin,
+                tablet: tablet,
+                clock: widget.clock,
               ),
           },
         ),

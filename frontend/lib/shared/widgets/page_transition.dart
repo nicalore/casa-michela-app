@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 
 import 'casa_michela_loader.dart';
+import 'scroll_edge_fade.dart';
 
 const Duration _pageTransition = Duration(milliseconds: 1200);
 
@@ -384,9 +385,11 @@ class PageTransitionScrollView extends StatelessWidget
 
   final List<Widget>? slivers;
 
-  const PageTransitionScrollView({super.key, required Widget this.child}) : slivers = null;
+  final ScrollController? controller;
 
-  const PageTransitionScrollView.slivers({super.key, required List<Widget> this.slivers})
+  const PageTransitionScrollView({super.key, required Widget this.child, this.controller}) : slivers = null;
+
+  const PageTransitionScrollView.slivers({super.key, required List<Widget> this.slivers, this.controller})
       : child = null;
 
   @override
@@ -401,9 +404,11 @@ class PageTransitionScrollView extends StatelessWidget
 
     return ClipRect(
       clipper: _SidewaysClip(overhang),
-      child: slivers == null
-          ? SingleChildScrollView(clipBehavior: Clip.none, child: child!)
-          : CustomScrollView(clipBehavior: Clip.none, slivers: slivers),
+      child: ScrollEdgeFade(
+        child: slivers == null
+            ? SingleChildScrollView(controller: controller, clipBehavior: Clip.none, child: child!)
+            : CustomScrollView(controller: controller, clipBehavior: Clip.none, slivers: slivers),
+      ),
     );
   }
 }

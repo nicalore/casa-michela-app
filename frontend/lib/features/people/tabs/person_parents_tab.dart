@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/parent_item.dart';
 import '../models/parental_relationship_draft.dart';
@@ -325,20 +326,22 @@ class _PersonParentsTabState extends State<PersonParentsTab>
     // Only an adult can be released from parental responsibility.
     final isAdult = widget.person.age != null && widget.person.age! >= _adultAge;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            children: pageTransitionBlocks([
-              RelativeCardGrid(cards: [for (final parent in parents) _buildCard(parent)]),
-              const SizedBox(height: 48),
-              _ResponsiveParentActionButtonsRow(
-                onManage: _openParentSelectionDialog,
-                onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
-              ),
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              children: pageTransitionBlocks([
+                RelativeCardGrid(cards: [for (final parent in parents) _buildCard(parent)]),
+                const SizedBox(height: 48),
+                _ResponsiveParentActionButtonsRow(
+                  onManage: _openParentSelectionDialog,
+                  onRemoveResponsibility: isAdult ? _confirmRemoveResponsibilities : null,
+                ),
+              ]),
+            ),
           ),
         ),
       ),
@@ -574,26 +577,28 @@ class _ParentSelectionDialogState extends State<_ParentSelectionDialog>
       return const PersonEmptyState(message: 'Nessun genitore disponibile trovato.');
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: candidates.map((adult)
-        {
-          final isSelected = _selected.containsKey(adult.fiscalCode);
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.center,
+          children: candidates.map((adult)
+          {
+            final isSelected = _selected.containsKey(adult.fiscalCode);
 
-          return PersonPickerCard(
-            person: adult,
-            isSelected: isSelected,
-            onTap: () => _onCardTap(adult),
-            onEdit: isSelected ? () => _onCardTap(adult) : null,
-            onRemove: isSelected
-                ? () => setState(() => _selected.remove(adult.fiscalCode))
-                : null,
-          );
-        }).toList(),
+            return PersonPickerCard(
+              person: adult,
+              isSelected: isSelected,
+              onTap: () => _onCardTap(adult),
+              onEdit: isSelected ? () => _onCardTap(adult) : null,
+              onRemove: isSelected
+                  ? () => setState(() => _selected.remove(adult.fiscalCode))
+                  : null,
+            );
+          }).toList(),
+        ),
       ),
     );
   }

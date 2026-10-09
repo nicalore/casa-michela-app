@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/person_item.dart';
 import '../widgets/person_detail_cards.dart';
@@ -70,38 +71,40 @@ class OwnOtherInfoTab extends StatelessWidget
     final List<PersonDetailCard> cards = ownOtherCards(person);
     final bool isTeacher = _rolesOf(person).contains('DOCENTE');
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              for (var i = 0; i < cards.length; i++) ...[
-                if (i > 0) const SizedBox(height: kPersonCardGap),
-                cards[i],
-              ],
-              if (isTeacher || footer != null) ...[
-                const SizedBox(height: 48),
-                Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: [
-                      if (isTeacher)
-                        AppGradientButton(
-                          label: 'MODIFICA STUDI',
-                          icon: Icons.edit_rounded,
-                          onPressed: () => _editEducation(context),
-                        ),
-                      ?footer,
-                    ],
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                for (var i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(height: kPersonCardGap),
+                  cards[i],
+                ],
+                if (isTeacher || footer != null) ...[
+                  const SizedBox(height: 48),
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        if (isTeacher)
+                          AppGradientButton(
+                            label: 'MODIFICA STUDI',
+                            icon: Icons.edit_rounded,
+                            onPressed: () => _editEducation(context),
+                          ),
+                        ?footer,
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ]),
+                ],
+              ]),
+            ),
           ),
         ),
       ),

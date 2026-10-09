@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../lessons/models/person_option_item.dart';
 import '../../lessons/widgets/person_avatar.dart';
@@ -69,37 +70,39 @@ class PersonNotPreferredTeachersTab extends StatelessWidget
   {
     final teachers = person.notPreferredTeachers ?? const <PersonOptionItem>[];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              const PersonSectionTitle('Mi sono trovato meno con...'),
-              const SizedBox(height: kPersonTitleGap),
-              if (teachers.isEmpty)
-                const PersonEmptyState(message: 'Nessun docente indicato.')
-              else
-                Wrap(
-                  spacing: _cardGap,
-                  runSpacing: _cardGap,
-                  children: [for (final teacher in teachers) _buildCard(teacher)],
-                ),
-              const SizedBox(height: kPersonSectionGap),
-              Center(
-                child: AppGradientButton(
-                  label: 'MODIFICA DOCENTI',
-                  icon: Icons.edit_rounded,
-                  onPressed: () => showEditNotPreferredTeachersDialog(
-                    context,
-                    person: person,
-                    onUpdate: onUpdate,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                const PersonSectionTitle('Mi sono trovato meno con...'),
+                const SizedBox(height: kPersonTitleGap),
+                if (teachers.isEmpty)
+                  const PersonEmptyState(message: 'Nessun docente indicato.')
+                else
+                  Wrap(
+                    spacing: _cardGap,
+                    runSpacing: _cardGap,
+                    children: [for (final teacher in teachers) _buildCard(teacher)],
+                  ),
+                const SizedBox(height: kPersonSectionGap),
+                Center(
+                  child: AppGradientButton(
+                    label: 'MODIFICA DOCENTI',
+                    icon: Icons.edit_rounded,
+                    onPressed: () => showEditNotPreferredTeachersDialog(
+                      context,
+                      person: person,
+                      onUpdate: onUpdate,
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),

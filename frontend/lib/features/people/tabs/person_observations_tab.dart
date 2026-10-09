@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/person_item.dart';
 import '../models/student_note_item.dart';
@@ -63,38 +64,40 @@ class PersonObservationsTab extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              StudentNotesCard(
-                title: kTechnicalNotesTitle,
-                icon: Icons.edit_note_rounded,
-                notes: person.technicalNotes ?? const [],
-                onAdd: () => _write(context),
-                mayChange: (_) => true,
-                onEdit: (note) => _write(context, note: note),
-                onDelete: (note) => _delete(context, StudentNoteKind.technical, note),
-              ),
-              const SizedBox(height: kPersonCardGap),
-              StudentNotesCard(
-                title: kMethodologicalNotesTitle,
-                icon: Icons.psychology_rounded,
-                notes: person.methodologicalNotes ?? const [],
-              ),
-              const SizedBox(height: kPersonCardGap),
-              StudentNotesCard(
-                title: kTeacherNotesTitle,
-                icon: Icons.rate_review_outlined,
-                notes: person.teacherNotes ?? const [],
-                mayChange: (_) => true,
-                onDelete: (note) => _delete(context, StudentNoteKind.teacher, note),
-              ),
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                StudentNotesCard(
+                  title: kTechnicalNotesTitle,
+                  icon: Icons.edit_note_rounded,
+                  notes: person.technicalNotes ?? const [],
+                  onAdd: () => _write(context),
+                  mayChange: (_) => true,
+                  onEdit: (note) => _write(context, note: note),
+                  onDelete: (note) => _delete(context, StudentNoteKind.technical, note),
+                ),
+                const SizedBox(height: kPersonCardGap),
+                StudentNotesCard(
+                  title: kMethodologicalNotesTitle,
+                  icon: Icons.psychology_rounded,
+                  notes: person.methodologicalNotes ?? const [],
+                ),
+                const SizedBox(height: kPersonCardGap),
+                StudentNotesCard(
+                  title: kTeacherNotesTitle,
+                  icon: Icons.rate_review_outlined,
+                  notes: person.teacherNotes ?? const [],
+                  mayChange: (_) => true,
+                  onDelete: (note) => _delete(context, StudentNoteKind.teacher, note),
+                ),
+              ]),
+            ),
           ),
         ),
       ),

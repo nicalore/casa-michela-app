@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/password_field.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import 'auth_pill_page.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -274,65 +275,67 @@ class _LoginLayoutState extends State<LoginLayout>
     return AuthPageBackground(
       watermark: false,
       child: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 40),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxCardWidth),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildTitle(isNarrow),
-                SizedBox(height: isNarrow ? 32 : 48),
-                _buildCredentials(isNarrow),
-                const SizedBox(height: 26),
-                AppDialogPill(
-                  expand: true,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: 'Accedendo, accetti le '),
-                        TextSpan(
-                          text: "Condizioni d'Uso",
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.trialTealDeep,
+        child: ScrollEdgeFade(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: isNarrow ? 20 : 40, vertical: 40),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _maxCardWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTitle(isNarrow),
+                  SizedBox(height: isNarrow ? 32 : 48),
+                  _buildCredentials(isNarrow),
+                  const SizedBox(height: 26),
+                  AppDialogPill(
+                    expand: true,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Accedendo, accetti le '),
+                          TextSpan(
+                            text: "Condizioni d'Uso",
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.trialTealDeep,
+                            ),
                           ),
-                        ),
-                        const TextSpan(text: " e l'"),
-                        TextSpan(
-                          text: 'Informativa sulla Privacy',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.trialTealDeep,
+                          const TextSpan(text: " e l'"),
+                          TextSpan(
+                            text: 'Informativa sulla Privacy',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.trialTealDeep,
+                            ),
                           ),
-                        ),
-                        const TextSpan(text: '.'),
-                      ],
+                          const TextSpan(text: '.'),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
+                        color: AppTheme.trialMutedText,
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    '© ${DateTime.now().year} Nicolò Calore\n'
+                    'ATTENZIONE: applicazione attualmente in sviluppo. '
+                    'Potrebbero verificarsi comportamenti inaspettati.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13.5,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w500,
                       height: 1.5,
                       color: AppTheme.trialMutedText,
                     ),
                   ),
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  '© ${DateTime.now().year} Nicolò Calore\n'
-                  'ATTENZIONE: applicazione attualmente in sviluppo. '
-                  'Potrebbero verificarsi comportamenti inaspettati.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
-                    color: AppTheme.trialMutedText,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

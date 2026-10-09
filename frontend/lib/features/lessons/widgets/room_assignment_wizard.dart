@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/room_item.dart';
 import '../../association/widgets/room_card.dart' show roomCapacityLabel;
@@ -1115,7 +1116,7 @@ class _RoomAssignmentWizardState extends State<RoomAssignmentWizard>
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: _sideMaxHeight),
-      child: SingleChildScrollView(child: child),
+      child: ScrollEdgeFade(child: SingleChildScrollView(child: child)),
     );
   }
 

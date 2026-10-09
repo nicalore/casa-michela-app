@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/study_program_item.dart';
@@ -448,66 +449,68 @@ class _PersonSubjectsTabState extends State<PersonSubjectsTab>
   {
     final cards = _buildCards();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1520),
-          child: LayoutBuilder(
-            builder: (context, constraints)
-            {
-              final columns = ((constraints.maxWidth + _subjectCardGap) /
-                      (_subjectCardWidth + _subjectCardGap))
-                  .floor();
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1520),
+            child: LayoutBuilder(
+              builder: (context, constraints)
+              {
+                final columns = ((constraints.maxWidth + _subjectCardGap) /
+                        (_subjectCardWidth + _subjectCardGap))
+                    .floor();
 
-              final int closing = cards.isEmpty
-                  ? PageTransitionItem.list + 1
-                  : PageTransitionItem.list + (cards.length - 1) ~/ columns + columns;
+                final int closing = cards.isEmpty
+                    ? PageTransitionItem.list + 1
+                    : PageTransitionItem.list + (cards.length - 1) ~/ columns + columns;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PageTransitionItem(
-                    slot: PageTransitionItem.header,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (widget.intro != null) widget.intro!,
-                        _buildFilters(cards.length),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (cards.isEmpty)
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     PageTransitionItem(
-                      slot: PageTransitionItem.list,
-                      child: PersonEmptyState(
-                        message: _showingOnlyServices
-                            ? 'Nessun servizio trovato per questa ricerca.'
-                            : 'Nessuna disciplina trovata per questa ricerca.',
+                      slot: PageTransitionItem.header,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (widget.intro != null) widget.intro!,
+                          _buildFilters(cards.length),
+                        ],
                       ),
-                    )
-                  else
-                    Wrap(
-                      spacing: _subjectCardGap,
-                      runSpacing: _subjectCardGap,
-                      children: [
-                        for (final card in cards)
-                          PageTransitionItem.wave(child: card),
-                      ],
                     ),
-                  const SizedBox(height: 48),
-                  PageTransitionItem(
-                    slot: closing,
-                    child: Center(child: _buildAddButton()),
-                  ),
-                  if (widget.footer != null) ...[
+                    const SizedBox(height: 16),
+                    if (cards.isEmpty)
+                      PageTransitionItem(
+                        slot: PageTransitionItem.list,
+                        child: PersonEmptyState(
+                          message: _showingOnlyServices
+                              ? 'Nessun servizio trovato per questa ricerca.'
+                              : 'Nessuna disciplina trovata per questa ricerca.',
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: _subjectCardGap,
+                        runSpacing: _subjectCardGap,
+                        children: [
+                          for (final card in cards)
+                            PageTransitionItem.wave(child: card),
+                        ],
+                      ),
                     const SizedBox(height: 48),
-                    widget.footer!,
+                    PageTransitionItem(
+                      slot: closing,
+                      child: Center(child: _buildAddButton()),
+                    ),
+                    if (widget.footer != null) ...[
+                      const SizedBox(height: 48),
+                      widget.footer!,
+                    ],
                   ],
-                ],
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

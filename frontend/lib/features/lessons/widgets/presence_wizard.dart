@@ -14,6 +14,7 @@ import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -1388,15 +1389,17 @@ class PresenceWizardDialogState extends State<PresenceWizardDialog>
           child: Scrollbar(
             controller: scroll,
             thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: scroll,
-              padding: const EdgeInsets.only(right: 12),
-              child: switch (category)
-              {
-                _ministryCategory => _buildMinistryList(group, mode, band),
-                _disciplineCategory => _buildDisciplineList(group, mode, band),
-                _ => _buildServiceList(group, mode, band),
-              },
+            child: ScrollEdgeFade(
+              child: SingleChildScrollView(
+                controller: scroll,
+                padding: const EdgeInsets.only(right: 12),
+                child: switch (category)
+                {
+                  _ministryCategory => _buildMinistryList(group, mode, band),
+                  _disciplineCategory => _buildDisciplineList(group, mode, band),
+                  _ => _buildServiceList(group, mode, band),
+                },
+              ),
             ),
           ),
         ),

@@ -16,6 +16,7 @@ import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/card_scroll_area.dart';
 import '../models/membership_item.dart';
@@ -275,48 +276,50 @@ class PersonMembershipsTab extends StatelessWidget
 
     final isFemale = person.gender == 'F';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              _buildStatusCard(
-                isEnrolled: isEnrolled,
-                isFemale: isFemale,
-                // Collaboration only counts while the membership is running.
-                isActiveCollaborator: isEnrolled && (person.isActiveCollaborator ?? false),
-                // Only the administrator's editable view shows it.
-                showCollaboration: onUpdate != null,
-              ),
-              const SizedBox(height: kPersonSectionGap),
-              if (currentMembership != null) ...[
-                const PersonSectionTitle('Iscrizione attuale'),
-                const SizedBox(height: kPersonTitleGap),
-                _buildMembershipCard(currentMembership, isCurrent: true),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                _buildStatusCard(
+                  isEnrolled: isEnrolled,
+                  isFemale: isFemale,
+                  // Collaboration only counts while the membership is running.
+                  isActiveCollaborator: isEnrolled && (person.isActiveCollaborator ?? false),
+                  // Only the administrator's editable view shows it.
+                  showCollaboration: onUpdate != null,
+                ),
                 const SizedBox(height: kPersonSectionGap),
-              ],
-              if (pastMemberships.isNotEmpty) ...[
-                const PersonSectionTitle('Iscrizioni passate'),
-                const SizedBox(height: kPersonTitleGap),
-                for (var i = 0; i < pastMemberships.length; i++) ...[
-                  if (i > 0) const SizedBox(height: kPersonCardGap),
-                  _buildMembershipCard(pastMemberships[i], isCurrent: false),
+                if (currentMembership != null) ...[
+                  const PersonSectionTitle('Iscrizione attuale'),
+                  const SizedBox(height: kPersonTitleGap),
+                  _buildMembershipCard(currentMembership, isCurrent: true),
+                  const SizedBox(height: kPersonSectionGap),
                 ],
-              ],
-              if (currentMembership == null && pastMemberships.isEmpty)
-                const PersonEmptyState(message: kNoMembershipsMessage),
-              if (!isRevoked && latest != null && onUpdate != null) ...[
-                const SizedBox(height: kPersonSectionGap),
-                Center(child: _buildActions(context)),
-              ],
-              if (footer != null) ...[
-                const SizedBox(height: kPersonSectionGap),
-                footer!,
-              ],
-            ]),
+                if (pastMemberships.isNotEmpty) ...[
+                  const PersonSectionTitle('Iscrizioni passate'),
+                  const SizedBox(height: kPersonTitleGap),
+                  for (var i = 0; i < pastMemberships.length; i++) ...[
+                    if (i > 0) const SizedBox(height: kPersonCardGap),
+                    _buildMembershipCard(pastMemberships[i], isCurrent: false),
+                  ],
+                ],
+                if (currentMembership == null && pastMemberships.isEmpty)
+                  const PersonEmptyState(message: kNoMembershipsMessage),
+                if (!isRevoked && latest != null && onUpdate != null) ...[
+                  const SizedBox(height: kPersonSectionGap),
+                  Center(child: _buildActions(context)),
+                ],
+                if (footer != null) ...[
+                  const SizedBox(height: kPersonSectionGap),
+                  footer!,
+                ],
+              ]),
+            ),
           ),
         ),
       ),

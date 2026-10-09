@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../people/models/person_item.dart';
 import '../../people/widgets/person_detail_cards.dart';
 import '../../people/widgets/person_detail_widgets.dart';
@@ -104,24 +105,26 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
     // A new record starts from its first card.
     final int index = _index.clamp(0, cards.length - 1);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 8, bottom: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: pageTransitionBlocks([
-          AppCarouselFrame(
-            index: index,
-            movingForward: _movingForward,
-            maxContentWidth: _cardMaxWidth,
-            canGoBack: index > 0,
-            canGoForward: index < cards.length - 1,
-            onBack: () => _turn(index - 1),
-            onForward: () => _turn(index + 1),
-            child: SizedBox(width: double.infinity, child: cards[index]),
-          ),
-          const SizedBox(height: kPersonSectionGap),
-          widget.footer,
-        ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 8, bottom: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: pageTransitionBlocks([
+            AppCarouselFrame(
+              index: index,
+              movingForward: _movingForward,
+              maxContentWidth: _cardMaxWidth,
+              canGoBack: index > 0,
+              canGoForward: index < cards.length - 1,
+              onBack: () => _turn(index - 1),
+              onForward: () => _turn(index + 1),
+              child: SizedBox(width: double.infinity, child: cards[index]),
+            ),
+            const SizedBox(height: kPersonSectionGap),
+            widget.footer,
+          ]),
+        ),
       ),
     );
   }

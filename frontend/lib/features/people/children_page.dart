@@ -14,6 +14,7 @@ import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
+import '../../shared/widgets/scroll_edge_fade.dart';
 import '../onboarding/onboarding_steps.dart';
 import 'edit/person_edit_report_dialog.dart';
 import 'models/child_item.dart';
@@ -377,26 +378,28 @@ class _ChildInfoTab extends StatelessWidget
       onImageUpdated: () {},
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: pageTransitionBlocks([
-              PersonDetailCardPair(
-                first: identityCard(person, leading: face),
-                second: residenceCard(person),
-              ),
-              const SizedBox(height: kPersonCardGap),
-              PersonDetailCardPair(
-                first: birthCard(person),
-                second: contactsCard(person),
-              ),
-              const SizedBox(height: 48),
-              footer,
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: pageTransitionBlocks([
+                PersonDetailCardPair(
+                  first: identityCard(person, leading: face),
+                  second: residenceCard(person),
+                ),
+                const SizedBox(height: kPersonCardGap),
+                PersonDetailCardPair(
+                  first: birthCard(person),
+                  second: contactsCard(person),
+                ),
+                const SizedBox(height: 48),
+                footer,
+              ]),
+            ),
           ),
         ),
       ),
@@ -421,23 +424,25 @@ class _ChildOtherInfoTab extends StatelessWidget
       if (!person.isAdult) minorSafetyCard(person),
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              if (cards.isEmpty)
-                const PersonEmptyState(message: 'Nessuna informazione aggiuntiva.'),
-              for (var i = 0; i < cards.length; i++) ...[
-                if (i > 0) const SizedBox(height: kPersonCardGap),
-                cards[i],
-              ],
-              const SizedBox(height: 48),
-              footer,
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                if (cards.isEmpty)
+                  const PersonEmptyState(message: 'Nessuna informazione aggiuntiva.'),
+                for (var i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(height: kPersonCardGap),
+                  cards[i],
+                ],
+                const SizedBox(height: 48),
+                footer,
+              ]),
+            ),
           ),
         ),
       ),

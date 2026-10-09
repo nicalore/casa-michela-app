@@ -14,6 +14,8 @@ import '../../../shared/widgets/page_watermark.dart';
 import '../../../routing/app_router.dart';
 import '../../../services/api_service.dart';
 import '../../association/models/opening_day_item.dart';
+import '../../association/notices/notice_item.dart';
+import '../../association/notices/notice_reading.dart';
 import '../../auth/models/me_response.dart';
 import '../../dashboard/widgets/dashboard_greeting.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
@@ -26,6 +28,7 @@ import '../../lessons/utils/opening_window.dart';
 import '../../people/models/person_item.dart';
 import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
+import 'home_notices_section.dart';
 import 'home_schedule_data.dart';
 import 'home_schedule_section.dart';
 
@@ -111,9 +114,13 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   bool _loadingMonth = true;
   List<HomeFigureGroup>? _month;
 
+  bool _loadingNotices = true;
+  List<NoticeHeadlineItem>? _notices;
+
   // Bumped on every fetch so a stale response is dropped.
   int _todayRequest = 0;
   int _monthRequest = 0;
+  int _noticesRequest = 0;
 
   @override
   void initState()
@@ -122,6 +129,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
 
     _loadTodayData();
     _loadMonthData();
+    _loadNotices();
   }
 
   @override
@@ -133,6 +141,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     {
       _loadTodayData();
       _loadMonthData();
+      _loadNotices();
     }
   }
 
@@ -141,6 +150,29 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   {
     _loadTodayData();
     _loadMonthData();
+    _loadNotices();
+  }
+
+  Future<void> _loadNotices() async
+  {
+    if (widget.role == kPsychologistRole)
+    {
+      return;
+    }
+
+    final int request = ++_noticesRequest;
+    final List<NoticeHeadlineItem>? notices = await _quiet(_apiService.getHomeNotices(widget.role));
+
+    if (!mounted || request != _noticesRequest)
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _notices = notices;
+      _loadingNotices = false;
+    });
   }
 
   Future<void> _loadMonthData() async
@@ -358,15 +390,12 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
   {
     return _staggered(
       slot: 3,
-      card: DashboardSectionCard(
-        eyebrow: 'Messaggi',
-        title: 'Comunicazioni e avvisi',
+      card: HomeNoticesSection(
+        notices: _notices,
+        isLoading: _loadingNotices,
+        onOpen: (notice) => openNoticeReading(context, notice.id),
         minHeight: tall ? _listHeight : 0,
         fill: fill,
-        child: const DashboardComingSoon(
-          icon: Icons.campaign_rounded,
-          description: '',
-        ),
       ),
     );
   }

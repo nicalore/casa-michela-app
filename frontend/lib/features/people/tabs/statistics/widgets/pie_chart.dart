@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import 'chart_common.dart';
 import 'chart_value_popup.dart';
 
@@ -228,13 +229,15 @@ class _PieChartState extends State<PieChart>
         const SizedBox(width: 16),
         Expanded(
           flex: 2,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < widget.data.length; i++) _buildLegendEntry(i, total),
-              ],
+          child: ScrollEdgeFade(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < widget.data.length; i++) _buildLegendEntry(i, total),
+                ],
+              ),
             ),
           ),
         ),

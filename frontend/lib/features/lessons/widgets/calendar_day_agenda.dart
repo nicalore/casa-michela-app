@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -177,11 +178,13 @@ class CalendarDayAgenda extends StatelessWidget
         _buildHeader(),
         const SizedBox(height: 16),
         Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: lanes.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 14),
-            itemBuilder: (context, index) => _buildLaneBlock(lanes[index]),
+          child: ScrollEdgeFade(
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: lanes.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 14),
+              itemBuilder: (context, index) => _buildLaneBlock(lanes[index]),
+            ),
           ),
         ),
       ],

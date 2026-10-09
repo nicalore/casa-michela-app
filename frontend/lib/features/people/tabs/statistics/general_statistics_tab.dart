@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/rome_clock.dart';
 import '../../../../services/api_service.dart';
 import '../../../../shared/widgets/page_transition.dart';
+import '../../../../shared/widgets/scroll_edge_fade.dart';
 import '../../models/current_totals_item.dart';
 import '../../models/member_trend_item.dart';
 import '../../models/retention_rate_item.dart';
@@ -431,38 +432,40 @@ class _GeneralStatisticsTabState extends State<GeneralStatisticsTab>
 
   Widget _buildContent()
   {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: pageTransitionBlocks([
-          ResponsiveCardPair(
-            first: SummaryStatCard(
-              title: 'Iscritti totali',
-              icon: Icons.groups_rounded,
-              count: _currentTotals?.currentTotalMembers ?? 0,
-              deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
-              deltaYear: _currentTotals?.membersDeltaYear ?? 0,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: pageTransitionBlocks([
+            ResponsiveCardPair(
+              first: SummaryStatCard(
+                title: 'Iscritti totali',
+                icon: Icons.groups_rounded,
+                count: _currentTotals?.currentTotalMembers ?? 0,
+                deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
+                deltaYear: _currentTotals?.membersDeltaYear ?? 0,
+              ),
+              second: SummaryStatCard(
+                title: 'Collaboratori attivi',
+                icon: Icons.handshake_rounded,
+                count: _currentTotals?.currentActiveCollaborators ?? 0,
+                deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
+                deltaYear: _currentTotals?.collabDeltaYear ?? 0,
+              ),
             ),
-            second: SummaryStatCard(
-              title: 'Collaboratori attivi',
-              icon: Icons.handshake_rounded,
-              count: _currentTotals?.currentActiveCollaborators ?? 0,
-              deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
-              deltaYear: _currentTotals?.collabDeltaYear ?? 0,
+            const SizedBox(height: 24),
+            MatchedCardPair(
+              first: _buildMembersRetentionCard,
+              second: _buildCollabRetentionCard,
             ),
-          ),
-          const SizedBox(height: 24),
-          MatchedCardPair(
-            first: _buildMembersRetentionCard,
-            second: _buildCollabRetentionCard,
-          ),
-          const SizedBox(height: 24),
-          _buildMembersTrendCard(),
-          const SizedBox(height: 24),
-          _buildCollabTrendCard(),
-          const SizedBox(height: 40),
-        ]),
+            const SizedBox(height: 24),
+            _buildMembersTrendCard(),
+            const SizedBox(height: 24),
+            _buildCollabTrendCard(),
+            const SizedBox(height: 40),
+          ]),
+        ),
       ),
     );
   }

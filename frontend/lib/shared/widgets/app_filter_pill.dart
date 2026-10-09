@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'filter_menu.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 const double _pillHeight = 44;
 const double _pillRadius = 22;
@@ -657,6 +658,120 @@ class _ClearButtonState extends State<_ClearButton>
   }
 }
 
+// Any anchor that opens the pills' menu: builder draws it hovered or open.
+class AppMenuButton<T> extends StatefulWidget
+{
+  final T? value;
+  final List<FilterOption<T>> options;
+  final ValueChanged<T> onChanged;
+  final double menuWidth;
+  final Widget Function(BuildContext context, bool marked) builder;
+
+  const AppMenuButton({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    required this.menuWidth,
+    required this.builder,
+  });
+
+  @override
+  State<AppMenuButton<T>> createState() => _AppMenuButtonState<T>();
+}
+
+class _AppMenuButtonState<T> extends State<AppMenuButton<T>>
+{
+  final GlobalKey _anchorKey = GlobalKey();
+  final GlobalKey<_FilterMenuState<T>> _menuKey = GlobalKey();
+
+  OverlayEntry? _overlay;
+  bool _hover = false;
+
+  @override
+  void dispose()
+  {
+    _overlay?.remove();
+    _overlay = null;
+    super.dispose();
+  }
+
+  void _open()
+  {
+    if (_overlay != null)
+    {
+      _close();
+
+      return;
+    }
+
+    final renderBox = _anchorKey.currentContext!.findRenderObject() as RenderBox;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    _overlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _close),
+          ),
+          Positioned(
+            top: offset.dy + renderBox.size.height + _menuGap,
+            left: offset.dx,
+            child: _FilterMenu<T>(
+              key: _menuKey,
+              currentValue: widget.value,
+              options: widget.options,
+              width: widget.menuWidth,
+              onSelected: (value)
+              {
+                widget.onChanged(value);
+                _close();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // rootOverlay: otherwise a menu opened inside a dialog is offset by the dialog's origin.
+    Overlay.of(context, rootOverlay: true).insert(_overlay!);
+    setState(() {});
+  }
+
+  Future<void> _close() async
+  {
+    if (_overlay == null)
+    {
+      return;
+    }
+
+    await _menuKey.currentState?.collapse();
+
+    _overlay?.remove();
+    _overlay = null;
+
+    if (mounted)
+    {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        key: _anchorKey,
+        onTap: _open,
+        child: widget.builder(context, _hover || _overlay != null),
+      ),
+    );
+  }
+}
+
 class _FilterMenu<T> extends StatefulWidget
 {
   final T? currentValue;
@@ -728,18 +843,20 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
             child: _expanded
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final option in widget.options)
-                            _FilterMenuRow(
-                              label: option.label,
-                              selected: widget.currentValue == option.value,
-                              onTap: () => widget.onSelected(option.value),
-                            ),
-                        ],
+                    child: ScrollEdgeFade(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final option in widget.options)
+                              _FilterMenuRow(
+                                label: option.label,
+                                selected: widget.currentValue == option.value,
+                                onTap: () => widget.onSelected(option.value),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   )

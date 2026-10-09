@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 const Color _fieldSurface = Color(0xFFFBFDFC);
 const double _fieldRadius = 14;
@@ -251,35 +252,37 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
                     thickness:       6,
                     radius:          const Radius.circular(10),
                     thumbColor:      AppTheme.trialMutedText,
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      padding:    const EdgeInsets.only(top: 8, bottom: 8, right: _scrollbarLane),
-                      child: Column(
-                        mainAxisSize:       MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children:           widget.options.map((option)
-                        {
-                          if (option.isSeparator)
+                    child: ScrollEdgeFade(
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        padding:    const EdgeInsets.only(top: 8, bottom: 8, right: _scrollbarLane),
+                        child: Column(
+                          mainAxisSize:       MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:           widget.options.map((option)
                           {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical:   4.0,
-                              ),
-                              child: Divider(
-                                height:    1,
-                                thickness: 1,
-                                color:     AppTheme.trialLine,
-                              ),
-                            );
-                          }
+                            if (option.isSeparator)
+                            {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16.0,
+                                  vertical:   4.0,
+                                ),
+                                child: Divider(
+                                  height:    1,
+                                  thickness: 1,
+                                  color:     AppTheme.trialLine,
+                                ),
+                              );
+                            }
 
-                          return _DropdownItem(
-                            text:       option.label,
-                            isSelected: widget.currentValue == option.value,
-                            onTap:      () => widget.onSelected(option.value),
-                          );
-                        }).toList(),
+                            return _DropdownItem(
+                              text:       option.label,
+                              isSelected: widget.currentValue == option.value,
+                              onTap:      () => widget.onSelected(option.value),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ),

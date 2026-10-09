@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../shared/widgets/app_card.dart';
+import '../../../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/teacher_availability_statistics_item.dart';
 import 'stat_filters.dart';
@@ -309,15 +310,17 @@ class _TeacherWarningSectionState extends State<TeacherWarningSection>
               thickness: 6,
               radius: const Radius.circular(10),
               thumbColor: AppTheme.trialLine,
-              child: SingleChildScrollView(
-                controller: _controller,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final item in widget.flagged)
-                      _lowRow(item, widget.describe(item)),
-                  ],
+              child: ScrollEdgeFade(
+                child: SingleChildScrollView(
+                  controller: _controller,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final item in widget.flagged)
+                        _lowRow(item, widget.describe(item)),
+                    ],
+                  ),
                 ),
               ),
             ),

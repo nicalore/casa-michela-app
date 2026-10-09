@@ -20,6 +20,7 @@ import 'models/school_item.dart';
 import 'models/service_item.dart';
 import 'models/study_program_item.dart';
 import 'models/weekly_template_item.dart';
+import 'notices/notices_tab.dart';
 import 'tabs/association_subjects_tab.dart';
 import 'tabs/courses_tab.dart';
 import 'tabs/ministry_subjects_tab.dart';
@@ -61,7 +62,7 @@ List<RailGroup> _sectionsFor({required bool onBoard})
     _teaching,
     RailGroup(
       entries: ['Corsi', 'Stanze', if (onBoard) _meetings, _notices, 'Orari'],
-      unavailable: {_meetings, _notices},
+      unavailable: {_meetings},
     ),
   ];
 }
@@ -84,6 +85,8 @@ class _AssociationPageState extends State<AssociationPage>
   late final bool _onBoard = _apiService.lastKnownIdentity?.boardRole != null;
 
   late final List<RailGroup> _sections = _sectionsFor(onBoard: _onBoard);
+
+  int get _noticesContentIndex => _roomsContentIndex + 1 + (_onBoard ? 1 : 0);
 
   int get _hoursContentIndex => _roomsContentIndex + _hoursAfterRooms + (_onBoard ? 1 : 0);
 
@@ -528,7 +531,7 @@ class _AssociationPageState extends State<AssociationPage>
             : const SizedBox.shrink(),
         // Not built yet: named on the rail, never opened.
         if (_onBoard) const SizedBox.shrink(),
-        const SizedBox.shrink(),
+        visitedSections.contains(_noticesContentIndex) ? const NoticesTab() : const SizedBox.shrink(),
         visitedSections.contains(_hoursContentIndex)
             ? CombinedHoursView(weeklyTemplates: _weeklyTemplates, onWeeklyTemplatesChanged: _refreshWeeklyTemplates)
             : const SizedBox.shrink(),

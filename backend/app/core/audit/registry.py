@@ -54,6 +54,16 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     **_crud("/schools", "School", "school_id", body_fields=("name",)),
     **_crud("/study-programs", "Study program", "program_id", body_fields=("name",)),
     **_crud("/rooms", "Room", "room_id", body_fields=("name",)),
+    **_crud("/notices", "Notice", "notice_id"),
+    ("PUT", "/notices/{notice_id}/pin"): AuditRule(
+        "Notice pin",
+        path_params=("notice_id",),
+        body_fields=("until",),
+    ),
+    ("DELETE", "/notices/{notice_id}/pin"): AuditRule(
+        "Notice unpin",
+        path_params=("notice_id",),
+    ),
     **_crud("/lessons", "Lesson", "lesson_id"),
     **_crud("/bookings", "Booking", "booking_id"),
     **_crud(

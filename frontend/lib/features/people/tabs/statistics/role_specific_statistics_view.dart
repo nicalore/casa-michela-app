@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_filter_pill.dart';
 import '../../../../shared/widgets/filter_menu.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../../shared/widgets/page_transition.dart';
+import '../../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../association/models/association_subject_item.dart';
 import '../../../association/models/subject_taxonomy.dart';
 import '../../../lessons/utils/opening_window.dart' show kPresenceMode;
@@ -1247,44 +1248,46 @@ class _RoleSpecificStatisticsViewState extends State<RoleSpecificStatisticsView>
   {
     final roleSpecific = _buildRoleSpecificCards();
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: pageTransitionBlocks([
-          ResponsiveCardPair(
-            first: SummaryStatCard(
-              title: 'Iscritti',
-              icon: Icons.groups_rounded,
-              count: _currentTotals?.currentTotalMembers ?? 0,
-              deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
-              deltaYear: _currentTotals?.membersDeltaYear ?? 0,
-              percentage: _currentTotals?.percentageOfTotalMembers,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: pageTransitionBlocks([
+            ResponsiveCardPair(
+              first: SummaryStatCard(
+                title: 'Iscritti',
+                icon: Icons.groups_rounded,
+                count: _currentTotals?.currentTotalMembers ?? 0,
+                deltaMonth: _currentTotals?.membersDeltaMonth ?? 0,
+                deltaYear: _currentTotals?.membersDeltaYear ?? 0,
+                percentage: _currentTotals?.percentageOfTotalMembers,
+              ),
+              second: SummaryStatCard(
+                title: 'Collaboratori attivi',
+                icon: Icons.handshake_rounded,
+                count: _currentTotals?.currentActiveCollaborators ?? 0,
+                deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
+                deltaYear: _currentTotals?.collabDeltaYear ?? 0,
+                percentage: _currentTotals?.percentageOfTotalCollaborators,
+              ),
             ),
-            second: SummaryStatCard(
-              title: 'Collaboratori attivi',
-              icon: Icons.handshake_rounded,
-              count: _currentTotals?.currentActiveCollaborators ?? 0,
-              deltaMonth: _currentTotals?.collabDeltaMonth ?? 0,
-              deltaYear: _currentTotals?.collabDeltaYear ?? 0,
-              percentage: _currentTotals?.percentageOfTotalCollaborators,
-            ),
-          ),
-          const SizedBox(height: 24),
-          MatchedCardPair(
-            first: _buildMembersRetentionCard,
-            second: _buildCollabRetentionCard,
-          ),
-          const SizedBox(height: 24),
-          for (final card in roleSpecific) ...[
-            card,
             const SizedBox(height: 24),
-          ],
-          _buildMembersTrendCard(),
-          const SizedBox(height: 24),
-          _buildCollabTrendCard(),
-          const SizedBox(height: 40),
-        ]),
+            MatchedCardPair(
+              first: _buildMembersRetentionCard,
+              second: _buildCollabRetentionCard,
+            ),
+            const SizedBox(height: 24),
+            for (final card in roleSpecific) ...[
+              card,
+              const SizedBox(height: 24),
+            ],
+            _buildMembersTrendCard(),
+            const SizedBox(height: 24),
+            _buildCollabTrendCard(),
+            const SizedBox(height: 40),
+          ]),
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/app_carousel_frame.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
 import '../../people/tabs/person_schools_tab.dart';
@@ -78,27 +79,29 @@ class _OnboardingSchoolStepState extends State<OnboardingSchoolStep>
     final years = [...?widget.person.schoolEnrollments]
       ..sort((a, b) => b.startYear.compareTo(a.startYear));
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 8, bottom: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: pageTransitionBlocks([
-          _buildYears(years),
-          const SizedBox(height: kPersonSectionGap),
-          Center(
-            child: AppGradientButton(
-              label: 'MODIFICA ANNI SCOLASTICI',
-              icon: Icons.edit_rounded,
-              onPressed: () => showEditSchoolsDialog(
-                context,
-                person: widget.person,
-                onUpdate: widget.onUpdate,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 8, bottom: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: pageTransitionBlocks([
+            _buildYears(years),
+            const SizedBox(height: kPersonSectionGap),
+            Center(
+              child: AppGradientButton(
+                label: 'MODIFICA ANNI SCOLASTICI',
+                icon: Icons.edit_rounded,
+                onPressed: () => showEditSchoolsDialog(
+                  context,
+                  person: widget.person,
+                  onUpdate: widget.onUpdate,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: kPersonSectionGap),
-          widget.footer,
-        ]),
+            const SizedBox(height: kPersonSectionGap),
+            widget.footer,
+          ]),
+        ),
       ),
     );
   }

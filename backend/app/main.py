@@ -26,6 +26,7 @@ from app.api import (
     lessons,
     methodological_notes,
     ministry_subjects,
+    notices,
     opening_days,
     people,
     person_accounts,
@@ -50,6 +51,7 @@ from app.core.exception_handlers import (
 from app.core.storage import PROFILE_IMAGES_DIR, UPLOADS_DIR
 from app.middleware import audit_logging_middleware
 from app.services.calendar_bootstrap import bootstrap_calendar_on_startup
+from app.services.collaboration_sweep import settle_collaborations_after_every_close
 
 
 # Photos are named after their content: what a URL serves never changes.
@@ -63,16 +65,21 @@ class _ImmutableStaticFiles(StaticFiles):
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    bootstrap = asyncio.create_task(bootstrap_calendar_on_startup())
+    tasks = (
+        asyncio.create_task(bootstrap_calendar_on_startup()),
+        asyncio.create_task(settle_collaborations_after_every_close()),
+    )
 
     try:
         yield
 
     finally:
-        bootstrap.cancel()
+        for task in tasks:
+            task.cancel()
 
-        with suppress(asyncio.CancelledError):
-            await bootstrap
+        for task in tasks:
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 app = FastAPI(
@@ -143,6 +150,7 @@ app.include_router(calendar_publications.router)
 app.include_router(calendar_locks.router)
 app.include_router(calendar_activities.router)
 app.include_router(calendar_teacher_exclusions.router)
+app.include_router(notices.router)
 
 
 @app.get("/health")

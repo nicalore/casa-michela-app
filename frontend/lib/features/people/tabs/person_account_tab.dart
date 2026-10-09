@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_segmented_switch.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../settings/utils/settings_strings.dart';
 import '../models/person_account_item.dart';
 import '../models/person_item.dart';
@@ -480,28 +481,30 @@ class _PersonAccountTabState extends State<PersonAccountTab> with PersonAccountA
     final List<Widget> actions = _buildActions(account);
     final List<Widget> suspension = _buildSuspension(account);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              _buildCards(account),
-              if (account.answeredFor && !account.isSuspended) ...[
-                const SizedBox(height: kPersonCardGap),
-                _buildAutonomousBookings(account),
-              ],
-              if (actions.isNotEmpty) ...[
-                const SizedBox(height: 40),
-                _buildButtons(actions),
-              ],
-              if (suspension.isNotEmpty) ...[
-                SizedBox(height: actions.isEmpty ? 40 : kPersonSectionGap),
-                _buildButtons(suspension),
-              ],
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                _buildCards(account),
+                if (account.answeredFor && !account.isSuspended) ...[
+                  const SizedBox(height: kPersonCardGap),
+                  _buildAutonomousBookings(account),
+                ],
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 40),
+                  _buildButtons(actions),
+                ],
+                if (suspension.isNotEmpty) ...[
+                  SizedBox(height: actions.isEmpty ? 40 : kPersonSectionGap),
+                  _buildButtons(suspension),
+                ],
+              ]),
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -253,23 +254,25 @@ class CalendarLessonBoard extends StatelessWidget
         final available = constraints.maxWidth - 2 * kLanePanelPadding;
         final cardWidth = _boardCardWidth(available);
 
-        return ListView.separated(
-          padding: EdgeInsets.zero,
-          itemCount: lanes.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 14),
-          itemBuilder: (context, index)
-          {
-            final lane = lanes[index];
+        return ScrollEdgeFade(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: lanes.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 14),
+            itemBuilder: (context, index)
+            {
+              final lane = lanes[index];
 
-            return CalendarLanePanel(
-              lane: lane,
-              view: view,
-              bandStart: bandStart,
-              bandEnd: bandEnd,
-              room: roomByTeacher[lane.personTaxCode],
-              child: _buildLane(lane, cardWidth, available),
-            );
-          },
+              return CalendarLanePanel(
+                lane: lane,
+                view: view,
+                bandStart: bandStart,
+                bandEnd: bandEnd,
+                room: roomByTeacher[lane.personTaxCode],
+                child: _buildLane(lane, cardWidth, available),
+              );
+            },
+          ),
         );
       },
     );

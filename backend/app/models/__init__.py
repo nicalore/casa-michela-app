@@ -20,6 +20,7 @@ from app.models.membership import Membership
 from app.models.methodological_note import MethodologicalNote
 from app.models.ministry_association_subject import MinistryAssociationSubject
 from app.models.ministry_subject import MinistrySubject
+from app.models.notice import Notice, NoticeFile, NoticePin
 from app.models.opening_day import OpeningDay
 from app.models.parent import Parent
 from app.models.parental_responsibility import ParentalResponsibility
@@ -71,6 +72,9 @@ __all__ = [
     "MethodologicalNote",
     "MinistryAssociationSubject",
     "MinistrySubject",
+    "Notice",
+    "NoticeFile",
+    "NoticePin",
     "OpeningDay",
     "Parent",
     "ParentalResponsibility",

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/utils/opening_window.dart' show kOnlineMode, kPresenceMode;
 import '../models/person_item.dart';
 import '../models/personal_statistics_items.dart';
@@ -268,26 +269,28 @@ class _PersonPersonalStatsTabState extends State<PersonPersonalStatsTab>
       return const Center(child: EmptyChartMessage());
     }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: pageTransitionBlocks([
-          if (cards.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: EmptyChartMessage(),
-            ),
-          for (final card in cards) ...[
-            card,
-            const SizedBox(height: 24),
-          ],
-          if (footer != null) ...[
-            const SizedBox(height: 24),
-            footer,
-          ],
-        ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: pageTransitionBlocks([
+            if (cards.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: EmptyChartMessage(),
+              ),
+            for (final card in cards) ...[
+              card,
+              const SizedBox(height: 24),
+            ],
+            if (footer != null) ...[
+              const SizedBox(height: 24),
+              footer,
+            ],
+          ]),
+        ),
       ),
     );
   }

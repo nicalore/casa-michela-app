@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'scroll_edge_fade.dart';
+
 class CardScrollArea extends StatelessWidget
 {
   static const double maxHeight = 420;
@@ -19,9 +21,11 @@ class CardScrollArea extends StatelessWidget
   {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        padding: padding,
-        child: child,
+      child: ScrollEdgeFade(
+        child: SingleChildScrollView(
+          padding: padding,
+          child: child,
+        ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../onboarding/widgets/contacts_card.dart';
 import '../models/person_item.dart';
@@ -47,40 +48,42 @@ class OwnInfoTab extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: pageTransitionBlocks([
-              PersonDetailCardPair(
-                first: identityCard(person),
-                second: residenceCard(person),
-              ),
-              const SizedBox(height: kPersonCardGap),
-              PersonDetailCardPair(
-                first: birthCard(person),
-                second: contactsCard(person),
-              ),
-              const SizedBox(height: 48),
-              Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
-                    AppGradientButton(
-                      label: 'MODIFICA CONTATTI',
-                      icon: Icons.edit_rounded,
-                      onPressed: () => _edit(context),
-                    ),
-                    ?footer,
-                  ],
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: pageTransitionBlocks([
+                PersonDetailCardPair(
+                  first: identityCard(person),
+                  second: residenceCard(person),
                 ),
-              ),
-            ]),
+                const SizedBox(height: kPersonCardGap),
+                PersonDetailCardPair(
+                  first: birthCard(person),
+                  second: contactsCard(person),
+                ),
+                const SizedBox(height: 48),
+                Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      AppGradientButton(
+                        label: 'MODIFICA CONTATTI',
+                        icon: Icons.edit_rounded,
+                        onPressed: () => _edit(context),
+                      ),
+                      ?footer,
+                    ],
+                  ),
+                ),
+              ]),
+            ),
           ),
         ),
       ),

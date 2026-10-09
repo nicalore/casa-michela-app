@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/rome_clock.dart';
 import '../../../features/association/models/opening_day_item.dart';
+import '../../../features/association/notices/notice_item.dart';
 import '../../../features/auth/models/me_response.dart';
 import '../../../features/home/models/month_summary_items.dart';
 import '../../../features/home/widgets/home_month_section.dart';
@@ -11,13 +12,17 @@ import '../../../features/lessons/models/presence_item.dart';
 import '../../../features/lessons/utils/opening_window.dart';
 import '../../../features/people/models/person_item.dart';
 import '../../../services/api_service.dart';
+import '../../layout/mobile_breakpoints.dart';
 import '../../shared/widgets/mobile_load_switcher.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import 'mobile_home_day.dart';
+import 'mobile_home_tour.dart';
 import 'mobile_home_view.dart';
 import 'mobile_parent_home_view.dart';
 import 'mobile_pupil_day.dart';
 import 'widgets/mobile_child_cards.dart';
 import 'widgets/mobile_month_figures.dart';
+import 'widgets/mobile_notices_list.dart';
 
 // Failures become null so one bad call does not fail the whole day.
 Future<T?> _quiet<T>(Future<T> future)
@@ -52,9 +57,17 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
   MobileParentDay? _children;
   List<MobileChildMonth>? _childMonths;
 
+  MobileHomeNotices _notices = const MobileHomeNotices();
+
   // Bumped on every fetch so a stale response is dropped.
   int _dayRequest = 0;
   int _monthRequest = 0;
+  int _noticesRequest = 0;
+
+  bool _toured = false;
+
+  // One per child, for the tour's wording; empty until the reader is read.
+  List<String?> _childGenders = const [];
 
   bool get _isParent => widget.role == kParentRole;
 
@@ -66,15 +79,61 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
   }
 
   @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+
+    if (!_toured && mobileTourSettled(context))
+    {
+      _toured = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tourOnce());
+    }
+  }
+
+  @override
   void dispose()
   {
     _pageController.dispose();
     super.dispose();
   }
 
+  void _tourOnce()
+  {
+    if (!mounted)
+    {
+      return;
+    }
+
+    final bool tablet = MobileBreakpoints.of(context).isTablet;
+
+    startMobileTourOnce(
+      taxCode: widget.user.taxCode,
+      tour: _isParent
+          ? parentHomeTour(tablet: tablet, pages: _pageController, genders: _childGenders)
+          : studentHomeTour(
+              tablet: tablet,
+              pages: _pageController,
+              answeredFor: widget.user.hasParentalResponsibility,
+            ),
+    );
+  }
+
   Future<void> _reload()
   {
-    return Future.wait([_loadDay(), _loadMonth()]);
+    return Future.wait([_loadDay(), _loadMonth(), _loadNotices()]);
+  }
+
+  Future<void> _loadNotices() async
+  {
+    final int request = ++_noticesRequest;
+    final List<NoticeHeadlineItem>? items = await _quiet(_apiService.getHomeNotices(widget.role));
+
+    if (!mounted || request != _noticesRequest)
+    {
+      return;
+    }
+
+    setState(() => _notices = MobileHomeNotices(loading: false, items: items));
   }
 
   // Any failed reading leaves the day null ("unknown"), distinct from a closed day.
@@ -112,6 +171,7 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
 
     MobileHomeDay? day;
     MobileParentDay? children;
+    final List<String?> genders = [for (final child in reader?.children ?? const []) child.gender];
 
     if (inBuilding != null && onScreen != null && publications != null && presences != null)
     {
@@ -143,6 +203,7 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
     {
       _day = day;
       _children = children;
+      _childGenders = genders;
       _loadingDay = false;
     });
   }
@@ -207,6 +268,7 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
         month: _childMonths,
         onRefresh: _reload,
         pageController: _pageController,
+        notices: _notices,
       );
     }
 
@@ -221,6 +283,7 @@ class _MobilePupilHomePageState extends State<MobilePupilHomePage>
       month: figures == null ? null : MobilePupilMonthFigures(figures: figures),
       onRefresh: _reload,
       pageController: _pageController,
+      notices: _notices,
     );
   }
 }

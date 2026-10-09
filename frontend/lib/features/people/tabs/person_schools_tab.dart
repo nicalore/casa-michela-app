@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/school_item.dart';
 import '../../association/models/study_program_item.dart';
@@ -98,55 +99,57 @@ class PersonSchoolsTab extends StatelessWidget
         enrollments.where((item) => item.startYear == currentYear).firstOrNull;
     final past = enrollments.where((item) => item.startYear < currentYear).toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 40),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _cardsWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              if (current != null) ...[
-                const PersonSectionTitle('Anno scolastico attuale'),
-                const SizedBox(height: kPersonTitleGap),
-                schoolEnrollmentCard(
-                  current,
-                  enrollments,
-                  isCurrent: true,
-                  showRepeating: showRepeating,
-                ),
-                const SizedBox(height: kPersonSectionGap),
-              ],
-              if (past.isNotEmpty) ...[
-                const PersonSectionTitle('Anni scolastici passati'),
-                const SizedBox(height: kPersonTitleGap),
-                for (var i = 0; i < past.length; i++) ...[
-                  if (i > 0) const SizedBox(height: kPersonCardGap),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 40),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _cardsWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                if (current != null) ...[
+                  const PersonSectionTitle('Anno scolastico attuale'),
+                  const SizedBox(height: kPersonTitleGap),
                   schoolEnrollmentCard(
-                    past[i],
+                    current,
                     enrollments,
-                    isCurrent: false,
+                    isCurrent: true,
                     showRepeating: showRepeating,
                   ),
+                  const SizedBox(height: kPersonSectionGap),
                 ],
-              ],
-              if (current == null && past.isEmpty)
-                const PersonEmptyState(message: 'Nessun anno scolastico registrato.'),
-              if (onUpdate case final VoidCallback update) ...[
-                const SizedBox(height: kPersonSectionGap),
-                Center(
-                  child: AppGradientButton(
-                    label: 'MODIFICA ANNI SCOLASTICI',
-                    icon: Icons.edit_rounded,
-                    onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
+                if (past.isNotEmpty) ...[
+                  const PersonSectionTitle('Anni scolastici passati'),
+                  const SizedBox(height: kPersonTitleGap),
+                  for (var i = 0; i < past.length; i++) ...[
+                    if (i > 0) const SizedBox(height: kPersonCardGap),
+                    schoolEnrollmentCard(
+                      past[i],
+                      enrollments,
+                      isCurrent: false,
+                      showRepeating: showRepeating,
+                    ),
+                  ],
+                ],
+                if (current == null && past.isEmpty)
+                  const PersonEmptyState(message: 'Nessun anno scolastico registrato.'),
+                if (onUpdate case final VoidCallback update) ...[
+                  const SizedBox(height: kPersonSectionGap),
+                  Center(
+                    child: AppGradientButton(
+                      label: 'MODIFICA ANNI SCOLASTICI',
+                      icon: Icons.edit_rounded,
+                      onPressed: () => showEditSchoolsDialog(context, person: person, onUpdate: update),
+                    ),
                   ),
-                ),
-              ],
-              if (footer != null) ...[
-                const SizedBox(height: kPersonSectionGap),
-                footer!,
-              ],
-            ]),
+                ],
+                if (footer != null) ...[
+                  const SizedBox(height: kPersonSectionGap),
+                  footer!,
+                ],
+              ]),
+            ),
           ),
         ),
       ),

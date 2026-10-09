@@ -1,4 +1,5 @@
 import base64
+from collections.abc import Sequence
 from typing import Final
 
 import resend
@@ -55,17 +56,21 @@ _TEMPLATE: Final[str] = """
                 Associazione Casa Michela
             </p>
         </div>
-        <h2 style="margin: 0 0 20px 0; color: {ink}; font-size: 24px; font-weight: 700;
-                   line-height: 1.25;"> {heading} </h2>
-        <p style="margin: 0 0 14px 0;">{greeting}</p>
+        <h2 style="margin: 0 0 20px 0; color: {ink}; font-size: {heading_size}px;
+                   font-weight: 700; line-height: 1.25;"> {heading} </h2>
+        {greeting_html}
         {body_html}
-        <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {line};
-                  color: {muted}; font-size: 14px;">
-            A presto,<br>
-            <strong style="color: {ink};">Associazione Casa Michela</strong>
-        </p>
+        {signature_html}
     </div>
 </div>
+"""
+
+_SIGNATURE: Final[str] = f"""
+        <p style="margin: 28px 0 0 0; padding-top: 24px; border-top: 1px solid {LINE};
+                  color: {MUTED}; font-size: 14px;">
+            A presto,<br>
+            <strong style="color: {INK};">Associazione Casa Michela</strong>
+        </p>
 """
 
 
@@ -81,32 +86,52 @@ async def president_address(db: AsyncSession) -> str:
     return email or CONTACT_ADDRESS
 
 
+# An empty greeting leaves no blank paragraph: a notice opens with its own words.
+def _greeting_html(greeting: str) -> str:
+    if not greeting:
+        return ""
+
+    return f'<p style="margin: 0 0 14px 0;">{greeting}</p>'
+
+
 # Raises whatever Resend raises: the caller decides whether a lost email matters.
 def send_email(
     recipient: str,
     subject: str,
     heading: str,
     body: str,
-    reply_to: str = CONTACT_ADDRESS,
+    reply_to: str | None = CONTACT_ADDRESS,
     greeting: str = GREETING,
+    attachments: Sequence[resend.Attachment] = (),
+    idempotency_key: str | None = None,
+    signature: str = _SIGNATURE,
+    heading_size: int = 24,
 ) -> None:
-    resend.Emails.send(
-        {
-            "from": SENDER,
-            "to": recipient,
-            "reply_to": reply_to,
-            "subject": subject,
-            "html": _TEMPLATE.format(
-                logo_content_id=LOGO_CONTENT_ID,
-                heading=heading,
-                greeting=greeting,
-                body_html=body,
-                paper=PAPER,
-                line=LINE,
-                ink=INK,
-                muted=MUTED,
-                body=BODY,
-            ),
-            "attachments": [LOGO_ATTACHMENT],
-        }
-    )
+    params: resend.Emails.SendParams = {
+        "from": SENDER,
+        "to": recipient,
+        "subject": subject,
+        "html": _TEMPLATE.format(
+            logo_content_id=LOGO_CONTENT_ID,
+            heading=heading,
+            heading_size=heading_size,
+            greeting_html=_greeting_html(greeting),
+            body_html=body,
+            signature_html=signature,
+            paper=PAPER,
+            line=LINE,
+            ink=INK,
+            muted=MUTED,
+            body=BODY,
+        ),
+        "attachments": [LOGO_ATTACHMENT, *attachments],
+    }
+
+    # None leaves the header out: replies go back to the sender's address.
+    if reply_to is not None:
+        params["reply_to"] = reply_to
+
+    if idempotency_key is None:
+        resend.Emails.send(params)
+    else:
+        resend.Emails.send(params, {"idempotency_key": idempotency_key})

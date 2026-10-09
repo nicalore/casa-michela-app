@@ -15,6 +15,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/dialog_components.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../models/child_item.dart';
 import '../models/parent_item.dart';
@@ -216,17 +217,19 @@ class _PersonChildrenTabState extends State<PersonChildrenTab>
       return _buildEmptyState();
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Column(
-            children: pageTransitionBlocks([
-              RelativeCardGrid(cards: [for (final child in children) _buildCard(child)]),
-              const SizedBox(height: 48),
-              _buildManageButton('GESTISCI FIGLI'),
-            ]),
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              children: pageTransitionBlocks([
+                RelativeCardGrid(cards: [for (final child in children) _buildCard(child)]),
+                const SizedBox(height: 48),
+                _buildManageButton('GESTISCI FIGLI'),
+              ]),
+            ),
           ),
         ),
       ),
@@ -617,26 +620,28 @@ class _ChildrenEditDialogState extends State<ChildrenEditDialog>
       return const PersonEmptyState(message: 'Nessun minore trovato per questa ricerca.');
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        alignment: WrapAlignment.center,
-        children: minors.map((minor)
-        {
-          final isSelected = _selectedMinors.containsKey(minor.fiscalCode);
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: kPersonGridShadowRoom),
+        child: Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          alignment: WrapAlignment.center,
+          children: minors.map((minor)
+          {
+            final isSelected = _selectedMinors.containsKey(minor.fiscalCode);
 
-          return PersonPickerCard(
-            person: minor,
-            isSelected: isSelected,
-            onTap: () => _onCardTap(minor),
-            onEdit: isSelected ? () => _onCardTap(minor) : null,
-            onRemove: isSelected
-                ? () => setState(() => _selectedMinors.remove(minor.fiscalCode))
-                : null,
-          );
-        }).toList(),
+            return PersonPickerCard(
+              person: minor,
+              isSelected: isSelected,
+              onTap: () => _onCardTap(minor),
+              onEdit: isSelected ? () => _onCardTap(minor) : null,
+              onRemove: isSelected
+                  ? () => setState(() => _selectedMinors.remove(minor.fiscalCode))
+                  : null,
+            );
+          }).toList(),
+        ),
       ),
     );
   }

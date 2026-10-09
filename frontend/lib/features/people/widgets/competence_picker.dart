@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/shared_components.dart';
 import '../../association/models/association_subject_item.dart';
 import '../../association/models/service_item.dart';
@@ -625,7 +626,7 @@ class _CompetenceCatalogueState extends State<CompetenceCatalogue>
         ],
       );
 
-    return widget.scrollable ? SingleChildScrollView(child: rows) : rows;
+    return widget.scrollable ? ScrollEdgeFade(child: SingleChildScrollView(child: rows)) : rows;
   }
 
   @override

@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/multi_select_filter_dialog.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../../shared/widgets/wizard_dialog.dart';
 import '../models/ministry_subject_item.dart';
@@ -449,45 +450,47 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
 
   Widget _buildStep1()
   {
-    return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppTextField(
-              controller: _nameController,
-              label: 'Nome',
-              hintText: 'Es. Liceo Statale "F. Corradini"',
-              maxLength: FieldLimits.name,
-              textCapitalization: TextCapitalization.words,
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _buildCityAutocomplete()),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 1,
-                  child: AppTextField(
-                    controller: _provinceController,
-                    label: 'Provincia',
-                    hintText: 'Es. VI',
-                    maxLength: FieldLimits.province,
-                    textCapitalization: TextCapitalization.characters,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: _nameController,
+                label: 'Nome',
+                hintText: 'Es. Liceo Statale "F. Corradini"',
+                maxLength: FieldLimits.name,
+                textCapitalization: TextCapitalization.words,
+              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: _buildCityAutocomplete()),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 1,
+                    child: AppTextField(
+                      controller: _provinceController,
+                      label: 'Provincia',
+                      hintText: 'Es. VI',
+                      maxLength: FieldLimits.province,
+                      textCapitalization: TextCapitalization.characters,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            AppTextField(
-              controller: _codeController,
-              focusNode: _codeFocusNode,
-              label: 'Codice meccanografico (opzionale)',
-              hintText: 'Es. VIPC02000P',
-              maxLength: FieldLimits.mechanographicCode,
-              textCapitalization: TextCapitalization.characters,
-            ),
-          ],
+                ],
+              ),
+              AppTextField(
+                controller: _codeController,
+                focusNode: _codeFocusNode,
+                label: 'Codice meccanografico (opzionale)',
+                hintText: 'Es. VIPC02000P',
+                maxLength: FieldLimits.mechanographicCode,
+                textCapitalization: TextCapitalization.characters,
+              ),
+            ],
+          ),
         ),
-      );
+    );
   }
 
   static const double _programGap = 12;
@@ -520,34 +523,36 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
         const SizedBox(height: 20),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: _optionsMaxHeight),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: _programGap,
-              children: [
-                for (final program in availablePrograms)
-                  AppChoiceCard(
-                    title: program.name,
-                    subtitle: programScopeTitle(
-                      level: program.level,
-                      sector: program.sector,
-                      track: program.highSchoolTrack,
+          child: ScrollEdgeFade(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: _programGap,
+                children: [
+                  for (final program in availablePrograms)
+                    AppChoiceCard(
+                      title: program.name,
+                      subtitle: programScopeTitle(
+                        level: program.level,
+                        sector: program.sector,
+                        track: program.highSchoolTrack,
+                      ),
+                      selected: _selectedPrograms.contains(program.id),
+                      onSelected: (selected) => setState(()
+                      {
+                        if (selected)
+                        {
+                          _selectedPrograms.add(program.id);
+                        }
+                        else
+                        {
+                          _selectedPrograms.remove(program.id);
+                        }
+                      }),
                     ),
-                    selected: _selectedPrograms.contains(program.id),
-                    onSelected: (selected) => setState(()
-                    {
-                      if (selected)
-                      {
-                        _selectedPrograms.add(program.id);
-                      }
-                      else
-                      {
-                        _selectedPrograms.remove(program.id);
-                      }
-                    }),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

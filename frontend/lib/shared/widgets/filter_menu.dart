@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 enum SortCriterion
 {
@@ -277,18 +278,20 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
           child: _expanded
               ? Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: widget.options.map((option)
-                      {
-                        return _FilterMenuItem(
-                          text: option.label,
-                          isSelected: widget.currentValue == option.value,
-                          onTap: () => widget.onSelected(option.value),
-                        );
-                      }).toList(),
+                  child: ScrollEdgeFade(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: widget.options.map((option)
+                        {
+                          return _FilterMenuItem(
+                            text: option.label,
+                            isSelected: widget.currentValue == option.value,
+                            onTap: () => widget.onSelected(option.value),
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                 )

@@ -11,7 +11,7 @@ dependencies:
   google_fonts: ^6.2.1
   flutter_svg: ^2.0.17
   shared_preferences: ^2.5.3
-  intl: ^0.19.0
+  intl: ^0.20.2
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -29,6 +29,11 @@ dependencies:
   # lo mostra.
   pdf: ^3.13.0
   web: ^1.1.1
+  flutter_quill: ^11.6.0
+  markdown_quill: ^4.3.0
+  file_picker: ^13.1.0
+  desktop_drop: ^0.8.0
+  markdown: ^7.3.1
 
 dev_dependencies:
   flutter_test:

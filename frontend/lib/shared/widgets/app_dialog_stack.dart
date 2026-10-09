@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'carousel_arrow_button.dart';
 import 'overflow_tooltip_text.dart';
+import 'scroll_edge_fade.dart';
 
 const double _pieceGap = 26;
 const double _windowMargin = 16;
@@ -175,19 +176,21 @@ class AppDialogStack extends StatelessWidget
     {
       return [
         Flexible(
-          child: _atMost(width, SingleChildScrollView(
-            // Default hit-testing is opaque: gap taps must reach the barrier, not stop here.
-            hitTestBehavior: HitTestBehavior.deferToChild,
-            padding: const EdgeInsets.all(_shadowRoom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i > 0) const SizedBox(height: _pieceGap),
-                  AppDialogPiece(index: i + 1, child: children[i]),
+          child: _atMost(width, ScrollEdgeFade(
+            child: SingleChildScrollView(
+              // Default hit-testing is opaque: gap taps must reach the barrier, not stop here.
+              hitTestBehavior: HitTestBehavior.deferToChild,
+              padding: const EdgeInsets.all(_shadowRoom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0) const SizedBox(height: _pieceGap),
+                    AppDialogPiece(index: i + 1, child: children[i]),
+                  ],
                 ],
-              ],
+              ),
             ),
           )),
         ),
@@ -437,5 +440,31 @@ class AppDialogPill extends StatelessWidget
     );
 
     return expand ? SizedBox(width: double.infinity, child: piece) : piece;
+  }
+}
+
+// For fillLast: the content scrolls inside, the card keeps its corners and shadow whole.
+class AppScrollingDialogPill extends StatelessWidget
+{
+  final Widget child;
+
+  const AppScrollingDialogPill({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return AppDialogPill(
+      expand: true,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_pillRadius),
+        child: ScrollEdgeFade(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(kDialogPillPadding),
+            child: child,
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import '../../../core/utils/error_message.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../settings/models/session_item.dart';
 import '../../settings/utils/settings_strings.dart';
 import '../../settings/widgets/session_card.dart';
@@ -203,27 +204,29 @@ class _PersonDevicesTabState extends State<PersonDevicesTab> with PersonAccountA
   {
     final List<Widget> actions = _buildActions(account);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(top: 16, bottom: 32),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _contentWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: pageTransitionBlocks([
-              _buildSessions(account.sessions),
-              if (actions.isNotEmpty) ...[
-                const SizedBox(height: 40),
-                Center(
-                  child: Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: actions,
+    return ScrollEdgeFade(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _contentWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: pageTransitionBlocks([
+                _buildSessions(account.sessions),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 40),
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: actions,
+                    ),
                   ),
-                ),
-              ],
-            ]),
+                ],
+              ]),
+            ),
           ),
         ),
       ),

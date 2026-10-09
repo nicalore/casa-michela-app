@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/study_program_item.dart';
 import '../../association/models/subject_taxonomy.dart';
 import 'person_detail_widgets.dart';
@@ -222,16 +223,18 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
           expand: true,
           child: groups.isEmpty
               ? const PersonEmptyState(message: 'Nessun percorso trovato.')
-              : SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final entry in groups.entries)
-                        _buildGroup(entry.key, entry.value),
-                    ],
+              : ScrollEdgeFade(
+                child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final entry in groups.entries)
+                          _buildGroup(entry.key, entry.value),
+                      ],
+                    ),
                   ),
-                ),
+              ),
         ),
       ],
     );

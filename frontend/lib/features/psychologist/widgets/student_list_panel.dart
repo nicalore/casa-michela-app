@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
 import '../psychologist_strings.dart';
@@ -91,19 +92,21 @@ class StudentListPanel extends StatelessWidget
           const SizedBox(height: 12),
           Expanded(
             child: ClipRect(
-              child: ListView.builder(
-                padding: const EdgeInsets.only(bottom: 18),
-                itemCount: students.length,
-                itemBuilder: (context, index)
-                {
-                  final PersonItem student = students[index];
+              child: ScrollEdgeFade(
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  itemCount: students.length,
+                  itemBuilder: (context, index)
+                  {
+                    final PersonItem student = students[index];
 
-                  return _StudentRow(
-                    student: student,
-                    selected: student.fiscalCode == selectedCode,
-                    onTap: () => onSelected(student),
-                  );
-                },
+                    return _StudentRow(
+                      student: student,
+                      selected: student.fiscalCode == selectedCode,
+                      onTap: () => onSelected(student),
+                    );
+                  },
+                ),
               ),
             ),
           ),

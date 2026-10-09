@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import 'app_section_rail.dart';
 import 'app_top_nav.dart';
+import 'scroll_edge_fade.dart';
 import 'shared_components.dart';
 
 const double _maxWidth = 320;
@@ -172,11 +173,13 @@ class AppNavDrawer extends StatelessWidget
             _buildHeader(),
             const Divider(height: 25, thickness: 1, color: AppTheme.trialLine),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+              child: ScrollEdgeFade(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
                 ),
               ),
             ),

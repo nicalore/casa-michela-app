@@ -19,6 +19,7 @@ import '../features/association/models/school_item.dart';
 import '../features/association/models/service_item.dart';
 import '../features/association/models/study_program_item.dart';
 import '../features/association/models/weekly_template_item.dart';
+import '../features/association/notices/notice_item.dart';
 import '../features/auth/models/login_response.dart';
 import '../features/auth/models/me_response.dart';
 import '../features/home/models/month_summary_items.dart';
@@ -1592,6 +1593,239 @@ class ApiService
     finally
     {
       _forgetCatalogues();
+    }
+  }
+
+  Future<List<NoticeSummaryItem>> getNotices() async
+  {
+    try
+    {
+      final response = await _dio.get('/notices/');
+
+      return parseList(response.data, NoticeSummaryItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le comunicazioni.');
+    }
+  }
+
+  // The role is the home's: each home lists only what was sent to its role.
+  Future<List<NoticeHeadlineItem>> getHomeNotices(String role) async
+  {
+    try
+    {
+      final response = await _dio.get('/notices/home', queryParameters: {'role': role});
+
+      return parseList(response.data, NoticeHeadlineItem.fromJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le comunicazioni.');
+    }
+  }
+
+  // Everything sent to the role, for its own Associazione page.
+  Future<List<NoticeSummaryItem>> getReceivedNotices(String role) async
+  {
+    try
+    {
+      final response = await _dio.get('/notices/received', queryParameters: {'role': role});
+
+      return parseList(response.data, NoticeSummaryItem.fromReceivedJson);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare le comunicazioni.');
+    }
+  }
+
+  // The reader's copy, for anyone who did not write notices from Associazione.
+  Future<NoticeItem> readNotice(int id) async
+  {
+    try
+    {
+      final response = await _dio.get('/notices/$id');
+
+      return NoticeItem.fromReadingJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare la comunicazione.');
+    }
+  }
+
+  Future<NoticeItem> getNotice(int id) async
+  {
+    try
+    {
+      final response = await _dio.get('/notices/$id');
+
+      return NoticeItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile caricare la comunicazione.');
+    }
+  }
+
+  Future<NoticeRecipientCount> countNoticeRecipients(List<NoticeRole> recipients) async
+  {
+    try
+    {
+      final response = await _dio.get(
+        '/notices/recipients',
+        queryParameters: {'recipients': [for (final role in recipients) role.code]},
+        options: Options(listFormat: ListFormat.multi),
+      );
+
+      return (people: response.data['people'] as int, emails: response.data['emails'] as int);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile contare i destinatari.');
+    }
+  }
+
+  MultipartFile _multipart(NoticeUpload upload, {required String fileName})
+  {
+    final String? mimeType = upload.mimeType;
+
+    return MultipartFile.fromBytes(
+      upload.bytes,
+      filename: fileName,
+      contentType: mimeType == null ? null : DioMediaType.parse(mimeType),
+    );
+  }
+
+  // Repeated keys without brackets: the server reads a form list that way.
+  FormData _noticeForm(NoticeDraft draft, {DateTime? expectedUpdatedAt})
+  {
+    return FormData()
+      ..fields.addAll([
+        MapEntry('title', draft.title),
+        MapEntry('message', draft.message),
+        for (final role in draft.recipients) MapEntry('recipients', role.code),
+        for (final id in draft.keptAttachmentIds) MapEntry('kept_attachment_ids', '$id'),
+        if (expectedUpdatedAt != null) MapEntry('expected_updated_at', expectedUpdatedAt.toUtc().toIso8601String()),
+      ])
+      ..files.addAll([
+        for (final entry in draft.images.entries)
+          MapEntry('images', _multipart(entry.value, fileName: entry.key)),
+        for (final file in draft.attachments)
+          MapEntry('attachments', _multipart(file, fileName: file.fileName)),
+      ]);
+  }
+
+  Future<NoticeItem> createNotice(NoticeDraft draft) async
+  {
+    try
+    {
+      final response = await _dio.post(
+        '/notices/',
+        data: _noticeForm(draft),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
+
+      return NoticeItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'invio della comunicazione. Riprova più tardi.');
+    }
+  }
+
+  Future<NoticeItem> updateNotice(NoticeItem notice, NoticeDraft draft) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/notices/${notice.id}',
+        data: _noticeForm(draft, expectedUpdatedAt: notice.updatedAt),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
+
+      return NoticeItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante la modifica della comunicazione. Riprova più tardi.');
+    }
+  }
+
+  // A null day pins it until someone unpins it.
+  Future<NoticeSummaryItem> pinNotice(int id, DateTime? until) async
+  {
+    try
+    {
+      final response = await _dio.put(
+        '/notices/$id/pin',
+        data: {'until': until == null ? null : formatDateOnly(until)},
+      );
+
+      return NoticeSummaryItem.fromJson(response.data);
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile fissare la comunicazione.');
+    }
+  }
+
+  Future<void> unpinNotice(int id) async
+  {
+    try
+    {
+      await _dio.delete('/notices/$id/pin');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Impossibile togliere la comunicazione dalla cima.');
+    }
+  }
+
+  Future<void> deleteNotice(int id) async
+  {
+    try
+    {
+      await _dio.delete('/notices/$id');
+    }
+    on DioException catch (e)
+    {
+      _refused(e, 'Errore durante l\'eliminazione della comunicazione.');
+    }
+  }
+
+  Future<ApiFile> fetchNoticeAttachment(int noticeId, NoticeAttachmentItem attachment) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/notices/$noticeId/attachments/${attachment.id}',
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return (bytes: Uint8List.fromList(response.data!), fileName: attachment.fileName);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Impossibile scaricare l\'allegato.');
+    }
+  }
+
+  Future<Uint8List> fetchNoticeImage(int noticeId, String key) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/notices/$noticeId/images/$key',
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
     }
   }
 

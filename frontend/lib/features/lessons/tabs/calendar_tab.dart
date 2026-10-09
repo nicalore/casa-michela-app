@@ -16,6 +16,7 @@ import '../../../shared/widgets/app_calendar_button.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
+import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/tab_layout.dart';
 import '../../association/models/association_subject_item.dart';
@@ -1954,9 +1955,11 @@ class _CalendarTabState extends State<CalendarTab>
       {
         return Scrollbar(
           controller: _trackController,
-          child: SingleChildScrollView(
-            controller: _trackController,
-            child: _buildTrack(lanes, index, window, constraints.maxWidth),
+          child: ScrollEdgeFade(
+            child: SingleChildScrollView(
+              controller: _trackController,
+              child: _buildTrack(lanes, index, window, constraints.maxWidth),
+            ),
           ),
         );
       },

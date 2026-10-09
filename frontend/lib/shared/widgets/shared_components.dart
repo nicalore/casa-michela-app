@@ -97,12 +97,17 @@ class FadeHoverIconButton extends StatefulWidget
   final Color hoverColor;
   final VoidCallback onTap;
 
+  final double iconSize;
+  final double padding;
+
   const FadeHoverIconButton({
     super.key,
     required this.icon,
     required this.color,
     required this.hoverColor,
     required this.onTap,
+    this.iconSize = 24,
+    this.padding = 6,
   });
 
   @override
@@ -124,12 +129,12 @@ class _FadeHoverIconButtonState extends State<FadeHoverIconButton>
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(6),
+          padding: EdgeInsets.all(widget.padding),
           decoration: BoxDecoration(
             color: _isHovered ? widget.hoverColor : widget.hoverColor.withValues(alpha: 0.0),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(widget.icon, color: widget.color, size: 24),
+          child: Icon(widget.icon, color: widget.color, size: widget.iconSize),
         ),
       ),
     );
