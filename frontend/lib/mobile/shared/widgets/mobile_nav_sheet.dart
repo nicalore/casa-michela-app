@@ -13,6 +13,7 @@ import '../navigation/mobile_destinations.dart';
 import 'mobile_avatar.dart';
 import 'mobile_glass_panel.dart';
 import 'mobile_pill.dart';
+import 'mobile_tour.dart';
 
 const double _headTop = 8;
 const double _grabberWidth = 38;
@@ -37,6 +38,10 @@ const double _separatorHeight = 17;
 const double _identityHeight = 70;
 
 const double _scrimAlpha = 0.42;
+
+// The lit bar runs past the screen's bottom edge, so only its top corners show.
+const EdgeInsets _tourSheetInflate = EdgeInsets.fromLTRB(2, 2, 2, 60);
+const EdgeInsets _tourSectionsInflate = EdgeInsets.symmetric(horizontal: -8, vertical: 4);
 
 enum MobileNavAction { changeRole, logout }
 
@@ -63,6 +68,10 @@ class MobileNavSheet extends StatefulWidget
   static ValueListenable<double> get openness => _openness;
   static final ValueNotifier<double> _openness = ValueNotifier<double>(0);
 
+  // A tour stepping back closes it.
+  static void close() => _shown?._close();
+  static _MobileNavSheetState? _shown;
+
   // The login card turns into this glass on sign-in.
   static final BoxDecoration glass = BoxDecoration(
     color: MobileGlassPanel.sheetTint.withValues(alpha: MobileGlassPanel.sheetAlpha),
@@ -81,9 +90,10 @@ class MobileNavSheet extends StatefulWidget
     required this.onAction,
   });
 
+  // View padding, not the keyboard's: pages behind a typing sheet stay laid out.
   static double collapsedHeightFor(BuildContext context)
   {
-    return _collapsedHeight + MediaQuery.paddingOf(context).bottom;
+    return _collapsedHeight + MediaQuery.viewPaddingOf(context).bottom;
   }
 
   static Rect collapsedRectFor(BuildContext context, Size size)
@@ -122,8 +132,20 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
   double _travel = 0;
 
   @override
+  void initState()
+  {
+    super.initState();
+    MobileNavSheet._shown = this;
+  }
+
+  @override
   void dispose()
   {
+    if (MobileNavSheet._shown == this)
+    {
+      MobileNavSheet._shown = null;
+    }
+
     _open.dispose();
     super.dispose();
   }
@@ -357,26 +379,35 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
       // Keeps the system inset under the closed head blank.
       SizedBox(height: inset),
       _buildSeparator(),
-      for (final destination in _others)
-        _SheetRow(
-          icon: destination.icon,
-          label: destination.label,
-          muted: !destination.available,
-          trailing: destination.slug == _arriving
-              ? const _RowSpinner()
-              : destination.available
-                  ? null
-                  : const MobilePill('In arrivo', tone: MobilePillTone.teal),
-          onTap: destination.available ? () => _chooseDestination(destination.slug) : null,
+      // Every destination, own page and settings included; role change and logout stay out.
+      MobileTourTarget(
+        id: kMobileTourNavSections,
+        inflate: _tourSectionsInflate,
+        child: Column(
+          children: [
+            for (final destination in _others)
+              _SheetRow(
+                icon: destination.icon,
+                label: destination.label,
+                muted: !destination.available,
+                trailing: destination.slug == _arriving
+                    ? const _RowSpinner()
+                    : destination.available
+                        ? null
+                        : const MobilePill('In arrivo', tone: MobilePillTone.teal),
+                onTap: destination.available ? () => _chooseDestination(destination.slug) : null,
+              ),
+            _buildSeparator(),
+            for (final destination in _otherUserDestinations)
+              _SheetRow(
+                icon: destination.icon,
+                label: destination.label,
+                trailing: destination.slug == _arriving ? const _RowSpinner() : null,
+                onTap: () => _chooseDestination(destination.slug),
+              ),
+          ],
         ),
-      _buildSeparator(),
-      for (final destination in _otherUserDestinations)
-        _SheetRow(
-          icon: destination.icon,
-          label: destination.label,
-          trailing: destination.slug == _arriving ? const _RowSpinner() : null,
-          onTap: () => _chooseDestination(destination.slug),
-        ),
+      ),
       if (user.availableRoles.length > 1)
         _SheetRow(
           icon: Icons.swap_horiz_rounded,
@@ -420,15 +451,16 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
   @override
   Widget build(BuildContext context)
   {
-    final MediaQueryData media = MediaQuery.of(context);
-    final double inset = media.padding.bottom;
+    // Not the whole MediaQuery: each keyboard frame of a sheet would rebuild the menu.
+    final EdgeInsets padding = MediaQuery.viewPaddingOf(context);
+    final double inset = padding.bottom;
     final bool tablet = MobileBreakpoints.of(context).isTablet;
 
     return LayoutBuilder(
       builder: (context, constraints)
       {
         final double closed = _collapsedHeight + inset;
-        final double tallest = constraints.maxHeight - media.padding.top - _topClearance;
+        final double tallest = constraints.maxHeight - padding.top - _topClearance;
         final double open = math.min(_contentHeight(inset), tallest);
 
         _travel = open - closed;
@@ -462,7 +494,12 @@ class _MobileNavSheetState extends State<MobileNavSheet> with SingleTickerProvid
                       },
                       child: SizedBox(
                         height: closed + _travel * _open.value.clamp(0.0, 1.0),
-                        child: child,
+                        child: MobileTourTarget(
+                          id: kMobileTourNavSheet,
+                          inflate: _tourSheetInflate,
+                          radius: _radius,
+                          child: child!,
+                        ),
                       ),
                     ),
                     child: GestureDetector(

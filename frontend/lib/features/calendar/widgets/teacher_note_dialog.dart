@@ -8,9 +8,7 @@ import '../../../core/utils/week_range.dart';
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
-import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
-import '../../../shared/widgets/app_selectable_chip.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -31,6 +29,12 @@ bool lessonHasBegun(LessonItem lesson, DateTime now)
   final DateTime start = DateTime(date.year, date.month, date.day, lesson.startTime.hour, lesson.startTime.minute);
 
   return !start.isAfter(now);
+}
+
+// Every subject of the lesson, each once: the note is about the whole lesson.
+String lessonSubjects(LessonItem lesson, List<MinistrySubjectItem> ministrySubjects)
+{
+  return {for (final entry in lesson.bookings) bookingTitle(entry.booking, ministrySubjects)}.join(', ');
 }
 
 // True once sent; the teacher does not see the note again.
@@ -65,8 +69,6 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
   final ApiService _apiService = ApiService();
   final TextEditingController _controller = TextEditingController();
 
-  int _chosen = 0;
-
   bool _sending = false;
 
   @override
@@ -75,10 +77,6 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
     _controller.dispose();
     super.dispose();
   }
-
-  List<LessonBookingItem> get _bookings => widget.lesson.bookings;
-
-  String _subjectOf(LessonBookingItem entry) => bookingTitle(entry.booking, widget.ministrySubjects);
 
   Future<void> _send() async
   {
@@ -95,7 +93,7 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
 
     try
     {
-      await _apiService.createTeacherNote(widget.lesson.id, _bookings[_chosen].booking.id, text);
+      await _apiService.createTeacherNote(widget.lesson.id, text);
 
       if (mounted)
       {
@@ -114,46 +112,19 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
     }
   }
 
-  Widget _buildSubjects()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppFieldLabel(kSubjectLabel),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (var i = 0; i < _bookings.length; i++)
-                AppSelectableChip(
-                  label: _subjectOf(_bookings[i]),
-                  selected: i == _chosen,
-                  onSelected: (_) => setState(() => _chosen = i),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
     final LessonItem lesson = widget.lesson;
     final student = lesson.bookings.first.presence.student;
     final String day = formatWeekdayColumnLabel(lesson.date);
-    final bool several = _bookings.length > 1;
 
     return AppDialogStack(
       eyebrow: kNewNoteEyebrow,
       title: '${student.firstName} ${student.lastName}',
       leading: PersonAvatar(person: student, size: PersonAvatar.titleSize),
       subtitle: Text(
-        several ? day : '${_subjectOf(_bookings.first)} · $day',
+        '${lessonSubjects(lesson, widget.ministrySubjects)} · $day',
         style: GoogleFonts.plusJakartaSans(
           fontSize: 15,
           fontWeight: FontWeight.w600,
@@ -179,7 +150,6 @@ class _TeacherNoteDialogState extends State<_TeacherNoteDialog>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (several) _buildSubjects(),
               Text(
                 kTeacherNoteHint,
                 style: GoogleFonts.plusJakartaSans(

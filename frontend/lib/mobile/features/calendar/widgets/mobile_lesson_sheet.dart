@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/rome_clock.dart';
 import '../../../../core/utils/week_range.dart';
 import '../../../../features/association/models/ministry_subject_item.dart';
 import '../../../../features/calendar/widgets/own_lesson_block.dart' show kSharedLessonIcon;
 import '../../../../features/calendar/widgets/own_lesson_dialog.dart';
+import '../../../../features/calendar/widgets/teacher_note_dialog.dart' show lessonHasBegun;
 import '../../../../features/lessons/models/calendar_day.dart';
 import '../../../../features/lessons/models/activity_item.dart';
 import '../../../../features/lessons/models/lesson_item.dart';
@@ -17,14 +19,18 @@ import '../../../../features/lessons/widgets/calendar_activity_block.dart' show 
 import '../../../../features/lessons/widgets/calendar_lesson_block.dart' show lessonTitle;
 import '../../../../features/people/models/person_item.dart';
 import '../../../../features/people/models/student_note_item.dart';
+import '../../../../features/people/utils/student_notes_strings.dart';
 import '../../../../features/people/widgets/person_detail_widgets.dart' show DetailRowData;
 import '../../../../features/people/widgets/student_notes_card.dart' show noteDate;
 import '../../../shared/mobile_palette.dart';
 import '../../../shared/widgets/mobile_avatar.dart';
+import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
+import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_page_strip.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../profile/widgets/mobile_detail_card.dart';
+import 'mobile_teacher_note_page.dart';
 
 // Matches the eyebrow, name and day beside it.
 const double _faceSize = 72;
@@ -71,6 +77,7 @@ Future<void> showMobileLessonSheet({
       otherName: withStudent ? 'Studente' : null,
       otherVoices: student == null ? null : studentVoicesOf(student),
       otherFailedNote: kStudentFailedNote,
+      takesNote: lessonHasBegun(lesson, romeNow()),
     ),
   );
 }
@@ -117,6 +124,9 @@ class _LessonSheet extends StatefulWidget
 
   final bool forPupil;
 
+  // The teacher may write a note for the administrators from the lesson's start on.
+  final bool takesNote;
+
   const _LessonSheet({
     required this.lesson,
     required this.ministrySubjects,
@@ -127,6 +137,7 @@ class _LessonSheet extends StatefulWidget
     required this.otherVoices,
     required this.otherFailedNote,
     this.forPupil = false,
+    this.takesNote = false,
   });
 
   @override
@@ -250,7 +261,7 @@ class _LessonSheetState extends State<_LessonSheet>
           );
   }
 
-  // The sheet turns to the notes, newest first; the × comes back.
+  // The sheet turns to the notes, newest first; closing turns it back.
   void _openNotes(LessonVoice voice)
   {
     final PersonOptionItem? face = widget.face;
@@ -277,6 +288,42 @@ class _LessonSheetState extends State<_LessonSheet>
     );
   }
 
+  // The sheet turns to the form; once sent it turns back to the lesson.
+  void _writeNote()
+  {
+    showMobileSheet<void>(
+      context: context,
+      builder: (_) => MobileTeacherNotePage(
+        lesson: widget.lesson,
+        ministrySubjects: widget.ministrySubjects,
+        onSent: ()
+        {
+          if (!mounted)
+          {
+            return;
+          }
+
+          returnToMobileSheetPage(context);
+          MobileNotice.show(context, kNoteSent);
+        },
+      ),
+    );
+  }
+
+  // Under the pages, so it stays put while they are swiped.
+  Widget? _buildFooter()
+  {
+    if (!widget.takesNote)
+    {
+      return null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: MobileGoldButton(label: kAddNoteLabel, icon: Icons.add_rounded, onPressed: _writeNote),
+    );
+  }
+
   @override
   Widget build(BuildContext context)
   {
@@ -293,6 +340,7 @@ class _LessonSheetState extends State<_LessonSheet>
           const SizedBox(height: 16),
           _buildLessonCard(),
         ],
+        footer: _buildFooter(),
       );
     }
 
@@ -306,6 +354,7 @@ class _LessonSheetState extends State<_LessonSheet>
         child: MobilePageStrip(labels: _pageNames, controller: _pages, onLight: true),
       ),
       content: _buildPager(),
+      footer: _buildFooter(),
     );
   }
 }

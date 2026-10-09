@@ -33,7 +33,3 @@ class TeacherNoteResponse(BaseModel):
     lesson_date: date
     subject: str
 
-
-class TeacherNoteCreate(StudentNoteWrite):
-    # One of the lesson's bookings: the subject the note is about.
-    booking_id: int

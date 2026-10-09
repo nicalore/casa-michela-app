@@ -2457,11 +2457,11 @@ class ApiService
   }
 
   // Only once the lesson is over; nobody but the administrators reads it afterwards.
-  Future<void> createTeacherNote(int lessonId, int bookingId, String text) async
+  Future<void> createTeacherNote(int lessonId, String text) async
   {
     try
     {
-      await _dio.post('/lessons/$lessonId/teacher-notes/', data: {'booking_id': bookingId, 'text': text});
+      await _dio.post('/lessons/$lessonId/teacher-notes/', data: {'text': text});
     }
     on DioException catch (e)
     {

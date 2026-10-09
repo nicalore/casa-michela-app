@@ -12,7 +12,7 @@ from app.models.lesson import Lesson
 from app.models.lesson_booking import LessonBooking
 from app.models.ministry_subject import MinistrySubject
 from app.models.teacher_note import TeacherNote
-from app.schemas.student_note import TeacherNoteCreate, TeacherNoteResponse
+from app.schemas.student_note import StudentNoteWrite, TeacherNoteResponse
 
 _LESSON_NOT_FOUND_ERROR: Final[str] = "Lezione non trovata"
 _BOOKING_NOT_FOUND_ERROR: Final[str] = "Prenotazione non trovata"
@@ -56,7 +56,7 @@ async def write_teacher_note(
     *,
     teacher_tax_code: str,
     lesson_id: int,
-    payload: TeacherNoteCreate,
+    payload: StudentNoteWrite,
 ) -> TeacherNote:
     booking_load = joinedload(Lesson.lesson_bookings).joinedload(LessonBooking.booking)
     stmt = (
@@ -91,27 +91,23 @@ async def write_teacher_note(
             detail=_NOT_STARTED_ERROR,
         )
 
-    booking = next(
-        (
-            link.booking
-            for link in lesson.lesson_bookings
-            if link.booking_id == payload.booking_id
-        ),
-        None,
-    )
+    bookings = [link.booking for link in lesson.lesson_bookings]
 
-    if booking is None:
+    if not bookings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=_BOOKING_NOT_FOUND_ERROR,
         )
 
+    # The note is about the whole lesson: every subject in it, each named once.
+    subjects = dict.fromkeys([await _subject_of(db, booking) for booking in bookings])
+
     note = TeacherNote(
-        student_tax_code=booking.presence.student_tax_code,
+        student_tax_code=bookings[0].presence.student_tax_code,
         author_tax_code=teacher_tax_code,
         lesson_id=lesson.id,
         lesson_date=lesson.date,
-        subject=await _subject_of(db, booking),
+        subject=", ".join(subjects),
         text=payload.text,
     )
     db.add(note)

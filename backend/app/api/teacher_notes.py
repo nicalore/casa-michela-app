@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, Response, status
 from app.api.dependencies import DbSession
 from app.api.rbac import IdentityContext, require_role
 from app.models.teacher_note import TeacherNote
-from app.schemas.student_note import TeacherNoteCreate
+from app.schemas.student_note import StudentNoteWrite
 from app.services.student_notes import note_of_student
 from app.services.teacher_notes import write_teacher_note
 
-# Written by the teacher after the lesson; only administrators read or delete it.
+# Written by the teacher once the lesson begins; only administrators read or delete it.
 router = APIRouter(tags=["people"])
 
 Teacher = Annotated[IdentityContext, Depends(require_role("TEACHER"))]
@@ -22,7 +22,7 @@ Administrator = Annotated[IdentityContext, Depends(require_role("ADMIN"))]
 )
 async def create_teacher_note(
     lesson_id: int,
-    payload: TeacherNoteCreate,
+    payload: StudentNoteWrite,
     identity: Teacher,
     db: DbSession,
 ) -> dict[str, int]:

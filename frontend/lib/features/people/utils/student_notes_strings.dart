@@ -13,7 +13,7 @@ String notesReadersHint(String firstName) =>
     'Queste indicazioni saranno lette dai docenti che di volta in volta seguiranno $firstName.';
 
 const String kTeacherNoteHint = 'Questa osservazione sarà inviata agli amministratori.';
-const String kSubjectLabel = 'Materia';
+const String kTeacherNoteFieldLabel = 'Osservazione';
 
 const String kAddLabel = 'AGGIUNGI';
 const String kAddNoteLabel = 'AGGIUNGI OSSERVAZIONE';

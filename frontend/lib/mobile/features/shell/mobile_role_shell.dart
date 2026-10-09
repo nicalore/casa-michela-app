@@ -12,6 +12,7 @@ import '../../shared/widgets/mobile_load_switcher.dart';
 import '../../shared/widgets/mobile_nav_sheet.dart';
 import '../../shared/widgets/mobile_role_sheet.dart';
 import '../../shared/widgets/mobile_notice.dart';
+import '../../shared/widgets/mobile_tour.dart';
 import '../association/mobile_association_page.dart';
 import '../availability/mobile_availability_page.dart';
 import '../bookings/mobile_bookings_page.dart';
@@ -424,6 +425,8 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
         final String? arrivingSlug = _arrivingSlug;
 
         return Scaffold(
+          // Fields live in sheets above the keyboard; resizing relaid the page every frame.
+          resizeToAvoidBottomInset: false,
           body: Stack(
             fit: StackFit.expand,
             children: [
@@ -461,6 +464,7 @@ class _MobileRoleShellState extends State<MobileRoleShell> with SingleTickerProv
                   onAction: (action) => _onAction(user, action),
                 ),
               ),
+              MobileTourLayer(ready: leavingRole == null && arrivingSlug == null),
             ],
           ),
         );
