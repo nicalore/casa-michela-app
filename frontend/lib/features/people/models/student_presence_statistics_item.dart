@@ -22,14 +22,15 @@ class StudentPresenceRankItem
 
 enum RequestedSubjectKind
 {
-  ministrySubject('Materie', 'materie più richieste'),
-  discipline('Discipline', 'discipline più richieste'),
-  service('Servizi', 'servizi più richiesti');
+  ministrySubject('Materie', 'materie più richieste', 'materie con più ore'),
+  discipline('Discipline', 'discipline più richieste', 'discipline con più ore'),
+  service('Servizi', 'servizi più richiesti', 'servizi con più ore');
 
   final String label;
   final String rankingTitle;
+  final String hoursTitle;
 
-  const RequestedSubjectKind(this.label, this.rankingTitle);
+  const RequestedSubjectKind(this.label, this.rankingTitle, this.hoursTitle);
 }
 
 class RequestedSubjectItem

@@ -56,6 +56,10 @@ _WEEKDAY_ON_TWO_LINES_ERROR: Final[str] = (
     "Uno stesso giorno non può comparire in due righe di uscita anticipata."
 )
 
+_SCHOOL_OR_HOMESCHOOLING_ERROR: Final[str] = (
+    "Per ogni anno scolastico indica la scuola oppure l'istruzione parentale."
+)
+
 _LATE_EXIT_ERROR: Final[str] = (
     "L'orario di uscita deve precedere la fine delle attività "
     f"(ore {EVENING_START:%H:%M})."
@@ -123,7 +127,10 @@ class SchoolEnrollmentResponse(BaseModel):
 
     start_year: int
     grade: int
-    school_id: int
+
+    # Null under homeschooling, whose label then stands in for the name.
+    school_id: int | None = None
+    homeschooling: bool = False
     school_name: str
     school_mechanographic_code: str | None = None
     study_program_name: str
@@ -282,9 +289,21 @@ class PsychologicalSupportUpdateData(BaseModel):
     start_date: date
 
 
-class SchoolEnrollmentUpdateItem(BaseModel):
+# Exactly one of the two: homeschooling has no school.
+class SchoolOrHomeschooling(BaseModel):
+    school_id: int | None = None
+    homeschooling: bool = False
+
+    @model_validator(mode="after")
+    def _school_or_homeschooling(self) -> Self:
+        if self.homeschooling == (self.school_id is not None):
+            raise ValueError(_SCHOOL_OR_HOMESCHOOLING_ERROR)
+
+        return self
+
+
+class SchoolEnrollmentUpdateItem(SchoolOrHomeschooling):
     start_year: int
-    school_id: int
     study_program_id: int
     grade: int
 
@@ -511,6 +530,10 @@ class TeacherProgramResponse(BaseModel):
     level: EducationLevelEnum
 
     high_school_track: HighSchoolTrackEnum | None = None
+
+    # The span names an OTHER track, so the client needs it to build the name.
+    min_year: int
+    max_year: int
 
 
 class TeacherSubjectResponse(BaseModel):

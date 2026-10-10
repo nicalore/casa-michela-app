@@ -145,6 +145,8 @@ class _SchoolsTabState extends State<SchoolsTab>
                     level: program.level,
                     sector: program.sector,
                     track: program.highSchoolTrack,
+                    minYear: program.minYear,
+                    maxYear: program.maxYear,
                   ),
                 ))
             .toList(),
@@ -537,6 +539,8 @@ class _SchoolWizardDialogState extends State<_SchoolWizardDialog>
                         level: program.level,
                         sector: program.sector,
                         track: program.highSchoolTrack,
+                        minYear: program.minYear,
+                        maxYear: program.maxYear,
                       ),
                       selected: _selectedPrograms.contains(program.id),
                       onSelected: (selected) => setState(()

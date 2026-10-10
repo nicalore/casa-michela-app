@@ -7,11 +7,9 @@ import '../../../../lessons/utils/opening_window.dart' show kOnlineMode;
 import '../../../models/student_presence_statistics_item.dart';
 import 'stat_filters.dart';
 import 'stat_widgets.dart';
+import 'stats_layout.dart';
 
 const Color _sectionDivider = AppTheme.trialLine;
-
-// Below this width the student and subject rankings stack.
-const double _stackBelow = 900;
 
 // Places in each requests ranking; must match the backend limit.
 const int _requestsLimit = 10;
@@ -107,45 +105,6 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
     );
   }
 
-  Widget _sections()
-  {
-    final students = _topStudents();
-    final subjects = _topSubjects();
-
-    return LayoutBuilder(
-      builder: (context, constraints)
-      {
-        if (constraints.maxWidth < _stackBelow)
-        {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              students,
-              const SizedBox(height: 24),
-              const Divider(color: _sectionDivider, thickness: 1),
-              const SizedBox(height: 24),
-              subjects,
-            ],
-          );
-        }
-
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: students),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: VerticalDivider(color: _sectionDivider, thickness: 1),
-              ),
-              Expanded(child: subjects),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
@@ -186,7 +145,7 @@ class _StudentPresenceCardState extends State<StudentPresenceCard>
             const SizedBox(height: 32),
             const Divider(color: _sectionDivider, thickness: 1),
             const SizedBox(height: 32),
-            _sections(),
+            RankingPair(first: _topStudents(), second: _topSubjects()),
           ],
         ),
       ),

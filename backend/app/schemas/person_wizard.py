@@ -8,6 +8,7 @@ from app.core import field_lengths
 from app.schemas.person import (
     BirthPlaceData,
     ParentalRelationshipInput,
+    SchoolOrHomeschooling,
     StudentCertificationData,
     StudentEarlyExitData,
     StudentHomeworkTariffData,
@@ -168,9 +169,8 @@ class WizardPsychologicalSupportData(BaseModel):
     start_date: date
 
 
-class WizardSchoolEnrollmentData(BaseModel):
+class WizardSchoolEnrollmentData(SchoolOrHomeschooling):
     start_year: int
-    school_id: int
     study_program_id: int
     school_class: str
 

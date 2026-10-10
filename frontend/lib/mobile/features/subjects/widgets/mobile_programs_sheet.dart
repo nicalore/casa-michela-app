@@ -101,6 +101,8 @@ class _ProgramsSheetState extends State<_ProgramsSheet>
         level: program.level,
         sector: program.sector,
         track: program.highSchoolTrack,
+        minYear: program.minYear,
+        maxYear: program.maxYear,
       );
 
       groups.putIfAbsent(title, () => []).add(program);

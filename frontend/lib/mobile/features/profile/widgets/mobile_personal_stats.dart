@@ -3,17 +3,42 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/error_message.dart';
+import '../../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../../features/people/models/personal_statistics_items.dart';
 import '../../../../features/people/models/student_presence_statistics_item.dart';
+import '../../../../features/people/own_page.dart' show OwnPageSection;
 import '../../../../features/people/tabs/person_personal_stats_tab.dart'
-    show availabilityShortfalls, kRequestedSubjectsLimit, presenceDaysPerWeekLabel, presenceTrendTitle;
+    show
+        availabilityShortfalls,
+        kPupilStatsTitle,
+        kTaughtDisciplinesTitle,
+        kTeacherStatsTitle,
+        kTopStudentsTitle,
+        kTopTeachersTitle,
+        presenceDaysPerWeekLabel,
+        presenceTrendTitle,
+        subjectHoursTitle;
 import '../../../../features/lessons/utils/opening_window.dart';
 import '../../../../features/people/tabs/statistics/widgets/stats_data.dart';
 import '../../../../services/api_service.dart';
+import '../../../layout/mobile_breakpoints.dart';
+import '../../../shared/mobile_line_breaks.dart';
 import '../../../shared/mobile_palette.dart';
-import '../../../shared/widgets/mobile_choice_chips.dart';
+import '../../../shared/widgets/mobile_choice_sheet.dart';
+import '../../../shared/widgets/mobile_filter_chip.dart';
+import '../../../shared/widgets/mobile_load_switcher.dart';
+import 'mobile_card_grid.dart';
 import 'mobile_detail_card.dart';
 import 'mobile_trend_chart.dart';
+
+// Room for "100.0%", and for the usual hours badges; a longer one widens its own slot.
+const double _shareSlot = 44;
+const double _badgeSlot = 72;
+
+// Room for "10°".
+const double _positionSlot = 30;
+
+const double _rankingsGap = 12;
 
 // Held by the page: its pages are not kept alive, and returning must not refetch.
 abstract class MobileStatsController<T> extends ChangeNotifier
@@ -148,11 +173,9 @@ class MobilePupilStatsController extends MobileStatsController<StudentPersonalSt
     );
   }
 
-  void chooseKind(String? chosen)
+  void chooseKind(RequestedSubjectKind picked)
   {
-    final RequestedSubjectKind? picked = RequestedSubjectKind.values.asNameMap()[chosen];
-
-    if (picked != null && picked != kind)
+    if (picked != kind)
     {
       kind = picked;
       notifyListeners();
@@ -175,8 +198,20 @@ class MobileTeacherStats extends StatelessWidget
       controller: controller,
       margin: margin,
       icon: Icons.event_available_rounded,
-      title: 'Disponibilità',
+      title: kTeacherStatsTitle,
       figures: (statistics) => _TeacherFigures(statistics: statistics),
+      rankings: (statistics) => [
+        MobileDetailCard(
+          icon: Icons.menu_book_rounded,
+          title: kTaughtDisciplinesTitle,
+          body: _subjectRows(statistics.taughtDisciplines),
+        ),
+        MobileDetailCard(
+          icon: Icons.groups_rounded,
+          title: kTopStudentsTitle,
+          body: _peopleRows(statistics.topStudents),
+        ),
+      ],
     );
   }
 }
@@ -196,13 +231,25 @@ class MobilePupilStats extends StatelessWidget
       controller: controller,
       margin: margin,
       icon: Icons.event_seat_rounded,
-      title: 'Presenze e richieste',
-      figures: (statistics) => _PupilFigures(statistics: statistics, controller: controller),
+      title: kPupilStatsTitle,
+      figures: (statistics) => _PupilFigures(statistics: statistics, online: controller.shownMode == kOnlineMode),
+      rankings: (statistics) => [
+        MobileDetailCard(
+          icon: Icons.menu_book_rounded,
+          title: subjectHoursTitle(controller.kind),
+          body: _SubjectHours(statistics: statistics, controller: controller),
+        ),
+        MobileDetailCard(
+          icon: Icons.school_rounded,
+          title: kTopTeachersTitle,
+          body: _peopleRows(statistics.topTeachers),
+        ),
+      ],
     );
   }
 }
 
-class _StatsBlock<T> extends StatelessWidget
+class _StatsBlock<T> extends StatefulWidget
 {
   final MobileStatsController<T> controller;
   final double margin;
@@ -210,6 +257,7 @@ class _StatsBlock<T> extends StatelessWidget
   final IconData icon;
   final String title;
   final Widget Function(T statistics) figures;
+  final List<Widget> Function(T statistics) rankings;
 
   const _StatsBlock({
     required this.controller,
@@ -217,49 +265,148 @@ class _StatsBlock<T> extends StatelessWidget
     required this.icon,
     required this.title,
     required this.figures,
+    required this.rankings,
   });
+
+  @override
+  State<_StatsBlock<T>> createState() => _StatsBlockState<T>();
+}
+
+class _StatsBlockState<T> extends State<_StatsBlock<T>>
+{
+  // Rankings arriving while the block shows rise in; on a return to the tab they are simply there.
+  late bool _waited = widget.controller.statistics == null;
+
+  @override
+  void initState()
+  {
+    super.initState();
+    widget.controller.addListener(_note);
+  }
+
+  @override
+  void didUpdateWidget(_StatsBlock<T> oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.controller != widget.controller)
+    {
+      oldWidget.controller.removeListener(_note);
+      widget.controller.addListener(_note);
+      _note();
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    widget.controller.removeListener(_note);
+    super.dispose();
+  }
+
+  void _note()
+  {
+    if (widget.controller.statistics == null)
+    {
+      _waited = true;
+    }
+  }
+
+  Future<void> _pickMode(BuildContext context) async
+  {
+    final MobileChoice<String>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: OwnPageSection.stats.label,
+      title: 'Modalità',
+      choices: [
+        for (final mode in const [kPresenceMode, kOnlineMode]) MobileChoice(value: mode, label: modeLabel(mode)),
+      ],
+      value: widget.controller.mode,
+    );
+
+    if (picked != null && context.mounted)
+    {
+      widget.controller.chooseMode(picked.value);
+    }
+  }
+
+  Future<void> _pickPeriod(BuildContext context) async
+  {
+    final MobileChoice<String>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: OwnPageSection.stats.label,
+      title: 'Periodo',
+      choices: [
+        for (final option in statsPeriodOptions()) MobileChoice(value: option.value, label: option.label),
+      ],
+      value: widget.controller.period,
+    );
+
+    if (picked != null && context.mounted)
+    {
+      widget.controller.choose(picked.value);
+    }
+  }
 
   @override
   Widget build(BuildContext context)
   {
     return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          MobileChoiceChips(
-            choices: [
-              for (final mode in const [kPresenceMode, kOnlineMode])
-                MobileChoice(value: mode, label: modeLabel(mode)),
-            ],
-            value: controller.mode,
-            margin: margin,
-            onChanged: controller.chooseMode,
-          ),
-          const SizedBox(height: 10),
-          MobileChoiceChips(
-            choices: [
-              for (final option in statsPeriodOptions())
-                MobileChoice(value: option.value, label: option.label),
-            ],
-            value: controller.period,
-            margin: margin,
-            onChanged: controller.choose,
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: margin),
-            child: _buildCard(),
-          ),
-        ],
-      ),
+      listenable: widget.controller,
+      builder: (context, _) => _buildBlock(context),
     );
   }
 
-  Widget _buildCard()
+  Widget _buildBlock(BuildContext context)
   {
+    final MobileStatsController<T> controller = widget.controller;
+    final double margin = widget.margin;
     final T? statistics = controller.statistics;
-    final bool loading = controller.loading;
+
+    final Widget? rankings = statistics == null
+        ? null
+        : Padding(
+            padding: EdgeInsets.fromLTRB(margin, _rankingsGap, margin, 0),
+            child: MobileCardGrid(
+              tablet: MobileBreakpoints.of(context).isTablet,
+              cards: widget.rankings(statistics),
+            ),
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MobileFilterChips(
+          margin: margin,
+          chips: [
+            // Always set to something, so like an order they never light up.
+            MobileFilterChip(
+              icon: Icons.devices_outlined,
+              label: modeLabel(controller.mode),
+              active: false,
+              onTap: () => _pickMode(context),
+            ),
+            MobileFilterChip(
+              icon: Icons.event_note_rounded,
+              label: statsPeriodLabel(controller.period),
+              active: false,
+              onTap: () => _pickPeriod(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: margin),
+          child: _buildCard(statistics),
+        ),
+        if (rankings != null) _waited ? MobileRiseIn(child: rankings) : rankings,
+      ],
+    );
+  }
+
+  Widget _buildCard(T? statistics)
+  {
+    final bool loading = widget.controller.loading;
 
     // Old figures stay while the next period loads: glass cannot be faded.
     final Widget? spinner = loading
@@ -270,12 +417,12 @@ class _StatsBlock<T> extends StatelessWidget
         : null;
 
     return MobileDetailCard(
-      icon: icon,
-      title: title,
+      icon: widget.icon,
+      title: widget.title,
       trailing: spinner,
       body: statistics == null
           ? (loading ? const SizedBox(height: 60) : const _NoData())
-          : figures(statistics),
+          : widget.figures(statistics),
     );
   }
 }
@@ -319,17 +466,13 @@ class _TeacherFigures extends StatelessWidget
 class _PupilFigures extends StatelessWidget
 {
   final StudentPersonalStatisticsItem statistics;
-  final MobilePupilStatsController controller;
+  final bool online;
 
-  const _PupilFigures({required this.statistics, required this.controller});
+  const _PupilFigures({required this.statistics, required this.online});
 
   @override
   Widget build(BuildContext context)
   {
-    final RequestedSubjectKind kind = controller.kind;
-    final List<RequestedSubjectItem> requested = statistics.requested.of(kind);
-    final bool online = controller.shownMode == kOnlineMode;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -350,52 +493,132 @@ class _PupilFigures extends StatelessWidget
           const _NoData()
         else
           MobileTrendChart(data: statistics.monthlyTrend),
-        const _Hairline(),
-        _SectionTitle('$kRequestedSubjectsLimit ${kind.rankingTitle}'),
-        const SizedBox(height: 10),
-        MobileChoiceChips(
-          choices: [
-            for (final option in RequestedSubjectKind.values)
-              MobileChoice(value: option.name, label: option.label),
-          ],
-          value: kind.name,
-          margin: 0,
-          onLight: true,
-          onChanged: controller.chooseKind,
-        ),
-        const SizedBox(height: 8),
-        if (requested.isEmpty)
-          const _NoData()
-        else
-          for (var i = 0; i < requested.length; i++) _Requested(subject: requested[i], first: i == 0),
       ],
     );
   }
 }
 
-class _Requested extends StatelessWidget
+class _SubjectHours extends StatelessWidget
 {
-  final RequestedSubjectItem subject;
-  final bool first;
+  final StudentPersonalStatisticsItem statistics;
+  final MobilePupilStatsController controller;
 
-  const _Requested({required this.subject, required this.first});
+  const _SubjectHours({required this.statistics, required this.controller});
+
+  Future<void> _pickKind(BuildContext context) async
+  {
+    final MobileChoice<RequestedSubjectKind>? picked = await showMobileChoiceSheet(
+      context: context,
+      eyebrow: OwnPageSection.stats.label,
+      title: 'Classifica',
+      choices: [for (final kind in RequestedSubjectKind.values) MobileChoice(value: kind, label: kind.label)],
+      value: controller.kind,
+    );
+
+    if (picked != null && context.mounted)
+    {
+      controller.chooseKind(picked.value);
+    }
+  }
 
   @override
   Widget build(BuildContext context)
   {
-    final String unit = subject.requestCount == 1 ? 'richiesta' : 'richieste';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MobileFilterChips(
+          margin: 0,
+          chips: [
+            MobileFilterChip(
+              icon: Icons.leaderboard_rounded,
+              label: controller.kind.label,
+              active: false,
+              onLight: true,
+              onTap: () => _pickKind(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _subjectRows(statistics.lessonHours.of(controller.kind)),
+      ],
+    );
+  }
+}
 
+Widget _subjectRows(List<SubjectHoursItem> subjects)
+{
+  return _RankRows(
+    rows: [for (final subject in subjects) (name: subject.name, percentage: subject.percentage, minutes: subject.minutes)],
+  );
+}
+
+Widget _peopleRows(List<PersonHoursItem> people)
+{
+  return _RankRows(
+    rows: [
+      for (final entry in people) (name: entry.person.fullName, percentage: entry.percentage, minutes: entry.minutes),
+    ],
+  );
+}
+
+typedef _RankEntry = ({String name, double percentage, int minutes});
+
+class _RankRows extends StatelessWidget
+{
+  final List<_RankEntry> rows;
+
+  const _RankRows({required this.rows});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    if (rows.isEmpty)
+    {
+      return const _NoData();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < rows.length; index++) _RankRow(position: index + 1, entry: rows[index]),
+      ],
+    );
+  }
+}
+
+class _RankRow extends StatelessWidget
+{
+  final int position;
+  final _RankEntry entry;
+
+  const _RankRow({required this.position, required this.entry});
+
+  @override
+  Widget build(BuildContext context)
+  {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: first ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
+        border: position == 1 ? null : Border(top: BorderSide(color: AppTheme.trialInk.withValues(alpha: 0.09))),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: _positionSlot),
+              child: Text(
+                '$position°',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.trialTealDeep,
+                ),
+              ),
+            ),
             Expanded(
               child: Text(
-                subject.name,
+                entry.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.plusJakartaSans(
@@ -406,28 +629,38 @@ class _Requested extends StatelessWidget
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              '${subject.percentage.toStringAsFixed(1)}%',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: MobilePalette.mutedText,
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: _shareSlot),
+              child: Text(
+                '${entry.percentage.toStringAsFixed(1)}%',
+                textAlign: TextAlign.right,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: MobilePalette.mutedText,
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppTheme.trialTealDeep.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${subject.requestCount} $unit',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.trialTealDeep,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: _badgeSlot),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.trialTealDeep.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    formatMinutes(entry.minutes),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.trialTealDeep,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -490,7 +723,7 @@ class _Figure extends StatelessWidget
         ),
         const SizedBox(height: 3),
         Text(
-          label,
+          withoutOrphans(label),
           style: GoogleFonts.plusJakartaSans(
             fontSize: 12.5,
             fontWeight: FontWeight.w700,

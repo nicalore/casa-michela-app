@@ -223,6 +223,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
         _rows.add(SchoolEnrollmentRowData(
           yearCtrl: TextEditingController(text: enrollment.startYear.toString()),
           school: school,
+          homeschooling: enrollment.homeschooling,
           program: program,
           grade: program == null ? null : kGradeLabels[enrollment.grade],
         ));
@@ -313,7 +314,7 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
         }
       }
 
-      if (row.school == null)
+      if (!row.hasSchool)
       {
         _errors['school_$i'] = 'Obbligatorio';
       }
@@ -339,7 +340,8 @@ class _EditSchoolsDialogState extends State<_EditSchoolsDialog>
     return _rows
         .map((row) => <String, dynamic>{
               'start_year': int.parse(row.yearCtrl.text.trim()),
-              'school_id': row.school!.id,
+              'school_id': row.school?.id,
+              'homeschooling': row.homeschooling,
               'study_program_id': row.program!.id,
               'grade': kGradeNumbers[row.grade!] ?? 1,
             })

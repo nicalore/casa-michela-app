@@ -148,7 +148,8 @@ const List<String> kPersonalReportableFields = [
 ];
 
 // Accepts both /auth/me role codes and the register's Italian labels.
-List<String> associationReportableFields(List<String> roles)
+// [forOwner]: pupils are never shown their own certifications.
+List<String> associationReportableFields(List<String> roles, {bool forOwner = false})
 {
   final upper = roles.map((role) => role.toUpperCase()).toSet();
 
@@ -164,7 +165,7 @@ List<String> associationReportableFields(List<String> roles)
     if (has(kAdminRole, 'AMMINISTRATORE')) 'Ruolo amministratore',
     if (has(kStudentRole, 'STUDENTE')) ...[
       'Tariffa',
-      'Certificazioni',
+      if (!forOwner) 'Certificazioni',
       'Uscita anticipata',
     ],
     if (has('COURSE_PARTICIPANT', 'CORSISTA'))

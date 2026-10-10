@@ -155,6 +155,28 @@ class MonthlyCountItem(BaseModel):
     count: int
 
 
+class SubjectHoursItem(BaseModel):
+    name: str
+    minutes: int
+
+    # Share of every entry of its kind in the period, not only the ten shown.
+    percentage: float
+
+
+class SubjectHoursRankings(BaseModel):
+    ministry_subjects: list[SubjectHoursItem]
+    disciplines: list[SubjectHoursItem]
+    services: list[SubjectHoursItem]
+
+
+class PersonHoursItem(BaseModel):
+    person: PersonOption
+    minutes: int
+
+    # Share of every entry of the ranking in the period, not only the ten shown.
+    percentage: float
+
+
 class TeacherPersonalStatisticsResponse(BaseModel):
     weekly_average: float
     total_availabilities: int
@@ -171,6 +193,9 @@ class TeacherPersonalStatisticsResponse(BaseModel):
     # Under nine days in the month, answerable only about a single month.
     is_single_month: bool
     is_below_monthly_threshold: bool
+
+    taught_disciplines: list[SubjectHoursItem]
+    top_students: list[PersonHoursItem]
 
 
 # Asked apart from the availabilities: the two carry periods of their own.
@@ -196,4 +221,8 @@ class StudentPersonalStatisticsResponse(BaseModel):
     # Always the last twelve months, whatever period was requested.
     monthly_trend: list[MonthlyCountItem]
 
+    # Read only by app builds from before the hours rankings.
     requested: RequestedSubjectRankings
+
+    lesson_hours: SubjectHoursRankings
+    top_teachers: list[PersonHoursItem]

@@ -89,6 +89,7 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
         SchoolEnrollmentRowData(
           yearCtrl: TextEditingController(text: year.startYear.toString()),
           school: schools.where((school) => school.id == year.schoolId).firstOrNull,
+          homeschooling: year.homeschooling,
           program: programs.where((program) => program.id == year.studyProgramId).firstOrNull,
           grade: kGradeLabels[year.grade],
         ),
@@ -212,7 +213,8 @@ class MobileSchoolStepState extends State<MobileSchoolStep>
           for (final row in rows)
             {
               'start_year': int.parse(row.yearCtrl.text.trim()),
-              'school_id': row.school!.id,
+              'school_id': row.school?.id,
+              'homeschooling': row.homeschooling,
               'study_program_id': row.program!.id,
               'grade': kGradeNumbers[row.grade!] ?? 1,
             },

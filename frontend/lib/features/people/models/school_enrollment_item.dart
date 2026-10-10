@@ -2,7 +2,10 @@ class SchoolEnrollmentItem
 {
   final int startYear;
   final int grade;
-  final int schoolId;
+
+  // Null under homeschooling; the server then sends its label as the name.
+  final int? schoolId;
+  final bool homeschooling;
   final String schoolName;
 
   // Display only: the mechanographic code is optional on the school record.
@@ -17,6 +20,7 @@ class SchoolEnrollmentItem
     required this.startYear,
     required this.grade,
     required this.schoolId,
+    this.homeschooling = false,
     required this.schoolName,
     this.schoolMechanographicCode,
     required this.studyProgramName,
@@ -31,7 +35,8 @@ class SchoolEnrollmentItem
     return SchoolEnrollmentItem(
       startYear: json['start_year'] ?? 0,
       grade: json['grade'] ?? 0,
-      schoolId: json['school_id'] ?? 0,
+      schoolId: json['school_id'],
+      homeschooling: json['homeschooling'] ?? false,
       schoolName: json['school_name'] ?? '',
       schoolMechanographicCode: json['school_mechanographic_code'],
       studyProgramName: json['study_program_name'] ?? '',

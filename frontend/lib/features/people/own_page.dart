@@ -82,7 +82,6 @@ List<String> ownReportableFields(PersonItem person)
       'Iscrizioni passate',
     ],
     if (sections.contains(OwnPageSection.school)) ...kSchoolReportableFields,
-    if (isPupil) 'Certificazioni',
     if (isMinorPupil) ...['Uscita anticipata', 'Contatto di emergenza', 'Allergie e farmaci'],
     if (isStaff && paymentsCard(person) != null) ...[
       'Modalità di pagamento',

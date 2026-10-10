@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_theme.dart';
+
 // No IntrinsicHeight: the two cards may have different heights.
 class ResponsiveCardPair extends StatelessWidget
 {
@@ -89,6 +91,57 @@ class MatchedCardPair extends StatelessWidget
               Expanded(child: first(width, true)),
               const SizedBox(width: _gap),
               Expanded(child: second(width, true)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+// Two rankings inside one card, ruled apart; stacked when the card is narrow.
+class RankingPair extends StatelessWidget
+{
+  static const double _stackBelow = 900;
+
+  final Widget first;
+  final Widget second;
+
+  const RankingPair({
+    required this.first,
+    required this.second,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return LayoutBuilder(
+      builder: (context, constraints)
+      {
+        if (constraints.maxWidth < _stackBelow)
+        {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              first,
+              const SizedBox(height: 24),
+              const Divider(color: AppTheme.trialLine, thickness: 1),
+              const SizedBox(height: 24),
+              second,
+            ],
+          );
+        }
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: VerticalDivider(color: AppTheme.trialLine, thickness: 1),
+              ),
+              Expanded(child: second),
             ],
           ),
         );

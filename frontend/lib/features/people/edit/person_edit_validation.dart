@@ -497,7 +497,7 @@ PersonEditValidation validatePersonEdit(PersonEditForm form)
         }
       }
 
-      if (row.school == null)
+      if (!row.hasSchool)
       {
         collector.add('school_$i', 'Obbligatorio', PersonEditCardId.schoolEnrollments);
       }

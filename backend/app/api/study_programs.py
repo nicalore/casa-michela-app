@@ -45,6 +45,10 @@ _CREATE_ERROR: Final[str] = "Dati non validi (es. intervallo anni)."
 _UPDATE_ERROR: Final[str] = (
     "Dati non validi o anni non coerenti per il livello selezionato."
 )
+_STRANDED_ENROLLMENT_ERROR: Final[str] = (
+    "Impossibile modificare gli anni: il percorso ha studenti iscritti in classi "
+    "fuori dai nuovi anni."
+)
 _ATTENDED_PROGRAM_ERROR: Final[str] = (
     "Impossibile eliminare il percorso di studi: è frequentato (o lo è stato) "
     "da uno o più studenti."
@@ -125,6 +129,28 @@ async def _assert_name_available(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_DUPLICATE_PROGRAM_ERROR,
+        )
+
+
+# Past years count too: the history editor rewrites every row and re-checks its grade.
+async def _assert_no_enrollment_outside(
+    db: AsyncSession,
+    program_id: int,
+    years: tuple[int, int],
+) -> None:
+    stmt = (
+        select(SchoolEnrollment.id)
+        .where(
+            SchoolEnrollment.study_program_id == program_id,
+            ~SchoolEnrollment.grade.between(*years),
+        )
+        .limit(1)
+    )
+
+    if (await db.execute(stmt)).scalars().first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_STRANDED_ENROLLMENT_ERROR,
         )
 
 
@@ -255,6 +281,9 @@ async def update_study_program(
             payload.sector,
             payload.years,
         )
+
+    if (program.min_year, program.max_year) != payload.years:
+        await _assert_no_enrollment_outside(db, program_id, payload.years)
 
     subjects = await _load_ministry_subjects(
         db,

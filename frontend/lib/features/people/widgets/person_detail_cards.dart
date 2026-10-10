@@ -337,6 +337,7 @@ PersonDetailCard teacherDetailsCard(PersonItem person, {bool forOwner = false})
 List<PersonDetailCard> roleDetailCards(
   PersonItem person, {
   bool includeTeacherDetails = true,
+  bool forOwner = false,
 })
 {
   final roles = _upperCaseRoles(person);
@@ -363,12 +364,12 @@ List<PersonDetailCard> roleDetailCards(
 
   if (roles.contains('DOCENTE') && includeTeacherDetails)
   {
-    cards.add(teacherDetailsCard(person));
+    cards.add(teacherDetailsCard(person, forOwner: forOwner));
   }
 
   if (roles.contains('STUDENTE'))
   {
-    cards.addAll(pupilDetailCards(person));
+    cards.addAll(pupilDetailCards(person, forOwner: forOwner));
   }
 
   if (roles.contains('CORSISTA'))
@@ -395,9 +396,10 @@ List<PersonDetailCard> roleDetailCards(
   return cards;
 }
 
-List<PersonDetailCard> pupilDetailCards(PersonItem person)
+// [forOwner]: pupils are never shown their own certifications.
+List<PersonDetailCard> pupilDetailCards(PersonItem person, {bool forOwner = false})
 {
-  final certification = _certificationText(person);
+  final certification = forOwner ? null : _certificationText(person);
 
   final List<DetailRowData> certificationRows = [
     if (certification != null)

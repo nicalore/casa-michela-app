@@ -4,6 +4,7 @@ from typing import Final, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import field_lengths
+from app.core.labels import HIGH_SCHOOL_TRACK_LABELS
 from app.models.study_program import (
     YEARS_BY_TRACK,
     EducationLevelEnum,
@@ -14,7 +15,7 @@ from app.schemas.validators import OptionalCleanStr, StrippedStr
 
 _TRACK_REQUIRED_ERROR: Final[str] = (
     "Per la scuola secondaria di II grado indica l'articolazione: biennio, "
-    "triennio o percorso quadriennale."
+    "triennio o altro."
 )
 
 _TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR: Final[str] = (
@@ -28,6 +29,8 @@ _YEARS_REQUIRED_ERROR: Final[str] = (
 _YEARS_OUT_OF_ORDER_ERROR: Final[str] = (
     "L'anno iniziale non può essere successivo all'anno finale."
 )
+
+_YEARS_OF_A_FIXED_TRACK_ERROR: Final[str] = "Per gli anni {years} scegli {track}."
 
 
 class MinistrySubjectOption(BaseModel):
@@ -67,12 +70,15 @@ class StudyProgramWrite(StudyProgramBase):
             if self.high_school_track is None:
                 raise ValueError(_TRACK_REQUIRED_ERROR)
 
-            # The track wins: whatever the client sent is overwritten.
-            self.min_year, self.max_year = YEARS_BY_TRACK[self.high_school_track]
+            fixed_years = YEARS_BY_TRACK.get(self.high_school_track)
 
-            return self
+            # A fixed track wins: whatever the client sent is overwritten.
+            if fixed_years is not None:
+                self.min_year, self.max_year = fixed_years
 
-        if self.high_school_track is not None:
+                return self
+
+        elif self.high_school_track is not None:
             raise ValueError(_TRACK_ONLY_FOR_HIGH_SCHOOL_ERROR)
 
         if self.min_year is None or self.max_year is None:
@@ -80,6 +86,16 @@ class StudyProgramWrite(StudyProgramBase):
 
         if self.min_year > self.max_year:
             raise ValueError(_YEARS_OUT_OF_ORDER_ERROR)
+
+        if self.high_school_track is HighSchoolTrackEnum.OTHER:
+            for track, years in YEARS_BY_TRACK.items():
+                if years == (self.min_year, self.max_year):
+                    raise ValueError(
+                        _YEARS_OF_A_FIXED_TRACK_ERROR.format(
+                            years=f"{years[0]}-{years[1]}",
+                            track=HIGH_SCHOOL_TRACK_LABELS[track],
+                        )
+                    )
 
         return self
 

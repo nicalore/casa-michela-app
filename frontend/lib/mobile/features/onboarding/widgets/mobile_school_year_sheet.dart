@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../features/association/models/school_item.dart';
 import '../../../../features/association/models/study_program_item.dart';
 import '../../../../features/association/models/subject_taxonomy.dart';
+import '../../../../features/people/widgets/person_row_models.dart';
 import '../../../../features/people/widgets/school_enrollment_edit_row.dart';
 import '../../../../features/people/widgets/school_year_wizard.dart';
 import '../../../shared/mobile_palette.dart';
@@ -16,16 +17,21 @@ import '../../../shared/widgets/mobile_gold_button.dart';
 import '../../../shared/widgets/mobile_height_reporter.dart';
 import '../../../shared/widgets/mobile_notice.dart';
 import '../../../shared/widgets/mobile_search_field.dart';
+import '../../../shared/widgets/mobile_select_parts.dart';
 import '../../../shared/widgets/mobile_sheet.dart';
 import '../../../shared/widgets/mobile_wizard_parts.dart';
-import '../../settings/widgets/mobile_choice_tile.dart';
 
 const Duration _turn = Duration(milliseconds: 340);
 const Curve _turnCurve = Curves.easeInOutCubic;
 
 const double _labelGap = 8;
 const double _blockGap = 18;
-const double _tileGap = 8;
+const double _groupGap = 18;
+const double _groupHeadGap = 10;
+
+// Inside the page, which clips: room for a chosen row's shadow.
+const double _pageBottom = 14;
+const double _footerTop = 10;
 
 const double _stepperHeight = 58;
 const double _stepperRadius = 18;
@@ -106,6 +112,7 @@ class _YearSheetState extends State<_YearSheet>
     startYear: widget.initial?.startYear,
     level: widget.initial?.level,
     school: widget.initial?.school,
+    homeschooling: widget.initial?.homeschooling ?? false,
     grade: widget.initial?.grade,
     program: widget.initial?.program,
   );
@@ -218,6 +225,17 @@ class _YearSheetState extends State<_YearSheet>
     setState(()
     {
       _choice.school = school;
+      _choice.homeschooling = false;
+      _choice.program = null;
+    });
+  }
+
+  void _pickHomeschooling()
+  {
+    setState(()
+    {
+      _choice.school = null;
+      _choice.homeschooling = true;
       _choice.program = null;
     });
   }
@@ -269,9 +287,9 @@ class _YearSheetState extends State<_YearSheet>
       const SizedBox(height: _blockGap),
       const _Label('Livello di scuola'),
       for (final level in schoolLevels)
-        _Tile(
-          label: level.compactLabel,
-          chosen: _choice.level == level.value,
+        MobileSelectRow(
+          title: level.compactLabel,
+          selected: _choice.level == level.value,
           onTap: () => _pickLevel(level.value),
         ),
     ];
@@ -289,19 +307,30 @@ class _YearSheetState extends State<_YearSheet>
             '${school.name} ${school.city} ${school.province}'.toLowerCase().contains(query))
         .toList();
 
+    final bool homeschooling = homeschoolingMatches(query);
+
     return _buildPick(
+      leading: homeschooling
+          ? MobileSelectRow(
+              key: const ValueKey('homeschooling'),
+              title: kHomeschoolingLabel,
+              selected: _choice.homeschooling,
+              onTap: _pickHomeschooling,
+            )
+          : null,
       search: offering.isEmpty ? null : _schoolSearch,
       hintText: 'Cerca scuola...',
+      // A search that finds homeschooling alone has still found something.
       empty: offering.isEmpty
           ? 'Nessuna scuola offre un percorso di questo livello.'
-          : 'Nessuna scuola trovata per questa ricerca.',
+          : homeschooling ? null : 'Nessuna scuola trovata per questa ricerca.',
       tiles: [
         for (final school in shown)
-          _Tile(
+          MobileSelectRow(
             key: ValueKey('school-${school.id}'),
-            label: school.name,
-            detail: '${school.city} (${school.province})',
-            chosen: _choice.school?.id == school.id,
+            title: school.name,
+            subtitle: '${school.city} (${school.province})',
+            selected: _choice.school?.id == school.id,
             onTap: () => _pickSchool(school),
           ),
       ],
@@ -313,9 +342,9 @@ class _YearSheetState extends State<_YearSheet>
     return [
       const _Label('Classe'),
       for (final grade in gradeOptionsForLevel(_choice.level))
-        _Tile(
-          label: grade,
-          chosen: _choice.grade == grade,
+        MobileSelectRow(
+          title: grade,
+          selected: _choice.grade == grade,
           onTap: () => _pickGrade(grade),
         ),
     ];
@@ -324,8 +353,13 @@ class _YearSheetState extends State<_YearSheet>
   List<Widget> _buildProgram()
   {
     final String query = _programSearch.text.toLowerCase();
-    final List<StudyProgramItem> offered =
-        programsForChoice(_choice.school, widget.programs, _choice.level, _choice.grade);
+    final List<StudyProgramItem> offered = programsForChoice(
+      _choice.school,
+      widget.programs,
+      _choice.level,
+      _choice.grade,
+      homeschooling: _choice.homeschooling,
+    );
 
     final List<StudyProgramItem> shown = offered
         .where((program) => query.isEmpty || program.fullName.toLowerCase().contains(query))
@@ -335,26 +369,53 @@ class _YearSheetState extends State<_YearSheet>
       search: offered.isEmpty ? null : _programSearch,
       hintText: 'Cerca percorso...',
       empty: offered.isEmpty
-          ? 'La scuola non offre percorsi di questo livello per la classe scelta.'
+          ? noProgramForChoice(_choice)
           : 'Nessun percorso trovato per questa ricerca.',
-      tiles: [
-        for (final program in shown)
-          _Tile(
-            key: ValueKey('program-${program.id}'),
-            eyebrow: program.scopeLine,
-            label: program.name,
-            detail: descriptionOrNull(program.description),
-            chosen: _choice.program?.id == program.id,
-            onTap: () => setState(() => _choice.program = program),
-          ),
-      ],
+      tiles: _buildProgramRows(shown),
     );
   }
 
+  // Grouped by scope, as in the Discipline's percorsi sheet.
+  List<Widget> _buildProgramRows(List<StudyProgramItem> shown)
+  {
+    final Map<String, List<StudyProgramItem>> groups = {};
+
+    for (final program in shown)
+    {
+      final String title = programScopeTitle(
+        level: program.level,
+        sector: program.sector,
+        track: program.highSchoolTrack,
+        minYear: program.minYear,
+        maxYear: program.maxYear,
+      );
+
+      groups.putIfAbsent(title, () => []).add(program);
+    }
+
+    return [
+      for (final (i, MapEntry(key: title, value: group)) in groups.entries.indexed) ...[
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 0 : _groupGap, bottom: _groupHeadGap),
+          child: MobileSelectGroupHead(title: title),
+        ),
+        for (final program in group)
+          MobileSelectRow(
+            key: ValueKey('program-${program.id}'),
+            title: program.name,
+            subtitle: descriptionOrNull(program.description),
+            selected: _choice.program?.id == program.id,
+            onTap: () => setState(() => _choice.program = program),
+          ),
+      ],
+    ];
+  }
+
   List<Widget> _buildPick({
+    Widget? leading,
     required TextEditingController? search,
     required String hintText,
-    required String empty,
+    required String? empty,
     required List<Widget> tiles,
   })
   {
@@ -368,8 +429,9 @@ class _YearSheetState extends State<_YearSheet>
         ),
         const SizedBox(height: 14),
       ],
+      ?leading,
       if (tiles.isEmpty)
-        MobileSheetText(empty)
+        ?(empty == null ? null : MobileSheetText(empty))
       else
         ...tiles,
     ];
@@ -397,7 +459,7 @@ class _YearSheetState extends State<_YearSheet>
       child: MobileHeightReporter(
         onHeight: (height) => _measured(step, height),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, 20, MobileSheet.sidePadding, 6),
+          padding: const EdgeInsets.fromLTRB(MobileSheet.sidePadding, 20, MobileSheet.sidePadding, _pageBottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: _buildStep(step),
@@ -442,7 +504,7 @@ class _YearSheetState extends State<_YearSheet>
     final String label = _last ? (widget.editing ? 'Salva' : 'Aggiungi') : 'Avanti';
 
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: _footerTop),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -556,37 +618,6 @@ class _Label extends StatelessWidget
   }
 }
 
-class _Tile extends StatelessWidget
-{
-  final String label;
-  final String? eyebrow;
-  final String? detail;
-  final bool chosen;
-  final VoidCallback onTap;
-
-  const _Tile({
-    super.key,
-    required this.label,
-    required this.chosen,
-    required this.onTap,
-    this.eyebrow,
-    this.detail,
-  });
-
-  @override
-  Widget build(BuildContext context)
-  {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: _tileGap),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: MobileChoiceTile(label: label, chosen: chosen, eyebrow: eyebrow, detail: detail),
-      ),
-    );
-  }
-}
-
 class _YearStepper extends StatelessWidget
 {
   final TextEditingController controller;
@@ -618,7 +649,7 @@ class _YearStepper extends StatelessWidget
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(4),
               ],
-              cursorColor: AppTheme.trialGold,
+              cursorColor: AppTheme.trialTealDeep,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,

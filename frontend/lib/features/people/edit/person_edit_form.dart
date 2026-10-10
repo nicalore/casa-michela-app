@@ -687,6 +687,7 @@ class PersonEditForm
         schoolRows.add(SchoolEnrollmentRowData.empty(
           year: enrollment.startYear.toString(),
           school: school,
+          homeschooling: enrollment.homeschooling,
           program: program,
           grade: program == null ? null : _gradeLabel(enrollment.grade),
         ));
@@ -1148,7 +1149,8 @@ class PersonEditForm
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
-                  'school_id': row.school!.id,
+                  'school_id': row.school?.id,
+                  'homeschooling': row.homeschooling,
                   'study_program_id': row.program!.id,
                   'grade': romanToNumeric(row.grade!),
                 })
@@ -1359,7 +1361,8 @@ class PersonEditForm
         'school_enrollments': schoolRows
             .map((row) => {
                   'start_year': int.parse(row.yearCtrl.text.trim()),
-                  'school_id': row.school!.id,
+                  'school_id': row.school?.id,
+                  'homeschooling': row.homeschooling,
                   'study_program_id': row.program!.id,
                   'school_class': row.grade!,
                 })

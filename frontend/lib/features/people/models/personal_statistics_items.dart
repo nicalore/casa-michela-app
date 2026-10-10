@@ -15,6 +15,86 @@ List<MemberTrendItem> monthlyTrendPoints(Object? value)
   ];
 }
 
+class SubjectHoursItem
+{
+  final String name;
+  final int minutes;
+
+  // Share over all entries in the period, not just the ones shown.
+  final double percentage;
+
+  const SubjectHoursItem({
+    required this.name,
+    required this.minutes,
+    required this.percentage,
+  });
+
+  factory SubjectHoursItem.fromJson(Map<String, dynamic> json)
+  {
+    return SubjectHoursItem(
+      name: json['name'] as String,
+      minutes: json['minutes'] as int,
+      percentage: parseDouble(json['percentage']),
+    );
+  }
+}
+
+class SubjectHoursRankings
+{
+  final List<SubjectHoursItem> ministrySubjects;
+  final List<SubjectHoursItem> disciplines;
+  final List<SubjectHoursItem> services;
+
+  const SubjectHoursRankings({
+    required this.ministrySubjects,
+    required this.disciplines,
+    required this.services,
+  });
+
+  List<SubjectHoursItem> of(RequestedSubjectKind kind)
+  {
+    return switch (kind)
+    {
+      RequestedSubjectKind.ministrySubject => ministrySubjects,
+      RequestedSubjectKind.discipline => disciplines,
+      RequestedSubjectKind.service => services,
+    };
+  }
+
+  factory SubjectHoursRankings.fromJson(Map<String, dynamic> json)
+  {
+    return SubjectHoursRankings(
+      ministrySubjects: parseList(json['ministry_subjects'], SubjectHoursItem.fromJson),
+      disciplines: parseList(json['disciplines'], SubjectHoursItem.fromJson),
+      services: parseList(json['services'], SubjectHoursItem.fromJson),
+    );
+  }
+}
+
+class PersonHoursItem
+{
+  final PersonOptionItem person;
+  final int minutes;
+
+  // Share over all entries in the period, not just the ones shown.
+  final double percentage;
+
+  const PersonHoursItem({
+    required this.person,
+    required this.minutes,
+    required this.percentage,
+  });
+
+  factory PersonHoursItem.fromJson(Map<String, dynamic> json)
+  {
+    return PersonHoursItem(
+      person: PersonOptionItem.fromJson(json['person'] as Map<String, dynamic>),
+      minutes: json['minutes'] as int,
+      percentage: parseDouble(json['percentage']),
+    );
+  }
+}
+
 class TeacherPersonalStatisticsItem
 {
   final double weeklyAverage;
@@ -30,6 +110,9 @@ class TeacherPersonalStatisticsItem
   final bool isSingleMonth;
   final bool isBelowMonthlyThreshold;
 
+  final List<SubjectHoursItem> taughtDisciplines;
+  final List<PersonHoursItem> topStudents;
+
   const TeacherPersonalStatisticsItem({
     required this.weeklyAverage,
     required this.totalAvailabilities,
@@ -37,6 +120,8 @@ class TeacherPersonalStatisticsItem
     required this.shortWeekCount,
     required this.isSingleMonth,
     required this.isBelowMonthlyThreshold,
+    required this.taughtDisciplines,
+    required this.topStudents,
   });
 
   factory TeacherPersonalStatisticsItem.fromJson(Map<String, dynamic> json)
@@ -48,6 +133,8 @@ class TeacherPersonalStatisticsItem
       shortWeekCount: json['short_week_count'] as int,
       isSingleMonth: json['is_single_month'] as bool,
       isBelowMonthlyThreshold: json['is_below_monthly_threshold'] as bool,
+      taughtDisciplines: parseList(json['taught_disciplines'], SubjectHoursItem.fromJson),
+      topStudents: parseList(json['top_students'], PersonHoursItem.fromJson),
     );
   }
 }
@@ -88,13 +175,15 @@ class StudentPersonalStatisticsItem
   // Always the last twelve months, whatever period is selected.
   final List<MemberTrendItem> monthlyTrend;
 
-  final RequestedSubjectRankings requested;
+  final SubjectHoursRankings lessonHours;
+  final List<PersonHoursItem> topTeachers;
 
   const StudentPersonalStatisticsItem({
     required this.weeklyPresenceDays,
     required this.totalPresenceDays,
     required this.monthlyTrend,
-    required this.requested,
+    required this.lessonHours,
+    required this.topTeachers,
   });
 
   factory StudentPersonalStatisticsItem.fromJson(Map<String, dynamic> json)
@@ -103,7 +192,8 @@ class StudentPersonalStatisticsItem
       weeklyPresenceDays: parseDouble(json['weekly_presence_days']),
       totalPresenceDays: json['total_presence_days'] as int,
       monthlyTrend: monthlyTrendPoints(json['monthly_trend']),
-      requested: RequestedSubjectRankings.fromJson(json['requested'] as Map<String, dynamic>),
+      lessonHours: SubjectHoursRankings.fromJson(json['lesson_hours'] as Map<String, dynamic>),
+      topTeachers: parseList(json['top_teachers'], PersonHoursItem.fromJson),
     );
   }
 }

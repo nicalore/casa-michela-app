@@ -332,7 +332,7 @@ class _OnboardingLayoutState extends State<OnboardingLayout>
       _subject,
       fields: [
         ...kPersonalReportableFields,
-        ...associationReportableFields(_subject.roles),
+        ...associationReportableFields(_subject.roles, forOwner: !_step.isAboutAChild),
       ],
       eyebrow: _step.isAboutAChild
           ? 'Dati di ${_step.childName}'

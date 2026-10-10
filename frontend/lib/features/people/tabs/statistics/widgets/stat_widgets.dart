@@ -648,10 +648,114 @@ class PersonRankingSection extends StatelessWidget
 }
 
 
-class RequestedSubjectsSection extends StatelessWidget
+// Share and badge sit in fixed slots so they line up down the list.
+class ShareRankRow extends StatelessWidget
 {
   static const Color _badgeBackground = Color(0xFFE8F7F5);
 
+  // Room for "100.0%".
+  static const double _percentageSlot = 48;
+
+  // Room for the usual badges; a longer one widens its own slot.
+  static const double _badgeSlot = 78;
+
+  final int position;
+  final String name;
+  final double percentage;
+  final String badgeText;
+
+  const ShareRankRow({
+    super.key,
+    required this.position,
+    required this.name,
+    required this.percentage,
+    required this.badgeText,
+  });
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          RankPosition(position: position, color: AppTheme.trialTealDeep),
+          Expanded(
+            child: OverflowTooltipText(
+              text: name,
+              maxLines: 1,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialInk,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: _percentageSlot),
+            child: Text(
+              '${percentage.toStringAsFixed(1)}%',
+              textAlign: TextAlign.right,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.trialMutedText,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: _badgeSlot),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _badgeBackground,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  badgeText,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.trialTealDeep,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ShareRankingSection extends StatelessWidget
+{
+  final String title;
+  final List<ShareRankRow> rows;
+
+  const ShareRankingSection({super.key, required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StatSectionTitle(title),
+        const SizedBox(height: 24),
+        if (rows.isEmpty) const EmptyChartMessage(fontSize: 14) else ...rows,
+      ],
+    );
+  }
+}
+
+class RequestedSubjectsSection extends StatelessWidget
+{
   final RequestedSubjectRankings rankings;
   final RequestedSubjectKind kind;
 
@@ -664,72 +768,23 @@ class RequestedSubjectsSection extends StatelessWidget
     required this.limit,
   });
 
-  Widget _row(int position, RequestedSubjectItem subject)
-  {
-    final unit = subject.requestCount == 1 ? 'richiesta' : 'richieste';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          RankPosition(position: position, color: AppTheme.trialTealDeep),
-          Expanded(
-            child: OverflowTooltipText(
-              text: subject.name,
-              maxLines: 1,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.trialInk,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            '${subject.percentage.toStringAsFixed(1)}%',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.trialMutedText,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-            decoration: BoxDecoration(
-              color: _badgeBackground,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${subject.requestCount} $unit',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.trialTealDeep,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context)
   {
     final subjects = rankings.of(kind);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        StatSectionTitle('$limit ${kind.rankingTitle}'),
-        const SizedBox(height: 24),
-        if (subjects.isEmpty)
-          const EmptyChartMessage(fontSize: 14)
-        else
-          for (var index = 0; index < subjects.length; index++) _row(index + 1, subjects[index]),
+    return ShareRankingSection(
+      title: '$limit ${kind.rankingTitle}',
+      rows: [
+        for (var index = 0; index < subjects.length; index++)
+          ShareRankRow(
+            position: index + 1,
+            name: subjects[index].name,
+            percentage: subjects[index].percentage,
+            badgeText:
+                '${subjects[index].requestCount} '
+                '${subjects[index].requestCount == 1 ? 'richiesta' : 'richieste'}',
+          ),
       ],
     );
   }

@@ -10,12 +10,17 @@ class TeacherProgramItem
   // Null where none exists: only high school is split into cycles.
   final String? highSchoolTrack;
 
+  final int minYear;
+  final int maxYear;
+
   const TeacherProgramItem({
     required this.id,
     required this.name,
     required this.level,
     this.sector,
     this.highSchoolTrack,
+    required this.minYear,
+    required this.maxYear,
   });
 
   factory TeacherProgramItem.fromJson(Map<String, dynamic> json)
@@ -26,17 +31,17 @@ class TeacherProgramItem
       sector: json['sector'] as String?,
       level: json['level'] ?? '',
       highSchoolTrack: json['high_school_track'] as String?,
+      minYear: json['min_year'] ?? 0,
+      maxYear: json['max_year'] ?? 0,
     );
   }
 
   // Must stay identical to display_name on the backend.
   String get fullName
   {
-    final HighSchoolTrack? cycle = highSchoolTrackOf(highSchoolTrack);
-
     final List<String> parts = [
       ?sector,
-      if (cycle != null) cycle.shortLabel,
+      ?highSchoolTrackShortLabel(highSchoolTrack, minYear, maxYear),
     ];
 
     return parts.isEmpty ? name : '${parts.join(' · ')} | $name';

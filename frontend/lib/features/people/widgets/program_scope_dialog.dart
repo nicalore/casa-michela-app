@@ -76,6 +76,8 @@ class _ProgramScopeDialogState extends State<ProgramScopeDialog>
         level: program.level,
         sector: program.sector,
         track: program.highSchoolTrack,
+        minYear: program.minYear,
+        maxYear: program.maxYear,
       ),
     );
   }

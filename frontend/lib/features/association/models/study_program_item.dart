@@ -36,11 +36,9 @@ class StudyProgramItem
   // Mirrors StudyProgram.scope_line on the backend.
   String? get scopeLine
   {
-    final HighSchoolTrack? cycle = highSchoolTrackOf(highSchoolTrack);
-
     final List<String> parts = [
       ?sector,
-      if (cycle != null) cycle.shortLabel,
+      ?highSchoolTrackShortLabel(highSchoolTrack, minYear, maxYear),
     ];
 
     return parts.isEmpty ? null : parts.join(' · ');

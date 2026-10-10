@@ -479,14 +479,8 @@ def _map_child_info(relationship: ParentalResponsibility) -> ChildInfoResponse:
 
         if latest is not None:
             school_class = roman_numeral(latest.grade)
-            school_study_program = latest.school_study_program
-
-            if school_study_program is not None:
-                if school_study_program.school:
-                    school_name = school_study_program.school.name
-
-                if school_study_program.study_program:
-                    study_program = school_study_program.study_program.display_name
+            school_name = latest.school_label
+            study_program = latest.study_program.display_name
 
     return ChildInfoResponse(
         fiscal_code=child.tax_code,
@@ -758,28 +752,23 @@ def _map_person_to_response(
             homework_tariff = student.homework_tariff
 
             for enrollment in student.school_enrollments:
-                school_study_program = enrollment.school_study_program
-
-                if not (
-                    school_study_program
-                    and school_study_program.school
-                    and school_study_program.study_program
-                ):
-                    continue
+                link = enrollment.school_study_program
+                school = None if link is None else link.school
 
                 school_enrollments.append(
                     SchoolEnrollmentResponse(
                         start_year=enrollment.start_year,
                         grade=enrollment.grade,
-                        school_id=school_study_program.school_id,
-                        school_name=school_study_program.school.name,
+                        school_id=enrollment.school_id,
+                        homeschooling=enrollment.homeschooling,
+                        school_name=enrollment.school_label,
                         school_mechanographic_code=(
-                            school_study_program.school.mechanographic_code
+                            None if school is None else school.mechanographic_code
                         ),
-                        study_program_name=school_study_program.study_program.display_name,
-                        study_program_id=school_study_program.study_program_id,
+                        study_program_name=enrollment.study_program.display_name,
+                        study_program_id=enrollment.study_program_id,
                         education_level=translate_education_level(
-                            school_study_program.study_program.level
+                            enrollment.study_program.level
                         )
                         or "",
                     )
@@ -789,17 +778,11 @@ def _map_person_to_response(
 
             if latest is not None:
                 school_class = roman_numeral(latest.grade)
-                school_study_program = latest.school_study_program
-
-                if school_study_program is not None:
-                    if school_study_program.school:
-                        school_name = school_study_program.school.name
-
-                    if school_study_program.study_program:
-                        study_program = school_study_program.study_program.display_name
-                        education_level = translate_education_level(
-                            school_study_program.study_program.level
-                        )
+                school_name = latest.school_label
+                study_program = latest.study_program.display_name
+                education_level = translate_education_level(
+                    latest.study_program.level
+                )
 
         if member.staff_profile is not None:
             staff = member.staff_profile
@@ -920,11 +903,9 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
     )
     child_member = child.joinedload(Person.member_profile)
     child_staff = child_member.joinedload(Member.staff_profile)
-    children = (
-        child_member.joinedload(Member.student_profile)
-        .selectinload(Student.school_enrollments)
-        .joinedload(SchoolEnrollment.school_study_program)
-    )
+    child_enrollments = child_member.joinedload(
+        Member.student_profile
+    ).selectinload(Student.school_enrollments)
 
     parent = (
         selectinload(Person.parental_relationships)
@@ -934,16 +915,16 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
     parent_member = parent.joinedload(Person.member_profile)
     parent_staff = parent_member.joinedload(Member.staff_profile)
 
-    own_enrollments = student.selectinload(Student.school_enrollments).joinedload(
-        SchoolEnrollment.school_study_program
-    )
+    own_enrollments = student.selectinload(Student.school_enrollments)
 
     competences = teacher.selectinload(Teacher.teaching_competences)
 
     return (
         joinedload(Person.account).load_only(Account.tax_code),
-        children.joinedload(SchoolStudyProgram.school),
-        children.joinedload(SchoolStudyProgram.study_program),
+        child_enrollments.joinedload(SchoolEnrollment.school_study_program).joinedload(
+            SchoolStudyProgram.school
+        ),
+        child_enrollments.joinedload(SchoolEnrollment.study_program),
         child.joinedload(Person.parent_profile),
         child_member.joinedload(Member.course_participant_profile),
         child_member.selectinload(Member.memberships),
@@ -960,8 +941,10 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         member.selectinload(Member.memberships),
         member.joinedload(Member.course_participant_profile),
         member.joinedload(Member.psychological_support_profile),
-        own_enrollments.joinedload(SchoolStudyProgram.school),
-        own_enrollments.joinedload(SchoolStudyProgram.study_program),
+        own_enrollments.joinedload(SchoolEnrollment.school_study_program).joinedload(
+            SchoolStudyProgram.school
+        ),
+        own_enrollments.joinedload(SchoolEnrollment.study_program),
         student.selectinload(Student.early_exit_schedules),
         student.selectinload(Student.methodological_notes).joinedload(
             MethodologicalNote.author
@@ -1397,6 +1380,7 @@ async def _sync_student_profile(
                 grade=enrollment_data.grade,
                 study_program_id=enrollment_data.study_program_id,
                 school_id=enrollment_data.school_id,
+                homeschooling=enrollment_data.homeschooling,
             )
         )
 
@@ -2022,9 +2006,19 @@ async def get_person(
     if code in identity.child_tax_codes:
         return household
 
-    # A parent's record lists only their enrolled children.
+    # A parent's record lists only their enrolled children; pupils never see their
+    # own certifications.
     if code == identity.tax_code:
-        return _with_children(household, identity.child_tax_codes)
+        own = household.model_copy(
+            update={
+                "certification_types": [],
+                "certification_other_detail": None,
+                "certification_dsa_detail": None,
+                "mandatory_psych_meetings_acknowledged": None,
+            }
+        )
+
+        return _with_children(own, identity.child_tax_codes)
 
     if follows:
         return _view(full, _PSYCHOLOGIST_VIEW_FIELDS)
@@ -2376,6 +2370,7 @@ async def update_person_school_enrollments(
                 grade=enrollment_data.grade,
                 study_program_id=enrollment_data.study_program_id,
                 school_id=enrollment_data.school_id,
+                homeschooling=enrollment_data.homeschooling,
             )
         )
 

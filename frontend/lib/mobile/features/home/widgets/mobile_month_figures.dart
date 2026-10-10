@@ -173,17 +173,18 @@ class _FigureText extends StatelessWidget
       children: [
         Text.rich(
           TextSpan(
-            text: figure.value,
             children: [
-              if (figure.unit.isNotEmpty)
+              for (final part in figure.parts)
                 TextSpan(
-                  text: ' ${figure.unit}',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                    color: MobilePalette.mutedText,
-                  ),
+                  text: part.text,
+                  style: part.isUnit
+                      ? GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0,
+                          color: MobilePalette.mutedText,
+                        )
+                      : null,
                 ),
             ],
           ),

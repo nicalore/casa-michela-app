@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
-from app.core.labels import HIGH_SCHOOL_TRACK_SHORT_LABELS
+from app.core.labels import high_school_track_short_label
 from app.db.base import Base
 from app.models.constraints import no_surrounding_whitespace_constraints
 from app.models.mixins import CreatedAtMixin
@@ -34,14 +34,14 @@ class EducationLevelEnum(StrEnum):
 class HighSchoolTrackEnum(StrEnum):
     BIENNIO = "BIENNIO"
     TRIENNIO = "TRIENNIO"
-    QUADRIENNALE = "QUADRIENNALE"
+    OTHER = "OTHER"
 
 
 # Source of truth for track -> years; the schema and the SQL check below mirror it.
+# OTHER is absent: its years are typed by hand.
 YEARS_BY_TRACK: Final[dict[HighSchoolTrackEnum, tuple[int, int]]] = {
     HighSchoolTrackEnum.BIENNIO: (1, 2),
     HighSchoolTrackEnum.TRIENNIO: (3, 5),
-    HighSchoolTrackEnum.QUADRIENNALE: (1, 4),
 }
 
 
@@ -72,7 +72,6 @@ class StudyProgram(CreatedAtMixin, Base):
         ),
         CheckConstraint("min_year >= 1", name="study_program_min_year_valid"),
         CheckConstraint("min_year <= max_year", name="study_program_years_range_valid"),
-        # HIGH_SCHOOL arm is subsumed by the track check below; sole bound on the rest.
         CheckConstraint(
             "(level = 'PRIMARY_SCHOOL' AND max_year <= 5) "
             "OR (level = 'MIDDLE_SCHOOL' AND max_year <= 3) "
@@ -84,12 +83,13 @@ class StudyProgram(CreatedAtMixin, Base):
             "(level = 'HIGH_SCHOOL') = (high_school_track IS NOT NULL)",
             name="study_program_track_only_for_high_school",
         ),
-        # Years follow the track, never free input: a schema fact, not a convention.
+        # A fixed track dictates its years; OTHER may not restate one of them.
         CheckConstraint(
             "high_school_track IS NULL "
             "OR (high_school_track = 'BIENNIO' AND min_year = 1 AND max_year = 2) "
             "OR (high_school_track = 'TRIENNIO' AND min_year = 3 AND max_year = 5) "
-            "OR (high_school_track = 'QUADRIENNALE' AND min_year = 1 AND max_year = 4)",
+            "OR (high_school_track = 'OTHER' "
+            "AND (min_year, max_year) NOT IN ((1, 2), (3, 5)))",
             name="study_program_track_years_match",
         ),
         *no_surrounding_whitespace_constraints(
@@ -159,7 +159,11 @@ class StudyProgram(CreatedAtMixin, Base):
     # The line shown above the name: sector and cycle, whichever exist.
     @property
     def scope_line(self) -> str | None:
-        track = HIGH_SCHOOL_TRACK_SHORT_LABELS.get(self.high_school_track)
+        track = high_school_track_short_label(
+            self.high_school_track,
+            self.min_year,
+            self.max_year,
+        )
 
         parts = [part for part in (self.sector, track) if part]
 

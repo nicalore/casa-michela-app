@@ -78,7 +78,7 @@ class _OnboardingRecordStepState extends State<OnboardingRecordStep>
         onChanged: widget.onContactsChanged,
       ),
       if (withAssociation) ...[
-        ...roleDetailCards(person, includeTeacherDetails: !_isTeacher),
+        ...roleDetailCards(person, includeTeacherDetails: !_isTeacher, forOwner: widget.isOwnRecord),
         if (_isTeacher)
           TeacherEducationCard(
             person: person,

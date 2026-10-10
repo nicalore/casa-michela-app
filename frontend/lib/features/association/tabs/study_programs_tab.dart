@@ -321,6 +321,9 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
 
   bool get _isHighSchool => _selectedLevel == 'HIGH_SCHOOL';
 
+  // High school types its years only under a track without a fixed span.
+  bool get _hasTypedYears => !_isHighSchool || highSchoolTrackOf(_selectedTrack)?.hasFixedYears == false;
+
   @override
   void initState()
   {
@@ -339,8 +342,14 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       _descController.text = program.description;
       _selectedLevel = program.level;
       _selectedTrack = program.highSchoolTrack;
-      _minYearController.text = program.minYear.toString();
-      _maxYearController.text = program.maxYear.toString();
+
+      // A fixed track's span would only prefill what Altro refuses.
+      if (_hasTypedYears)
+      {
+        _minYearController.text = program.minYear.toString();
+        _maxYearController.text = program.maxYear.toString();
+      }
+
       _selectedSubjects = program.ministrySubjects.map((subject) => subject.id).toList();
     }
   }
@@ -522,16 +531,28 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return 'Seleziona un livello scolastico per andare avanti.';
     }
 
-    if (_isHighSchool)
+    if (_isHighSchool && _selectedTrack == null)
     {
-      return _selectedTrack == null
-          ? "Seleziona l'articolazione per andare avanti."
-          : null;
+      return "Seleziona l'articolazione per andare avanti.";
+    }
+
+    if (!_hasTypedYears)
+    {
+      return null;
     }
 
     if (_minYearController.text.isEmpty || _maxYearController.text.isEmpty)
     {
       return "Compila l'intervallo degli anni per andare avanti.";
+    }
+
+    final HighSchoolTrack? restated = _isHighSchool
+        ? fixedTrackSpanning(int.tryParse(_minYearController.text), int.tryParse(_maxYearController.text))
+        : null;
+
+    if (restated != null)
+    {
+      return 'Per gli anni ${restated.minYear}-${restated.maxYear} scegli ${restated.label}.';
     }
 
     return null;
@@ -544,8 +565,8 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
       return false;
     }
 
-    // firstStepBlockedReason already required the track, the only field high school sends.
-    if (_isHighSchool)
+    // firstStepBlockedReason already required the track; a fixed one sends no years.
+    if (!_hasTypedYears)
     {
       return true;
     }
@@ -598,9 +619,9 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
         sector.isEmpty ? null : sector,
         _selectedLevel!,
         _isHighSchool ? _selectedTrack : null,
-        // Null for high school: the server derives them from the track.
-        _isHighSchool ? null : int.parse(_minYearController.text),
-        _isHighSchool ? null : int.parse(_maxYearController.text),
+        // Null under a fixed track: the server derives them from it.
+        _hasTypedYears ? int.parse(_minYearController.text) : null,
+        _hasTypedYears ? int.parse(_maxYearController.text) : null,
         _descController.text.trim(),
         _selectedSubjects,
         onError,
@@ -695,7 +716,7 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
             );
           }).toList(),
         ),
-        if (chosen != null)
+        if (chosen != null && chosen.hasFixedYears)
           _buildHint('Anni di corso: ${chosen.minYear} - ${chosen.maxYear}'),
       ],
     );
@@ -736,7 +757,9 @@ class _StudyProgramWizardDialogState extends State<_StudyProgramWizardDialog>
                 }).toList(),
               ),
               const SizedBox(height: 8),
-              if (_isHighSchool) _buildTrackField() else _buildYearRangeFields(),
+              if (_isHighSchool) _buildTrackField(),
+              if (_isHighSchool && _hasTypedYears) const SizedBox(height: 8),
+              if (_hasTypedYears) _buildYearRangeFields(),
               DescriptionField(_descController),
             ],
           ),

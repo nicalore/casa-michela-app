@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
-from app.core.labels import roman_numeral
+from app.core.labels import HOMESCHOOLING_LABEL, roman_numeral
 from app.core.pdf_forms import (
     asset_bytes,
     fill_acroform,
@@ -147,13 +147,13 @@ def request_for_person(person: Person) -> EnrollmentFormRequest:
             "school_enrollments": [
                 {
                     "start_year": enrollment.start_year,
-                    "school_id": enrollment.school_study_program.school_id,
-                    "study_program_id": enrollment.school_study_program.study_program_id,
+                    "school_id": enrollment.school_id,
+                    "homeschooling": enrollment.homeschooling,
+                    "study_program_id": enrollment.study_program_id,
                     # The payload carries a Roman numeral; the column stores the number.
                     "school_class": roman_numeral(enrollment.grade),
                 }
                 for enrollment in student.school_enrollments
-                if enrollment.school_study_program is not None
             ],
         }
 
@@ -329,6 +329,9 @@ async def _school_name(
 
     if enrollment is None:
         return None
+
+    if enrollment.school_id is None:
+        return HOMESCHOOLING_LABEL
 
     return await SchoolRepository(db).get_name(enrollment.school_id)
 

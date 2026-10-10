@@ -241,6 +241,7 @@ async def create_person_from_wizard(
                         student_tax_code=person.tax_code,
                         study_program_id=enrollment_data.study_program_id,
                         school_id=enrollment_data.school_id,
+                        homeschooling=enrollment_data.homeschooling,
                     )
                 )
 

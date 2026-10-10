@@ -16,14 +16,11 @@ EDUCATION_LEVEL_LABELS: Final[dict[str, str]] = {
 HIGH_SCHOOL_TRACK_LABELS: Final[dict[str, str]] = {
     "BIENNIO": "Biennio",
     "TRIENNIO": "Triennio",
-    "QUADRIENNALE": "Percorso quadriennale",
+    "OTHER": "Altro",
 }
 
-HIGH_SCHOOL_TRACK_SHORT_LABELS: Final[dict[str, str]] = {
-    "BIENNIO": "Biennio",
-    "TRIENNIO": "Triennio",
-    "QUADRIENNALE": "Quadriennale",
-}
+# Shown where a school name goes when the pupil has none.
+HOMESCHOOLING_LABEL: Final[str] = "Istruzione parentale"
 
 CERTIFICATION_TYPE_LABELS: Final[dict[str, str]] = {
     "DSA": "DSA",
@@ -89,6 +86,21 @@ def _translate_optional(value: str | None, labels: dict[str, str]) -> str | None
         return None
 
     return _translate(value, labels)
+
+
+# OTHER names its years: two such programmes may differ in nothing else.
+def high_school_track_short_label(
+    track: str | None,
+    min_year: int,
+    max_year: int,
+) -> str | None:
+    if not track:
+        return None
+
+    if track == "OTHER":
+        return f"Anni {min_year}-{max_year}"
+
+    return _translate(track, HIGH_SCHOOL_TRACK_LABELS)
 
 
 def education_level_label(level: str) -> str:

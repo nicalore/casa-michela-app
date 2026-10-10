@@ -280,10 +280,10 @@ async def make_study_program(db: AsyncSession) -> StudyProgram:
         StudyProgram(
             level="HIGH_SCHOOL",
             name=f"Indirizzo {next(_counter)}",
-            # The widest cycle that still holds make_enrollment's default grade.
-            high_school_track=HighSchoolTrackEnum.QUADRIENNALE,
+            # Every year, so make_enrollment's grade always fits.
+            high_school_track=HighSchoolTrackEnum.OTHER,
             min_year=1,
-            max_year=4,
+            max_year=5,
         ),
     )
 
@@ -405,6 +405,26 @@ async def make_enrollment(
             student_tax_code=student.tax_code,
             study_program_id=study_program.id,
             school_id=school.id,
+            start_year=start_year,
+            grade=grade,
+        ),
+    )
+
+
+async def make_homeschooling_enrollment(
+    db: AsyncSession,
+    student: Student,
+    study_program: StudyProgram,
+    *,
+    start_year: int = 2026,
+    grade: int = 3,
+) -> SchoolEnrollment:
+    return await _persist(
+        db,
+        SchoolEnrollment(
+            student_tax_code=student.tax_code,
+            study_program_id=study_program.id,
+            homeschooling=True,
             start_year=start_year,
             grade=grade,
         ),

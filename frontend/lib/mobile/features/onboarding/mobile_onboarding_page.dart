@@ -361,7 +361,7 @@ class _MobileOnboardingPageState extends State<MobileOnboardingPage>
       person: subject,
       fields: [
         ...kPersonalReportableFields,
-        ...associationReportableFields(subject.roles),
+        ...associationReportableFields(subject.roles, forOwner: !step.isAboutAChild),
       ],
       eyebrow: name == null ? 'I tuoi dati' : 'Dati di $name',
     );

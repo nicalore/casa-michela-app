@@ -44,11 +44,16 @@ class MembershipRowData
   }
 }
 
+// Stands where a school name goes when the pupil has none.
+const String kHomeschoolingLabel = 'Istruzione parentale';
+
 class SchoolEnrollmentRowData
 {
   final TextEditingController yearCtrl;
 
+  // Null under homeschooling.
   SchoolItem? school;
+  bool homeschooling;
   StudyProgramItem? program;
 
   // Roman numerals, as the dropdown writes it.
@@ -57,6 +62,7 @@ class SchoolEnrollmentRowData
   SchoolEnrollmentRowData({
     required this.yearCtrl,
     this.school,
+    this.homeschooling = false,
     this.program,
     this.grade,
   });
@@ -64,6 +70,7 @@ class SchoolEnrollmentRowData
   factory SchoolEnrollmentRowData.empty({
     String year = '',
     SchoolItem? school,
+    bool homeschooling = false,
     StudyProgramItem? program,
     String? grade,
   })
@@ -71,10 +78,13 @@ class SchoolEnrollmentRowData
     return SchoolEnrollmentRowData(
       yearCtrl: TextEditingController(text: year),
       school: school,
+      homeschooling: homeschooling,
       program: program,
       grade: grade,
     );
   }
+
+  bool get hasSchool => homeschooling || school != null;
 
   void dispose()
   {

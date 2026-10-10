@@ -150,7 +150,9 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
     final List<_RowFact> facts = [
       _RowFact(
         'Scuola',
-        row.school == null ? null : '${row.school!.name} (${row.school!.city})',
+        row.homeschooling
+            ? kHomeschoolingLabel
+            : row.school == null ? null : '${row.school!.name} (${row.school!.city})',
         flex: 5,
         lines: 2,
       ),

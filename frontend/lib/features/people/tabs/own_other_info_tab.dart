@@ -32,7 +32,7 @@ List<PersonDetailCard> ownOtherCards(PersonItem person)
 
   return [
     if (roles.contains('STUDENTE')) ...[
-      ...pupilDetailCards(person),
+      ...pupilDetailCards(person, forOwner: true),
       if (!person.isAdult) minorSafetyCard(person),
     ],
     if (isStaff && payments != null) payments,

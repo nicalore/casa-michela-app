@@ -90,24 +90,25 @@ String schoolLevelShortLabel(String value)
   return value;
 }
 
-// Values must stay aligned with HighSchoolTrackEnum on the backend; the server derives the years.
+// Values must stay aligned with HighSchoolTrackEnum on the backend; the server derives the years of a fixed track.
 class HighSchoolTrack
 {
   final String value;
   final String label;
 
-  final String shortLabel;
+  // Null for OTHER: its years are typed by hand.
+  final int? minYear;
+  final int? maxYear;
 
-  final int minYear;
-  final int maxYear;
+  const HighSchoolTrack(this.value, this.label, [this.minYear, this.maxYear]);
 
-  const HighSchoolTrack(this.value, this.label, this.shortLabel, this.minYear, this.maxYear);
+  bool get hasFixedYears => minYear != null;
 }
 
 const List<HighSchoolTrack> highSchoolTracks = <HighSchoolTrack>[
-  HighSchoolTrack('BIENNIO', 'Biennio', 'Biennio', 1, 2),
-  HighSchoolTrack('TRIENNIO', 'Triennio', 'Triennio', 3, 5),
-  HighSchoolTrack('QUADRIENNALE', 'Percorso quadriennale', 'Quadriennale', 1, 4),
+  HighSchoolTrack('BIENNIO', 'Biennio', 1, 2),
+  HighSchoolTrack('TRIENNIO', 'Triennio', 3, 5),
+  HighSchoolTrack('OTHER', 'Altro'),
 ];
 
 HighSchoolTrack? highSchoolTrackOf(String? value)
@@ -123,15 +124,46 @@ HighSchoolTrack? highSchoolTrackOf(String? value)
   return null;
 }
 
-// The track is part of the key: without it biennio and triennio of a course collapse into one group.
-String programScopeTitle({required String level, String? sector, String? track})
+// The fixed track whose span OTHER would restate; the server refuses that span.
+HighSchoolTrack? fixedTrackSpanning(int? minYear, int? maxYear)
+{
+  for (final track in highSchoolTracks)
+  {
+    if (track.hasFixedYears && track.minYear == minYear && track.maxYear == maxYear)
+    {
+      return track;
+    }
+  }
+
+  return null;
+}
+
+// Mirrors high_school_track_short_label on the backend: OTHER names its years.
+String? highSchoolTrackShortLabel(String? track, int minYear, int maxYear)
 {
   final HighSchoolTrack? cycle = highSchoolTrackOf(track);
 
+  if (cycle == null)
+  {
+    return null;
+  }
+
+  return cycle.hasFixedYears ? cycle.label : 'Anni $minYear-$maxYear';
+}
+
+// The track is part of the key: without it biennio and triennio of a course collapse into one group.
+String programScopeTitle({
+  required String level,
+  String? sector,
+  String? track,
+  required int minYear,
+  required int maxYear,
+})
+{
   return <String>[
     schoolLevelShortLabel(level),
     ?sector,
-    if (cycle != null) cycle.shortLabel,
+    ?highSchoolTrackShortLabel(track, minYear, maxYear),
   ].join(' · ');
 }
 

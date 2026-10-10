@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,18 +15,24 @@ from app.core.availability_thresholds import (
     LOW_AVAILABILITY_MONTHLY_THRESHOLD,
     LOW_AVAILABILITY_WEEKLY_THRESHOLD,
 )
-from app.core.booking_window import today_in_rome
+from app.core.booking_window import now_in_rome, today_in_rome
 from app.core.labels import (
+    HOMESCHOOLING_LABEL,
     certification_type_label,
     education_level_label,
 )
 from app.core.school_year import school_year_start
+from app.core.time_step import minutes_between
 from app.models.administrator import Administrator
 from app.models.association_subject import AssociationSubject
 from app.models.availability import Availability
 from app.models.booking import Booking
 from app.models.booking_preferred_teacher import BookingPreferredTeacher
+from app.models.calendar_publication import CalendarPublication
 from app.models.course_participant import CourseParticipant
+from app.models.lesson import Lesson
+from app.models.lesson_booking import LessonBooking
+from app.models.lesson_discipline import LessonDiscipline
 from app.models.member import Member
 from app.models.membership import Membership
 from app.models.ministry_association_subject import MinistryAssociationSubject
@@ -36,7 +42,6 @@ from app.models.presence import Presence
 from app.models.psychologist import Psychologist
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
-from app.models.school_study_program import SchoolStudyProgram
 from app.models.staff import Staff
 from app.models.student import Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
@@ -59,6 +64,7 @@ from app.schemas.statistics import (
     LowAvailabilityTeacherItem,
     MemberTrendItem,
     MonthlyCountItem,
+    PersonHoursItem,
     RequestedSubjectItem,
     RequestedSubjectRankings,
     RetentionRateItem,
@@ -66,6 +72,8 @@ from app.schemas.statistics import (
     StudentPresenceRankItem,
     StudentPresenceStatisticsResponse,
     SubjectDistributionItem,
+    SubjectHoursItem,
+    SubjectHoursRankings,
     TeacherAppreciationItem,
     TeacherAppreciationRankingResponse,
     TeacherAppreciationStatisticsResponse,
@@ -161,12 +169,6 @@ _AGE_BUCKETS: Final[tuple[tuple[int | None, str], ...]] = (
     (50, "36-50"),
     (None, "> 50"),
 )
-
-_ENROLLMENT_TO_PROGRAM_JOIN: Final[Any] = and_(
-    SchoolEnrollment.study_program_id == SchoolStudyProgram.study_program_id,
-    SchoolEnrollment.school_id == SchoolStudyProgram.school_id,
-)
-
 
 def _apply_role_joins(stmt: Select[Any], role: str | None) -> Select[Any]:
     for target, onclause in _ROLE_JOINS.get(role or "", ()):
@@ -1093,15 +1095,14 @@ async def get_student_education_distribution(
     label_column = None
 
     if distribution_type == "school":
-        query = query.join(
-            SchoolStudyProgram, _ENROLLMENT_TO_PROGRAM_JOIN
-        ).join(School, SchoolStudyProgram.school_id == School.id)
-        label_column = School.name
+        # Outer: homeschooling has no school and is counted under its own label.
+        query = query.outerjoin(School, SchoolEnrollment.school_id == School.id)
+        label_column = func.coalesce(School.name, HOMESCHOOLING_LABEL)
 
     elif distribution_type in ("program", "level"):
         query = query.join(
-            SchoolStudyProgram, _ENROLLMENT_TO_PROGRAM_JOIN
-        ).join(StudyProgram, SchoolStudyProgram.study_program_id == StudyProgram.id)
+            StudyProgram, SchoolEnrollment.study_program_id == StudyProgram.id
+        )
         # concat_ws skips a null sector.
         label_column = (
             func.concat_ws(" | ", StudyProgram.sector, StudyProgram.name)
@@ -1637,6 +1638,12 @@ async def get_teacher_personal_statistics(
             for row in trend_rows
         },
     )
+    taught_disciplines, top_students = await _teaching_hours(
+        db,
+        tax_code,
+        window,
+        mode.value,
+    )
 
     return TeacherPersonalStatisticsResponse(
         weekly_average=round(weekly_average(weeks), 1),
@@ -1657,6 +1664,8 @@ async def get_teacher_personal_statistics(
             and total < LOW_AVAILABILITY_MONTHLY_THRESHOLD
             and enrolled_throughout(spans, start, end)
         ),
+        taught_disciplines=taught_disciplines,
+        top_students=top_students,
     )
 
 
@@ -1764,6 +1773,10 @@ def _pad_monthly(counts_by_month: dict[tuple[int, int], int]) -> list[MonthlyCou
     return trend
 
 
+def _share(part: int, total: int) -> float:
+    return round(part / total * 100, 1) if total > 0 else 0.0
+
+
 def _ranked(rows: Any, limit: int) -> list[RequestedSubjectItem]:
     counts: dict[str, int] = {}
 
@@ -1777,7 +1790,7 @@ def _ranked(rows: Any, limit: int) -> list[RequestedSubjectItem]:
         RequestedSubjectItem(
             name=name,
             request_count=count,
-            percentage=round(count / total * 100, 1) if total > 0 else 0.0,
+            percentage=_share(count, total),
         )
         for name, count in counts.items()
     ]
@@ -1872,6 +1885,228 @@ async def _requested_subjects(
         disciplines=_ranked([*direct_rows, *ministry_discipline_rows], limit),
         services=_ranked(service_rows, limit),
     )
+
+
+def _ranked_minutes(minutes: Mapping[str, int]) -> list[SubjectHoursItem]:
+    total = sum(minutes.values())
+
+    items = [
+        SubjectHoursItem(name=name, minutes=count, percentage=_share(count, total))
+        for name, count in minutes.items()
+    ]
+    items.sort(key=lambda item: (-item.minutes, item.name))
+
+    return items[:_TOP_SUBJECTS_LIMIT]
+
+
+async def _ranked_people(
+    db: AsyncSession,
+    minutes: Mapping[str, int],
+) -> list[PersonHoursItem]:
+    total = sum(minutes.values())
+
+    items = [
+        PersonHoursItem(
+            person=person,
+            minutes=minutes[person.tax_code],
+            percentage=_share(minutes[person.tax_code], total),
+        )
+        for person in await _people_by_name(db, minutes)
+    ]
+    # Stable: equal times keep the order by name.
+    items.sort(key=lambda item: -item.minutes)
+
+    return items[:_TOP_PEOPLE_LIMIT]
+
+
+# Lessons over in the published calendar, as the home month counts them.
+async def _lessons_over(
+    db: AsyncSession,
+    stmt: Select[Any],
+    window: tuple[date, date],
+) -> list[Any]:
+    start, end = _elapsed_window(window)
+    now = now_in_rome()
+
+    rows = (
+        await db.execute(stmt.where(Lesson.date >= start, Lesson.date < end))
+    ).all()
+
+    published = {
+        (row.date, row.band)
+        for row in await db.execute(
+            select(CalendarPublication.date, CalendarPublication.band).where(
+                CalendarPublication.date >= start,
+                CalendarPublication.date < end,
+            ),
+        )
+    }
+
+    def is_over(day: date, end_time: time) -> bool:
+        return day < now.date() or (day == now.date() and end_time <= now.time())
+
+    return [
+        row
+        for row in rows
+        if (row.date, row.band) in published and is_over(row.date, row.end_time)
+    ]
+
+
+async def _lesson_disciplines(
+    db: AsyncSession,
+    lesson_ids: Collection[int],
+) -> dict[int, dict[int, str]]:
+    covered: dict[int, dict[int, str]] = defaultdict(dict)
+
+    for lesson_id, subject_id, name in await db.execute(
+        select(
+            LessonDiscipline.lesson_id,
+            AssociationSubject.id,
+            AssociationSubject.name,
+        )
+        .join(
+            AssociationSubject,
+            AssociationSubject.id == LessonDiscipline.association_subject_id,
+        )
+        .where(LessonDiscipline.lesson_id.in_(lesson_ids)),
+    ):
+        covered[lesson_id][subject_id] = name
+
+    return covered
+
+
+def _lesson_rows() -> Select[Any]:
+    return (
+        select(
+            Lesson.id,
+            Lesson.date,
+            Lesson.band,
+            Lesson.start_time,
+            Lesson.end_time,
+            Availability.teacher_tax_code,
+            Presence.student_tax_code,
+            Booking.id.label("booking_id"),
+            Booking.association_subject_id,
+            Booking.service_name,
+        )
+        .join(Availability, Availability.id == Lesson.availability_id)
+        .join(LessonBooking, LessonBooking.lesson_id == Lesson.id)
+        .join(Booking, Booking.id == LessonBooking.booking_id)
+        .join(Presence, Presence.id == Booking.presence_id)
+    )
+
+
+# A lesson covering several of the pupil's subjects is a full hour of each.
+async def _lesson_hours(
+    db: AsyncSession,
+    tax_code: str,
+    window: tuple[date, date],
+    mode: str,
+) -> tuple[SubjectHoursRankings, list[PersonHoursItem]]:
+    rows = await _lessons_over(
+        db,
+        _lesson_rows().where(
+            Presence.student_tax_code == tax_code,
+            Lesson.mode == mode,
+        ),
+        window,
+    )
+
+    # Two of the pupil's bookings may share a lesson: one row each.
+    bookings_of: dict[int, list[Any]] = defaultdict(list)
+
+    for row in rows:
+        bookings_of[row.id].append(row)
+
+    covered = await _lesson_disciplines(db, bookings_of)
+
+    requested: dict[int, list[tuple[int, str]]] = defaultdict(list)
+
+    for booking_id, subject_id, name in await db.execute(
+        select(
+            SubjectRequested.booking_id,
+            SubjectRequested.association_subject_id,
+            MinistrySubject.name,
+        )
+        .join(
+            MinistrySubject,
+            MinistrySubject.id == SubjectRequested.ministry_subject_id,
+        )
+        .where(SubjectRequested.booking_id.in_([row.booking_id for row in rows])),
+    ):
+        requested[booking_id].append((subject_id, name))
+
+    subjects: Counter[str] = Counter()
+    disciplines: Counter[str] = Counter()
+    services: Counter[str] = Counter()
+    teachers: Counter[str] = Counter()
+
+    for lesson_id, group in bookings_of.items():
+        lesson = group[0]
+        minutes = minutes_between(lesson.start_time, lesson.end_time)
+        taught = covered[lesson_id]
+
+        # Only what this pupil asked for: a shared lesson covers others' subjects too.
+        lesson_subjects: set[str] = set()
+        lesson_disciplines: set[str] = set()
+        lesson_services: set[str] = set()
+
+        for booking in group:
+            if booking.service_name is not None:
+                lesson_services.add(booking.service_name)
+
+            if booking.association_subject_id in taught:
+                lesson_disciplines.add(taught[booking.association_subject_id])
+
+            for subject_id, name in requested[booking.booking_id]:
+                if subject_id in taught:
+                    lesson_disciplines.add(taught[subject_id])
+                    lesson_subjects.add(name)
+
+        subjects.update(dict.fromkeys(lesson_subjects, minutes))
+        disciplines.update(dict.fromkeys(lesson_disciplines, minutes))
+        services.update(dict.fromkeys(lesson_services, minutes))
+        teachers[lesson.teacher_tax_code] += minutes
+
+    return (
+        SubjectHoursRankings(
+            ministry_subjects=_ranked_minutes(subjects),
+            disciplines=_ranked_minutes(disciplines),
+            services=_ranked_minutes(services),
+        ),
+        await _ranked_people(db, teachers),
+    )
+
+
+# A lesson counts in full for every discipline it covers and every pupil in it.
+async def _teaching_hours(
+    db: AsyncSession,
+    tax_code: str,
+    window: tuple[date, date],
+    mode: str,
+) -> tuple[list[SubjectHoursItem], list[PersonHoursItem]]:
+    rows = await _lessons_over(
+        db,
+        _lesson_rows().where(
+            Availability.teacher_tax_code == tax_code,
+            Lesson.teacher_mode == mode,
+        ),
+        window,
+    )
+
+    minutes = {row.id: minutes_between(row.start_time, row.end_time) for row in rows}
+
+    disciplines: Counter[str] = Counter()
+
+    for lesson_id, taught in (await _lesson_disciplines(db, minutes)).items():
+        disciplines.update(dict.fromkeys(taught.values(), minutes[lesson_id]))
+
+    students: Counter[str] = Counter()
+
+    for lesson_id, student in {(row.id, row.student_tax_code) for row in rows}:
+        students[student] += minutes[lesson_id]
+
+    return _ranked_minutes(disciplines), await _ranked_people(db, students)
 
 
 @router.get(
@@ -2054,6 +2289,8 @@ async def get_student_personal_statistics(
         )
     ).all()
 
+    lesson_hours, top_teachers = await _lesson_hours(db, tax_code, window, mode.value)
+
     return StudentPersonalStatisticsResponse(
         weekly_presence_days=round(total_days / weeks, 1) if weeks > 0 else 0.0,
         total_presence_days=total_days,
@@ -2070,6 +2307,8 @@ async def get_student_personal_statistics(
             mode=mode.value,
             limit=_TOP_SUBJECTS_LIMIT,
         ),
+        lesson_hours=lesson_hours,
+        top_teachers=top_teachers,
     )
 
 

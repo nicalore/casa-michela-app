@@ -78,7 +78,10 @@ class SchoolYearChoice
 {
   int? startYear;
   String? level;
+
+  // Null under homeschooling.
   SchoolItem? school;
+  bool homeschooling;
 
   // Roman numerals, as the row data stores it.
   String? grade;
@@ -89,6 +92,7 @@ class SchoolYearChoice
     this.startYear,
     this.level,
     this.school,
+    this.homeschooling = false,
     this.grade,
     this.program,
   });
@@ -100,6 +104,7 @@ class SchoolYearChoice
       startYear: int.tryParse(row.yearCtrl.text.trim()),
       level: row.program?.level,
       school: row.school,
+      homeschooling: row.homeschooling,
       grade: row.grade,
       program: row.program,
     );
@@ -141,7 +146,9 @@ String? schoolYearBlockedReason(
       return choice.level == null ? 'Scegli il livello di scuola per andare avanti.' : null;
 
     case SchoolYearStep.school:
-      return choice.school == null ? 'Scegli la scuola per andare avanti.' : null;
+      return choice.school == null && !choice.homeschooling
+          ? 'Scegli la scuola per andare avanti.'
+          : null;
 
     case SchoolYearStep.grade:
       return choice.grade == null ? 'Scegli la classe per andare avanti.' : null;
@@ -200,12 +207,26 @@ List<StudyProgramItem> programsOfSchool(
   return allPrograms.where((program) => offered.contains(program.id)).toList();
 }
 
+// Searched like a school, by its label.
+bool homeschoolingMatches(String query)
+{
+  return query.isEmpty || kHomeschoolingLabel.toLowerCase().contains(query);
+}
+
+String noProgramForChoice(SchoolYearChoice choice)
+{
+  return choice.homeschooling
+      ? 'Nessun percorso di questo livello comprende la classe scelta.'
+      : 'La scuola non offre percorsi di questo livello per la classe scelta.';
+}
+
 List<StudyProgramItem> programsForChoice(
   SchoolItem? school,
   List<StudyProgramItem> allPrograms,
   String? level,
-  String? grade,
-)
+  String? grade, {
+  bool homeschooling = false,
+})
 {
   final int? year = grade == null ? null : kGradeNumbers[grade];
 
@@ -214,7 +235,11 @@ List<StudyProgramItem> programsForChoice(
     return const [];
   }
 
-  return programsOfSchool(school, allPrograms)
+  // No school's offer binds homeschooling: the whole catalogue is open.
+  final List<StudyProgramItem> candidates =
+      homeschooling ? allPrograms : programsOfSchool(school, allPrograms);
+
+  return candidates
       .where((program) =>
           program.level == level &&
           program.minYear <= year &&
@@ -319,6 +344,17 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
     setState(()
     {
       _choice.school = school;
+      _choice.homeschooling = false;
+      _choice.program = null;
+    });
+  }
+
+  void _pickHomeschooling()
+  {
+    setState(()
+    {
+      _choice.school = null;
+      _choice.homeschooling = true;
       _choice.program = null;
     });
   }
@@ -434,14 +470,25 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
                 .contains(query))
         .toList();
 
+    final bool homeschooling = homeschoolingMatches(query);
+
     return _buildPickStep(
+      leading: homeschooling
+          ? _PickRow(
+              key: const ValueKey('homeschooling'),
+              name: kHomeschoolingLabel,
+              selected: _choice.homeschooling,
+              onSelected: _pickHomeschooling,
+            )
+          : null,
       controller: _schoolSearchController,
       hintText: 'Cerca scuola...',
       showSearch: offering.isNotEmpty,
       onQueryChanged: (value) => setState(() => _schoolQuery = value),
+      // A search that finds homeschooling alone has still found something.
       empty: offering.isEmpty
           ? 'Nessuna scuola offre un percorso di questo livello.'
-          : 'Nessuna scuola trovata per questa ricerca.',
+          : homeschooling ? null : 'Nessuna scuola trovata per questa ricerca.',
       rows: [
         for (final school in schools)
           _PickRow(
@@ -490,6 +537,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
       widget.allPrograms,
       _choice.level,
       _choice.grade,
+      homeschooling: _choice.homeschooling,
     );
 
     final List<StudyProgramItem> programs = offered
@@ -503,7 +551,7 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
       showSearch: offered.isNotEmpty,
       onQueryChanged: (value) => setState(() => _programQuery = value),
       empty: offered.isEmpty
-          ? 'La scuola non offre percorsi di questo livello per la classe scelta.'
+          ? noProgramForChoice(_choice)
           : 'Nessun percorso trovato per questa ricerca.',
       rows: [
         for (final program in programs)
@@ -520,11 +568,12 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
   }
 
   Widget _buildPickStep({
+    Widget? leading,
     required TextEditingController controller,
     required String hintText,
     required bool showSearch,
     required ValueChanged<String> onQueryChanged,
-    required String empty,
+    required String? empty,
     required List<Widget> rows,
   })
   {
@@ -540,8 +589,9 @@ class _SchoolYearWizardState extends State<SchoolYearWizard>
           ),
           const SizedBox(height: 14),
         ],
+        ?leading,
         if (rows.isEmpty)
-          PersonEmptyState(message: empty)
+          ?(empty == null ? null : PersonEmptyState(message: empty))
         else
           CardScrollArea(
             child: Column(
@@ -752,6 +802,7 @@ SchoolEnrollmentRowData schoolEnrollmentRowOf(SchoolYearChoice choice)
   return SchoolEnrollmentRowData.empty(
     year: choice.startYear!.toString(),
     school: choice.school,
+    homeschooling: choice.homeschooling,
     program: choice.program,
     grade: choice.grade,
   );
@@ -761,6 +812,7 @@ void applySchoolYearChoice(SchoolEnrollmentRowData row, SchoolYearChoice choice)
 {
   row.yearCtrl.text = choice.startYear!.toString();
   row.school = choice.school;
+  row.homeschooling = choice.homeschooling;
   row.program = choice.program;
   row.grade = choice.grade;
 }
@@ -814,6 +866,7 @@ SchoolYearChoice? previousSchoolYearOf(List<SchoolEnrollmentRowData> rows)
     choice.level = level;
     choice.grade = kGradeLabels[before];
     choice.school = oldest.school;
+    choice.homeschooling = oldest.homeschooling;
 
     if (program.minYear <= before && before <= program.maxYear)
     {

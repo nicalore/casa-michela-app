@@ -241,7 +241,7 @@ class _MobileRecordStepState extends State<MobileRecordStep>
       MobileDetailCard.of(residenceCard(person)),
       _buildContacts(),
       if (withAssociation) ...[
-        for (final card in roleDetailCards(person, includeTeacherDetails: !_teacher))
+        for (final card in roleDetailCards(person, includeTeacherDetails: !_teacher, forOwner: _own))
           MobileDetailCard.of(card),
         if (_teacher) _buildStudies(),
       ],

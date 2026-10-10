@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../features/settings/utils/settings_strings.dart';
-import '../../../shared/mobile_palette.dart';
-import '../../../shared/widgets/mobile_current_card.dart';
-import '../../../shared/widgets/mobile_glass_panel.dart';
-import '../../../shared/widgets/mobile_pill.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../features/settings/utils/settings_strings.dart';
+import '../mobile_palette.dart';
+import 'mobile_current_card.dart';
+import 'mobile_glass_panel.dart';
+import 'mobile_pill.dart';
 
 const double _radius = 16;
 const double _minHeight = 56;
@@ -18,7 +18,8 @@ const double _restBorder = 1;
 const double _tickSize = 24;
 
 const double _previewRadius = 12;
-const double _labelRowHeight = 46;
+// A one-line label row stays 46 tall around the tick.
+const double _labelRowPadding = (46 - _tickSize) / 2;
 
 // The preview's parts were drawn for this height and scale with it.
 const double _drawnAt = 112;
@@ -224,25 +225,39 @@ class MobileThemeTile extends StatelessWidget
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _ThemePreview(dark: dark, height: previewHeight),
-            SizedBox(
-              height: _labelRowHeight,
+            // Takes its neighbour's height when the badge has to go under the label.
+            Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(left: 6, right: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _labelStyle(available: available, fontSize: 15.5).copyWith(
-                          fontWeight: FontWeight.w800,
+                padding: const EdgeInsets.fromLTRB(6, _labelRowPadding, 4, _labelRowPadding),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  // Full width, so a badge that fits keeps to the far end.
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        // As tall as the tick, so both tiles' labels stand on one line.
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: _tickSize),
+                          child: Align(
+                            widthFactor: 1,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              label,
+                              style: _labelStyle(available: available, fontSize: 15.5).copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        _trailing(chosen: chosen, available: available),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    _trailing(chosen: chosen, available: available),
-                  ],
+                  ),
                 ),
               ),
             ),

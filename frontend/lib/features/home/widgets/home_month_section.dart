@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../dashboard/widgets/dashboard_section_card.dart';
 import '../models/month_summary_items.dart';
@@ -35,6 +36,9 @@ class HomeFigure
 
   final HomeFigureTone tone;
 
+  // A length of time: value reads "4h 45m" and holds its units itself.
+  final bool isTime;
+
   const HomeFigure({
     required this.label,
     required this.value,
@@ -42,15 +46,43 @@ class HomeFigure
     this.warning,
     this.delta,
     this.tone = HomeFigureTone.plain,
-  });
+  }) : isTime = false;
+
+  HomeFigure.time({required this.label, required int minutes, this.delta})
+      : value = formatMinutes(minutes),
+        unit = '',
+        warning = null,
+        tone = HomeFigureTone.plain,
+        isTime = true;
 
   bool get hasAside => warning != null || delta != null;
 
   bool get pending => tone == HomeFigureTone.pending;
 
-  bool get isWord => value.contains(RegExp(r'[a-zA-Z]'));
+  bool get isWord => !isTime && value.contains(RegExp(r'[a-zA-Z]'));
 
   String get text => unit.isEmpty ? value : '$value $unit';
+
+  // Numbers in the value's style, units in the smaller one, spaces included.
+  List<({String text, bool isUnit})> get parts
+  {
+    if (!isTime)
+    {
+      return [
+        (text: value, isUnit: false),
+        if (unit.isNotEmpty) (text: ' $unit', isUnit: true),
+      ];
+    }
+
+    final matches = RegExp(r'(\d+)([a-z]+)').allMatches(value).toList();
+
+    return [
+      for (var index = 0; index < matches.length; index++) ...[
+        (text: '${index == 0 ? '' : ' '}${matches[index][1]}', isUnit: false),
+        (text: matches[index][2]!, isUnit: true),
+      ],
+    ];
+  }
 }
 
 class HomeFigureGroup
@@ -61,16 +93,7 @@ class HomeFigureGroup
   const HomeFigureGroup({required this.name, required this.figures});
 }
 
-String _hours(int minutes)
-{
-  final String text = (minutes / 60).toStringAsFixed(2);
-
-  return text.replaceFirst(RegExp(r'\.?0+$'), '');
-}
-
 String _days(num count) => count == 1 ? 'giorno' : 'giorni';
-
-String _hoursUnit(num count) => count == 1 ? 'ora' : 'ore';
 
 // The minus is the typographic one (U+2212).
 HomeDelta _delta(
@@ -151,14 +174,12 @@ List<HomeFigure> teacherFigures(TeacherMonthSummaryItem month)
         unit: (change) => _days(change / 10),
       ),
     ),
-    HomeFigure(
+    HomeFigure.time(
       label: 'Lezioni',
-      value: _hours(month.workedMinutes),
-      unit: _hoursUnit(month.workedMinutes / 60),
+      minutes: month.workedMinutes,
       delta: _delta(
         month.workedMinutes - last.workedMinutes,
-        (change) => _hours(change.toInt()),
-        unit: (change) => _hoursUnit(change / 60),
+        (change) => formatMinutes(change.toInt()),
       ),
     ),
     if (cents != null)
@@ -208,11 +229,7 @@ List<HomeFigure> pupilFigures(PupilMonthFiguresItem figures, {required bool with
       value: '${figures.bookedPresences}',
       unit: _days(figures.bookedPresences),
     ),
-    HomeFigure(
-      label: 'Lezioni',
-      value: _hours(figures.lessonMinutes),
-      unit: _hoursUnit(figures.lessonMinutes / 60),
-    ),
+    HomeFigure.time(label: 'Lezioni', minutes: figures.lessonMinutes),
     if (withTariff) _tariffFigure(figures),
   ];
 }
@@ -526,28 +543,25 @@ class _FigureTile extends StatelessWidget
       ),
     ));
 
+    final TextStyle numberStyle = GoogleFonts.plusJakartaSans(
+      fontSize: figure.isWord ? scale.value * 0.7 : scale.value,
+      fontWeight: FontWeight.w700,
+      height: 1,
+      color: valueColor,
+    );
+
+    final TextStyle unitStyle = GoogleFonts.plusJakartaSans(
+      fontSize: scale.unit,
+      fontWeight: FontWeight.w600,
+      height: 1,
+      color: AppTheme.trialMutedText,
+    );
+
     final Widget value = line(Text.rich(
       TextSpan(
         children: [
-          TextSpan(
-            text: figure.value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: figure.isWord ? scale.value * 0.7 : scale.value,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              color: valueColor,
-            ),
-          ),
-          if (figure.unit.isNotEmpty)
-            TextSpan(
-              text: ' ${figure.unit}',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: scale.unit,
-                fontWeight: FontWeight.w600,
-                height: 1,
-                color: AppTheme.trialMutedText,
-              ),
-            ),
+          for (final part in figure.parts)
+            TextSpan(text: part.text, style: part.isUnit ? unitStyle : numberStyle),
         ],
       ),
       maxLines: 1,

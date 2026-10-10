@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/week_range.dart' show formatMinutes;
 import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -14,6 +15,7 @@ import 'statistics/widgets/appreciation_students_dialog.dart';
 import 'statistics/widgets/stat_filters.dart';
 import 'statistics/widgets/stat_widgets.dart';
 import 'statistics/widgets/stats_data.dart';
+import 'statistics/widgets/stats_layout.dart';
 import 'statistics/widgets/trend_line_chart.dart';
 
 const Color _sectionDivider = AppTheme.trialLine;
@@ -22,8 +24,17 @@ const Duration _fetchFade = Duration(milliseconds: 150);
 
 const double _chartHeight = 280;
 
-// Ranking size; must match the backend limit.
-const int kRequestedSubjectsLimit = 10;
+// Ranking size; must match the backend limits.
+const int kRankingLimit = 10;
+
+// Shared with the mobile cards.
+const String kPupilStatsTitle = 'Presenze e lezioni';
+const String kTeacherStatsTitle = 'Disponibilità e lezioni';
+const String kTopTeachersTitle = '$kRankingLimit docenti con più ore';
+const String kTaughtDisciplinesTitle = '$kRankingLimit discipline più insegnate';
+const String kTopStudentsTitle = '$kRankingLimit studenti più seguiti';
+
+String subjectHoursTitle(RequestedSubjectKind kind) => '$kRankingLimit ${kind.hoursTitle}';
 
 class PersonPersonalStatsTab extends StatefulWidget
 {
@@ -354,6 +365,38 @@ List<String> availabilityShortfalls(TeacherPersonalStatisticsItem statistics, {r
   ];
 }
 
+ShareRankingSection _subjectHoursRanking(String title, List<SubjectHoursItem> subjects)
+{
+  return ShareRankingSection(
+    title: title,
+    rows: [
+      for (var index = 0; index < subjects.length; index++)
+        ShareRankRow(
+          position: index + 1,
+          name: subjects[index].name,
+          percentage: subjects[index].percentage,
+          badgeText: formatMinutes(subjects[index].minutes),
+        ),
+    ],
+  );
+}
+
+ShareRankingSection _peopleHoursRanking(String title, List<PersonHoursItem> people)
+{
+  return ShareRankingSection(
+    title: title,
+    rows: [
+      for (var index = 0; index < people.length; index++)
+        ShareRankRow(
+          position: index + 1,
+          name: people[index].person.fullName,
+          percentage: people[index].percentage,
+          badgeText: formatMinutes(people[index].minutes),
+        ),
+    ],
+  );
+}
+
 class PersonalAvailabilityCard extends StatelessWidget
 {
   final TeacherPersonalStatisticsItem statistics;
@@ -418,7 +461,7 @@ class PersonalAvailabilityCard extends StatelessWidget
     ];
 
     return AppCard(
-      title: 'Disponibilità',
+      title: kTeacherStatsTitle,
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_available_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -464,6 +507,13 @@ class PersonalAvailabilityCard extends StatelessWidget
                       data: statistics.monthlyTrend,
                       isMonthly: true,
                     ),
+            ),
+            const SizedBox(height: 32),
+            const Divider(color: _sectionDivider, thickness: 1),
+            const SizedBox(height: 32),
+            RankingPair(
+              first: _subjectHoursRanking(kTaughtDisciplinesTitle, statistics.taughtDisciplines),
+              second: _peopleHoursRanking(kTopStudentsTitle, statistics.topStudents),
             ),
           ],
         ),
@@ -597,7 +647,7 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
     final online = widget.shownMode == kOnlineMode;
 
     return AppCard(
-      title: 'Presenze e richieste',
+      title: kPupilStatsTitle,
       selectable: false,
       leading: const AppCardBadge(icon: Icons.event_seat_rounded),
       trailingFit: AppCardTrailing.wrapping,
@@ -644,10 +694,9 @@ class _PersonalPresenceCardState extends State<PersonalPresenceCard>
             const SizedBox(height: 32),
             const Divider(color: _sectionDivider, thickness: 1),
             const SizedBox(height: 32),
-            RequestedSubjectsSection(
-              rankings: widget.statistics.requested,
-              kind: _kind,
-              limit: kRequestedSubjectsLimit,
+            RankingPair(
+              first: _subjectHoursRanking(subjectHoursTitle(_kind), widget.statistics.lessonHours.of(_kind)),
+              second: _peopleHoursRanking(kTopTeachersTitle, widget.statistics.topTeachers),
             ),
           ],
         ),
