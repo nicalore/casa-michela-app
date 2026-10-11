@@ -6,7 +6,12 @@ from app.core import field_lengths
 from app.schemas.validators import CleanStr
 
 
-# Methodological and technical notes alike.
+class StudentNoteImageResponse(BaseModel):
+    key: str
+    size: int
+
+
+# Methodological and technical notes alike; the text is Markdown.
 class StudentNoteResponse(BaseModel):
     id: int
     text: str
@@ -14,8 +19,10 @@ class StudentNoteResponse(BaseModel):
     author_name: str
     created_at: datetime
     updated_at: datetime
+    images: list[StudentNoteImageResponse]
 
 
+# A teacher's note, plain text.
 class StudentNoteWrite(BaseModel):
     text: CleanStr = Field(
         ...,

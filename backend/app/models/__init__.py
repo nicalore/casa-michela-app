@@ -34,10 +34,12 @@ from app.models.room_supervision import RoomSupervision
 from app.models.school import School
 from app.models.school_enrollment import SchoolEnrollment
 from app.models.school_study_program import SchoolStudyProgram
+from app.models.seen_tour import SeenTour
 from app.models.service import Service
 from app.models.staff import Staff
 from app.models.student import Student
 from app.models.student_not_preferred_teacher import StudentNotPreferredTeacher
+from app.models.student_note_image import StudentNoteImage
 from app.models.study_program import StudyProgram
 from app.models.study_program_subject import StudyProgramSubject
 from app.models.subject_requested import SubjectRequested
@@ -88,10 +90,12 @@ __all__ = [
     "School",
     "SchoolEnrollment",
     "SchoolStudyProgram",
+    "SeenTour",
     "Service",
     "Staff",
     "Student",
     "StudentNotPreferredTeacher",
+    "StudentNoteImage",
     "StudyProgram",
     "StudyProgramSubject",
     "SubjectRequested",

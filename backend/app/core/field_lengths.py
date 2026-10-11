@@ -8,6 +8,8 @@ DESCRIPTION: Final[int] = 1000
 NOTES: Final[int] = 1000
 
 STUDENT_NOTE: Final[int] = 2000
+# Technical and methodological notes, Markdown with escapes.
+STUDENT_NOTE_MARKDOWN: Final[int] = 10000
 
 NOTICE_TITLE: Final[int] = 150
 NOTICE_MESSAGE: Final[int] = 20000

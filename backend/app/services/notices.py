@@ -1,5 +1,5 @@
 import mimetypes
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -72,7 +72,11 @@ def _content_type(name: str, declared: str | None) -> str:
     return guessed or _DEFAULT_CONTENT_TYPE
 
 
-async def read_uploads(files: Sequence[UploadFile] | None) -> list[Upload]:
+async def read_uploads(
+    files: Sequence[UploadFile] | None,
+    *,
+    too_large: str = _TOO_LARGE_ERROR,
+) -> list[Upload]:
     uploads: list[Upload] = []
     total = 0
 
@@ -81,7 +85,7 @@ async def read_uploads(files: Sequence[UploadFile] | None) -> list[Upload]:
         if file.size is not None and total + file.size > MAX_FILES_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=_TOO_LARGE_ERROR,
+                detail=too_large,
             )
 
         content = await file.read()
@@ -108,19 +112,23 @@ def _stored(upload: Upload, image_key: str | None = None) -> NoticeFile:
     )
 
 
+def stored_image(upload: Upload, image_key: str) -> NoticeFile:
+    return _stored(upload, image_key)
+
+
 # The message's images, kept or new; new uploads it does not show are dropped.
-def settle_images(
+def settle_images[F](
     message: str,
-    kept: Sequence[NoticeFile],
+    existing: Mapping[str, F],
     uploads: Sequence[Upload],
-) -> tuple[list[NoticeFile], list[NoticeFile]]:
+    stored: Callable[[Upload, str], F],
+) -> tuple[list[F], list[F]]:
     shown = image_keys(message)
-    existing = {file.image_key: file for file in kept}
     # A new image travels with its key as the file name.
     new = {upload.file_name: upload for upload in uploads}
 
-    keep: list[NoticeFile] = []
-    add: list[NoticeFile] = []
+    keep: list[F] = []
+    add: list[F] = []
 
     for key in shown:
         if key in existing:
@@ -141,7 +149,7 @@ def settle_images(
                 detail=_NOT_AN_IMAGE_ERROR,
             )
 
-        add.append(_stored(upload, image_key=key))
+        add.append(stored(upload, key))
 
     return keep, add
 

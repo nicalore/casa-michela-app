@@ -449,7 +449,7 @@ class _NoticesTabState extends State<NoticesTab> with DestinationRefresh, Entity
       return;
     }
 
-    final NoticeImages images = NoticeImages(noticeId: notice.id);
+    final NoticeImages images = NoticeImages.ofNotice(notice.id);
 
     try
     {

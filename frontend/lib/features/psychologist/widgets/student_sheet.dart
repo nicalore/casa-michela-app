@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../association/tabs/opening_hours/hours_grid.dart' show TodayFrame;
 import '../../lessons/widgets/person_avatar.dart';
@@ -16,6 +17,12 @@ import '../../people/widgets/school_enrollment_edit_row.dart' show currentSchool
 import '../../people/widgets/student_notes_card.dart';
 import '../psychologist_strings.dart';
 import 'certifications_dialog.dart' show kCertificationLabels;
+
+const String kTourStudentSchool = 'psychologist.school';
+const String kTourStudentCertifications = 'psychologist.certifications';
+const String kTourStudentNotes = 'psychologist.notes';
+const String kTourStudentNoteDate = 'psychologist.note.date';
+const String kTourStudentNoteTools = 'psychologist.note.tools';
 
 const double _cardGap = 24;
 const double _faceSize = 96;
@@ -80,22 +87,29 @@ class StudentSheet extends StatelessWidget
           children: pageTransitionBlocks([
             _IdentityCard(student: student),
             const SizedBox(height: _cardGap),
-            _buildCertifications(),
+            DesktopTourTarget(id: kTourStudentSchool, child: _SchoolCard(student: student)),
             const SizedBox(height: _cardGap),
-            _SchoolCard(student: student),
+            DesktopTourTarget(id: kTourStudentCertifications, child: _buildCertifications()),
             const SizedBox(height: _cardGap),
             if (_otherInformation.isNotEmpty) ...[
               _buildOtherInformation(),
               const SizedBox(height: _cardGap),
             ],
-            StudentNotesCard(
-              title: kMethodologicalNotesTitle,
-              icon: Icons.psychology_rounded,
-              notes: student.methodologicalNotes ?? const [],
-              onAdd: onAddNote,
-              mayChange: (note) => note.authorTaxCode == ownTaxCode,
-              onEdit: onEditNote,
-              onDelete: onDeleteNote,
+            DesktopTourTarget(
+              id: kTourStudentNotes,
+              child: StudentNotesCard(
+                title: kMethodologicalNotesTitle,
+                icon: Icons.psychology_rounded,
+                taxCode: student.fiscalCode,
+                kind: StudentNoteKind.methodological,
+                notes: student.methodologicalNotes ?? const [],
+                onAdd: onAddNote,
+                mayChange: (note) => note.authorTaxCode == ownTaxCode,
+                onEdit: onEditNote,
+                onDelete: onDeleteNote,
+                tourDate: kTourStudentNoteDate,
+                tourTools: kTourStudentNoteTools,
+              ),
             ),
           ]),
         ),

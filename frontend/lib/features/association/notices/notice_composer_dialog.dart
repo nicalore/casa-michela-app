@@ -49,7 +49,7 @@ Future<void> showNoticeComposer(
     barrierLabel: 'NoticeComposer',
     builder: (_) => _NoticeComposer(
       notice: notice,
-      images: images ?? NoticeImages(noticeId: notice?.id),
+      images: images ?? NoticeImages.ofNotice(notice?.id),
       onSave: onSave,
       onEditSaved: onEditSaved,
     ),

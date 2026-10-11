@@ -100,7 +100,7 @@ from app.schemas.person import (
 from app.schemas.person_wizard import PersonWizardPayload
 from app.schemas.student_note import StudentNoteResponse, TeacherNoteResponse
 from app.services import email_service
-from app.services.collaboration import drop_hours_ahead
+from app.services.collaboration import new_member, stop_collaboration
 from app.services.early_exit_form import (
     build_early_exit_form,
     early_exit_form_file_name,
@@ -111,14 +111,14 @@ from app.services.enrollment_form import (
     enrollment_form_file_name,
     request_for_person,
 )
-from app.services.methodological_notes import followed_student, is_followed
+from app.services.methodological_notes import followed_student
 from app.services.person_wizard_service import (
     assert_course_exists,
     create_person_from_wizard,
 )
 from app.services.pupil_lock import lock_pupil
 from app.services.role_service import RoleService
-from app.services.student_notes import note_response
+from app.services.student_notes import is_followed, note_response
 from app.services.teacher_notes import teacher_note_response
 from app.services.teaching_competence import (
     lacks_competence,
@@ -949,7 +949,13 @@ def _person_load_options() -> tuple[ExecutableOption, ...]:
         student.selectinload(Student.methodological_notes).joinedload(
             MethodologicalNote.author
         ),
+        student.selectinload(Student.methodological_notes).selectinload(
+            MethodologicalNote.images
+        ),
         student.selectinload(Student.technical_notes).joinedload(TechnicalNote.author),
+        student.selectinload(Student.technical_notes).selectinload(
+            TechnicalNote.images
+        ),
         student.selectinload(Student.teacher_notes).joinedload(TeacherNote.author),
         student.selectinload(Student.current_not_preferred_teachers).joinedload(
             StudentNotPreferredTeacher.person
@@ -2130,7 +2136,7 @@ async def update_person(
         )
 
         if member is None:
-            member = Member(tax_code=person.tax_code)
+            member = new_member(person.tax_code)
             db.add(member)
             await db.flush()
 
@@ -2861,7 +2867,7 @@ async def update_person_memberships(
     await _rewrite_memberships(db, person.tax_code, payload.memberships)
 
     if was_collaborating and not member.collaborating_active:
-        await drop_hours_ahead(db, person.tax_code)
+        await stop_collaboration(db, member)
 
     await _commit_or_500(db, _GENERIC_COMMIT_ERROR)
 
@@ -2938,10 +2944,9 @@ async def revoke_person_membership(
     latest_membership.renewal_period_days = 0
     latest_membership.revocation = MembershipRevocationEnum(payload.revocation_type)
 
-    member.collaborating_active = False
     member.updated_at = datetime.now(UTC)
 
-    await drop_hours_ahead(db, person.tax_code)
+    await stop_collaboration(db, member)
 
     account = await db.get(Account, person.tax_code)
 

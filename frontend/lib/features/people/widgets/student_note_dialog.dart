@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/field_limits.dart';
@@ -8,18 +9,25 @@ import '../../../services/api_service.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
-import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
+import '../../association/notices/notice_editor.dart';
+import '../../association/notices/notice_embeds.dart';
+import '../../association/notices/notice_item.dart';
+import '../../association/notices/notice_markdown.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../models/person_item.dart';
 import '../models/student_note_item.dart';
 import '../utils/student_notes_strings.dart';
+import 'student_note_text.dart';
 
 const double _dialogWidth = 900;
 const double _confirmWidth = 480;
 
-const int _lines = 10;
+const double _editorHeight = 300;
+
+// As a notice's: the server refuses more.
+const int _imagesMaxBytes = 15 * 1024 * 1024;
 
 // A new note without [note]; true once saved.
 Future<bool> showStudentNoteDialog(
@@ -29,6 +37,16 @@ Future<bool> showStudentNoteDialog(
   StudentNoteItem? note,
 }) async
 {
+  if (note != null)
+  {
+    await preloadNoteImages(context, student.fiscalCode, kind, [note]);
+
+    if (!context.mounted)
+    {
+      return false;
+    }
+  }
+
   final bool? saved = await showBlurredDialog<bool>(
     context: context,
     barrierLabel: 'StudentNote',
@@ -105,8 +123,12 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
 {
   final ApiService _apiService = ApiService();
 
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.note?.text ?? '');
+  late final QuillController _controller = QuillController(
+    document: noticeDocument(widget.note?.text ?? ''),
+    selection: const TextSelection.collapsed(offset: 0),
+  );
+
+  late final NoticeImages _images = studentNoteImages(widget.student.fiscalCode, widget.kind, widget.note?.id);
 
   bool _saving = false;
 
@@ -117,18 +139,76 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
     super.dispose();
   }
 
+  // Only the images the text still shows count.
+  int get _imagesBytes
+  {
+    final Map<String, int> saved = {for (final image in widget.note?.images ?? <NoticeImageItem>[]) image.key: image.size};
+    int total = 0;
+
+    for (final key in documentImageKeys(_controller.document))
+    {
+      total += _images.added[key]?.size ?? saved[key] ?? 0;
+    }
+
+    return total;
+  }
+
+  bool _fits(int bytes)
+  {
+    if (_imagesBytes + bytes <= _imagesMaxBytes)
+    {
+      return true;
+    }
+
+    CustomSnackBar.show(context: context, message: kImagesTooLarge, isError: true);
+
+    return false;
+  }
+
+  String? _problem(String markdown)
+  {
+    if (markdown.isEmpty)
+    {
+      return kEmptyNote;
+    }
+
+    if (markdown.length > FieldLimits.studentNoteMarkdown)
+    {
+      return kNoteTooLong;
+    }
+
+    if (_imagesBytes > _imagesMaxBytes)
+    {
+      return kImagesTooLarge;
+    }
+
+    return null;
+  }
+
   Future<void> _save() async
   {
-    final String text = _controller.text.trim();
+    final String markdown = noticeMarkdown(_controller.document);
+    final String? problem = _problem(markdown);
 
-    if (text.isEmpty)
+    if (problem != null)
     {
-      CustomSnackBar.show(context: context, message: kEmptyNote, isError: true);
+      CustomSnackBar.show(context: context, message: problem, isError: true);
 
       return;
     }
 
+    if (_saving)
+    {
+      return;
+    }
+
     setState(() => _saving = true);
+
+    final Set<String> shown = documentImageKeys(_controller.document);
+    final Map<String, NoticeUpload> added = {
+      for (final entry in _images.added.entries)
+        if (shown.contains(entry.key)) entry.key: entry.value,
+    };
 
     try
     {
@@ -137,12 +217,15 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
 
       if (note == null)
       {
-        await _apiService.createStudentNote(code, widget.kind, text);
+        await _apiService.createStudentNote(code, widget.kind, markdown, images: added);
       }
       else
       {
-        await _apiService.updateStudentNote(code, widget.kind, note.id, text);
+        await _apiService.updateStudentNote(code, widget.kind, note.id, markdown, images: added);
       }
+
+      // Decoded by the editor already: the card shows them without fetching them back.
+      _images.keep(added);
 
       if (mounted)
       {
@@ -179,6 +262,7 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
       title: '${student.firstName} ${student.lastName}',
       leading: PersonAvatar(person: student, size: PersonAvatar.titleSize),
       maxWidth: _dialogWidth,
+      fillLast: true,
       footer: AppDialogFooter.single(
         AppGradientButton(
           label: editing ? kSaveChangesLabel : kSaveLabel,
@@ -190,11 +274,10 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
         ),
       ),
       children: [
-        AppDialogPill(
-          expand: true,
+        AppScrollingDialogPill(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 notesReadersHint(student.firstName),
@@ -206,16 +289,11 @@ class _StudentNoteDialogState extends State<_StudentNoteDialog>
                 ),
               ),
               const SizedBox(height: 14),
-              AppTextField(
+              NoticeEditor(
                 controller: _controller,
-                label: technical ? kTechnicalNotesTitle : kMethodologicalNotesTitle,
-                showLabel: false,
-                hintText: '',
-                minLines: _lines,
-                maxLines: _lines,
-                maxLength: FieldLimits.studentNote,
-                textCapitalization: TextCapitalization.sentences,
-                keyboardType: TextInputType.multiline,
+                images: _images,
+                height: _editorHeight,
+                canAdd: _fits,
               ),
             ],
           ),

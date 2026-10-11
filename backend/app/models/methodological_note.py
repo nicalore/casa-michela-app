@@ -16,6 +16,7 @@ from app.models.mixins import CreatedAtMixin, UpdatedAtMixin
 if TYPE_CHECKING:
     from app.models.person import Person
     from app.models.student import Student
+    from app.models.student_note_image import StudentNoteImage
 
 
 # A psychologist's note on how a pupil learns, read by the pupil's teachers.
@@ -43,11 +44,18 @@ class MethodologicalNote(CreatedAtMixin, UpdatedAtMixin, Base):
         index=True,
     )
 
+    # Markdown, as a notice's message.
     text: Mapped[str] = mapped_column(
-        String(field_lengths.STUDENT_NOTE),
+        String(field_lengths.STUDENT_NOTE_MARKDOWN),
         nullable=False,
     )
 
     student: Mapped[Student] = relationship(back_populates="methodological_notes")
 
     author: Mapped[Person] = relationship(viewonly=True)
+
+    images: Mapped[list[StudentNoteImage]] = relationship(
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="StudentNoteImage.id",
+    )

@@ -14,13 +14,14 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
+import '../../association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../../lessons/models/booking_summary_item.dart';
 import '../../lessons/models/calendar_day.dart';
 import '../../lessons/models/lesson_item.dart';
 import '../../lessons/widgets/booking_fields_section.dart' show bookingTagLabels;
 import '../../lessons/widgets/calendar_lesson_block.dart' show lessonAbout, lessonTitle, lessonWhere;
 import '../../lessons/widgets/person_avatar.dart';
-import 'own_lesson_block.dart' show kSharedLessonIcon;
+// import 'own_lesson_block.dart' show kSharedLessonIcon;
 import 'teacher_note_dialog.dart';
 import '../../people/models/person_item.dart';
 import '../../people/models/school_enrollment_item.dart';
@@ -28,6 +29,7 @@ import '../../people/models/student_note_item.dart';
 import '../../people/utils/student_notes_strings.dart';
 import '../../people/widgets/person_detail_widgets.dart'
     show kObscuredLetterSpacing, kObscuredValue;
+import '../../people/widgets/student_note_text.dart';
 import '../../people/widgets/student_notes_card.dart' show noteDate;
 
 const double _dialogWidth = 1280;
@@ -46,7 +48,7 @@ const double _rowPadding = 11;
 // Read off the window: a LayoutBuilder cannot sit inside the IntrinsicHeight that levels the cards.
 const double _twoColumnsFromWindow = 1160;
 
-const double _voiceGap = 18;
+// const double _voiceGap = 18;
 
 const double _headingGap = 14;
 
@@ -84,12 +86,18 @@ class LessonVoice
   // Counted in [value]; mobile opens them from the row.
   final List<StudentNoteItem>? notes;
 
+  // Whose notes and which kind: where their images are fetched from.
+  final String? notesTaxCode;
+  final StudentNoteKind? notesKind;
+
   const LessonVoice({
     required this.label,
     required this.value,
     this.sensitive = false,
     this.icon,
     this.notes,
+    this.notesTaxCode,
+    this.notesKind,
   });
 }
 
@@ -135,6 +143,11 @@ Future<void> showOwnLessonDialog({
   }
   catch (_) {}
 
+  if (person != null && context.mounted)
+  {
+    await preloadStudentNoteImages(context, person);
+  }
+
   if (!context.mounted)
   {
     return;
@@ -175,11 +188,17 @@ String _joined(Iterable<String> values, {String separator = ', '})
   return kept.isEmpty ? _empty : kept.join(separator);
 }
 
-LessonVoice _notesVoice(String label, List<StudentNoteItem>? notes)
+LessonVoice _notesVoice(String label, PersonItem person, StudentNoteKind kind, List<StudentNoteItem>? notes)
 {
   final List<StudentNoteItem> all = notes ?? const [];
 
-  return LessonVoice(label: label, value: all.isEmpty ? _empty : notesCountLabel(all.length), notes: all);
+  return LessonVoice(
+    label: label,
+    value: all.isEmpty ? _empty : notesCountLabel(all.length),
+    notes: all,
+    notesTaxCode: person.fiscalCode,
+    notesKind: kind,
+  );
 }
 
 String _certifications(PersonItem person)
@@ -282,8 +301,8 @@ List<LessonVoice> studentVoicesOf(PersonItem person, {bool notes = true})
     LessonVoice(label: 'Classe', value: person.schoolClass?.trim() ?? _empty),
     LessonVoice(label: 'Ripetente', value: year == null ? _empty : (repeating ? 'Sì' : 'No')),
     if (notes) ...[
-      _notesVoice(kTechnicalNotesTitle, person.technicalNotes),
-      _notesVoice(kMethodologicalNotesTitle, person.methodologicalNotes),
+      _notesVoice(kTechnicalNotesTitle, person, StudentNoteKind.technical, person.technicalNotes),
+      _notesVoice(kMethodologicalNotesTitle, person, StudentNoteKind.methodological, person.methodologicalNotes),
     ],
     LessonVoice(
       label: 'Altre informazioni',
@@ -334,33 +353,33 @@ class _OwnLessonDialog extends StatelessWidget
     }
   }
 
-  Widget _buildSharedLine()
-  {
-    return Padding(
-      padding: const EdgeInsets.only(top: _voiceGap),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(kSharedLessonIcon, size: 18, color: AppTheme.trialTealDeep),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              sharedLessonSentence(lesson),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-                color: AppTheme.trialInk,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildSharedLine()
+  // {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(top: _voiceGap),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         const Padding(
+  //           padding: EdgeInsets.only(top: 2),
+  //           child: Icon(kSharedLessonIcon, size: 18, color: AppTheme.trialTealDeep),
+  //         ),
+  //         const SizedBox(width: 8),
+  //         Expanded(
+  //           child: Text(
+  //             sharedLessonSentence(lesson),
+  //             style: GoogleFonts.plusJakartaSans(
+  //               fontSize: 14.5,
+  //               fontWeight: FontWeight.w600,
+  //               height: 1.4,
+  //               color: AppTheme.trialInk,
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildHeading(String text)
   {
@@ -416,7 +435,8 @@ class _OwnLessonDialog extends StatelessWidget
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _VoicesTable(voices: lessonVoicesOf(lesson, ministrySubjects, where: _byStudent)),
-          if (_byStudent && lesson.isShared) _buildSharedLine(),
+          // Co-presence hidden from students and parents for now.
+          // if (_byStudent && lesson.isShared) _buildSharedLine(),
         ],
       ),
     );
@@ -438,9 +458,16 @@ class _OwnLessonDialog extends StatelessWidget
 
   Widget _buildNotesSection(PersonItem student, {required bool wide})
   {
-    final technical = _NotesColumn(label: 'Tecniche', notes: student.technicalNotes ?? const []);
+    final technical = _NotesColumn(
+      label: 'Tecniche',
+      taxCode: student.fiscalCode,
+      kind: StudentNoteKind.technical,
+      notes: student.technicalNotes ?? const [],
+    );
     final methodological = _NotesColumn(
       label: 'Metodologiche',
+      taxCode: student.fiscalCode,
+      kind: StudentNoteKind.methodological,
       notes: student.methodologicalNotes ?? const [],
       sensitive: true,
     );
@@ -629,11 +656,19 @@ class _EyeButton extends StatelessWidget
 class _NotesColumn extends StatefulWidget
 {
   final String label;
+  final String taxCode;
+  final StudentNoteKind kind;
   final List<StudentNoteItem> notes;
 
   final bool sensitive;
 
-  const _NotesColumn({required this.label, required this.notes, this.sensitive = false});
+  const _NotesColumn({
+    required this.label,
+    required this.taxCode,
+    required this.kind,
+    required this.notes,
+    this.sensitive = false,
+  });
 
   @override
   State<_NotesColumn> createState() => _NotesColumnState();
@@ -641,6 +676,9 @@ class _NotesColumn extends StatefulWidget
 
 class _NotesColumnState extends State<_NotesColumn>
 {
+  // As a voice's value, in the family that carries Markdown's other weights.
+  static final TextStyle _noteStyle = noticeTextStyle(fontSize: 16, fontWeight: FontWeight.w600, height: 1.45);
+
   bool _isVisible = false;
 
   bool get _masked => widget.sensitive && widget.notes.isNotEmpty;
@@ -687,7 +725,7 @@ class _NotesColumnState extends State<_NotesColumn>
               ),
             ),
             const SizedBox(height: 4),
-            _VoiceValue(value: note.text),
+            StudentNoteText(taxCode: widget.taxCode, kind: widget.kind, note: note, style: _noteStyle),
           ],
         ),
       ),

@@ -76,6 +76,8 @@ class PersonObservationsTab extends StatelessWidget
                 StudentNotesCard(
                   title: kTechnicalNotesTitle,
                   icon: Icons.edit_note_rounded,
+                  taxCode: person.fiscalCode,
+                  kind: StudentNoteKind.technical,
                   notes: person.technicalNotes ?? const [],
                   onAdd: () => _write(context),
                   mayChange: (_) => true,
@@ -86,12 +88,16 @@ class PersonObservationsTab extends StatelessWidget
                 StudentNotesCard(
                   title: kMethodologicalNotesTitle,
                   icon: Icons.psychology_rounded,
+                  taxCode: person.fiscalCode,
+                  kind: StudentNoteKind.methodological,
                   notes: person.methodologicalNotes ?? const [],
                 ),
                 const SizedBox(height: kPersonCardGap),
                 StudentNotesCard(
                   title: kTeacherNotesTitle,
                   icon: Icons.rate_review_outlined,
+                  taxCode: person.fiscalCode,
+                  kind: StudentNoteKind.teacher,
                   notes: person.teacherNotes ?? const [],
                   mayChange: (_) => true,
                   onDelete: (note) => _delete(context, StudentNoteKind.teacher, note),

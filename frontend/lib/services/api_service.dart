@@ -2432,11 +2432,31 @@ class ApiService
     }
   }
 
-  Future<void> createStudentNote(String taxCode, StudentNoteKind kind, String text) async
+  // The new images the text shows, each named by its key; those kept are not sent again.
+  FormData _studentNoteForm(String text, Map<String, NoticeUpload> images)
+  {
+    return FormData()
+      ..fields.add(MapEntry('text', text))
+      ..files.addAll([
+        for (final entry in images.entries)
+          MapEntry('images', _multipart(entry.value, fileName: entry.key)),
+      ]);
+  }
+
+  Future<void> createStudentNote(
+    String taxCode,
+    StudentNoteKind kind,
+    String text, {
+    Map<String, NoticeUpload> images = const {},
+  }) async
   {
     try
     {
-      await _dio.post('/people/$taxCode/${kind.path}/', data: {'text': text});
+      await _dio.post(
+        '/people/$taxCode/${kind.path}/',
+        data: _studentNoteForm(text, images),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
     }
     on DioException catch (e)
     {
@@ -2444,15 +2464,42 @@ class ApiService
     }
   }
 
-  Future<void> updateStudentNote(String taxCode, StudentNoteKind kind, int noteId, String text) async
+  Future<void> updateStudentNote(
+    String taxCode,
+    StudentNoteKind kind,
+    int noteId,
+    String text, {
+    Map<String, NoticeUpload> images = const {},
+  }) async
   {
     try
     {
-      await _dio.put('/people/$taxCode/${kind.path}/$noteId', data: {'text': text});
+      await _dio.put(
+        '/people/$taxCode/${kind.path}/$noteId',
+        data: _studentNoteForm(text, images),
+        options: Options(receiveTimeout: _uploadTimeout),
+      );
     }
     on DioException catch (e)
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
+    }
+  }
+
+  Future<Uint8List> fetchStudentNoteImage(String taxCode, StudentNoteKind kind, int noteId, String key) async
+  {
+    try
+    {
+      final response = await _dio.get<List<int>>(
+        '/people/$taxCode/${kind.path}/$noteId/images/$key',
+        options: Options(responseType: ResponseType.bytes, receiveTimeout: _uploadTimeout),
+      );
+
+      return Uint8List.fromList(response.data!);
+    }
+    on DioException catch (e)
+    {
+      _refusedBytes(e, 'Impossibile caricare l\'immagine.');
     }
   }
 
@@ -2479,6 +2526,38 @@ class ApiService
     {
       _refused(e, 'Errore imprevisto. Riprova più tardi.');
     }
+  }
+
+  // Slug to the version seen; [platform] is "mobile" or "desktop".
+  Future<Map<String, int>> getSeenTours(String platform) async
+  {
+    final response = await _dio.get('/tours/$platform');
+    final Object? data = response.data;
+
+    if (data is! Map)
+    {
+      throw const FormatException('Tutorial visti non leggibili.');
+    }
+
+    return {
+      for (final MapEntry<dynamic, dynamic> entry in data.entries)
+        if (entry.key is String && entry.value is int) entry.key as String: entry.value as int,
+    };
+  }
+
+  Future<void> markToursSeen(String platform, Map<String, int> seen) async
+  {
+    await _dio.put('/tours/$platform', data: {'seen': seen});
+  }
+
+  // Null sections: every tour of the platform.
+  Future<void> resetTours(String platform, [Iterable<String>? sections]) async
+  {
+    await _dio.delete(
+      '/tours/$platform',
+      queryParameters: {if (sections != null) 'section': sections.toList()},
+      options: Options(listFormat: ListFormat.multi),
+    );
   }
 
   // Also opens the accounts of the parents named; each one gets a welcome email.

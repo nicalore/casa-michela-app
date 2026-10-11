@@ -14,41 +14,69 @@ const double _imageMaxHeight = 320;
 const double _imageRadius = 12;
 const double _imageGap = 8;
 
+typedef ImageFetcher = Future<Uint8List> Function(String key);
+
 // Images a message shows: new ones from memory, sent ones fetched once.
 class NoticeImages
 {
-  final int? noticeId;
+  // Null while nothing is saved: there is nowhere to fetch from.
+  final ImageFetcher? fetcher;
   final Map<String, NoticeUpload> added;
   // Shared by the details and the composer opened over them.
   final Map<String, Uint8List> _loaded;
-  final Map<String, Future<Uint8List>> _fetched = {};
+  final Map<String, Future<Uint8List>> _fetched;
 
-  NoticeImages({this.noticeId, Map<String, Uint8List>? loaded}) : added = {}, _loaded = loaded ?? {};
+  NoticeImages({this.fetcher, Map<String, Uint8List>? loaded, Map<String, Future<Uint8List>>? fetched})
+      : added = {},
+        _loaded = loaded ?? {},
+        _fetched = fetched ?? {};
+
+  factory NoticeImages.ofNotice(int? noticeId)
+  {
+    return NoticeImages(fetcher: noticeId == null ? null : (key) => ApiService().fetchNoticeImage(noticeId, key));
+  }
 
   // Same images, own additions: what the composer starts from.
-  NoticeImages copy() => NoticeImages(noticeId: noticeId, loaded: _loaded);
+  NoticeImages copy() => NoticeImages(fetcher: fetcher, loaded: _loaded);
 
   // Bytes at hand on the first frame, decoded already: nothing grows once shown.
   Uint8List? ready(String key) => added[key]?.bytes ?? _loaded[key];
 
   Future<Uint8List>? bytesOf(String key)
   {
-    final int? id = noticeId;
+    final ImageFetcher? fetch = fetcher;
 
-    if (id == null)
+    if (fetch == null)
     {
       return null;
     }
 
-    return _fetched.putIfAbsent(key, () => ApiService().fetchNoticeImage(id, key));
+    return _fetched.putIfAbsent(key, ()
+    {
+      final Future<Uint8List> bytes = fetch(key);
+
+      // Shown as soon as it lands, so it is at hand the next time; a failure is asked again.
+      bytes.then<void>((data) => _loaded[key] = data, onError: (Object _) => _fetched.remove(key));
+
+      return bytes;
+    });
+  }
+
+  // Images just written, decoded by the editor already: shown without a fetch.
+  void keep(Map<String, NoticeUpload> uploads)
+  {
+    for (final entry in uploads.entries)
+    {
+      _loaded[entry.key] = entry.value.bytes;
+    }
   }
 
   // Fetched and decoded before the message opens, so it opens at its full height.
   Future<void> preload(BuildContext context, Iterable<String> keys) async
   {
-    final int? id = noticeId;
+    final ImageFetcher? fetch = fetcher;
 
-    if (id == null)
+    if (fetch == null)
     {
       return;
     }
@@ -56,7 +84,7 @@ class NoticeImages
     await Future.wait([
       for (final key in keys)
         if (!_loaded.containsKey(key))
-          ApiService().fetchNoticeImage(id, key).then((bytes) async
+          fetch(key).then((bytes) async
           {
             if (context.mounted)
             {

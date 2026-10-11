@@ -9,6 +9,8 @@ abstract final class FieldLimits
   static const int notes = 1000;
 
   static const int studentNote = 2000;
+  // Technical and methodological notes, Markdown with escapes.
+  static const int studentNoteMarkdown = 10000;
 
   static const int noticeTitle = 150;
   static const int noticeMessage = 20000;

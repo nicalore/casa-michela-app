@@ -48,6 +48,7 @@ from app.services.notices import (
     reading_response,
     received_response,
     settle_images,
+    stored_image,
     summary_response,
 )
 
@@ -221,7 +222,12 @@ async def create_notice(
     images: Images = None,
     attachments: Attachments = None,
 ) -> NoticeResponse:
-    _, new_images = settle_images(message, (), await read_uploads(images))
+    _, new_images = settle_images(
+        message,
+        {},
+        await read_uploads(images),
+        stored_image,
+    )
     files = [*new_images, *attachments_of(await read_uploads(attachments))]
     check_total_size(files)
 
@@ -261,8 +267,9 @@ async def update_notice(
     kept_ids = set(kept_attachment_ids or ())
     kept_images, new_images = settle_images(
         message,
-        [file for file in notice.files if file.image_key is not None],
+        {file.image_key: file for file in notice.files if file.image_key is not None},
         await read_uploads(images),
+        stored_image,
     )
     kept_attachments = [
         file

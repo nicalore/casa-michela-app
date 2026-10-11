@@ -47,7 +47,7 @@ Future<void> showMobileNotice(BuildContext context, int id) async
     return;
   }
 
-  final NoticeImages images = NoticeImages(noticeId: notice.id);
+  final NoticeImages images = NoticeImages.ofNotice(notice.id);
 
   try
   {

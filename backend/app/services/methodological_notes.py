@@ -8,21 +8,11 @@ from sqlalchemy.orm import joinedload
 from app.models.member import Member
 from app.models.methodological_note import MethodologicalNote
 from app.models.student import Student
-from app.services.role_service import RoleService
-from app.services.student_notes import note_of_student
+from app.services.student_notes import is_followed, note_of_student
 
 _PERSON_NOT_FOUND_ERROR: Final[str] = "Persona non trovata"
 _PERSON_FORBIDDEN_ERROR: Final[str] = "Non hai accesso ai dati di questa persona."
 _NOT_THE_AUTHOR_ERROR: Final[str] = "Non hai i permessi per accedere a questa risorsa"
-
-
-# The pupils a psychologist follows: those on the register.
-def is_followed(member: Member | None) -> bool:
-    return (
-        member is not None
-        and member.student_profile is not None
-        and RoleService.is_enrolled(member)
-    )
 
 
 async def followed_student(db: AsyncSession, tax_code: str) -> Student:

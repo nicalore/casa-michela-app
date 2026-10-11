@@ -14,6 +14,7 @@ import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
+import 'image_paste.dart';
 import 'notice_embeds.dart';
 import 'notice_item.dart';
 import 'notice_markdown.dart';
@@ -32,7 +33,7 @@ const double _toolIconSize = 21;
 const double _headingMenuWidth = 170;
 
 // A photo is shrunk before it travels: it counts toward the 15 MB of the email.
-const double _photoMaxSide = 1600;
+const int _photoMaxSide = 1600;
 const int _photoQuality = 85;
 
 // Markdown has no underline: the shortcut would format what never reaches anyone.
@@ -69,16 +70,25 @@ class _NoticeEditorState extends State<NoticeEditor>
 
   QuillController get _controller => widget.controller;
 
+  late final VoidCallback _stopPasting;
+
   @override
   void initState()
   {
     super.initState();
     _focusNode.addListener(_onFocus);
+    _stopPasting = listenForPastedImages(
+      active: () => mounted && _focusNode.hasFocus,
+      maxSide: _photoMaxSide,
+      onImage: _insertImage,
+      onUnreadable: () => CustomSnackBar.show(context: context, message: kFileUnreadable, isError: true),
+    );
   }
 
   @override
   void dispose()
   {
+    _stopPasting();
     _focusNode
       ..removeListener(_onFocus)
       ..dispose();
@@ -126,8 +136,8 @@ class _NoticeEditorState extends State<NoticeEditor>
     {
       photo = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: _photoMaxSide,
-        maxHeight: _photoMaxSide,
+        maxWidth: _photoMaxSide.toDouble(),
+        maxHeight: _photoMaxSide.toDouble(),
         imageQuality: _photoQuality,
       );
     }
@@ -141,8 +151,11 @@ class _NoticeEditorState extends State<NoticeEditor>
       return;
     }
 
-    final Uint8List bytes = await photo.readAsBytes();
+    await _insertImage(await photo.readAsBytes(), photo.mimeType ?? 'image/jpeg');
+  }
 
+  Future<void> _insertImage(Uint8List bytes, String mimeType) async
+  {
     if (!mounted || !widget.canAdd(bytes.length))
     {
       return;
@@ -158,11 +171,7 @@ class _NoticeEditorState extends State<NoticeEditor>
 
     final String key = newImageKey();
 
-    widget.images.added[key] = NoticeUpload(
-      fileName: key,
-      bytes: bytes,
-      mimeType: photo.mimeType ?? 'image/jpeg',
-    );
+    widget.images.added[key] = NoticeUpload(fileName: key, bytes: bytes, mimeType: mimeType);
     _insertBlock(BlockEmbed.image('$kNoticeImageScheme$key'));
   }
 

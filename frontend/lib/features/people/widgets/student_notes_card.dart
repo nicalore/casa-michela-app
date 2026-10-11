@@ -5,10 +5,13 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/shared_components.dart';
+import '../../association/notices/notice_message_view.dart' show noticeTextStyle;
 import '../models/student_note_item.dart';
 import '../utils/student_notes_strings.dart';
 import 'person_detail_widgets.dart' show missingValue;
+import 'student_note_text.dart';
 
 // "2 ottobre 2026".
 String noteDate(DateTime date) => '${formatDayMonthFull(date)} ${date.year}';
@@ -17,6 +20,10 @@ class StudentNotesCard extends StatelessWidget
 {
   final String title;
   final IconData icon;
+
+  // The pupil and the kind: where the notes' images are fetched from.
+  final String taxCode;
+  final StudentNoteKind kind;
 
   final List<StudentNoteItem> notes;
 
@@ -27,15 +34,23 @@ class StudentNotesCard extends StatelessWidget
   final ValueChanged<StudentNoteItem>? onEdit;
   final ValueChanged<StudentNoteItem>? onDelete;
 
+  // Desktop tour ids for the date and the tools of the newest note the reader may change.
+  final String? tourDate;
+  final String? tourTools;
+
   const StudentNotesCard({
     super.key,
     required this.title,
     required this.icon,
+    required this.taxCode,
+    required this.kind,
     required this.notes,
     this.onAdd,
     this.mayChange = _never,
     this.onEdit,
     this.onDelete,
+    this.tourDate,
+    this.tourTools,
   });
 
   static bool _never(StudentNoteItem note) => false;
@@ -48,12 +63,7 @@ class StudentNotesCard extends StatelessWidget
     color: AppTheme.trialMutedText,
   );
 
-  static TextStyle get _bodyStyle => GoogleFonts.plusJakartaSans(
-    fontSize: 16.5,
-    fontWeight: FontWeight.w500,
-    height: 1.6,
-    color: AppTheme.trialInk,
-  );
+  static final TextStyle _bodyStyle = noticeTextStyle(fontSize: 16.5, height: 1.6);
 
   Widget _buildSubject(String subject)
   {
@@ -74,7 +84,7 @@ class StudentNotesCard extends StatelessWidget
     );
   }
 
-  Widget _buildNote(StudentNoteItem note)
+  Widget _buildNote(StudentNoteItem note, {required bool toured})
   {
     final bool changeable = mayChange(note);
     final String? subject = note.subject;
@@ -84,13 +94,16 @@ class StudentNotesCard extends StatelessWidget
       children: [
         Row(
           children: [
-            Text(
-              // A teacher's note goes by the day of its lesson.
-              noteDate(note.lessonDate ?? note.createdAt),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.trialOcean,
+            DesktopTourTarget(
+              id: toured ? tourDate : null,
+              child: Text(
+                // A teacher's note goes by the day of its lesson.
+                noteDate(note.lessonDate ?? note.createdAt),
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.trialOcean,
+                ),
               ),
             ),
             const SizedBox(width: _dotGap),
@@ -113,32 +126,35 @@ class StudentNotesCard extends StatelessWidget
             SizedBox(
               height: 40,
               child: changeable
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (onEdit case final ValueChanged<StudentNoteItem> edit) ...[
+                  ? DesktopTourTarget(
+                      id: toured ? tourTools : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (onEdit case final ValueChanged<StudentNoteItem> edit) ...[
+                            FadeHoverIconButton(
+                              icon: Icons.edit_outlined,
+                              color: AppTheme.trialTealDeep,
+                              hoverColor: AppTheme.trialGoldSurface,
+                              onTap: () => edit(note),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
                           FadeHoverIconButton(
-                            icon: Icons.edit_outlined,
-                            color: AppTheme.trialTealDeep,
+                            icon: Icons.delete_outline_rounded,
+                            color: AppTheme.trialDanger,
                             hoverColor: AppTheme.trialGoldSurface,
-                            onTap: () => edit(note),
+                            onTap: () => onDelete?.call(note),
                           ),
-                          const SizedBox(width: 4),
                         ],
-                        FadeHoverIconButton(
-                          icon: Icons.delete_outline_rounded,
-                          color: AppTheme.trialDanger,
-                          hoverColor: AppTheme.trialGoldSurface,
-                          onTap: () => onDelete?.call(note),
-                        ),
-                      ],
+                      ),
                     )
                   : null,
             ),
           ],
         ),
         const SizedBox(height: 6),
-        Text(note.text, style: _bodyStyle),
+        StudentNoteText(taxCode: taxCode, kind: kind, note: note, style: _bodyStyle),
       ],
     );
   }
@@ -147,6 +163,9 @@ class StudentNotesCard extends StatelessWidget
   Widget build(BuildContext context)
   {
     final VoidCallback? add = onAdd;
+
+    // Newest first: the tour lights the latest the reader wrote.
+    final int firstChangeable = notes.indexWhere(mayChange);
 
     return AppCard(
       title: title,
@@ -180,7 +199,7 @@ class StudentNotesCard extends StatelessWidget
                       padding: EdgeInsets.symmetric(vertical: 18),
                       child: Divider(height: 1, thickness: 1, color: AppTheme.trialLine),
                     ),
-                  _buildNote(notes[i]),
+                  _buildNote(notes[i], toured: i == firstChangeable),
                 ],
               ],
             ),

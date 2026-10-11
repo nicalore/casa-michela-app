@@ -29,6 +29,8 @@ const String kConfirmTitle = 'Confermi?';
 const String kNoteDeleted = "L'osservazione verrà eliminata definitivamente.";
 
 const String kEmptyNote = 'Il contenuto non può essere vuoto.';
+const String kNoteTooLong = "L'osservazione è troppo lunga.";
+const String kImagesTooLarge = 'Le immagini superano i 15 MB totali.';
 
 const String kNoteCreated = 'Osservazione creata con successo!';
 const String kNoteSent = 'Osservazione inviata con successo!';
