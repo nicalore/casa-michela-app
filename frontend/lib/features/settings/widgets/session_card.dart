@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../models/session_item.dart';
 import '../utils/settings_strings.dart';
@@ -192,7 +193,7 @@ class _RevokeIconState extends State<_RevokeIcon>
       child: AnimatedOpacity(
         opacity: widget.visible ? 1 : 0,
         duration: _hoverFade,
-        child: Tooltip(
+        child: AppTooltip(
           message: kRevokeSessionLabel,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,

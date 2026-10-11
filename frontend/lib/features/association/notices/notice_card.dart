@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import 'notice_format.dart';
 import 'notice_item.dart';
 import 'notice_strings.dart';
@@ -301,7 +302,7 @@ class _PinButtonState extends State<_PinButton>
         onExit: (_) => _setHover(false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: Tooltip(
+          child: AppTooltip(
             message: widget.pinned ? kUnpinTip : kPinTip,
             waitDuration: const Duration(milliseconds: 400),
             child: AnimatedContainer(

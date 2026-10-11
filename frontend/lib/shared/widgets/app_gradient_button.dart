@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 
 const Duration _sweepDuration = Duration(milliseconds: 320);
 
@@ -175,7 +176,7 @@ class _AppGradientButtonState extends State<AppGradientButton>
 
   Widget _buildDisabled(String reason)
   {
-    return Tooltip(
+    return AppTooltip(
       message: reason,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,

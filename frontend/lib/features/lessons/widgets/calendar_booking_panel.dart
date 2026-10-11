@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
@@ -69,7 +70,7 @@ class _ExpandToggleState extends State<_ExpandToggle>
   @override
   Widget build(BuildContext context)
   {
-    return Tooltip(
+    return AppTooltip(
       message: widget.isExpanded ? 'Nascondi le prenotazioni' : 'Mostra le prenotazioni',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,

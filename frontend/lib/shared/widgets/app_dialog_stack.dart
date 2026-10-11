@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'carousel_arrow_button.dart';
 import 'overflow_tooltip_text.dart';
@@ -365,16 +366,19 @@ class _AppDialogPieceState extends State<AppDialogPiece>
       return;
     }
 
+    // Effects off: the whole dialog fades as one, its pieces stay put.
+    final Animation<double> parent = VisualEffects.on ? route : kAlwaysCompleteAnimation;
+
     final start = (widget.index * _staggerStep).clamp(0.0, 1.0 - _staggerSpan);
 
     _fade = CurvedAnimation(
-      parent: route,
+      parent: parent,
       curve: Interval(start, start + _staggerSpan, curve: Curves.easeOutCubic),
       reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
     );
 
     final pop = CurvedAnimation(
-      parent: route,
+      parent: parent,
       curve: Interval(start, start + _staggerSpan, curve: Curves.easeOutBack),
       reverseCurve: Interval(start, start + _staggerSpan, curve: Curves.easeIn),
     );

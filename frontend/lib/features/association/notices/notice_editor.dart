@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/snackbar.dart';
@@ -374,7 +375,7 @@ class _ToolState extends State<_Tool>
         ? AppTheme.trialMutedText.withValues(alpha: 0.4)
         : widget.on ? AppTheme.modifiedAccent : _hover ? AppTheme.trialTealDeep : AppTheme.trialMutedText;
 
-    return Tooltip(
+    return AppTooltip(
       message: widget.tip,
       waitDuration: const Duration(milliseconds: 400),
       child: MouseRegion(

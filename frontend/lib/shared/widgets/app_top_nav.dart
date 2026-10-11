@@ -7,6 +7,7 @@ import '../../features/auth/models/me_response.dart';
 import '../../features/dashboard/dashboard_modules.dart';
 import '../../routing/app_router.dart';
 import '../../routing/role_sections.dart';
+import 'app_tooltip.dart';
 
 const double _fontSize = 17;
 const double _itemGap = 22;
@@ -228,7 +229,7 @@ class _NavEntryState extends State<_NavEntry>
 
     if (!enabled)
     {
-      return Tooltip(
+      return AppTooltip(
         waitDuration: const Duration(milliseconds: 400),
         message: 'In arrivo',
         child: entry,

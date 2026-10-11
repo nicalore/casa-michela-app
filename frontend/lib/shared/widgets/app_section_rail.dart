@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
 
@@ -267,7 +268,7 @@ class _AppRailEntryState extends State<AppRailEntry>
 
     if (!widget.enabled)
     {
-      return Tooltip(
+      return AppTooltip(
         waitDuration: const Duration(milliseconds: 400),
         message: 'In arrivo',
         child: entry,

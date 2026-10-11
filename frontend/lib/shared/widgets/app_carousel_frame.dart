@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../core/platform/visual_effects.dart';
 import 'app_slide_switcher.dart';
+import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
 
 const Duration _transition = Duration(milliseconds: 300);
@@ -77,7 +79,7 @@ class AppCarouselFrame extends StatelessWidget
 
     if (forwardBlockedReason != null)
     {
-      forward = Tooltip(
+      forward = AppTooltip(
         message: forwardBlockedReason!,
         waitDuration: const Duration(milliseconds: 300),
         child: forward,
@@ -148,7 +150,7 @@ class AppCarouselFrame extends StatelessWidget
               );
 
         return AnimatedSize(
-          duration: _transition,
+          duration: VisualEffects.of(context) ? _transition : Duration.zero,
           curve: Curves.easeInOutCubic,
           alignment: Alignment.topCenter,
           child: frame,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
@@ -231,12 +232,20 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
   // Drives both AnimatedSize and hide()'s delay: out of sync, the overlay is torn down mid-animation.
   static const Duration _expandDuration = Duration(milliseconds: 180);
 
-  bool _expanded = false;
+  // Effects off: the menu opens and closes at once.
+  final bool _animates = VisualEffects.on;
+
+  late bool _expanded = !_animates;
 
   @override
   void initState()
   {
     super.initState();
+
+    if (!_animates)
+    {
+      return;
+    }
 
     // Expanded on the next frame so the opening animation shows: frame one lays the overlay out collapsed.
     WidgetsBinding.instance.addPostFrameCallback((_)
@@ -250,6 +259,11 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
 
   Future<void> hide() async
   {
+    if (!_animates)
+    {
+      return;
+    }
+
     if (mounted)
     {
       setState(() => _expanded = false);
@@ -272,7 +286,7 @@ class _FilterOverlayContentState<T> extends State<_FilterOverlayContent<T>>
           boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration: _expandDuration,
+          duration: _animates ? _expandDuration : Duration.zero,
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _expanded

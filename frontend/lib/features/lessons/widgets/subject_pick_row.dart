@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../association/models/ministry_subject_item.dart';
@@ -122,7 +123,7 @@ class _SubjectPickRowState extends State<SubjectPickRow>
                 ),
               ),
               if (widget.hasChoice)
-                Tooltip(
+                AppTooltip(
                   message: 'Modifica',
                   waitDuration: const Duration(milliseconds: 400),
                   child: _TuneButton(onTap: widget.onEditDisciplines),

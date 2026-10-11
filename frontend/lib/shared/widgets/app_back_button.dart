@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 
 const double _width = 84;
 const double _height = 52;
@@ -29,7 +30,7 @@ class _AppBackButtonState extends State<AppBackButton>
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Tooltip(
+        child: AppTooltip(
           message: widget.tooltip,
           waitDuration: const Duration(milliseconds: 400),
           child: AnimatedContainer(

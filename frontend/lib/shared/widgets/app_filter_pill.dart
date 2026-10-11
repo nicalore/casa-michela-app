@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 import 'filter_menu.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
@@ -309,7 +311,7 @@ class _AppFilterPillState<T> extends State<AppFilterPill<T>>
         const SizedBox(width: 6),
         AnimatedRotation(
           turns: _isOpen ? 0.5 : 0,
-          duration: _menuFade,
+          duration: VisualEffects.of(context) ? _menuFade : Duration.zero,
           curve: Curves.easeOut,
           child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: contentColor),
         ),
@@ -625,7 +627,7 @@ class _ClearButtonState extends State<_ClearButton>
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: Tooltip(
+        child: AppTooltip(
           message: 'Rimuovi il filtro',
           waitDuration: const Duration(milliseconds: 400),
           child: Padding(
@@ -793,12 +795,22 @@ class _FilterMenu<T> extends StatefulWidget
 
 class _FilterMenuState<T> extends State<_FilterMenu<T>>
 {
-  bool _expanded = false;
+  // Effects off: the menu opens and closes at once.
+  final bool _animates = VisualEffects.on;
+
+  late bool _expanded = !_animates;
+
+  Duration get _fade => _animates ? _menuFade : Duration.zero;
 
   @override
   void initState()
   {
     super.initState();
+
+    if (!_animates)
+    {
+      return;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
@@ -811,6 +823,11 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
 
   Future<void> collapse() async
   {
+    if (!_animates)
+    {
+      return;
+    }
+
     if (mounted)
     {
       setState(() => _expanded = false);
@@ -826,7 +843,7 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
       color: Colors.transparent,
       child: AnimatedOpacity(
         opacity: _expanded ? 1 : 0,
-        duration: _menuFade,
+        duration: _fade,
         curve: Curves.easeOut,
         child: Container(
           width: widget.width,
@@ -837,7 +854,7 @@ class _FilterMenuState<T> extends State<_FilterMenu<T>>
             boxShadow: AppTheme.overlayShadow,
           ),
           child: AnimatedSize(
-            duration: _menuFade,
+            duration: _fade,
             curve: Curves.easeOut,
             alignment: Alignment.topCenter,
             child: _expanded

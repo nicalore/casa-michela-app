@@ -12,6 +12,7 @@ import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
@@ -463,7 +464,7 @@ class _ModeColumn extends StatelessWidget
             ),
           ),
         if (hidden.isNotEmpty)
-          Tooltip(
+          AppTooltip(
             message: hidden.map(_timeRangeLabel).join('\n'),
             child: Padding(
               padding: const EdgeInsets.only(bottom: _lineGap),
@@ -771,7 +772,7 @@ class _RequestDetailsDialogContentState extends State<_RequestDetailsDialogConte
           ),
           if (haveBookingsClosed(group.date, band, romeNow())) ...[
             const SizedBox(width: 6),
-            const Tooltip(
+            const AppTooltip(
               message: 'Prenotazioni chiuse',
               child: Icon(Icons.lock_outline_rounded, size: 14, color: AppTheme.trialMutedText),
             ),

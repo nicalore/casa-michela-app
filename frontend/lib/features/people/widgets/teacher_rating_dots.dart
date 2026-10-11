@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 
 // The scale mirrors the database (app/models/teacher.py); change them together.
 const double kTeacherRatingMinimum = 0;
@@ -166,7 +167,7 @@ class _TeacherRatingDotsState extends State<TeacherRatingDots>
       return dots;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: TeacherRatingDots._hint,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,

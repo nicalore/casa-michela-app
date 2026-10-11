@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform/visual_effects.dart';
+
 const Duration _transition = Duration(milliseconds: 300);
 
 class AppSlideSwitcher extends StatelessWidget
@@ -20,7 +22,7 @@ class AppSlideSwitcher extends StatelessWidget
   Widget build(BuildContext context)
   {
     return AnimatedSwitcher(
-      duration: _transition,
+      duration: VisualEffects.of(context) ? _transition : Duration.zero,
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       layoutBuilder: (currentChild, previousChildren) => Stack(

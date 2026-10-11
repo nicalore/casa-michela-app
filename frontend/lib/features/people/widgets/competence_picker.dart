@@ -6,6 +6,7 @@ import '../../../shared/widgets/app_check_mark.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_selectable_chip.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/filter_menu.dart' show FilterOption;
 import '../../../shared/widgets/overflow_tooltip_text.dart';
@@ -85,7 +86,7 @@ class _CompetenceRowState extends State<CompetenceRow>
       return button;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: 'Aggiungi con tutti i percorsi',
       waitDuration: const Duration(milliseconds: 400),
       child: button,

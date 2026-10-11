@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
 import '../models/calendar_day.dart';
@@ -563,7 +564,7 @@ class _MarkedAvatar extends StatelessWidget
             Positioned(
               right: 0,
               bottom: 0,
-              child: Tooltip(
+              child: AppTooltip(
                 message: mark.message,
                 decoration: AppTheme.tooltipDecoration,
                 textStyle: AppTheme.tooltipTextStyle,

@@ -2,8 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/platform/visual_effects.dart';
 import 'casa_michela_loader.dart';
 import 'scroll_edge_fade.dart';
 
@@ -52,27 +52,153 @@ double _exitTravel(double width) => (width * 0.50).clamp(260.0, 760.0);
 
 double _enterTravel(double width) => (width * 0.22).clamp(130.0, 340.0);
 
-CustomTransitionPage<void> buildAppTransitionPage({
+Page<void> buildAppTransitionPage({
   required LocalKey key,
   required Widget child,
 })
 {
-  return CustomTransitionPage<void>(
-    key: key,
-    child: child,
-    // Opaque once settled: the covered route stops painting and ticking.
-    opaque: true,
-    transitionDuration: _pageTransition,
-    reverseTransitionDuration: _pageTransition,
-    transitionsBuilder: (context, animation, secondaryAnimation, child)
+  return _AppTransitionPage(key: key, child: child);
+}
+
+class _AppTransitionPage extends Page<void>
+{
+  final Widget child;
+
+  const _AppTransitionPage({required super.key, required this.child});
+
+  @override
+  Route<void> createRoute(BuildContext context) => _AppTransitionRoute(this);
+}
+
+// Reads the effects switch at each push and pop: a screen outlives a switch made while it is open.
+class _AppTransitionRoute extends PageRoute<void>
+{
+  bool _plain = !VisualEffects.on;
+
+  _AppTransitionRoute(_AppTransitionPage page) : super(settings: page);
+
+  @override
+  Duration get transitionDuration => _plain ? Duration.zero : _pageTransition;
+
+  // Opaque once settled: the covered route stops painting and ticking.
+  @override
+  bool get opaque => true;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  void _takeEffects()
+  {
+    _plain = !VisualEffects.on;
+    controller!
+      ..duration = transitionDuration
+      ..reverseDuration = transitionDuration;
+  }
+
+  @override
+  TickerFuture didPush()
+  {
+    _takeEffects();
+
+    return super.didPush();
+  }
+
+  @override
+  bool didPop(void result)
+  {
+    _takeEffects();
+
+    return super.didPop(result);
+  }
+
+  @override
+  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation)
+  {
+    return Semantics(
+      scopesRoute: true,
+      explicitChildNodes: true,
+      child: (settings as _AppTransitionPage).child,
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  )
+  {
+    if (_plain)
     {
-      return _ScreenTransition(
+      return child;
+    }
+
+    return _ProbedTransition(
+      animation: animation,
+      child: _ScreenTransition(
         animation: animation,
         secondaryAnimation: secondaryAnimation,
         child: child,
-      );
-    },
-  );
+      ),
+    );
+  }
+}
+
+class _ProbedTransition extends StatefulWidget
+{
+  final Animation<double> animation;
+  final Widget child;
+
+  const _ProbedTransition({required this.animation, required this.child});
+
+  @override
+  State<_ProbedTransition> createState() => _ProbedTransitionState();
+}
+
+class _ProbedTransitionState extends State<_ProbedTransition>
+{
+  final TransitionProbe _probe = TransitionProbe();
+
+  @override
+  void initState()
+  {
+    super.initState();
+    widget.animation.addStatusListener(_onStatus);
+    // The push started before this was built.
+    _onStatus(widget.animation.status);
+  }
+
+  @override
+  void didUpdateWidget(_ProbedTransition oldWidget)
+  {
+    super.didUpdateWidget(oldWidget);
+
+    if (!identical(oldWidget.animation, widget.animation))
+    {
+      oldWidget.animation.removeStatusListener(_onStatus);
+      widget.animation.addStatusListener(_onStatus);
+    }
+  }
+
+  @override
+  void dispose()
+  {
+    widget.animation.removeStatusListener(_onStatus);
+    _probe.cancel();
+    super.dispose();
+  }
+
+  void _onStatus(AnimationStatus status) => status.isAnimating ? _probe.start() : _probe.stop();
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class PageTransitionItem extends StatelessWidget
@@ -531,6 +657,7 @@ class ShellDestinations extends StatelessWidget
       axis: Axis.horizontal,
       fit: StackFit.expand,
       announces: true,
+      fadesWhenPlain: false,
       reversed: reversed,
       children: children,
     );
@@ -564,6 +691,7 @@ class PageSections extends StatelessWidget
       axis: Axis.vertical,
       fit: StackFit.loose,
       announces: false,
+      fadesWhenPlain: true,
       reversed: reversed,
       children: children,
     );
@@ -581,6 +709,9 @@ class _Handover extends StatefulWidget
 
   final bool announces;
 
+  // Effects off: sections fade in, whole areas switch at once.
+  final bool fadesWhenPlain;
+
   final List<Widget> children;
 
   final bool reversed;
@@ -591,6 +722,7 @@ class _Handover extends StatefulWidget
     required this.axis,
     required this.fit,
     required this.announces,
+    required this.fadesWhenPlain,
     required this.children,
     this.reversed = false,
   });
@@ -599,11 +731,18 @@ class _Handover extends StatefulWidget
   State<_Handover> createState() => _HandoverState();
 }
 
-class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixin
+class _HandoverState extends State<_Handover> with TickerProviderStateMixin
 {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: _pageTransition,
+    value: 1,
+  );
+
+  // The arriving section fades in, the leaving one is gone at once.
+  late final AnimationController _plainFade = AnimationController(
+    vsync: this,
+    duration: VisualEffects.plainFade,
     value: 1,
   );
 
@@ -618,6 +757,8 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
 
   // A screen pushed over this route, coming or going.
   Animation<double>? _covering;
+
+  final TransitionProbe _probe = TransitionProbe();
 
   @override
   void initState()
@@ -717,6 +858,18 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
         return;
       }
 
+      if (!VisualEffects.on)
+      {
+        _moveNow(widget.index);
+
+        if (widget.fadesWhenPlain)
+        {
+          _plainFade.forward(from: 0);
+        }
+
+        return;
+      }
+
       final int left = _arriving;
 
       _arriving = widget.index;
@@ -734,6 +887,13 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
       return;
     }
 
+    if (!VisualEffects.on)
+    {
+      _plainFade.forward(from: 0);
+
+      return;
+    }
+
     if (_held == null || _controller.value >= _reentryTurn)
     {
       _held = oldWidget.children[_arriving];
@@ -746,6 +906,8 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
   void dispose()
   {
     _covering?.removeListener(_onCoverProgress);
+    _probe.cancel();
+    _plainFade.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -761,6 +923,8 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
 
   void _onStatusChanged(AnimationStatus status)
   {
+    status.isAnimating ? _probe.start() : _probe.stop();
+
     if (status == AnimationStatus.completed && (_leaving != null || _held != null))
     {
       setState(()
@@ -783,7 +947,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     final bool upper = _leaving != null && index == (_arriving > _leaving! ? _arriving : _leaving!);
 
     final double opacity = !upper
-        ? 1
+        ? (arriving ? _plainFade.value : 1)
         : (arriving ? _arrivalOpacity(progress) : 1 - _arrivalOpacity(progress));
 
     return Offstage(
@@ -823,9 +987,7 @@ class _HandoverState extends State<_Handover> with SingleTickerProviderStateMixi
     final Animation<double>? covering = _covering;
 
     return AnimatedBuilder(
-      animation: covering == null
-          ? _controller
-          : Listenable.merge([_controller, covering]),
+      animation: Listenable.merge([_controller, _plainFade, covering]),
       builder: (context, _)
       {
         final bool covered = (covering?.value ?? 0) > 0;

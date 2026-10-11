@@ -52,6 +52,14 @@ const AppearanceSetting kLanguageSetting = AppearanceSetting('Lingua', Icons.tra
 
 const List<AppearanceSetting> kAppearanceSettings = [kThemeSetting, kColorsSetting, kLanguageSetting];
 
+const String kEffectsTitle = 'Effetti visivi';
+const String kEffectsOn = 'Attivi';
+const String kEffectsOff = 'Disattivi';
+
+const String kEffectsHint =
+    "Scegli se attivare le animazioni durante la navigazione nell'app. "
+    "Disattivarle può migliorare la fluidità dell'interfaccia, soprattutto sui computer meno potenti.";
+
 const String kUsernameLabel = 'Nome utente';
 const String kLastLoginLabel = 'Ultimo accesso';
 

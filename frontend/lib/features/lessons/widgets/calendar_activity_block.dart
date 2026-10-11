@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../models/activity_item.dart';
 import '../utils/lesson_placement.dart';
 import '../utils/opening_window.dart';
@@ -261,7 +262,7 @@ class _CalendarActivityBlockState extends State<CalendarActivityBlock>
       return shown;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: activityDetails(_scheduled),
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,

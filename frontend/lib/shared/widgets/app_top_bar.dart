@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/config/api_config.dart';
 import '../../core/layout/app_breakpoints.dart';
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/error_message.dart';
 import '../../core/utils/role_label_mapper.dart';
@@ -92,6 +93,9 @@ class _AppTopBarState extends State<AppTopBar>
   bool _isMenuOpen = false;
   bool _isDrawerOpen = false;
 
+  // Effects off: the user menu, its arrow and the drawer snap open and shut.
+  bool _animates = true;
+
   @override
   void initState()
   {
@@ -101,6 +105,13 @@ class _AppTopBarState extends State<AppTopBar>
     {
       _loadUser();
     }
+  }
+
+  @override
+  void didChangeDependencies()
+  {
+    super.didChangeDependencies();
+    _animates = VisualEffects.of(context);
   }
 
   // The page's copy wins when set; otherwise the shared identity, watched so a role switch redraws.
@@ -321,7 +332,7 @@ class _AppTopBarState extends State<AppTopBar>
               const SizedBox(width: 6),
               AnimatedRotation(
                 turns: _isMenuOpen ? 0.5 : 0,
-                duration: const Duration(milliseconds: 200),
+                duration: _animates ? const Duration(milliseconds: 200) : Duration.zero,
                 curve: Curves.easeInOut,
                 child: const Icon(
                   Icons.keyboard_arrow_down_rounded,
@@ -422,7 +433,7 @@ class _AppTopBarState extends State<AppTopBar>
       top: _topMarginFor(size) + _barHeightFor(size) + _userMenuGap,
       right: AppBreakpoints.pageMargin(size) + 20,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
+        duration: _animates ? const Duration(milliseconds: 180) : Duration.zero,
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation)
@@ -611,7 +622,7 @@ class _AppTopBarState extends State<AppTopBar>
       top: 0,
       bottom: 0,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
+        duration: _animates ? const Duration(milliseconds: 220) : Duration.zero,
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         transitionBuilder: (child, animation)
@@ -675,7 +686,7 @@ class _AppTopBarState extends State<AppTopBar>
                     behavior: HitTestBehavior.opaque,
                     onTap: _closeOverlays,
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
+                      duration: _animates ? const Duration(milliseconds: 220) : Duration.zero,
                       curve: Curves.easeOut,
                       color: _isDrawerOpen
                           ? AppTheme.trialInk.withValues(alpha: 0.28)

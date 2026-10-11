@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 
 // No AppTheme equivalent: this fill is unique to the role chips.
 const Color roleChipBackground = Color(0xFFE8F7F5);
@@ -266,7 +267,7 @@ class RoleChipsRow extends StatelessWidget
       return chip;
     }
 
-    return Tooltip(
+    return AppTooltip(
       waitDuration: const Duration(milliseconds: 600),
       richMessage: TextSpan(
         children: [

@@ -6,6 +6,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/platform/app_platform.dart';
+import 'core/platform/visual_effects.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/splash_bridge.dart';
 import 'mobile/mobile_app.dart';
@@ -39,6 +40,8 @@ void main() async
     DialogHistoryGuard.install(appRouter);
   }
 
+  await VisualEffects.load();
+
   runApp(const CasaMichelaApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) 
@@ -68,7 +71,9 @@ class CasaMichelaApp extends StatelessWidget
                 exitDuration: Duration.zero,
               ),
             ),
-            child: RepaintBoundary(key: dialogBackdropKey, child: child!),
+            child: VisualEffects.scope(
+              child: RepaintBoundary(key: dialogBackdropKey, child: child!),
+            ),
           ),
         );
       },

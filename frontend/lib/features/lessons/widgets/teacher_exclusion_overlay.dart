@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import 'calendar_lesson_block.dart';
 
 // Exclude/readmit control laid over a teacher's avatar; meant for a
@@ -40,7 +41,7 @@ class _TeacherExclusionOverlayState extends State<TeacherExclusionOverlay>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onToggle,
-        child: Tooltip(
+        child: AppTooltip(
           message: excluded ? kReadmitTeacherLabel : kExcludeTeacherLabel,
           decoration: AppTheme.tooltipDecoration,
           textStyle: AppTheme.tooltipTextStyle,

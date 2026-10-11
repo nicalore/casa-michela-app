@@ -6,6 +6,7 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../people/models/person_item.dart';
@@ -730,7 +731,7 @@ class _ModeBlockState extends State<_ModeBlock>
         ),
         if (_hasClosed) ...[
           const SizedBox(width: 6),
-          const Tooltip(
+          const AppTooltip(
             message: 'Prenotazioni chiuse',
             child: Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
           ),
@@ -1236,7 +1237,7 @@ class _HoverActionState extends State<_HoverAction>
       child: AnimatedOpacity(
         opacity: widget.visible ? 1 : 0,
         duration: _hoverFade,
-        child: Tooltip(
+        child: AppTooltip(
           message: reason ?? widget.tooltip,
           child: reason != null
               ? face
@@ -1323,7 +1324,7 @@ class _Mark extends StatelessWidget
       ),
     );
 
-    return Tooltip(
+    return AppTooltip(
       constraints: const BoxConstraints(maxWidth: _tooltipMaxWidth),
       richMessage: TextSpan(
         children: [

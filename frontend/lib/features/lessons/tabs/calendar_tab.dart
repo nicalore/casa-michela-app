@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_gradient_button.dart';
 import '../../../shared/widgets/app_search_field.dart';
 import '../../../shared/widgets/app_segmented_tabs.dart';
 import '../../../shared/widgets/app_calendar_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/carousel_arrow_button.dart';
 import '../../../shared/widgets/filter_menu.dart';
 import '../../../shared/widgets/page_transition.dart';
@@ -1657,7 +1658,7 @@ class _CalendarTabState extends State<CalendarTab>
 
     final sent = publishedSentence(publication);
 
-    return Tooltip(
+    return AppTooltip(
       message: draft ? _kDraftPillTooltip : sent,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,

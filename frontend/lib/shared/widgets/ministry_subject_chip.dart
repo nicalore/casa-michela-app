@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import 'app_entity_chip.dart';
 import '../../features/association/models/ministry_subject_item.dart';
 import '../../features/association/models/study_program_item.dart';
+import 'app_tooltip.dart';
 
 const Color _tooltipLabel = AppTheme.slate400;
 const Color _tooltipBullet = AppTheme.slate500;
@@ -68,7 +69,7 @@ class MinistrySubjectChip extends StatelessWidget
   {
     final subject = _resolvedSubject;
 
-    return Tooltip(
+    return AppTooltip(
       constraints: const BoxConstraints(maxWidth: 400),
       richMessage: TextSpan(
         children: [

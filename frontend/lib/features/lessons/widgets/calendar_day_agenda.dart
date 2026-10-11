@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/activity_item.dart';
@@ -309,21 +310,21 @@ class _AgendaRowState extends State<_AgendaRow>
         ),
         if (widget.isPreferred) ...[
           const SizedBox(width: 6),
-          const Tooltip(
+          const AppTooltip(
             message: 'Docente richiesto dall\'alunno',
             child: Icon(Icons.star_rounded, size: 14, color: kPreferredTeacherColor),
           ),
         ],
         if (widget.hasWarning) ...[
           const SizedBox(width: 6),
-          const Tooltip(
+          const AppTooltip(
             message: 'Docente che l\'alunno preferirebbe evitare',
             child: Icon(Icons.circle, size: 9, color: kAvoidedTeacherColor),
           ),
         ],
         if (widget.isPast) ...[
           const SizedBox(width: 6),
-          const Tooltip(
+          const AppTooltip(
             message: kLessonDoneLabel,
             child: Icon(Icons.check_rounded, size: 14, color: AppTheme.trialMutedText),
           ),

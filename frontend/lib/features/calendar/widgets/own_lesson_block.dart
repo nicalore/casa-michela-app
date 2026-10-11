@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../../lessons/models/activity_item.dart';
 import '../../lessons/models/calendar_day.dart';
@@ -178,7 +179,7 @@ class _BlockFrameState extends State<_BlockFrame>
                                   ],
                                   if (!narrow && widget.isShared) ...[
                                     const SizedBox(width: 4),
-                                    const Tooltip(
+                                    const AppTooltip(
                                       message: kSharedLessonLabel,
                                       child: Icon(kSharedLessonIcon, size: 15, color: AppTheme.trialMutedText),
                                     ),
@@ -209,7 +210,7 @@ class _BlockFrameState extends State<_BlockFrame>
       return block;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: details,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,

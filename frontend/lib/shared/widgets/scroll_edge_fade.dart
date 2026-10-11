@@ -1,6 +1,8 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/platform/visual_effects.dart';
+
 // Content that goes on below the bottom edge fades out there instead of being cut.
 class ScrollEdgeFade extends StatefulWidget
 {
@@ -63,7 +65,7 @@ class _ScrollEdgeFadeState extends State<ScrollEdgeFade>
       child: NotificationListener<ScrollUpdateNotification>(
         onNotification: (notification) => _measure(notification.metrics, notification.depth),
         child: _SidewaysMask(
-          active: _below > 0,
+          active: _below > 0 && VisualEffects.of(context),
           // Pages slide in and out sideways past their bounds: the mask follows them.
           reach: MediaQuery.sizeOf(context).width,
           // A new closure each build: an equal one would not repaint the mask.

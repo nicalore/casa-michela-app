@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/role_label_mapper.dart';
 import '../../routing/app_router.dart';
 import 'app_dialog_stack.dart';
+import 'app_tooltip.dart';
 import 'dialog_components.dart';
 
 const double _stackMaxWidth = 560;
@@ -127,7 +128,7 @@ class _RoleRowState extends State<_RoleRow>
     // A role whose area does not exist yet is shown but not offered, rather than hidden.
     if (!canSwitchTo(widget.role))
     {
-      return Tooltip(
+      return AppTooltip(
         message: 'In arrivo',
         child: _buildRow(
           border: AppTheme.trialLine,

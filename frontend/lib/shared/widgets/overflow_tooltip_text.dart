@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'app_tooltip.dart';
+
 // Overflow is re-measured with a TextPainter at the laid-out width: didExceedMaxLines is unreliable on web.
 class OverflowTooltipText extends StatefulWidget
 {
@@ -121,7 +123,7 @@ class _OverflowTooltipTextState extends State<OverflowTooltipText>
       onLayout: _scheduleOverflowCheck,
       child: !_isOverflowing
         ? textWidget
-        : Tooltip(
+        : AppTooltip(
             message: widget.text,
             waitDuration: const Duration(milliseconds: 600),
             child: textWidget,

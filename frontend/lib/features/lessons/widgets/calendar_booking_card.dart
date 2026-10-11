@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/schedulable_booking.dart';
@@ -112,7 +113,7 @@ class _DisciplineCardState extends State<DisciplineCard>
       cursor: draggable ? SystemMouseCursors.grab : MouseCursor.defer,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: tooltip == null ? card : Tooltip(message: tooltip, child: card),
+      child: tooltip == null ? card : AppTooltip(message: tooltip, child: card),
     );
   }
 }
@@ -459,7 +460,7 @@ class _CalendarBookingCardState extends State<CalendarBookingCard>
         if (canDrag) ...[
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Tooltip(
+            child: AppTooltip(
               message: '${_verb}tutta la materia',
               child: const Icon(Icons.drag_indicator, size: 16, color: AppTheme.trialTurquoise),
             ),

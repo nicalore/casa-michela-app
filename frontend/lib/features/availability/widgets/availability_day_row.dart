@@ -6,6 +6,7 @@ import '../../../core/utils/time_bucket.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/opening_day_item.dart';
 import '../../lessons/models/availability_item.dart';
 import '../../lessons/utils/opening_window.dart';
@@ -451,7 +452,7 @@ class _BandCellState extends State<_BandCell>
               ),
               if (widget.isOpen && widget.hasClosed) ...[
                 const SizedBox(width: 6),
-                Tooltip(
+                AppTooltip(
                   message: 'Disponibilità chiuse',
                   child: const Icon(Icons.lock_outline_rounded, size: 15, color: AppTheme.trialMutedText),
                 ),
@@ -722,7 +723,7 @@ class _BinState extends State<_Bin>
       child: AnimatedOpacity(
         opacity: widget.visible ? 1 : 0,
         duration: _binFade,
-        child: tooltip == null ? face : Tooltip(message: tooltip, child: face),
+        child: tooltip == null ? face : AppTooltip(message: tooltip, child: face),
       ),
     );
   }

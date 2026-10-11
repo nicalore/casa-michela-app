@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/rome_clock.dart';
 import '../../core/utils/week_range.dart';
 import '../utils/day_marks.dart';
+import 'app_tooltip.dart';
 import 'carousel_arrow_button.dart';
 
 const double _popoverWidth = 336;
@@ -130,6 +132,14 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
     _read(DateTime(widget.selected.year, widget.selected.month));
     setState(_portal.show);
 
+    // Effects off: it shows at once.
+    if (!VisualEffects.on)
+    {
+      _reveal.value = 1;
+
+      return;
+    }
+
     // After the month's costly first frame, so the motion does not start with a stall.
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
@@ -149,7 +159,14 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
 
     setState(() {});
 
-    await _reveal.reverse();
+    if (VisualEffects.on)
+    {
+      await _reveal.reverse();
+    }
+    else
+    {
+      _reveal.value = 0;
+    }
 
     // Reopened while leaving: it stays.
     if (mounted && _reveal.isDismissed)
@@ -223,7 +240,7 @@ class _AppCalendarButtonState extends State<AppCalendarButton> with SingleTicker
         overlayChildBuilder: _buildPopover,
         child: TapRegion(
           groupId: _link,
-          child: Tooltip(
+          child: AppTooltip(
             message: kPickDayLabel,
             waitDuration: const Duration(milliseconds: 400),
             decoration: AppTheme.tooltipDecoration,

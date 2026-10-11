@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../models/calendar_day.dart';
 import '../models/room_day_plan.dart';
 import 'calendar_lesson_block.dart';
@@ -135,7 +136,7 @@ class CalendarLanePanel extends StatelessWidget
                     ),
                     if (isSupervisor) ...[
                       const SizedBox(width: 6),
-                      const Tooltip(
+                      const AppTooltip(
                         message: kSupervisorLabel,
                         child: Icon(Icons.shield_rounded, size: 14, color: kSupervisorColor),
                       ),

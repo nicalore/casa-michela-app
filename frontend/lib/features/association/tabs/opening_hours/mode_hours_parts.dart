@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/week_range.dart';
+import '../../../../shared/widgets/app_tooltip.dart';
 import '../../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../lessons/utils/opening_window.dart';
 import '../../../lessons/widgets/calendar_lesson_block.dart';
@@ -22,7 +23,7 @@ Widget withReason(String? note, Widget child)
     return child;
   }
 
-  return Tooltip(message: note, child: child);
+  return AppTooltip(message: note, child: child);
 }
 
 // Merged with the inherited style as Text does: Material's body letter spacing would wrap the column.

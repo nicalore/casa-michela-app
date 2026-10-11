@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import 'app_text_field.dart';
+import 'app_tooltip.dart';
 
 class PasswordField extends StatefulWidget
 {
@@ -34,17 +35,19 @@ class _PasswordFieldState extends State<PasswordField>
   {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: IconButton(
-        icon: Icon(
-          _isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-          color: AppTheme.trialMutedText,
-          size: 22,
+      child: AppTooltip(
+        message: _isObscured ? 'Mostra password' : 'Nascondi password',
+        child: IconButton(
+          icon: Icon(
+            _isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+            color: AppTheme.trialMutedText,
+            size: 22,
+          ),
+          onPressed: () => setState(() => _isObscured = !_isObscured),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
         ),
-        onPressed: () => setState(() => _isObscured = !_isObscured),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        tooltip: _isObscured ? 'Mostra password' : 'Nascondi password',
       ),
     );
   }

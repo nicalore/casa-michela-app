@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/week_range.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../association/models/ministry_subject_item.dart';
 import '../models/booking_summary_item.dart';
 import '../models/calendar_day.dart';
@@ -870,7 +871,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
                             ],
                             if (widget.isPast) ...[
                               if (widget.isPreferred || widget.hasWarning) const SizedBox(width: _markGap),
-                              const Tooltip(
+                              const AppTooltip(
                                 message: kLessonDoneLabel,
                                 child: Icon(Icons.check_rounded, size: 13, color: AppTheme.trialMutedText),
                               ),
@@ -916,7 +917,7 @@ class _CalendarLessonBlockState extends State<CalendarLessonBlock>
       return shown;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: _fullDetails,
       decoration: AppTheme.tooltipDecoration,
       textStyle: AppTheme.tooltipTextStyle,

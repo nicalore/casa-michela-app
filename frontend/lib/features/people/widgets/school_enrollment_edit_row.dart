@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/rome_clock.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/shared_components.dart';
 import 'person_detail_widgets.dart';
@@ -99,7 +100,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
         if (error != null)
           Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: Tooltip(
+            child: AppTooltip(
               message: error,
               textStyle: GoogleFonts.plusJakartaSans(
                 color: Colors.white,
@@ -116,7 +117,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
           ),
         Padding(
           padding: const EdgeInsets.only(left: 8),
-          child: Tooltip(
+          child: AppTooltip(
             message: 'Modifica',
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(
@@ -129,7 +130,7 @@ class SchoolEnrollmentSummaryRow extends StatelessWidget
         ),
         Padding(
           padding: const EdgeInsets.only(left: 4),
-          child: Tooltip(
+          child: AppTooltip(
             message: 'Rimuovi',
             waitDuration: const Duration(milliseconds: 400),
             child: FadeHoverIconButton(

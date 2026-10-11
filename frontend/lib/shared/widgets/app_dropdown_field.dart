@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 import 'overflow_tooltip_text.dart';
 import 'scroll_edge_fade.dart';
@@ -194,13 +195,22 @@ class _DropdownOverlay<T> extends StatefulWidget
 
 class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
 {
-  bool                   _expanded         = false;
+  // Effects off: the menu opens and closes at once.
+  final bool _animates = VisualEffects.on;
+
+  late bool              _expanded         = !_animates;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState()
   {
     super.initState();
+
+    if (!_animates)
+    {
+      return;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_)
     {
       if (mounted)
@@ -219,6 +229,11 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
 
   Future<void> hide() async
   {
+    if (!_animates)
+    {
+      return;
+    }
+
     if (mounted)
     {
       setState(() => _expanded = false);
@@ -240,7 +255,7 @@ class _DropdownOverlayState<T> extends State<_DropdownOverlay<T>>
           boxShadow: AppTheme.overlayShadow,
         ),
         child: AnimatedSize(
-          duration:  const Duration(milliseconds: 180),
+          duration:  _animates ? const Duration(milliseconds: 180) : Duration.zero,
           curve:     Curves.easeOut,
           alignment: widget.showAbove ? Alignment.bottomCenter : Alignment.topCenter,
           child:     _expanded

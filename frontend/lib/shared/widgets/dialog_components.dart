@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/platform/visual_effects.dart';
 import '../../core/theme/app_theme.dart';
 
 const double _dialogBlurSigma = 8.0;
@@ -13,6 +14,9 @@ const double _snapshotScale = 0.25;
 
 const Color _dialogTint = Colors.black;
 const double _dialogTintOpacity = 0.15;
+
+// Without the blur, a deeper tint sets the dialog apart.
+const double _plainTintOpacity = 0.32;
 
 // Clamped like the snapshot's blur, so swapping one for the other leaves no seam at the edges.
 final ui.ImageFilter _liveBlur = ui.ImageFilter.blur(
@@ -41,7 +45,7 @@ Future<T?> showBlurredDialog<T>({
       builder: builder,
       label: barrierLabel,
       dismissible: barrierDismissible,
-      duration: transitionDuration,
+      duration: VisualEffects.on ? transitionDuration : VisualEffects.plainFade,
     ),
   );
 }
@@ -237,11 +241,18 @@ class _DialogBackdropState extends State<_DialogBackdrop>
 
   late CurvedAnimation _fade = _fadeOf(widget.animation);
 
+  // Fixed for the dialog's life: a swap halfway would jolt.
+  final bool _blurs = VisualEffects.on;
+
   @override
   void initState()
   {
     super.initState();
-    _captureAfterFrame();
+
+    if (_blurs)
+    {
+      _captureAfterFrame();
+    }
   }
 
   @override
@@ -308,7 +319,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
     final bool liveClose = widget.animation.status == AnimationStatus.reverse && widget.route._belowLeaving;
 
     // The barrier's own easing, painted here so the tint sits on the snapshot.
-    final double tint = _dialogTintOpacity * Curves.ease.transform(progress);
+    final double tint = (_blurs ? _dialogTintOpacity : _plainTintOpacity) * Curves.ease.transform(progress);
 
     return _Veil(
       child: Stack(
@@ -317,6 +328,7 @@ class _DialogBackdropState extends State<_DialogBackdrop>
           IgnorePointer(
             child: switch (backdrop)
             {
+              _ when !_blurs => const SizedBox.expand(),
               // Invisible at the start, and a BackdropFilter costs the whole window even then.
               null when fade == 0 => const SizedBox.expand(),
               // The blurred window faded in over the sharp one, as the snapshot is.
@@ -346,7 +358,10 @@ class _DialogBackdropState extends State<_DialogBackdrop>
           IgnorePointer(
             child: ColoredBox(color: _dialogTint.withValues(alpha: tint)),
           ),
-          widget.child,
+          if (_blurs)
+            widget.child
+          else
+            FadeTransition(opacity: widget.animation.drive(VisualEffects.plainFadeCurve), child: widget.child),
         ],
       ),
     );

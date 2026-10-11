@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 
 const double _badgeSize = 27;
 const double _badgeIconSize = 18;
@@ -125,7 +126,7 @@ class _BadgeState extends State<_Badge>
   {
     final bool enabled = widget.onTap != null;
 
-    return Tooltip(
+    return AppTooltip(
       message: widget.tooltip,
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_tooltip.dart';
 
 const Duration _fade = Duration(milliseconds: 220);
 const double _radius = 22;
@@ -106,7 +107,7 @@ class _AppSelectableChipState extends State<AppSelectableChip>
       return chip;
     }
 
-    return Tooltip(
+    return AppTooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 300),
       child: chip,

@@ -7,6 +7,7 @@ import '../../../shared/widgets/app_field_label.dart';
 import '../../../shared/widgets/app_dialog_footer.dart';
 import '../../../shared/widgets/app_dialog_stack.dart';
 import '../../../shared/widgets/app_gradient_button.dart';
+import '../../../shared/widgets/app_tooltip.dart';
 import '../../../shared/widgets/dialog_components.dart';
 import '../../../shared/widgets/overflow_tooltip_text.dart';
 import '../../../shared/widgets/tab_layout.dart';
@@ -208,7 +209,7 @@ class _ModeColumn extends StatelessWidget
             ),
           ),
         if (hidden.isNotEmpty)
-          Tooltip(
+          AppTooltip(
             message: hidden.map(_timeRangeLabel).join('\n'),
             child: Padding(
               padding: const EdgeInsets.only(bottom: 3),
