@@ -365,11 +365,13 @@ AUDIT_RULES: Final[dict[RouteKey, AuditRule]] = {
     ),
 }
 
-# The lock is timer-driven editor bookkeeping: auditing it would bury every real entry.
+# Editor locks and seen tutorials are UI bookkeeping: auditing them would bury real entries.
 IGNORED_ROUTES: Final[frozenset[RouteKey]] = frozenset(
     {
         ("POST", "/calendar-locks/{lock_date}/{band}/heartbeat"),
         ("DELETE", "/calendar-locks/{lock_date}/{band}"),
+        ("PUT", "/tours/{platform}"),
+        ("DELETE", "/tours/{platform}"),
     }
 )
 

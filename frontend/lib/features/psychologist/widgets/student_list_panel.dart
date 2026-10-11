@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_filter_pill.dart';
 import '../../../shared/widgets/app_search_field.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/scroll_edge_fade.dart';
 import '../../lessons/widgets/person_avatar.dart';
 import '../../people/models/person_item.dart';
@@ -14,6 +15,11 @@ import 'student_sheet.dart' show CertificationChip;
 const double _panelRadius = 32;
 const double _rowHeight = 68;
 const double _faceSize = 52;
+
+const String kTourStudentList = 'psychologist.list';
+const String kTourStudentSearch = 'psychologist.search';
+const String kTourStudentFilters = 'psychologist.filters';
+const String kTourStudentRows = 'psychologist.rows';
 
 const double _markWidth = 3;
 const double _markHeight = 20;
@@ -50,67 +56,79 @@ class StudentListPanel extends StatelessWidget
   @override
   Widget build(BuildContext context)
   {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_panelRadius),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppSearchField(
-            controller: searchController,
-            onChanged: onSearchChanged,
-            hintText: kStudentSearchHint,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              AppCountFilterPill(
-                label: 'Filtri',
-                icon: Icons.tune_rounded,
-                count: filtersCount,
-                onOpen: onOpenFilters,
-                onClear: onClearFilters,
+    return DesktopTourTarget(
+      id: kTourStudentList,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(_panelRadius),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DesktopTourTarget(
+              id: kTourStudentSearch,
+              child: AppSearchField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+                hintText: kStudentSearchHint,
               ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text(
-                  studentsCount(students.length),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.trialMutedText,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                DesktopTourTarget(
+                  id: kTourStudentFilters,
+                  child: AppCountFilterPill(
+                    label: 'Filtri',
+                    icon: Icons.tune_rounded,
+                    count: filtersCount,
+                    onOpen: onOpenFilters,
+                    onClear: onClearFilters,
+                  ),
+                ),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Text(
+                    studentsCount(students.length),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.trialMutedText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: DesktopTourTarget(
+                id: kTourStudentRows,
+                child: ClipRect(
+                  child: ScrollEdgeFade(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.only(bottom: 18),
+                      itemCount: students.length,
+                      itemBuilder: (context, index)
+                      {
+                        final PersonItem student = students[index];
+
+                        return _StudentRow(
+                          student: student,
+                          selected: student.fiscalCode == selectedCode,
+                          onTap: () => onSelected(student),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ClipRect(
-              child: ScrollEdgeFade(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  itemCount: students.length,
-                  itemBuilder: (context, index)
-                  {
-                    final PersonItem student = students[index];
-
-                    return _StudentRow(
-                      student: student,
-                      selected: student.fiscalCode == selectedCode,
-                      onTap: () => onSelected(student),
-                    );
-                  },
-                ),
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -13,6 +13,7 @@ import 'mobile/mobile_app.dart';
 import 'routing/app_router.dart';
 import 'routing/dialog_history_guard.dart';
 import 'services/api_service.dart';
+import 'services/seen_tours.dart';
 import 'shared/widgets/dialog_components.dart';
 
 void main() async 
@@ -27,6 +28,8 @@ void main() async
 
   if (AppPlatform.isNativeMobile)
   {
+    SeenTours.mobile.follow();
+
     // Edge to edge on every Android version, as iOS always is.
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
@@ -39,6 +42,8 @@ void main() async
   {
     DialogHistoryGuard.install(appRouter);
   }
+
+  SeenTours.desktop.follow();
 
   await VisualEffects.load();
 

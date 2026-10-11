@@ -9,6 +9,7 @@ import '../../../core/utils/rome_clock.dart';
 import '../../../core/utils/week_range.dart';
 import '../../../shared/widgets/app_top_bar.dart';
 import '../../../shared/widgets/corner_glow.dart';
+import '../../../shared/widgets/desktop_tour.dart';
 import '../../../shared/widgets/page_transition.dart';
 import '../../../shared/widgets/page_watermark.dart';
 import '../../../routing/app_router.dart';
@@ -26,6 +27,7 @@ import '../../lessons/models/lesson_item.dart';
 import '../../lessons/models/presence_item.dart';
 import '../../lessons/utils/opening_window.dart';
 import '../../people/models/person_item.dart';
+import '../../psychologist/psychologist_tour.dart';
 import '../models/month_summary_items.dart';
 import 'home_month_section.dart';
 import 'home_notices_section.dart';
@@ -130,6 +132,24 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     _loadTodayData();
     _loadMonthData();
     _loadNotices();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startTour());
+  }
+
+  void _startTour()
+  {
+    final MeResponse? user = _apiService.lastKnownIdentity;
+
+    if (!mounted || user == null || widget.role != kPsychologistRole)
+    {
+      return;
+    }
+
+    startDesktopTourOnce(
+      context,
+      taxCode: user.taxCode,
+      tour: psychologistHomeTour(manyRoles: user.availableRoles.length > 1),
+    );
   }
 
   @override
@@ -151,6 +171,7 @@ class _RoleHomeLayoutState extends State<RoleHomeLayout> with DestinationRefresh
     _loadTodayData();
     _loadMonthData();
     _loadNotices();
+    _startTour();
   }
 
   Future<void> _loadNotices() async

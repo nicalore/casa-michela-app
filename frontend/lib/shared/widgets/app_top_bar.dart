@@ -17,7 +17,9 @@ import 'app_nav_drawer.dart';
 import 'app_section_rail.dart';
 import 'app_top_nav.dart';
 import 'birthday_confetti.dart';
+import 'desktop_tour.dart';
 import 'overflow_tooltip_text.dart';
+import 'page_transition.dart';
 import 'role_switch_dialog.dart';
 import 'shared_components.dart';
 import 'snackbar.dart';
@@ -37,9 +39,17 @@ double _topMarginFor(AppWindowSize size) => size.isCompact ? _compactTopMargin :
 
 double _barHeightFor(AppWindowSize size) => size.isCompact ? _compactBarHeight : _barHeight;
 
+const String kTourTopBar = 'topbar';
+const String kTourTopBarRole = 'topbar.role';
+const String kTourTopBarMenu = 'topbar.menu';
+const String kTourTopBarSections = 'topbar.sections';
+
 class AppTopBar extends StatefulWidget
 {
   static const double contentTopInset = _topMargin + _barHeight + _shadowReach;
+
+  // The user menu of the bar on show; the desktop tour opens and shuts it too.
+  static final ValueNotifier<bool> userMenuOpen = ValueNotifier<bool>(false);
 
   static double contentTopInsetFor(AppWindowSize size)
   {
@@ -105,7 +115,35 @@ class _AppTopBarState extends State<AppTopBar>
     {
       _loadUser();
     }
+
+    AppTopBar.userMenuOpen.addListener(_followMenu);
   }
+
+  @override
+  void dispose()
+  {
+    AppTopBar.userMenuOpen.removeListener(_followMenu);
+    super.dispose();
+  }
+
+  // Bars of the destinations kept behind stay as they are.
+  void _followMenu()
+  {
+    final bool open = AppTopBar.userMenuOpen.value;
+
+    if (!mounted || open == _isMenuOpen || !isDestinationShownNow(context))
+    {
+      return;
+    }
+
+    setState(()
+    {
+      _isMenuOpen = open;
+      _isDrawerOpen = false;
+    });
+  }
+
+  void _syncMenu() => AppTopBar.userMenuOpen.value = _isMenuOpen;
 
   @override
   void didChangeDependencies()
@@ -146,6 +184,7 @@ class _AppTopBarState extends State<AppTopBar>
       _isMenuOpen = !_isMenuOpen;
       _isDrawerOpen = false;
     });
+    _syncMenu();
   }
 
   void _toggleDrawer()
@@ -155,6 +194,7 @@ class _AppTopBarState extends State<AppTopBar>
       _isDrawerOpen = !_isDrawerOpen;
       _isMenuOpen = false;
     });
+    _syncMenu();
   }
 
   void _closeOverlays()
@@ -166,12 +206,14 @@ class _AppTopBarState extends State<AppTopBar>
         _isMenuOpen = false;
         _isDrawerOpen = false;
       });
+      _syncMenu();
     }
   }
 
   void _goTo(String route)
   {
     setState(() => _isMenuOpen = false);
+    _syncMenu();
 
     if (route != widget.currentRoute)
     {
@@ -182,6 +224,7 @@ class _AppTopBarState extends State<AppTopBar>
   void _openRoleSwitcher()
   {
     setState(() => _isMenuOpen = false);
+    _syncMenu();
 
     showRoleSwitchDialog(
       context: context,
@@ -233,6 +276,7 @@ class _AppTopBarState extends State<AppTopBar>
       }
 
       setState(() => _isMenuOpen = false);
+      _syncMenu();
       CustomSnackBar.show(context: context, message: readableApiError(e), isError: true);
 
       return;
@@ -288,7 +332,7 @@ class _AppTopBarState extends State<AppTopBar>
   {
     final medium = size == AppWindowSize.medium;
 
-    return ConstrainedBox(
+    final Widget button = ConstrainedBox(
       constraints: BoxConstraints(maxWidth: medium ? _mediumRoleWidth : _maxRoleWidth),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -345,6 +389,8 @@ class _AppTopBarState extends State<AppTopBar>
         ),
       ),
     );
+
+    return DesktopTourTarget(id: kTourTopBarRole, child: button);
   }
 
   Widget _buildWordmark()
@@ -450,17 +496,20 @@ class _AppTopBarState extends State<AppTopBar>
           );
         },
         child: _isMenuOpen
-            ? UserMenu(
+            ? DesktopTourTarget(
                 key: const ValueKey('menu'),
-                destinations: menuDestinationsFor(
-                  _user!,
-                  role: _role,
-                  from: widget.currentRoute,
+                id: kTourTopBarMenu,
+                child: UserMenu(
+                  destinations: menuDestinationsFor(
+                    _user!,
+                    role: _role,
+                    from: widget.currentRoute,
+                  ),
+                  canChangeRole: _user!.availableRoles.length > 1,
+                  onGo: _goTo,
+                  onChangeRole: _openRoleSwitcher,
+                  onLogout: _logout,
                 ),
-                canChangeRole: _user!.availableRoles.length > 1,
-                onGo: _goTo,
-                onChangeRole: _openRoleSwitcher,
-                onLogout: _logout,
               )
             : const SizedBox(key: ValueKey('empty')),
       ),
@@ -480,7 +529,10 @@ class _AppTopBarState extends State<AppTopBar>
                 ? Center(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: AppTopNav(destinations: _destinations, dense: true),
+                      child: DesktopTourTarget(
+                        id: kTourTopBarSections,
+                        child: AppTopNav(destinations: _destinations, dense: true),
+                      ),
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -516,7 +568,10 @@ class _AppTopBarState extends State<AppTopBar>
                       child: Center(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: AppTopNav(destinations: _destinations),
+                          child: DesktopTourTarget(
+                            id: kTourTopBarSections,
+                            child: AppTopNav(destinations: _destinations),
+                          ),
                         ),
                       ),
                     )
@@ -575,21 +630,24 @@ class _AppTopBarState extends State<AppTopBar>
       left: margin,
       right: margin,
       top: _topMarginFor(size),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        height: _barHeightFor(size),
-        padding: EdgeInsets.symmetric(horizontal: size.isCompact ? 12 : 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: const [
-            BoxShadow(color: _headerShadow, blurRadius: 24, spreadRadius: 19),
-          ],
+      child: DesktopTourTarget(
+        id: kTourTopBar,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          height: _barHeightFor(size),
+          padding: EdgeInsets.symmetric(horizontal: size.isCompact ? 12 : 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(100),
+            boxShadow: const [
+              BoxShadow(color: _headerShadow, blurRadius: 24, spreadRadius: 19),
+            ],
+          ),
+          child: size.isCompact
+              ? _buildCompactBar(imageUrl)
+              : _buildWideBar(size, imageUrl),
         ),
-        child: size.isCompact
-            ? _buildCompactBar(imageUrl)
-            : _buildWideBar(size, imageUrl),
       ),
     );
   }

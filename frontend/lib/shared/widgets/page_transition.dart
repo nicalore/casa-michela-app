@@ -1057,6 +1057,14 @@ mixin DestinationRefresh<T extends StatefulWidget> on State<T>
 // Whether the enclosing destination is on show and uncovered; true outside a shell.
 bool isDestinationShown(BuildContext context) => _DestinationScope.of(context);
 
+// As isDestinationShown, read without depending on it.
+bool isDestinationShownNow(BuildContext context) =>
+    context.getInheritedWidgetOfExactType<_DestinationScope>()?.current ?? true;
+
+// Whether the page around [context] is still coming in or going; read without depending on it.
+bool isPageTransitionMoving(BuildContext context) =>
+    context.getInheritedWidgetOfExactType<_PageTransitionScope>()?.moving ?? false;
+
 class _DestinationScope extends InheritedWidget
 {
   final bool current;

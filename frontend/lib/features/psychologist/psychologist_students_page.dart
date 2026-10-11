@@ -11,6 +11,7 @@ import '../../shared/widgets/app_page_container.dart';
 import '../../shared/widgets/app_section_rail.dart';
 import '../../shared/widgets/app_top_bar.dart';
 import '../../shared/widgets/corner_glow.dart';
+import '../../shared/widgets/desktop_tour.dart';
 import '../../shared/widgets/dialog_components.dart';
 import '../../shared/widgets/page_transition.dart';
 import '../../shared/widgets/page_watermark.dart';
@@ -23,6 +24,7 @@ import '../people/utils/people_filter_matching.dart';
 import '../people/widgets/people_filter_dialog.dart';
 import '../people/widgets/student_note_dialog.dart';
 import 'psychologist_strings.dart';
+import 'psychologist_tour.dart';
 import 'widgets/certifications_dialog.dart';
 import 'widgets/student_list_panel.dart';
 import 'widgets/student_sheet.dart';
@@ -103,6 +105,8 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
           _selectedCode = students.firstOrNull?.fiscalCode;
         }
       });
+
+      _startTour(psychologistStudentsTour());
     }
     catch (error, stackTrace)
     {
@@ -230,7 +234,31 @@ class _PsychologistStudentsPageState extends State<PsychologistStudentsPage> wit
     {
       _confirm(note == null ? kNoteCreated : kNoteEdited);
       await _reload(student.fiscalCode);
+
+      if (note == null)
+      {
+        _startTour(psychologistNoteTour());
+      }
     }
+  }
+
+  // After the frame that builds what the tour lights.
+  void _startTour(DesktopTour tour)
+  {
+    final String? taxCode = _apiService.lastKnownIdentity?.taxCode;
+
+    if (taxCode == null)
+    {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_)
+    {
+      if (mounted)
+      {
+        startDesktopTourOnce(context, taxCode: taxCode, tour: tour);
+      }
+    });
   }
 
   Future<void> _deleteNote(PersonItem student, StudentNoteItem note) async

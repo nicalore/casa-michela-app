@@ -41,6 +41,7 @@ from app.api import (
     teacher_notes,
     teacher_room_assignments,
     technical_notes,
+    tours,
     weekly_templates,
 )
 from app.core.config import settings
@@ -151,6 +152,7 @@ app.include_router(calendar_locks.router)
 app.include_router(calendar_activities.router)
 app.include_router(calendar_teacher_exclusions.router)
 app.include_router(notices.router)
+app.include_router(tours.router)
 
 
 @app.get("/health")
